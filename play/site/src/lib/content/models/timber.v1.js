@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { seeded } from "../assets/seeded.js";
+import { seededLcg as seeded } from "../../kernel/random.js";
 /** @typedef {(width: number, height: number, depth: number, material: THREE.Material, x?: number, y?: number, z?: number, rotation?: number) => THREE.Mesh} Box */
 /** @typedef {{ box: Box, timber: THREE.Material, oak: THREE.Material, dark: THREE.Material, steel: THREE.Material }} TimberKit */
 /** @param {string} c @param {number} [rough] */

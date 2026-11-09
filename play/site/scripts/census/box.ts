@@ -1,9 +1,6 @@
 /*
  * THE ASSET BOX, HEADLESS — the frame the shell (kernel/sandbox/frame.js) makes for the asset box, as a window that
- * does what the frame's one script does (kernel/sandbox/policy.js SHELL_SCRIPT): it boots the frozen engine the shell
- * hands it, gives each room a worker of its own (a Bun worker running that engine), passes each job to its room's
- * worker and each answer back to the page named by its room. The recipes run in the same engine as on the page and
- * come out as the same plain data, which the page checks and builds its objects from as it always does.
+ * does what the frame's one script does (kernel/sandbox/policy.js SHELL_SCRIPT).
  */
 import type { El } from './dom';
 
@@ -13,11 +10,7 @@ import type { El } from './dom';
 import { SEEDED_RANDOM } from '../macjob/determinism.js';
 export { SEEDED_RANDOM };
 
-/**
- * What a Bun worker lacks of a browser's that the engine uses, put in before it: `importScripts` of the blob a recipe
- * is handed in (the text the blob was made of, run in the worker's global scope, as a browser runs it), and an
- * OffscreenCanvas whose 2D context draws nothing (textures a recipe paints are colours, never counts).
- */
+// what a Bun worker lacks of a browser's: `importScripts` of a blob, and an OffscreenCanvas (its 2D context draws nothing)
 const PRELUDE = `(() => {
 	const texts = new Map();
 	const B = self.Blob;
@@ -67,7 +60,6 @@ export function frameWindow(frame: El) {
 				url = URL.createObjectURL(new Blob([SEEDED_RANDOM, PRELUDE, m.code], { type: 'text/javascript' }));
 				warm = m.spare === true;
 				spare = fresh();
-				// the engine's first word (`ready`) comes from the worker itself
 				return;
 			}
 			if (!url || !m) return;
@@ -87,7 +79,6 @@ export function frameWindow(frame: El) {
 			w.postMessage(m.job);
 		}, 0);
 	};
-	// a frame taken away ends its workers
 	const remove = frame.remove.bind(frame);
 	frame.remove = () => {
 		for (const w of rooms.values()) w.terminate();

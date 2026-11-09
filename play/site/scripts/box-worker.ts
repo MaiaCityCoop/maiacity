@@ -1,12 +1,12 @@
 /**
  * The frozen box engine as Bun workers (intent 90de96fb, kept apart by 4f7a2178 for its checks): its bytes held to their
  * BLAKE3 hash, and Bun's worker given what a browser worker has that the engine uses (importScripts of a blob: URL, an
- * OffscreenCanvas whose 2D drawing is a no-op). Used by scripts/world-shot.ts and src/lib/stories/old-city.bun.test.ts (run by Bun: it needs its Worker).
+ * OffscreenCanvas whose 2D drawing is a no-op). Used by scripts/world-shot.ts and ./old-city.bun.test.ts (run by Bun: it needs its Worker).
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { enginesOf } from '../src/lib/kernel/engines.js';
-import { hashBytes } from '../src/lib/content/game/hash.js';
+import { hashBytes } from '../src/lib/kernel/hash.js';
 import type { WorkerLike } from '../src/lib/stories/world-build';
 
 const SHIM = `const __B = Blob, __t = new Map();

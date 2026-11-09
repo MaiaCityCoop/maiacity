@@ -1,96 +1,47 @@
-// No write past an Accept (intent 847c5d38, play/SPEC.md "Version control") against a real Postgres: set
-// TEST_DATABASE_URL, as for ./api.test.ts.
-//
-// Every MCP tool that is not a read (tools/list, enumerated) and every HTTP route that writes (app.ts, enumerated) is
-// called here with work it takes, and every document's Main is found unchanged after each call: what they propose waits
-// at Proposal. Then each intent the calls put there is accepted, and only that Accept moves Main, only of the documents
-// that intent holds. doc_edit without an intent is refused. A tool or a route added later fails this test until it is
-// called here too.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+// No write past an Accept (intent 847c5d38, play/SPEC.md "Version control") against a real Postgres (as ./api.test.ts).
+// A tool or route added later fails here until it is called here too.
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
 import * as docs from "../src/docs";
-import { Rate } from "../src/limits";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { type Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
-import { RULE, SCHEMA } from "../src/ids";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { RULE, SCHEMA } from "../src/kit/ids";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 /** the tools that only read: everything else tools/list holds is called below */
 const READS = ["list_assets", "get_asset", "get_file", "list_docs", "doc_at", "doc_history", "doc_changes", "list_sandboxes", "get_sandbox", "list_stories", "get_story", "list_intents", "get_intent", "list_artifacts", "get_artifact", "list_authors", "get_author", "list_library", "delivery"];
 
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
-const SPEC = {
-  goal: "Nothing passes the Accept.",
-  nothing_to_reduce: "A test fixture: nothing to reduce.",
-  scope: "Every write path.",
-  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
-};
+const SPEC = fx.spec("Nothing passes the Accept.", "Every write path.");
 const words = (k: number, w: string) => Array.from({ length: k }, () => w).join(" ");
 const SUMMARY = `## What it is\n\n${words(200, "artifact")}\n\n## Key points\n\n${Array.from({ length: 20 }, () => `- ${words(10, "point")}`).join("\n")}\n\n## The topic\n\n${words(193, "topic")}`;
 const ARTIFACT = (url: string) => ({ url, title: "A page that waits", description: "A page kept only once it is accepted.", summary: SUMMARY, authors: [{ name: "Ann Author", kind: "person" }], kind: "page", origin: "human" });
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 suite("no write past an Accept", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
-  let n = 0;
 
   beforeAll(async () => {
-    name = `play_nobypass_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
-    for (const h of ["ada", "cit"]) {
-      const made = await createHuman(db, h);
-      who[h] = { id: made.id, cookie: `play_session=${tokenFor(made.id)}` };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db);
+    who.ada = await human(db, "ada");
+    who.cit = await human(db, "cit", null);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string | null, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = {};
-    if (as) headers.cookie = who[as].cookie;
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  const rpc = async (method: string, params?: unknown) =>
-    (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }) }))).json()).result;
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const res = await rpc("tools/call", { name, arguments: args });
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
-  const readyIntent = async (title: string) => {
-    const i = await tool("add_intent", { title });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    await call("ada", "POST", `/api/intents/${i.id}/approve`);
-    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
-    return i.id as string;
-  };
+  const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
+  const rpc = async (method: string, params?: unknown) => (await kitRpc(api, token, method, params)).json.result;
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
+  const readyIntent = (title: string) => fx.readyIntent({ tool, approve: (id) => call("ada", "POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC });
   /** every document's Main: its JSON and how many versions it has named */
   const mains = async () => {
     const out = new Map<string, string>();
@@ -216,7 +167,7 @@ suite("no write past an Accept", () => {
         await call("ada", "POST", `/api/library/${f.hash}/label`, { label: "relabelled" });
       },
     };
-    const routes = [...readFileSync(join(import.meta.dir, "../src/app.ts"), "utf8").matchAll(/on\("(POST|PUT|PATCH|DELETE)", "([^"]+)"/g)].map((m) => `${m[1]} ${m[2]}`);
+    const routes = api.routes().filter((r) => !r.startsWith("GET "));
     expect(routes.sort()).toEqual(Object.keys(ROUTES).sort());
     for (const [route, run] of Object.entries(ROUTES)) {
       await run();

@@ -1,49 +1,32 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * LIGHT THROUGH LEAVES (intent 6fd5e63f) — what a material that says it is a leaf, grass, a petal, a stem or bark
- * (its `look`, ../assets/look.js) is drawn with, in TSL, on top of any node material (`foliage(Base)`), so it carries to
- * WebGPU unchanged and sits on the render kit's own (./nodes, intent cb16b7a5) as on three's:
- *
- * - **Wind** (./wind.js): each copy's points bent by the world's one wind after instancing, by its foot and height
- *   (`aWind`, per copy) and the look's stiffness and flutter; a stone never moves.
- * - **Crowns bent outward**: a leaf's or petal's normal turned toward the outside of its crown (about 0.6 of its height
- *   up), a blade of grass's toward the sky, so a crown is lit as one round mass and not leaf by leaf (the trick every
- *   game's trees use).
- * - **Root to tip**: darker toward the foot (the light a crown or a sward keeps from its own inside).
- * - **Wrap diffuse and a backlight lobe** (Frostbite's translucency, Barré-Brisebois and Bouchard 2011): light wrapped a
- *   little past the terminator, and, with the sun behind it, light through it toward the eye, stronger at the tips,
- *   tinted by its own colour: a leaf glows at golden hour. Thin looks are drawn two-sided (both faces lit, each by its
- *   own normal) and cut out, never blended.
- *
- * `foliageOf(material, look, wind)` makes one from a material the page already has (its colour, maps and settings kept).
+ * LIGHT THROUGH LEAVES (intent 6fd5e63f) — a material whose `look` (../../kernel/look.js) is a leaf, grass, a petal, a
+ * stem or bark drawn in TSL on any node material (`foliage(Base)`): bent by the one wind (./wind.js); a crown's normals
+ * turned outward (grass's to the sky) so it is lit as one mass, the trick every game's trees use; darker toward the
+ * foot; wrap diffuse and a backlight lobe (Frostbite's translucency, Barré-Brisebois and Bouchard 2011), so a leaf glows
+ * at golden hour. Thin looks two-sided and cut out, never blended. `foliageOf(material, look, wind)` makes one.
  */
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { abs, clamp, diffuseColor, dot, float, mix, normalLocal, normalView, normalize, positionLocal, positionViewDirection, pow, select, sqrt, varying, vec3 } from 'three/tsl';
-import { THIN, lookOf } from '../assets/look.js';
+import { THIN, lookOf } from '../../kernel/look.js';
 import { windLook } from './wind.js';
 
 /** where a crown's middle is, as a share of the plant's height */
-export const CROWN = 0.62;
+const CROWN = 0.62;
 /** how far a leaf's normal is turned toward the outside of its crown (0 its own, 1 the crown's) */
 export const ROUND = 0.45;
 /** how much darker the foot is than the tip (the share of its colour the foot keeps) */
 export const FOOT = 0.7;
 /** how far past the terminator light wraps (0 Lambert) */
-export const WRAP = 0.35;
+const WRAP = 0.35;
 /** the backlight lobe: how the light's way is bent by the normal, how tight the lobe is, how bright */
 export const BACK = Object.freeze({ distortion: 0.3, power: 4, scale: 1.6 });
-/**
- * How much of the sun comes through a crown's own shadow to a leaf lit from behind (0 none, 1 as if unshadowed): the
- * leaves facing the eye in a backlit crown are in the shade of the leaves behind them, yet glow, because the light
- * passes leaf through leaf. Without it the shadow cancels the glow and a backlit crown goes dark.
- */
+/** How much sun reaches a backlit leaf through its own crown's shadow (0 none, 1 unshadowed); without it a backlit crown goes dark. */
 export const LEAK = 0.5;
 /**
- * What a coarser level of a kind (../assets/render/lod.js: 0 its finest, drawn near) leaves out, what no eye reads that
- * far, so the many copies drawn at mid range cost little more than without a look: from level 1 the tips' flutter
- * (gone beyond 15 m anyway, where level 0 ends), from level 2 the light through it (wrap and the backlight lobe). The
- * bend, the crown's normals and the darker foot stay at every level, so nothing pops as a copy changes level.
+ * What a coarser level (../assets/render/lod.js) leaves out: from level 1 the tips' flutter, from level 2 the wrap and
+ * backlight; bend, crown normals and the darker foot stay, so nothing pops.
  */
 export const LEVELS = Object.freeze({ flutter: 1, glow: 2 });
 /** the levels drawn alike: 0, 1, and 2 or coarser */
@@ -62,9 +45,8 @@ const translucent = (Model, translucency, height) =>
 			// the backlight: light from behind, through the leaf toward the eye
 			const through = pow(clamp(dot(positionViewDirection, lightDirection.add(n.mul(BACK.distortion)).negate()), 0, 1), BACK.power);
 			const tip = mix(float(0.35), float(1), height);
-			// the light through it: the sun as it is before the shadow (three's baseColorNode), let through the crown's own
-			// shade by LEAK; tinted by the leaf's colour lightened (its square root: what a leaf lets through is yellower and
-			// brighter than what it reflects)
+			// the light through it: the sun before the shadow (baseColorNode), let through the crown's shade by LEAK, tinted
+			// by the leaf's colour lightened (its square root: transmitted light is yellower and brighter than reflected)
 			const shade = builder?.object?.receiveShadow && lightNode?.light?.castShadow && lightNode?.shadowNode && lightNode?.baseColorNode ? lightNode.baseColorNode.mul(mix(float(LEAK), float(1), lightNode.shadowNode)) : lightColor;
 			const glow = shade.mul(sqrt(diffuseColor.rgb)).mul(through.mul(translucency).mul(tip).mul(BACK.scale / Math.PI));
 			reflectedLight.directDiffuse.addAssign(lightColor.mul(diffuseColor.rgb).mul(wrapped.mul(1 / Math.PI)).add(glow));
@@ -72,16 +54,13 @@ const translucent = (Model, translucency, height) =>
 	};
 
 /**
- * A node material class with a look on top: `look` (checked, ../assets/look.js) and `wind` (./wind.js `windNodes`, the
- * world's) set on it before it is first drawn; its copies carry `aWind` (their foot and height). Without a wind, or on
- * a mesh whose copies carry none, it is drawn as its base.
- * @template {new (...a: any[]) => any} B @param {B} Base
+ * A node material class with a look on top (`look`, `wind` set before it is first drawn); without a wind, or copies
+ * carrying no `aWind`, drawn as its base. @template {new (...a: any[]) => any} B @param {B} Base
  */
 export const foliage = (Base) =>
 	class extends Base {
 		/** @type {ReturnType<typeof lookOf>} */ look = null;
 		/** @type {any} */ wind = null;
-		/** the level of its kind it draws (`LEVELS`), 0 the finest */
 		level = 0;
 		/** the height on the plant, 0 foot … 1 tip, from the vertex to the fragment */
 		#height = null;
@@ -133,15 +112,13 @@ export const foliage = (Base) =>
 	};
 
 /** the foliage material on three's standard node material */
-export const FoliageMaterial = foliage(MeshStandardNodeMaterial);
+const FoliageMaterial = foliage(MeshStandardNodeMaterial);
 
 /** each node material class with a look on top, made once */
 const classes = new WeakMap();
 
 /**
- * A node material of the page's (the render kit's, ./nodes `nodeOf`) with a look on top: the same kind and settings,
- * drawn as its look says (`foliage`), thin looks two-sided and cut out; itself where there is no look or no wind.
- * `level`: the level of its kind it draws, which leaves out what is not read that far (`LEVELS`).
+ * A page's node material (./nodes `nodeOf`) with a look on top; itself without look or wind.
  * @param {any} n a node material, before its cut and fade are given @param {unknown} look @param {any} wind @param {number} [level]
  */
 export function lookedOf(n, look, wind, level = 0) {
@@ -170,9 +147,7 @@ function thin(m, l) {
 }
 
 /**
- * A material the page has, drawn with a look: its settings carried over onto a FoliageMaterial; thin looks two-sided
- * and cut out (alphaTest, never blended). `look` checked (an unknown kind throws), `wind` the world's (./wind.js
- * `windNodes`), or none for a still one.
+ * A page's material drawn with a look on a FoliageMaterial (an unknown kind throws).
  * @param {THREE.MeshStandardMaterial} material @param {unknown} look @param {{ wind?: any }} [o]
  */
 export function foliageOf(material, look, { wind = null } = {}) {

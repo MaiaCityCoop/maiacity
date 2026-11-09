@@ -1,19 +1,15 @@
 // @ts-nocheck — plain JS, kept loose on purpose
 /*
- * MAIACITY V1'S THINGS — every asset of the library the world draws, by its ref at the version it stands at (built in
- * the asset box, drawn by the universal renderer or put in the scene as the box built it: ./drawn.js), never by calling
- * a builder; and the measures the world lays its story out by.
- *
- * A measure is a number an asset's builder decides (where the pickup's tailgate hangs, how long the ramp runs, where
- * the bell tent's fire place stands): the world needs them before anything is built, to lay out where a machine rolls
- * up the ramp or where the newcomer kneels to pitch the tent. So they are written down here, and ./things.test.js holds
- * each to what its builder hands back (and to the build's own nodes), as Sandbox 2's walk is held (#790).
+ * MAIACITY V1'S THINGS — every library asset the world draws, by its ref at its version (built in the asset box, drawn
+ * by ./drawn.js), never by calling a builder; and the measures the world lays its story out by: numbers a builder
+ * decides (the pickup's tailgate, the ramp's run, the tent's fire place) that the world needs before anything is built.
+ * They are written down here; no test holds them to the builders today (its test is gone).
  */
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { slotRef } from '$lib/content/assets/catalog.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 
-/** the library's assets the world puts in, each by its slot of Sandbox 3's pins: play's database pins each slot to
- *  the build of the version V2 drew (its hash), ../assets/catalog.js `resolve` */
-const slot = (key) => `pin:${SANDBOX.three}/${key}`;
+/** the library's assets the world puts in, each by its slot of Sandbox 3's pins (each the build V2 drew: ../assets/catalog.js `resolve`) */
+const slot = (key) => slotRef(SANDBOX.three, key);
 export const THINGS = {
 	water: slot('water'),
 	busStop: slot('busStop'),
@@ -38,16 +34,14 @@ export const THINGS = {
 	domeGlamp: slot('domeGlamp')
 };
 
-/** the MaiaCity centre (the library's maia-centre without its van and its road): the bus stop and the gas station
- *  where it stands them, in its own ground (x, z, and the turn about the upright) */
+/** the MaiaCity centre's bus stop and gas station in its own ground (x, z, turn) */
 export const CENTRE_AT = {
 	busStop: { x: -14, z: -6.5, turn: 0 },
 	gasStation: { x: 10, z: 0, turn: -Math.PI / 2 }
 };
 
-/** the pickup (things/pickup@3), in its own frame (+z its front, +x its left): where its tailgate's hinge is along
- *  it and how long the tailgate is (let down flat, it reaches out behind by that); the driver's and the passenger's
- *  hips on their seats */
+/** the pickup (things/pickup@3), its frame (+z front, +x left): its tailgate's hinge and length (let down flat, it
+ *  reaches out behind by that); the driver's and passenger's hips on their seats */
 export const PICKUP = {
 	tailgate: -2.62,
 	gate: 0.44,
@@ -67,8 +61,7 @@ export const BELL_TENT = {
 	fire: { x: 1.2, z: 4.2 }
 };
 
-/** what of the bell tent pitched stands in a walker's way (its wall's radius at the ground, the door's half width, the
- *  headroom at the wall's foot, and the pole and the things inside as circles), and of its fire place */
+/** what of the pitched bell tent and its fire place stands in a walker's way, as circles */
 export const TENT_WALK = {
 	r: 2.1,
 	door: 0.55,
@@ -89,9 +82,8 @@ export const FIRE_WALK = {
 	]
 };
 
-/** the bell tent's lantern, the build's own light, which the world turns up as the dusk goes: where it hangs (in its
- *  part `lantern`, the path of children down to it); and the canvas's glow by day (its material's emissive, which the
- *  world turns warm at night: how it finds that material) */
+/** the bell tent's lantern (part `lantern`, the children's path to it), turned up at dusk; and how the world finds the
+ *  canvas's material, its emissive turned warm at night */
 export const TENT_LAMP = { part: 'lantern', path: [0, 2] };
 export const TENT_CLOTH = { emissive: 0x5a4c34 };
 
@@ -102,11 +94,10 @@ export const BAG_PARTS = ['canvas', 'groundsheet', 'pole', 'wallPoles', 'pegs'];
  *  far it burns as much as the ease of how far into it it is */
 export const FIRE_CATCHES = [0.86, 1];
 
-/** where the work is as the bell tent is pitched to k (its frame): the groundsheet's edge, a sheet peg, the canvas, the
- *  pole's foot, a wall pole or peg going in, a guy's peg, the door, a thing being put down. Its builder's `work`, read
- *  off its places: the pegs and guys each at its turn round the ring (the n-th of `of` round, the door's left out) */
+/** where the work is as the tent is pitched to k (its frame), its builder's `work` read off its places: groundsheet,
+ *  pegs, canvas, poles, guys (each at its turn round the ring, the door's left out), door, things put down */
 const round = (of, r, from, to) => Array.from({ length: to - from + 1 }, (_, j) => (((from + j + 0.5) / of) * Math.PI * 2)).map((a) => ({ a, x: Math.sin(a) * r, z: Math.cos(a) * r }));
-export const TENT_WORK = {
+const TENT_WORK = {
 	sheetPegs: round(14, BELL_TENT.R + 0.03, 1, 12),
 	wallPegs: round(22, BELL_TENT.R + 0.04, 1, 20),
 	guys: round(12, 1, 1, 10).map((p) => p.a),
@@ -149,14 +140,12 @@ export const STAKE_FLAG = { path: [14] };
 export const PACK_PACKETS = ['apple', 'pear', 'cherry', 'plum', 'apricot', 'quince', 'mulberry', 'walnut', 'chestnut', 'hazel'];
 export const BOTTLE_MOUTH = 0.268;
 
-/** the people: the rigged stand-in (actors/stand-in@11), built with how tall they are and their look (./van.js PEOPLE,
- *  the players in their seat's colours), its moves played from the tables the box wrote down ($content/assets/clips.js) */
-export const STAND_IN = slot('stand-in');
+/** the people: the rigged stand-in (actors/stand-in@11) at their height and look (./van.js PEOPLE), moves from the box's tables */
+const STAND_IN = slot('stand-in');
 /** the elder woman of seat C */
 export const ELDER_WOMAN = slot('elder-woman');
 /** a person's ref: their height (m) and what of their look is not the stand-in's, by name, in a steady order */
 export const standInRef = (height, look = {}) =>
 	`${STAND_IN}?${new URLSearchParams(Object.entries({ height, ...look }).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, v]) => [k, String(v)]))}`;
-/** the stand-in's walk comes round every 1.05 s of its clip: played within one round of it, so its tables (written over
- *  32 s, their end blended into their start) are never read across that seam */
+/** the stand-in's walk comes round every 1.05 s: played within one round, its tables (32 s, end blended into start) never read across the seam */
 export const WALK_CYCLE = 1.05;

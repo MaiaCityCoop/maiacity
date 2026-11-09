@@ -1,27 +1,23 @@
-// Sub-states (play/SPEC.md §4.12 "Sub-states"; intent 2bf8af96, Samuel 2026-11-07): every open intent is failed,
-// waiting, working or idle, with its reason, said by one pure function from what play keeps and what Ship's watcher
-// last read from GitHub (`pr_seen`). failed and waiting need a person; working and idle don't. The board groups each
-// column by it, and Approve spec and Accept take only a waiting intent (one red after its merge is shipped again too).
-// It imports nothing of play's at run time, so every path (./intents.ts, ./ship.ts, ./versioned.ts) asks it.
+// Sub-states (play/SPEC.md §4.12 "Sub-states"; intent 2bf8af96, Samuel 2026-11-07), said by one pure function importing
+// nothing of play's at run time (only .github/required-checks.json), so every path (intents, ship, versioned) asks it.
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-/** the checks main.yml runs on a pull request, required green on its head before Accept merges it */
-export const REQUIRED_CHECKS = ["play / API and site", "website / build"];
-/** how old the watcher's read of a pull request may be before it is read again first */
-export const SEEN_MOST_MS = 60_000;
+/** the checks main.yml runs on a pull request, required green on its head before Accept merges it (.github/required-checks.json, copied under PLAY_REPO) */
+const REQUIRED_CHECKS: string[] = Object.values(JSON.parse(readFileSync(resolve(process.env.PLAY_REPO ?? resolve(import.meta.dir, "../../.."), ".github/required-checks.json"), "utf8")));
+const SEEN_MOST_MS = 60_000;
 
-export type SubState = "failed" | "waiting" | "working" | "idle";
+type SubState = "failed" | "waiting" | "working" | "idle";
 /** `tag`: what it is, in at most 32 characters (the dialog's chip, "<State> · <tag>"); `why`: its reason, checks named by id only */
 export type Sub = { state: SubState; tag: string; why: string };
 const S = (state: SubState, tag: string, why: string): Sub => ({ state, tag, why });
 /** a check as GitHub concluded it: neutral reads as success, skipped and cancelled as themselves, every other end as failure */
-export type CheckState = "queued" | "running" | "success" | "failure" | "skipped" | "cancelled";
-/** a pull request as Ship's watcher (or an Accept) last read it */
+type CheckState = "queued" | "running" | "success" | "failure" | "skipped" | "cancelled";
 export type PrSeen = {
   pr: number; head: string; draft: boolean; mergeable: boolean | null; state: string; merged: boolean; base: string; checks: Record<string, CheckState>; at: string;
   /**
-   * play's own clean main merges in a row (./mainmerge.ts, GitHub's update-branch), the last one's `to` the head: each
-   * from the head `from`, main at `main`, the merge commit GitHub made of them `to` (none yet while GitHub makes it).
-   * A head that came any other way (a builder's push) ends it. A result on any `from` counts on the head (countsOn).
+   * play's clean main merges in a row (./mainmerge.ts), each from head `from` with main at `main` into `to` (none while
+   * GitHub makes it); a head that came another way ends it. A result on any `from` counts on the head (countsOn).
    */
   merged_in?: PlayMerge[];
   /** how many times play merged main into it, its checks run again each time (./delivery.ts) */
@@ -40,18 +36,16 @@ type Row = {
   stage: string;
   spec: { checks: { id: string; check: string; must: boolean; run?: string; step?: string }[]; nothing_to_reduce?: string } | null;
   results: Record<string, Res> | null;
-  work?: unknown;
+  work?: { status?: unknown; docs?: unknown } | null;
   pull_request?: number | null;
   ship?: any;
   held_by?: { id: string; title: string; stage: string }[];
   pr_seen?: PrSeen | null;
 };
 
-const short = (s: string) => s.slice(0, 7);
-/** the text a hold is read by, on the board and in every refusal of a held intent's move */
-export const heldWhy = (held: { title: string }[]) => `held: waits for ${held.map((d) => d.title).join(", ")}`;
+export const short = (s: string) => s.slice(0, 7);
+const heldWhy = (held: { title: string }[]) => `held: waits for ${held.map((d) => d.title).join(", ")}`;
 
-/** whether every required check is green on the head as `seen` */
 const greenOn = (seen: Pick<PrSeen, "checks">) => REQUIRED_CHECKS.every((c) => seen.checks?.[c] === "success");
 
 /** the commits play's clean main merges in a row made the head from (merged_in, walked back from the head), newest first */
@@ -67,19 +61,18 @@ function mergedFrom(seen: Pick<PrSeen, "head" | "merged_in">) {
 }
 
 /**
- * The commits a result counts on at the pull request's head as `seen` (play/SPEC.md §4.12; intent b17a4980): the head
- * itself, and, while the required checks are green on it, every commit play's own clean main merges in a row made it
- * from (main merged in changes nothing the intent's checks were about, and main's checks ran the whole suite on it).
+ * The commits a result counts on at the head as `seen` (play/SPEC.md §4.12; intent b17a4980): the head, and while its
+ * required checks are green, every commit play's clean main merges in a row made it from (main merged in changes
+ * nothing the intent's checks were about, and main's checks ran the whole suite on it).
  */
 export function countsOn(seen: Pick<PrSeen, "head" | "checks" | "merged_in">) {
   return new Set([seen.head, ...(greenOn(seen) ? mergedFrom(seen) : [])]);
 }
 
 /**
- * The must checks with a `run` that did not last pass on a commit that counts on the pull request's head (countsOn),
- * as people read them: what is merged is what was checked. Named by id only (their statements are in the spec),
- * grouped by what they lack: "c1, c2 passed on 233b24d, not yet on the head 7fbf99b", "c4 no result yet";
- * `kept`: those that passed on a commit before play's main merges, grouped by it ("c1, c2 passed on 233b24d").
+ * The must checks with a `run` that did not last pass on a commit counting on the head (countsOn), by id, grouped by
+ * what they lack ("c1, c2 passed on 233b24d, not yet on the head 7fbf99b", "c4 no result yet"); `kept`: those passed on
+ * a commit before play's main merges ("c1, c2 passed on 233b24d").
  */
 function resultsOn(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head" | "checks" | "merged_in">) {
   const head = seen.head;
@@ -114,16 +107,11 @@ function resultsOn(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "he
 export const unmetOn = (intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head" | "checks" | "merged_in">) => resultsOn(intent, seen).unmet;
 
 /** what the board says of results kept across play's main merges: "c1, c2 passed on 7aa4590, kept across main's merge", or "" */
-export function keptWhy(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head" | "checks" | "merged_in">) {
+function keptWhy(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head" | "checks" | "merged_in">) {
   const { kept } = resultsOn(intent, seen);
   return kept.length ? `${kept.join("; ")}, kept across main's merge` : "";
 }
 
-/**
- * Whether the pull request, as `seen`, may be merged at `head` now: null where it may (open into main, not a draft, the
- * head the checks passed on, mergeable, the required checks green), else its sub-state and why. Accept asks it through
- * subStateOf; Ship's turn (./ship.ts startIfReady) asks it again on what it reads then.
- */
 export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, head?: string): Sub | null {
   const n = `#${seen.pr}`;
   // `head` given: Ship's turn, at the head it was accepted on, read again while it waited
@@ -153,11 +141,7 @@ export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, hea
   return null;
 }
 
-/**
- * A conflict with main as people read it: "conflicts with main: " and the files both sides changed (./mainmerge.ts
- * works them out), or, until it has, that the pull request does not merge into main. A person's or its builder's to
- * resolve: a pull request merely behind main is play's to update.
- */
+/** a conflict with main is a person's or its builder's to resolve: a pull request merely behind main is play's to update */
 export function conflictWhy(seen: PrSeen) {
   const files = seen.conflicts?.head === seen.head ? seen.conflicts.files : null;
   return `conflicts with main: ${files?.length ? files.join(", ") : `#${seen.pr} does not merge into main as it is`}`;
@@ -166,12 +150,7 @@ export function conflictWhy(seen: PrSeen) {
 /** a ship's step now: the first not yet green or skipped */
 const stepNow = (ship: any) => (ship?.steps ?? []).find((s: any) => s.state !== "green" && s.state !== "skipped");
 
-/**
- * An open intent's sub-state and why, null for one Accepted or Archived. First match wins: failed (a red ship, a must
- * failed, its pull request in conflict or red), waiting (a person's gate: Approve spec at Specify, Accept at Proposal),
- * working (an agent, GitHub or Ship busy), idle (held by a dependency, queued in Ship, an Idea no agent took yet).
- * `seen` is the pull request as last read (the intent's pr_seen), older than 60 s working until read again.
- */
+/** `seen` is the pull request as last read (the intent's pr_seen), older than 60 s working until read again */
 export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent.pr_seen, now = Date.now()): Sub | null {
   const at = intent.stage;
   if (at === "accepted" || at === "archived") return null;
@@ -210,14 +189,13 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
     // a conflict with main is failed in Build too: its builder resolves it (woken by the status 'Merges with main')
     if (pr && seen && seen.pr === pr && seen.state === "open" && seen.mergeable === false && now - Date.parse(seen.at) <= SEEN_MOST_MS) return S("failed", "conflicts with main", conflictWhy(seen));
     // work of play's proposed in Build waits on it, not decidable: it moves to Proposal with it when its last must passes (intent 94061718)
-    if ((intent.work as any)?.status === "proposal") {
-      const n = Number((intent.work as any).docs) || 1;
+    if (intent.work?.status === "proposal") {
+      const n = Number(intent.work.docs) || 1;
       return S("working", "work proposed", `${n} document${n === 1 ? "" : "s"} proposed, its checks to pass`);
     }
     return S("working", "being built", "being built: its checks are recorded as they pass");
   }
 
-  // Proposal
   // code, with play's work beside it or not (intent 7c8986c5), is Accept and ship
   if (!pr) return S("waiting", "Accept", "Accept");
   if (!seen || seen.pr !== pr || now - Date.parse(seen.at) > SEEN_MOST_MS) return S("working", "reading GitHub", `reading #${pr} on GitHub`);
@@ -225,14 +203,12 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
   return prBlock(intent, seen) ?? S("waiting", "Accept and ship", kept ? `Accept and ship: ${kept}` : "Accept and ship");
 }
 
-/** the sub-state as every path asks it (a test may stand a stub in its place) */
 export const sub = { of: subStateOf };
 
 /** whether a person may decide it now: waiting, or failed only by a red ship after its merge (Accept ships it again) */
 export const decidable = (intent: Row, s: Sub | null) =>
   !!s && (s.state === "waiting" || (s.state === "failed" && intent.stage === "proposal" && !!intent.ship?.merge && intent.ship?.outcome === "red" && intent.ship.pr === intent.pull_request));
 
-/** the checks of a commit as GitHub lists them (the latest of each name) as kept in pr_seen */
 export function checksSeen(runs: any[]): Record<string, CheckState> {
   const by = new Map<string, any>();
   for (const r of runs) {

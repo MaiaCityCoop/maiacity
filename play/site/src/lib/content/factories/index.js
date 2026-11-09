@@ -1,16 +1,9 @@
 /*
- * THE FACTORIES — every production line play shows (/factories/): a whole factory as a live 3D miniature on a real
- * discrete event simulation (AirSup's factory skill, .claude/skills/factory-skill; its runtime as legacy ported it,
- * cloned into play from the branch SNAPSHOT_2611101's maia/content/factories on 2026-11-03: des.js the engine,
- * kit.js the machines, world.js the hall, look.js the lens, app.js the page, each with our additions marked
- * "maiaCITY").
- *
- * What a factory is lives in play's Postgres, not here (Samuel 2026-11-04, play/SPEC.md §4.7): each is a Loro document
- * of type factory/1 (play/api/src/factories.ts), read from /api/factories/<id>, changed only by proposal. This file
- * turns such a document into what the runtime reads: its line, every station's cycle time the sum of what it does for one
- * unit (its parts' operations and its own handling) unless the station gives its own, and its note written from them;
- * and the bill of process the page lists beside it. The engine, the kit and the shapes stay code here
- * (./lifetrac-kit.js: the LifeTrac line's machines and shapes).
+ * The Factories (/factories/): a factory as a live 3D miniature on a discrete event simulation (AirSup's factory skill,
+ * cloned from SNAPSHOT_2611101 on 2026-11-03: des.js, kit.js, world.js, look.js, app.js, our additions marked
+ * "maiaCITY"). A factory is a factory/1 document in play's Postgres (Samuel 2026-11-04, play/SPEC.md §4.7) read from
+ * /api/factories/<id>; this turns it into what the runtime reads (a station's cycle time its parts' operations plus its
+ * handling, unless it gives its own) and the bill of process.
  */
 
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -21,10 +14,7 @@ const r1 = (v) => Math.round(v * 10) / 10;
  * @typedef {{ schema: 'factory/1', label: string, note?: string, from?: string, builds?: string, line: any, stock?: Record<string, { label: string }>, assemblies?: { id: string, label: string }[], parts: Part[], handling?: Record<string, Op[]> }} FactoryDoc
  */
 
-/**
- * A factory's document, as the page and the runtime use it.
- * @param {FactoryDoc} doc
- */
+/** A factory's document as the page and the runtime use it. @param {FactoryDoc} doc */
 export function lineOf(doc) {
 	const parts = doc.parts ?? [];
 	const handling = doc.handling ?? {};

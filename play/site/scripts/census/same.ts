@@ -20,7 +20,6 @@ const runs = Number(arg('--runs') ?? 5);
 const at = arg('--at');
 const out = mkdtempSync(join(tmpdir(), 'census-same-'));
 
-/** what one run counted, view by view: the counts held the same */
 const counts: Record<string, unknown>[] = [];
 let settled = true;
 for (let i = 1; i <= runs; i++) {

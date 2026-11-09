@@ -15,8 +15,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BlobStore } from "../src/blobs";
 import { keyOf } from "../src/blobs";
-import { hashText } from "../src/hash";
-import type { Db } from "../src/pg";
+import { hashText } from "../src/kit/hash";
+import type { Db } from "../src/kit/pg";
 import { labelOf } from "../src/recipes";
 
 export const SOURCES = join(import.meta.dir, "legacy/sources");

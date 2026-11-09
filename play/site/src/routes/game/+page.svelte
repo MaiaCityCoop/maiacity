@@ -3,7 +3,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { session } from '$lib/session.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 
-	onMount(() => void goto(session.me?.level === 'admin' ? '/game/map/' : '/', { replaceState: true }));
+	onMount(() => void goto(isAdmin() ? '/game/map/' : '/', { replaceState: true }));
 </script>

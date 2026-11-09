@@ -47,7 +47,7 @@
  *   cyls    saw → turn → weld → assemble → paint → test ─────────────→ cylinders → bucket and deck
  *   control harness → controller build → test ──────────────────────→ wire → fill → end-of-line test → drive-off
  */
-import { SANDBOX } from '../../../src/ids';
+import { SANDBOX } from '../../../src/kit/ids';
 import { contentOf, opsAt, RATE } from './bom.js';
 
 /** the LifeTrac the line builds, by its slot of the Factories' pins (play's database: machines/lifetrac@1, lifetrac-v25) */

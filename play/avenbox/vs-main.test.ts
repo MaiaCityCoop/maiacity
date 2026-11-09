@@ -169,12 +169,15 @@ describe('against main in a git repository', () => {
 				return { code: e.status as number, out: String(e.stdout) };
 			}
 		};
-		// the CLI measures its own checkout, main named by --main: a file this intent leaves as it is
+		// the CLI measures its own checkout, main named by --main: a file the checked-out branch leaves as main has it
 		const here = execFileSync('git', ['rev-parse', 'origin/main'], { encoding: 'utf8' }).trim();
-		const ok = cli('lines', 'play/avenbox/gate.sh', '--within', '0%', '--main', here);
+		const same = ['play/avenbox/gate.sh', 'play/avenbox/up.sh', 'play/README.md', 'README.md'].find(
+			(f) => execFileSync('git', ['diff', '--name-only', here, '--', f], { encoding: 'utf8' }).trim() === '',
+		)!;
+		const ok = cli('lines', same, '--within', '0%', '--main', here);
 		expect(ok.code).toBe(0);
 		expect(ok.out).toMatch(/within the bound of main/);
-		const off = cli('bytes', 'play/avenbox/gate.sh', '--down', '1%', '--main', here);
+		const off = cli('bytes', same, '--down', '1%', '--main', here);
 		expect(off.code).toBe(1);
 		expect(off.out).toMatch(/OFF/);
 	});
@@ -185,9 +188,9 @@ describe('cache key: what a census reads', () => {
 	beforeAll(() => {
 		repo = join(TMP, 'census-reads');
 		mkdirSync(join(repo, 'play/site'), { recursive: true });
-		mkdirSync(join(repo, 'play/api/src'), { recursive: true });
+		mkdirSync(join(repo, 'play/api/src/kit'), { recursive: true });
 		execFileSync('git', ['init', '-q', '-b', 'main', repo]);
-		writeFileSync(join(repo, 'play/api/src/ids.ts'), 'export const A = 1;\n');
+		writeFileSync(join(repo, 'play/api/src/kit/ids.ts'), 'export const A = 1;\n');
 		writeFileSync(join(repo, 'play/api/src/other.ts'), '1\n');
 		commit(repo, 'play/site/world.js', '1\n');
 	});
@@ -196,7 +199,7 @@ describe('cache key: what a census reads', () => {
 		const k0 = vm.keyOf(census, git(repo, 'rev-parse', 'HEAD'), repo);
 		const k1 = vm.keyOf(census, commit(repo, 'play/api/src/other.ts', '2\n'), repo);
 		expect(k1).toBe(k0);
-		const k2 = vm.keyOf(census, commit(repo, 'play/api/src/ids.ts', 'export const A = 2;\n'), repo);
+		const k2 = vm.keyOf(census, commit(repo, 'play/api/src/kit/ids.ts', 'export const A = 2;\n'), repo);
 		expect(k2).not.toBe(k1);
 		const k3 = vm.keyOf(census, commit(repo, 'play/site/world.js', '2\n'), repo);
 		expect(k3).not.toBe(k2);

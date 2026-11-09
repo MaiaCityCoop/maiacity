@@ -1,20 +1,11 @@
 /*
- * THE BIOMES — the floor a world stands on, as recipes: which surfaces the ground is made of and how much of each
- * (./surfaces.js: leaf litter, humus, needles, moss, the living mat, bare soil), and what grows and lies on it, kind by
- * kind (each built by play: the Biome cover asset, drawn by ./stream.js), each kind in colonies of its own size — wood anemones and woodruff carpet whole patches several
- * metres across, ferns stand in groups, deadwood and stones lie here and there — and on the surface it belongs on
- * (moss on the litter's edges, clover in the green). Any two biomes mix (`mix`): a forest edge is half the beech
- * wood and half the meadow; a world can run one into the other over a few metres.
+ * THE BIOMES — the floor a world stands on, as recipes: its surfaces and how much of each (./surfaces.js), and its cover
+ * kind by kind (built by play as the Biome cover asset, drawn by ./stream.js), each in colonies of its own size on the
+ * surface it belongs on. Any two biomes mix (`mix`): a forest edge half beech wood, half meadow.
  *
- * Why it looks so: a temperate forest floor is litter over humus over soil (the L, F and H horizons) — under a closed
- * canopy mostly whole fallen leaves, dark humus where they are thin; mosses on what rises out of it (stones, roots,
- * deadwood); the herb layer growing in clonal colonies rather than sprinkled evenly (a carpet of anemones, a stand of
- * ramsons); grasses, sedges and flowers only where light reaches the floor. A forest garden keeps its soil covered on
- * purpose: a living mulch of clover and wild strawberries between the plants, leaf litter under the trees.
- *
- * The Biomes explorer (/app/biomes/) shows each on a patch of ground, every layer to show or hide, and mixed with
- * another; Sandbox 5's floor is the food forest's (maia/content/sandbox-2/interior/village.ts), and under the glass of its
- * domes the warm food forest's (interior.ts).
+ * Why it looks so: a temperate forest floor is litter over humus over soil (the L, F and H horizons), moss on what rises
+ * out of it, the herb layer in clonal colonies (a carpet of anemones, a stand of ramsons), grasses and flowers only where
+ * light reaches; a forest garden keeps its soil covered on purpose (clover, wild strawberries, leaf litter).
  */
 import * as THREE from 'three';
 import { SURFACES, inTrack, surfacesAt } from './surfaces.js';
@@ -32,8 +23,7 @@ export { MASKS } from './masks.js';
 /** @typedef {import('./surfaces.js').Surface} Surface */
 /** @typedef {import('./masks.js').Trunk} Trunk */
 /**
- * @typedef {object} Colony one kind of cover in a biome (and, in a biome with masks, its own masks' numbers:
- *   ./masks.js `KindMasks`)
+ * @typedef {object} Colony one kind of cover in a biome (with masks: also ./masks.js `KindMasks`)
  * @property {Cover} kind
  * @property {number} share how often it is met where its colonies are, against the others
  * @property {number} colony how big its colonies are across (m)
@@ -41,11 +31,10 @@ export { MASKS } from './masks.js';
  * @property {Surface} [on] the surface it grows on (it is met there, and seldom elsewhere)
  * @property {number} [fill] how full its colonies are (0…1, 0.85 if not said)
  * @property {string} [ref] the asset it is, as a biome's card names it (./card.js): the cover's kind at its seed; where a
- *   biome says none, ./built.js `coverRef` of its kind and ./index.js `coverSeed`
- * @property {{ spacing: number, along: number, jitter?: number }} [rows] a kind a machine sowed: it stands on row lines
- *   `spacing` apart, one every `along` metres along them, `jitter` off its place at most (m), the way the floor's rows
- *   run (./stream.js `coverTile`'s `rows`), none in its tramlines; still only inside its colonies. Its plants are as
- *   dense as its rows make them, not as the biome's density says
+ *   biome says none, its kind at `coverSeed`
+ * @property {{ spacing: number, along: number, jitter?: number }} [rows] a kind a machine sowed: on row lines `spacing`
+ *   apart, one every `along` m, `jitter` m off at most (./stream.js `coverTile`'s `rows`), none in its tramlines, as
+ *   dense as its rows make it
  * @property {number} [footprint] @property {number} [shade] @property {number} [edge] @property {number} [clear]
  * @property {number} [wet] @property {number} [steep] @property {[number, number, number]} [ring] its masks (./masks.js)
  */
@@ -60,8 +49,7 @@ export { MASKS } from './masks.js';
  * @property {Colony[]} cover
  * @property {import('./grass.js').GrassParams} [grass] its grass as blades (./grass.js; its `GRASS` where it says none)
  * @property {import('./surfaces.js').Tramlines} [tramlines] a field's wheel tracks along its rows (none if not said)
- * @property {Partial<import('./masks.js').Masks>} [masks] a biome placed by its masks (./masks.js; `layTile`): a newer
- *   biome's. One without lays its cover exactly as biomes did before masks were
+ * @property {Partial<import('./masks.js').Masks>} [masks] placed by its masks (./masks.js `layTile`); without, as before masks
  */
 
 /** @type {Recipe[]} */
@@ -182,12 +170,10 @@ const LIST = [
 	}
 ];
 
-/** the biomes, each with its version and history ($lib/app/versions.js) */
 export const BIOMES = versioned(LIST, 'cover', {});
 
 /**
- * Two biomes run together, `t` of the way from a to b: their surfaces and their cover weighed so, their density between.
- * @param {Recipe} a @param {Recipe} b @param {number} t
+ * Two biomes run together, `t` of the way from a to b. @param {Recipe} a @param {Recipe} b @param {number} t
  * @returns {Recipe}
  */
 export function mix(a, b, t) {
@@ -211,14 +197,12 @@ export function mix(a, b, t) {
 }
 
 /**
- * Which kind of a biome's cover stands at x, z (its index in `recipe.cover`), or −1 for none. Each kind grows in its
- * colonies (its own noise, at its colony's size, over the threshold its spread sets) on the surface it belongs on;
- * inside a colony its plants stand close (as many as the biome's density says a square metre holds), outside it none —
- * so a wood anemone carpets its patch and leaves the next bare. Where colonies overlap, the kinds share the ground by
- * their shares. `hidden`, the kinds to leave out (the explorer's toggles).
+ * Which kind of a biome's cover stands at x, z (its index in `recipe.cover`), or −1: each kind in its colonies (its own
+ * noise at its colony's size, over its spread's threshold) on its surface, dense inside, none outside; overlapping
+ * colonies share by their shares. `hidden`: the kinds left out (the explorer's toggles).
  * @param {Recipe} recipe @param {() => number} r @param {number} x @param {number} z @param {Set<number>} [hidden]
  */
-export function coverAt(recipe, r, x, z, hidden) {
+function coverAt(recipe, r, x, z, hidden) {
 	const here = surfacesAt(recipe.surface, x, z);
 	let empty = 1, total = 0;
 	const w = recipe.cover.map((c, i) => {
@@ -242,8 +226,7 @@ export function coverAt(recipe, r, x, z, hidden) {
 }
 
 /**
- * How much of a kind's colonies stand at x, z (0…1): the same sum as `coverAt`'s, for one kind (a kind in rows).
- * @param {Recipe} recipe @param {number} i @param {number} x @param {number} z
+ * How much of a kind's colonies stand at x, z (0…1), as `coverAt` sums it. @param {Recipe} recipe @param {number} i @param {number} x @param {number} z
  */
 export function colonyAt(recipe, i, x, z) {
 	const c = /** @type {Colony} */ (recipe.cover[i]);
@@ -254,11 +237,8 @@ export function colonyAt(recipe, i, x, z) {
 	return inColony * ground;
 }
 
-/**
- * The seed a kind of a biome's cover is built at: by its place in the recipe and its name, so each kind of a floor is
- * built a little differently, and the same every time. @param {number} i @param {Cover} kind
- */
-export const coverSeed = (i, kind) => 7100 + i * 13 + kind.length * 31;
+/** A kind's build seed, by its place and name: each kind a little different, the same every time. @param {number} i @param {Cover} kind */
+const coverSeed = (i, kind) => 7100 + i * 13 + kind.length * 31;
 
 /**
  * @typedef {{ m: Float32Array, rank: Float32Array, tint?: Float32Array }[]} TileKinds each kind's plants in a tile, by
@@ -280,9 +260,8 @@ export const coverSeed = (i, kind) => 7100 + i * 13 + kind.length * 31;
  */
 
 /**
- * One tile of a biome's cover, worked out from its place alone (the same tile, the same plants, every time), in one
- * pass: each kind's plants in it (by its index in `recipe.cover`), their places and their ranks, least first. A biome
- * with masks (`recipe.masks`) is laid by `layMasked`; one without exactly as biomes were laid before masks were.
+ * One tile of a biome's cover from its place alone (the same tile, the same plants): each kind's plants (by index), their
+ * places and ranks, least first; with masks laid by `layMasked`, else as before masks.
  * @param {Recipe} recipe @param {number} ix @param {number} iz @param {TileOptions} [o]
  * @returns {TileKinds}
  */
@@ -290,7 +269,7 @@ export function layTile(recipe, ix, iz, o = {}) {
 	return recipe.masks ? layMasked(recipe, ix, iz, o) : layScattered(recipe, ix, iz, o);
 }
 
-/** a list of placed plants as a tile's kinds: sorted by rank @param {{ rank: number, m: THREE.Matrix4, tint?: number[] }[][]} at */
+/** @param {{ rank: number, m: THREE.Matrix4, tint?: number[] }[][]} at */
 function packed(at) {
 	return at.map((list) => {
 		list.sort((a, b) => a.rank - b.rank);
@@ -357,15 +336,11 @@ function layScattered(recipe, ix, iz, o) {
 const cellRng = (a, b, key, seed) => rng(Math.imul(a, 73856093) ^ Math.imul(b, 19349663) ^ Math.imul(seed, 83492791) ^ Math.imul(key + 1, 2654435761));
 
 /**
- * A biome with masks, laid in one pass (intent 24454c2d): its kinds gathered into layers by footprint (the kinds in
- * rows each a layer of their own, their rows its lattice, its tramlines a mask), the largest first. Each layer's
- * places are a blue-noise dither of its footprint — one place a cell of a lattice in the world, jittered within the
- * middle of its cell, so two never stand closer than a third of it — and each place takes at most one kind of the
- * layer, by their shares times their colonies times their masks there (./masks.js); a place too near a plant of a
- * larger layer is left empty (layered exclusion: nothing grows through a log or a fern). Every chance is drawn from a
- * cell's place in the world, so a tile lays the same whichever tiles are laid round it. Each plant's size leans
- * small (r^skew: mostly small, now and then a giant), turned freely, tilted a little, its base sunk, its colour drifting
- * with the region it stands in.
+ * A biome with masks laid in one pass (intent 24454c2d): kinds in layers by footprint (rows each their own), largest
+ * first; each layer a blue-noise dither of its footprint (one jittered place a world-lattice cell, never closer than a
+ * third), each place at most one kind by shares × colonies × masks (./masks.js), none too near a larger layer's plant
+ * (nothing grows through a log or a fern). Every chance comes from a cell's world place, so tiles agree. Sizes lean
+ * small (r^skew), turned freely, tilted a little, base sunk, colour drifting by region.
  * @param {Recipe} recipe @param {number} ix @param {number} iz @param {TileOptions} o
  */
 function layMasked(recipe, ix, iz, o) {
@@ -480,11 +455,9 @@ function layMasked(recipe, ix, iz, o) {
 			}
 			return;
 		}
-		// the layer's dither: a place a cell, the cells fixed in the world. How likely a cell holds a plant is the sum of
-		// its kinds' densities there, each its share times how full it stands times its colonies and masks there, against
-		// what they come to on average (each kind's colonies taking the ground they take): so the floor is thick where
-		// colonies overlap or a mask raises them (an edge band, a ring round a trunk) and open where none grows, about as
-		// full as before on the whole, and each kind as dense as its share times its masks
+		// the layer's dither, cells fixed in the world: a cell's chance is the sum of its kinds' densities there (share ×
+		// fill × colonies × masks) over their average, so the floor is thick where colonies overlap or a mask raises them
+		// and open where none grows, about as full as before overall
 		const full = layer.kinds.map((k) => {
 			const c = /** @type {Colony} */ (recipe.cover[k]);
 			return c.share * Math.min(1, (c.fill ?? 0.85) * (f / s0) ** 2);

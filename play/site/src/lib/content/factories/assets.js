@@ -1,21 +1,14 @@
 /*
- * OUR ASSETS ON THE LINE — a product stage of a factory drawn as one of our own assets, by its slot of the Factories'
- * pins (`stages.lifetrac = { shape: 'asset', ref: 'pin:factories/lifetrac' }`, play's database), and the Euro pallets
- * its raw material is stacked on (the Things' `euro-pallet`, ./pallet.js). Each is built as anyone's asset is, in the
- * asset box or got from this device's cache ($lib/content/assets/load.js), at its real size, and turned into what the
- * world needs: a stage's asset into one geometry in its rest pose and one material, so every finished machine on the
- * line is one instance of the real asset; the pallet into its pieces, each painted in the kit's way.
- *
- * In play (2026-11-03) the Factories' pins live in play's database like a sandbox's (`/api/sandboxes/factories/config`),
- * read once before anything is built. What could not be built (no pin yet, a refused build) is left out and said in
- * `missing`: the world then draws the stage's own `fallback` shape and the kit's EPAL pallet instead.
+ * Our assets on the line: a product stage drawn as one of our assets by its slot of the Factories' pins (read from
+ * play's database before anything is built; 2026-11-03), and the Euro pallets the raw material stacks on (./pallet.js),
+ * each built like any asset ($lib/content/assets/load.js): a stage's asset as one geometry and material, every finished
+ * machine one instance. What could not be built is said in `missing`, the stage's `fallback` shape drawn instead.
  */
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadAsset } from '$lib/content/assets/load.js';
-import { buildAt, loadRecipes } from '$lib/content/assets/catalog.js';
-import { loadConfig } from '$lib/content/game/code/index.js';
+import { buildAt, catalogReady } from '$lib/content/assets/catalog.js';
 import { PALLET } from './pallet.js';
 
 /** @typedef {{ ref: string, geometry: THREE.BufferGeometry, material: THREE.Material, object: THREE.Object3D }} Token */
@@ -28,20 +21,18 @@ const KEEP = new Set(['position', 'normal', 'color', 'uv']);
  * throws when the vault holds no such asset (NotInVault, naming it) or its build was refused. @param {string} ref
  */
 async function built(ref) {
-	await Promise.all([loadRecipes(), loadConfig(SANDBOX.factories)]);
+	await catalogReady(SANDBOX.factories);
 	const { obj } = await loadAsset(buildAt(ref));
 	obj.updateMatrixWorld(true);
 	return obj;
 }
 
 /**
- * An asset as a token: built by its ref, every visible mesh of it in its rest pose merged into one geometry with vertex
- * colours (a rigged machine is one skinned mesh already; its skin weights are dropped, the token never moves a part),
- * and its first material. Throws when there is no such asset or its build was refused.
- * @param {string} ref
- * @returns {Promise<Token>}
+ * An asset as a token: every visible mesh in its rest pose merged into one geometry with vertex colours (skin weights
+ * dropped: a token never moves a part), and its first material; throws when there is none or its build was refused.
+ * @param {string} ref @returns {Promise<Token>}
  */
-export async function tokenOf(ref, { face } = {}) {
+async function tokenOf(ref, { face } = {}) {
 	const object = await built(ref);
 	/** @type {THREE.BufferGeometry[]} */
 	const geos = [];
@@ -77,12 +68,7 @@ export async function tokenOf(ref, { face } = {}) {
 	return { ref, geometry, material: token, object };
 }
 
-/**
- * An asset as pieces for the kit to paint: each visible mesh's geometry in its place and its material's colour (the
- * Euro pallet: its boards and blocks, `K.europallet`).
- * @param {string} ref
- * @returns {Promise<Piece[]>}
- */
+/** An asset as pieces for the kit to paint: each visible mesh placed, with its colour (the Euro pallet, `K.europallet`). @param {string} ref @returns {Promise<Piece[]>} */
 export async function piecesOf(ref) {
 	const object = await built(ref);
 	/** @type {Piece[]} */
@@ -98,9 +84,8 @@ export async function piecesOf(ref) {
 }
 
 /**
- * Everything a factory's world draws of ours, by its ref, as the world takes it (`boot(spec, host, { assets })`): every
- * stage drawn as an asset, as its token; the Euro pallet, as its pieces. Each built once.
- * @param {{ stages?: Record<string, unknown> }} spec
+ * Everything a factory's world draws of ours by ref (`boot(spec, host, { assets })`): each stage as its token, the Euro
+ * pallet as its pieces, each built once. @param {{ stages?: Record<string, unknown> }} spec
  * @returns {Promise<{ assets: Record<string, Token | Piece[]>, missing: { ref: string, why: string }[] }>} what was built, and what could not be and why
  */
 export async function assetsOf(spec) {

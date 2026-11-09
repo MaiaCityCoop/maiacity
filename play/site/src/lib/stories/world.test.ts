@@ -49,7 +49,6 @@ describe('a world shot: compose', () => {
 		expect(out).toContain(`<script src="/api/files/${VENDOR.live.hash}" data-vendor="${VENDOR.live.name}"></script>`);
 		expect(out.indexOf(VENDOR.live.hash)).toBeGreaterThan(out.indexOf(VENDOR.gsap.hash));
 		expect(out.indexOf(VENDOR.live.hash)).toBeLessThan(out.indexOf('playLive.world('));
-		// its frames at the story's own rate
 		expect(specOf(compose(story(world, 24), {}, {}, {}, { [V8]: asset })).frames).toBe(145);
 	});
 	it('compose: the same bytes every time, reading no clock or chance', () => {
@@ -129,7 +128,6 @@ describe('a world shot: the clock', () => {
 		expect(worldAt(world, 6, 30, 181)).toMatchObject({ frame: 180, sun: sunAt(19.25), lights: { sun: 0.5 } });
 		// past its end: its last frame, its keys held
 		expect(worldAt(world, 7, 30, 181)).toEqual(worldAt(world, 6, 30, 181));
-		// no hour: the mood's own sun
 		expect(worldAt({ camera: world.camera }, 3, 30, 181)).toMatchObject({ hour: null, sun: null, exposure: 0, lights: { sun: 1, sky: 1, lamps: 1 } });
 	});
 	it('clock: the maths and the runtime read no clock, chance or environment', () => {

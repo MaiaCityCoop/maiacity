@@ -3,7 +3,7 @@
 // the build it pins (`<hash>?values`), and each other config it keeps (Sandbox 1's garden as `configs/<id>/garden`,
 // every planting with the build of its slot as `asset`). Loaded once before the sandbox's world starts (`loadConfig`).
 
-export class CodeError extends Error {}
+class CodeError extends Error {}
 
 const CONFIGS = new Map();
 const loading = new Map();
@@ -23,6 +23,9 @@ function layoutOf(id) {
 	return `?intent=${encodeURIComponent(at)}`;
 }
 
+/** where a config of sandbox `id` (its UUID) is kept, by its name (`assets`, its pins; `garden` …) @param {string} id @param {string} name */
+export const configKey = (id, name) => `configs/${id}/${name}`;
+
 /** the config of sandbox `id`, read once a page */
 export function loadConfig(id) {
 	if (!loading.has(id)) {
@@ -35,7 +38,7 @@ export function loadConfig(id) {
 					throw new CodeError(`${id}'s config could not be read (HTTP ${res.status})`);
 				}
 				const { sandbox: _, ...configs } = await res.json();
-				for (const [name, data] of Object.entries(configs)) CONFIGS.set(`configs/${id}/${name}`, data);
+				for (const [name, data] of Object.entries(configs)) CONFIGS.set(configKey(id, name), data);
 				return configs;
 			})
 		);

@@ -1,22 +1,16 @@
 #!/usr/bin/env bun
-// Whether every code intent's stage agrees with what play runs (intent 9876ef00; play/SPEC.md §4.12, *Accept ships
-// it*), checked from outside, the same rule as play's reconcile (play/api/src/ship.ts reconcile):
+// Whether every code intent's stage agrees with what play runs (intent 9876ef00; play/SPEC.md §4.12), checked from
+// outside by play's own reconcile rule (play/api/src/ship.ts):
 //
-//   bun play/avenbox/live-audit.ts [--commit <sha>]
+//   bun play/avenbox/live-audit.ts [--commit <sha>]     (a commit given instead of the one GET /api/version names)
 //
-// (--commit audits against a commit given instead of the one /api/version names: a play built before it answered one)
-//
-// It reads the commit play runs from GET /api/version (PLAY_URL, https://play.maia.city by default), every intent over
-// play's MCP (list_intents, all; PLAY_MCP_URL and PLAY_MCP_TOKEN, an admin's token, as play/avenbox/intent.ts), and
-// main's history from git (origin/main fetched). A code intent is one with no work of play's that names a pull request
-// or whose trailer `Intent: <its UUID>` is on a commit of main; its merge commit is its ship's, else the commit that
-// merged its pull request on main, else its commits on main. It is live when each is an ancestor of the running commit.
-// It prints every mismatch (live and not Accepted, Accepted and not live), and exits 0 only with none.
+// A code intent names a pull request or has its `Intent:` trailer on main; it is live when its merge commit (or its
+// commits) is an ancestor of the running one. Prints every mismatch (live and not Accepted, Accepted and not live).
 import { resolve } from "node:path";
+import { intentsIn } from "../api/src/kit/ids";
+import { PLAY_SITE as site, tool as playTool } from "./play";
 
 const ROOT = resolve(import.meta.dir, "../..");
-const site = (process.env.PLAY_URL || "https://play.maia.city").replace(/\/$/, "");
-const endpoint = process.env.PLAY_MCP_URL || `${site}/api/mcp`;
 const token = process.env.PLAY_MCP_TOKEN;
 if (!token) {
   console.error("PLAY_MCP_TOKEN is not set: an admin's play access token (play's profile page).");
@@ -28,17 +22,7 @@ const git = (...args: string[]) => {
   return { code: p.exitCode ?? 1, out: `${p.stdout}`.trim() };
 };
 
-async function tool(name: string, args: Record<string, unknown>) {
-  const r = await fetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
-  });
-  if (!r.ok) throw new Error(`${name}: play answered ${r.status}`);
-  const body = (await r.json()) as any;
-  if (body.error || body.result?.isError) throw new Error(`${name}: ${body.error?.message ?? body.result.content?.[0]?.text}`);
-  return JSON.parse(body.result.content[0].text);
-}
+const tool = (name: string, args: Record<string, unknown>) => playTool(name, args, { token });
 
 const given = Bun.argv.indexOf("--commit");
 const commit = given > 0 ? Bun.argv[given + 1] : ((await (await fetch(`${site}/api/version`)).json().catch(() => ({}))) as { commit?: string | null }).commit;
@@ -65,7 +49,7 @@ const mergeOf = new Map<number, string>();
 for (const entry of log.split("\x01")) {
   const [sha, message = ""] = entry.trim().split("\x00");
   if (!sha) continue;
-  for (const m of message.matchAll(/^Intent:\s*([0-9a-f-]{36})\s*$/gim)) trailers.set(m[1].toLowerCase(), [...(trailers.get(m[1].toLowerCase()) ?? []), sha]);
+  for (const id of intentsIn(message)) trailers.set(id, [...(trailers.get(id) ?? []), sha]);
   const pr = message.match(/^Merge pull request #(\d+) /) ?? message.split("\n")[0].match(/\(#(\d+)\)$/);
   if (pr && !mergeOf.has(+pr[1])) mergeOf.set(+pr[1], sha);
 }

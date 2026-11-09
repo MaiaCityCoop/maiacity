@@ -3,8 +3,6 @@
  * AN ASSET'S VERSION IS PLAY'S ALONE (intent 8823eb7c): each asset named (its UUID), its source as an intent's variant
  * makes it, checked to keep no version list of its own (no `HISTORY =`, no `recipeIn("machines", MACHINES, id, v, …)`
  * picking by the number play's recipe file passes) and to be fewer bytes than its newest accepted version's source.
- * play's routes are read as the census reads them (./setup.ts): pinned in ./inputs, a file held to its hash; `--record`
- * pins what is not (PLAY_MCP_TOKEN). Prints one line per asset; exits 0 only when every one holds.
  *
  * `--all` (intent d3ef7454): every asset of every group, its newest accepted version's source and each of its variants',
  * checked to keep none of the old version code (no `HISTORY =`, no `versioned(` list, no `recipeIn(` picking a version
@@ -30,7 +28,6 @@ const get = async (route: string) => {
 	if (!r.ok) throw new Error(`${route}: ${r.status} ${await r.text()}`);
 	return r;
 };
-/** a recipe file's readable source: what it wraps between the box's head and its last line */
 const sourceOf = (recipe: string) => recipe.slice(recipe.indexOf('\n', recipe.indexOf('exports = module.exports;')) + 1, recipe.lastIndexOf('\nreturn module.exports.recipe('));
 /** what of the old version code a source keeps */
 const keeps = (src: string) =>

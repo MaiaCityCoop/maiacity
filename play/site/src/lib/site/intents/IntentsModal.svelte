@@ -7,7 +7,7 @@
 -->
 <script lang="ts">
 	import { wayBack } from '$lib/site/app/back.svelte.js';
-	import { closeIntents } from './intents.svelte';
+	import { closeIntents } from '../app/intents.svelte';
 
 	const board = import('./IntentsBoard.svelte');
 	$effect(() => wayBack('Close the intents', closeIntents));

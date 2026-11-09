@@ -1,5 +1,5 @@
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 // in development the API runs beside the dev server (play/api: PORT=3911 bun src/index.ts)
 export default defineConfig({

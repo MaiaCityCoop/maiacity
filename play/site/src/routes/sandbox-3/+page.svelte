@@ -6,7 +6,7 @@
 -->
 <script lang="ts">
 	import Aside from '$lib/app/Aside.svelte';
-	import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+	import { SANDBOX } from '$lib/kernel/sandboxes.js';
 	import { onMount } from 'svelte';
 	import TouchStick from '$lib/site/touch/TouchStick.svelte';
 	import { CAST } from '$lib/content/maiacity-v2/cast.js';
@@ -38,14 +38,15 @@
 		let gone = false;
 		(async () => {
 			try {
-				await (await import('$lib/recipes')).catalogReady((await import('$lib/content/assets/sandboxes.js')).SANDBOX.three);
+				await (await import('$lib/content/assets/catalog.js')).catalogReady((await import('$lib/kernel/sandboxes.js')).SANDBOX.three);
 				const { createWorld } = await import('$lib/content/maiacity-v2/world.js');
 				if (gone || !canvas) return;
 				const onRoam = (r: { on: boolean; near?: boolean; driving?: boolean }) => {
 					roaming = r.on;
 					roam = { on: r.on, near: !!r.near, driving: !!r.driving };
 				};
-				world = createWorld(canvas, { onRoam } as any);
+				// world.js types its options by their defaults (`onRoam = () => {}`), which take no argument
+				world = createWorld(canvas, { onRoam } as Parameters<typeof createWorld>[1]);
 				world.set(STAGE);
 				world.touring(false);
 				world.reveal(2);

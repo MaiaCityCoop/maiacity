@@ -7,21 +7,13 @@
  *   version, which play keeps as bytes by its hash; our checker (./check.js) reads it.
  *
  * Each is frozen by its version and the BLAKE3 hash of its bytes (./schemas.json, as the engines are in
- * ../engines.json): `<name>.v<n>.json` is never changed or taken out (./schemas.test.js refuses it), and a change is a
+ * ../../../kernel/sandbox/engines.json): `<name>.v<n>.json` is never changed or taken out, and a change is a
  * new version beside it. The hash names the bytes wherever they are kept.
  */
 import ASSET from './asset.v1.json';
 /* the card checked against its newest version: v2 takes every card v1 took, and a world's (group `worlds`) */
 import CARD from './card.v2.json';
 import { check, checkText } from './check.js';
-import FROZEN from './schemas.json';
-
-/**
- * every frozen schema, by name, oldest version first
- * @type {{ name: string, v: number, date: string, blake3: string, bytes: number, title: string, note: string }[]}
- */
-export const SCHEMAS = FROZEN.schemas;
-
 export { ASSET, CARD, check, checkText };
 
 /** a card checked: `{ ok: true, value }` or `{ ok: false, errors }` @param {unknown} card */

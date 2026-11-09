@@ -1,28 +1,20 @@
-// Artifacts (play/SPEC.md §4.13): every link from the net Maia City keeps, kept over MCP by avenMAIA for the admin whose
-// token connected it, pasted by them (origin 'human', "Added by") or found in its research (origin 'agent', "Sourced by
-// avenMAIA"), with three texts held to their form here (a title of at most 70 characters, a description of at most
-// 280, a summary of 500–1,500 words in its sections) and its authors (play.authors, by their UUIDs, in order). One link,
-// one artifact (urlOf). An artifact is a document like any other (artifact:<uuid>, ./versioned.ts): every change of it
-// waits at Proposal as an intent's work, and its row is what its accepted version says. Admins only.
+// Artifacts (play/SPEC.md §4.13): every link from the net Maia City keeps, kept over MCP by avenMAIA, its three texts
+// held to their form here. One link, one artifact (urlOf); a document like any other (artifact:<uuid>). Admins only.
 import { keepFile } from "./owners";
 import { admin, COOP, type Me } from "./access";
-import { AVENMAIA, SCHEMA } from "./ids";
-import { addIntent, autoMove, intentRow, recordChecks, specifyIntent } from "./intents";
+import { AVENMAIA, SCHEMA } from "./kit/ids";
+import { addIntent, intentRow, recordChecks, specifyIntent } from "./intents";
+import { autoMove } from "./decide";
 import { keyOf, type BlobStore } from "./blobs";
-import { hashBytes } from "./hash";
-import type { Db, Queryable } from "./pg";
-import { newId, UUID } from "./uuid";
+import { hashBytes } from "./kit/hash";
+import type { Db, Queryable } from "./kit/pg";
+import { newId, UUID } from "./kit/uuid";
 import * as docs from "./docs";
 import { docAt, proposeDocVersion, proposeNewDoc } from "./versioned";
-
-export class ArtifactError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
+import { HttpError } from "./kit/errors";
 
 export const ARTIFACT_KINDS = ["page", "article", "paper", "video", "post", "book", "podcast", "code", "other"] as const;
-export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
+type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 export const AUTHOR_KINDS = ["person", "organization"] as const;
 export const ORIGINS = ["human", "agent"] as const;
 export type Origin = (typeof ORIGINS)[number];
@@ -31,12 +23,12 @@ export const TITLE_MOST = 70;
 export const DESCRIPTION_MOST = 280;
 export const SUMMARY_WORDS = { least: 500, most: 1500 } as const;
 /** a summary's sections, in this order; ## For Maia City may follow them */
-export const SECTIONS = ["What it is", "Key points", "The topic"] as const;
-export const OPTIONAL_SECTION = "For Maia City";
-export const AUTHORS_MOST = 20;
-export const TAGS_MOST = 12;
+const SECTIONS = ["What it is", "Key points", "The topic"] as const;
+const OPTIONAL_SECTION = "For Maia City";
+const AUTHORS_MOST = 20;
+const TAGS_MOST = 12;
 /** the page's text as it was fetched, kept among play's files: at most this many bytes */
-export const TEXT_MOST = 2_000_000;
+const TEXT_MOST = 2_000_000;
 const SUMMARY_CHARS_MOST = 20_000;
 const URL_MOST = 2000;
 
@@ -49,10 +41,9 @@ const ARTIFACT_ADMINS = "Only Maia City's admins open the Artifacts.";
 const TRACKING = (k: string) => /^utm_/i.test(k) || /^(fbclid|gclid)$/i.test(k);
 
 /**
- * A link as Maia City keeps it, so the same page is one artifact: http(s) only; its scheme and host lower-cased; its
- * #fragment, utm_* , fbclid and gclid dropped, the rest of its query kept as written; a trailing slash dropped; and a
- * YouTube video named one way (youtu.be/<id>, /shorts/<id>, /embed/<id>, /live/<id> and m.youtube.com are all
- * https://www.youtube.com/watch?v=<id>).
+ * A link as Maia City keeps it, so one page is one artifact: http(s) only; scheme and host lower-cased; #fragment,
+ * utm_*, fbclid and gclid dropped, the rest of the query as written; no trailing slash; a YouTube video one way
+ * (youtu.be/<id>, /shorts/, /embed/, /live/ and m.youtube.com all https://www.youtube.com/watch?v=<id>).
  */
 export function urlOf(raw: unknown): string {
   const s = `${raw ?? ""}`.trim();
@@ -60,10 +51,10 @@ export function urlOf(raw: unknown): string {
   try {
     u = new URL(s);
   } catch {
-    throw new ArtifactError("An artifact's url is a whole link: http(s)://…");
+    throw new HttpError("An artifact's url is a whole link: http(s)://…");
   }
-  if (u.protocol !== "http:" && u.protocol !== "https:") throw new ArtifactError("An artifact's url is an http(s) link.");
-  if (u.username || u.password) throw new ArtifactError("A link with a user or a password in it is not kept: send it without them.");
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new HttpError("An artifact's url is an http(s) link.");
+  if (u.username || u.password) throw new HttpError("A link with a user or a password in it is not kept: send it without them.");
   const host = u.host.toLowerCase();
   const video = (id: string | null | undefined) => (id && /^[A-Za-z0-9_-]{6,20}$/.test(id) ? `https://www.youtube.com/watch?v=${id}` : null);
   if (host === "youtu.be" || host === "www.youtu.be") {
@@ -79,16 +70,23 @@ export function urlOf(raw: unknown): string {
     .split("&")
     .filter((pair) => {
       if (!pair) return false;
-      let k = pair.split("=")[0];
-      try {
-        k = decodeURIComponent(k.replace(/\+/g, " "));
-      } catch {}
-      return !TRACKING(k);
+      const k = pair.split("=")[0];
+      return !TRACKING(decodedKey(k));
     })
     .join("&");
   const out = `${u.protocol}//${host}${u.pathname.replace(/\/+$/, "")}${query ? `?${query}` : ""}`;
-  if (out.length > URL_MOST) throw new ArtifactError(`An artifact's url is at most ${URL_MOST} characters.`);
+  if (out.length > URL_MOST) throw new HttpError(`An artifact's url is at most ${URL_MOST} characters.`);
   return out;
+}
+
+/** a query key as a browser reads it; one with a malformed escape (`%zz`) is read as it is written */
+function decodedKey(k: string): string {
+  try {
+    return decodeURIComponent(k.replace(/\+/g, " "));
+  } catch (e) {
+    if (e instanceof URIError) return k;
+    throw e;
+  }
 }
 
 // ---- the three texts
@@ -106,32 +104,32 @@ export function wordsOf(md: string): number {
 }
 
 const oneLine = (v: unknown, what: string, most: number) => {
-  if (typeof v !== "string" || !v.trim()) throw new ArtifactError(`An artifact needs its ${what}.`);
+  if (typeof v !== "string" || !v.trim()) throw new HttpError(`An artifact needs its ${what}.`);
   const t = v.trim();
-  if (/[\r\n]/.test(t)) throw new ArtifactError(`An artifact's ${what} is one line.`);
-  if (chars(t) > most) throw new ArtifactError(`An artifact's ${what} is at most ${most} characters (this one is ${chars(t)}).`);
+  if (/[\r\n]/.test(t)) throw new HttpError(`An artifact's ${what} is one line.`);
+  if (chars(t) > most) throw new HttpError(`An artifact's ${what} is at most ${most} characters (this one is ${chars(t)}).`);
   return t;
 };
 
 export const titleOf = (v: unknown) => oneLine(v, "title (very compact: what it is about, in plain words)", TITLE_MOST);
 
-export function descriptionOf(v: unknown) {
+function descriptionOf(v: unknown) {
   const d = oneLine(v, "description (the mini summary: one or two sentences)", DESCRIPTION_MOST);
   if (/\*\*|__|`|\[[^\]]*\]\([^)]*\)|^#{1,6}\s|^[-*+>]\s|(^|\s)\*[^*\s][^*]*\*(?=$|[\s.,;:!?])/.test(d))
-    throw new ArtifactError("An artifact's description is plain text: no Markdown (no **, _, `, links, headings or bullets).");
+    throw new HttpError("An artifact's description is plain text: no Markdown (no **, _, `, links, headings or bullets).");
   return d;
 }
 
 /** A summary held to its form: Markdown, 500–1,500 words, in its sections in their order, its key points as bullets. */
 export function summaryOf(v: unknown) {
-  if (typeof v !== "string" || !v.trim()) throw new ArtifactError("An artifact needs its summary: a small report on the overall topic.");
+  if (typeof v !== "string" || !v.trim()) throw new HttpError("An artifact needs its summary: a small report on the overall topic.");
   const s = v.trim();
-  if (chars(s) > SUMMARY_CHARS_MOST) throw new ArtifactError(`An artifact's summary is at most ${SUMMARY_CHARS_MOST} characters.`);
+  if (chars(s) > SUMMARY_CHARS_MOST) throw new HttpError(`An artifact's summary is at most ${SUMMARY_CHARS_MOST} characters.`);
   const words = wordsOf(s);
   if (words < SUMMARY_WORDS.least || words > SUMMARY_WORDS.most)
-    throw new ArtifactError(`An artifact's summary is ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words (this one is ${words}): a small report on the overall topic.`);
+    throw new HttpError(`An artifact's summary is ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words (this one is ${words}): a small report on the overall topic.`);
   const lines = s.split(/\r?\n/);
-  if (lines.some((l) => /^#\s/.test(l))) throw new ArtifactError("A summary's sections are level-2 headings (##); use ### inside one, never #.");
+  if (lines.some((l) => /^#\s/.test(l))) throw new HttpError("A summary's sections are level-2 headings (##); use ### inside one, never #.");
   const heads: { name: string; at: number }[] = [];
   lines.forEach((l, at) => {
     const m = /^##\s+(.+?)\s*#*\s*$/.exec(l);
@@ -142,38 +140,38 @@ export function summaryOf(v: unknown) {
   const fits =
     (names.length === 3 || (names.length === 4 && names[3] === OPTIONAL_SECTION.toLowerCase())) && want.every((w, i) => names[i] === w.toLowerCase());
   const form = `## ${SECTIONS.join(", ## ")} in that order, and if you like ## ${OPTIONAL_SECTION} last`;
-  if (!fits) throw new ArtifactError(`A summary's sections are ${form}${heads.length ? ` (this one has ${heads.map((h) => `## ${h.name}`).join(", ")})` : ""}.`);
-  if (lines.slice(0, heads[0].at).some((l) => l.trim())) throw new ArtifactError(`A summary starts with ## ${SECTIONS[0]}.`);
+  if (!fits) throw new HttpError(`A summary's sections are ${form}${heads.length ? ` (this one has ${heads.map((h) => `## ${h.name}`).join(", ")})` : ""}.`);
+  if (lines.slice(0, heads[0].at).some((l) => l.trim())) throw new HttpError(`A summary starts with ## ${SECTIONS[0]}.`);
   heads.forEach((h, i) => {
     const body = lines.slice(h.at + 1, heads[i + 1]?.at ?? lines.length);
-    if (!wordsOf(body.join("\n"))) throw new ArtifactError(`A summary's ## ${h.name} has something in it.`);
-    if (i === 1 && !body.some((l) => /^\s*([-*+]|\d+[.)])\s+\S/.test(l))) throw new ArtifactError(`A summary's ## ${SECTIONS[1]} are bullets (- …), each a claim, finding or number as the artifact puts it.`);
+    if (!wordsOf(body.join("\n"))) throw new HttpError(`A summary's ## ${h.name} has something in it.`);
+    if (i === 1 && !body.some((l) => /^\s*([-*+]|\d+[.)])\s+\S/.test(l))) throw new HttpError(`A summary's ## ${SECTIONS[1]} are bullets (- …), each a claim, finding or number as the artifact puts it.`);
   });
   return s;
 }
 
 const kindOf = (v: unknown): ArtifactKind => {
-  if (!ARTIFACT_KINDS.includes(v as ArtifactKind)) throw new ArtifactError(`An artifact's kind is one of ${ARTIFACT_KINDS.join(", ")}.`);
+  if (!ARTIFACT_KINDS.includes(v as ArtifactKind)) throw new HttpError(`An artifact's kind is one of ${ARTIFACT_KINDS.join(", ")}.`);
   return v as ArtifactKind;
 };
 
 const originOf = (v: unknown): Origin => {
   if (!ORIGINS.includes(v as Origin))
-    throw new ArtifactError("An artifact's origin is 'human' (your operator pasted it) or 'agent' (you found it in your own research).");
+    throw new HttpError("An artifact's origin is 'human' (your operator pasted it) or 'agent' (you found it in your own research).");
   return v as Origin;
 };
 
 function tagsOf(v: unknown): string[] {
   if (v === undefined || v === null) return [];
-  if (!Array.isArray(v)) throw new ArtifactError("An artifact's tags are a list of words.");
+  if (!Array.isArray(v)) throw new HttpError("An artifact's tags are a list of words.");
   const out: string[] = [];
   for (const t of v) {
     const n = `${t ?? ""}`.trim().toLowerCase().replace(/\s+/g, " ");
     if (!n) continue;
-    if (chars(n) > 40) throw new ArtifactError("A tag is at most 40 characters.");
+    if (chars(n) > 40) throw new HttpError("A tag is at most 40 characters.");
     if (!out.includes(n)) out.push(n);
   }
-  if (out.length > TAGS_MOST) throw new ArtifactError(`An artifact has at most ${TAGS_MOST} tags.`);
+  if (out.length > TAGS_MOST) throw new HttpError(`An artifact has at most ${TAGS_MOST} tags.`);
   return out;
 }
 
@@ -182,7 +180,7 @@ function publishedOf(v: unknown): string | null {
   const s = `${v}`.trim();
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   const d = m ? new Date(`${s}T00:00:00Z`) : null;
-  if (!m || !d || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) throw new ArtifactError("An artifact's published date is YYYY-MM-DD.");
+  if (!m || !d || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) throw new HttpError("An artifact's published date is YYYY-MM-DD.");
   return s;
 }
 
@@ -190,31 +188,31 @@ type AuthorGiven = { id: string } | { name: string; kind: string; url: string | 
 
 function authorsGiven(v: unknown): AuthorGiven[] {
   if (!Array.isArray(v) || !v.length)
-    throw new ArtifactError("An artifact has at least one author: each an author's id (list_authors), or a new one { name, kind: person | organization }; where no person is named, its publisher as an organization.");
-  if (v.length > AUTHORS_MOST) throw new ArtifactError(`An artifact has at most ${AUTHORS_MOST} authors.`);
+    throw new HttpError("An artifact has at least one author: each an author's id (list_authors), or a new one { name, kind: person | organization }; where no person is named, its publisher as an organization.");
+  if (v.length > AUTHORS_MOST) throw new HttpError(`An artifact has at most ${AUTHORS_MOST} authors.`);
   const ids = new Set<string>();
   return v.map((a: any, i): AuthorGiven => {
     if (a && typeof a === "object" && a.id !== undefined) {
       const id = `${a.id}`;
-      if (!UUID.test(id)) throw new ArtifactError(`Author ${i + 1} is named by an author's id, a UUID (list_authors gives it).`);
-      if (ids.has(id)) throw new ArtifactError(`Author ${i + 1} is named twice.`);
+      if (!UUID.test(id)) throw new HttpError(`Author ${i + 1} is named by an author's id, a UUID (list_authors gives it).`);
+      if (ids.has(id)) throw new HttpError(`Author ${i + 1} is named twice.`);
       ids.add(id);
       return { id };
     }
     const name = `${a?.name ?? ""}`.trim().replace(/\s+/g, " ");
-    if (!name) throw new ArtifactError(`Author ${i + 1} is an author's id or a new one with a name.`);
-    if (chars(name) > 200) throw new ArtifactError(`Author ${i + 1}'s name is at most 200 characters.`);
-    if (!AUTHOR_KINDS.includes(a?.kind)) throw new ArtifactError(`Author ${i + 1}'s kind is person or organization.`);
+    if (!name) throw new HttpError(`Author ${i + 1} is an author's id or a new one with a name.`);
+    if (chars(name) > 200) throw new HttpError(`Author ${i + 1}'s name is at most 200 characters.`);
+    if (!AUTHOR_KINDS.includes(a?.kind)) throw new HttpError(`Author ${i + 1}'s kind is person or organization.`);
     let url: string | null = null;
     if (a?.url !== undefined && a?.url !== null && a?.url !== "") {
       try {
         url = urlOf(a.url);
       } catch {
-        throw new ArtifactError(`Author ${i + 1}'s url is an http(s) link.`);
+        throw new HttpError(`Author ${i + 1}'s url is an http(s) link.`);
       }
     }
     const note = a?.note ? `${a.note}`.trim() : null;
-    if (note && chars(note) > 600) throw new ArtifactError(`Author ${i + 1}'s note is at most 600 characters.`);
+    if (note && chars(note) > 600) throw new HttpError(`Author ${i + 1}'s note is at most 600 characters.`);
     return { name, kind: a.kind, url, note: note || null };
   });
 }
@@ -225,10 +223,10 @@ const TEXT_TYPE = "text/plain";
 
 async function keepText(db: Queryable, store: BlobStore, text: unknown, title: string): Promise<string | null> {
   if (text === undefined || text === null || text === "") return null;
-  if (typeof text !== "string") throw new ArtifactError("An artifact's text is the page's readable text, as a string.");
-  if (/\u0000/.test(text)) throw new ArtifactError("An artifact's text is text: no NUL characters.");
+  if (typeof text !== "string") throw new HttpError("An artifact's text is the page's readable text, as a string.");
+  if (/\u0000/.test(text)) throw new HttpError("An artifact's text is text: no NUL characters.");
   const bytes = new TextEncoder().encode(text);
-  if (bytes.length > TEXT_MOST) throw new ArtifactError(`An artifact's text is at most ${TEXT_MOST / 1e6} MB.`, 413);
+  if (bytes.length > TEXT_MOST) throw new HttpError(`An artifact's text is at most ${TEXT_MOST / 1e6} MB.`, 413);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, TEXT_TYPE);
   await keepFile(db, { hash, size: bytes.length, media_type: TEXT_TYPE, bucket_key: key, label: `Text of ${title}`.slice(0, 120) });
@@ -247,7 +245,6 @@ const ARTIFACT_FROM = `play.artifacts s LEFT JOIN play.agents ag ON ag.id = s.ag
   LEFT JOIN LATERAL (SELECT h.name, v.decided_at AS at FROM play.doc_variants v JOIN play.intents i ON i.id = v.intent_id JOIN play.humans h ON h.id = i.proposed_by
     WHERE v.doc_id = 'artifact:' || s.id::text AND v.version > 1 ORDER BY v.version DESC LIMIT 1) up ON true`;
 
-/** who brought an artifact, as it is shown */
 const byOf = (origin: Origin, operator: string | null, agent: string) =>
   origin === "human" ? `Added by ${operator ?? "a former member"}` : `Sourced by ${agent}`;
 
@@ -272,13 +269,13 @@ const shape = (r: any, whole = false) => ({
 
 const idOf = (v: unknown, what: string) => {
   const id = `${v ?? ""}`;
-  if (!UUID.test(id)) throw new ArtifactError(`${what === "artifact" ? "An" : "A"} ${what} is named by its id, a UUID (list_${what}s gives it).`, 404);
+  if (!UUID.test(id)) throw new HttpError(`${what === "artifact" ? "An" : "A"} ${what} is named by its id, a UUID (list_${what}s gives it).`, 404);
   return id;
 };
 
 async function artifactRow(db: Queryable, id: string) {
   const { rows } = await db.query(`SELECT ${ARTIFACT_COLUMNS}, s.summary FROM ${ARTIFACT_FROM} WHERE s.coop_id = $1 AND s.id = $2 AND s.title IS NOT NULL`, [COOP, id]);
-  if (!rows[0]) throw new ArtifactError("No artifact is kept by that id.", 404);
+  if (!rows[0]) throw new HttpError("No artifact is kept by that id.", 404);
   return shape(rows[0], true);
 }
 
@@ -288,11 +285,11 @@ export async function artifactOf(db: Queryable, me: Me | null, id: unknown) {
   return artifactRow(db, idOf(id, "artifact"));
 }
 
-export type ArtifactQuery = { q?: string | null; author?: string | null; tag?: string | null; kind?: string | null; origin?: string | null; offset?: number; limit?: number };
+type ArtifactQuery = { q?: string | null; author?: string | null; tag?: string | null; kind?: string | null; origin?: string | null; offset?: number; limit?: number };
 
 /**
- * The artifacts, newest first, a page at a time, with how many match: `q` in a title, description, summary, link or an
- * author's name; an author (their id), a tag, a kind and an origin narrow them. Each without its summary (get_artifact).
+ * The artifacts, newest first, a page at a time, with how many match `q` (title, description, summary, link, an author's
+ * name), narrowed by author id, tag, kind and origin; without their summaries (get_artifact).
  */
 export async function listArtifacts(db: Queryable, me: Me | null, o: ArtifactQuery = {}) {
   admin(me, ARTIFACT_ADMINS);
@@ -341,7 +338,7 @@ export async function listAuthors(db: Queryable, me: Me | null, o: { q?: string 
 }
 
 /** One author, with every artifact that names them, newest first. */
-export async function authorOf(db: Queryable, me: Me | null, id: unknown) {
+export async function getAuthor(db: Queryable, me: Me | null, id: unknown) {
   admin(me, ARTIFACT_ADMINS);
   const aid = idOf(id, "author");
   const { rows } = await db.query(
@@ -351,7 +348,7 @@ export async function authorOf(db: Queryable, me: Me | null, id: unknown) {
     [COOP, aid],
   );
   const a: any = rows[0];
-  if (!a) throw new ArtifactError("No author is kept by that id.", 404);
+  if (!a) throw new HttpError("No author is kept by that id.", 404);
   const { rows: artifacts } = await db.query(
     `SELECT ${ARTIFACT_COLUMNS} FROM ${ARTIFACT_FROM} WHERE s.coop_id = $1 AND s.title IS NOT NULL AND EXISTS (SELECT 1 FROM play.artifact_authors sa WHERE sa.artifact_id = s.id AND sa.author_id = $2)
       ORDER BY s.created DESC, s.id`,
@@ -368,7 +365,7 @@ async function authorIds(tx: Queryable, me: Me, given: AuthorGiven[]): Promise<s
   for (const [i, a] of given.entries()) {
     if ("id" in a) {
       const { rows } = await tx.query(`SELECT id FROM play.authors WHERE coop_id = $1 AND id = $2`, [COOP, a.id]);
-      if (!rows[0]) throw new ArtifactError(`Author ${i + 1} (${a.id}) is not kept: list_authors gives the ids, or give a new one { name, kind }.`, 404);
+      if (!rows[0]) throw new HttpError(`Author ${i + 1} (${a.id}) is not kept: list_authors gives the ids, or give a new one { name, kind }.`, 404);
       out.push(a.id);
     } else {
       const id = newId();
@@ -393,13 +390,13 @@ async function linkHeld(db: Queryable, url: string): Promise<{ kept?: string; wa
   return {};
 }
 
-export type ArtifactGiven = {
+type ArtifactGiven = {
   url?: unknown; title?: unknown; description?: unknown; summary?: unknown; authors?: unknown;
   kind?: unknown; tags?: unknown; published?: unknown; origin?: unknown; text?: unknown;
 };
 
-// ---- no tap for an artifact (play/SPEC.md §4.12 "Auto-accept rules", intent de24f1c5): added or corrected with no
-// intent named, it makes its own through the intent flow's own functions, in one transaction, and the rules decide it
+// ---- no tap for an artifact (play/SPEC.md §4.12 "Auto-accept rules", intent de24f1c5): with no intent named, it makes
+// its own through the intent flow's functions, in one transaction, and the rules decide it
 
 /** the caller's transaction as a Db: every transaction asked of it is that one (the whole request is one) */
 const flat = (tx: Queryable): Db => ({ query: (t, p) => tx.query(t, p), exec: async (t) => void (await tx.query(t)), transaction: (fn) => fn(tx) });
@@ -410,10 +407,8 @@ type Own = { kind: "idea" | "improve"; title: string; goal: string; evidence: st
 const OWN_CHECK = { check: "The artifact holds to the artifacts' form (three texts, authors, one link)", how: "look", by: "the form checks add_artifact and update_artifact make: its link, title, description, summary and authors", must: true };
 
 /**
- * An intent of the artifact's own (author the admin, via mcp, declaring the artifact schema), specified with play's
- * spec and asked of the rules (Approve spec); in Build, its check recorded (it is at Proposal) and its work proposed
- * (`propose`, naming it), then asked of the rules again (Accept). Where no rule decides, it waits for a person, at
- * Specify (nothing proposed yet) or at Proposal. Gives back the intent's id and stage and what `propose` gave.
+ * An intent of the artifact's own, specified with play's spec and asked of the rules at Approve spec and at Accept;
+ * where no rule decides it waits for a person. Gives back its id, stage and what `propose` gave.
  */
 async function ownIntent<R>(db: Db, store: BlobStore, who: Me, o: Own, propose: (intent: string) => Promise<R>): Promise<{ intent: string; stage: string; auto: unknown; proposed: R | null }> {
   const i = await addIntent(db, who, { kind: o.kind, title: o.title, note: "Made by play for the artifact's change, with no intent named (play/SPEC.md §4.12, Auto-accept rules).", work_kind: [SCHEMA.artifact] });
@@ -435,7 +430,7 @@ const formEvidence = (j: any) =>
 
 /**
  * Keep an artifact (its first version proposed); a link kept already answers with it (`kept`), one waiting with its
- * intent. With no intent named it makes its own (ownIntent), in one transaction: kept at once where the rules accept it.
+ * intent. Without an intent it makes its own (ownIntent), kept at once where the rules accept it.
  */
 export async function addArtifact(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven, intent?: string) {
   if (intent) return addIn(db, store, me, b, intent);
@@ -482,13 +477,13 @@ async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unkno
   const id = idOf(artifact, "artifact");
   const now = await artifactRow(db, id);
   if (b && "origin" in b && b.origin !== undefined && b.origin !== now.origin)
-    throw new ArtifactError("An artifact's origin is kept as it came: who brought it never changes.");
+    throw new HttpError("An artifact's origin is kept as it came: who brought it never changes.");
   const cur = (await docAt({ db, store }, who, id)).json;
   const next: any = { ...cur };
   if (b?.url !== undefined) {
     next.url = urlOf(b.url);
     const held = next.url === now.url ? {} : await linkHeld(db, next.url);
-    if (held.kept || held.waiting) throw new ArtifactError(`That link is kept already, as ${held.kept ? `artifact ${held.kept}` : `intent ${held.waiting}'s work`}.`, 409);
+    if (held.kept || held.waiting) throw new HttpError(`That link is kept already, as ${held.kept ? `artifact ${held.kept}` : `intent ${held.waiting}'s work`}.`, 409);
   }
   if (b?.title !== undefined) next.title = titleOf(b.title);
   if (b?.description !== undefined) next.description = descriptionOf(b.description);
@@ -501,7 +496,7 @@ async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unkno
     const given = authorsGiven(b.authors);
     next.authors = await db.transaction((tx) => authorIds(tx, who, given));
   }
-  if (!Object.keys(b ?? {}).some((k) => k !== "origin" && (b as any)[k] !== undefined)) throw new ArtifactError("Nothing to change: give the fields to correct.");
+  if (!Object.keys(b ?? {}).some((k) => k !== "origin" && b[k as keyof ArtifactGiven] !== undefined)) throw new HttpError("Nothing to change: give the fields to correct.");
   const fields = Object.keys(b).filter((k) => k !== "origin").join(", ");
   const note = `Correct the artifact ${next.title}: ${fields}`;
   if (!intent) {
@@ -513,5 +508,15 @@ async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unkno
     return { ...now, waiting: true, intent: own.intent, stage: own.stage, ...(r ? { number: r.number, changes: r.changes } : {}) };
   }
   const r = await proposeDocVersion({ db, store }, who, { doc: id, whole: next, note, intent });
-  return { ...now, waiting: true, intent: r.intent, stage: r.stage, number: (r as any).number, changes: (r as any).changes };
+  return { ...now, waiting: true, intent: r.intent, stage: r.stage, number: "number" in r ? r.number : undefined, changes: "changes" in r ? r.changes : undefined };
+}
+
+/** an artifact's row is its accepted version's; one kept before artifacts were documents gets its v1 when first read (./allkinds.ts ensure) */
+const ARTIFACT_ROW = `url, title, description, summary, kind, tags, to_char(published, 'YYYY-MM-DD') AS published, text_hash, origin, agent_id AS agent, operator_id AS operator, token_id AS token, author_ids AS authors`;
+export async function ensureArtifactDoc(q: Queryable, id: string) {
+  const { rows } = await q.query<any>(`SELECT ${ARTIFACT_ROW}, created FROM play.artifacts WHERE id = $1`, [id]);
+  const { created, ...r } = rows[0] ?? {};
+  if (!r.title) return;
+  const note = "kept before artifacts were documents";
+  await docs.createDoc(q, { id: `artifact:${id}`, schema: SCHEMA.artifact, json: { schema: "artifact/1", ...r, tags: r.tags ?? [], authors: r.authors ?? [] }, author: { human: r.operator, via: "import" }, message: `v1: ${note}`, at: created, version: note });
 }

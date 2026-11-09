@@ -68,7 +68,6 @@ describe('the world contract', () => {
 		// an amber work beacon flashes with the blue; reversing lamps only by their state; windows lit at dusk, some sets dark
 		expect(litNow({ light: 'beacon-amber', state: 'beacon' }, s, day, t)).toBe(litNow({ light: 'beacon-blue', state: 'beacon' }, s, day, t));
 		expect(litNow({ light: 'reverse', state: 'reverse' }, s, dusk, 0)).toBe(false);
-		// a shop's sign is lit by day as by night
 		expect(litNow({ light: 'sign', state: 'sign' }, s, day, 0)).toBe(true);
 		expect([0, 1, 2, 3].some((set) => litNow({ light: 'window', state: 'window', set }, s, day, 0))).toBe(false);
 		const lit = [0, 1, 2, 3].flatMap((set) => [0.1, 0.3, 0.7].map((ph) => litNow({ light: 'window', state: 'window', set }, s, dusk, 0, ph)));
@@ -101,7 +100,7 @@ describe('card schema v2', () => {
 	it('takes a world, and a catalog part named by its build hash as well as by a readable ref', () => {
 		expect(CARD.properties.group.enum).toContain('worlds');
 		const ref = CARD.properties.catalog.properties.parts.items.properties.ref;
-		const ok = (x: string) => ref.anyOf.some((d: any) => new RegExp(CARD.$defs[d.$ref.split('/').at(-1)].pattern).test(x));
+		const ok = (x: string) => ref.anyOf.some((d: any) => new RegExp((CARD.$defs as Record<string, { pattern?: string }>)[d.$ref.split('/').at(-1)].pattern!).test(x));
 		expect(ok(`${HASH}?seed=7101`)).toBe(true);
 		expect(ok('plants/fern@2:male?stage=3')).toBe(true);
 		expect(ok('https://example.com/x')).toBe(false);

@@ -1,8 +1,7 @@
 /**
- * Intent 89f3ad37's c4: the Characters app as an admin and as a traveler, and Animals, at 390×844 and 1440×900, the
- * people drawn from play's own accepted files. The dev server's API is answered from play.maia.city's read-only routes
- * with PLAY_MCP_TOKEN (the header sent to play only), with one fixture: Stand-in and Elder woman shown in the group
- * `characters`, as they will be once their move (intent e03d7a44) is accepted. Nothing is written anywhere.
+ * Intent 89f3ad37's c4: the Characters app as admin and traveler, and Animals, at 390×844 and 1440×900, from play's
+ * accepted files (read-only routes, PLAY_MCP_TOKEN sent to play only), with one fixture: Stand-in and Elder woman shown
+ * in `characters`, as they will be once their move (intent e03d7a44) is accepted. Nothing is written anywhere.
  *
  *   bun run dev &                                     # the dev server, http://localhost:5173
  *   bun scripts/characters-shots.ts [out dir]
@@ -67,7 +66,6 @@ for (const size of SIZES) {
 	for (const [who, me] of [['admin', ADMIN], ['traveler', TRAVELER]] as const) {
 		const page = await browser.newPage({ viewport: size, deviceScaleFactor: 2 });
 		await answered(page, me);
-		// the dashboard, at its apps
 		await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
 		await page.getByText('Your apps').scrollIntoViewIfNeeded();
 		await page.evaluate(() => [...document.querySelectorAll('p')].find((x) => x.textContent?.trim() === 'Your apps')?.scrollIntoView({ block: 'start' }));

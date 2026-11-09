@@ -1,7 +1,7 @@
 // The intents' board loads fast (intent 2cb70fb8-fbbf-4473-8ac1-b8d3bb078147, check c2): ./board.ts against play's
 // API mocked, every path asked of it recorded.
 import { describe, expect, test } from 'vitest';
-import { CLOSED, loadOpen, loadPage, OPEN, PAGE, type Answer, type Get } from './board';
+import { bySub, CLOSED, columnOf, loadOpen, loadPage, OPEN, PAGE, type Answer, type Get } from './board';
 
 type C = { id: string; stage: string };
 const card = (id: string, stage: string): C => ({ id, stage });
@@ -72,5 +72,19 @@ describe('board loads', () => {
 		// a first page read again adds only what is new, on top
 		const again = await loadPage(get, [card('x', 'archived'), ...cards.filter((c) => c.stage !== 'archived')], 'archived', { loaded: true, next: null }, true);
 		expect(again.cards.filter((c) => c.stage === 'archived').map((c) => c.id)).toEqual(['r0', 'r1', 'r2', 'x']);
+	});
+});
+
+describe('the columns', () => {
+	const at = (id: string, stage: string, created: string, decided_at: string | null = null, sub: string | null = null) => ({ id, stage, created, decided_at, sub: sub ? { state: sub } : null });
+	test('a column holds its stage in the order play lists it; Ship is a queue, the first accepted on top', () => {
+		const cards = [at('b', 'build', '2026-11-03'), at('s2', 'ship', '2026-11-01', '2026-11-08'), at('s1', 'ship', '2026-11-02', '2026-11-07'), at('a', 'build', '2026-11-04'), at('s0', 'ship', '2026-11-05')];
+		expect(columnOf(cards, 'build').map((c) => c.id)).toEqual(['b', 'a']);
+		expect(columnOf(cards, 'ship').map((c) => c.id)).toEqual(['s0', 's1', 's2']);
+		expect(columnOf(cards, 'idea')).toEqual([]);
+	});
+	test('its cards under Failed, Waiting, Working, Idle, then those with no sub-state; empty groups left out', () => {
+		const cards = [at('1', 'build', '', null, 'working'), at('2', 'build', ''), at('3', 'build', '', null, 'failed'), at('4', 'build', '', null, 'working')];
+		expect(bySub(cards).map((g) => [g.k, g.name, g.cards.map((c) => c.id)])).toEqual([['failed', 'Failed', ['3']], ['working', 'Working', ['1', '4']], ['', '', ['2']]]);
 	});
 });

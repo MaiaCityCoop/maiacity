@@ -1,26 +1,17 @@
 /**
- * The sounds of the land: the forest always, the stream as you come near
- * it, the hens, the geese and the goats as you walk up to them. Each is a
- * looping recording (/sounds/ in the media library, from the CDN), streamed rather than decoded, so the
- * five-minute forest costs next to nothing in memory; Web Audio sets its
- * volume, easing it up and down as the distances change. Under the glass of
- * a dome everything outside is muffled.
- *
- * The recordings start loading the moment the world is made, while it is
- * still loading, and play as soon as it opens: a page you came to by a click
- * (the dashboard's) may make sound at once. Where the browser still holds it
- * back, it starts with your first touch, click or key. play serves each
- * recording in parts (Range), so a loop begun anywhere in it plays at once.
+ * The sounds of the land (forest, stream, hens, geese, goats), nearer as you walk up, muffled under a dome's glass: each
+ * a looping recording streamed, not decoded (the five-minute forest costs next to no memory), play serving it in parts
+ * (Range) so a loop begun anywhere plays at once; Web Audio eases the volume; held back, it starts with the first touch.
  */
 import { asset } from '$lib/site/media/url'
+import { playIfAllowed, resumeIfAllowed } from '$lib/kernel/media.js'
 
 /** where a loop starts: a random point of a recording whose length is known (over a second), else 0 — a streamed
  *  recording's duration is Infinity or NaN until it is known, and a non-finite currentTime throws */
 export const startAt = (duration: number, random: () => number = Math.random) =>
 	Number.isFinite(duration) && duration > 1 ? random() * (duration - 1) : 0
 
-export type SoundName = 'forest' | 'inside' | 'water' | 'hens' | 'geese' | 'goats' | 'frogs' | 'bees' | 'factory' | 'machine' | 'lift'
-/** each sound's recording, by hash */
+type SoundName = 'forest' | 'inside' | 'water' | 'hens' | 'geese' | 'goats' | 'frogs' | 'bees' | 'factory' | 'machine' | 'lift'
 const FILES: Record<SoundName, string> = {
 	forest: 'f3ebbb41045f0a45d3a27d6782beb71973fa539e9640d1c7d1b9434b02351575.mp3', // forest_nature.mp3
 	inside: 'b6713600778441dab6c5232fa418af56a85209b17308e16975684fafd6bd3f84.mp3', // soft-nature.mp3
@@ -34,7 +25,6 @@ const FILES: Record<SoundName, string> = {
 	machine: '685b4be78584d58bce7d5a658046f047eddfef1f358acf7939ccac46c2db567e.mp3', // machine.mp3
 	lift: '76059524fa9f0ac77bf2aab1738a344e3dd8526667502302f30637c007fb6be2.mp3' // lift.mp3
 }
-/** how loud each is at its loudest */
 const LOUDEST: Record<SoundName, number> = { forest: 0.27, inside: 0.45, water: 0.69, hens: 0.5, geese: 0.45, goats: 0.4, frogs: 0.5, bees: 0.45, factory: 0.5, machine: 0.55, lift: 0.6 }
 /** the recordings are not equally loud: this brings each to the same level (measured, mean ≈ −28 dB) */
 const LEVEL: Partial<Record<SoundName, number>> = { goats: 22.1, frogs: 0.35, bees: 0.66, geese: 1.5, factory: 2.37, machine: 0.21, lift: 1.37 }
@@ -96,8 +86,8 @@ export function ambience(): Ambience {
 		if (gone) return false
 		make()
 		if (!ctx) return false
-		if (ctx.state !== 'running') void ctx.resume().then(() => ctx?.state === 'running' && unlisten(), () => {})
-		for (const { el } of tracks.values()) if (el.paused) void el.play().catch(() => {})
+		if (ctx.state !== 'running') void resumeIfAllowed(ctx).then((on) => on && unlisten())
+		for (const { el } of tracks.values()) if (el.paused) void playIfAllowed(el)
 		if (ctx.state === 'running') unlisten()
 		return ctx.state === 'running'
 	}
@@ -106,7 +96,7 @@ export function ambience(): Ambience {
 		const now = ctx.currentTime
 		for (const [name, { el, gain }] of tracks) {
 			const src = asset(FILES[name])
-			if (src && el.getAttribute('src') !== src) { el.src = src; void el.play().catch(() => {}) }
+			if (src && el.getAttribute('src') !== src) { el.src = src; void playIfAllowed(el) }
 			const v = (wanted[name] ?? 0) * LOUDEST[name] * (LEVEL[name] ?? 1) * (underGlass && !['forest', 'inside', 'factory', 'machine', 'lift'].includes(name) ? 0.5 : 1)
 			// a slow glide, so nothing ever switches on or off
 			gain.gain.setTargetAtTime(v, now, 0.6)

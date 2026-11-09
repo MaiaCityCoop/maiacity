@@ -116,7 +116,6 @@ describe('a world shot build: progress', () => {
 		expect(log.filter((x) => x === 'end').length).toBe(3);
 		expect(got.copies.length).toBe(3);
 		expect(got.groups.sort()).toEqual(['buildings', 'machines', 'machines']);
-		// a world that stands still: one frame
 		expect(got.places.length).toBe(1);
 	});
 	it('progress: the runtime posts each step to the player, which shows it in its caption', () => {

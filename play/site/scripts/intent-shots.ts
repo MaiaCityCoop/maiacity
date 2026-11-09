@@ -5,11 +5,11 @@
  *   bun run dev &                                  # the dev server, http://localhost:5173
  *   bun scripts/intent-shots.ts [out dir]          # <stage>-<width>.png, and each asset upgrade's review drawn
  *
- * The asset upgrades (fixtures.ts ASSETS) are drawn from play's own files, and so is the story played in its Changes
- * tab (fixtures.ts STORIES, intent 668e9ffd): the catalog and the files are read from play.maia.city with
- * PLAY_MCP_TOKEN (its read-only routes, the header sent to play only).
+ * The asset upgrades (fixtures.ts ASSETS) and the story in its Changes tab (fixtures.ts STORIES, intent 668e9ffd) are
+ * drawn from play's own files, read from play.maia.city with PLAY_MCP_TOKEN (read-only routes, sent to play only).
  */
 import { chromium } from 'playwright';
+import { HEX } from '../src/lib/kernel/hash.js';
 import { ASSETS, BRIEF, FIXTURES, STORIES } from '../src/lib/site/intents/fixtures';
 
 const BASE = process.env.SITE ?? 'http://localhost:5173';
@@ -24,12 +24,12 @@ const fromPlay = async (path: string) => {
 };
 const catalogRows: any[] = await (await fromPlay('/catalog')).json();
 const rowsOf = (hashes: readonly string[]) => hashes.map((h, n) => ({ ...catalogRows.find((r) => r.hash === h), first: n === 0 }));
-/** an asset upgrade's review as play's /api/intents/<id> gives it: its builds, its source and its base's */
+const assetOf = (stage: string) => (stage in ASSETS ? ASSETS[stage as keyof typeof ASSETS] : undefined);
+const storyOf = (stage: string) => (stage in STORIES ? STORIES[stage as keyof typeof STORIES] : undefined);
 const reviewOf = (stage: string) => {
-	// a new story's review (play/api/src/stories.ts): its timeline, no base, nothing to diff against
-	const s = (STORIES as any)[stage];
+	const s = storyOf(stage);
 	if (s) return { id: FIXTURES[stage].id, story: s.story, baseStory: null, diff: { title: null, settings: [], tracks: [] }, edits: [], changes: [] };
-	const a = (ASSETS as any)[stage];
+	const a = assetOf(stage);
 	if (!a) return null;
 	const w = FIXTURES[stage].work!;
 	return { doc: { id: a.asset, kind: 'asset', what: 'asset', label: w.label, open: null }, seedNumber: a.base.number, moved: false, changes: [], edits: [], id: FIXTURES[stage].id, source: a.source, recipe: a.recipes[0], baseVersion: a.base, builds: rowsOf(a.recipes) };
@@ -42,7 +42,6 @@ const SIZES = [
 const ME = { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 };
 const all = Object.values(FIXTURES);
 
-/** drawn once its build is done and prepared for display: no "Building …" or "Preparing …" note left for 3 s, polled */
 async function quiet(page: import('playwright').Page, stage: string, width: number) {
 	await page.waitForTimeout(1500);
 	const busy = page.getByText(/^(Building|Preparing|Drawing) .*…$/);
@@ -65,7 +64,7 @@ for (const size of SIZES.filter((x) => !process.env.WIDTH || x.width === +proces
 		const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 		if (path === '/me') return json(ME);
 		if (path === '/catalog') return json(catalogRows);
-		if (/^\/files\/[0-9a-f]{64}$/.test(path)) {
+		if (new RegExp(`^/files/${HEX}$`).test(path)) {
 			const r = await fromPlay(path);
 			return route.fulfill({ status: r.status, contentType: r.headers.get('content-type') ?? 'application/octet-stream', body: Buffer.from(await r.arrayBuffer()) });
 		}
@@ -79,26 +78,25 @@ for (const size of SIZES.filter((x) => !process.env.WIDTH || x.width === +proces
 	});
 	for (const stage of STAGES.filter((x) => !ONLY || x === ONLY)) {
 		const i = FIXTURES[stage];
-		// the board opened, every column open, the intent's card tapped
 		await page.goto(`${BASE}/intents/`);
 		await page.locator('.card .open', { hasText: i.title }).click({ timeout: 60000 });
 		await page.locator('.item-review').waitFor();
 		await page.waitForTimeout(400);
 		// an asset upgrade opens on its Changes tab, the asset drawn inline: shot once it is drawn
-		if ((ASSETS as any)[stage]) await quiet(page, stage, size.width);
+		if (assetOf(stage)) await quiet(page, stage, size.width);
 		// a story opens on its Changes tab, played in the Stories player: shot once its first frame is in
-		if ((STORIES as any)[stage]) {
+		if (storyOf(stage)) {
 			await page.locator('.inline-story .player').waitFor({ timeout: 60000 });
 			await page.waitForTimeout(3000);
 		}
 		await page.screenshot({ path: `${OUT}/${stage}-${size.width}.png` });
 		// on a phone and a tablet the picture fills the tab: the controls and the timeline are below it, scrolled to
-		if ((STORIES as any)[stage] && size.width < 900) {
+		if (storyOf(stage) && size.width < 900) {
 			await page.locator('.inline-story + .btn').scrollIntoViewIfNeeded();
 			await page.waitForTimeout(800);
 			await page.screenshot({ path: `${OUT}/${stage}-timeline-${size.width}.png` });
 		}
-		if (!(ASSETS as any)[stage]) continue;
+		if (!assetOf(stage)) continue;
 		// its work opened from the Changes tab: the asset built in the asset box, as the board draws it
 		await page.locator('.linked .open').click();
 		await page.locator('.review:not(.item-review) canvas').first().waitFor({ timeout: 90000 });
