@@ -19,7 +19,7 @@ import {
 	normalize, cross, dot, length, distance, fract, floor, texture, cameraPosition, modelWorldMatrix, positionGeometry, transformNormalToView,
 	faceDirection, select, sqrt, varyingProperty
 } from 'three/tsl';
-import { CELL, FADE, PATCH, PUSHERS, STANDS, TILE_CELLS } from '../../biomes/grass.js';
+import { BOW, CELL, FADE, PATCH, PUSHERS, STANDS, TILE_CELLS } from '../../biomes/grass.js';
 
 /** the uniforms a field's tiles share */
 export function grassUniforms(/** @type {THREE.Texture} */ mask) {
@@ -156,7 +156,8 @@ export function grassMaterial(o) {
 		const height = mix(float(P.height), float(P.tall), m.y).mul(ownH.mul(P.heightSpread).add(1)).mul(cH.mul(0.4).add(0.8)).mul(out.mul(-0.25).add(1)).mul(grow);
 		const own = vec2(cos(facing), sin(facing));
 		const leanWay = normalize(own.mul(float(1).sub(out.mul(0.6))).add(normalize(away.add(1e-4)).mul(out.mul(0.9))));
-		const lean = ownLean.mul(P.lean);
+		// few stand straight, most lean a little, some far over
+		const lean = ownLean.mul(ownLean).mul(1.1).add(0.3).mul(P.lean);
 		const thin = float(1).div(sqrt(max(keepD, 0.12)));
 		const width = max(float(P.width * STANDS).mul(ownW).mul(thin), dd.mul(D.minPx).div(U.pxAt1m));
 
@@ -194,7 +195,8 @@ export function grassMaterial(o) {
 			const tipY = H.mul(cos(leanNow)), tipZ = H.mul(sin(leanNow)).add(bz), tipX = bx;
 			const u = float(1).sub(t);
 			const y = u.mul(t).mul(2).mul(H.mul(0.66)).add(t.mul(t).mul(tipY));
-			const x = t.mul(t).mul(tipX), z = t.mul(t).mul(tipZ);
+			const cz = H.mul(sin(leanNow)).mul(BOW);
+			const x = t.mul(t).mul(tipX), z = u.mul(t).mul(2).mul(cz).add(t.mul(t).mul(tipZ));
 			const wv = width.mul(pow(float(1).sub(t), 0.75)).mul(0.5).mul(s);
 			return vec3(x.add(wv), y, z);
 		};
