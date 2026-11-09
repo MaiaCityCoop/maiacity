@@ -178,8 +178,19 @@ for (const site of sites) {
 		await page.waitForTimeout(1500);
 		await quiet(page, 3 * 60e3); // capped likewise
 		await page.waitForTimeout(2000);
+		// the world brought to t by its film (the clock, the sky, the shadows drawn again); where the page's film can't
+		// (main before 6fd5e63f: village.ts read the SunLight's missing target), the clock alone pinned, said in `stills`
 		const still = async (t, path) => {
-			await page.evaluate((t) => { window.__worldTime = t; window.__world.film.advance(t); }, t);
+			const how = await page.evaluate((t) => {
+				window.__worldTime = t;
+				try {
+					window.__world.film.advance(t);
+					return 'film.advance';
+				} catch (e) {
+					return `__worldTime only (film.advance: ${String(e?.message ?? e).slice(0, 120)})`;
+				}
+			}, t);
+			if (how !== 'film.advance') (results.advance ??= {})[site.name] = how;
 			await frames(page, 3);
 			await page.screenshot({ path });
 			return createHash('sha256').update(readFileSync(path)).digest('hex');

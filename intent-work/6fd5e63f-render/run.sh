@@ -11,7 +11,7 @@ ROOT=$(git rev-parse --show-toplevel)
 JOB="$ROOT/intent-work/6fd5e63f-render"
 OUT="$JOB/out"
 MAIN=d5346b7ce13519a0606b4451dbc46aa272e79a48   # main: intent 11ead007 merged (#2185), and #2191 (the render bench), on cb16b7a5's kit and db87a28f's ground
-HEAD=8bab28a80b0e42a4b401a2be56bbd4b93d77fbc9   # intent/6fd5e63f-living-plants: PR #2180's head (main d5346b7 merged in by play)
+HEAD=a095a3bbb2ef663d0c6958f71bd9124a1547ea70   # intent/6fd5e63f-living-plants: PR #2180's head (the wind cheap at mid, the film advancing; on main d5346b7)
 git -C "$ROOT" fetch -q origin main intent/6fd5e63f-living-plants intent-work/main-baseline-render
 mkdir -p "$OUT"
 git -C "$ROOT" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$JOB/determinism.mjs"
@@ -51,7 +51,7 @@ const rows = ['near', 'mid', 'far'].map((v) => {
   const within = v === 'near' ? h.frame_ms <= m.frame_ms + 8 && h.frame_ms <= 33.4 : h.frame_ms <= m.frame_ms + 0.5;
   return { view: v, main_ms: m.frame_ms, head_ms: h.frame_ms, head_minus_main: h.frame_ms - m.frame_ms, main_p95: m.frame_p95, head_p95: h.frame_p95, main_gpu: m.gpu_ms, head_gpu: h.gpu_ms, main_cpu: m.cpu_ms, head_cpu: h.cpu_ms, main_bound: m.bound, head_bound: h.bound, within_budget: within };
 });
-const summary = { rows, sameT: r.sameT, pose: r.pose, film: r.film && { ...r.film, mp4: 'film-head.mp4' } };
+const summary = { rows, sameT: r.sameT, pose: r.pose, advance: r.advance ?? 'film.advance everywhere', film: r.film && { ...r.film, mp4: 'film-head.mp4' } };
 fs.writeFileSync(`${out}/summary.json`, JSON.stringify(summary, null, 1));
 console.table(rows);
 console.log('same t twice:', r.sameT);
