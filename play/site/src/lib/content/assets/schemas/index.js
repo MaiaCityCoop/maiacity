@@ -14,14 +14,6 @@ import ASSET from './asset.v1.json';
 /* the card checked against its newest version: v2 takes every card v1 took, and a world's (group `worlds`) */
 import CARD from './card.v2.json';
 import { check, checkText } from './check.js';
-import FROZEN from './schemas.json';
-
-/**
- * every frozen schema, by name, oldest version first
- * @type {{ name: string, v: number, date: string, blake3: string, bytes: number, title: string, note: string }[]}
- */
-export const SCHEMAS = FROZEN.schemas;
-
 export { ASSET, CARD, check, checkText };
 
 /** a card checked: `{ ok: true, value }` or `{ ok: false, errors }` @param {unknown} card */

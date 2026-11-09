@@ -23,14 +23,14 @@
  */
 
 /** steps a control is sampled at, from 0 to 1: enough to follow a part's turn or flight (our builds ease over a third or more of it) */
-export const SAMPLES = 33;
+const SAMPLES = 33;
 /** the longest the box spends sampling one asset's controls (ms): the rest are left out */
 const TIME = 4000;
 /** the most numbers one control's tracks may hold */
 const MOST = 4_000_000;
 const EPS = 1e-5;
 /** the most material slots of one mesh whose looks are written down */
-export const SLOTS = 16;
+const SLOTS = 16;
 
 /** the controls an object offers: each an id, the function that sets it (0 … 1), how many samples, whether a choice */
 export function offered(u) {
@@ -101,7 +101,7 @@ export function putLight(l, v, at) {
 }
 
 /** a node's materials, one for each slot */
-export const materialsOf = (o) => (!o.isMesh && !o.isLine && !o.isPoints ? [] : Array.isArray(o.material) ? o.material : o.material ? [o.material] : []);
+const materialsOf = (o) => (!o.isMesh && !o.isLine && !o.isPoints ? [] : Array.isArray(o.material) ? o.material : o.material ? [o.material] : []);
 
 /** an attribute's numbers, three to a vertex */
 export const flat = (a) => {

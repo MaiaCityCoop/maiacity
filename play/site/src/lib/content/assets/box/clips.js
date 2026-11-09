@@ -22,12 +22,12 @@
 
 /** how long a clip is written down for before it repeats (s), a gait's time half as long (it is played a few seconds
  *  at a time, between stops), and how much of its end is blended into its start */
-export const LOOP = 32;
-export const GAIT_LOOP = 16;
-export const SEAM = 2;
+const LOOP = 32;
+const GAIT_LOOP = 16;
+const SEAM = 2;
 /** the paces a gait is written down at, of the pace it is made for (above the last, the last: ours go no faster), and
  *  the rates of turn (rad/s) besides none */
-export const PACES = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5];
+const PACES = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5];
 const MOST_PACES = 16;
 export const TURNS = [-2, -1, 1, 2];
 /** numbers a bone: its turn about x, y and z, its size, its offset x, y and z; the root's place after the bones */

@@ -34,3 +34,14 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
    nothing and is read by stories, the board, the library and three routes: it is the site's kit, not the app shell's.
    `stories` stops leaning on `lib/app` (Ce 13 → 12, I 0.81 → 0.80) and `site/intents` (I 0.80 after move 5) no
    longer imports a less stable folder. Pinned: the same module, moved; gate site, `site` and `stories/timeline` tests.
+7. **play/site's dead exports** (dead: 9 of the 11). Recipes and pieces reach the box only through `require` of
+   three.js, its addons and pieces by hash (every `require(` in play/api/import and tools, counted), never the box's
+   own modules, so nothing outside could read these. Un-exported, each still used in its own file: `box/bake.js`
+   `SAMPLES`, `SLOTS`, `materialsOf`; `box/clips.js` `LOOP`, `GAIT_LOOP`, `SEAM`, `PACES` (`SEAM` in play/api/import
+   is a recipe's own colour); `schemas/check.js` `LIMITS`. Gone: `schemas/index.js` `SCHEMAS` (nothing read it; its
+   `schemas.json` stays, the frozen record its comment names). Pinned: the live runtime built by
+   `scripts/live-runtime.ts --out` before and after differs only by the `SCHEMAS` data (Bun's bundle strips comments
+   and scopes the rest the same); gate site; `content/assets` and `worlds` tests (38).
+   The 2 left are the api's (`play/api/scripts/heavy.ts` `hostSource`, `play/api/src/ship.ts` `Pending`). Of the 12
+   dead files, the 5 still there are all outside play/site (`deploy/deploy-time.ts`, kept by infra as a check's `run`;
+   `play/api/scripts/{board-speed,detail-size,seed-look}.ts`, `play/api/import/plan.ts`): not this sweep's.

@@ -16,7 +16,7 @@
  */
 
 /** what any value may cost, whatever its schema allows */
-export const LIMITS = { depth: 12, bytes: 4_000_000 };
+const LIMITS = { depth: 12, bytes: 4_000_000 };
 
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const WAY_OUT = /:\/\/|^\s*(data|blob|javascript|file|about|ws|wss):/i;
