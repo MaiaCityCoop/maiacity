@@ -28,8 +28,8 @@ export function geodesicCap(D: number, freq: number) {
 	return g;
 }
 
-/** a hexagon's ground, pointy north and south, its picture's u along x and v along z */
-function hexGround(w: number) {
+/** a hexagon's ground, pointy north and south, its picture laid on it cell for cell (u along x, v along z) */
+function hexGround(w: number, land: { x0: number; z0: number; nx: number; nz: number; cell: number }) {
 	const s = w / Math.sqrt(3), shape = new THREE.Shape();
 	for (let k = 0; k < 6; k++) {
 		const a = (k * Math.PI) / 3, x = s * Math.sin(a), y = s * Math.cos(a);
@@ -37,6 +37,9 @@ function hexGround(w: number) {
 	}
 	const g = new THREE.ShapeGeometry(shape);
 	g.rotateX(-Math.PI / 2);
+	const p = g.getAttribute('position'), uv = g.getAttribute('uv');
+	for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) - land.x0) / (land.nx * land.cell), (p.getZ(i) - land.z0) / (land.nz * land.cell));
+	uv.needsUpdate = true;
 	return g;
 }
 
@@ -78,11 +81,13 @@ const ringRoad = (r: number, w: number) => new THREE.RingGeometry(r - w / 2, r +
 export function buildVillage(v: Village) {
 	const root = new THREE.Group();
 	root.name = 'sandbox-6';
-	const grounds = Object.fromEntries(Object.keys(v.plans).map((k) => [k, landPicture(landOf(v, k))]));
-	const groundGeo = hexGround(v.hex.flats);
+	const lands = Object.fromEntries(Object.keys(v.plans).map((k) => [k, landOf(v, k)]));
+	const grounds = Object.fromEntries(Object.entries(lands).map(([k, l]) => [k, landPicture(l)]));
+	// every hex's raster has the same frame (it is laid round the hex's own middle), so one ground shape serves all
+	const groundGeo = hexGround(v.hex.flats, Object.values(lands)[0]);
 	const road = new THREE.MeshStandardMaterial({ color: 0x8f8678, roughness: 1 });
 	const glass = new THREE.MeshPhysicalMaterial({ color: 0xdfeee8, roughness: 0.08, metalness: 0, transmission: 0, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false });
-	const frame = new THREE.MeshBasicMaterial({ color: 0x3a3a36, wireframe: true });
+	const frame = new THREE.MeshBasicMaterial({ color: 0xd8d2c4, wireframe: true, transparent: true, opacity: 0.45 });
 	const roadGeo = Object.fromEntries(Object.entries(v.plans).map(([k, p]) => {
 		const g = ribbons([...p.roads, ...paths(v, p)]);
 		const ring = ringRoad(p.ring.r, p.ring.w).translate(p.ring.x, 0, p.ring.z).toNonIndexed();

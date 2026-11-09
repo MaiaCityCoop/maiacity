@@ -1,8 +1,8 @@
 // Sandbox 6's village keeps the old layout (intent 67f0404a, c5 and c6), read from the village config as proposed in
-// its layout document (scripts/fixtures/sandbox-6/village.json): seven hexes of one size, the living hexes laid out as
+// its layout document (play/api/import/sandboxes/sandbox-6/village.json): seven hexes of one size, the living hexes laid out as
 // Samuel's layout B, the centre hex with the tower, its ring road, its eight works and the village centre, no homes.
 import { describe, expect, test } from 'bun:test';
-import village from '../../../../scripts/fixtures/sandbox-6/village.json';
+import village from '../../../../../api/import/sandboxes/sandbox-6/village.json';
 import { capOf, edgeDistance, hexOf, towerStoreys, type Village } from './geometry';
 import { landOf } from './land';
 

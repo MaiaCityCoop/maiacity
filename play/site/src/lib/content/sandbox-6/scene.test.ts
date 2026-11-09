@@ -2,7 +2,7 @@
 // glazed panels are one InstancedMesh (its frame a second), and all seven hexes stay under 400 draw objects.
 import { describe, expect, test } from 'bun:test';
 import * as THREE from 'three';
-import village from '../../../../scripts/fixtures/sandbox-6/village.json';
+import village from '../../../../../api/import/sandboxes/sandbox-6/village.json';
 import type { Village } from './geometry';
 import { buildVillage, census, geodesicCap } from './scene';
 

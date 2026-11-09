@@ -5,8 +5,8 @@
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import village from '../../../../scripts/fixtures/sandbox-6/village.json';
-import audit from '../../../../scripts/fixtures/sandbox-6/audit.json';
+import village from '../../../../../api/import/sandboxes/sandbox-6/village.json';
+import audit from '../../../../../api/import/sandboxes/sandbox-6/audit.json';
 import { PLACES } from '../game/places.js';
 
 const SITE = join(import.meta.dir, '../../../..');

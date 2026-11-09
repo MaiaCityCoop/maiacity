@@ -1,7 +1,7 @@
 // Sandbox 6, one village at its real size (intent 67f0404a, c3) against a real Postgres: set TEST_DATABASE_URL, as for
 // ./api.test.ts. Its row comes from its own migration (one new file, play/SPEC.md §3.1) under the random UUID ids.ts
-// names; its layout is a document like every sandbox's (§4.6), made v1 as the doc tools make it on first touch; its
-// config is read at /api/sandboxes/<uuid>/config.
+// names; its layout is a document like every sandbox's (§4.6), its v1 the village and audit the deploy's import writes
+// while it has none (../import/sandboxes.ts); its config is read at /api/sandboxes/<uuid>/config.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,6 +14,8 @@ import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { ensureLayoutDoc } from "../src/sandboxes";
+import { seedSandboxLayouts } from "../import/sandboxes";
+import village from "../import/sandboxes/sandbox-6/village.json";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;
@@ -58,8 +60,9 @@ suite("Sandbox 6 in play", () => {
     expect(rows).toEqual([{ title: "Sandbox 6", route: "/sandbox-6/" }]);
   });
 
-  test("its layout is a document, v1 made on first touch, with a history", async () => {
-    expect(await ensureLayoutDoc(db, SANDBOX.six)).toBe(true);
+  test("its layout is a document, its v1 the village and audit the deploy's import writes once, with a history", async () => {
+    expect(await seedSandboxLayouts(db)).toEqual({ seeded: [SANDBOX.six], present: [], errors: [] });
+    expect(await seedSandboxLayouts(db)).toEqual({ seeded: [], present: [SANDBOX.six], errors: [] });
     expect(await ensureLayoutDoc(db, SANDBOX.six)).toBe(false);
     const { rows } = await db.query<any>(`SELECT id FROM play.docs WHERE id = $1`, [`sandbox:${SANDBOX.six}`]);
     expect(rows).toHaveLength(1);
@@ -70,6 +73,8 @@ suite("Sandbox 6 in play", () => {
   test("its config answers at /api/sandboxes/<uuid>/config", async () => {
     const r = await api.fetch(new Request(`http://play.test/api/sandboxes/${SANDBOX.six}/config`, { headers: { cookie } }));
     expect(r.status).toBe(200);
-    expect(await r.json()).toBeTruthy();
+    const config = await r.json();
+    expect(config.village).toEqual(village);
+    expect(config.audit.inputs.budget.value).toBe(200_000_000);
   });
 });
