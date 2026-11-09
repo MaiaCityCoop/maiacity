@@ -1,11 +1,8 @@
-// The Library (Samuel 2026-11-04): every image, video and recording play keeps among its files (play.files, the bytes in
-// the bucket), newest first, each with its label and where the newest version of every story uses it (a shot's still or
-// video, a clip's recording), and which asset versions name it as their reference sheet (a plant's plate, Samuel
-// 2026-11-05). A file is named by its BLAKE3 hash; its label is only shown, and its library's owner may rename it here.
-//
-// One Library for every account (intent 732d8a38, Samuel 2026-11-07): the library of whoever the person acts as, the
-// coop's (Maia City's, as before) or their own personal one, private to them (./owners.ts decides who sees what, and
-// reads play.files). Admins only for now: opening it to every member is LIBRARY_OPEN_TO.
+// The Library (Samuel 2026-11-04): every image, video and recording among play's files, newest first, each with its
+// label, where the newest version of every story uses it, and which asset versions name it as their sheet (Samuel
+// 2026-11-05). A file is named by its BLAKE3 hash; its label only shown, renamed here by its library's owner. One
+// Library for every account (intent 732d8a38, Samuel 2026-11-07): the coop's or the person's own, private
+// (./owners.ts decides who sees what). Admins only for now: LIBRARY_OPEN_TO opens it to every member.
 
 import type { Queryable } from "./kit/pg";
 import { admin, type Me } from "./access";
@@ -78,10 +75,7 @@ async function usesOf(db: Queryable, me: Me): Promise<Map<string, Use[]>> {
   return out;
 }
 
-/**
- * A library's files, newest first: the coop's (`library` "coop", as before) or `me`'s own ("personal"), of one kind or
- * every kind, those whose label or hash holds `q`, a page at a time; with its owner named.
- */
+/** A library's files, newest first: the coop's (`library` "coop") or `me`'s ("personal"), of a kind or all, label or hash holding `q`, a page at a time. */
 export async function listLibrary(db: Queryable, me: Me | null, o: { kind?: string | null; q?: string | null; offset?: number; limit?: number; library?: unknown } = {}) {
   const lib = libraryOf(me ?? { id: "" }, o.library);
   const who = opener(me, lib.library);

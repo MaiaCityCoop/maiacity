@@ -1,6 +1,5 @@
-// Who is asking (play/SPEC.md §1, §7): a passkey is the whole account. Sign-up is open and makes a traveler of Maia
-// City; the legacy founders' passkeys were copied in, and as the relying party is maia.city (RP_ID), the same passkey
-// signs in here. A session is a signed cookie of play.maia.city alone. Ported from aven/api/src/passkey.ts, session.ts.
+// Who is asking (play/SPEC.md §1, §7): a passkey is the whole account. The legacy founders' passkeys were copied in, and
+// as the relying party is maia.city (RP_ID) the same passkey signs in here; a session is a signed cookie of play.maia.city.
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -49,10 +48,7 @@ function challengeOf(body: any): string {
 
 export const cleanName = (name: unknown) => `${name ?? ""}`.trim().replace(/\s+/g, " ").slice(0, 60);
 
-/**
- * Sign-up is by invite only (Samuel 2026-11-02): an admin's invite, open (unused, not expired), makes a traveler, and
- * is used up as the passkey is made. Becoming a citizen comes later, by an admin's hand.
- */
+/** Sign-up is by invite only (Samuel 2026-11-02): an open admin invite makes a traveler, used up as the passkey is made. */
 export async function registerOptions(db: Queryable, name: string, invite: unknown): Promise<Result<unknown>> {
   const clean = cleanName(name);
   if (clean.length < 2) return { ok: false, error: "Please give a name with at least two characters." };
@@ -76,8 +72,8 @@ export async function registerOptions(db: Queryable, name: string, invite: unkno
 class InviteUsed extends HttpError {}
 
 /**
- * A new human, their passkey and their membership as a traveler, in one transaction; with an invite, the invite used up
- * by them (it works once; InviteUsed if it no longer can) and who made it named as who let them in.
+ * A new human, passkey and traveler membership in one transaction; with an invite, used up by them (once; InviteUsed if
+ * it no longer can) and its maker named as who let them in.
  */
 export async function createHuman(db: Db, name: string, passkey?: { id: string; publicKey: string; counter: number; transports?: string | null }, invite?: string): Promise<Human> {
   const id = randomUUID();
