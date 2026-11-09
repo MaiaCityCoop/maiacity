@@ -209,7 +209,7 @@ describe('the render kit in TSL', () => {
 		valid(shaders);
 	});
 
-	test('only the kit’s node materials come out linear in a target; the sky’s as three’s handler draws it', () => {
+	test('every node material comes out linear in a target, as three’s own do: the sky is tone mapped once, at the output (544485e2)', () => {
 		const { r, shaders } = renderer();
 		const { scene, camera } = lit();
 		const sky = new MeshBasicNodeMaterial();
@@ -217,6 +217,6 @@ describe('the render kit in TSL', () => {
 		r.setRenderTarget(new THREE.WebGLRenderTarget(16, 16));
 		r.render(scene, camera);
 		const toned = /ToneMapping\(|TransferOETF\(|\bfn\d+\(/;
-		expect(shaders.filter((x) => x.includes('Node System')).map((x) => x.match(/fragColor = .*/)?.[0]).join('\n')).toMatch(toned);
+		expect(shaders.filter((x) => x.includes('Node System')).map((x) => x.match(/fragColor = .*/)?.[0]).join('\n')).not.toMatch(toned);
 	});
 });
