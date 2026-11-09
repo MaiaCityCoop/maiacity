@@ -15,7 +15,8 @@ import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
 import { readFileSync } from "node:fs";
-import { ACCEPTED_CONTEXT, gitHub, reconcile, runningCommit, shipGitHub, startShipWatcher, tailOf, watchShips, type Job, type Pull, type Run } from "../src/ship";
+import { ACCEPTED_CONTEXT, gitHub, reconcile, runningCommit, shipGitHub, startShipWatcher, tailOf, watchPulls, watchShips, type Job, type Pull, type Run } from "../src/ship";
+import { mainMergeState, mergeMain } from "../src/mainmerge";
 import { fakeGitHub, green, iso, job, REPO, run, sha, TOKEN } from "./fixtures/github";
 
 const URL_ = process.env.TEST_DATABASE_URL;
@@ -181,6 +182,40 @@ suite("accept ships it", () => {
     const before = gh.calls.length;
     expect((await call("ada", "POST", `/api/intents/${w.id}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted" } });
     expect(gh.calls.length).toBe(before);
+  });
+
+  // intent b17a4980-ade4-4df9-96ad-9d85df34eabe
+  test("kept across a main merge: Accept takes an intent whose results were kept across play's main merge, and Ship merges it at that head", async () => {
+    await clearShips();
+    const c = await codeAtProposal("Kept across main's merge");
+    gh.commit(c.head, "the intent's change", [gh.main.head], false);
+    await watchPulls(db, gh.gh);
+    // main moves; play merges it into the branch, GitHub makes the new head, its required checks green there
+    gh.commit(sha(++commits), "another intent's merge on main");
+    await mergeMain(db, gh.gh, mainMergeState());
+    const head = gh.pulls.get(c.pr)!.head.sha;
+    expect(head).not.toBe(c.head);
+    expect(gh.graph.get(head)!.parents).toEqual([c.head, gh.main.head]);
+    gh.checks.set(head, [green("play / API and site"), green("website / build")]);
+    await watchPulls(db, gh.gh);
+    expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: `Accept and ship: c1, c2 passed on ${c.head.slice(0, 7)}, kept across main's merge` });
+    const from = gh.calls.length;
+    const r = await call("ada", "POST", `/api/intents/${c.id}/accept`);
+    expect(r.status).toBe(200);
+    expect(r.data).toMatchObject({ stage: "ship", ship: { pr: c.pr, head, merge: c.merge, pending: null } });
+    const writes = writesSince(from);
+    expect(writes.map((w) => `${w.method} ${w.path}`)).toEqual([`POST /statuses/${head}`, `PUT /pulls/${c.pr}/merge`]);
+    expect(writes[1].body).toMatchObject({ merge_method: "merge", sha: head });
+    // a head the builder pushed instead carries nothing: Accept is refused
+    await clearShips();
+    const d = await codeAtProposal("A builder's push carries nothing");
+    await watchPulls(db, gh.gh);
+    const pushed = gh.commit(sha(++commits), "the builder's push", [d.head], false);
+    gh.pulls.get(d.pr)!.head.sha = pushed;
+    gh.checks.set(pushed, [green("play / API and site"), green("website / build")]);
+    await watchPulls(db, gh.gh);
+    expect((await intent(d.id)).sub).toMatchObject({ state: "working", tag: "head moved" });
+    expect((await call("ada", "POST", `/api/intents/${d.id}/accept`)).status).toBe(409);
   });
 
   test("Accept takes only a waiting intent: GitHub working out whether it merges, or its checks running, refuse it with the reason; another ship ahead, it waits in Ship", async () => {
