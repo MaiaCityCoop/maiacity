@@ -46,7 +46,7 @@ export const LIMITS = /** @type {const} */ ({ ms: 2.0, smallScale: [0.6, 0.75], 
  * the depth and normals AO reads before the scene is lit (only the ambient light takes AO): geometry-bound, an estimate
  * at Sandbox 1's near view, its fragments as cheap as can be. The Mac job (c5) measures them all.
  */
-export const COST = /** @type {const} */ ({ prepass: 0.35, ssao: 0.5, denoise: 0.15, traa: 0.3, taau: 0.4, msaa: 0.25, bloom: 0.3, grade: 0.08, contact: 0.2, finite: 0.02, output: 0.05 });
+export const COST = /** @type {const} */ ({ prepass: 0.35, ssao: 0.5, denoise: 0.15, traa: 0.3, taau: 0.4, msaa: 0.25, bloom: 0.3, grade: 0.08, contact: 0.25, finite: 0.02, output: 0.05 });
 
 /**
  * The device a page is drawn on: small where the screen is a phone's or a small tablet's and touched, or the device has
@@ -85,7 +85,7 @@ export function finishing(o = {}) {
 		jitter: aa !== 'msaa',
 		bloom: small ? null : { threshold: 1.0, strength: 0.15, radius: 0.4, scale: 0.5 },
 		grade: { ...WORLD },
-		contact: small ? null : { maxDistance: 0.5, thickness: 0.05, intensity: 0.8, scale: 0.5 },
+		contact: small ? null : { maxDistance: 0.2, thickness: 0.02, intensity: 0.5, scale: 0.5 },
 		fog: { reach: small ? 0.7 : 1 },
 		// a film is drawn at the screen's full pixels: no upscaler without jitter
 		scale: small && !film ? 0.7 : 1,

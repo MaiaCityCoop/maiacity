@@ -22,11 +22,12 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { RenderPipeline } from 'three/webgpu';
-import { pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample, screenUV, velocity, builtinAOContext, convertToTexture } from 'three/tsl';
+import { pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample, screenUV, velocity, builtinAOContext, convertToTexture, int } from 'three/tsl';
 import { ssao } from 'three/addons/tsl/display/SSAONode.js';
 import { traa } from 'three/addons/tsl/display/TRAANode.js';
 import { taau } from 'three/addons/tsl/display/TAAUNode.js';
 import { sss } from 'three/addons/tsl/display/SSSNode.js';
+import { boxBlur } from 'three/addons/tsl/display/boxBlur.js';
 import { gradeNode } from './grade.js';
 import { ao as gtao } from 'three/addons/tsl/display/GTAONode.js';
 import { denoise } from 'three/addons/tsl/display/DenoiseNode.js';
@@ -274,7 +275,10 @@ export function createFinish(renderer, scene, camera, plan, o = {}) {
 		contact.maxDistance.value = plan.contact.maxDistance;
 		contact.thickness.value = plan.contact.thickness;
 		contact.shadowIntensity.value = plan.contact.intensity;
-		color = vec4(color.rgb.mul(contact.getTextureNode().sample(screenUV).r), color.a);
+		// blurred before it is laid on (three's advice: unblurred, at half resolution, it speckles foliage and streaks
+		// beside thin blades, as avenBOX's screenshots of the old city showed)
+		const shade = convertToTexture(boxBlur(contact.getTextureNode(), { size: int(2), separation: int(1) }));
+		color = vec4(color.rgb.mul(shade.sample(screenUV).r), color.a);
 	}
 	// what is not a number stops here, before anything blurs it over the frame
 	color = finite(color);
