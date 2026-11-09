@@ -1,7 +1,4 @@
-// Intents (play/SPEC.md §4.12, which says it all; Samuel 2026-11-06): everything on the board is an intent, named by its
-// UUID, its work on the intent itself (./work.ts). Idea → Specify → Build → Proposal → (Ship →) Accepted (or Archived).
-// Agents add, specify and build it over MCP; an admin approves its spec and decides it at Proposal, where work of play's
-// is applied (./versioned.ts decide) and code is shipped (./ship.ts). Every move forward is one gate, mayMove.
+// Intents (play/SPEC.md §4.12, which says it all; Samuel 2026-11-06). Every move forward is one gate, mayMove.
 import { intentSeen, seesIntent } from "./owners";
 import { admin, COOP, type AutoBy, type Me } from "./access";
 import type { Db, Queryable } from "./kit/pg";
@@ -30,7 +27,6 @@ export const STEPS = ["reduce", "mvp"] as const;
 export type Check = { id: string; check: string; how: (typeof CHECK_HOWS)[number]; by: string; run?: string; must: boolean; step?: (typeof STEPS)[number] };
 /** nothing_to_reduce: why nothing is to be reduced, where no check is its reduce step */
 export type Spec = { goal: string; scope: string; checks: Check[]; nothing_to_reduce?: string };
-/** whether a spec has its reduce step: a reduce check, or why nothing is to be reduced */
 const reduces = (spec: Spec | null) => !!spec && (spec.checks.some((c) => c.step === "reduce") || !!spec.nothing_to_reduce);
 /** where a check's result was run: in avenBOX by the agent, or on main by .github/workflows/intents.yml after the merge */
 export const WHERES = ["avenBOX", "main"] as const;
@@ -48,7 +44,6 @@ const RUN_MOST = 2000;
 export type IntentVerdict = "approve" | "accept" | "reject" | "reopen";
 const NO_REDUCE = "Its reduce step comes first: at least one check with step reduce (what it removes, simplifies or compacts), or nothing_to_reduce saying why nothing is.";
 
-/** only Maia City's admins keep the intents, as they decide them */
 export const INTENT_ADMINS = "Only Maia City's admins keep the intents.";
 
 const kindOf = (v: unknown): IntentKind => {
@@ -91,12 +86,7 @@ export function placeholderIn(run: string): string | null {
   return null;
 }
 
-/**
- * A spec as given, held to its shape: a goal (what is true when it is done), a scope (what changes, named by UUIDs,
- * hashes or paths, and what stays as it is), and 1–12 checks, at least one of them a must, each one statement that
- * passes or fails and how it is checked, a test or a measure with its `run`; each check gets its id (c1, c2 …), which
- * its results name, and its step. Its reduce step comes first: a reduce check (every one a must), or nothing_to_reduce.
- */
+/** A spec as given, held to its shape (play/SPEC.md §4.12): goal, scope, 1–12 checks, the reduce step first. */
 export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown; nothing_to_reduce?: unknown }): Spec {
   const goal = textOf(body?.goal, "goal (what is true when it is done, in a sentence)", 1000, true);
   const scope = textOf(body?.scope, "scope (what changes, named by its ids or paths, and what stays as it is)", NOTE_MOST, true);
@@ -124,12 +114,10 @@ export function specOf(body: { goal?: unknown; scope?: unknown; checks?: unknown
   return spec;
 }
 
-/** each row's place in the board's order (CURSOR), by the row intentsWhere returned */
 const cursors = new WeakMap<object, string>();
 
 /** The intents as the board lists them: who wrote, specified, approved and decided each, its dependencies both ways, and its work (null where none). */
 async function intentsWhere(db: Queryable, where: string, args: unknown[], limit?: number) {
-  // a document's label and group, by its kind, from ./versioned.ts's registry
   const kind = workSql();
   // the cards picked first, ordered and cut to the page, then built: each row's joins and subqueries only for those
   const { rows } = await db.query<any>(
@@ -169,11 +157,10 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[], limit
       ORDER BY pick.at DESC, i.id DESC`,
     [COOP, ...args],
   );
-  // its sub-state (./substate.ts), from what play keeps: the board asks GitHub nothing
+  // the board asks GitHub nothing
   return rows.map(({ cursor, ...r }) => {
     const row = { ...r, held_by: r.depends_on.filter((d: Dep) => d.stage !== "accepted") };
     const out = { ...row, sub: sub.of(row) };
-    // its place in the order, a page's cursor (pageIntents), kept beside the row, not in it
     cursors.set(out, cursor);
     return out;
   });
@@ -181,17 +168,14 @@ async function intentsWhere(db: Queryable, where: string, args: unknown[], limit
 
 // ---- dependencies: held at every forward gate (mayMove) while any intent it depends on is not shipped (Accepted)
 
-/** a dependency as people read it */
 export type Dep = { id: string; title: string; stage: IntentStage };
 /** an intent's edges one way, as a JSON list of Dep (`d` the edge, `o` the intent at its far end) */
 const EDGES = (where: string, o: string) =>
   `COALESCE((SELECT json_agg(json_build_object('id', o.id, 'title', o.title, 'stage', o.stage) ORDER BY d.at, o.id)
      FROM play.intent_depends d JOIN play.intents o ON o.id = ${o} WHERE ${where}), '[]'::json)`;
 
-/** The intents `id` depends on directly that are not shipped, read live: what holds it. */
 export const heldBy = async (db: Queryable, id: string): Promise<Dep[]> => (await intentRow(db, id)).held_by;
 const named = (ds: Dep[]) => ds.map((d) => `${d.id} (${d.title}, at ${d.stage})`).join("; ");
-/** the refusal of a held intent's forward move */
 const heldText = (id: string, held: Dep[]) => `Intent ${id} is held: it depends on intents not shipped yet: ${named(held)}.`;
 
 /** Edges from `id` to each of `on` added (or dropped), in the caller's transaction: none to itself, none closing a cycle. */
@@ -207,7 +191,6 @@ async function addEdges(q: Queryable, who: Me, id: string, on: string[], drop = 
   }
 }
 
-/** One edge added, or dropped, by an admin's agent over MCP: intent `id` depends on intent `on`. */
 export async function dependIntent(db: Db, me: Me | null, id: string, on: unknown, drop?: unknown) {
   const who = admin(me, INTENT_ADMINS);
   const { id: i } = await intentRow(db, id);
@@ -236,17 +219,14 @@ async function workKindOf(q: Queryable, v: unknown): Promise<string[] | null | u
   }
   return out.length ? out : null;
 }
-/** the kinds of work an intent declares, as people read them */
 const declaredText = (kinds: string[]) => kinds.join(", ");
 
-/** depends_on as given: UUIDs, or undefined (left as it is) */
 const depsOf = (v: unknown) => {
   if (v == null) return undefined;
   if (!Array.isArray(v)) throw new HttpError("depends_on is a list of intents' ids (UUIDs).");
   return v.map(idOf);
 };
 
-/** The intents at the given stages (every stage where none is given), the latest first; with `work`, only those holding work of that kind. */
 export async function listIntents(db: Queryable, me: Me | null, stages?: string[], work?: string) {
   return (await pageIntents(db, me, stages, work)).intents;
 }
@@ -255,9 +235,7 @@ export async function listIntents(db: Queryable, me: Me | null, stages?: string[
 const WHEN = `COALESCE(i.decided_at, i.proposed_at, i.created)`;
 /** an intent's place in that order, a page's cursor: its time in microseconds since the epoch and its id */
 const CURSOR = `floor(extract(epoch FROM ${WHEN}) * 1000000)::bigint::text || '_' || i.id`;
-/** the most intents a page holds */
 const PAGE_MOST = 200;
-/** A page asked for: how many (1–200) and after which card (a cursor, `next` of the page before). */
 type IntentPage = { limit?: unknown; before?: unknown };
 const pageOf = (p: IntentPage | undefined) => {
   let limit: number | undefined;
@@ -274,11 +252,7 @@ const pageOf = (p: IntentPage | undefined) => {
   return { limit, before };
 };
 
-/**
- * The intents at the given stages (every stage where none is given), the latest first; with `work`, only those
- * holding work of that kind. Whole where no limit is asked (no cap cuts across the board: intent 2cb70fb8); a page of
- * `limit` where one is, after the cursor `before`, with `next`, the cursor of the page after (null at the end).
- */
+/** Whole where no limit is asked (no cap cuts across the board: intent 2cb70fb8), else a page after `before`. */
 export async function pageIntents(db: Queryable, me: Me | null, stages?: string[], work?: string, page?: IntentPage) {
   admin(me, INTENT_ADMINS);
   for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new HttpError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
@@ -297,7 +271,6 @@ export async function pageIntents(db: Queryable, me: Me | null, stages?: string[
   return { intents, next: cursors.get(intents[limit - 1]) ?? null };
 }
 
-/** How many intents each stage holds, as the board's columns count them (those another's private work keeps left out). */
 export async function intentCounts(db: Queryable, me: Me | null): Promise<Record<IntentStage, number>> {
   admin(me, INTENT_ADMINS);
   const { rows } = await db.query<{ stage: IntentStage; n: number }>(
@@ -334,12 +307,10 @@ export async function intentFor(db: Queryable, me: Me | null, id: string) {
   return intent;
 }
 
-/** One intent as the board lists it (admins), by its id. */
 export async function getIntent(db: Queryable, id: string) {
   return intentRow(db, (await intentIdOf(db, idOf(id))) ?? id);
 }
 
-/** A new intent at the Idea stage, by an admin's agent over MCP (no one adds one by hand). */
 export async function addIntent(db: Db, me: Me | null, body: { kind?: unknown; title?: unknown; note?: unknown; depends_on?: unknown; work_kind?: unknown }) {
   const who = admin(me, INTENT_ADMINS);
   const id = newId();
@@ -354,11 +325,7 @@ export async function addIntent(db: Db, me: Me | null, body: { kind?: unknown; t
   return intentRow(db, id);
 }
 
-/**
- * An intent specified over MCP: its spec (specOf) and, where given, its title, kind or note made sharper. It moves to
- * Specify, where an admin approves it before it is built; specified again, its spec is replaced. One already approved
- * is sent back to Specify first, by its agent (step_back_intent, ./stepback.ts).
- */
+/** One already approved is sent back to Specify first, by its agent (step_back_intent, ./stepback.ts). */
 export async function specifyIntent(db: Db, me: Me | null, id: string, body: { goal?: unknown; scope?: unknown; checks?: unknown; nothing_to_reduce?: unknown; title?: unknown; kind?: unknown; note?: unknown; depends_on?: unknown; work_kind?: unknown }) {
   const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
@@ -371,7 +338,7 @@ export async function specifyIntent(db: Db, me: Me | null, id: string, body: { g
   if (declared !== undefined && JSON.stringify(declared) !== JSON.stringify(intent.work_kind ?? null) && (intent.work || (await db.query(`SELECT 1 FROM play.intent_variants WHERE intent_id = $1`, [intent.id])).rows.length))
     throw new HttpError(`Intent ${intent.id} holds work already: its declared kinds of work (work_kind) change only while it holds none.`, 409);
   await db.transaction(async (tx) => {
-    // depends_on given: the intents it depends on, replacing those before (specifying is never held)
+    // specifying is never held
     if (deps) {
       await tx.query(`DELETE FROM play.intent_depends WHERE intent_id = $1 AND NOT (depends_on = ANY($2::uuid[]))`, [intent.id, deps]);
       await addEdges(tx, who, intent.id, deps);
@@ -394,7 +361,6 @@ export async function specifyIntent(db: Db, me: Me | null, id: string, body: { g
 /** whether the intent's work waits for a decision at Proposal: then accepting applies it (./versioned.ts decide) */
 export const waiting = (intent: { stage: string; work: unknown }) => intent.stage === "proposal" && !!intent.work;
 
-/** an intent's pull request into main, by its number (check_intent's `pr`), or undefined where none is given */
 const prOf = (v: unknown) => {
   if (v === undefined || v === null || v === "") return undefined;
   const n = Number(v);
@@ -402,12 +368,7 @@ const prOf = (v: unknown) => {
   return n;
 };
 
-/**
- * Checks' results recorded over MCP while an intent is built (or at Proposal, no work waiting), each with its evidence,
- * where it ran and its commit; the latest of each stands. Every must check passed (and the gate passed), it moves to
- * Proposal by itself; a must failing there takes it back to Build. main's results confirm in any stage once approved,
- * moving nothing. `pr` names its pull request into main, which Accept merges (./ship.ts).
- */
+/** Checks' results recorded (play/SPEC.md §4.12): every must passed, to Proposal by itself; main's only confirm. */
 export async function recordChecks(db: Queryable, me: Me | null, id: string, given: unknown, pr?: unknown) {
   const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
@@ -424,7 +385,6 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
     );
   // held: nothing is recorded until every intent it depends on is shipped (main's confirmations are still taken)
   if (moves && !confirms && intent.held_by.length) throw new HttpError(heldText(intent.id, intent.held_by), 409);
-  // work of another kind than declared is refused: a pull request is code
   const undeclared = named !== undefined ? notDeclared(intent, { code: true }) : "";
   if (undeclared) throw new HttpError(undeclared, 409);
   // only the box's run is evidence (play/SPEC.md §4.12, Samuel 2026-11-06): what can decide a code intent (its pull
@@ -455,7 +415,6 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
     if (link !== undefined && !/^https:\/\/[^\s]{1,300}$/.test(link)) throw new HttpError(`${r.check}: link is the https link of the run it was recorded by.`);
     results[r.check] = { pass: r.pass, evidence, by: who.name, at, where, ...(commit ? { commit } : {}), ...(who.box ? { box: true as const } : {}), ...(link ? { link } : {}) };
   }
-  // to Proposal past the gate, else in Build, its results kept, saying why; main's results after the merge only kept
   const refused = moves ? await gate.mayMove(db, { ...intent, results, pull_request: named ?? intent.pull_request }, "proposal") : null;
   const stage = !moves ? intent.stage : refused ? "build" : "proposal";
   await db.query(`UPDATE play.intents SET results = ($2::text)::jsonb, stage = $3, pull_request = COALESCE($4, pull_request) WHERE id = $1`, [
@@ -464,25 +423,18 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   return { ...(await intentRow(db, intent.id)), ...(refused ? { refused: refused.why } : {}) };
 }
 
-/** the must checks of an intent that have not passed, as people read them, or none: the gate to Proposal and to accepting */
 function unmet(intent: { spec: Spec | null; results: Record<string, Result> | null }) {
   return (intent.spec?.checks ?? [])
     .filter((c) => c.must && intent.results?.[c.id]?.pass !== true)
     .map((c) => `${c.id} (${c.check}): ${intent.results?.[c.id] ? "failed" : "no result yet"}`);
 }
 
-/** every forward move: approve (to Build), to Proposal on its checks, work proposed, accept, its work accepted, Accept into Ship, Ship's turn */
 export type Move = "build" | "proposal" | "work" | "accept" | "accept_work" | "ship" | "merge";
 /** why a move is refused; `wait` where only a dependency still in Ship refuses it (Ship's turn waits for it) */
 type Refusal = { why: string; wait?: boolean };
 type GateRow = { id: string; stage: string; spec: Spec | null; results: Record<string, Result> | null; work?: unknown; pull_request?: number | null; approved_at?: unknown; held_by?: Dep[]; work_kind?: string[] | null };
-/** the kind of work a move brings (mayMove's work): a document's schema (its UUID), or code */
 type WorkWhat = { schema?: string | null; code?: boolean };
 
-/**
- * Why work of kind `what` is not the intent's to take, or "" where it is: an intent that declares its kinds of work
- * (work_kind) takes only those; one that declares nothing takes any.
- */
 function notDeclared(i: { id: string; work_kind?: string[] | null }, what: WorkWhat): string {
   const kinds = i.work_kind ?? [];
   if (!kinds.length) return "";
@@ -492,11 +444,7 @@ function notDeclared(i: { id: string; work_kind?: string[] | null }, what: WorkW
 }
 const NOT_IN_BUILD = "An intent in Build is not accepted: it moves to Proposal by itself once every must check passes, and is decided there.";
 
-/**
- * The one forward gate: whether intent `intent` (its id, or its row as it would be) may make move `to`; null, else why
- * not. Each move's stage rules, its must checks, and held while any intent it depends on is not shipped. Every forward
- * path calls it (as gate.mayMove) and none tests the stage on its own; going back never does.
- */
+/** The one forward gate: every forward path calls it (as gate.mayMove), none tests the stage on its own. */
 async function mayMove(db: Queryable, intent: string | GateRow, to: Move, what?: WorkWhat): Promise<Refusal | null> {
   const i: GateRow = typeof intent === "string" ? await intentRow(db, intent) : intent;
   const at = i.stage;
@@ -526,7 +474,6 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move, what?:
   };
   const bad = stage();
   if (bad) return no(bad);
-  // work of another kind than the intent declares is refused
   const undeclared = to === "work" && what ? notDeclared(i, what) : "";
   if (undeclared) return no(undeclared);
   // approving a spec is never held (Samuel 2026-11-07): it waits in Build, idle, until its dependencies are shipped
@@ -543,13 +490,11 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move, what?:
 }
 /** the gate as every path calls it (a test may stand a stub in its place) */
 export const gate = { mayMove };
-/** the move's refusal thrown, if any */
 export async function mustMove(db: Queryable, intent: string | GateRow, to: Move, what?: WorkWhat) {
   const r = await gate.mayMove(db, intent, to, what);
   if (r) throw new HttpError(r.why, 409);
 }
 
-/** The intent work is about to be proposed for, held to the gate (mayMove's work). Otherwise nothing is proposed and the agent is told why. */
 export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
   const intent = await intentFor(db, me, `${id ?? ""}`);
   await mustMove(db, intent, "work");
@@ -558,11 +503,9 @@ export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
 
 // ---- the one decision path: every forward decision, a person's or a rule's, is written here
 
-/** who decides: a person (a human's UUID) or a rule (./rules.ts) */
 export type By = string | AutoBy;
 /** who decides in `me`'s request: the rule it carries where a rule decides (autoMove), else `me` */
 export const byOf = (me: Pick<Me, "id" | "auto">): By => me.auto ?? me.id;
-/** the decisions written: a spec approved (Specify → Build), an intent accepted, its work accepted, Accept into Ship */
 export type Decision = "approve" | "accept" | "accept_work" | "ship";
 
 
@@ -573,11 +516,7 @@ export function mustDecide(intent: any) {
   if (!decidable(intent, s)) throw new HttpError(s ? `${s.why}.` : `Intent ${intent.id} is at the ${intent.stage} stage.`, 409);
 }
 
-/**
- * An admin's decision on the board: approve a spec (Specify → Build), accept an intent at Proposal with no work of
- * play's and no pull request (one with a pull request is shipped, ./ship.ts), reject it, or bring a decided one back
- * (to Specify with its spec, else to Idea). Steps back are an agent's (./stepback.ts).
- */
+/** An admin's decision on the board; one with a pull request is shipped (./ship.ts), steps back are an agent's (./stepback.ts). */
 export async function decideIntent(db: Queryable, me: Me | null, id: string, verdict: IntentVerdict) {
   const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
@@ -615,17 +554,10 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
   return intentRow(db, intent.id);
 }
 
-/**
- * The decision `move` on intent `id`, by `by`, written in the caller's transaction (the one place it is): approve takes
- * it to Build (approved_by, approved_at, its results cleared), accept and accept_work to Accepted (decided_by,
- * decided_at), ship into Ship with its ship (`o.ship`). A person is its approved_by or decided_by; a rule leaves those
- * null and is kept in `auto` (its approve or accept entry: the rule's UUID and label, the rule set's version hash, its
- * reason, when). The gate (mayMove) and who may decide are the caller's, asked before.
- */
+/** The one writer of a forward decision; a rule's is kept in `auto` (play/SPEC.md §4.12 Auto-accept rules). */
 async function decided(q: Queryable, id: string, move: Decision, by: By, o: { ship?: unknown } = {}): Promise<void> {
   const human = typeof by === "string" ? by : null;
   const rule = typeof by === "string" ? null : JSON.stringify({ rule: by.rule, label: by.label, rules: by.rules, reason: by.reason, at: new Date().toISOString() });
-  // its auto entry for the gate: the rule's, or none (a person's)
   const entry = (key: string) => `auto = (auto - '${key}') || CASE WHEN $3::text IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('${key}', ($3::text)::jsonb) END`;
   if (move === "approve")
     await q.query(`UPDATE play.intents SET stage = 'build', approved_by = $2, approved_at = now(), results = NULL, ${entry("approve")} WHERE id = $1`, [id, human, rule]);
@@ -636,12 +568,7 @@ async function decided(q: Queryable, id: string, move: Decision, by: By, o: { sh
 /** the one decision path as every path calls it (a test may stand a stub in its place) */
 export const decisions = { decided };
 
-/**
- * Every move back, what each clears (the one writer of a backward stage; going forward is `decided`'s and the gate's):
- * rejected (archived by `$2`, a person), reopened (to Specify with its spec, else to Idea), stepped back to Specify or
- * to Idea (./stepback.ts, its step `$2` kept), or back to Build as a document is withdrawn (./withdraw.ts, `$2` kept).
- * Each clears what a rule decided (`auto`); a withdrawal only a rule's Accept.
- */
+/** The one writer of a backward stage (./stepback.ts, ./withdraw.ts); a withdrawal clears only a rule's Accept. */
 const BACK = {
   reject: `stage = 'archived', decided_by = $2, decided_at = now(), auto = '{}'::jsonb`,
   reopen: `stage = CASE WHEN spec IS NULL OR jsonb_array_length(spec->'checks') = 0 THEN 'idea' ELSE 'specify' END,
@@ -657,19 +584,11 @@ export async function moveBack(q: Queryable, id: string, move: keyof typeof BACK
 
 // ---- work put on an intent, settled, or archived by whoever proposed it: its stage moves (the work's SQL is ./held.ts)
 
-/**
- * Puts work on an intent (in the caller's transaction): intent `intent`, in Build or at Proposal (its gate,
- * ./intents.ts mayMove's work). At Proposal it stays there; in Build it moves to Proposal with it only where every must
- * passes already, else the work waits on it in Build and goes to Proposal with it when its last must passes. No work
- * without an intent: none named, nothing is taken. One way to hold work (intent 7c8986c5): every document goes in
- * beside the others the intent holds, whatever its kind, its version's refs on its own intent variant; proposing a
- * document again replaces only that document's variant. The intent's own columns name its first document's. Gives back its id.
- */
+/** Work put on an intent (intents 7c8986c5, 94061718, 847c5d38): every document beside the others, in Build it waits for the musts. */
 export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp" }): Promise<string> {
   if (!o.intent) throw new HttpError(NO_INTENT, 400);
   const was = await workOf(q, o.intent, true);
   if (!was) throw noSuchIntent();
-  // the kind of work it is (an intent that declares its kinds takes only those): its document's schema
   const schema = o.work.doc_id
     ? (await q.query<{ schema_id: string | null }>(`SELECT schema_id FROM play.docs WHERE id = $1`, [o.work.doc_id])).rows[0]?.schema_id ?? null
     : o.work.story_id ? SCHEMA.story : o.work.asset_id ? SCHEMA.asset : null;
@@ -694,12 +613,7 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
   return id;
 }
 
-/**
- * Settles an intent's work (in the decision's transaction): accepted, or archived. Archived by a person (`by`), it ends
- * archived; archived by itself (no `by`: its base moved and it no longer holds there), it goes back to Build (every
- * intent with work has an approved spec), its results cleared, to be built again on the new head. Its stage is what it
- * settled to.
- */
+/** An intent's work settled: archived by itself (no `by`: its base moved), it goes back to Build to be built again. */
 export async function settle(q: Queryable, id: string, outcome: "accepted" | "archived", by: By | null): Promise<string> {
   // accepted: the one decision path (decided), a person's or a rule's
   if (outcome === "accepted") {
@@ -720,18 +634,13 @@ export async function settle(q: Queryable, id: string, outcome: "accepted" | "ar
   return rows[0]?.stage ?? outcome;
 }
 
-/** An intent's work archived by whoever proposed it: the intent archived, its intent variant closed, kept in the history. */
 export async function archiveAsAuthor(tx: Queryable, me: Me, p: any) {
   await settle(tx, p.id, "archived", me.id);
   await closeWork(tx, me, p);
   return { id: p.id as string, status: "archived" as const };
 }
 
-/**
- * An agent archives its own intent over MCP (Samuel 2026-11-04): one at Proposal whose work it no longer stands by.
- * Only an intent its admin put at Proposal over MCP (its work proposed so, or, with no work, added so), never anyone
- * else's and never one proposed on the page; accepting stays a person's, on the intents' board.
- */
+/** An agent archives its own intent at Proposal, put there over MCP, never another's (Samuel 2026-11-04). */
 export async function archiveOwn(db: Db, me: Me | null, id: string) {
   if (!me) throw new HttpError("Please sign in first.", 401);
   if (!UUID.test(id)) throw new HttpError("Name the intent by its id (list_intents gives it).");
