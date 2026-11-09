@@ -1,8 +1,6 @@
 /**
- * THE SOLAR FACTORY DOME — the village's factory coop, a dome the size of the
- * master dome, making the glass triangles every dome is built from.
- *
- * It follows the real recipe of a solar module line, top to bottom:
+ * THE SOLAR FACTORY DOME — the village's factory coop, a dome the size of the master dome, making the glass triangles
+ * every dome is built from. It follows the real recipe of a solar module line, top to bottom:
  *
  *   4  Solar glass       float glass in, triangles cut, edges ground, washed,
  *                        tempered at 700 °C, quenched, anti-reflective coated
@@ -16,13 +14,9 @@
  *                        grading, packing onto racks; round it the warehouse,
  *                        high-bay racks, docks at the doors, AGVs to the yard
  *
- * Every floor is a ring round a central tower: one great round lift that
- * carries people, robots and racks between the floors (↑ and ↓ inside it),
- * and overhead conveyors from the tower out over the lines. On every floor
- * two circular lines carry the triangles from station to station, climbing
- * over the paths where they cross. Robot arms load the machines behind their
- * fences, gantries lay up the strings, humanoid robots and people walk the
- * aisles, AGVs carry racks.
+ * Every floor is a ring round a central tower, one great round lift for people, robots and racks, with overhead
+ * conveyors out over the lines. On every floor two circular lines carry the triangles from station to station,
+ * climbing over the paths where they cross; robot arms, gantries, humanoids, people and AGVs work them.
  */
 import * as THREE from 'three'
 import type { Mats } from './interior'
@@ -42,13 +36,12 @@ type FactoryWalk = {
 	blocked: (x: number, z: number, here: number) => boolean
 	start: { x: number; z: number; look: number }
 	update: (t: number) => void
-	/** where the walker is, each frame */
 	tick: (x: number, z: number, feet: number) => void
 	/** a key pressed or released; true if the factory used it (the lift's ↑ and ↓) */
 	onKey: (k: string, down: boolean) => boolean
-	/** the floor the lift stands at, while you are in it; -1 outside */
+	/** the lift's floor while you are in it; -1 outside */
 	floor: () => number
-	/** how far the nearest machine is, and the running lift (Infinity if it stands still) */
+	/** how far the nearest machine and the running lift are (Infinity if it stands still) */
 	sounds: (x: number, z: number, feet: number) => { machine: number; lift: number }
 }
 
@@ -148,10 +141,7 @@ function console_(ctx: FactoryCtx, g: THREE.Group, x: number, z: number, face = 
 	g.add(s)
 }
 
-/**
- * A machine the line runs through: a housing straddling the belt, windows
- * glowing with what goes on inside, a desk, a stack light.
- */
+/** A machine the line runs through: a housing straddling the belt, glowing windows, a desk, a stack light. */
 function tunnel(ctx: FactoryCtx, len: number, h: number, body: THREE.Material, inside: THREE.Material | null, blink: THREE.Mesh[]): Part {
 	const g = new THREE.Group()
 	g.add(ctx.box(len, h, 3.2, body, 0, 0, 0))
@@ -170,10 +160,7 @@ function tunnel(ctx: FactoryCtx, len: number, h: number, body: THREE.Material, i
 	return { group: g, colliders: Array.from({ length: Math.ceil(len / 2.6) }, (_, i) => ({ x: -len / 2 + 1.3 + i * 2.6, z: 0, r: 1.8 })) }
 }
 
-/**
- * A six-axis robot arm: base, turret, shoulder, elbow, wrist, and a vacuum
- * gripper. It swings between the belt and its machine on a cycle of its own.
- */
+/** A six-axis robot arm with a vacuum gripper, swinging between the belt and its machine on its own cycle. */
 function robotArm(ctx: FactoryCtx, paint: THREE.Material, from: number, to: number, period: number, phase: number): Part {
 	const g = new THREE.Group()
 	g.add(ctx.box(0.9, 0.12, 0.9, M.graphite))
@@ -291,11 +278,7 @@ function flashBooth(ctx: FactoryCtx): Part {
 
 type Walker = { level: number; r: number; a: number; speed: number; working: boolean; phase: number; kind: 'robot' | 'person' }
 
-/**
- * Humanoid robots and people, instanced: one mesh per body part for all of
- * them, their legs and arms swinging as they walk the aisles, or standing
- * at a station with their hands busy.
- */
+/** Humanoid robots and people, instanced (one mesh per body part), walking the aisles or busy at a station. */
 function crowd(walkers: Walker[]): { object: THREE.Group; update: (t: number, dt: number) => void } {
 	const n = walkers.length
 	// each walks its aisle at its own pace: where it is is a function of the time alone (a film renders it the same)
@@ -473,10 +456,8 @@ type Station = { name: string; note: string; make: (ctx: FactoryCtx, blink: THRE
 const t = (len: number, h: number, body: THREE.Material, inside: THREE.Material | null) => (ctx: FactoryCtx, blink: THREE.Mesh[]) => tunnel(ctx, len, h, body, inside, blink)
 
 /**
- * The recipe, floor by floor, from the smallest parts at the top to the
- * largest assembly at the bottom — everything from raw material, in one dome:
- * silicon from quartz, copper wire and cable, the electronics, glass from
- * sand, then the modules, their frames, and the dome kits they leave in.
+ * The recipe, floor by floor, smallest parts at the top to the largest assembly at the bottom, all from raw material
+ * in one dome: silicon from quartz, copper wire and cable, the electronics, glass from sand, the modules, their frames.
  */
 const RECIPE: Station[][] = [
 	[
@@ -836,8 +817,7 @@ export function buildFactory(ctx: FactoryCtx): FactoryWalk {
 		// the free stretches of the loop, walked round from where the work comes in
 		const free: number[] = []
 		for (let t = 0.01; t < Math.PI * 2 - 0.01; t += 0.004) if (clearOf(aStart + t)) free.push(aStart + t)
-		// spokes evenly spaced along them, every station once and the slowest ones twice, side by side,
-		// so there is never a wide gap on the loop
+		// spokes evenly along them, every station once and the slowest twice, so there is never a wide gap on the loop
 		const count = Math.min(stations.length * 2, Math.max(stations.length, Math.floor((free.length * 0.004 * MAIN) / 11)))
 		const extra = count - stations.length
 		const doubled = new Set(Array.from({ length: extra }, (_, j) => Math.floor(((j + 0.5) * stations.length) / extra)))
@@ -1435,16 +1415,14 @@ export function buildFactory(ctx: FactoryCtx): FactoryWalk {
 			})
 			return best
 		},
-		// nothing holds you but a floor: the railings, the bridges' edges, a lift that is not there;
-		// and the cabin is entered only through its doors
+		// nothing holds you but a floor (railings, bridges' edges, a lift that is not there); the cabin only by its doors
 		blocked: (x, z, here) => (inCabin(x, z) !== inCabin(px, pz) && !throughDoor(x, z)) || !hasFloorAt(x, z, here),
 		tick: (x, z, feet) => {
 			px = x
 			pz = z
 			pf = feet
 		},
-		// ↑ and ↓ inside the cabin send it a floor up or down
-		// the lift stops at every floor; press again, or keep the key held, and it goes on
+		// ↑ and ↓ in the cabin send it a floor up or down; it stops at every floor, and goes on when pressed again or held
 		onKey: (k, down) => {
 			if (!inCabin(px, pz) || (k !== 'arrowup' && k !== 'arrowdown')) return false
 			const dir = k === 'arrowup' ? 1 : -1
