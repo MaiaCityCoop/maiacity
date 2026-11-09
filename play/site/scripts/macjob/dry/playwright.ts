@@ -122,6 +122,8 @@ async function inPage(fn: Function | string, arg: unknown, at: string) {
 
 class Page {
 	inits: string[] = [];
+	/** the world this page shows: none until a goto of a route the census builds */
+	route: string | null = null;
 	film: string | null;
 	mouse = { click: async () => {}, move: async () => {}, down: async () => {}, up: async () => {}, wheel: async () => {} };
 	keyboard = { down: async () => {}, up: async () => {}, press: async () => {}, type: async () => {} };
@@ -155,6 +157,7 @@ class Page {
 		const url = new URL(href);
 		const route = ROUTES[url.pathname];
 		const root = treeOf(url);
+		this.route = route ?? null;
 		if (!route) {
 			say(`goto ${url.pathname}: a route the census does not build on the CPU; the page stays empty`);
 			this.init();
@@ -196,7 +199,7 @@ class Page {
 	async waitForFunction(fn: Function | string, arg?: unknown, o: { timeout?: number; polling?: number } = {}) {
 		const at = caller();
 		// a page with no world never gets one: a short wait, then Playwright's timeout
-		const s = world.route ? Math.min((o.timeout ?? 30_000) / 1000, WAIT_S) : 5;
+		const s = this.route ? Math.min((o.timeout ?? 30_000) / 1000, WAIT_S) : 5;
 		const f = remake(fn);
 		const end = performance.now() + s * 1000;
 		while (performance.now() < end) {
@@ -207,7 +210,7 @@ class Page {
 			if (v) return { jsonValue: async () => clone(v), dispose: async () => {} };
 			await new Promise((r) => setTimeout(r, 100));
 		}
-		say(`waitForFunction(${shown(fn)}) timed out after ${s} s (the job's timeout ${o.timeout ?? 30_000} ms${world.route ? `, at most ${WAIT_S} s here` : ', no world on this page'})\n  called ${at}`);
+		say(`waitForFunction(${shown(fn)}) timed out after ${s} s (the job's timeout ${o.timeout ?? 30_000} ms${this.route ? `, at most ${WAIT_S} s here` : ', no world on this page'})\n  called ${at}`);
 		throw Object.assign(new Error(`page.waitForFunction: Timeout ${o.timeout ?? 30_000}ms exceeded.`), { name: 'TimeoutError' });
 	}
 	async waitForTimeout(ms: number) {
@@ -223,7 +226,7 @@ class Page {
 	async setViewportSize() {}
 	async close() {}
 	url() {
-		return world.route ? `http://dry.local/${world.route}/` : 'about:blank';
+		return this.route ? `http://dry.local/${this.route}/` : 'about:blank';
 	}
 }
 // `video()` as Playwright has it: the recording, its path once the page is closed
