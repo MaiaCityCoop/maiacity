@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# The dry run's `curl` (intent cb52fbd9): a local dev server answers at once (it serves nothing here); any other host is curl.
+for a in "$@"; do case $a in http://localhost:*|http://127.0.0.1:*) exit 0;; esac; done
+PATH="$DRY_REAL_PATH" exec curl "$@"
