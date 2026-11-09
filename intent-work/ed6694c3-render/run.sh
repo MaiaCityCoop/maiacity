@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# c5 of intent ed6694c3 on Samuel's Mac (Metal, README.md): the fix served by vite's dev server, Sandbox 5
+# walked and Sandbox 1's film advanced in Chromium and WebKit (look.mjs). Run from anywhere inside the repository; needs
+# bun, node and PLAY_MCP_TOKEN (sent to play only, by a read-only proxy on 127.0.0.1:3911). Writes ./out/ beside it.
+#   bash intent-work/ed6694c3-render/run.sh [commit]   (default: the pull request head, #2208)
+set -euo pipefail
+: "${PLAY_MCP_TOKEN:?PLAY_MCP_TOKEN: the admin token the read-only proxy reads play with}"
+ROOT=$(git rev-parse --show-toplevel)
+JOB="$ROOT/intent-work/ed6694c3-render"; OUT="$JOB/out"; mkdir -p "$OUT"
+git -C "$ROOT" fetch -q origin intent/ed6694c3-safari-warm
+C=${1:-$(git -C "$ROOT" rev-parse origin/intent/ed6694c3-safari-warm)}
+TREE="$ROOT/../ed6694c3-head"
+if [ -d "$TREE" ]; then git -C "$TREE" checkout -q --detach "$C"; else git -C "$ROOT" worktree add -q --detach "$TREE" "$C"; fi
+echo "serving $C (vite dev: the asset box does not build under vite preview)"
+PIDS=(); trap 'kill "${PIDS[@]}" 2>/dev/null || true' EXIT
+node -e "
+const http = require('node:http');
+http.createServer(async (q, s) => {
+  if (!['GET','HEAD'].includes(q.method) || !q.url.startsWith('/api/')) return s.writeHead(405).end('read-only');
+  try { const r = await fetch('https://play.maia.city' + q.url, { method: q.method, headers: { authorization: 'Bearer ' + process.env.PLAY_MCP_TOKEN, accept: q.headers.accept ?? '*/*', ...(q.headers.range ? { range: q.headers.range } : {}) } });
+    s.writeHead(r.status, Object.fromEntries([...r.headers].filter(([k]) => !['content-encoding','content-length','transfer-encoding'].includes(k)))); s.end(Buffer.from(await r.arrayBuffer()));
+  } catch (e) { s.writeHead(502).end(String(e)); }
+}).listen(3911, '127.0.0.1');" >"$OUT/proxy.log" 2>&1 &
+PIDS+=($!)
+cd "$TREE/play/site"
+bun install --frozen-lockfile >/dev/null
+(PLAY_API=http://localhost:3911 bunx vite dev --port 5190 --strictPort >"$OUT/vite.log" 2>&1) </dev/null >/dev/null 2>&1 &
+PIDS+=($!)
+for _ in $(seq 1 180); do curl -sf http://localhost:5190/ >/dev/null && break; sleep 1; done
+# Playwright from the served tree's play/site (Chromium on Metal and WebKit)
+# one process per browser, each ending only once its results are written
+for b in chromium webkit; do
+  rm -f "$OUT/results-$b.json"
+  node "$JOB/look.mjs" --site http://localhost:5190 --out "$OUT" --browser "$b" 2>&1 | tee "$OUT/stdout-$b.txt"
+  [ -s "$OUT/results-$b.json" ] || { echo "FAILED: $b ended before its results were written"; exit 1; }
+done
+echo "out: $OUT (commit out/ and push the branch intent-work/ed6694c3-render)"
