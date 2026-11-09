@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# The dry run's `ffmpeg` (intent cb52fbd9): checks every input is there (a frame sequence by its first frame), then writes
+# its output (empty) or, for `-f null -`, says an SSIM line as ffmpeg's ssim filter does.
+prev=; out=
+for a in "$@"; do
+  if [ "$prev" = -i ]; then
+    f=$a; case $a in *%0*d*) f=$(printf "$a" 0); [ -e "$f" ] || f=$(printf "$a" 1);; esac
+    [ -e "$f" ] || { echo "dry ffmpeg: $a: No such file or directory" >&2; exit 1; }
+  fi
+  prev=$a; out=$a
+done
+if [ "$out" = - ]; then echo "[Parsed_ssim_0 @ dry] SSIM Y:1.000000 (inf) U:1.000000 (inf) V:1.000000 (inf) All:1.000000 (inf)" >&2; exit 0; fi
+case $out in -*|"") exit 0;; esac
+mkdir -p "$(dirname "$out")"; : > "$out"
