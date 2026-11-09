@@ -1,5 +1,13 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 10:50 Berlin
+- **#8 recorded on a6f20d941: c7 FAIL, c8 FAIL** (evidence on the intent; out/ d1eee495a). c7: parity never ran (the
+  `import.meta` in live-runtime.js). c8: the job's SSIM step gave NaN; with ffmpeg on its PNGs every view is ≥ 0.989
+  except **s1-far 0.870** (a large broadleaf tree in the far band drawn as ragged grey-brown cut-outs on head, conifers and
+  sky there on base) and s3-open 0.856 (by eye identical: wind and idle timing). Far's frame 16.8 → 17.7 ms (+5.4 %, bound
+  cpu). For #8's new builder: fix the bundle, look at the far forest (or show it is timing), and fix the job's SSIM.
+- **660ad67f's job is running** (started 10:39 on render ceb22e982).
+
 ## 10:40 Berlin
 Loop (chain13): #8 ends (its last head views now) → **660ad67f** (render ceb22e982, its PR head e716813cf with the
 source-compare fix) → #13 run 2 → #6 run 2 → #8's c7 re-run when relayed → 0b4c007b's calibration → 544485e2's. I record
