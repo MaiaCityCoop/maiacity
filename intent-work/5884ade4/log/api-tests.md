@@ -89,3 +89,12 @@ behaviour is pinned, and for every test removed why it could not fail or only re
    branch goes (there always is one). The tests that reconcile give the app and the reconcile one store (`tempStore`)
    instead of trusting the last app made. Pinned: allwork.test (work accepted live by the reconcile), ship.test,
    depends.test, mainmerge.test, substate.test, delivery.test: the whole suite, unchanged.
+8. **The seed steps out of migrations.ts, into the entry points (log/api.md *Next untangles*; api-flow#21,
+   api-docs#23).** `migrate()` runs the migrations alone; what SQL can't write (the schemas as documents, every
+   sandbox's layout, the rule set's v1) is `src/seed.ts` `seed(db)`, run after `migrate()` by every entry point that
+   migrated: play-api (src/index.ts), `bun src/migrate.ts`, the import (import/run.ts), the kit's `freshDb`, and
+   play/site's two library-shot scripts (each starts a database of its own). migrations.ts imports no feature module
+   now (docs/schemas, sandboxes, rules). migrate.test's two migrations whose checks read seeded documents (0032 and
+   the layouts) call `seed` after `migrate`, as play-api does; the comments that said "the end of migrate()" name the
+   seed. The held assetdocs.test.ts calls `migrate` alone and needs no seed (run, 7 pass). Pinned: migrate.test
+   (each old database migrated and seeded), rules.test, sandboxdocs.test, schemas.test, the whole suite.

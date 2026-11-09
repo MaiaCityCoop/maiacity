@@ -520,7 +520,7 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
 }
 
 /**
- * The end of migrate(), after ensureSchemas (migration 202611070115-d2f50bf1-sandbox-layouts kept what SQL can't
+ * play's seed (./seed.ts), after ensureSchemas (migration 202611070115-d2f50bf1-sandbox-layouts kept what SQL can't
  * write): every sandbox with pins, configs or a change kept gets its layout document, its v1 its pins and configs as
  * they are, and every kept change (play.sandbox_changes_kept) becomes an intent variant of it, each intent keeping its
  * stage. One at Proposal is its edits made again on v1 and proposed (kept, to be archived on Accept, where they no

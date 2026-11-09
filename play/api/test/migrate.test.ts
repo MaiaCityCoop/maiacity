@@ -7,6 +7,7 @@
 //
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { MIGRATIONS, MIGRATIONS_DIR, badId, loadMigrations, migrate } from "../src/migrations";
+import { seed } from "../src/seed";
 import { fromBunSql } from "../src/kit/pg";
 import { copyFileSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -197,6 +198,7 @@ suite("migration 0032-versioned", () => {
     expect(rest.slice(0, 2)).toEqual(["0033-build", "0034-schemas"]);
     expect(rest.some((id) => id.endsWith("-847c5d38-intent-variants"))).toBe(true);
     expect(await migrate(db)).toEqual(rest);
+    await seed(db);
     // every schema a document, v1 from the seed; every document made before names its schema's UUID and version, and
     // is still valid against that schema as Postgres holds it (play/SPEC.md "Version control")
     const schemas = await q(`SELECT d.id, d.schema_id, (SELECT max(number) FROM play.doc_versions v WHERE v.doc_id = d.id) AS n FROM play.docs d WHERE d.id LIKE 'schema:%' ORDER BY d.id`);
@@ -308,9 +310,10 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
     const gone = await change("proposal", [{ op: "unpin", slot: "nowhere" }], [{ kind: "pin", slot: "nowhere", before: pin(v1), after: null }]);
     const wasPins = await q(`SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1 ORDER BY slot`, [S2]);
 
-    // ---- the migration, then ensureLayouts at the end of migrate()
+    // ---- the migration, then ensureLayouts in the seed play runs after it
     // (and every migration after it: 847c5d38's intent-variants holds each intent's documents)
     expect((await migrate(db))[0]).toEqual("202611070115-d2f50bf1-sandbox-layouts");
+    await seed(db);
     expect(await q(`SELECT intent_id FROM play.sandbox_changes_kept WHERE NOT moved`)).toEqual([]);
     const cols = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
     for (const gone of ["sandbox_id", "sandbox_base", "sandbox_change", "sandbox_diff"]) expect(cols).not.toContain(gone);

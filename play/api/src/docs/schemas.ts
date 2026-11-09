@@ -7,7 +7,7 @@
 // intent variant, accepted by a person (./versioned.ts refuses the Accept while a document on Main fails it).
 //
 // The seed (each schema's v1 as play wrote it in code before) and what a schema can't say are ./seed.ts; ensureSchemas
-// makes the seed's documents at the end of migrate(), only where absent; a schema is read as a type by ./store.ts typeFor.
+// makes the seed's documents in play's seed (../seed.ts), after the migrations, only where absent; a schema is read as a type by ./store.ts typeFor.
 import { COOP, SCHEMA } from "../kit/ids";
 import type { Db, Queryable } from "../kit/pg";
 import { seedOf, SEEDED, type SchemaJson } from "./seed";
@@ -34,7 +34,7 @@ export async function schemasOf(q: Queryable): Promise<{ id: string; version: nu
 // ---- the bootstrap
 
 /**
- * The end of migrate(): each schema of the seed made a document, its v1, only where absent (the meta-schema first, a
+ * Play's seed (../seed.ts), first: each schema of the seed made a document, its v1, only where absent (the meta-schema first, a
  * document of itself), each its row among play.records; then every document that names no schema yet named by the
  * schema its old `schema` name was, at v1. From then on Postgres is the source.
  */

@@ -1,7 +1,7 @@
 // Runs play's migrations (../migrations: the schema's history, one file `<id>.sql` per migration, its SQL as it ran,
 // kept outside the live code; play/SPEC.md "Migrations"). They run in name order, each once, in one transaction; a
 // migration is never edited after it has shipped, only followed by another. `until` stops after that migration (a test
-// builds a database as it stood then).
+// builds a database as it stood then). What SQL can't write is ./seed.ts, run after it by every entry point.
 //
 // A new migration's id is `<UTC time YYYYMMDDHHMM>-<the intent's first 8 hex>-<slug>` (202611071200-e9afc2d5-files):
 // it sorts after every numbered one, and two intents never pick the same, so adding one touches only its own new file.
@@ -9,9 +9,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Db } from "./kit/pg";
-import { ensureSchemas } from "./docs/schemas";
-import { ensureLayouts } from "./sandboxes";
-import { ensureRules } from "./rules";
 import { LOCK, lockSql } from "./kit/locks";
 
 export type Migration = { id: string; sql: string };
@@ -81,13 +78,5 @@ export async function migrate(db: Db, o: { until?: string; migrations?: Migratio
     });
     if (did) ran.push(m.id);
   }
-  // then the schemas, each a document of the meta-schema, made from the seed where absent (play/SPEC.md "Version
-  // control"); a database built only up to an older migration stands as it stood then
-  if (o.until === undefined) await ensureSchemas(db);
-  // then the sandboxes' layouts, each a document, and every sandbox change kept by 202611070115-d2f50bf1-sandbox-layouts
-  // an intent variant of its layout (play/SPEC.md §4.6): SQL can't write a Loro document
-  if (o.until === undefined) await ensureLayouts(db);
-  // then the auto-accept rules' v1 (play/SPEC.md §4.12 "Auto-accept rules"): one document, made only where absent
-  if (o.until === undefined) await ensureRules(db);
   return ran;
 }

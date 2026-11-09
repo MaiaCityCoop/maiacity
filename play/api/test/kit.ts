@@ -9,6 +9,7 @@ import { app } from "../src/app";
 import { COOKIE, createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
+import { seed } from "../src/seed";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import type { GitHub } from "../src/github";
@@ -26,7 +27,7 @@ export function suite(name: string, fn: () => void) {
 export type Fresh = { db: Db; sql: Bun.SQL; url: string; name: string; drop: () => Promise<void> };
 
 /**
- * A database of its own on TEST_DATABASE_URL's server, migrated as play-api starts (`migrate: false` leaves it empty,
+ * A database of its own on TEST_DATABASE_URL's server, migrated and seeded as play-api starts (`migrate: false` leaves it empty,
  * `until` stops at that migration, as an older play's database), sessions signed; `drop()` closes and drops it.
  */
 export async function freshDb(o: { prefix?: string; migrate?: boolean; until?: string } = {}): Promise<Fresh> {
@@ -39,6 +40,7 @@ export async function freshDb(o: { prefix?: string; migrate?: boolean; until?: s
   const db = fromBunSql(sql);
   if (o.migrate !== false) {
     await migrate(db, o.until ? { until: o.until } : {});
+    if (!o.until) await seed(db);
     if (!o.until) await initSessions(db);
   }
   const drop = async () => {
