@@ -30,9 +30,9 @@ type VersionRow = { id: string; number: number; title: string; body: StoryBody; 
 
 /** the frontiers of the document's version `number` */
 async function frontiersOf(q: Queryable, docId: string, number: number): Promise<docs.Frontiers> {
-  const { rows } = await q.query<{ frontiers: docs.Frontiers }>(`SELECT frontiers FROM play.doc_versions WHERE doc_id = $1 AND number = $2`, [docId, number]);
-  if (!rows[0]) throw new docs.DocError(`${docId} has no version ${number}`, 500);
-  return rows[0].frontiers;
+  const frontiers = await docs.versionFrontiers(q, docId, number);
+  if (!frontiers) throw new docs.DocError(`${docId} has no version ${number}`, 500);
+  return frontiers;
 }
 
 /**

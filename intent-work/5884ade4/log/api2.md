@@ -157,3 +157,13 @@ left for Samuel.
 - The orchestrator rewrote freshDb on intent/5884ade4-untangle (72571973: one migrated, seeded template database per
   code). Move 9's freshDb change (prepare) is undone here so the merge keeps their body untouched. For them: their
   template's `migrate(db, {}); seed(db)` is `prepare(db)` (src/seed.ts) once merged.
+
+## 15. My own pass: two more copies in the docs store (same kind as re-api#4)
+
+- docs/store.ts read a variant's edit bytes with the same query in four places: one `importEdits(q, d, id, v)`.
+  (One of the four imported without the `rows.length` guard: importing no edits is nothing either way.)
+- A version's frontiers were read in store.ts' stateAt, storydocs.ts and the held assetdocs.ts: `docs.versionFrontiers`
+  (null where none), each caller keeping its own refusal (404 in stateAt, 500 in storydocs). assetdocs.ts' copy is
+  held (Next untangles).
+- Seen and left: sandboxes.ts' kept-change import builds `{ human, via: mcp|site }` by hand (authorOf would map an
+  'import' via differently); assetdocs.ts' authorOf copy and its via re-maps (held).
