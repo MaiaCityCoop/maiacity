@@ -17,13 +17,12 @@ play/site/scripts/census.ts
 play/site/scripts/census/census.test.ts
 play/site/scripts/census/counting.js
 play/site/scripts/census/dom.ts
-play/site/scripts/census/film.ts
 play/site/scripts/census/run.ts
 play/site/scripts/census/settle.ts
 play/site/scripts/census/setup.ts
-play/site/scripts/census/viewer.ts
 play/site/scripts/census/webgpu.js
 play/site/scripts/engine.test.ts
+play/site/scripts/flyover/flyover.mjs
 play/site/scripts/freeze-engine.ts
 play/site/scripts/grass-glsl.ts
 play/site/scripts/grass-wgsl.ts
@@ -33,8 +32,10 @@ play/site/scripts/mac-page.test.ts
 play/site/scripts/macjob/determinism.js
 play/site/scripts/macjob/dry/playwright.ts
 play/site/scripts/quiet.js
+play/site/scripts/render.mjs
 play/site/scripts/selector-shots.mjs
 play/site/scripts/serve-built.ts
+play/site/scripts/story-parity.ts
 play/site/src/lib/content/actors/dqs.test.ts
 play/site/src/lib/content/actors/dqs.ts
 play/site/src/lib/content/assets/VaultAsset.svelte
@@ -116,7 +117,6 @@ play/site/src/lib/content/render/nodes/grass.js
 play/site/src/lib/content/render/nodes/ground.js
 play/site/src/lib/content/render/nodes/index.js
 play/site/src/lib/content/render/nodes/nodes.test.ts
-play/site/src/lib/content/render/nodes/tsl.test.js
 play/site/src/lib/content/render/post.js
 play/site/src/lib/content/render/post.test.js
 play/site/src/lib/content/render/sprites.js
@@ -130,7 +130,6 @@ play/site/src/lib/content/sandbox-2/interior/PlantLook.svelte
 play/site/src/lib/content/sandbox-2/interior/animals.ts
 play/site/src/lib/content/sandbox-2/interior/cover.js
 play/site/src/lib/content/sandbox-2/interior/drawn.js
-play/site/src/lib/content/sandbox-2/interior/film.test.ts
 play/site/src/lib/content/sandbox-2/interior/interior.ts
 play/site/src/lib/content/sandbox-2/interior/plants.ts
 play/site/src/lib/content/sandbox-2/interior/textures.ts
