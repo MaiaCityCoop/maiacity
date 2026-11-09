@@ -94,3 +94,9 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
     (`factories/pallet.test.ts`, `maiacity-v2/refs.test.ts`, `interior/flora.test.ts`), and the routes put the aside
     beside the page. The site's folder cycle is back to its 16 folders plus `content/assets/cache` (which reads
     `content/render/budget.js`; render is in the cycle only through held tests); less-stable imports 18 → 15.
+12. **Content reads play's files by one address** (site-assets#4; site `files spelling /api/files/`). `render/arrays.js`
+    (the ground's KTX2 arrays) and `worlds/sound.js` (a world's recordings) take `kernel/files.js` `fileUrl`; the
+    comment of the generated `biomes/sets.js` and its generator (`tools/ground-sets/make.mjs`) name it. In content and
+    the kernel only `kernel/files.js` spells `/api/files/`; with site-app's `lib/api.ts` that is the bound's two. Content
+    does not import `lib/api.ts` (that would close a folder cycle through `lib/recipes.ts`); `catalog.js` and the box
+    read through `cache/files.js` `playFile`, the one reader. Census: Sandbox 1 and Worlds same, Sandbox 3 its noise.

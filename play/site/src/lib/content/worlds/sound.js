@@ -4,9 +4,10 @@
  * world's ambient loop, everywhere at once), and at its guests what their states call for, each where that guest
  * stands, panned and fading with distance as the camera moves: a horn once each time a guest's `state:horn` comes on,
  * a siren looped at each emergency vehicle whose `state:siren` is on (the nearest few), a truck's engine the same.
- * Recordings are play's files by hash (`/api/files/<hash>`), each fetched and decoded once. A browser lets a page
+ * Recordings are play's files by hash (../../kernel/files.js), each fetched and decoded once. A browser lets a page
  * sound only once it has been touched: `unlock()` from a touch or a key.
  */
+import { fileUrl } from '../../kernel/files.js';
 
 /** how many loops of one kind sound at once (the nearest), how many one-shots, and how far a guest is heard (m) */
 const LOOPS = 4;
@@ -30,7 +31,7 @@ export function createSound(o = {}) {
 	/** each guest's states as they were last frame (for a horn's rising edge) */
 	const was = new WeakMap();
 	let muted = false;
-	const fetchFile = o.fetchFile ?? ((h) => fetch(`/api/files/${h}`).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`recording ${h.slice(0, 12)}… answered ${r.status}`)))));
+	const fetchFile = o.fetchFile ?? ((h) => fetch(fileUrl(h)).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`recording ${h.slice(0, 12)}… answered ${r.status}`)))));
 
 	const audio = () => {
 		if (!ctx) {
