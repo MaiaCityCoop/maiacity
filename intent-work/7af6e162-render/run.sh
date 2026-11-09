@@ -20,9 +20,10 @@ if [ -d "$TREE" ]; then git -C "$TREE" checkout -q --detach "$HEAD_COMMIT"; else
 
 PIDS=()
 trap 'kill "${PIDS[@]}" 2>/dev/null || true' EXIT
-(cd "$TREE/play/site" && PLAY_API=http://localhost:3911 bunx vite dev --port 5197 --strictPort >"$OUT/vite.log" 2>&1) &
+# served as visitors get it: its production build (mac-page.mjs serve), not the dev server
+(cd "$TREE/play/site" && node scripts/mac-page.mjs serve 5197 http://localhost:3911 >"$OUT/serve.log" 2>&1) &
 PIDS+=($!)
-for _ in $(seq 1 180); do curl -sf "http://localhost:5197/" >/dev/null && break; sleep 1; done
+for _ in $(seq 1 300); do curl -sf "http://localhost:5197/" >/dev/null && break; sleep 1; done
 cd "$TREE/play/site"
 # a fresh place for this job's profiles: both runs start with nothing kept
 export MAC_PROFILES="$OUT/profiles"

@@ -15,7 +15,8 @@ git fetch origin intent-work/7af6e162-render && git checkout origin/intent-work/
 PLAY_MCP_TOKEN=play_… bash intent-work/7af6e162-render/run.sh      # about 10–15 minutes: the cold loads are most of it
 ```
 
-It uses the pull request's head (`intent/7af6e162-settle-fast`) only, served on port 5197, with its profiles in a fresh
+It uses the pull request's head (`intent/7af6e162-settle-fast`) only, served as its production build on port 5197
+(`node scripts/mac-page.mjs serve`: `bun run build`, then `vite preview`; not the dev server), with its profiles in a fresh
 folder under `out/` that is deleted at the end. It runs selector-shots twice:
 
 1. `--cold`: the first load in a fresh profile is measured (near, mid, far, then the old city).
@@ -42,6 +43,9 @@ Commit `out/` (without `profiles/`) and push to `intent-work/7af6e162-render`.
 - **Settle by `play/site/scripts/quiet.js`** (`quietness`, self-contained: `page.evaluate(quietness)` until it is 0
   twice, 2 s apart, as `mac-page.mjs` `settle` does). It replaces `intent-work/main-baseline/determinism.mjs`'s `QUIET`:
   the same building, keeping and pictures-taken terms, plus the copies and the domes.
+- **Serve each side's production build** (`node play/site/scripts/mac-page.mjs serve <port> <api>` from its play/site):
+  the dev server transforms hundreds of modules on the first load (on the CPU, Sandbox 1's page shell alone: 240
+  modules, 2.7 s, against 36 files, 0.65 s built).
 - **Open pages through `play/site/scripts/mac-page.mjs` `openSite(<side>)`**, or at least with
   `chromium.launchPersistentContext(~/.cache/maiacity-render/profiles/<side>, …)` in place of `browser.newContext()`.
   Keep each side's port from job to job (the cache is per origin), and warm once before measuring. The cache's keys are
