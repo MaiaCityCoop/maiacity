@@ -25,3 +25,10 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
 3. **Comments naming a file that is gone: 3 (6 after move 1) → 0** (comments only). The bench's own `./catalog.js`,
    `./clips.js` and `./render/crowd.js` name `content/assets/…` now; three of play/api's tests named
    `./intents.ts` and `./select.ts` beside them, which are `../src/intents.ts` and `play/avenbox/select.ts`.
+4. **`census/away.test.ts` reads the catalog and the sandboxes where they are** (re-audit: re-exports). It took
+   `catalogReady` from `lib/recipes.ts` and `SANDBOX` from `content/assets/sandboxes.js`, both one-line re-exports kept
+   for the held `census/run.ts` and held worlds; it now imports `content/assets/catalog.js` (which it read already) and
+   `kernel/sandboxes.js`. Pinned: `bun test scripts/census/away.test.ts` (2 pass). The site's three importers of
+   `lib/recipes.ts` (AssetLibrary, the Worlds page, Sandbox 3) stay: moved to `catalog.js`, the graph sees nothing
+   import `recipes.ts` (run.ts reads it by a computed path) and counts it dead; it and they go once run.ts imports
+   `catalog.js` itself.
