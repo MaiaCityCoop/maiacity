@@ -22,7 +22,8 @@ import { SEEDED_RANDOM } from './macjob/determinism.js';
 const { chromium } = createRequire(import.meta.url)('playwright');
 
 /** a Mac's Metal, as the render box runs it (the GPU named first); elsewhere the browser as it comes */
-export const LAUNCH = process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] } : { args: ['--ignore-gpu-blocklist'] };
+// WebGPU on Metal too (intent c1bee1f8), where the page draws with WebGPURenderer
+export const LAUNCH = process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] } : { args: ['--ignore-gpu-blocklist'] };
 
 
 /** where a site's profile is kept @param {string} name @param {string} [root] */
@@ -43,6 +44,8 @@ export async function openSite(name, o = {}) {
 
 /** the GPU a page draws with, as WebGL names it */
 export const gpuOf = (page) => page.evaluate(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g?.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; });
+/** the WebGPU adapter the page would draw with, or 'none' (intent c1bee1f8) */
+export const webgpuOf = (page) => page.evaluate(async () => { const a = await navigator.gpu?.requestAdapter?.(); return a ? `${a.info?.vendor ?? ''} ${a.info?.architecture ?? ''} ${a.info?.description ?? ''}`.trim() || 'an adapter' : 'none'; }).catch(() => 'none');
 
 /**
  * Polls ./quiet.js every 2 s until the world has settled (0 twice running: nothing moved between two looks), at most

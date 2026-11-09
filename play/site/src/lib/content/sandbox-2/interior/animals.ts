@@ -432,7 +432,7 @@ export function antHills(
 		g.computeVertexNormals()
 		// bare earth, paler than the green round it, as a trodden road is; seen from either side (its strips wind
 		// whichever way the road turns)
-		const track = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#8a6c4a', roughness: 1, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }))
+		const track = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#8a6c4a', roughness: 1, alphaHash: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }))
 		track.receiveShadow = true
 		track.renderOrder = 1
 		object.add(track)

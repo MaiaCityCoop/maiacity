@@ -292,7 +292,8 @@ export function setup(o: Setup = {}) {
 			fetched.live.add(route);
 			if (done.verbose) console.error('census: live', r.status, route);
 			const body = await r.text();
-			if (done.record && pinnedAt && r.ok) writeFileSync(pinnedAt, gzipSync(JSON.stringify({ route, status: r.status, type: r.headers.get('content-type') ?? 'application/json', blake3: hashOf(body), body }), { level: 9 }));
+			// a route that names nothing (404) is pinned too: "no such variant" is an answer as it was (8823eb7c)
+			if (done.record && pinnedAt && (r.ok || r.status === 404)) writeFileSync(pinnedAt, gzipSync(JSON.stringify({ route, status: r.status, type: r.headers.get('content-type') ?? 'application/json', blake3: hashOf(body), body }), { level: 9 }));
 			return new Response(body, { status: r.status, headers: { 'content-type': r.headers.get('content-type') ?? 'application/json' } });
 		}
 		// the site's static files: the frozen engines from this checkout's (they never change), the rest from root's
