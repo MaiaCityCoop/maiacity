@@ -106,6 +106,8 @@ export function worldFinish(renderer, scene, camera, o = {}) {
 	const plan = finishing({ device: o.device ?? thisDevice(), film: o.film, ghosts: o.ghosts });
 	const atmosphere = o.sky ? createAtmosphere(scene, o.sky) : null;
 	const finish = createFinish(renderer, scene, camera, plan, { sun: o.sky?.sun });
+	// what the page draws by, for the Mac job's record (selector-shots.mjs `finish`)
+	if (typeof window !== 'undefined') /** @type {any} */ (window).__finish = { plan, backend: renderer.backend?.isWebGPUBackend ? 'webgpu' : 'webgl2' };
 	/** the world's own far plane, and the one the haze last set */
 	let own = camera.far, set = NaN;
 	return {

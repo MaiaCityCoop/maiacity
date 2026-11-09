@@ -13,6 +13,12 @@
  * `window.__meter = installMeter(window)`), each view's 4 s sampled by it too: its frame time, p95, CPU and GPU time and
  * what bounds the frame (`meter` in results.json; intent b03f9fb4's c9).
  *
+ * --hour <h>: the world's hour (default 12; 19.44 is a sun of 8° on the sky's day); --tag <t>: put before every file's
+ * name and the results' views (so two hours share a folder); --small: a phone (390 × 844, touch, the small device's
+ * finishing, intent 1f0c6f79), Sandbox 1 near only; --determinism <file>: the render box's determinism.mjs, its
+ * SEEDED_RANDOM an init script and its QUIET the settle; each view then also records `window.__finish` (the finishing
+ * plan the page drew by, intent 1f0c6f79) and the backend.
+ *
  * --census <view>: that view alone, and with it the census of every copy the renderers hold there (`__assets.kinds()`:
  * Sandbox 1's outdoor forest `out`, the domes' `in`, the library): each copy's distance from the eye, its size on screen,
  * the level the selector chose for it (a shape's index, or `picture`) and that level's triangles, in
@@ -38,6 +44,7 @@ let out = 'shots';
 let census = null;
 /** the frame meter's source, injected whole (`--meter`) */
 let meterFile = null;
+let HOUR_ARG = 12, tag = '', small = false, determinismFile = null;
 for (let i = 0; i < argv.length; i++) {
 	if (argv[i] === '--site') {
 		const [name, url] = argv[++i].split('=');
@@ -45,7 +52,17 @@ for (let i = 0; i < argv.length; i++) {
 	} else if (argv[i] === '--out') out = argv[++i];
 	else if (argv[i] === '--census') census = argv[++i];
 	else if (argv[i] === '--meter') meterFile = argv[++i];
+	else if (argv[i] === '--hour') HOUR_ARG = Number(argv[++i]);
+	else if (argv[i] === '--tag') tag = argv[++i] + '-';
+	else if (argv[i] === '--small') small = true;
+	else if (argv[i] === '--determinism') determinismFile = argv[++i];
 }
+/** the render box's determinism (SEEDED_RANDOM, QUIET), or none */
+const determinism = determinismFile ? await import(determinismFile.startsWith('/') ? determinismFile : `${process.cwd()}/${determinismFile}`) : null;
+/** the browser's context: the Mac's screen at 1440 × 900, or a phone */
+const contextOf = () => (small ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } });
+/** what the page drew by: the finishing plan, the backend */
+const finishOf = (page) => page.evaluate(() => ({ plan: window.__finish?.plan ?? null, backend: window.__finish?.backend ?? null })).catch(() => null);
 if (!sites.length) throw new Error('give at least one --site name=url');
 const TOKEN = process.env.PLAY_MCP_TOKEN;
 if (!TOKEN) throw new Error('PLAY_MCP_TOKEN: the admin token the proxy reads play with');
@@ -74,7 +91,7 @@ const proxy = createServer(async (req, res) => {
 await new Promise((ok) => proxy.listen(3911, '127.0.0.1', ok));
 
 /** the world's hour, the same for every site and view (the sky's film hook, sandbox-kit/sky.js): noon, lamps out */
-const HOUR = 12;
+const HOUR = HOUR_ARG;
 
 /** counts every triangle the page draws, per frame (window.__tri.frames: [time, triangles]); and pins the hour */
 function countTriangles(hour) {
@@ -156,14 +173,15 @@ async function takeCensus(page, site, v) {
 	console.log(`${site.name} census at ${v.name}: ${rows.reduce((a, r) => a + r.tris, 0).toLocaleString('en')} triangles in shapes, the costliest kinds:`);
 	console.table(rows.slice(0, 40));
 }
-const building = (page) => page.evaluate(() => { const s = window.__assets?.stats?.(); return s ? ['out', 'in', 'library'].reduce((a, k) => a + (s[k]?.building ?? 0), 0) : null; }).catch(() => null);
+const building = (page) => determinism ? page.evaluate(determinism.QUIET).catch(() => null) : page.evaluate(() => { const s = window.__assets?.stats?.(); return s ? ['out', 'in', 'library'].reduce((a, k) => a + (s[k]?.building ?? 0), 0) : null; }).catch(() => null);
 const settle = async (page, ms) => {
 	for (const end = Date.now() + ms; Date.now() < end; await page.waitForTimeout(2000)) if ((await building(page)) === 0) return true;
 	return false;
 };
 for (const site of sites) {
-	const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+	const ctx = await browser.newContext(contextOf());
 	const page = await ctx.newPage();
+	if (determinism) await page.addInitScript({ content: determinism.SEEDED_RANDOM });
 	await page.addInitScript(countTriangles, HOUR);
 	if (meterScript) await page.addInitScript(meterScript);
 	const t0 = Date.now();
@@ -171,7 +189,7 @@ for (const site of sites) {
 	await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
 	const settled = await settle(page, 10 * 60e3);
 	console.log(`${site.name}: Sandbox 1 up and ${settled ? 'settled' : 'still building'} after ${Math.round((Date.now() - t0) / 1000)} s`);
-	for (const v of census ? VIEWS.filter((v) => v.name === census) : VIEWS) {
+	for (const v of census ? VIEWS.filter((v) => v.name === census) : small ? VIEWS.filter((v) => v.name === 'near') : VIEWS) {
 		await page.evaluate((v) => window.__walker.place(v.x, v.z, v.yaw, v.pitch), v);
 		await page.waitForTimeout(1500);
 		const ok = await settle(page, 3 * 60e3);
@@ -185,30 +203,33 @@ for (const site of sites) {
 			return { frames: d.length, frameMs: d.length ? +(d.reduce((a, b) => a + b, 0) / d.length).toFixed(1) : null, frameP95: d[Math.floor(d.length * 0.95)] ?? null, tris: Math.round(tris[tris.length >> 1] ?? 0), trisMax: Math.round(tris[tris.length - 1] ?? 0), assets: { out: of(s.out), in: of(s.in), library: of(s.library) } };
 		});
 		const meter = await metered(page);
-		const png = `${out}/${site.name}-sandbox-1-${v.name}.png`;
+		const png = `${out}/${tag}${site.name}-sandbox-1-${v.name}.png`;
 		await page.screenshot({ path: png });
-		results.push({ site: site.name, world: 'sandbox-1', view: v.name, settled: ok, ...m, meter, png });
+		const finish = await finishOf(page);
+		results.push({ site: site.name, world: 'sandbox-1', view: tag + v.name, hour: HOUR, settled: ok, ...m, meter, finish, png });
+		if (finish?.plan) console.log(`${site.name} ${tag}${v.name}: finishing ${finish.plan.device} (${finish.backend}), scale ${finish.plan.scale}, ${finish.plan.aa}${finish.plan.ao ? ', AO' : ''}${finish.plan.bloom ? ', bloom' : ''}${finish.plan.contact ? ', contact shadows' : ''}`);
 		if (census) await takeCensus(page, site, v);
 		console.log(`${site.name} sandbox-1 ${v.name}: ${m.frameMs} ms/frame (p95 ${m.frameP95?.toFixed?.(1)}), ${m.tris.toLocaleString('en')} tris drawn (max ${m.trisMax.toLocaleString('en')})${ok ? '' : ', still building'}`);
 	}
 	await ctx.close();
-	if (census) continue;
+	if (census || small) continue;
 	// Sandbox 3, the old city, as it opens (c5: the same things there, nothing missing far off)
-	const ctx3 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+	const ctx3 = await browser.newContext(contextOf());
 	const p3 = await ctx3.newPage();
+	if (determinism) await p3.addInitScript({ content: determinism.SEEDED_RANDOM });
 	await p3.addInitScript(countTriangles, HOUR);
 	if (meterScript) await p3.addInitScript(meterScript);
 	await p3.goto(`${site.url}/sandbox-3/`, { waitUntil: 'domcontentloaded' });
 	await p3.waitForTimeout(60e3);
 	const meter3 = await metered(p3);
-	const png3 = `${out}/${site.name}-sandbox-3-open.png`;
+	const png3 = `${out}/${tag}${site.name}-sandbox-3-open.png`;
 	await p3.screenshot({ path: png3 });
 	const t3 = await p3.evaluate(() => { const t = window.__tri.frames.map((x) => x[1]).filter((x) => x > 0).sort((a, b) => a - b); return Math.round(t[t.length >> 1] ?? 0); });
-	results.push({ site: site.name, world: 'sandbox-3', view: 'open', tris: t3, meter: meter3, png: png3 });
+	results.push({ site: site.name, world: 'sandbox-3', view: tag + 'open', hour: HOUR, tris: t3, meter: meter3, finish: await finishOf(p3), png: png3 });
 	console.log(`${site.name} sandbox-3 open: ${t3.toLocaleString('en')} tris drawn`);
 	await ctx3.close();
 }
-writeFileSync(`${out}/results.json`, JSON.stringify(results, null, 1));
+writeFileSync(`${out}/${tag}results.json`, JSON.stringify(results, null, 1));
 console.table(results.map(({ site, world, view, frameMs, frameP95, tris, trisMax }) => ({ site, world, view, frameMs, frameP95, tris, trisMax })));
 await browser.close();
 proxy.close();
