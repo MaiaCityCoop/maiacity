@@ -102,3 +102,6 @@ name and body, `// the next thing` lines.
 17. **`content/game/film`** (47): `shot.js`'s header spelt the spec out a second time beside its `Spec` typedef
     (what the typedef can't say kept: the clock rule, the fov's axis, middle grey, the CB60's history); `camera.js`'s
     listed the kinds beside its `CameraKind` typedef, and named `maia/content/scripts/film/camera.mjs`, gone.
+18. **`content/assets/box`** (45): the headers of `bake.js`, `clips.js`, `host.js` and `pieces.js` each to what the
+    module guarantees and why (no function leaves the box; the box loads nothing; a recipe dies alone; pieces held to
+    their hash, SPEC §4.5), not how each step goes. The numerical docs of `clips.js`'s functions stay.

@@ -1,25 +1,11 @@
 // @ts-nocheck — plain JS, runs inside the box
 /*
- * AN ASSET'S CONTROLS AS DATA — what a builder leaves on its object to move it after it is built (a tent's pitch, a
- * pickup's doors, a machine's explode and build) is a function, and no function leaves the box (./serialize.js). So
- * the box plays each one here, from 0 to 1, and writes down where every part it moves stands at each step: its place,
- * turn and size, whether it shows, its blend shapes' weights, its instances. The page plays the control back from
- * those numbers alone (../controls.js), on its own page and in the renderer, as the builder's function would have
- * moved it. A function of one number is all any of our controls is, so nothing is lost but the shortcuts.
- *
- * Engine 5 adds what else a control changes, only for the parts it changes: a mesh it reshapes (a tent's canvas
- * hung and draped as its pole goes up, a bag's cover laid open), its positions and normals at each step (`shapes`),
- * as many vertices as it was built with; a material's colour, glow, opacity, roughness and metalness (`looks`, `MAT`
- * numbers a step); a light's colour, brightness, reach and fall-off (`lights`, `LIGHT` numbers). The page puts them
- * back as it does the rest (../controls.js), and so does a build kept running in the box, step by step.
- *
- * The controls it knows, by the function on the object's userData (engine 3, the first that bakes them):
- *   setPitch → pitch, setBuild → build, explode → explode, setOpen → open, setTailgate → tailgate,
- *   setDoor(name, k) with `doors` → door.<name> for each, fire.setLit(on) → lit (a choice: off or on); and from
- *   engine 5, setWet → wet.
- * Each is sampled at SAMPLES even steps from 0 to 1, with the object as built put back between controls and after the
- * last; `rest` is the value it was built at (the sample that matches it best). A control that changes the object's
- * tree (adds or takes away a part) cannot be played back from numbers: it is left out, and the object built again.
+ * An asset's controls as data: what a builder leaves on its object to move it after it is built (a tent's pitch, a
+ * machine's explode) is a function, and no function leaves the box (./serialize.js). So each is played here from 0 to 1
+ * and written down at SAMPLES steps (each moved part's place, turn, size, visibility, blend weights and instances; from
+ * engine 5 also the meshes it reshapes, material looks and lights) for the page to play back (../controls.js). One that
+ * changes the tree is left out, and the object built again. Known: setPitch, setBuild, explode, setOpen, setTailgate,
+ * setDoor(name, k) with `doors`, fire.setLit(on); from engine 5, setWet.
  */
 
 /** steps a control is sampled at, from 0 to 1: enough to follow a part's turn or flight (our builds ease over a third or more of it) */
