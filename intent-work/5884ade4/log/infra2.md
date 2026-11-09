@@ -44,3 +44,13 @@ scratchpad, `infra2/`).
   log orders `openssl` and `sudo tee` of one pipe as they happen to run; normalised.)
 - Left: play/api (`blobs.ts`' comments, `bucket.test.ts`) and restore.yml's header name the prefix in words; the image
   takes it from play.env.
+
+## 4. intent.ts reads the box's database from box.env (re-infra#4)
+
+- intent.ts's own `DATABASE` URL goes: without TEST_DATABASE_URL, the checks get `BOX_DATABASE_URL` of
+  `<root>/play/avenbox/box.env` (its `--root`: in intents-pr.yml's run job the head's checkout, whose setup.sh made the
+  box it runs in; locally the repository). It is sourced by bash with only PATH in its environment (no token near
+  it). intents-pr.yml unchanged (it already hands play.ts beside intent.ts; the checkout holds box.env); box.env's
+  comment loses the exception.
+- Pinned: avenbox.test.ts, a new case: `--from` with no TEST_DATABASE_URL and a root whose box.env names another port
+  and password: the check sees that URL. The suite's other cases, with TEST_DATABASE_URL set, unchanged and green.

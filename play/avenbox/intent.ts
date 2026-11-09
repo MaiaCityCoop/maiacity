@@ -30,7 +30,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SHA = /^[0-9a-f]{40}$/;
 const TAIL = 40;
 const EVIDENCE_MOST = 4000;
-const DATABASE = "postgres://postgres:play@127.0.0.1:5432/postgres";
 /** what no check's command may see: play's token and GitHub's */
 const SECRETS = ["PLAY_MCP_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "ACTIONS_RUNTIME_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_URL"];
 /** what the box says to a --record outside the GitHub run */
@@ -117,6 +116,15 @@ async function runOne(run: string, env: Record<string, string | undefined>) {
   return { code: timedOut ? 124 : code, seconds: (performance.now() - start) / 1000, tail };
 }
 
+/** the box's test database: BOX_DATABASE_URL of the root's play/avenbox/box.env, as up.sh and setup.sh made the box */
+function boxDatabase(): string {
+  const file = `${ROOT}/play/avenbox/box.env`;
+  const r = Bun.spawnSync(["bash", "-c", '. "$1" && printf %s "$BOX_DATABASE_URL"', "box.env", file], { env: { PATH: process.env.PATH }, stdout: "pipe", stderr: "pipe" });
+  const url = `${r.stdout}`;
+  if (r.exitCode !== 0 || !url) throw new Error(`${file} names no BOX_DATABASE_URL: ${`${r.stderr}`.trim()}`);
+  return url;
+}
+
 /** the spec's checks run in the box, printed; their results with where they ran (no token is needed or seen) */
 async function runChecks(spec: SpecFile): Promise<ResultsFile> {
   const checks = spec.checks.filter((c) => !only || only.includes(c.id));
@@ -126,7 +134,7 @@ async function runChecks(spec: SpecFile): Promise<ResultsFile> {
     if (up.exitCode !== 0) console.log("avenBOX: up.sh did not make the box ready; the checks that need Postgres will fail");
   }
   // every run's environment: the box's database, and no token
-  const env: Record<string, string | undefined> = { ...process.env, TEST_DATABASE_URL: process.env.TEST_DATABASE_URL || DATABASE };
+  const env: Record<string, string | undefined> = { ...process.env, TEST_DATABASE_URL: process.env.TEST_DATABASE_URL || boxDatabase() };
   for (const s of SECRETS) delete env[s];
 
   const rev = sh(["git", "rev-parse", "HEAD"]);
