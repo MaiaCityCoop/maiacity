@@ -49,7 +49,8 @@ describe('the render core holds', () => {
 		const makes = files.filter((f) => /\b(createRenderer|worldRenderer)\s*\(/.test(f.text) && !/\bfunction\s+(createRenderer|worldRenderer)\b/.test(f.text));
 		const waits = (/** @type {{ text: string }} */ f) => /\bready\s*\(|\bmakeRenderer\s*\(/.test(f.text);
 		expect(makes.filter((f) => !waits(f) && ![CORE, 'lib/content/render/stage.js', 'lib/content/render/world.js', 'lib/content/factories/three.js', 'lib/content/factories/look.js'].includes(f.path)).map((f) => f.path)).toEqual([]);
-		const stages = files.filter((f) => /\b(createStageRenderer|createWorldRenderer)\s*\(/.test(f.text) && !/\bfunction\s+(createStageRenderer|createWorldRenderer)\b/.test(f.text));
+		// (the sandbox kit's `createStage` is createWorldRenderer under its kit name: ../sandbox-kit/index.js)
+		const stages = files.filter((f) => /\b(createStageRenderer|createWorldRenderer|createStage)\s*\(/.test(f.text) && !/\bfunction\s+(createStageRenderer|createWorldRenderer)\b/.test(f.text));
 		expect(stages.length).toBeGreaterThan(0);
 		expect(stages.filter((f) => !/\.ready\b/.test(f.text)).map((f) => f.path)).toEqual([]);
 		expect(files.find((f) => f.path === 'lib/content/factories/app.js')?.text).toMatch(/ready\(look\.renderer\)/);
