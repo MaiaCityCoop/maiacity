@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // c6 of intent 660ad67f on the Mac (Metal): Sandbox 5's dome plants in Chromium and WebKit, and Sandbox 1's film stepped.
-//   node intent-work/660ad67f-render/look.mjs --site http://localhost:5190 [--out <dir>]
+//   node intent-work/660ad67f-render/look.mjs --site http://localhost:5190 [--out <dir>]   (run.sh runs it)
 // Per browser: Sandbox 5 opened, left to build (until its renderers build nothing, at most 120 s), walked forward 12 s
 // (W held), its programs linked counted (linkProgram) and every console error and page error kept; a screenshot after.
 // Then Sandbox 1, built, its film advanced over 5 s (window.__world.film.advance at 0…5 s, 10 steps). Out: <out>/*.png
 // and <out>/results.json; it exits 1 when any uniform error, "did not load" or film throw is seen.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-const { chromium, webkit } = createRequire(new URL('../../play/site/package.json', import.meta.url))('playwright');
+const { chromium, webkit } = createRequire(process.cwd() + "/package.json")("playwright");
 const argv = process.argv.slice(2);
 const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
 const site = opt('--site', 'http://localhost:5190').replace(/\/$/, '');
@@ -37,18 +37,19 @@ for (const [name, type, opts] of [
 	const said = [];
 	page.on('console', (m) => ['error', 'warning'].includes(m.type()) && said.push(m.text().slice(0, 300)));
 	page.on('pageerror', (e) => said.push(`pageerror: ${String(e.message).slice(0, 300)}`));
-	const gpu = await page.evaluate(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g?.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; });
+	const ev = (f, d = null) => page.evaluate(f).catch(() => d);
 	// Sandbox 5: built, then walked
 	await page.goto(`${site}/sandbox-5/`, { waitUntil: 'load' });
 	const t0 = Date.now();
 	await page.waitForFunction(() => window.__assets?.stats && !['out', 'in', 'library'].some((k) => window.__assets.stats()[k]?.building), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
 	const built = (Date.now() - t0) / 1000;
-	const before = await page.evaluate(() => window.__links);
+	const before = await ev(() => window.__links ?? 0, 0);
 	await page.mouse.click(720, 450);
 	await page.keyboard.down('w');
 	await page.waitForTimeout(12_000);
 	await page.keyboard.up('w');
-	const walked = (await page.evaluate(() => window.__links)) - before;
+	const walked = (await ev(() => window.__links ?? 0, 0)) - before;
+	const gpu = await ev(() => { const g = document.querySelector('canvas')?.getContext('webgl2'); const e = g?.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; }, 'unknown');
 	await page.screenshot({ path: `${out}/${name}-sandbox-5.png` });
 	const s5 = { said: said.splice(0) };
 	// Sandbox 1: its film stepped
@@ -58,7 +59,7 @@ for (const [name, type, opts] of [
 		try {
 			for (let i = 0; i <= 10; i++) {
 				window.__world.film.advance(i * 0.5);
-				await new Promise((r) => requestAnimationFrame(r));
+				await new Promise((r) => setTimeout(r, 50));
 			}
 			return 'advanced 0…5 s';
 		} catch (e) {
@@ -66,7 +67,7 @@ for (const [name, type, opts] of [
 		}
 	});
 	await page.screenshot({ path: `${out}/${name}-sandbox-1-film.png` });
-	const r = { browser: name, gpu, sandbox5: { builtSeconds: built, programsLinkedWhileWalking: walked, programsLinkedTotal: await page.evaluate(() => window.__links), errors: s5.said }, sandbox1: { film, errors: said.splice(0) } };
+	const r = { browser: name, gpu, sandbox5: { builtSeconds: built, programsLinkedWhileWalking: walked, programsLinkedTotal: await ev(() => window.__links ?? 0, 0), errors: s5.said }, sandbox1: { film, errors: said.splice(0) } };
 	const bad = [...r.sandbox5.errors, ...r.sandbox1.errors].filter((t) => BAD.test(t));
 	if (bad.length || film.startsWith('threw')) failed = true;
 	r.bad = bad;
