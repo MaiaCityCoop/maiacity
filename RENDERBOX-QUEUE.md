@@ -1,5 +1,14 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 11:30 Berlin
+- **660ad67f run 3 recorded: c6 FAIL, close** (head 7e7c0aa5d). Safari walk: 274 frames, **mean 43.8 ms** (bound 31.2),
+  p95 109, 17 over 100 ms, max 1.36 s; run 2 was 187 ms. All else passes (drawn, 0 errors, film). 47 programs still link
+  while walking: build them before the walk (Sandbox 5's plant programs while it loads), or share more.
+- **#13 run 3 recorded: c6 FAIL** (head 7a8c52ac3; out/ 76b71b283). The CPU points map shows rings, ferns, gaps, a path
+  margin; the GPU's Sandbox 1 barely changes (SSIM 0.958–0.996): too little of the cover is drawn at these views for
+  colonies to read. Draw the cover as dense as the points near the eye, and shoot top-down 6–10 m over a food-forest trunk.
+- **#8 run 2 running** (step 0 on af3b1e0db since 11:27).
+
 ## 11:22 Berlin
 - **660ad67f run 3** (head 7e7c0aa5d; out/ 44913732c): 0 errors of any kind in both engines, programs 54 in all (was 64–65),
   47 linked while walking. Its job doesn't time the walk, so the Safari walk (wk5, the pre-programme's walk) runs on this
