@@ -119,7 +119,7 @@ const families: Record<string, () => Bound[]> = {
 	},
 	// deploy and CI: each constant once
 	infra: () => {
-		const nonTest = tracked.filter((f) => !isTest(f) && !/^intent-work\//.test(f) && existsSync(f) && !/\.(png|jpe?g|webp|ktx2|glb|bin|woff2?|mp[34]|wav|lock)$/.test(f) && !SKIP.test(f));
+		const nonTest = tracked.filter((f) => !isTest(f) && !held.has(f) && !/^intent-work\//.test(f) && existsSync(f) && !/\.(png|jpe?g|webp|ktx2|glb|bin|woff2?|mp[34]|wav|lock)$/.test(f) && !SKIP.test(f));
 		return [
 			["the required check's name written out (files)", filesWith(nonTest, /play \/ API and site/), 1],
 			['AWS_REQUEST_CHECKSUM_CALCULATION', count(nonTest, /AWS_REQUEST_CHECKSUM_CALCULATION/), 1],
