@@ -133,7 +133,7 @@ export function clumpsT(foot, size) {
  *   level: 0 | 1 | 2,
  *   uniforms: ReturnType<typeof grassUniforms>,
  *   params: import('../../biomes/grass.js').GrassParams,
- *   device: { bands: number[], near: number, minPx: number, falloff?: number },
+ *   device: { bands: number[], near: number, minPx: number, falloff?: number, stands?: number },
  *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any },
  *   blade?: (i: any) => { cell: any, j: any },
  *   trodden?: (foot: any) => any,
@@ -194,7 +194,7 @@ export function grassMaterial(o) {
 		// few stand straight, most lean a little, some far over
 		const lean = ownLean.mul(ownLean).mul(1.1).add(0.3).mul(P.lean);
 		const thin = float(1).div(sqrt(max(keepD, 0.12)));
-		const width = max(float(P.width * STANDS).mul(ownW).mul(thin), dd.mul(D.minPx).div(U.pxAt1m));
+		const width = max(float(P.width * (D.stands ?? STANDS)).mul(ownW).mul(thin), dd.mul(D.minPx).div(U.pxAt1m));
 
 		/* the wind: the world's one wind where it has one (intent 6fd5e63f, render/wind.js `windNodes`: its strength at the
 		   blade's foot, gusts travelling along its way, on the world's clock), else the grass's own gusts; each blade its

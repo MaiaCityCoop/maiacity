@@ -324,9 +324,14 @@ describe('on WebGPU: chosen on the graphics card', async () => {
 		field.dispose();
 	});
 
-	test('the card draws the grass at the same density as the fallback, 700 a square metre at the eye on a desktop', () => {
-		for (const d of /** @type {const} */ (['desktop', 'small', 'viewer'])) expect(G.gpuDevice(d)).toBe(DEVICES[d]);
-		expect(DEVICES.desktop.density).toBeGreaterThanOrEqual(500);
+	test('the card draws the fallback’s density (700 a square metre at the eye on a desktop) out further and wider', () => {
+		for (const d of /** @type {const} */ (['desktop', 'small', 'viewer'])) {
+			const g = G.gpuDevice(d);
+			expect(g.density).toBe(DEVICES[d].density);
+			expect(g.near).toBeGreaterThanOrEqual(DEVICES[d].near);
+		}
+		expect(G.gpuDevice('desktop').near).toBe(4);
+		expect(G.gpuDevice('desktop').stands).toBe(3);
 	});
 
 	/* the CPU's twin: a frame's field, its mask filled, its view as the compute read it */
@@ -451,4 +456,43 @@ describe('on WebGPU: chosen on the graphics card', async () => {
 		expect(u.at(1, 1)).toBe(0);
 		expect(u.data.some((v) => v > 0)).toBe(false);
 	});
+});
+
+// Grass that looks like real grass (intent e85a5860's c4, Samuel 2026-11-09: "it needs to look like real grass, not
+// single blades"): in the near view of each grass biome, the share of the ground the blades the card keeps cover, at
+// 1280 × 720 from the eye (grass-cover.js `coverOf`); the blades a square metre near, mid and far printed beside it.
+describe('grass covers the ground', async () => {
+	const { BIOMES } = await import('./index.js');
+	const { fieldMask, grassOfRecipe } = await import('./grass.js');
+	const G = await import('./grass-gpu.js');
+	const { coverOf, keptPerM2 } = await import('./grass-cover.js');
+	/** each biome's grass as its newest version on play writes it (its source's `grass`), pinned 2026-11-09 */
+	const PARAMS = {
+		meadow: { height: 0.3, tall: 0.6, heightSpread: 0.45, width: 0.006, clump: 1.4, lean: 0.55, base: '#3a5a20', tip: '#a7bf62', dry: '#c2b071', dryShare: 0.15 }, // e36c9671 v2
+		'clover-lawn': { height: 0.09, tall: 0.14, heightSpread: 0.3, width: 0.005, clump: 0.8, lean: 0.35, base: '#3d6224', tip: '#86ad4c', dry: '#b5a868', dryShare: 0.05 }, // 3355de49 v2
+		'food-forest': { height: 0.22, tall: 0.45, heightSpread: 0.4, width: 0.006, clump: 1.2, lean: 0.5, base: '#3c5e22', tip: '#9ab85a', dry: '#b9a865', dryShare: 0.1 }, // 254102d4 v3
+		'roadside-verge': { height: 0.15, tall: 0.45, heightSpread: 0.5, width: 0.005, clump: 1.6, lean: 0.6, base: '#7a7458', tip: '#c9bc92', dry: '#d4c69c', dryShare: 0.7 } // 84db33e7 v2
+	};
+	/** the verge's cover as its newest version lays it (84db33e7 v2): its grass is the cover kind `drygrass` */
+	const VERGE = { id: 'roadside-verge', cover: [{ kind: 'drygrass', share: 6, colony: 2.5, spread: 0.6, fill: 0.7 }, { kind: 'plantain', share: 0.6, colony: 1.5, spread: 0.3 }, { kind: 'gravel', share: 6, colony: 3, spread: 0.7, fill: 0.9 }] };
+	/** the share of the near view a biome's grass must cover: closed, or patchy between its litter as in nature */
+	const BOUND = { meadow: [0.9, 1], 'roadside-verge': [0.9, 1], 'clover-lawn': [0.9, 1], 'food-forest': [0.4, 0.85] };
+	for (const id of /** @type {const} */ (['meadow', 'roadside-verge', 'clover-lawn', 'food-forest'])) {
+		test(`grass covers the ground: ${id}`, () => {
+			const recipe = id === 'roadside-verge' ? VERGE : BIOMES.find((b) => b.id === id);
+			const P = PARAMS[id], dev = G.gpuDevice('desktop');
+			const of = grassOfRecipe(/** @type {any} */ (recipe));
+			const mask = fieldMask(dev, (x, z) => ({ ...of(x, z), y: 0 }));
+			/** @type {[number, number, number]} */
+			const eye = [0.3, 1.65, 0.2];
+			mask.update(eye[0], eye[2], Infinity);
+			const field = { mask, dev, n: perCell(dev.density), hmax: G.tallest(P), clump: P.clump };
+			const c = coverOf({ field, params: P, eye, yaw: 0, pitch: -0.3, width: 1280, height: 720 });
+			const per = keptPerM2(field, eye, 23);
+			console.log(`${id}: grass covers ${(c.cover * 100).toFixed(1)} % of the ground 1.5–10 m from the eye (${c.blades} blades); kept a square metre: near ${per.near}, mid ${per.mid}, far ${per.far}`);
+			const [lo, hi] = BOUND[id];
+			expect(c.cover).toBeGreaterThanOrEqual(lo);
+			expect(c.cover).toBeLessThanOrEqual(hi);
+		}, 120_000);
+	}
 });

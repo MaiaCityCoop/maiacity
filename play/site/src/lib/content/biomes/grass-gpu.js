@@ -349,6 +349,13 @@ export class Trample {
 /** the tallest a blade of these params stands (m): its tall height, its spread and its clump's 1.2 @param {{ height: number, tall: number, heightSpread: number }} p */
 export const tallest = (p) => Math.max(p.height, p.tall) * (1 + p.heightSpread) * 1.2;
 
-/** the device's grass on WebGPU: its bands and density, as on the fallback (grass.js DEVICES) @param {'desktop' | 'small' | 'viewer'} device */
-export const gpuDevice = (device) => DEVICES[device];
+/**
+ * The device's grass on WebGPU: its bands and density as on the fallback (grass.js DEVICES), but everything at the eye
+ * out to `near` (4 m on a desktop, not 2.5) and each blade standing for twice as many across (`stands` 3, not 1.5), so
+ * the sward closes from the eye (c4, `coverOf`: a meadow's near view 90 % covered at 1280 × 720, where the fallback's
+ * numbers cover 57 %); the card culls what the view doesn't see one blade at a time, so it can stand them so thick.
+ */
+export const GPU = { desktop: { near: 4, stands: 3 }, small: { near: 3, stands: 3 }, viewer: {} };
+/** @param {'desktop' | 'small' | 'viewer'} device */
+export const gpuDevice = (device) => ({ ...DEVICES[device], ...GPU[device] });
 
