@@ -1,10 +1,9 @@
 // @ts-nocheck — plain JS, kept loose on purpose
 /**
- * The travel van as MaiaCity V2's story rides in it (Samuel 2026-10-13: far more detail, real people, no ball heads):
- * the old minibus of $content/models/wayside.js (things/travel-van@1, built in the asset box) with see-through glass,
- * fitted inside as a packed van on a long road, and its people, seated stand-ins (actors/stand-in@11, posed by our own
- * code: ./drawn.js `actor`) who sway with the road. In the van's own frame: +z ahead, +x the sliding door's side, the
- * floor at FLOOR.
+ * The travel van MaiaCity V2's story rides in (Samuel 2026-10-13: far more detail, real people, no ball heads): the old
+ * minibus (things/travel-van@1, built in the asset box) with see-through glass, packed for a long road, its people
+ * seated stand-ins (actors/stand-in@11, posed by ./drawn.js `actor`) swaying with the road. Its frame: +z ahead, +x the
+ * sliding door's side, the floor at FLOOR.
  */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -120,9 +119,8 @@ function seated(cast, sits, side) {
 	return sit;
 }
 /** the face every person wears (Samuel 2026-10-14: friendly gazes all the time, a slight sparkle, not a full smile):
- *  the stand-in's `friendly` gaze in full (v9, with its catchlight) and a hint of its smile `joy`; beaming (joy, k 1)
- *  the smile in full and the gaze eased, since the two at full nearly close the eyes; the sleeper's only a soft mouth.
- *  Eased there by ease (1: at once) */
+ *  `friendly` in full (v9, its catchlight) and a hint of `joy`; beaming (joy, k 1) the smile full and the gaze eased (both
+ *  full nearly close the eyes); the sleeper only a soft mouth. Eased there by ease (1: at once) */
 export function wearFace(face, { joy = 0, sleeper = false, ease = 1 } = {}) {
 	const d = face?.morphTargetDictionary, w = face?.morphTargetInfluences;
 	if (!d || !w) return;
@@ -138,10 +136,8 @@ const LOWER_BODY = { y: 0.85, size: [1.9, 0.9, 4.9] };
 const _size = new THREE.Vector3();
 
 /**
- * The minibus's body as the box built it (things/travel-van@1), made the van the story rides in: its glass
- * see-through, and its lower body's lid cut away (from inside it would hide all below the window line: the seats, the
- * laps, the floor), under the upper body where no one outside sees it.
- * @param {THREE.Object3D} body
+ * The minibus's body as the box built it, made the story's van: its glass see-through and its lower body's lid (which
+ * from inside hides the seats, laps and floor) cut away under the upper body. @param {THREE.Object3D} body
  */
 export function seeThrough(body) {
 	body.traverse((o) => {
@@ -160,9 +156,8 @@ export function seeThrough(body) {
 	return body;
 }
 
-/** all that is in the van, and its people (stand-ins built in the box, each of their height and look: ./things.js
- *  standInRef; `drawn` puts them in, `pick` what a tap on them finds): the body itself (seeThrough) goes in beside them
- *  @param {ReturnType<typeof import('./drawn.js').createDrawn>} drawn @param {string} [pick] */
+/** all in the van and its people (stand-ins built in the box: ./things.js standInRef; `drawn` puts them in, `pick` what a
+ *  tap finds), beside the body (seeThrough). @param {ReturnType<typeof import('./drawn.js').createDrawn>} drawn @param {string} [pick] */
 export function packedVan(drawn, pick) {
 	const van = new THREE.Group();
 	// every fixed piece goes into one mesh a material
@@ -201,8 +196,7 @@ export function packedVan(drawn, pick) {
 	for (let x = -0.84; x <= 0.85; x += 0.07) box(0.018, 0.008, 4.6, m(0x2e2e2c), x, FLOOR + 0.004, -0.12);
 	box(0.2, 0.02, 1.0, steel, 0.83, FLOOR - 0.12, 0.9);
 
-	// the walls under the windows: vinyl door cards, a ridge along them, a dark kick strip, the sills; the sliding
-	// door's handle, the front doors' winders and pulls
+	// the walls under the windows: vinyl door cards, a ridge, a kick strip, sills; door handle, winders and pulls
 	for (const x of [-0.925, 0.925]) {
 		const s = Math.sign(x);
 		box(0.025, 1.12, 4.6, vinyl, x, FLOOR + 0.56, -0.12);
@@ -284,8 +278,7 @@ export function packedVan(drawn, pick) {
 	rbox(0.4, 0.03, 0.22, 0.012, m(0xc9a26a), -0.1, 1.505, 2.0);
 	add(new THREE.CylinderGeometry(0.035, 0.035, 0.24, 14).rotateZ(Math.PI / 2), m(0x9fc6d8, { roughness: 0.15, transparent: true, opacity: 0.6 }), 0.1, 1.53, 1.92);
 
-	// the seats: worn striped moquette over foam, piping along their edges, a steel frame under each; two buckets in
-	// front, two benches of three behind; a headrest on two posts over each place
+	// the seats: worn striped moquette, piped edges, steel frames; two buckets in front, two benches of three, headrests
 	const seat = (x, z, w, cloth, places, bucket = false) => {
 		rbox(w, 0.14, 0.52, 0.05, cloth, x, EDGE - 0.07, z + 0.06);
 		box(w - 0.04, 0.02, 0.02, piping, x, EDGE - 0.01, z + 0.32);
@@ -304,8 +297,7 @@ export function packedVan(drawn, pick) {
 	seat(0, ROW.middle, 1.7, seatCloth, [-0.58, -0.1, 0.45]);
 	seat(0, ROW.back, 1.76, seatCloth, [-0.58, -0.05, 0.5]);
 
-	// their bags: a duffel and a backpack on the middle bench, more under the seats; at the back, boxes tied with
-	// string, a red suitcase, a rolled striped mattress, a sack
+	// bags on the middle bench and under the seats; at the back boxes tied with string, a red suitcase, a mattress, a sack
 	const r = seeded(3);
 	const duffel = (x, y, z, ry, colour, len = 0.42) => {
 		add(new THREE.CapsuleGeometry(0.13, len, 6, 14).rotateZ(Math.PI / 2).scale(1, 0.8, 1), m(colour, { roughness: 1 }), x, y, z, 0, ry);
@@ -357,8 +349,7 @@ export function packedVan(drawn, pick) {
 	van.add(inside);
 	van.userData = {
 		people,
-		/** the people swaying with the road at time t (s); the woman beside you turning to you and back, nodding a little
-		 *  as she talks */
+		/** the people swaying with the road at t (s); the woman beside you turning to you and back, nodding as she talks */
 		nod(t, dt = 1 / 60) {
 			for (const o of people) {
 				const { cast, base, i } = o.userData;

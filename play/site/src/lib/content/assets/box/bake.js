@@ -1,11 +1,10 @@
 // @ts-nocheck — plain JS, runs inside the box
 /*
- * An asset's controls as data: what a builder leaves on its object to move it after it is built (a tent's pitch, a
- * machine's explode) is a function, and no function leaves the box (./serialize.js). So each is played here from 0 to 1
- * and written down at SAMPLES steps (each moved part's place, turn, size, visibility, blend weights and instances; from
- * engine 5 also the meshes it reshapes, material looks and lights) for the page to play back (../controls.js). One that
- * changes the tree is left out, and the object built again. Known: setPitch, setBuild, explode, setOpen, setTailgate,
- * setDoor(name, k) with `doors`, fire.setLit(on); from engine 5, setWet.
+ * An asset's controls as data: a control (a tent's pitch, a machine's explode) is a function, and none leaves the box
+ * (./serialize.js), so each is played here 0 to 1 and written at SAMPLES steps (each moved part's place, turn, size,
+ * visibility, blend weights, instances; from engine 5 reshaped meshes, material looks, lights) for ../controls.js to
+ * play back. One that changes the tree is left out and the object built again. Known: setPitch, setBuild, explode,
+ * setOpen, setTailgate, setDoor(name, k) with `doors`, fire.setLit(on); from engine 5, setWet.
  */
 
 /** steps a control is sampled at, from 0 to 1: enough to follow a part's turn or flight (our builds ease over a third or more of it) */
@@ -35,8 +34,7 @@ export function offered(u) {
 	return out;
 }
 
-/** numbers a material's look is written as: its colour (r, g, b), its glow (r, g, b), how strongly it glows, its
- *  opacity, roughness and metalness (a material without one of them: 0, and the page leaves it) */
+/** a material's look as numbers: colour (rgb), glow (rgb), glow strength, opacity, roughness, metalness (missing: 0, left by the page) */
 export const MAT = 10;
 /** numbers a light is written as: its colour (r, g, b), its brightness, how far it reaches, how it falls off */
 export const LIGHT = 6;
@@ -95,10 +93,7 @@ export const flat = (a) => {
 	return out;
 };
 
-/**
- * A mesh's shape as built: its geometry, its positions and normals (copied) and their versions; null for a node
- * without. Reshaped, it can be written down only with as many vertices, drawn the same way.
- */
+/** A mesh's shape as built (geometry, copied positions and normals, versions), null for a node without; reshaped, only with as many vertices drawn alike. */
 export function shapeOf(o) {
 	const g = o.geometry, p = g?.attributes?.position;
 	if (!p || p.itemSize !== 3 || o.isInstancedMesh) return null;
@@ -233,10 +228,9 @@ const intact = (root, nodes) => {
 };
 
 /**
- * Plays an object's controls and writes them down.
- * @param {import('three').Object3D} root an object as its builder made it
+ * Plays an object's controls and writes them down. @param {import('three').Object3D} root as its builder made it
  * @returns {{ controls: object[], intact: boolean }} its controls as data, and whether the object is still the one
- *   that was built (false: a control changed its tree or reshaped a mesh; build it again before it leaves)
+ *   built (false: a control changed its tree or reshaped a mesh; build it again before it leaves)
  */
 export function bake(root) {
 	const list = offered(root.userData ?? {});
@@ -350,8 +344,8 @@ export function bake(root) {
 		} catch {
 			ok = false;
 		}
-		// its rest: the sample nearest the object as built; of several as near, an end (a build is whole before its last
-		// step, a door shut at 0). It is set there again, so a mesh it reshapes (a canvas unrolled) is shaped as built
+		// its rest: the sample nearest the object as built (of several, an end: whole before a build's last step, a door
+		// shut at 0), set again so a reshaped mesh (a canvas unrolled) is shaped as built
 		const least = Math.min(...off);
 		const ties = [...off.keys()].filter((s) => off[s] === least);
 		const best = ties.includes(S - 1) ? S - 1 : ties[0];
@@ -388,8 +382,7 @@ export function bake(root) {
 	}
 	restore(nodes, rest);
 	root.updateMatrixWorld(true);
-	// a mesh a control reshaped and its rest did not shape back as built (putting the nodes back does not undo it): its
-	// moves are kept, the object is built again
+	// a mesh a control reshaped that its rest did not shape back: its moves are kept, the object built again
 	const now = shapesOf(nodes.filter((o) => o.geometry));
 	const asBuilt = now.length === shaped.length && now.every((x, i) => x.a === shaped[i].a && (x.version === shaped[i].version || x.sum === shaped[i].sum));
 	return { controls, intact: asBuilt };
