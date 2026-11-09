@@ -11,7 +11,7 @@ export type Input = { label: string; unit: string; value: number | null; source?
 /** low, typical, high */
 export type Range = [number, number, number];
 /** what a cost line is counted in: a dome size's shell m² or foundation rings, the home blocks' or the tower's gross floor, the land's ha, the roads' or the paths' km, an input's value (× `per`), every building, the beds, the hexes, or one */
-export type Qty = { shell?: number; ring?: number; homeGfa?: true; towerGfa?: true; land?: true; roads?: 'road' | 'path'; input?: string; per?: number; count?: 'buildings'; beds?: true; hexes?: true; each?: number };
+type Qty = { shell?: number; ring?: number; homeGfa?: true; towerGfa?: true; land?: true; roads?: 'road' | 'path'; input?: string; per?: number; count?: 'buildings'; beds?: true; hexes?: true; each?: number };
 export type Cost = { id: string; label: string; payer: 'village' | 'coop'; coop?: string; qty: Qty; contractor: Range; self: Range; unit: string; basis: string; source: string; estimate?: boolean; note?: string };
 export type Audit = { inputs: Record<string, Input>; split: { village: string[]; coop: string[] }; costs: Cost[]; research?: { note: string; by: string }; old: Record<string, number | string> };
 
@@ -30,7 +30,7 @@ export function gfaPerson(a: Audit) {
 }
 
 /** the homes of one home dome: its block's storeys and floor, and the beds that floor holds */
-export function homesOf(v: Village, a: Audit, kind: string) {
+function homesOf(v: Village, a: Audit, kind: string) {
 	const K = v.kinds[kind], b = homeBlock(K.D, K.home!), gfa = gfaPerson(a);
 	return { kind, storeys: b.storeys, gfa: b.gfa, beds: gfa ? Math.floor(b.gfa / gfa) : null };
 }
@@ -45,7 +45,7 @@ export const scaled = (T: Kind, k: number): Kind => ({ ...T, D: T.D * k, H: T.H!
  * The tower sized from what the village needs: its programme's floor (each use's need) over the share of a storey that
  * is usable (the rest core, stairs and walls), then the bell scaled until its storeys hold that much.
  */
-export function towerOf(v: Village, a: Audit, residents: number | null) {
+function towerOf(v: Village, a: Audit, residents: number | null) {
 	const T = v.kinds.tower180, programme = (v.plans.tower.programme ?? []) as Use[];
 	const need = programme.map((u) => {
 		const per = u.perResident ? val(a, u.perResident) : null, n = u.count ? val(a, u.count) : null, size = u.size ? val(a, u.size) : null;

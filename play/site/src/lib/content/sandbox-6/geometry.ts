@@ -5,7 +5,7 @@
  */
 
 export type Kind = { D: number; freq?: number; home?: HomeShape; pond?: { in: number; band: number; half: number }; H?: number; top?: number; storey?: number; core?: number; facade?: number };
-export type HomeShape = { front: number; depth: number; storey: number; clear: number; balcony: number };
+type HomeShape = { front: number; depth: number; storey: number; clear: number; balcony: number };
 export type Site = { id: string; kind: string; x: number; z: number; use: string; name: string; door: number };
 export type Road = { pts: [number, number][]; w: number };
 export type Ring = { x: number; z: number; r: number; w: number };
@@ -48,7 +48,7 @@ export function capOf(D: number) {
 	return { D, a, h, R, floor: Math.PI * a * a, shell: 2 * Math.PI * R * h, volume: (Math.PI * h * h * (3 * R - h)) / 3, rim: Math.PI * D };
 }
 /** the height of a cap's shell over the floor, `r` from its middle */
-export const capHeight = (c: ReturnType<typeof capOf>, r: number) => Math.max(0, Math.sqrt(Math.max(0, c.R * c.R - r * r)) - (c.R - c.h));
+const capHeight = (c: ReturnType<typeof capOf>, r: number) => Math.max(0, Math.sqrt(Math.max(0, c.R * c.R - r * r)) - (c.R - c.h));
 
 /**
  * A home dome's block (Samuel 2026-10-08): one straight block across the north of the dome, east to west, its long face
@@ -75,7 +75,7 @@ export function homeBlock(D: number, o: HomeShape) {
 }
 
 /** the radius of the tower's shell at a height: the settlers game's tower profile, at full size */
-export function towerRadius(T: Kind, y: number) {
+function towerRadius(T: Kind, y: number) {
 	const H = T.H!, top = T.top!, R = T.D / 2;
 	if (y >= H - top) return Math.sqrt(Math.max(0, top * top - (y - (H - top)) ** 2));
 	const t = Math.min(1, Math.max(0, y / (H - top)));
