@@ -117,6 +117,7 @@ for (const from of [SITE, process.cwd(), '/usr/lib/node_modules/', '/usr/local/l
 		playwright = createRequire(resolve(from, 'x.js'))('playwright');
 		break;
 	} catch {}
+if (!playwright) throw new Error('playwright is installed in none of play/site, here, or the global node_modules');
 const browser = await playwright.chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const tab = await browser.newPage();
 await tab.route('http://bench.local/**', (route) => {
