@@ -11,3 +11,10 @@ small device), so on the fallback's plan (`finish.js` `onFallback`: no AO, MSAA)
 
 Not this intent's: the workshop container and, at times, the walker are not drawn on head with the finishing off too
 (`?finish=off`), on the switch's WebGL 2 backend.
+
+## Sandbox 4 (the cassette joint), at 120 s
+
+- `sandbox4-main.jpg`: main (its clock further on: software rendering runs main faster).
+- `sandbox4-head.jpg`: head through the finishing (fallback plan); `sandbox4-head-finish-off.jpg`: head with
+  `?finish=off`, the same moment. The pale glass close up is the scene's own (it is so with the finishing off); bloom adds
+  a mild glow on the glass. The canvas's own transparency is kept (the grade keeps the picture's alpha, premultiplied).

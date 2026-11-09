@@ -106,7 +106,9 @@ export function gradeNode(o) {
 			q.x.mulAssign(uRes.x.div(uRes.y));
 			c = c.mul(float(1).sub(uVig.mul(smoothstep(0.35, 1.25, q.length()))));
 			c = c.add(h(screenUV.mul(uRes).add(fract(uTime).mul(91.7))).sub(0.5).mul(uGrain));
-			return vec4(c, 1);
+			// the picture's own alpha kept, premultiplied as the canvas takes it: a page that shows through its canvas
+			// (Sandbox 4's) still does, no grain or vignette over it
+			return vec4(c.mul(input.a), input.a);
 		})();
 	};
 	return { uniforms, node };
