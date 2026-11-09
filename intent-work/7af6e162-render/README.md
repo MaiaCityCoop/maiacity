@@ -16,12 +16,18 @@ PLAY_MCP_TOKEN=play_â€¦ bash intent-work/7af6e162-render/run.sh      # about 10â
 ```
 
 It uses the pull request's head (`intent/7af6e162-settle-fast`) only, served as its production build on port 5197
-(`node scripts/mac-page.mjs serve`: `bun run build`, then `vite preview`; not the dev server), with its profiles in a fresh
+(`node scripts/mac-page.mjs serve`: `bun run build`, then the build served by play-api's own handler, `scripts/serve-built.ts`;
+not the dev server, and not `vite preview`, under which the asset box never built), with its profiles in a fresh
 folder under `out/` that is deleted at the end. It runs selector-shots twice:
 
 1. `--cold`: the first load in a fresh profile is measured (near, mid, far, then the old city).
 2. Another fresh profile is opened once (a cold load again, its settle time printed as "first load") and measured on
    its next load (the "measured load").
+
+**First, check that the asset box builds on the build.** Sandbox 1's first load should print "first load up and quiet"
+with pictures taken, not "still building" at 600 s. If it is still building, rerun with the dev server
+(`SERVE=dev bash run.sh`) and say so: the build path then needs its own fix. The cloud checked what it can without WebGL:
+the page and the five box engines are served from the build, each engine's bytes matching its hash.
 
 ## What to send back
 
@@ -43,7 +49,7 @@ Commit `out/` (without `profiles/`) and push to `intent-work/7af6e162-render`.
 - **Settle by `play/site/scripts/quiet.js`** (`quietness`, self-contained: `page.evaluate(quietness)` until it is 0
   twice, 2 s apart, as `mac-page.mjs` `settle` does). It replaces `intent-work/main-baseline/determinism.mjs`'s `QUIET`:
   the same building, keeping and pictures-taken terms, plus the copies and the domes.
-- **Serve each side's production build** (`node play/site/scripts/mac-page.mjs serve <port> <api>` from its play/site):
+- **Serve each side's production build** (`node play/site/scripts/mac-page.mjs serve <port> <api>` from its play/site, served as play-api serves it):
   the dev server transforms hundreds of modules on the first load (on the CPU, Sandbox 1's page shell alone: 240
   modules, 2.7 s, against 36 files, 0.65 s built).
 - **Open pages through `play/site/scripts/mac-page.mjs` `openSite(<side>)`**, or at least with

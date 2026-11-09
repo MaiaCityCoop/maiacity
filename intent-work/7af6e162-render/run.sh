@@ -13,15 +13,20 @@ OUT="$JOB/out"
 rm -rf "$OUT" && mkdir -p "$OUT"
 git -C "$ROOT" fetch -q origin intent/7af6e162-settle-fast
 HEAD_COMMIT=${1:-$(git -C "$ROOT" rev-parse origin/intent/7af6e162-settle-fast)}
-echo "head $HEAD_COMMIT" | tee "$OUT/commits.txt"
+echo "head $HEAD_COMMIT (served: ${SERVE:-built})" | tee "$OUT/commits.txt"
 TREE="$ROOT/../7af6-head"
 if [ -d "$TREE" ]; then git -C "$TREE" checkout -q --detach "$HEAD_COMMIT"; else git -C "$ROOT" worktree add -q --detach "$TREE" "$HEAD_COMMIT"; fi
 (cd "$TREE/play/site" && bun install --frozen-lockfile >/dev/null)
 
 PIDS=()
 trap 'kill "${PIDS[@]}" 2>/dev/null || true' EXIT
-# served as visitors get it: its production build (mac-page.mjs serve), not the dev server
-(cd "$TREE/play/site" && node scripts/mac-page.mjs serve 5197 http://localhost:3911 >"$OUT/serve.log" 2>&1) &
+# served as visitors get it: its production build, served as play-api serves it (mac-page.mjs serve: serve-built.ts),
+# not the dev server; SERVE=dev bash run.sh to use the dev server instead (if the asset box doesn't build on the build)
+if [ "${SERVE:-built}" = dev ]; then
+  (cd "$TREE/play/site" && PLAY_API=http://localhost:3911 exec bunx vite dev --port 5197 --strictPort >"$OUT/serve.log" 2>&1) &
+else
+  (cd "$TREE/play/site" && exec node scripts/mac-page.mjs serve 5197 http://localhost:3911 >"$OUT/serve.log" 2>&1) &
+fi
 PIDS+=($!)
 for _ in $(seq 1 300); do curl -sf "http://localhost:5197/" >/dev/null && break; sleep 1; done
 cd "$TREE/play/site"
