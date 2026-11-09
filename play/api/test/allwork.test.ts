@@ -136,6 +136,25 @@ suite("one intent holds all its work", () => {
     expect(await headOf(g2.asset)).toBeNull();
   });
 
+  test("each document's own note: one intent, two assets and a skill, each merge into Main and each version named with its own document's note (intent 119a02d1)", async () => {
+    const skill = crypto.randomUUID();
+    await seedDoc(db, "skill", { id: skill, json: { schema: "skill/1", label: "A notes skill", group: "tests", system: "Say it once." }, note: "its first version" });
+    const id = await ready("Two machines and a skill, each its own note");
+    const a = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Pickup", source: SOURCE, note: "Pickup: its own note", intent: id });
+    const b = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "BatteryPack", source: SOURCE, note: "BatteryPack: its own note", intent: id });
+    const s = await tool("propose_doc_version", { doc: skill, note: "The skill: its own note", edits: [{ op: "set", path: ["note"], value: "noted" }], intent: id });
+    for (const p of [a, b, s]) expect(p.error).toBeUndefined();
+    expect((await call("POST", `/api/intents/${id}/accept`)).data.stage).toBe("accepted");
+    for (const [doc, note] of [[a.asset, "Pickup: its own note"], [b.asset, "BatteryPack: its own note"], [skill, "The skill: its own note"]] as const) {
+      const h = await tool("doc_history", { doc });
+      const merges = h.edits.filter((e: any) => e.kind === "merge");
+      expect(merges.length).toBe(1);
+      expect(merges[0].message).toContain(note);
+      for (const other of ["Pickup: its own note", "BatteryPack: its own note", "The skill: its own note"].filter((n) => n !== note)) expect(merges[0].message).not.toContain(other);
+      expect(h.versions.at(-1).note).toBe(note);
+    }
+  });
+
   // ---- code beside play's work
 
   const CODE_SPEC = {
