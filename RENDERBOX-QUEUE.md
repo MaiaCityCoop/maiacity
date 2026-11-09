@@ -1,6 +1,11 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+- **smoke 3b19a5f99: OK** (0b4c007b live, neutral daylight; 18:13–18:18, 325 s). Every page up and drawn; no error but
+  the harness's 401 and the old ambience one (fb220a9c). Frames: near 26.7 ms, mid 34.9, far 16.7. Looks (not breaks):
+  the sepia is gone (Sandbox 1 near R/B .969, Sandbox 5 .927; main before was 1.22 / 1.43); the shade at Sandbox 1's mid
+  view runs bluish (R/B .693 against the pre-programme's .852: the sky light's white balance 0.25; 0.35 measured .80); the
+  goat viewer still reads pale, low in contrast.
 - **smoke aa593c290: OK** (544485e2 live, the viewers' sky; 18:06–18:12, 315 s). Every page up and drawn; no error but
   the harness's 401 and the old ambience one (fb220a9c). Frames: near 27.4 ms, mid 35.5, far 16.7. The viewers (grass,
   goat, forklift, banana): no dark band over the goat and forklift any more, the sky light; the assets still read a
