@@ -11,11 +11,7 @@
  * (their code is frozen into the vault by its hash), and so does the asset box's engine.
  */
 
-/**
- * The worlds' seeded random numbers (mulberry32); a seed of 0 is taken as 1.
- * @param {number} seed
- * @returns {() => number}
- */
+/** The worlds' seeded random numbers (mulberry32); a seed of 0 is taken as 1. @param {number} seed @returns {() => number} */
 export function seededRandom(seed) {
 	let a = seed >>> 0 || 1;
 	return () => {
@@ -29,20 +25,14 @@ export function seededRandom(seed) {
 
 /**
  * The linear congruential numbers a few worlds and models were first laid out with (Numerical Recipes' constants); a
- * seed of 0 is taken as 1.
- * @param {number} seed
- * @returns {() => number}
+ * seed of 0 is taken as 1. @param {number} seed @returns {() => number}
  */
 export function seededLcg(seed) {
 	let s = seed >>> 0 || 1;
 	return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 }
 
-/**
- * The minimal standard numbers (Park and Miller) the universe's stars are placed with.
- * @param {number} seed
- * @returns {() => number}
- */
+/** The minimal standard numbers (Park and Miller) the universe's stars are placed with. @param {number} seed @returns {() => number} */
 export function seededMinStd(seed) {
 	return () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 }

@@ -1,18 +1,13 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * PLAY'S FILES, ON THIS DEVICE — a file of play's (a recipe, a piece) by its hash, the BLAKE3 of its bytes: read from play's
- * own origin (never another, ../../../kernel/files.js) and held to that hash, then kept in the device's cache
- * (./store.js) under it, so a second visit reads it from here. Held to its hash again whenever it is read back.
+ * PLAY'S FILES, ON THIS DEVICE — a file of play's (a recipe, a piece) by its BLAKE3 hash: read from play's own origin
+ * (../../../kernel/files.js), held to the hash, kept in the device's cache (./store.js), held again whenever read back.
  */
 import { fileUrl } from '../../../kernel/files.js';
 import { holds, isHash } from '../../../kernel/hash.js';
 import { FILE, LIMIT, added, folder, lost, read, touch, write } from './store.js';
 
-/**
- * A file kept on this device by its hash; undefined if there is none (or no cache). Not held to its hash here: the
- * reader does that (`playFile`).
- * @param {string} hash @returns {Promise<Uint8Array | undefined>}
- */
+/** A file kept here by hash; undefined if none. Not held to it here (`playFile` does). @param {string} hash @returns {Promise<Uint8Array | undefined>} */
 export async function fileAt(hash) {
 	if (!isHash(hash)) return undefined;
 	const d = await folder();
@@ -27,11 +22,7 @@ export async function fileAt(hash) {
 	}
 }
 
-/**
- * Keeps a file under its hash (what was read from play and held to it), then lets the entries used longest ago go until
- * the cache fits, as a build kept does. False if it was not kept.
- * @param {string} hash @param {Uint8Array} bytes
- */
+/** Keeps a file (read from play and held) under its hash, as a build is kept; false if not kept. @param {string} hash @param {Uint8Array} bytes */
 export async function keepFile(hash, bytes) {
 	if (!isHash(hash) || !(bytes instanceof Uint8Array) || bytes.byteLength > LIMIT) return false;
 	const d = await folder();
@@ -48,10 +39,9 @@ export async function keepFile(hash, bytes) {
 }
 
 /**
- * A file of play's by its hash, held to it: this device's copy, else play's (`fileUrl`), kept here once it holds.
- * Null where play doesn't hold it (404); throws `failed(status)` for any other answer.
- * @param {string} hash @param {(status: number) => Error} failed
- * @returns {Promise<Uint8Array | null>}
+ * A file of play's by hash, held to it: this device's copy, else play's (`fileUrl`), kept once it holds; null where play
+ * has none (404); throws `failed(status)` otherwise.
+ * @param {string} hash @param {(status: number) => Error} failed @returns {Promise<Uint8Array | null>}
  */
 export async function playFile(hash, failed) {
 	const kept = await fileAt(hash);

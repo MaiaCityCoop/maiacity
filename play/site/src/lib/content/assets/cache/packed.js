@@ -6,12 +6,10 @@
  *
  *   'mca' 1 | the JSON's length | the arrays' length | 0 (each a uint32) | the JSON | its arrays
  *
- * The JSON is `{parts, value}`: the value with each typed array or buffer in it as a mark `{"\u0000": n}`, n its place
- * in `parts`, each part its kind and where its bytes are among the arrays (each beginning at a multiple of 8). One array
- * in two places of the value is one part, as it was one array. A number no JSON holds (NaN, ±Infinity, -0), an undefined
- * and an object with a key that is the mark's own are marked too. A file of another length than its header gives, or
- * whose marks name bytes it doesn't hold, is refused, as is anything else that doesn't read: a page that finds an entry
- * refused builds it again.
+ * The JSON is `{parts, value}`: each typed array or buffer in the value a mark `{"\u0000": n}`, n its place in `parts`
+ * (its kind, and where its bytes are among the arrays, each at a multiple of 8); one array in two places is one part.
+ * NaN, ±Infinity, -0, undefined and an object with the mark's own key are marked too. A file whose length or marks
+ * don't match its header, or that doesn't read, is refused: a page finding an entry refused builds it again.
  */
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 

@@ -1,9 +1,8 @@
 /*
- * THE CELL'S RELIEF AND GROUND MAP (intent db87a28f) — the hexagon's ground is not flat: 5–30 cm of hummocks and
- * hollows (the biomes' noise, ../../biomes/noise.js), on a grid of 2.5 m, laid flat where anything is built on it (the
- * domes, the squares, the paths, the water), every plant and the cover standing on it (`at`, exactly the grid's
- * triangles). Its ground map (R: shade under the real crowns, G: wet, beside the paths and the water and in the hollows)
- * is baked once the garden is planted and handed to the ground's material (`material.userData.map`).
+ * THE CELL'S RELIEF AND GROUND MAP (intent db87a28f) — 5–30 cm of hummocks and hollows (../../biomes/noise.js) on a
+ * 2.5 m grid, laid flat under anything built (domes, squares, paths, water), every plant standing on it (`at`, the
+ * grid's own triangles). Its ground map (R shade under the real crowns, G wet by paths, water and hollows) is baked once
+ * the garden is planted and handed to the ground's material (`material.userData.map`).
  */
 import * as THREE from 'three'
 import { fbm2, vn } from '$lib/content/biomes/noise.js'
@@ -15,8 +14,8 @@ const reliefOf = (x: number, z: number) => {
 }
 
 /**
- * The ground over the square of `half` metres either side of 0, 0 where `inside` says, every `step` metres a vertex.
- * `shape(free)`: its heights, the relief where `free` says the ground is open (softened over a few metres at its edges).
+ * The ground over the square of `half` m round 0, 0 where `inside` says, a vertex every `step` m; `shape(free)` its
+ * heights, the relief where `free` says it is open (softened over a few metres at its edges).
  */
 export function reliefGround(half: number, step: number, inside: (x: number, z: number) => boolean) {
 	const n = Math.ceil((2 * half) / step) + 1
@@ -72,9 +71,8 @@ export function reliefGround(half: number, step: number, inside: (x: number, z: 
 }
 
 /**
- * A world's ground map over the square of `half` metres either side of 0, 0, a texel every `px` metres: R the shade
- * under its crowns (each x, z, r), G how wet the ground is (`wet(x, z)`, 0…1), each softened a little. For the
- * ground's material: `material.userData.map(texture, rect)`.
+ * A world's ground map over the square of `half` m round 0, 0, a texel every `px` m: R shade under its crowns (x, z, r),
+ * G wetness (`wet(x, z)`, 0…1), each softened a little; for `material.userData.map(texture, rect)`.
  */
 export function groundMap(half: number, px: number, crowns: { x: number; z: number; r: number }[], wet: (x: number, z: number) => number) {
 	const n = Math.ceil((2 * half) / px)
