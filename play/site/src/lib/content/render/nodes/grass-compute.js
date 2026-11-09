@@ -271,7 +271,8 @@ export function grassCompute(renderer, o) {
 			const [og0, oh0] = origin ?? [g0, h0];
 			C.origin.value.set(g0, h0, og0, oh0);
 			origin = [g0, h0];
-			const dt = Number.isNaN(last) ? 0 : Math.min(0.1, Math.max(0, time - last));
+			// the time that passed, at most a second (a tab put away and back): a slow frame decays as much as the time it took
+			const dt = Number.isNaN(last) ? 0 : Math.min(1, Math.max(0, time - last));
 			last = time;
 			C.decay.value = Math.exp((-dt * Math.log(1 / RECOVERED)) / T.recover);
 
