@@ -202,11 +202,16 @@ describe("Intent named", async () => {
     expect(Object.keys(w.on)).toEqual(["pull_request_target"]);
     expect(w.on.pull_request_target).toEqual({ branches: ["main"], types: ["opened", "reopened", "synchronize", "ready_for_review"] });
     expect(w.permissions).toEqual({});
-    const { spec, run, record } = w.jobs;
-    expect(Object.keys(w.jobs)).toEqual(["spec", "run", "record"]);
+    const { spec, main: measures, run, record } = w.jobs;
+    expect(Object.keys(w.jobs)).toEqual(["spec", "main", "run", "record"]);
     // heads in this repository only, and never on a draft (ready_for_review comes with draft false)
     expect(spec.if).toBe("github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft");
-    expect(run.needs).toBe("spec");
+    // main's measures (intent f63774a3): main's code, no secret, after the spec; the run reads them, never fails for them
+    expect(measures.needs).toBe("spec");
+    expect(run.needs).toEqual(["spec", "main"]);
+    expect(run.if).toBe("!cancelled() && needs.spec.result == 'success'");
+    expect(JSON.stringify(measures)).not.toContain("secrets.");
+    expect(measures.permissions).toEqual({ contents: "read" });
     expect(record.needs).toEqual(["spec", "run"]);
     // spec and record check out main and alone hold the box's token
     const main = "${{ github.event.repository.default_branch }}";
@@ -215,6 +220,7 @@ describe("Intent named", async () => {
       expect(co.with.ref).toBe(main);
       expect(JSON.stringify(job)).toContain("${{ secrets.PLAY_MCP_TOKEN }}");
     }
+    expect(measures.steps.find((s: any) => s.uses === "actions/checkout@v4").with.ref).toBe(main);
     // run checks out the head with no credentials, sees no secret, its GITHUB_TOKEN read only, and runs main's intent.ts
     const co = run.steps.find((s: any) => s.uses === "actions/checkout@v4");
     expect(co.with).toEqual({ ref: "${{ github.event.pull_request.head.sha }}", "persist-credentials": false });
