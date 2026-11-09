@@ -1,12 +1,8 @@
 // The game's world map, grown from a seed: a river, a few lakes, five biomes, and the plots (Grundstücke) people will
 // build on, in a valley ringed by hills and mountains.
 //
-// The plots are the cells of a jittered hex grid cut by Voronoi (each one a soft, slightly irregular hexagon), inset so
-// that roads run between them and with rounded corners. A cell's biome comes from two noise fields (height and
-// wetness) and its distance to water; the outer ring of cells and the cells under the river and the lakes stay wild
-// land, and a plot by the water ends at its shore. What stands on the land (trees, rocks, peaks) is a list of
-// features. The same seed always gives the same map, and the game has one (SEED). Nothing here touches the DOM or
-// three.js: ./scene.ts draws it.
+// The same seed always gives the same map, and the game has one (SEED). Nothing here touches the DOM or three.js:
+// ./scene.ts draws it.
 //
 // Geometry is in map units (x runs east, y runs south, 6720 × 4470 of them); the map's real size follows from its
 // people: PEOPLE inhabitants with M2_PER_PERSON each, so every map's buildable land is exactly PEOPLE × M2_PER_PERSON
@@ -100,8 +96,6 @@ const GAP = 7; // half a road
 const BANK = 42; // half the river with its banks
 const SHORE = 24; // a lake's shore, beyond its water
 
-// ── randomness ──────────────────────────────────────────────────────────────
-
 export function hashSeed(s: string): number {
 	let h = 2166136261;
 	for (let i = 0; i < s.length; i++) {
@@ -150,8 +144,6 @@ export function fbmNoise(rand: () => number) {
 		return sum / norm;
 	};
 }
-
-// ── geometry ────────────────────────────────────────────────────────────────
 
 /** keep the part of a convex polygon where nx·x + ny·y ≤ c */
 function clip(poly: P[], nx: number, ny: number, c: number): P[] {
@@ -246,8 +238,6 @@ function scatter(poly: P[], count: number, gap: number, rand: () => number): P[]
 	}
 	return out;
 }
-
-// ── the map ─────────────────────────────────────────────────────────────────
 
 interface Cell {
 	c: P;

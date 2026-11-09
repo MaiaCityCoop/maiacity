@@ -105,7 +105,6 @@ export function buildCity(map: WorldMap): City {
 	return { domes, trees, jungle };
 }
 
-/** whether a point is in the river or on its banks */
 export function byRiver(map: WorldMap, x: number, y: number): boolean {
 	const reach = map.bank + 4;
 	let near = rivers.get(map);
