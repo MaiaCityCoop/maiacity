@@ -1,0 +1,95 @@
+{
+ "rows": [
+  {
+   "view": "walk-near",
+   "base_ms": 29.9,
+   "head_ms": 29.1,
+   "base_p95": 33.4,
+   "head_p95": 33.4,
+   "base_cpu": 24.5,
+   "head_cpu": 25,
+   "base_gpu": 19.8,
+   "head_gpu": 19.1,
+   "bound": "cpu",
+   "worse": false
+  },
+  {
+   "view": "walk-160",
+   "base_ms": 28.3,
+   "head_ms": 29.4,
+   "base_p95": 33.4,
+   "head_p95": 33.4,
+   "base_cpu": 18.3,
+   "head_cpu": 19.3,
+   "base_gpu": 20.2,
+   "head_gpu": 20.4,
+   "bound": "gpu",
+   "worse": true
+  },
+  {
+   "view": "walk-edge",
+   "base_ms": 30.4,
+   "head_ms": 30.8,
+   "base_p95": 33.4,
+   "head_p95": 33.4,
+   "base_cpu": 17.5,
+   "head_cpu": 19.6,
+   "base_gpu": 22.6,
+   "head_gpu": 22.1,
+   "bound": "gpu",
+   "worse": true
+  },
+  {
+   "view": "top-95",
+   "base_ms": 16.7,
+   "head_ms": 16.7,
+   "base_p95": 16.7,
+   "head_p95": 16.7,
+   "base_cpu": 11.6,
+   "head_cpu": 12.6,
+   "base_gpu": 11.2,
+   "head_gpu": 11.1,
+   "bound": "vsync",
+   "worse": true
+  },
+  {
+   "view": "top-160",
+   "base_ms": 24.7,
+   "head_ms": 24.9,
+   "base_p95": 33.4,
+   "head_p95": 33.4,
+   "base_cpu": 16,
+   "head_cpu": 16.1,
+   "base_gpu": 17.5,
+   "head_gpu": 17.6,
+   "bound": "gpu",
+   "worse": false
+  },
+  {
+   "view": "above-140",
+   "base_ms": 29.8,
+   "head_ms": 30.4,
+   "base_p95": 33.4,
+   "head_p95": 33.4,
+   "base_cpu": 22.9,
+   "head_cpu": 23.3,
+   "base_gpu": 20.4,
+   "head_gpu": 20.6,
+   "bound": "cpu",
+   "worse": false
+  },
+  {
+   "view": "walk-30m",
+   "base_ms": 30.5,
+   "head_ms": 28.9,
+   "base_p95": 50,
+   "head_p95": 33.5,
+   "base_cpu": 23.7,
+   "head_cpu": 21,
+   "base_gpu": 20.6,
+   "head_gpu": 20,
+   "bound": "cpu",
+   "worse": false
+  }
+ ]
+}
