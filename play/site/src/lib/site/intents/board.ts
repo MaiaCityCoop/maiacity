@@ -3,18 +3,14 @@
 // fetched only when unfolded, newest first, a page at a time ("more" asks for the next page by its cursor). Plain
 // functions over the cards the board holds, so ./board.test.ts can follow what is asked of play.
 
-/** the columns always loaded whole */
 export const OPEN = ['idea', 'specify', 'build', 'proposal', 'ship'] as const;
-/** the columns loaded only when unfolded, a page at a time */
 export const CLOSED = ['accepted', 'archived'] as const;
 export type ClosedStage = (typeof CLOSED)[number];
 /** a closed column's page */
 export const PAGE = 50;
 
 export const isClosed = (s: string): s is ClosedStage => (CLOSED as readonly string[]).includes(s);
-/** what is asked of play on open: the open columns and every column's count */
 const openPath = () => `/intents?stage=${OPEN.join(',')}&counts=1`;
-/** a closed column's page, the first or the one after `before` */
 const pagePath = (stage: ClosedStage, before?: string | null) => `/intents?stage=${stage}&limit=${PAGE}${before ? `&before=${encodeURIComponent(before)}` : ''}`;
 
 type Card = { id: string; stage: string };
@@ -63,7 +59,6 @@ const SUBS = [['failed', 'Failed'], ['waiting', 'Waiting'], ['working', 'Working
 export const bySub = <T extends { sub?: { state: string } | null }>(cards: T[]) =>
 	[...SUBS.map(([k, name]) => ({ k, name, cards: cards.filter((i) => i.sub?.state === k) })), { k: '', name: '', cards: cards.filter((i) => !i.sub) }].filter((g) => g.cards.length);
 
-/** what an empty column says */
 export const EMPTY: Record<string, string> = {
 	idea: 'None. Agents add intents over MCP.',
 	specify: 'None. Agents specify an intent over MCP.',

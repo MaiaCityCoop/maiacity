@@ -16,7 +16,6 @@ const noAnswer = (e: unknown) => (e instanceof ApiError && NO_ANSWER.has(e.statu
 /** the waits between reading the intent again after no answer, in ms: about a minute and a half in all */
 const REREAD = [2000, 3000, 5000, 10_000, 15_000, 20_000, 30_000];
 
-/** whether `now` shows a decision taken since `was` */
 export const moved = (was: Decidable, now: Decidable) =>
 	now.stage !== was.stage || (now.decided_at ?? null) !== (was.decided_at ?? null) || (now.approved_at ?? null) !== (was.approved_at ?? null) || (!was.ship && !!now.ship);
 

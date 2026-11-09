@@ -147,9 +147,7 @@
 		}, 3000);
 		return () => clearInterval(t);
 	});
-	/** the work of intent `i`, opened for review */
 	const cardOf = (i: Intent): Opened => ({ ...i.work!, id: i.id, intent_id: i.id, intent_title: i.title, intent_spec: i.spec, intent_results: i.results });
-	/** a note's first line, for its card */
 	const gist = (s: string) => (s ?? '').split('\n')[0];
 
 	/** an intent's tag: what its work is (a plant, a story …) where it has some, else its kind */
@@ -175,7 +173,6 @@
 	// admin's decision
 	let intent = $state<Intent | null>(null);
 	let intentError = $state('');
-	/** an intent as the board holds it, else as play reads it */
 	const intentOf = async (id: string) => intents.find((x) => x.id === id) ?? (await api<Intent>(`/intents/${id}`));
 	/** the intent a proposal was made for, from its review */
 	async function openIntentOf(id: string) {
