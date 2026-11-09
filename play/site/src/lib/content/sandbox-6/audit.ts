@@ -1,8 +1,6 @@
 /**
- * SANDBOX 6 · THE AUDIT — every number the page shows, worked out from the village config (the layout, Samuel's
- * design) and the audit config (each input with its source, a dated decision or an estimate and why): beds, floor
- * areas, the land, the tower sized from its programme, and what it costs, split into the village's part and each coop's.
- * A number whose input is not yet audited comes back as `null`, and the page shows it as unaudited.
+ * SANDBOX 6 · THE AUDIT — every number the page shows, from the village config and the audit config (each input
+ * sourced, a dated decision or an estimate with its reason); an input not yet audited gives `null`, shown unaudited.
  */
 import { capOf, homeBlock, towerStoreys, type Kind, type Village } from './geometry';
 import { landOf, paths, USE_IDS, type Use as LandUse } from './land';

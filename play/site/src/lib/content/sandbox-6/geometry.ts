@@ -1,7 +1,6 @@
 /**
- * SANDBOX 6 · THE GEOMETRY — the shapes the village is made of, as maths: the hex, a glazed cap, a home block under its
- * shell, the tower's profile and storeys. Every size comes in from the village config (its layout document's `village`,
- * play/SPEC.md §4.6); nothing here is a number of the village's own. x runs east, z south (north is −z), in metres.
+ * SANDBOX 6 · THE GEOMETRY — the village's shapes as maths, every size from the village config (play/SPEC.md §4.6).
+ * x runs east, z south (north is −z), in metres.
  */
 
 export type Kind = { D: number; freq?: number; home?: HomeShape; pond?: { in: number; band: number; half: number }; H?: number; top?: number; storey?: number; core?: number; facade?: number };

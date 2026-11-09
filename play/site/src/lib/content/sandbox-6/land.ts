@@ -1,8 +1,6 @@
 /**
- * SANDBOX 6 · THE LAND — what every square metre of a hex is used for, painted on a raster of the village config's
- * `cell` (2 m): the domes and the tower first (under glass, split by what stands inside), then the roads and the
- * footpaths, then the outdoor land by the plan's `land` rules. The areas the page shows are these cells counted, so the
- * map and the numbers always agree.
+ * SANDBOX 6 · THE LAND — each hex's use painted on a raster of the config's `cell` (2 m): domes and tower, then roads
+ * and paths, then the outdoor land by the plan's rules. The page's areas are these cells counted, so map and numbers agree.
  */
 import { capOf, edgeDistance, hexOf, homeBlock, towards, type Plan, type Road, type Site, type Village } from './geometry';
 
