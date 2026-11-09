@@ -7,8 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as THREE from 'three';
 import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
-import { groundMaterial } from '../../biomes/surfaces.js';
-import { groundOf } from '../../assets/ground.js';
+import { groundMaterial } from '../biomes/surfaces.js';
+import { groundOf } from './ground.js';
 
 /** a material's shaders as the node handler builds them, against a stand-in context (no graphics card) */
 function glslOf(material) {
@@ -76,7 +76,7 @@ describe('the ground in TSL', () => {
 // (660ad67f): nothing calls three's compileAsync, which never pairs a node material's build
 describe('warm-ups', () => {
 	it('call compileAsync nowhere', () => {
-		const src = join(import.meta.dirname, '../../..'), found = [];
+		const src = join(import.meta.dirname, '../..'), found = [];
 		const walk = (d) => {
 			for (const f of readdirSync(d)) {
 				const p = join(d, f);

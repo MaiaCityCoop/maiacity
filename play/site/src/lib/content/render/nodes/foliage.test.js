@@ -1,14 +1,14 @@
 // Light through leaves (intent 6fd5e63f): a look drawn by the page's own TSL on WebGLRenderer through three's
-// WebGLNodesHandler, on a context that only answers (./nodes/fakegl.js, intent cb16b7a5's): instanced, shadowed, as a world draws a plant's
+// WebGLNodesHandler, on a context that only answers (./fakegl.js, intent cb16b7a5's): instanced, shadowed, as a world draws a plant's
 // copies. Each shader it hands the graphics card is read: the wind's uniforms and aWind in the vertex stage, the
 // backlight in the fragment stage, nothing of it in a look that has none.
 import { describe, expect, test } from 'vitest';
 import * as THREE from 'three';
 import * as tsl from 'three/tsl';
 import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
-import { fakeGL } from './nodes/fakegl.js';
-import { LEAK, foliageOf } from './foliage.js';
-import { windNodes } from './wind.js';
+import { fakeGL } from './fakegl.js';
+import { LEAK, foliageOf } from '../foliage.js';
+import { windNodes } from '../wind.js';
 
 globalThis.self ??= globalThis;
 globalThis.ImageBitmap ??= class {};
@@ -128,9 +128,9 @@ describe('a leaf drawn by its look', () => {
 
 describe("on the render kit's own materials (intent cb16b7a5)", () => {
 	test("a level's leaf material: the kit's node material with its fade and cut, the look on top, compiled whole", async () => {
-		const { nodeOf, cutBy, cutOf, aFade, install } = await import('./nodes/index.js');
-		const { lookedOf } = await import('./foliage.js');
-		const { fakeGL: kitGL } = await import('./nodes/fakegl.js');
+		const { nodeOf, cutBy, cutOf, aFade, install } = await import('./index.js');
+		const { lookedOf } = await import('../foliage.js');
+		const { fakeGL: kitGL } = await import('./fakegl.js');
 		const wind = windNodes(tsl);
 		const leaf = leafMaterial();
 		leaf.userData.look = { kind: 'leaf' };
@@ -157,8 +157,8 @@ describe("on the render kit's own materials (intent cb16b7a5)", () => {
 	});
 
 	test('a material with no look is the kit\'s own, untouched', async () => {
-		const { nodeOf } = await import('./nodes/index.js');
-		const { lookedOf } = await import('./foliage.js');
+		const { nodeOf } = await import('./index.js');
+		const { lookedOf } = await import('../foliage.js');
 		const n = nodeOf(new THREE.MeshStandardMaterial());
 		expect(lookedOf(n, null, windNodes(tsl))).toBe(n);
 		expect(lookedOf(n, { kind: 'leaf' }, null)).toBe(n);
