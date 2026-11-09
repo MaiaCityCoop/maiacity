@@ -1,9 +1,20 @@
-head: loaded in 119 s, backend webgl, settled false at 487 s
+main: loaded in 78 s, backend webgl, settled false at 506 s
+main far-5.56: settled false
+main far-12: settled false
+main orbit-00: settled true
+main orbit-05: settled true
+main orbit-10: settled true
+main orbit-15: settled true
+main orbit-20: settled true
+main: 6 errors
+  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+  TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+head: loaded in 194 s, backend webgl, settled false at 574 s
 head far-5.56: settled false
 head far-12: settled false
 head orbit-00: settled false
-head orbit-05: settled true
-head orbit-10: settled true
+head orbit-05: settled false
+head orbit-10: settled false
 head orbit-15: settled true
 head orbit-20: settled true
 head: 6 errors
