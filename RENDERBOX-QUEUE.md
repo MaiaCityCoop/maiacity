@@ -1,5 +1,13 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 14:45 Berlin — resumed after the weekly limit
+- Loop (chain19, nohup): **#13 run 4** (render 1249b53dc, head 6a4c572ee, started 14:43) → **#6** (b539d56b2) →
+  **7af6e162** (98c9211d0) → 544485e2's next viewer test → 0b4c007b's looks once 660ad67f is on main.
+- 544485e2 so far (cal tree, not pushed): the haze is the bloom (threshold in the lens's units fixes it; in the draft).
+  The black band over the goat and machine viewers is **not the sky**: painted magenta, the dome shows in the biome
+  (grass) viewer and not over the goat or the forklift; with AO off, FINITE off, clouds off, a lid on, still black. Only
+  the studio stage (animals, machines) has the contact shadow: next test turns it off.
+
 ## 12:20 Berlin — **660ad67f c6 recorded: PASS** on ebaa4498c (run 4, out/ 8648d1597)
 Sandbox 5 drawn in both engines, 0 uniform/GL errors, no plant failing, film 0…5 s. Its c1–c5 were cleared by the
 re-spec: once the box re-records them on ebaa4498c, it's at Proposal for Samuel's Accept.
