@@ -47,3 +47,13 @@ left for Samuel.
 - .github/workflows/intents.yml keeps its grep (a bun one-liner would not do exactly the same, and bun is set up only
   after that step): one comment line names the constant. Nothing else touched there (infra2 works in .github).
 - Pinned by workflows.test (pr-intent's judge), ship/allwork/depends tests (the reconcile's trailers).
+
+## 5. The mirrored work columns listed once (re-api#7)
+
+- `REFS` (held.ts) is the one list: WORK_OF's select, OWN_REFS' jsonb_build_object and asOne iterate it.
+- `ownColumns` empties the columns when the intent holds no variant at all (a variant with refs but no kind still leaves
+  them, as before); withdraw.ts calls it where it hand-wrote `SET work = NULL, asset_id = NULL, …`, under the same
+  "none left" test. Its other callers (dropDoc on a fold, intents.ts after holdVariant) never reach the empty case: the
+  fold proposes on the new timeline first, and holdVariant has just put one in.
+- Pinned first by a new withdraw.test case (its own commit, green on the code before): the last document withdrawn
+  leaves `work` and every ref column null.

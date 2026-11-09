@@ -45,7 +45,7 @@ const VARIANT_OF = `(SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.
  */
 export const WORK_OF = `i.id, i.coop_id, i.work AS kind, ${DOC_OF} AS doc_id, ${VARIANT_OF} AS doc_variant,
   COALESCE((SELECT json_agg(json_build_object('doc_id', iv.doc_id, 'doc_variant', iv.variant_id, 'refs', iv.refs) ORDER BY iv.position) FROM play.intent_variants iv WHERE iv.intent_id = i.id), '[]'::json) AS variants,
-  i.asset_id, i.base, i.version, i.story_id, i.story_base, i.story_version,
+  ${REFS.map((k) => `i.${k}`).join(", ")},
   COALESCE(i.work_note, '') AS note, i.proposed_by AS author, i.proposed_via AS via, i.proposed_at AS created,
   i.stage, ${WORK_STATUS} AS status, i.pull_request,
   i.decided_by, i.decided_at, i.spec, i.approved_at, i.title AS intent_title`;
@@ -84,8 +84,7 @@ export async function closeVariant(q: Queryable, me: Pick<Me, "id"> | null, docI
 }
 
 /** the SQL of an intent's (`$1`) own refs, as its first variant keeps them (play.intent_variants' refs) */
-const OWN_REFS = `(SELECT jsonb_strip_nulls(jsonb_build_object('kind', w.work, 'asset_id', w.asset_id, 'base', w.base, 'version', w.version,
-  'story_id', w.story_id, 'story_base', w.story_base, 'story_version', w.story_version)) FROM play.intents w WHERE w.id = $1 AND w.work IS NOT NULL)`;
+const OWN_REFS = `(SELECT jsonb_strip_nulls(jsonb_build_object('kind', w.work, ${REFS.map((k) => `'${k}', w.${k}`).join(", ")})) FROM play.intents w WHERE w.id = $1 AND w.work IS NOT NULL)`;
 
 /**
  * An intent variant made the intent's work on its document, in place of any it held there before (that one closed),
@@ -126,11 +125,12 @@ export async function closeWork(q: Queryable, me: Pick<Me, "id"> | null, w: { id
   for (const h of held) await closeVariant(q, me, h.doc_id, h.doc_variant);
 }
 
-/** the intent's own work columns (its kind of work and refs) set from its first document's intent variant */
+/** the intent's own work columns (its kind of work and refs) set from its first document's intent variant; holding none, all null */
 export async function ownColumns(q: Queryable, id: string) {
-  const first = (await q.query<{ refs: any }>(`SELECT refs FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [id])).rows[0]?.refs;
-  if (!first?.kind) return;
-  await q.query(`UPDATE play.intents SET work = $2, ${REFS.map((k, i) => `${k} = $${i + 3}`).join(", ")} WHERE id = $1`, [id, first.kind, ...REFS.map((k) => first[k] ?? null)]);
+  const row = (await q.query<{ refs: any }>(`SELECT refs FROM play.intent_variants WHERE intent_id = $1 ORDER BY position LIMIT 1`, [id])).rows[0];
+  const first = row ? row.refs : {};
+  if (row && !first?.kind) return;
+  await q.query(`UPDATE play.intents SET work = $2, ${REFS.map((k, i) => `${k} = $${i + 3}`).join(", ")} WHERE id = $1`, [id, first.kind ?? null, ...REFS.map((k) => first[k] ?? null)]);
 }
 
 /**
@@ -169,6 +169,6 @@ export const heldOf = (p: any): ({ doc_id: string; doc_variant: number | null } 
 export const asOne = (p: any, h: { doc_id: string; doc_variant: number | null } & Record<string, any>, k: { work: string }) => {
   const out: any = { ...p, kind: k.work, doc_id: h.doc_id, doc_variant: h.doc_variant };
   const isFirst = h.doc_id === (p.variants?.[0]?.doc_id ?? p.doc_id);
-  for (const r of ["asset_id", "base", "version", "story_id", "story_base", "story_version"]) out[r] = h[r] ?? (isFirst ? p[r] : null) ?? null;
+  for (const r of REFS) out[r] = h[r] ?? (isFirst ? p[r] : null) ?? null;
   return out;
 };
