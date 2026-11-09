@@ -2,8 +2,9 @@
 	The Game editor (Samuel 2026-11-04): the game's configs, in the asset library's frame ($lib/app/Frame). On the left
 	the configs to pick from (first the levelling: how a village grows, level by level); in the middle the one picked,
 	worked out (./levels.ts): every level with the villagers that reach it, what it unlocks and costs, what a mind costs,
-	the minds each new villager gets for their euros and hearts, the investor's ticket with its minds and share, the minds
-	minted, and the treasury after it in euros, hearts and minds. On the right the one aside ($lib/app/Aside.svelte):
+	the minds each new villager gets for their euros and hearts, the investor's ticket with its minds and share (held to its
+	cap a villager, its minds to keep the villagers at their least share) and what it paid for a mind, the beds against the
+	villagers, and the treasury after it in euros (the village's own; the coops' own beside it), hearts and minds. On the right the one aside ($lib/app/Aside.svelte):
 	its Info, and its History (its versions, every edit it was made in, its open intent variants).
 
 	A config is a Loro document in play's Postgres (play/SPEC.md "Version control", play/api/src/versioned.ts), read from
@@ -101,7 +102,7 @@
 						<h1>How a village grows</h1>
 						{#if levelling.note}<p class="lead">{levelling.note}</p>{/if}
 						<p class="rules">
-							Every villager brings <b>{euros(levelling.villager.euros)}</b> and <b>{short(levelling.villager.hearts)} hearts</b>. A mind costs {short(levelling.minds.heartsPerMind)} hearts at level 1 and {short(levelling.minds.step)} more at every level, or that in euros at {levelling.minds.heartsPerEuro} hearts a euro. At each level an investor adds a multiple of the new villagers' euros{#if levelling.investor?.maxPerVillager}, at most <b>{euros(levelling.investor.maxPerVillager)}</b> a new villager{/if}; the villagers always hold at least <b>{pct(levelling.minds.villagersMin ?? VILLAGERS_MIN)}</b> of the minds, so the investor pays more for a mind than a villager. The treasury pays only the village's own (land, domes, the tower, infrastructure); what a coop puts into its own is counted beside it.
+							Every villager brings <b>{euros(levelling.villager.euros)}</b> and <b>{short(levelling.villager.hearts)} hearts</b>. A mind costs {short(levelling.minds.heartsPerMind)} hearts at level 1 and {short(levelling.minds.step)} more at every level, or that in euros at {levelling.minds.heartsPerEuro} hearts a euro. At each level an investor adds a multiple of the new villagers' euros{#if levelling.investor?.maxPerVillager}, at most <b>€{whole(levelling.investor.maxPerVillager)}</b> a new villager{/if}; the villagers always hold at least <b>{pct(levelling.minds.villagersMin ?? VILLAGERS_MIN)}</b> of the minds, so the investor pays more for a mind than a villager. The treasury pays only the village's own (land, domes, the tower, infrastructure); what a coop puts into its own is counted beside it.
 						</p>
 					</header>
 
@@ -127,13 +128,12 @@
 									<th class="num">Each new villager</th>
 									<th class="num">Investor</th>
 									<th class="num">Beds</th>
-									<th class="num">Minted</th>
 									<th class="num tre">Treasury</th>
 								</tr>
 							</thead>
 							{#each phases as ph (ph.phase + ph.rows[0].n)}
 								<tbody>
-									<tr class="phase"><th colspan="9">{ph.phase}</th></tr>
+									<tr class="phase"><th colspan="8">{ph.phase}</th></tr>
 									{#each ph.rows as r (r.level.id)}
 										<tr>
 											<td><b class="lvl">{r.n}</b></td>
@@ -144,10 +144,9 @@
 												</ul>
 											</td>
 											<td class="num"><b>{euros(r.cost)}</b>{#if r.coops}<small>+ {euros(r.coops)} the coops' own</small>{/if}</td>
-											<td class="num"><b>{whole(r.villager.minds)} minds</b><small>a mind {short(r.price.hearts)} hearts or {euros(r.price.euros)}</small></td>
+											<td class="num"><b>{whole(r.villager.minds)} minds</b><small>a mind {short(r.price.hearts)} hearts or {euros(r.price.euros)}</small><small>{short(r.minted)} minted at this level</small></td>
 											<td class="num"><b>{euros(r.investor.euros)}</b><small>{times(r.investor.multiple)} the villagers'{#if r.investor.capped} (held to the cap, {times(r.level.investor)} asked){/if}</small><small>{short(r.investor.minds)} minds · {pct(r.investor.share)}</small><small>a mind {euros(r.investor.paid)}, {times(r.investor.premium)} a villager's</small></td>
 											<td class="num"><b class:low={!r.housed}>{whole(r.beds)}</b><small>for {whole(r.level.villagers)} villagers</small><small class:low={!r.ready}>{r.ready ? 'ready for the next' : r.housed ? 'short for the next level' : 'short'}</small></td>
-											<td class="num">{short(r.minted)}</td>
 											<td class="num tre"><b>{euros(r.treasury.raised)}</b><small class:low={r.treasury.left < 0}>{euros(r.treasury.left)} left after building</small><small>{short(r.treasury.hearts)} hearts · {short(r.treasury.minds)} minds</small><small>villagers hold {pct(r.treasury.villagers)}</small>{#if r.treasury.coops}<small>{euros(r.treasury.coops)} the coops' own</small>{/if}</td>
 										</tr>
 									{/each}
@@ -156,7 +155,7 @@
 						</table>
 					</div>
 					<p class="foot">
-						Each new villager's minds: their hearts and euros at the level's price. The investor's: its euros at the same price, and its share of the minds minted at that level. Treasury: euros raised so far and what is left after building everything unlocked, the hearts villagers brought, and every mind minted so far with the share villagers hold and what they are worth at the level's price. Beds: every bed built so far, against the level's villagers and, for a newcomer moves in only to a bed, the next level's. The costs are first estimates (v1's, split between the village and the coops), so the treasury shows much left after building until they are re-audited.
+						Each new villager's minds: their hearts and euros at the level's price. The investor's: its euros at the same price, and its share of the minds minted at that level. Treasury: euros raised so far and what is left after building everything unlocked, the hearts villagers brought, and every mind minted so far with the share villagers hold and what they are worth at the level's price. Beds: every bed built so far, against the level's villagers and, for a newcomer moves in only to a bed, the next level's. The costs are first estimates (v1's, split between the village and the coops), until they are re-audited: what is left after building moves with them.
 					</p>
 				{:else if config && !levelling}
 					<p class="muted">This config is of a kind the editor can't show yet ({config.json.schema}).</p>
