@@ -397,7 +397,6 @@ export function generateMap(seed: string): WorldMap {
 		k.inner = voronoi(cells.indexOf(k), 10);
 	}
 
-	// ── what stands on the land, on each cell, wild or plot ──
 	const features: Feature[] = [];
 	let onPlot = false;
 	const put = (kind: FeatureKind, x: number, y: number, s: number, extra: Partial<Feature> = {}) =>
