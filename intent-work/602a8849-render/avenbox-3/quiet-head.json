@@ -1,0 +1,389 @@
+{
+ "settled": false,
+ "log": [
+  {
+   "s": 40,
+   "q": 44,
+   "busy": {
+    "out": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 36,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 0,
+     "loaded": 0,
+     "pages": 0
+    },
+    "library": {
+     "building": 7,
+     "busy": {
+      "queue": 0,
+      "loads": 7,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 25,
+     "loaded": 18,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 72,
+   "q": 41,
+   "busy": {
+    "out": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 32,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 0,
+     "loaded": 0,
+     "pages": 0
+    },
+    "library": {
+     "building": 7,
+     "busy": {
+      "queue": 0,
+      "loads": 7,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 25,
+     "loaded": 18,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 93,
+   "q": 38,
+   "busy": {
+    "out": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 30,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 0,
+     "loaded": 0,
+     "pages": 0
+    },
+    "library": {
+     "building": 7,
+     "busy": {
+      "queue": 0,
+      "loads": 7,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 25,
+     "loaded": 18,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 115,
+   "q": 45,
+   "busy": {
+    "out": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 30,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 0,
+     "loaded": 0,
+     "pages": 0
+    },
+    "library": {
+     "building": 15,
+     "busy": {
+      "queue": 0,
+      "loads": 15,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 18,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 137,
+   "q": 45,
+   "busy": {
+    "out": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 30,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 0,
+     "loaded": 0,
+     "pages": 0
+    },
+    "library": {
+     "building": 15,
+     "busy": {
+      "queue": 0,
+      "loads": 15,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 18,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 159,
+   "q": 45,
+   "busy": {
+    "out": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 28,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 0,
+     "loaded": 0,
+     "pages": 0
+    },
+    "library": {
+     "building": 15,
+     "busy": {
+      "queue": 0,
+      "loads": 15,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 18,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 180,
+   "q": 43,
+   "busy": {
+    "out": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 28,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 0,
+     "loaded": 0,
+     "pages": 0
+    },
+    "library": {
+     "building": 15,
+     "busy": {
+      "queue": 0,
+      "loads": 15,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 18,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 213,
+   "q": 42,
+   "busy": {
+    "out": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 25,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "busy": {
+      "queue": 0,
+      "loads": 0,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 0,
+     "loaded": 0,
+     "pages": 0
+    },
+    "library": {
+     "building": 15,
+     "busy": {
+      "queue": 0,
+      "loads": 15,
+      "compiling": 0,
+      "lowering": 0
+     },
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 18,
+     "pages": 0
+    }
+   }
+  }
+ ]
+}

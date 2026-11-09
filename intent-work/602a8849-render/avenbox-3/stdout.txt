@@ -1,0 +1,50 @@
+GPU: ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
+head s1-water-pond: frame 10666.30 (p95 10666.30) · cpu 43.20 · gpu – · 1329 calls · 3,339,163 tris · bound cpu
+head s1-water-river: frame 8182.90 (p95 8182.90) · cpu 30.10 · gpu – · 348 calls · 2,146,150 tris · bound cpu
+head s1-dome-0: frame 10582.90 (p95 10582.90) · cpu 65.50 · gpu – · 527 calls · 1,325,921 tris · bound cpu
+head s1-dome-1: frame 13866.10 (p95 13866.10) · cpu 59.30 · gpu – · 1277 calls · 3,198,028 tris · bound cpu
+head s3-open: frame 988.80 (p95 1016.70) · cpu 7.90 · gpu – · 134 calls · 375,476 tris · bound null
+head world-oldcity: frame 569.40 (p95 616.60) · cpu 10.40 · gpu – · 52 calls · 31,263 tris · bound null
+head world-oldcity-night: frame 550.00 (p95 583.40) · cpu 8.50 · gpu – · 52 calls · 31,261 tris · bound null
+head world-checkout: frame 197.90 (p95 216.70) · cpu 1.50 · gpu – · 96 calls · 30,921 tris · bound null
+head factories: frame 4449.80 (p95 4449.80) · cpu 30.60 · gpu – · 4570 calls · 11,328,297 tris · bound cpu
+head game-map: frame 1511.00 (p95 1599.90) · cpu 1.80 · gpu – · 315 calls · 1,914,812 tris · bound null
+head lab: frame 24.90 (p95 33.40) · cpu 0.40 · gpu – · 3 calls · 12 tris · bound null
+head plant-harness: frame 16.70 (p95 16.80) · cpu 0.20 · gpu – · 2 calls · 792 tris · bound null
+head: 5 errors
+    /sandbox-1/ console: Failed to load resource: the server responded with a status of 404 (Not Found)
+    /sandbox-3/ console: Failed to load resource: the server responded with a status of 404 (Not Found)
+    /worlds/#43420c0b-675b-4e50-98b5-c461b9432fc0 console: Failed to load resource: the server responded with a status of 404 (Not Found)
+    /worlds/#c88b84db-3d48-4a85-8d21-a29f0c38610a console: Failed to load resource: the server responded with a status of 404 (Not Found)
+    /sandbox-2/ console: Failed to load resource: the server responded with a status of 404 (Not Found)
+base s1-water-pond: frame 10716.30 (p95 10716.30) · cpu 34.00 · gpu – · 874 calls · 2,441,840 tris · bound cpu
+base s1-water-river: frame 8666.30 (p95 8666.30) · cpu 31.60 · gpu – · 348 calls · 2,146,150 tris · bound cpu
+base s1-dome-0: frame 10732.90 (p95 10732.90) · cpu 38.70 · gpu – · 1104 calls · 2,228,750 tris · bound cpu
+base s1-dome-1: frame 14099.50 (p95 14099.50) · cpu 42.80 · gpu – · 1277 calls · 3,198,028 tris · bound cpu
+base s3-open: frame 1072.20 (p95 1183.30) · cpu 7.50 · gpu – · 133 calls · 375,507 tris · bound null
+base world-oldcity: frame 516.70 (p95 533.40) · cpu 10.30 · gpu – · 52 calls · 30,438 tris · bound null
+base world-oldcity-night: frame 550.00 (p95 616.60) · cpu 10.90 · gpu – · 52 calls · 30,438 tris · bound null
+base world-checkout: frame 189.60 (p95 200.00) · cpu 1.60 · gpu – · 130 calls · 36,638 tris · bound null
+base factories: frame 4716.50 (p95 4716.50) · cpu 27.50 · gpu – · 4570 calls · 11,328,297 tris · bound cpu
+base game-map: frame 1841.60 (p95 1983.20) · cpu 2.90 · gpu – · 315 calls · 1,914,812 tris · bound null
+base lab: frame 29.40 (p95 33.40) · cpu 0.60 · gpu – · 4 calls · 12 tris · bound null
+base plant-harness: frame 16.70 (p95 16.70) · cpu 0.10 · gpu – · 2 calls · 792 tris · bound null
+base: 5 errors
+    /sandbox-1/ console: Failed to load resource: the server responded with a status of 404 (Not Found)
+    /sandbox-3/ console: Failed to load resource: the server responded with a status of 404 (Not Found)
+    /worlds/#43420c0b-675b-4e50-98b5-c461b9432fc0 console: Failed to load resource: the server responded with a status of 404 (Not Found)
+    /worlds/#c88b84db-3d48-4a85-8d21-a29f0c38610a console: Failed to load resource: the server responded with a status of 404 (Not Found)
+    /sandbox-2/ console: Failed to load resource: the server responded with a status of 404 (Not Found)
+s1-water-pond: SSIM 0.8178 (water: judged by eye) · base 10716.30 (cpu) → head 10666.30 (cpu) · Δ -50.00 ms within +5 %
+s1-water-river: SSIM 0.8584 (water: judged by eye) · base 8666.30 (cpu) → head 8182.90 (cpu) · Δ -483.40 ms within +5 %
+s1-dome-0: SSIM 0.9625 UNDER 0.98 · base 10732.90 (cpu) → head 10582.90 (cpu) · Δ -150.00 ms within +5 %
+s1-dome-1: SSIM 0.9315 UNDER 0.98 · base 14099.50 (cpu) → head 13866.10 (cpu) · Δ -233.40 ms within +5 %
+s3-open: SSIM 0.9467 UNDER 0.98 · base 1072.20 (null) → head 988.80 (null) · Δ -83.40 ms within +5 %
+world-oldcity: SSIM 0.9991 · base 516.70 (null) → head 569.40 (null) · Δ 52.70 ms OVER +5 %
+world-oldcity-night: SSIM 0.9971 · base 550.00 (null) → head 550.00 (null) · Δ 0.00 ms within +5 %
+world-checkout: SSIM 0.9997 · base 189.60 (null) → head 197.90 (null) · Δ 8.30 ms within +5 %
+factories: SSIM 0.9999 · base 4716.50 (cpu) → head 4449.80 (cpu) · Δ -266.70 ms within +5 %
+game-map: SSIM 1.0000 · base 1841.60 (null) → head 1511.00 (null) · Δ -330.60 ms within +5 %
+lab: SSIM 1.0000 · base 29.40 (null) → head 24.90 (null) · Δ -4.50 ms within +5 %
+plant-harness: SSIM 0.9991 · base 16.70 (null) → head 16.70 (null) · Δ 0.00 ms within +5 %
+done in 5619 s: /home/user/job/intent-work/602a8849-render/avenbox-3/results.json

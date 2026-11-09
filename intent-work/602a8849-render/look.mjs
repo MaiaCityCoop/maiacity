@@ -43,7 +43,7 @@ const TOKEN = process.env.PLAY_MCP_TOKEN;
 if (!TOKEN) throw new Error('PLAY_MCP_TOKEN: the admin token the proxy reads play with');
 mkdirSync(OUT, { recursive: true });
 
-const SAMPLE = 3, OPEN = Number(arg('--open', 60)), W = 1440, H = 900;
+const SAMPLE = 3, OPEN = Number(process.env.OPEN_S ?? arg('--open', 60)), W = 1440, H = 900;
 const OLD_CITY = '43420c0b-675b-4e50-98b5-c461b9432fc0';
 /** the Checkout world: indoor, its lamps and signs lit (the world lights' glows, ../worlds/lights.js) */
 const CHECKOUT = 'c88b84db-3d48-4a85-8d21-a29f0c38610a';
