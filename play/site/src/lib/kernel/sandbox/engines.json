@@ -79,6 +79,21 @@
 			],
 			"kept": "6e1d7956fb02522d4c1f7facfc942afac3ecb96e:static/engines/engine-v5.js",
 			"note": "Engine 5 (format 4): an actor's clips played in the box and written down as tables on its view (box/clips.js: clips in time over 32 s, gaits by pace, distance and turn), for the page to play any number of copies by (../clips.js playerOf); lights leave as lights; and what else a control or a running build's step changes, only where it changes: the meshes it reshapes (positions and normals), material looks (colour, glow, opacity, roughness, metalness) and lights (colour, brightness, reach, fall-off); a dug patch's setWet a control (wet)"
+		},
+		{
+			"v": 6,
+			"date": "2026-11-09",
+			"blake3": "03f34331e2df41fe6ef20c91d8b02930cca42c3d20658800a26f064f15e5ad02",
+			"bytes": 822366,
+			"three": "0.187.0",
+			"modules": [
+				"three",
+				"three/addons/geometries/RoundedBoxGeometry.js",
+				"three/addons/objects/Reflector.js",
+				"three/addons/utils/BufferGeometryUtils.js",
+				"three/addons/utils/SkeletonUtils.js"
+			],
+			"note": "Engine 6 (format 5, intent a5faafad): a material's own look leaves the box as data, a TSL node graph checked against the one allowlist (box/graph.js) and built by the page; the kit's section caps as their look; a shader of its own given any other way (onBeforeCompile, a ShaderMaterial) refuses the build, naming the material, where engines 1-5 sent it out as a plain material; three.js r187"
 		}
 	],
 	"logic": [
