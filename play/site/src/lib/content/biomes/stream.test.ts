@@ -50,7 +50,7 @@ describe('one program lays the cover (c1)', () => {
 		expect(existsSync(join(SRC, 'lib/content/biomes/cover.js'))).toBe(false);
 		for (const f of files(SRC)) expect(readFileSync(f, 'utf8').includes('create' + 'Cover'), f).toBe(false);
 		const stream = readFileSync(join(SRC, 'lib/content/biomes/stream.js'), 'utf8');
-		expect(stream).not.toContain('onBeforeCompile');
+		expect(stream).not.toContain('onBefore' + 'Compile');
 		expect(stream).not.toContain('customDepthMaterial');
 	});
 	it('the viewer’s ground leaves cover out by the render kit’s TSL, not a GLSL string', () => {

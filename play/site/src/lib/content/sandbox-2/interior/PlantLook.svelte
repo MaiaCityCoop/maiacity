@@ -42,16 +42,14 @@
 			const key = new THREE.DirectionalLight('#fff4e6', 2.2);
 			key.position.set(1.2, 2.2, 0.9);
 			scene.add(key);
-			// a patch of soil under it, fading out at its rim
-			const soil = new THREE.Mesh(
-				new THREE.CircleGeometry(1, 64).rotateX(-Math.PI / 2),
-				new THREE.ShaderMaterial({
-					transparent: true,
-					depthWrite: false,
-					vertexShader: 'varying vec2 p; void main() { p = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-					fragmentShader: 'varying vec2 p; void main() { float r = length(p); gl_FragColor = vec4(0.48, 0.38, 0.27, 0.55 * (1.0 - smoothstep(0.35, 1.0, r))); }'
-				})
-			);
+			// a patch of soil under it, fading out at its rim (its colour written as it is: ../../render/tsl.js `raw`)
+			const { OwnBasic } = await import('$lib/content/render/tsl.js');
+			const { length, positionLocal, smoothstep, vec3 } = await import('three/tsl');
+			const soilLook = new OwnBasic({ transparent: true, depthWrite: false });
+			soilLook.userData.raw = true;
+			soilLook.colorNode = vec3(0.48, 0.38, 0.27);
+			soilLook.opacityNode = smoothstep(0.35, 1, length(positionLocal.xz)).oneMinus().mul(0.55);
+			const soil = new THREE.Mesh(new THREE.CircleGeometry(1, 64).rotateX(-Math.PI / 2), soilLook);
 			scene.add(soil);
 			/** @type {import('three').Object3D | null} */
 			let plant = null;

@@ -35,10 +35,10 @@
  */
 import * as THREE from 'three';
 import { ClippingGroup } from 'three/webgpu';
-import { ShaderPass, createPost } from '$lib/content/render/post.js';
+import { NodePass, createPost } from '$lib/content/render/post.js';
+import { dot, float, fract, length, mix, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl';
 import { createSky } from '$lib/content/sandbox-kit/sky.js';
 import { isWebGPU, precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
-import { Fn, dot, float, fract, mix, screenUV, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl';
 import { budget } from '$lib/content/render/budget.js';
 import { floorMaterial } from '../render/nodes/index.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment } from './kit.js';
@@ -63,11 +63,12 @@ export class Stage {
 	/**
 	 * @param {THREE.WebGLRenderer} renderer the page's renderer (its tone mapping is set while the stage draws)
 	 * @param {THREE.PerspectiveCamera} camera
-	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
+	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean, hour?: number }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
 	 *   a smaller, softer-sampled shadow), so it draws smoothly and fits in a phone's memory ($content/render/core.js);
-	 *   `sky`: shown under the afternoon sky ($content/sandbox-kit/sky.js) instead of in the paper studio
+	 *   `sky`: shown under the afternoon sky ($content/sandbox-kit/sky.js) instead of in the paper studio; `hour`: the
+	 *   sky's hour held (its clouds' drift and its light), else the in-game clock's, which follows the wall clock
 	 */
-	constructor(renderer, camera, { theme = 'paper', low = false, sky = false } = {}) {
+	constructor(renderer, camera, { theme = 'paper', low = false, sky = false, hour } = {}) {
 		this.renderer = renderer;
 		this.camera = camera;
 		this.theme = theme;
@@ -122,7 +123,7 @@ export class Stage {
 			this.scene.environment.dispose();
 			this.scene.environment = null;
 			this.scene.background = null;
-			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25 });
+			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25, ...(hour === undefined ? {} : { clock: () => hour }) });
 			this.sky.stars.visible = false;
 		}
 		// lights: a soft key with its shadow, a cool rim, a gentle fill (the environment does most of the work)
@@ -155,17 +156,15 @@ export class Stage {
 		// at the canvas's own pixels (a composer given its target counts them 1:1 until told the ratio)
 		const css = r.getSize(new THREE.Vector2());
 		const paper = this.theme === 'paper';
-		// on WebGPU (the switch, intent c1bee1f8) the grade is the same pass in TSL, its uniforms named alike
-		const grade = isWebGPU(r) ? gradeNode({ vig: paper ? 0.1 : 0.32, grain: paper ? 0.012 : 0.02, sat: 1.06, res: size }) : new ShaderPass({
-			uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVig: { value: paper ? 0.1 : 0.32 }, uGrain: { value: paper ? 0.012 : 0.02 }, uSat: { value: 1.06 }, uRes: { value: new THREE.Vector2(size.x, size.y) } },
-			vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-			fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uSat; uniform vec2 uRes; varying vec2 vUv;
-				float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-				void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb;
-					float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat);
-					vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y; c *= 1.0 - uVig * smoothstep(0.35, 1.25, length(q));
-					c += (h(vUv * uRes + fract(uTime) * 91.7) - 0.5) * uGrain;
-					gl_FragColor = vec4(c, 1.0); }`
+		// the grade (AirSup's, in TSL: ../render/post.js NodePass): saturation, a vignette and a fine grain
+		const u = { uTime: uniform(0), uVig: uniform(paper ? 0.1 : 0.32), uGrain: uniform(paper ? 0.012 : 0.02), uSat: uniform(1.06), uRes: uniform(new THREE.Vector2(size.x, size.y)) };
+		const grade = new NodePass(u, (at, p) => {
+			let c = at(p).rgb;
+			c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, u.uSat);
+			const q = p.sub(0.5).mul(vec2(u.uRes.x.div(u.uRes.y), 1));
+			c = c.mul(float(1).sub(u.uVig.mul(smoothstep(0.35, 1.25, length(q)))));
+			const h = fract(sin(dot(p.mul(u.uRes).add(fract(u.uTime).mul(91.7)), vec2(12.9898, 78.233))).mul(43758.5453));
+			return vec4(c.add(h.sub(0.5).mul(u.uGrain)), 1);
 		});
 		const post = createPost(r, this.scene, this.camera, {
 			target: [size.x, size.y],
@@ -174,7 +173,7 @@ export class Stage {
 			// ambient occlusion on a desktop only: not on a phone (low) nor a big tablet, whose GPU draws it in streaks
 			ao: !this.low && !touchFirst() && ((ao) => this._ao(ao)),
 			bloom: { strength: paper ? 0.22 : 0.42, radius: 0.55, threshold: paper ? 1.6 : 1.0 },
-			after: [grade.node ?? grade]
+			after: [grade]
 		});
 		this.post = post;
 		this.composer = post.composer;
@@ -786,26 +785,3 @@ export class Stage {
 	}
 }
 
-/**
- * The stage's grade in TSL (WebGPU, intent c1bee1f8): the GLSL pass's saturation, vignette and grain, line for line,
- * after the output; its uniforms under the GLSL pass's names, so the stage sets them alike.
- * @param {{ vig: number, grain: number, sat: number, res: THREE.Vector2 }} o
- */
-export function gradeNode(o) {
-	const uniforms = { uTime: uniform(0), uVig: uniform(o.vig), uGrain: uniform(o.grain), uSat: uniform(o.sat), uRes: uniform(new THREE.Vector2(o.res.x, o.res.y)) };
-	const h = Fn(([p]) => fract(sin(dot(p, vec2(12.9898, 78.233))).mul(43758.5453)));
-	/** @param {any} input the picture after the output */
-	const node = (input) =>
-		Fn(() => {
-			const { uTime, uVig, uGrain, uSat, uRes } = uniforms;
-			let c = vec3(input.rgb);
-			const l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-			c = mix(vec3(l), c, uSat);
-			const q = screenUV.sub(0.5).toVar();
-			q.x.mulAssign(uRes.x.div(uRes.y));
-			c = c.mul(float(1).sub(uVig.mul(smoothstep(0.35, 1.25, q.length()))));
-			c = c.add(h(screenUV.mul(uRes).add(fract(uTime).mul(91.7))).sub(0.5).mul(uGrain));
-			return vec4(c, 1);
-		})();
-	return { uniforms, node };
-}

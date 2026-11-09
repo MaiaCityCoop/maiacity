@@ -282,7 +282,7 @@ const I3 = new THREE.Matrix3();
 let drawing = null;
 /** What makes two of our shaders differ beside three's node hash: the kit's settings, each texture slot's kind and
  * the drawn geometry (a map reads `uv`, vertex colours `color`: 660ad67f). @param {any} m @param {any} o */
-function shapeOf(m, o) {
+export function shapeOf(m, o) {
 	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}|${o?.type}${o?.instanceColor ? 'ic' : ''}`;
 	const g = o?.geometry;
 	for (const [k, a] of Object.entries(g?.attributes ?? {}).sort()) s += `|${k}${a.itemSize}${a.array?.constructor.name}${a.normalized ? 'n' : ''}${a.isInstancedBufferAttribute ? 'i' : ''}`;
@@ -304,7 +304,8 @@ const KINDS = {
 };
 /** the settings kept behind accessors, which a material's own keys miss */
 const HIDDEN = ['alphaTest', 'clearcoat', 'sheen', 'iridescence', 'transmission', 'anisotropy', 'dispersion'];
-const SKIP = new Set(['uuid', 'id', 'type', 'version', 'defines', 'onBeforeCompile', 'customProgramCacheKey', 'onBeforeRender', 'userData']);
+/** what is never carried over: who it is, its defines and data, its program's key, and its hooks (every `on…`) */
+const SKIP = new Set(['uuid', 'id', 'type', 'version', 'defines', 'customProgramCacheKey', 'userData']);
 
 /** whether `nodeOf` has a node material for `m` */
 export const drawnAsNode = (m) => !!m?.isNodeMaterial || !!KINDS[m?.type];
@@ -320,7 +321,7 @@ export function nodeOf(m) {
 	if (!K) return m;
 	const n = new K();
 	for (const k of [...Object.keys(m), ...HIDDEN]) {
-		if (SKIP.has(k) || k.startsWith('_') || k.startsWith('is') || !(k in n) || !(k in m)) continue;
+		if (SKIP.has(k) || k.startsWith('_') || k.startsWith('is') || k.startsWith('on') || !(k in n) || !(k in m)) continue;
 		const v = m[k];
 		if (n[k]?.copy && v?.copy && !v.isTexture) n[k].copy(v);
 		else n[k] = v;

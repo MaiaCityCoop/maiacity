@@ -14,7 +14,8 @@ const { MeshStandardNodeMaterial } = await import('three/webgpu');
 const { fakeGL } = await import('./nodes/fakegl.js');
 const { makeRenderer } = await import('./core.js');
 const { createPost, finite } = await import('./post.js');
-const { gradeNode } = await import('../assets/stage.js');
+const { NodePass } = await import('./post.js');
+const { uniform, vec4, dot, vec3, mix } = await import('three/tsl');
 
 /** a WebGPURenderer on its WebGL 2 backend over the fake context, and every shader it was handed */
 async function renderer() {
@@ -43,8 +44,13 @@ describe('the post stack on WebGPU', () => {
 		const { scene, camera, glass } = world();
 		/** @type {any} */
 		let handed = null;
-		const grade = gradeNode({ vig: 0.32, grain: 0.02, sat: 1.06, res: new THREE.Vector2(64, 64) });
-		const post = /** @type {any} */ (createPost(r, scene, camera, { samples: 4, ao: (ao) => (handed = ao), bloom: { strength: 0.42, radius: 0.55, threshold: 1 }, after: [grade.node] }));
+		// a page's own pass, as the asset stage's grade is one (a NodePass), its time a uniform it sets
+		const u = { uTime: uniform(0), uSat: uniform(1.06) };
+		const grade = new NodePass(u, (at, p) => {
+			const c = at(p).rgb;
+			return vec4(mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, u.uSat).add(u.uTime.mul(43758.5453).fract().mul(0)), 1);
+		});
+		const post = /** @type {any} */ (createPost(r, scene, camera, { samples: 4, ao: (ao) => (handed = ao), bloom: { strength: 0.42, radius: 0.55, threshold: 1 }, after: [grade] }));
 		expect(post.webgpu).toBe(true);
 		expect(post.composer).toBeNull();
 		expect(post.pipeline.outputColorTransform).toBe(false);
@@ -60,7 +66,7 @@ describe('the post stack on WebGPU', () => {
 		// a see-through part kept out of the occlusion by the mask
 		post.ao.exclude(glass.material);
 		expect(/** @type {any} */ (glass.material).mrtNode).toBeTruthy();
-		grade.uniforms.uTime.value = 3;
+		u.uTime.value = 3;
 		post.render();
 		const frag = shaders.filter((s) => /void main/.test(s ?? '')).join('\n');
 		// the NaN guard's bit test, the scene's normals beside its colour, and the grade's vignette in the programs
