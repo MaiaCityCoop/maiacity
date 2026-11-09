@@ -141,7 +141,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
   const read = await readPull(gh!, first.pull_request).catch((e) => refuse(`Pull request #${first.pull_request} could not be read: ${(e as Error).message}.`));
   const pr = read.pr;
   // what play keeps of its main merge goes on (./mainmerge.ts): main merged in and GitHub not done yet is working
-  const seen = carrySeen((first as any).pr_seen, read.seen);
+  const seen = carrySeen(first.pr_seen, read.seen);
   await keepSeen(db, first.id, seen);
   await db.transaction(async (tx) => {
     // one Accept at a time: a second press waits here, then finds it in Ship
@@ -231,7 +231,7 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
 
     // its turn: no ship running, none waiting ahead of it
     const { rows: others } = await tx.query<any>(`SELECT id, title, ship, decided_at FROM play.intents WHERE stage = 'ship' AND id <> $1 AND coop_id = $2`, [id, COOP]);
-    const time = (d: unknown) => new Date(d as any).getTime();
+    const time = (d: string | number | Date) => new Date(d).getTime();
     // one ended (green, waiting for the reconcile to find it live) runs no more
     const running = others.find((o) => o.ship && !o.ship.pending && !o.ship.outcome);
     const ahead = others
@@ -536,7 +536,7 @@ async function acceptWorkLive(tx: Queryable, id: string) {
   if (me?.level !== "admin") return why("no admin to accept its work of play's: its code is live, propose its work again in an intent of its own");
   if (!shipWork.store) return why("play holds no store to accept its work with");
   await tx.query(`SAVEPOINT work_live`);
-  const out: any = await decideWork(tx, { db: tx as any, store: shipWork.store }, me, p, "accept").catch((e) => ({ status: "failed", message: (e as Error).message }));
+  const out: any = await decideWork(tx, { db: tx as Db, store: shipWork.store }, me, p, "accept").catch((e) => ({ status: "failed", message: (e as Error).message }));
   if (out?.status === "accepted") {
     // its decision left it Accepted by whoever decided it; the reconcile's own note stands on its ship
     await tx.query(`RELEASE SAVEPOINT work_live`);
