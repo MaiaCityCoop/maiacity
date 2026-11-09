@@ -3,7 +3,7 @@
 Run 1 (5f829ca, head a1c2823) found WebGPU's own shader errors (fixed in the pull request, 817fe84); this job then
 names the URL of every failed request, keeps the job's own errors apart, and smokes a production build (run 2).
 
-MAC JOB READY: intent-work/c1bee1f8-render@{JOB} intent-work/c1bee1f8-render/README.md, run 4, on the pull request's head
+MAC JOB READY: intent-work/c1bee1f8-render@fe6490ee intent-work/c1bee1f8-render/README.md, run 4, on the pull request's head
 `baf1338a27127c8d6e70796a26f9b05105e91616` (`HEAD_COMMIT=baf1338a27127c8d6e70796a26f9b05105e91616`; main's untangle 5884ade4 merged in), a production build.
 Dry run: DRY RUN PASSED at c28ad3d (23.2 s; only this line changed since).
 
