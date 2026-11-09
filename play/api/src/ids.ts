@@ -1,7 +1,7 @@
 // The few things play's code names itself (Samuel 2026-11-04: every reference is a UUID or a hash; a name, a slug or a
 // route is only shown). Each was once named by a readable id; migration 0017-uuids gave it the UUID it is known by from
 // then on, uuidOf("<kind>:<old id>") (./uuid.ts), and these are those UUIDs, written out. play/site's
-// src/lib/content/assets/sandboxes.js names the sandboxes by the same ones.
+// src/lib/content/assets/sandboxes.js re-exports `SANDBOX` from here: a sandbox's UUID is written only in this file.
 
 /** the Maia City coop, which owns every asset (once 'maia-city') */
 export const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
