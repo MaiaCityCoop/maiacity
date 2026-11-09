@@ -108,3 +108,10 @@ scratchpad, `infra2/`).
 - Same: the step, old and new, its wait failing (stand-in curl), with a stand-in ssh running the command in a fake app
   folder and a stand-in docker (`infra2/caddy-same.sh`): the same three docker calls, the same output, exit 1.
   actionlint clean.
+
+## 11. Tests no longer restate the values said once (re-infra#11)
+
+- Gone: workflows.test.ts's `.bun-version` is `1.4.4` and box.env's `PG_MAX_CONNECTIONS=500`, deploy-speed.test.ts's
+  box.env `PG_VERSION=17`. Kept beside them, the behaviour: setup-bun reads `.bun-version`, CI's Postgres step runs
+  `postgres:$PG_VERSION-alpine` with `max_connections=$PG_MAX_CONNECTIONS` from box.env. A bump of bun or Postgres now
+  edits only the file that says it. Both files green.
