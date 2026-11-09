@@ -317,7 +317,7 @@
 	.also:hover { background: rgb(0 0 0 / 0.03); }
 	.also.on { border-color: var(--forest, #2f5d46); background: color-mix(in srgb, var(--forest, #2f5d46) 8%, transparent); }
 	.also .what { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
-	/* a document's review: what it changes, field by field (./Changes.svelte) */
+	/* a document's review: what it changes, field by field ($lib/app/Changes.svelte) */
 	.sandbox-review { flex: 1 1 auto; min-height: 0; overflow: auto; }
 	.refused { flex: 0 0 auto; margin: 0; padding: 0.45rem 0.7rem; border-radius: 10px; font-size: 0.85rem; line-height: 1.4; max-height: 5.6em; overflow-y: auto; overflow-wrap: anywhere; color: #9c3b22; background: color-mix(in srgb, var(--terracotta, #c8744f) 12%, var(--card, #fff)); border: 1px solid color-mix(in srgb, var(--terracotta, #c8744f) 45%, transparent); }
 	.work-pane { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.4rem; overflow: hidden; }

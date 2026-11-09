@@ -12,7 +12,7 @@
 	green "+" between the intents and You that opens its main sheet, and the accounts it can be looked at as, listed in the You
 	menu ($lib/app/pill.svelte.js: MaiaCity V1's wallet and its COOPs).
 
-	Where it floats and the room it takes are said once, in maia/site/app.css (--nav-foot, --nav-height, --nav-room): full-screen
+	Where it floats and the room it takes are said once, in src/app.css (--nav-foot, --nav-height, --nav-room): full-screen
 	pages keep what they show at their foot above it with --nav-room.
 -->
 <script>
@@ -380,7 +380,7 @@
 	}
 
 	/* a phone, upright or on its side, and a narrow window: icons only, each as wide as a finger, the pill 52px tall
-	   (--nav-height, maia/site/app.css) */
+	   (--nav-height, src/app.css) */
 	@media (max-width: 760px), (max-height: 500px) {
 		.pill {
 			gap: 0;

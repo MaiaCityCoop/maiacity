@@ -19,7 +19,7 @@ export type Biome = 'grass' | 'forest' | 'sand' | 'mountain' | 'river';
 /** the biomes nobody builds on: they stay wild land, never plots */
 export const UNBUILDABLE: Biome[] = ['mountain'];
 
-/** what each biome is and what it gives (the ten base resources of maia/content/aven-city/GAME-MECHANICS.md) */
+/** what each biome is and what it gives (the ten base resources of maia/content/aven-city/GAME-MECHANICS.md on SNAPSHOT_2611101) */
 export const BIOMES: Record<Biome, { label: string; gives: [string, string]; colour: string }> = {
 	river: { label: 'Shore', gives: ['Water', 'Clay'], colour: '#4f8a8b' },
 	forest: { label: 'Forest', gives: ['Wood', 'Herbs'], colour: '#3f5e4a' },

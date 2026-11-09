@@ -94,3 +94,6 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
   `titleOf` from `names.ts` and `when`/`shortWhen` from `lib/format.ts`, and read the intent through the board's
   `opened.intent(id, stage)` (a prop; `opened.forget()` after a withdraw), so the review is read once for board and
   detail (site-app#18's rest); `REPO_URL` from the API (F8, site-app#29).
+15. **Comments name files that exist.** `maia/site/app.css` → `src/app.css` (NavPill, TouchStick); legacy paths say
+    they are on SNAPSHOT_2611101 (postgres, the layout, the map); the Stories address is a UUID, not a slug; WorkReview
+    names `$lib/app/Changes.svelte`. Removes site-app#34 outside the kernel. Comments only.

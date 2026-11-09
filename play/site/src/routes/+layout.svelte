@@ -1,5 +1,5 @@
 <!--
-	play's app shell, as legacy's (maia/site/routes/app/+layout.svelte): no bar across the top — each page is its own,
+	play's app shell, as legacy's (maia/site/routes/app/+layout.svelte on SNAPSHOT_2611101): no bar across the top — each page is its own,
 	the sandboxes full screen with their own top bars — and at the foot of every page the nav pill ($lib/site/app/NavPill
 	.svelte): back, the intents (a star: their board in a modal over the page, $lib/site/intents, admins only), and
 	you, whose menu switches whom you act as (yourself, or Maia City for its admins) and signs out. A visitor sees only

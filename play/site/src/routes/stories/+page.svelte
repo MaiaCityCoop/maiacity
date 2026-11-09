@@ -31,7 +31,7 @@
 	let versions = $state<NonNullable<Story['versions']>>([]);
 	let loading = $state(false);
 
-	/** the story and version in the address: #papaya-v2-devlog, or #papaya-v2-devlog@1 for an older version */
+	/** the story and version in the address: #<its UUID>, or #<its UUID>@1 for an older version */
 	const fromHash = () => {
 		const [id, v] = decodeURIComponent(location.hash.slice(1)).split('@');
 		return { id: id || '', v: v ? Number(v) : null };

@@ -1,6 +1,6 @@
 <!--
 	Postgres: the admins' window into play's Postgres, read only (play/api/src/tables.ts, ported from legacy's
-	maia/site/routes/app/postgres), laid out as the asset viewer is (routes/assets, its Frame): the tables down the left
+	maia/site/routes/app/postgres on SNAPSHOT_2611101), laid out as the asset viewer is (its Frame): the tables down the left
 	like the asset shelf, a table's rows in the middle as tall and as wide as it is, and down the right what is opened —
 	a row whole, titled by its table and its first value, or, none opened, the table's columns. A column that keeps a
 	secret or a credential is never sent, only that it is there. Maia City's admins alone (the API says so too); anyone
