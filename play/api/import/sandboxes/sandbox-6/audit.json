@@ -53,7 +53,7 @@
 			"label": "Shared kitchens, dining and common rooms a resident (a cohousing common house)",
 			"unit": "m²",
 			"value": 9,
-			"source": "ART:1"
+			"source": "633843e7-c94c-45ed-9300-d8f2f948c803"
 		},
 		"halls": {
 			"label": "Community halls in the tower",
@@ -62,16 +62,16 @@
 			"decided": "Samuel 2026-11-09: \"Theatre and library move into tower\"; the school, clinic and town hall stay in the village centre"
 		},
 		"hallM2": {
-			"label": "A two-court village hall (18 × 17 m, seats up to 356, 496 with a stage)",
+			"label": "A two-court village hall, 18 × 17 m (seats up to 356, 496 with a stage)",
 			"unit": "m²",
 			"value": 306,
-			"source": "ART:2"
+			"source": "86c1811d-4e1e-4481-9ff1-ea7dbdfde2dc"
 		},
 		"sportPerResident": {
 			"label": "Usable sports hall a resident (municipalities up to 10,000)",
 			"unit": "m²",
 			"value": 0.37,
-			"source": "ART:3"
+			"source": "3314248e-37e5-4358-9ff9-32c7d717d19d"
 		},
 		"libraries": {
 			"label": "Libraries in the tower",
@@ -83,13 +83,13 @@
 			"label": "A village library below 2,500 inhabitants, at least",
 			"unit": "m²",
 			"value": 75,
-			"source": "ART:4"
+			"source": "2f076865-1d1f-4c41-a2e3-3c55e6999aae"
 		},
 		"workshopPerResident": {
 			"label": "Workshops and studios a resident",
 			"unit": "m²",
 			"value": 0.1,
-			"estimate": "About one registered user a m² (makerspace survey, ART:5) times a tenth of the residents registered: no per-resident benchmark for community workshops was found"
+			"estimate": "About one registered user a m² (makerspace survey, artifact a730499b) times a tenth of the residents registered: no per-resident benchmark for community workshops was found"
 		},
 		"marketPerResident": {
 			"label": "Market hall and cafés a resident",
@@ -101,13 +101,13 @@
 			"label": "Co-working desks a resident",
 			"unit": "desks",
 			"value": 0.0625,
-			"source": "ART:7"
+			"source": "cb5dceb7-4ad9-4051-968f-fb640b25e4f4"
 		},
 		"deskM2": {
-			"label": "Floor an open-plan desk, its share of circulation",
+			"label": "Floor an open-plan desk (open-plan rooms of 400 m² or more), its share of circulation",
 			"unit": "m²",
 			"value": 13.5,
-			"source": "ART:6"
+			"source": "ba96cac2-f1d4-4d7d-bf5d-6f2b31f1b5b7"
 		},
 		"guestRooms": {
 			"label": "Guest rooms for visitors",
@@ -313,7 +313,7 @@
 			"basis": "BKI timber multi-family houses, KG 300+400 incl. VAT, Q1 2024: 1,575 / 2,070 / 2,535 €/m² BGF (read in full), less 30 / 25 / 20 % for no roof and no weather façade under a dome; self-built about half of it (materials 40–50 % plus licensed trades)",
 			"source": "BKI Bestseller 2024 (akhb.de)",
 			"estimate": true,
-			"artifact": "ART:10",
+			"artifact": "1076d968-2dd9-42bb-bac9-004eca0c6a21",
 			"note": "The research's 1,820 / 2,300 / 3,360 €/m² BGF is in neither source it named (GdW gives 2,370–4,374 €/m² of living area): replaced by BKI's timber value"
 		},
 		{
@@ -360,8 +360,8 @@
 			"source": "Amt für Statistik Berlin-Brandenburg (low, read in full); top agrar from Destatis (high, read in full); typical: the research's Brandenburg / Saxony figure, unverified",
 			"note": "high: 35,300, not the research's 35,600, which no source gives",
 			"artifacts": [
-				"ART:8",
-				"ART:9"
+				"49b97004-3b41-4169-8901-c98da1347e01",
+				"50364255-5eb7-4259-9078-1346b78cbbea"
 			]
 		},
 		{
@@ -386,8 +386,8 @@
 			"source": "BauCheck (low, read in full); Bayreuther Tagblatt (high, read in full); typical: the research's, unverified",
 			"note": "typical between the two read; no municipal or state source gives 0.33–0.74 M€/km",
 			"artifacts": [
-				"ART:11",
-				"ART:12"
+				"695d5b92-4d44-4653-8b97-988be97e4f4f",
+				"8b14dba9-e3fa-47f4-94d5-dd5a8a837425"
 			],
 			"estimate": true
 		},
@@ -435,7 +435,7 @@
 			"basis": "pipe and civil works, before ~40 % BEW subsidy",
 			"source": "Kirchheim am Neckar price sheet 2024: 600 €/m net beyond a connection's 10 m, a lower bound (read in full); typical and high: the research's, unverified",
 			"note": "Breuna's network: 38 M€ for 26 km with its heat generators, ~1,460 €/m (read in full)",
-			"artifact": "ART:13",
+			"artifact": "a945eb1d-e2be-4df4-9712-751216f2facb",
 			"estimate": true
 		},
 		{
@@ -458,8 +458,8 @@
 			"unit": "€ each",
 			"basis": "a connection's lump sum up to 10 m (6,000 € net) and its transfer station (7,000–12,500 € net, up to 100 kW)",
 			"source": "Kirchheim am Neckar price sheet 2024 (read in full)",
-			"note": "a dome over 100 kW of heat needs a larger station: not priced",
-			"artifact": "ART:13",
+			"note": "a dome over 100 kW of heat needs a larger station: not priced; the price sheet's connection fee by load (4,500–25,750 € net) is a charge that recovers the network's cost, not counted again",
+			"artifact": "a945eb1d-e2be-4df4-9712-751216f2facb",
 			"estimate": true
 		},
 		{

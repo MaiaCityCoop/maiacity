@@ -79,7 +79,7 @@
 			<p class="how">Sized from what the village needs: each use’s floor a resident, or its rooms, over the usable share of a storey; the old bell scaled until its storeys hold that.</p>
 			<dl>
 				{#each A.tower.need as u}
-					<dt>{u.label}</dt><dd>{u.use}, {n(u.m2, ' m²')}{#if u.rooms !== null} ({u.rooms}){/if}</dd>
+					<dt>{u.label}</dt><dd>{u.use}, {n(u.m2, ' m²')}{#if u.rooms !== null && u.rooms > 1}, {u.rooms}{/if}</dd>
 				{/each}
 				<dt>Usable floor</dt><dd>{n(A.tower.net, ' m²')}</dd>
 				<dt>Gross floor</dt><dd>{n(A.tower.gfa, ' m²')} <small>(the old 180 m shape: {n(A.tower.full, ' m²')})</small></dd>
