@@ -1,6 +1,6 @@
-intent-work/090168c8-render/README.md
-intent-work/090168c8-render/grass.mjs
-intent-work/090168c8-render/run.sh
+intent-work/1f0c6f79/shots/README.md
+intent-work/1f0c6f79/shots/oldcity-noon-head.jpg
+intent-work/1f0c6f79/shots/oldcity-noon-main.jpg
 intent-work/e85a5860-shots/run.sh
 intent-work/e85a5860-shots/shots.mjs
 play/SPEC.md
@@ -19,6 +19,7 @@ play/site/scripts/census/webgpu.js
 play/site/scripts/engine.test.ts
 play/site/scripts/flyover/flyover.mjs
 play/site/scripts/grass-glsl.ts
+play/site/scripts/grass-shots/harness.js
 play/site/scripts/grass-wgsl.ts
 play/site/scripts/live-runtime.ts
 play/site/scripts/mac-page.mjs
@@ -55,8 +56,6 @@ play/site/src/lib/content/biomes/grass-gpu.js
 play/site/src/lib/content/biomes/grass.js
 play/site/src/lib/content/biomes/grass.test.js
 play/site/src/lib/content/biomes/index.js
-play/site/src/lib/content/biomes/masks.js
-play/site/src/lib/content/biomes/masks.test.ts
 play/site/src/lib/content/biomes/stream.js
 play/site/src/lib/content/biomes/stream.test.ts
 play/site/src/lib/content/factories/app.js
@@ -85,6 +84,7 @@ play/site/src/lib/content/render/nodes/grass.js
 play/site/src/lib/content/render/nodes/ground.js
 play/site/src/lib/content/render/nodes/index.js
 play/site/src/lib/content/render/nodes/nodes.test.ts
+play/site/src/lib/content/render/nodes/tsl.test.js
 play/site/src/lib/content/render/post.js
 play/site/src/lib/content/render/post.test.js
 play/site/src/lib/content/render/sprites.js
@@ -101,7 +101,6 @@ play/site/src/lib/content/sandbox-2/interior/village.ts
 play/site/src/lib/content/sandbox-2/interior/water.ts
 play/site/src/lib/content/sandbox-kit/sky-clock.test.ts
 play/site/src/lib/content/sandbox-kit/sky.js
-play/site/src/lib/content/sandbox-kit/sky.test.js
 play/site/src/lib/content/sandbox-kit/sky.webgpu.test.js
 play/site/src/lib/content/worlds/lights.js
 play/site/src/lib/content/worlds/view.js

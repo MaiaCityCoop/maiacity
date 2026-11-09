@@ -62,7 +62,7 @@ export function trunksNear(trunks, x0, z0, x1, z1, pad) {
  * edge (`band`, 1 on the drip line, falling off over `band` metres). Null where no canopy is known.
  * @param {Trunk[] | undefined} trunks @param {number} x @param {number} z @param {number} band
  */
-export function canopyAt(trunks, x, z, band) {
+function canopyAt(trunks, x, z, band) {
 	return trunks ? canopyOf(trunks, band, 0)(x, z) : null;
 }
 
