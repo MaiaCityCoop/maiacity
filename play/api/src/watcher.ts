@@ -84,6 +84,6 @@ export function startShipWatcher(db: Db, gh: GitHub, every = 10_000, commit: str
       busy = false;
     }
   }, every);
-  (timer as any).unref?.();
+  timer.unref?.();
   return () => clearInterval(timer);
 }
