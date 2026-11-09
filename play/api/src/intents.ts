@@ -3,17 +3,12 @@
 // Agents add, specify and build it over MCP; an admin approves its spec and decides it at Proposal, where work of play's
 // is applied (./versioned.ts decide) and code is shipped (./ship.ts). Every move forward is one gate, mayMove.
 import { intentSeen, seesIntent } from "./owners";
-import { admin, COOP, meOf, type AutoBy, type Me } from "./access";
-import type { BlobStore } from "./blobs";
+import { admin, COOP, type AutoBy, type Me } from "./access";
 import type { Db, Queryable } from "./kit/pg";
-import { factsOf, matchRule, ruleSetOf } from "./rules";
-import type { GitHub } from "./github";
 import { NOTE_MOST } from "./notes";
-import { briefOf } from "./skills";
 import { newId, UUID } from "./kit/uuid";
 import { closeWork, holdVariant, intentIdOf, NO_INTENT, ownColumns, REFS, unhold, WORK_OF, WORK_STATUS, workOf, type Work } from "./held";
 import { SCHEMA } from "./kit/ids";
-import { decideAny } from "./versioned";
 import { workKinds, workSql } from "./kinds";
 import { decidable, sub, unmetOn } from "./substate";
 import { HttpError } from "./kit/errors";
@@ -315,43 +310,26 @@ export async function intentCounts(db: Queryable, me: Me | null): Promise<Record
   return out;
 }
 
+/** what anyone is told of an intent that is not there, or is another's private one (./owners.ts): as one that never was */
+export const noSuchIntent = () => new HttpError("There is no such intent.", 404);
+
 export async function intentRow(db: Queryable, id: string) {
   const [intent] = await intentsWhere(db, `i.id = $2`, [idOf(id)]);
-  if (!intent) throw new HttpError("There is no such intent.", 404);
+  if (!intent) throw noSuchIntent();
+  return intent;
+}
+
+/** The one guard: intent `id` as the board lists it, for an admin who may see it (another's private work is as none). */
+export async function intentFor(db: Queryable, me: Me | null, id: string) {
+  const who = admin(me, INTENT_ADMINS);
+  const intent = await getIntent(db, id);
+  if (!(await seesIntent(db, who, intent.id))) throw noSuchIntent();
   return intent;
 }
 
 /** One intent as the board lists it (admins), by its id. */
 export async function getIntent(db: Queryable, id: string) {
   return intentRow(db, (await intentIdOf(db, idOf(id))) ?? id);
-}
-
-/**
- * One intent, whole: as the board lists it, its work's review where it holds work (`review`: what it changes, as
- * people read it before they decide, ./versioned.ts reviewOf), and its `brief`: what an agent sent to it does at its
- * stage, the Intents skill's part for it (./skills.ts; null where it says nothing).
- */
-export async function intentOf(db: Queryable, me: Me | null, id: string, reviewOf: (db: Queryable, id: string, shown: any) => Promise<unknown>) {
-  const who = admin(me, INTENT_ADMINS);
-  const intent = await getIntent(db, id);
-  // one whose work is another's private asset is as one that never was (./owners.ts)
-  if (!(await seesIntent(db, who, intent.id))) throw new HttpError("There is no such intent.", 404);
-  // held (approved, its dependencies not shipped): nothing to do yet, its sub-state says why
-  const held = intent.held_by.length > 0 && (intent.stage === "build" || intent.stage === "proposal");
-  return { ...intent, brief: held ? null : await briefOf(db, intent), review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
-}
-
-/**
- * One document of an intent's work, read when it is opened (intent 2df30a21): what it changes, field by field, with its
- * kind's extras (./versioned.ts reviewHeld), for whoever may open the intent; `variant` names one of a piece's versions.
- */
-export async function intentDocOf(db: Queryable, me: Me | null, id: string, doc: string, variant: number | null, reviewHeld: (db: Queryable, id: string, doc: string, variant?: number | null) => Promise<unknown>) {
-  const who = admin(me, INTENT_ADMINS);
-  const intent = await getIntent(db, id);
-  if (!(await seesIntent(db, who, intent.id))) throw new HttpError("There is no such intent.", 404);
-  const r = await reviewHeld(db, intent.id, doc, variant);
-  if (!r) throw new HttpError("This intent changes no such document.", 404);
-  return r;
 }
 
 /** A new intent at the Idea stage, by an admin's agent over MCP (no one adds one by hand). */
@@ -566,9 +544,7 @@ export async function mustMove(db: Queryable, intent: string | GateRow, to: Move
 
 /** The intent work is about to be proposed for, held to the gate (mayMove's work). Otherwise nothing is proposed and the agent is told why. */
 export async function intentReady(db: Queryable, me: Me | null, id: unknown) {
-  const who = admin(me, INTENT_ADMINS);
-  const intent = await intentRow(db, `${id ?? ""}`);
-  if (!(await seesIntent(db, who, intent.id))) throw new HttpError("There is no such intent.", 404);
+  const intent = await intentFor(db, me, `${id ?? ""}`);
   await mustMove(db, intent, "work");
   return intent;
 }
@@ -670,7 +646,7 @@ export const decisions = { decided };
 export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp" }): Promise<string> {
   if (!o.intent) throw new HttpError(NO_INTENT, 400);
   const was = await workOf(q, o.intent, true);
-  if (!was) throw new HttpError("There is no such intent.", 404);
+  if (!was) throw noSuchIntent();
   // the kind of work it is (an intent that declares its kinds takes only those): its document's schema
   const schema = o.work.doc_id
     ? (await q.query<{ schema_id: string | null }>(`SELECT schema_id FROM play.docs WHERE id = $1`, [o.work.doc_id])).rows[0]?.schema_id ?? null
@@ -703,7 +679,7 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
  * settled to.
  */
 export async function settle(q: Queryable, id: string, outcome: "accepted" | "archived", by: By | null): Promise<string> {
-  // accepted: the one decision path (./intents.ts decided), a person's or a rule's
+  // accepted: the one decision path (decided), a person's or a rule's
   if (outcome === "accepted") {
     await decisions.decided(q, id, "accept_work", by ?? "");
     return "accepted";
@@ -741,7 +717,7 @@ export async function archiveOwn(db: Db, me: Me | null, id: string) {
     const { rows } = await tx.query<any>(`SELECT ${WORK_OF}, i.author AS intent_author, i.via AS intent_via FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2 FOR UPDATE`, [id, COOP]);
     const p = rows[0];
     // (an intent whose work is another's private asset is as one that never was: ./owners.ts)
-    if (!p || !(await seesIntent(tx, me, p.id))) throw new HttpError("There is no such intent.", 404);
+    if (!p || !(await seesIntent(tx, me, p.id))) throw noSuchIntent();
     const [by, via] = p.kind ? [p.author, p.via] : [p.intent_author, p.intent_via];
     if (by !== me.id || via !== "mcp") throw new HttpError("Only an intent you put at Proposal over MCP is yours to archive; the rest are decided on the intents' board.", 403);
     if (p.stage !== "proposal") throw new HttpError(`This intent is at the ${p.stage} stage: only one at Proposal is archived so.`, 409);
@@ -749,45 +725,3 @@ export async function archiveOwn(db: Db, me: Me | null, id: string) {
   });
 }
 
-// ---- auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules", ./rules.ts): a rule takes the move a person would
-
-/** what autoMove did: the gate a rule decided at and the rule, or why the move it matched was refused */
-export type AutoMoved = { gate: "approve" | "accept"; rule: string; refused?: string };
-
-/**
- * Intent `id` decided by a rule where one matches: at Specify its spec approved (Approve spec), at Proposal accepted
- * (its work accepted and applied, its code into Ship, else Accepted), exactly by a person's path (./versioned.ts
- * decideAny) with the rule as who decided. Only where the gate (mayMove) allows the move (its stage, its reduce step,
- * its must checks, held by its dependencies) and matchRule gives a rule; a refusal on that path (a pull request not
- * ready) leaves it where it is, saying why. Accepted, the intents it held are asked again. `me` is the admin whose
- * request it is (else the intent's author, an admin); `gh` Ship's GitHub for code. Null where no rule decides.
- */
-export async function autoMove(ctx: { db: Db; store?: BlobStore }, id: string, o: { me?: Me | null; gh?: GitHub | null; commit?: string | null } = {}): Promise<AutoMoved | null> {
-  const db = ctx.db;
-  const intent = await intentRow(db, id);
-  const at = intent.stage === "specify" ? ("approve" as const) : intent.stage === "proposal" ? ("accept" as const) : null;
-  if (!at) return null;
-  const move: Move = at === "approve" ? "build" : intent.pull_request ? "ship" : intent.work ? "accept_work" : "accept";
-  if (await gate.mayMove(db, intent, move)) return null;
-  const set = await ruleSetOf(db);
-  const facts = await factsOf(db, intent.id);
-  const rule = matchRule(facts, at, set);
-  if (!rule || !set) return null;
-  const actor = o.me?.level === "admin" ? o.me : await meOf(db, facts.author);
-  if (actor?.level !== "admin") return null;
-  const by: AutoBy = { rule: rule.id, label: rule.label, rules: set.hash, reason: rule.reason };
-  try {
-    await decideAny({ db, store: ctx.store as BlobStore }, actor, intent.id, at, o.gh ?? null, o.commit === undefined ? undefined : o.commit, by);
-  } catch (e) {
-    if ((e as any)?.status) return { gate: at, rule: rule.id, refused: (e as Error).message };
-    throw e;
-  }
-  if ((await intentRow(db, intent.id)).stage === "accepted") await autoAfter(ctx, intent.id, o);
-  return { gate: at, rule: rule.id };
-}
-
-/** once intent `id` is Accepted, every intent it held is asked again (autoMove): a rule may move it now */
-export async function autoAfter(ctx: { db: Db; store?: BlobStore }, id: string, o: { me?: Me | null; gh?: GitHub | null; commit?: string | null } = {}) {
-  const { rows } = await ctx.db.query<{ intent_id: string }>(`SELECT intent_id FROM play.intent_depends WHERE depends_on = $1 ORDER BY at, intent_id`, [id]);
-  for (const r of rows) await autoMove(ctx, r.intent_id, o).catch((e) => console.warn(`auto: intent ${r.intent_id} not looked at: ${(e as Error).message}`));
-}

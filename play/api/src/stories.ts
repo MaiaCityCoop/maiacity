@@ -41,7 +41,7 @@ import { overlap } from "./kinds";
 import { storyListed } from "./listed";
 import { fileTypes, keepFile as keepOwned } from "./owners";
 import { unreadable } from "./assetdocs";
-import { closeWork, dropDoc, stageAfter, WORK_OF, workOf } from "./held";
+import { closeWork, dropDoc, stageAfter, WORK_OF } from "./held";
 import { HttpError } from "./kit/errors";
 
 /** the work a story's version is */
@@ -1043,7 +1043,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
   return out;
 }
 
-/** a story's work as people review it beside its changes and edits (./versioned.ts reviewDoc): the proposed timeline
+/** a story's work as people review it beside its changes and edits (./review.ts reviewDoc): the proposed timeline
  *  and the head's it was made from (each with the versions it links, to play side by side), what changed clip by clip */
 export async function storyReview(db: Queryable, p: { story_id: string; story_base: string | null; story_version: string }) {
   const { rows } = await db.query<{ id: string; title: string; body: StoryBody; number: number | null }>(

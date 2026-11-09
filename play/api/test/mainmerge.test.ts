@@ -17,7 +17,7 @@ import { mainMergeState, mergeMain } from "../src/mainmerge";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import { watchPulls, watchTick } from "../src/ship";
+import { watchPulls, watchTick } from "../src/watcher";
 import { type Pull, MERGES_CONTEXT } from "../src/github";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
 

@@ -12,7 +12,7 @@ export type AutoBy = { rule: string; label: string; rules: string; reason: strin
 import { HttpError } from "./kit/errors";
 /** a human signed in; `token`, the id of the access token they came by, when it is an agent over MCP (./tokens.ts);
  *  `box`, that token is avenBOX's (the GitHub runs of the intents' checks: play/SPEC.md §4.12); `auto`, set only where
- *  a rule decides in this admin's request (./intents.ts autoMove): the rule, written as who decided */
+ *  a rule decides in this admin's request (./decide.ts autoMove): the rule, written as who decided */
 export type Me = { id: string; name: string; level: Level; rule: Rule; founder_number: number | null; token?: string; box?: boolean; auto?: AutoBy };
 
 /** the human `id` with their level and its rule, or null */

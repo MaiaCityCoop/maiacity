@@ -23,10 +23,12 @@ import type { Db } from "./kit/pg";
 import { admin, type Me } from "./access";
 import type { GitHub } from "./github";
 import { assetOf, listAssets } from "./assets";
-import { docAt, docEdit, docHistory, listDocs, proposeDocVersion, reviewOf } from "./versioned";
+import { docAt, docEdit, docHistory, listDocs, proposeDocVersion } from "./versioned";
+import { intentOf } from "./review";
 import { kinds, syncKinds, workKinds } from "./kinds";
 import { NO_INTENT } from "./held";
-import { addIntent, autoMove, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES, archiveOwn } from "./intents";
+import { addIntent, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES, archiveOwn } from "./intents";
+import { autoMove } from "./decide";
 import { stepBack } from "./stepback";
 import { withdrawDoc } from "./withdraw";
 import { retireDoc } from "./retire";
@@ -35,7 +37,7 @@ import { adminByToken } from "./tokens";
 import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, MOST_COMPOSITION, proposeStory, putAudioBase64, putComposition, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, VIDEO_TYPES } from "./stories";
 import { assetAt, proposeAsset } from "./assetdocs";
 import { GROUPS, isGroup } from "./groups";
-import { listSandboxes, sandboxOf, SandboxError } from "./sandboxes";
+import { listSandboxes, sandboxOf } from "./sandboxes";
 import { LIBRARY_KINDS, listLibrary } from "./library";
 import { delivery } from "./delivery";
 import { fileHidden, LIBRARIES, libraryOf, maskEdges, seesIntent } from "./owners";
@@ -136,7 +138,7 @@ const EDITS =
   "{ op: 'set', config, path, value } sets the value at a path of a config (['outside', 'trees', 3, 'weight']; an index one past the end adds an item; path [] sets the whole config, a new one too); { op: 'delete', config, path } removes it (path []: the whole config). A config names an asset only by { slot }, never by a ref.";
 
 export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobStore; github?: GitHub | null; commit?: string | null }) {
-  // an intent that reached Specify or Proposal is asked of the auto-accept rules (./intents.ts autoMove, ./rules.ts)
+  // an intent that reached Specify or Proposal is asked of the auto-accept rules (./decide.ts autoMove, ./rules.ts)
   const auto = async <R extends Record<string, any>>(out: R, me: Me | null, id?: unknown): Promise<R> => {
     const intent = `${id ?? out?.intent ?? out?.id ?? ""}`;
     if (!intent) return out;
@@ -527,7 +529,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         required: ["intent"],
         additionalProperties: false,
       },
-      run: async ({ intent }, me) => intentOf(db, me, `${intent ?? ""}`, reviewOf),
+      run: async ({ intent }, me) => intentOf(db, me, `${intent ?? ""}`),
     },
     {
       name: "add_intent",

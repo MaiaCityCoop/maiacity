@@ -30,14 +30,9 @@ import { UUID } from "./kit/uuid";
 import { HttpError } from "./kit/errors";
 import { NOTE_MOST } from "./notes";
 import { asOne, closeWork, heldOf, NO_INTENT, stageAfter, workOf } from "./held";
-import { archiveAsAuthor, autoAfter, byOf, decideIntent, getIntent, gate, mustDecide, putAtProposal, settle, type IntentVerdict } from "./intents";
-import type { AutoBy } from "./access";
-import { acceptAndShip, acceptCode, runningCommit } from "./ship";
-import type { GitHub } from "./github";
-import { gistOf } from "./gist";
+import { archiveAsAuthor, byOf, getIntent, gate, mustDecide, noSuchIntent, putAtProposal, settle } from "./intents";
 import { retireAccepted, retiredOf } from "./retire";
 import { piecesOf } from "./pieces";
-import { seesIntent } from "./owners";
 import { authorOf, docRef, iso, kindNamed, kindOfDoc, kindOfWork, kinds, named, overlap, qi, resolveEdits, seen, syncKinds, versionAt, type Ctx, type Input, type Kind, type Verdict } from "./kinds";
 
 const DOC_ADMINS = "A document's versions, edits and variants are for Maia City's admins, for now.";
@@ -444,134 +439,6 @@ export async function seedDoc(db: Db, kindName: string, o: { id: string; json: a
 
 // ---- reviewing and deciding
 
-/** what a held retire says on the board (./retire.ts): its reason, the document leaving every list once accepted */
-const retiresOf = (h: Record<string, any>) => (h.retire ? { retires: `${h.retire}` } : {});
-
-/** one document's intent variant as people review it: what changed, field by field, against its seed, the edits that made it, whether Main moved since */
-async function reviewVariant(db: Queryable, p: any, h: { doc_id: string; doc_variant: number | null }) {
-  const k = kindOfDoc(h.doc_id) ?? kindOfWork(p.kind)!;
-  const docId = h.doc_id;
-  const uuid = docId.split(":")[1];
-  if (h.doc_variant == null) return { doc: { id: uuid, kind: k.name }, seedNumber: null, moved: false, changes: [], edits: [] };
-  const v = Number(h.doc_variant);
-  const versions = await docs.versionsOf(db, docId);
-  const row = await docs.variantOf(db, docId, v);
-  const seed = await docs.seedOf(db, docId, v);
-  const next = (await docs.readDoc(db, docId, { variant: v })).json;
-  const seedNumber = versionAt(versions, row.mainSeed ?? row.seed);
-  const moved = p.status === "proposal" && seedNumber !== null && seedNumber !== versions.at(-1)?.number;
-  const edits = await named(db, await docs.history(db, docId, { variant: v }));
-  const open = k.open ? k.open.replace("{id}", encodeURIComponent(uuid)).replace("{intent}", encodeURIComponent(p.id)) : null;
-  // the breed it changes, or the one it makes (play/SPEC.md "Breeds")
-  const breed = row.breed !== null ? (await docs.variantsOf(db, docId)).find((b) => b.id === row.breed)?.name ?? null : row.makes;
-  return { doc: { id: uuid, kind: k.name, what: k.label, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}), open, ...(breed ? { breed, newBreed: row.makes !== null } : {}) }, variant: v, seedNumber, moved, changes: docs.diff(seed, next), edits, ...retiresOf(h) };
-}
-
-/**
- * One document's intent variant as an intent's detail lists it (intent 2df30a21): its document, the version it grew
- * from, whether Main moved since, its status and what it changes in brief (how many fields, which), never its content:
- * that is read when the document is opened (reviewHeld). Its brief is kept on the variant (./gist.ts).
- */
-async function listedVariant(db: Queryable, p: any, h: { doc_id: string; doc_variant: number | null }) {
-  const k = kindOfDoc(h.doc_id) ?? kindOfWork(p.kind)!;
-  const uuid = h.doc_id.split(":")[1];
-  if (h.doc_variant == null) return { doc: { id: uuid, kind: k.name, what: k.label, label: k.label, open: null }, variant: null, seedNumber: null, moved: false, status: null, summary: { changes: 0, fields: [] } };
-  const v = Number(h.doc_variant);
-  const versions = await docs.versionsOf(db, h.doc_id);
-  const row = await docs.variantOf(db, h.doc_id, v);
-  const g = await gistOf(db, h.doc_id, v);
-  const seedNumber = versionAt(versions, row.mainSeed ?? row.seed);
-  const moved = p.status === "proposal" && seedNumber !== null && seedNumber !== versions.at(-1)?.number;
-  const open = k.open ? k.open.replace("{id}", encodeURIComponent(uuid)).replace("{intent}", encodeURIComponent(p.id)) : null;
-  const breed = row.breed !== null ? (await docs.variantsOf(db, h.doc_id)).find((b) => b.id === row.breed)?.name ?? null : row.makes;
-  return {
-    doc: { id: uuid, kind: k.name, what: k.label, label: g.label ?? k.label, ...(g.group ? { group: g.group } : {}), open, ...(breed ? { breed, newBreed: row.makes !== null } : {}) },
-    variant: v, seedNumber, moved, status: row.status, summary: { changes: g.changes, fields: g.fields }, ...retiresOf(h),
-  };
-}
-
-/**
- * An intent's work on its documents as its detail shows it (intent 2df30a21: opened in about a second, whatever it
- * holds): its first document's kind's own extras (an asset's builds, a story's player, a layout's pins) and the edits
- * that made it, every document it changes listed in `docs` (listedVariant: in brief, without its content), and its
- * pieces. What one document changes, field by field, is read when it is opened: reviewHeld.
- */
-export async function reviewDoc(db: Queryable, p: any) {
-  const k = kindOfWork(p.kind)!;
-  const held = heldOf(p);
-  // a retire changes nothing of its document: its kind's extras (a story's player of the version proposed) have nothing to show
-  const extra = k.review && !held[0]?.retire ? await k.review(db, p) : {};
-  const each: any[] = [];
-  for (const h of held) each.push(await listedVariant(db, p, h));
-  const first = each[0] ?? { doc: null, variant: null, seedNumber: null, moved: false };
-  const edits = held[0]?.doc_variant != null ? await named(db, await docs.history(db, held[0].doc_id, { variant: Number(held[0].doc_variant) })) : [];
-  const pieces = p.id && UUID.test(`${p.id}`) ? await piecesReviewed(db, p.id, held) : [];
-  return { doc: first.doc, variant: first.variant, seedNumber: first.seedNumber, moved: first.moved, edits, ...extra, docs: each, ...(pieces.length ? { pieces } : {}) };
-}
-
-/**
- * One document of an intent's work as people review it, read when it is opened (intent 2df30a21; GET
- * /api/intents/:id/docs/:doc): what it changes field by field against its seed, the edits that made it, whether Main
- * moved since, and its kind's own extras (an asset's builds, a story's player, a layout's pins). `doc` is its document's
- * UUID; a piece held in several versions is named by its `variant` too, its newest otherwise. Null where the intent
- * holds no such document.
- */
-export async function reviewHeld(db: Queryable, id: string, doc: string, variant?: number | null) {
-  const p = await workOf(db, id);
-  if (!p?.kind || !kindOfWork(p.kind)) return null;
-  const held = heldOf(p).filter((h) => h.doc_id.split(":")[1] === `${doc}`.toLowerCase() && (variant == null || h.doc_variant === Number(variant)));
-  const h = held.at(-1);
-  if (!h) return null;
-  const r: any = await reviewVariant(db, p, h);
-  // a piece's later version in the same intent is read against the one before it (intent 02e3a85f: it grows from it)
-  const all = heldOf(p).filter((x) => x.doc_id === h.doc_id);
-  const before = all[all.indexOf(h) - 1];
-  if (before?.doc_variant != null && h.doc_variant != null) {
-    r.changes = docs.diff((await docs.readDoc(db, h.doc_id, { variant: Number(before.doc_variant) })).json, (await docs.readDoc(db, h.doc_id, { variant: Number(h.doc_variant) })).json);
-    r.growsFrom = { variant: Number(before.doc_variant) };
-  }
-  // a new document is one change of the whole: shown as the fields it brings, each as people read it
-  const whole = r.changes.length === 1 && r.changes[0].path === "$" ? r.changes[0].to : null;
-  if (whole && typeof whole === "object" && !Array.isArray(whole)) r.changes = Object.keys(whole).map((k) => ({ path: `$.${k}`, kind: "added", to: whole[k] }));
-  const hk = kindOfDoc(h.doc_id);
-  const extra = hk?.review && h.doc_variant != null && !h.retire ? await hk.review(db, asOne(p, h, hk)) : {};
-  return { intent: p.id as string, status: p.status as string, ...r, ...extra, doc: r.doc, variant: r.variant };
-}
-
-/**
- * The pieces an intent proposes as the board lists them (intent 02e3a85f): each its piece, label, variant, hash and the
- * version it is to be, which of the intent's pieces it requires and which of its documents require it; read from each
- * variant's brief (./gist.ts), not from the documents again.
- */
-async function piecesReviewed(db: Queryable, intent: string, held: { doc_id: string; doc_variant: number | null }[]) {
-  const { rows } = await db.query<{ doc_id: string; variant_id: string }>(
-    `SELECT iv.doc_id, iv.variant_id FROM play.intent_variants iv JOIN play.doc_variants dv ON dv.id = iv.variant_id
-      WHERE iv.intent_id = $1 AND iv.doc_id LIKE 'piece:%' AND dv.status = 'proposed' ORDER BY iv.position`,
-    [intent],
-  );
-  if (!rows.length) return [];
-  // what every document the intent holds requires by hash (a piece's or a recipe's source, a breed's among them)
-  const requires: { doc: string; variant: number; hashes: string[] }[] = [];
-  for (const h of held) if (h.doc_variant != null) requires.push({ doc: h.doc_id, variant: Number(h.doc_variant), hashes: (await gistOf(db, h.doc_id, Number(h.doc_variant))).requires });
-  const own: { doc_id: string; variant: number; hash: string; label: string | null; requires: string[] }[] = [];
-  for (const r of rows) {
-    const g = await gistOf(db, r.doc_id, Number(r.variant_id));
-    own.push({ doc_id: r.doc_id, variant: Number(r.variant_id), hash: g.hash ?? hashText(""), label: g.label, requires: g.requires });
-  }
-  const before = new Map<string, number>();
-  const out = [];
-  for (const x of own) {
-    const n = before.get(x.doc_id) ?? (await docs.versionsOf(db, x.doc_id)).length;
-    before.set(x.doc_id, n + 1);
-    out.push({
-      piece: x.doc_id.split(":")[1], label: `${x.label ?? "A piece"}`, variant: x.variant, hash: x.hash, version: n + 1,
-      requires: x.requires.filter((r) => own.some((y) => y.hash === r)),
-      requiredBy: requires.filter((r) => r.hashes.includes(x.hash)).map((r) => ({ doc: r.doc.split(":")[1], kind: kindOfDoc(r.doc)?.name ?? null, variant: r.variant })),
-    });
-  }
-  return out;
-}
-
 /** an accepted version's row: its label (or title) and the fields its kind's row keeps, in the caller's transaction */
 async function writeRow(tx: Queryable, k: Kind, docId: string, json: any) {
   const cols = { [k.labelColumn ?? "label"]: json.label ?? json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(json)])) };
@@ -699,18 +566,6 @@ async function piecesInOrder(q: Queryable, pieces: { doc_id: string; doc_variant
 }
 
 /**
- * An intent's work as people review it before they decide (`shown`: the intent's work as ./intents.ts lists it): for
- * a document's version, what it changes and the edits it was made in (./versioned.ts reviewDoc, with its kind's own
- * extras: an asset's builds, a story's player, a sandbox's pins before and after).
- */
-export async function reviewOf(db: Queryable, id: string, shown: any) {
-  const p = { ...(await workOf(db, id)), ...shown, id };
-  if (!p.kind) return null;
-  if (!kindOfWork(p.kind)) return { ...p };
-  return { ...p, ...(await reviewDoc(db, p)) };
-}
-
-/**
  * Accept or archive an intent's work at Proposal (Samuel 2026-11-04: it ends accepted or archived, nothing else). An
  * admin decides any; whoever proposed it may archive their own. The answer says the stage the intent settled at.
  */
@@ -718,7 +573,7 @@ export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdi
   if (!me) throw new HttpError("Please sign in first.", 401);
   return ctx.db.transaction(async (tx) => {
     const p = await workOf(tx, id, true);
-    if (!p) throw new HttpError("There is no such intent.", 404);
+    if (!p) throw noSuchIntent();
     if (!p.kind) throw new HttpError(`Intent ${p.id} holds no work of play's to decide.`, 409);
     // accepting is a forward move (./intents.ts mayMove: held while a dependency is not shipped); archiving goes back
     const no = verdict === "accept" ? await gate.mayMove(tx, p.id, "accept_work") : p.stage === "proposal" ? null : { why: `This intent is at the ${p.stage} stage: only one at Proposal is decided.` };
@@ -737,47 +592,11 @@ export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdi
   });
 }
 
-/**
- * An admin's decision on an intent, whatever its stage (the one place an intent is decided; play/SPEC.md §4.12): at
- * Proposal with work of play's, accepting applies it and archiving archives it (decide); anything else is the intent's
- * own decision (./intents.ts decideIntent), except that accepting an intent whose code is a pull request ships it
- * (./ship.ts acceptAndShip), and one whose code is on main by its trailer is the reconcile's (./ship.ts acceptCode,
- * Accepted once play runs it). Gives back the intent, with the decision's message where it has one.
- */
-export async function decideAny(ctx: Ctx, me: Me | null, id: string, verdict: IntentVerdict | "archive", gh: GitHub | null = null, commit = runningCommit(), by?: AutoBy) {
-  const db = ctx.db;
-  const w = await workOf(db, id);
-  // an intent whose work is another's private asset is decided by its owner alone, and to anyone else is as one that never was (./owners.ts)
-  if (!w || (me && !(await seesIntent(db, me, w.id)))) throw new HttpError("There is no such intent.", 404);
-  // a rule decides (./intents.ts autoMove): a person's path, the rule written as who decided
-  if (by && me) me = { ...me, auto: by };
-  const out = await decideOne(ctx, me, w, verdict, gh, commit);
-  // a person's Accept: the intents it held are asked again (a rule may move them now); a rule's asks itself
-  if (!by && out?.stage === "accepted" && w.stage !== "accepted") await autoAfter(ctx, w.id, { me, gh, commit });
-  return out;
-}
-
-async function decideOne(ctx: Ctx, me: Me | null, w: any, verdict: IntentVerdict | "archive", gh: GitHub | null, commit: string | null) {
-  const db = ctx.db;
-  // code ships, with the work of play's it holds beside it accepted once it is live (intent 7c8986c5)
-  if (verdict === "accept" && (!w.kind || w.pull_request)) {
-    const shipped = (await acceptAndShip(db, gh, me, w.id)) ?? (await acceptCode(db, gh, me, w.id, commit));
-    if (shipped) return shipped;
-  }
-  let decision: { status: string; number?: number; version?: string; merged?: boolean; message?: string } | undefined;
-  if (w.kind && w.stage === "proposal" && (verdict === "accept" || verdict === "archive" || verdict === "reject")) {
-    const { id: _id, intent: _i, stage: _s, why, ...r }: any = await decide(ctx, me, w.id, verdict === "accept" ? "accept" : "archive");
-    decision = { ...r, ...(r.message ?? why ? { message: r.message ?? why } : {}) };
-  } else await decideIntent(db, me, w.id, verdict === "archive" ? "reject" : verdict);
-  const said = decision ? { decision, ...(decision.message ? { message: decision.message } : {}) } : {};
-  if (me?.level !== "admin") return { id: w.id, stage: (await workOf(db, w.id))?.stage, ...said };
-  return { ...(await getIntent(db, w.id)), ...said };
-}
-
-
 // kept for ./assetdocs.ts (held by other intents: intent-work/5884ade4/held.txt), which takes these from here: the
 // registry's helpers are ./kinds.ts's, play's one error ./kit/errors.ts's, and a document's errors are HttpErrors already
 export { named, versionAt, type Ctx, type Verdict };
+// and for its test, test/assetdocs.test.ts (held too): the reviews are ./review.ts'
+export { reviewHeld, reviewOf } from "./review";
 export { HttpError as VersionError };
 export function asVersionError<R>(run: () => Promise<R>): Promise<R> {
   return run();

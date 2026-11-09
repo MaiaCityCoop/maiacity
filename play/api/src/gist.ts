@@ -1,8 +1,8 @@
 // A document's intent variant in brief (intent 2df30a21): what an intent's detail lists of every document it changes,
 // without its content. Reading a document's variant means loading it in Loro, a quarter of a second for one of
 // 100 KB, so the brief is kept on the variant's row (play.doc_variants.gist) for the edits it holds, made when it is
-// proposed (./work.ts holdVariant) and again whenever it has a newer edit. The whole of what it changes is read only
-// when that one document is opened (./versioned.ts reviewHeld, GET /api/intents/:id/docs/:doc).
+// proposed (./held.ts holdVariant) and again whenever it has a newer edit. The whole of what it changes is read only
+// when that one document is opened (./review.ts reviewHeld, GET /api/intents/:id/docs/:doc).
 import * as docs from "./docs";
 import { hashText } from "./kit/hash";
 import type { Queryable } from "./kit/pg";

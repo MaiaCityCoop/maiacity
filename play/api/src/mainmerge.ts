@@ -1,6 +1,6 @@
 // Main merged into open intent pull requests by play (play/SPEC.md §4.12 "Accept ships it"; intent f28822d9, Samuel
 // 2026-11-07: "This merging main conflicts steps should be also automated right?"). Ship's watcher runs it each tick,
-// after it has read every open intent's pull request (./ship.ts watchPulls, the intents' pr_seen):
+// after it has read every open intent's pull request (./watcher.ts watchPulls, the intents' pr_seen):
 // - a pull request of an intent in Build or at Proposal, open into main, mergeable and behind main's head is updated
 //   with GitHub's update-branch (main merged into its branch, `expected_head_sha` the head read), once per head and
 //   main's head. It is a push made with SHIP_TOKEN, so GitHub runs the required checks and the box's run

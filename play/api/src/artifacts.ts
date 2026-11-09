@@ -7,7 +7,8 @@
 import { keepFile } from "./owners";
 import { admin, COOP, type Me } from "./access";
 import { AVENMAIA, SCHEMA } from "./kit/ids";
-import { addIntent, autoMove, intentRow, recordChecks, specifyIntent } from "./intents";
+import { addIntent, intentRow, recordChecks, specifyIntent } from "./intents";
+import { autoMove } from "./decide";
 import { keyOf, type BlobStore } from "./blobs";
 import { hashBytes } from "./kit/hash";
 import type { Db, Queryable } from "./kit/pg";

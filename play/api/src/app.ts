@@ -8,21 +8,23 @@ import type { Db } from "./kit/pg";
 import { admin, COOP, meOf, must } from "./access";
 import { SANDBOX } from "./kit/ids";
 import { assetOf, catalogOf, configOf, listAssets, versionOf } from "./assets";
-import { fileFor, maskEdges, OwnerError } from "./owners";
+import { fileFor, maskEdges } from "./owners";
 import { mcp } from "./mcp";
 import { adminByToken, listTokens, makeToken, markAvenbox, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
 import { inviteOpen, listMembers, makeInvite, removeMember, renameMember, renameSelf, setLevel } from "./members";
 import { listTables, readTable } from "./tables";
-import { layoutAt, proposedState, SandboxError } from "./sandboxes";
-import { decideAny, docAt, docChanges, docHistory, listDocs, reviewHeld, reviewOf } from "./versioned";
+import { layoutAt, proposedState } from "./sandboxes";
+import { docAt, docChanges, docHistory, listDocs } from "./versioned";
+import { intentDocOf, intentOf } from "./review";
+import { decideAny } from "./decide";
 import { runningCommit, shipWork } from "./ship";
 import type { GitHub } from "./github";
 import { NO_INTENT } from "./held";
 import { withdrawDoc } from "./withdraw";
 import { retireDoc } from "./retire";
 import { delivery } from "./delivery";
-import { INTENT_ADMINS, intentCounts, intentDocOf, intentOf, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
+import { INTENT_ADMINS, intentCounts, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAt, storyOf } from "./stories";
 import { labelFile, listLibrary } from "./library";
@@ -203,13 +205,13 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("GET", "/api/intents/:id", async (req, p) => {
     const m = await me(req);
-    return json(await maskEdges(db, m, await intentOf(db, m, p.id, reviewOf)));
+    return json(await maskEdges(db, m, await intentOf(db, m, p.id)));
   });
   // one document of its work, read when it is opened (intent 2df30a21: the detail lists them in brief); ?variant= names
   // one of a piece's versions
   on("GET", "/api/intents/:id/docs/:doc", async (req, p) => {
     const v = new URL(req.url).searchParams.get("variant");
-    return json(await intentDocOf(db, await me(req), p.id, p.doc, v == null || v === "" ? null : Number(v), reviewHeld));
+    return json(await intentDocOf(db, await me(req), p.id, p.doc, v == null || v === "" ? null : Number(v)));
   });
   // to propose is to put an intent at Proposal: the one named, held to its gate (no work without an intent)
   on("POST", "/api/intents", async (req) => {

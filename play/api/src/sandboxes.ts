@@ -15,8 +15,7 @@ import { assetSeen } from "./owners";
 import * as docs from "./docs";
 import { SCHEMA } from "./kit/ids";
 import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
-import { settle } from "./intents";
-import { closeWork, holdVariant, intentIdOf } from "./held";
+import { holdVariant, intentIdOf } from "./held";
 import { resolveEdits } from "./kinds";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
@@ -430,7 +429,7 @@ export async function layoutShown(q: Queryable, before: any, after: any) {
 type Kept = { edits: unknown; diff: Change[] | null; holds?: boolean; why?: string };
 
 /**
- * A layout's intent variant as people review it, beside its changes field by field (./versioned.ts reviewDoc): each pin
+ * A layout's intent variant as people review it, beside its changes field by field (./review.ts reviewDoc): each pin
  * before and after by its asset's label and version, whether it still holds on the layout as it is now (accepting
  * would merge it so), and the sandbox to open as it would be.
  */

@@ -16,7 +16,7 @@ import { Rate } from "../src/limits";
 import { carrySeen, mainMergeState } from "../src/mainmerge";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
-import { watchTick } from "../src/ship";
+import { watchTick } from "../src/watcher";
 import { newId } from "../src/kit/uuid";
 import { fakeGitHub, job, REPO, run, sha } from "./fixtures/github";
 

@@ -14,7 +14,7 @@ import { gate } from "../src/intents";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import { watchShips } from "../src/ship";
+import { watchShips } from "../src/watcher";
 import { type Pull } from "../src/github";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
 

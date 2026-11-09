@@ -16,7 +16,8 @@ import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import { reconcile, watchShips } from "../src/ship";
+import { reconcile } from "../src/ship";
+import { watchShips } from "../src/watcher";
 import { type Pull } from "../src/github";
 import { seedDoc } from "../src/versioned";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
@@ -287,7 +288,7 @@ suite("one intent holds all its work", () => {
     expect(f.both).toBe(true);
     expect(matchRule(f, "accept", { rules: [{ id: crypto.randomUUID(), label: "everything", gates: ["accept"], match: {}, reason: "test" } as any] })).toBeNull();
     // what the board reads of GitHub: Accept and ship once its pull request is read
-    const { watchPulls } = await import("../src/ship");
+    const { watchPulls } = await import("../src/watcher");
     await watchPulls(db, gh.gh);
     expect((await intent(c.id)).sub).toMatchObject({ state: "waiting", tag: "Accept and ship" });
   });

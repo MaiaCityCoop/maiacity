@@ -1,6 +1,6 @@
 // An intent's work (play/SPEC.md §4.12; Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state,
 // proposal"). One record, the intent: what it changes is on it (the kind of work; the documents it changes, each by an
-// intent variant of its own, play.intent_variants, ./versioned.ts; an asset's or story's frozen version and the one it
+// intent variant of its own, play.intent_variants; an asset's or story's frozen version and the one it
 // was made on), with what the work says of itself, who proposed it, how and when. Proposal is only a
 // stage: its work done and checked, waiting for the decision. To propose is to put an intent at Proposal: the intent
 // named (its gate held before, ./intents.ts intentReady) takes the work; no work without an intent (intent 706ed873):

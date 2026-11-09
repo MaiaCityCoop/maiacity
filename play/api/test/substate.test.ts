@@ -14,7 +14,7 @@ import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import { watchTick } from "../src/ship";
+import { watchTick } from "../src/watcher";
 import { type Pull } from "../src/github";
 import { checksSeen, sub, subStateOf, type PrSeen } from "../src/substate";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";

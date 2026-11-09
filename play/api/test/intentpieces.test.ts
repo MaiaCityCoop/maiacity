@@ -17,7 +17,8 @@ import { hashText } from "../src/kit/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { MOST_DEEP, PieceError, resolvePieces, type Known } from "../src/pieces";
-import { decide, docAt, proposeDocVersion, reviewOf } from "../src/versioned";
+import { decide, docAt, proposeDocVersion } from "../src/versioned";
+import { reviewOf } from "../src/review";
 import "../src/allkinds";
 
 const URL_ = process.env.TEST_DATABASE_URL;

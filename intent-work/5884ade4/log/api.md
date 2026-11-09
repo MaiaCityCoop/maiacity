@@ -74,3 +74,19 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
    Removes api-flow E4, #26 (heldWith). The cycle is down to intents ↔ versioned ↔ ship ↔ retire (autoMove,
    decideAny: next move). Pinned: withdraw.test (its spy on `dropDoc`, now on held.ts), onerecord.test,
    allwork.test, intents.test, rules.test (the stubbed `decisions.decided`), the whole suite.
+9. **The top of the intent core: `decide.ts`, `watcher.ts`, `review.ts`.** `decideAny`/`decideOne` (versioned.ts)
+   and `autoMove`/`autoAfter` (intents.ts) are `decide.ts`, above ship and versioned, so intents.ts no longer calls
+   up into versioned.ts and versioned.ts no longer imports ship.ts (api-flow E3); autoMove tells a refusal by
+   `statusOf`. The watcher (watchShips, watchPulls, watchTick, startShipWatcher) is `watcher.ts`, above ship.ts and
+   decide.ts (api-flow #20, the watcher part), its `stable()` replaced by kit/hash's `canonical()` (api-flow #10).
+   The reviews (reviewOf, reviewDoc, reviewHeld, listedVariant, reviewVariant, piecesReviewed) and `intentOf`,
+   `intentDocOf` are `review.ts`, which imports what it reads, so the `reviewOf`/`reviewHeld` callbacks go
+   (api-flow #25). One guard, intents.ts `intentFor` (admin, the intent, whether its private work hides it) and one
+   `noSuchIntent()` (api-flow C, #4; "There is no such intent" 13 → 2: that and the sandbox's "…intent's change").
+   versioned.ts re-exports reviewOf/reviewHeld for the held test/assetdocs.test.ts. Comments naming the moved
+   functions name their new files. No file cycle is left in play/api/src. Not done: the `shipWork` global
+   (api-flow #6) — taking it out means reconcile's and watchShips' callers in the tests pass the store, a change of
+   test calls, not imports: left for the tests' builder (decision 8). Pinned: ship.test (its source-text check of
+   where Accept ships now reads decide.ts), rules.test, depends.test, mainmerge.test, delivery.test,
+   intentpieces.test, the whole suite (one run timed out artifacts.test's 0026 migration under a load of 17 from the
+   other builders; alone it passes).

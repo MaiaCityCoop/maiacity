@@ -3,7 +3,7 @@
 // accepted twice was the case: one story the film, the other an identical stray copy, both on Main.
 //
 //   propose: retire_doc over MCP or POST /api/intents/<id>/retire, with its reason. The intent holds an intent variant of
-//            the document seeded from Main, with no edits, its refs saying `retire` (the reason): ./work.ts putAtProposal,
+//            the document seeded from Main, with no edits, its refs saying `retire` (the reason): ./intents.ts putAtProposal,
 //            gated as any work (Build or Proposal, the intent's declared kinds).
 //   Accept:  ./versioned.ts decideWork marks the document retired (play.docs retired_at, retired_by: the intent), its
 //            variant accepted, Main's content as it was (no new version). Every list leaves it out (./listed.ts).

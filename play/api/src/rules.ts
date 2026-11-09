@@ -4,7 +4,7 @@
 // schema (`schema:<SCHEMA.rules>`, ../migrations/schemas/rules.json), kept in Postgres like every other: its Main is the
 // rules in force, its v1 (made at migrate's end where absent) holds the first rule, and every later version is a
 // person's Accept of an intent variant. Nothing here decides: matchRule only says which rule, if any, an intent meets
-// at a gate, and ./intents.ts autoMove (beside the gate, mayMove) takes the move a person would, with that rule as who
+// at a gate, and ./decide.ts autoMove (beside the gate, mayMove) takes the move a person would, with that rule as who
 // decided it.
 //
 // The rules are always a person's: matchRule gives null, whatever the rules say, for an intent whose work changes the
@@ -13,7 +13,6 @@ import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import { COOP, RULE, RULES, SCHEMA } from "./kit/ids";
 import { kindOfWork } from "./kinds";
-import type { AutoBy } from "./access";
 import { LOCK, lockSql } from "./kit/locks";
 
 export const GATES = ["approve", "accept"] as const;
