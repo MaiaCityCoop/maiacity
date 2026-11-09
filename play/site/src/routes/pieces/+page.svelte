@@ -9,6 +9,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
+	import { pieceAddress } from '$lib/app/address';
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
@@ -24,8 +25,8 @@
 	let piece = $state<Piece | null>(null);
 	let error = $state('');
 	const params = $derived(page.url.searchParams);
-	const id = $derived(params.get('piece') ?? list[0]?.id ?? '');
-	const wantV = $derived(params.get('v'));
+	const id = $derived(pieceAddress(params).piece ?? list[0]?.id ?? '');
+	const wantV = $derived(pieceAddress(params).v);
 	const item = $derived(list.find((p) => p.id === id) ?? null);
 	$effect(() => {
 		if (!admin) return;

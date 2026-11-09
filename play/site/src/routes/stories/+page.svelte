@@ -10,6 +10,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { StoryItem } from '$wire';
+	import { storyAddress, storyHash } from '$lib/app/address';
 	import { api, fileUrl } from '$lib/api';
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';
@@ -32,17 +33,14 @@
 	let loading = $state(false);
 
 	/** the story and version in the address: #<its UUID>, or #<its UUID>@1 for an older version */
-	const fromHash = () => {
-		const [id, v] = decodeURIComponent(location.hash.slice(1)).split('@');
-		return { id: id || '', v: v ? Number(v) : null };
-	};
+	const fromHash = () => storyAddress(location.hash);
 	async function open(id: string, v: number | null = null) {
 		if (id !== picked) versions = [];
 		picked = id;
 		version = v;
 		loading = true;
 		error = '';
-		const want = `#${id}${v ? `@${v}` : ''}`;
+		const want = `#${storyHash(id, v)}`;
 		if (location.hash !== want) history.replaceState(history.state, '', want);
 		try {
 			const s = await api<Story>(`/stories/${encodeURIComponent(id)}${v ? `?v=${v}` : ''}`);

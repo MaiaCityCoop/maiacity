@@ -97,3 +97,10 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
 15. **Comments name files that exist.** `maia/site/app.css` → `src/app.css` (NavPill, TouchStick); legacy paths say
     they are on SNAPSHOT_2611101 (postgres, the layout, the map); the Stories address is a UUID, not a slug; WorkReview
     names `$lib/app/Changes.svelte`. Removes site-app#34 outside the kernel. Comments only.
+16. **The addresses other pages link into, written and read in one place.** `lib/app/address.ts`: a piece
+    (`/pieces/?piece=&v=`, written by AssetLibrary and WorkReview, read by the Pieces page), the Library's kind and search
+    (written by AssetLibrary, read by the Library), a story at a version (`/stories/#<uuid>@<n>`, written by the
+    timeline's links and the Library, read and written by the Stories page). Removes site-app#15 for these three.
+    Pinned by `timeline.test.ts` (a link's address), the build and svelte-check; the live runtime's bundle is
+    byte-identical (`scripts/live-runtime.ts --check` gives the same hash before and after; it differs from compose.ts's
+    pin on the base already, nothing of this branch's).

@@ -22,6 +22,7 @@
 	import StoryChanges, { type StoryDiff } from '$lib/stories/StoryChanges.svelte';
 	import type { Story } from '$lib/stories/timeline';
 	import { when } from '$lib/format';
+	import { pieceHref } from '$lib/app/address';
 	import BuildView from './BuildView.svelte';
 	import Decision from './Decision.svelte';
 	import type { Verdict } from './decide';
@@ -229,7 +230,7 @@
 				{/if}
 				<p class="muted small">Built in the asset box: a sandboxed frame with no origin, running the frozen engine in a worker, with no network, no storage and no access to this page.</p>
 				{#if review.pieces?.length}
-					<p class="muted small">Its pieces, by hash, read from play's files: {#each review.pieces as pc, i (pc.hash)}{i ? ', ' : ''}<a href="/pieces/?piece={pc.piece}&v={pc.version}" title={pc.hash}>{pc.label} v{pc.version}</a> <code>{pc.hash.slice(0, 12)}…</code>{/each}</p>
+					<p class="muted small">Its pieces, by hash, read from play's files: {#each review.pieces as pc, i (pc.hash)}{i ? ', ' : ''}<a href={pieceHref(pc.piece, pc.version)} title={pc.hash}>{pc.label} v{pc.version}</a> <code>{pc.hash.slice(0, 12)}…</code>{/each}</p>
 				{/if}
 				<!-- what else it changes (its source is beside it, a button away) and the edits it was made in -->
 				<Changes changes={review.changes} edits={review.edits} seed={review.seedNumber} skip={['$.source']} />

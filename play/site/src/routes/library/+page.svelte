@@ -15,6 +15,7 @@
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import type { LibraryFile } from '$wire';
+	import { libraryAddress, storyHref } from '$lib/app/address';
 	import { api, fileText, fileUrl as url } from '$lib/api';
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';
@@ -81,10 +82,8 @@
 	}
 	onMount(() => {
 		if (!admin) return;
-		const given = new URLSearchParams(location.search);
-		kind = given.get('kind') ?? '';
 		// a link straight to one file (the asset library's data sheet and brief): the search for its hash
-		query = given.get('q') ?? '';
+		({ kind, q: query } = libraryAddress(new URLSearchParams(location.search)));
 	});
 	// acting as someone else (the You menu) opens their library: the first page again, nothing opened
 	let shown = '';
@@ -191,7 +190,7 @@
 							{:else}<a href="/intents/">{u.label}</a> <span class="soft">a proposed version · its {DOC_AS[u.as]}</span>{/if}
 						</li>
 					{:else}
-						<li><a href="/stories/#{u.story}">{u.title}</a> <span class="soft">v{u.number ?? '?'} · {u.track} · {u.clip} at {u.at} s · its {AS[u.as]}</span></li>
+						<li><a href={storyHref(u.story)}>{u.title}</a> <span class="soft">v{u.number ?? '?'} · {u.track} · {u.clip} at {u.at} s · its {AS[u.as]}</span></li>
 					{/if}
 				{/each}
 			</ul>

@@ -3,6 +3,7 @@
 // timeline (./compose.ts), never here.
 
 import type * as W from '$wire';
+import { storyHref } from '../app/address';
 
 export type Clip = W.Clip;
 /** a track as the site reads it: the API's, and the names and ducking its tracks carry (not in its type yet) */
@@ -240,7 +241,7 @@ export const linkName = (s: Slot) => (s.title ? `${s.title} · v${s.number}` : '
 /** a newer accepted version of the linked story, if there is one: only shown (moving to it is a proposal on this story) */
 export const newerOf = (s: Slot) => (s.newest != null && s.number != null && s.newest > s.number ? s.newest : null);
 /** the Stories page at the linked story (by its UUID), at the version this link plays */
-export const linkHref = (s: Slot) => `/stories/#${s.story}${s.number ? `@${s.number}` : ''}`;
+export const linkHref = (s: Slot) => storyHref(s.story, s.number);
 
 const PALETTE = ['#8fae8b', '#d9a441', '#c96f53', '#7c9cb8', '#a98bb5', '#6f9e95', '#c4a27a', '#9aa35c'];
 /** a calm colour for each section, the same every time */
