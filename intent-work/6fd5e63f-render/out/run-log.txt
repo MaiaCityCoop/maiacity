@@ -1,0 +1,21 @@
+59599 |   else if (error.error.name === "TargetClosedError")
+59600 |     e = new TargetClosedError2(error.error.message);
+59601 |   else if (error.error.name === "AbortError")
+59602 |     e = new AbortError2(error.error.message);
+59603 |   else
+59604 |     e = Object.assign(new PlaywrightError(error.error.message), { name: error.error.name });
+                                  ^
+error: _wrapApiCall: Executable doesn't exist at /Users/samuelandert/Library/Caches/ms-playwright/chromium-1254/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     npx playwright install                                 ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+  log: [],
+
+      at /Users/samuelandert/.bun/install/cache/playwright-core@1.65.0@@@1/lib/coreBundle.js:59604:27
+
+Bun v1.4.2 (macOS arm64)
