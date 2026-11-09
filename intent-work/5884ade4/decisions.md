@@ -322,3 +322,23 @@ fails on main and passes here. Folder cycles under the rule: main 3, this head 0
 (the folder metric: docs has fewer dependents; src building on docs is the design), lib/app → $wire (types only),
 lib → content/assets and lib/app → content/assets (a render kit below both waits on held files), box → cache (the
 device budget, render/budget.js, held).
+
+### Re-audit, round 2 (14:30Z): the whole diff, merge damage and half-done moves (`audit/re-round2.md`)
+
+All 12 checks passed by `intent.ts` at 9edf8c54 before this round (c11 532 s: svelte-check 0 errors outside held
+files, vitest 455 tests, none failing outside held files; c12 same ×3). Fixed since, each with a test where it pins
+behaviour:
+- **"Intent named" would have failed every pull request after this lands** (its sparse checkout of play/avenbox
+  alone, pr-intent.ts now importing play/api/src/kit/ids): the checkout takes play/api/src/kit too;
+  `play/api/test/sparse.test.ts` bundles every script a sparse job runs from a copy of only what it checks out (red
+  before, green after).
+- **GitHub's refusal answers an agent and an auto-accept rule again** (fault.ts `answerOf`; HTTP keeps it play's
+  500, as before): `play/api/test/fault.test.ts`.
+- **production.yml's website probe asks /site-notice/ again** (it had become `/`, which any release answers).
+- **intent.ts reads the box.env beside it**, and intents-pr.yml hands it over with intent.ts and play.ts: a head
+  older than box.env records its checks too (avenbox.test.ts lays the files out as the run job does).
+- One `fileUrl` (the kernel's), one `openVariant` (kinds.ts; a story's missing variant now reads like every kind's),
+  `HASH` and `iso` from their homes, `when` from lib/format.ts, the catalog read from catalog.js, the founder counter
+  catching a body that is no JSON, comment nits; graph.ts follows the census's `lib('<path>')` loader.
+Left, noted: the pieces page's two dead snippets (they are the aside Samuel may decide to wire up: *Asks*); ~25
+tests spell the two required checks' names (fixture data of GitHub's answers); setup.sh (held) beside box.env.
