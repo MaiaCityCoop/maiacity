@@ -166,10 +166,8 @@ export async function docRef(q: Queryable, ctx: Ctx | null, id: unknown, me: Pic
 
 export type Verdict = "accept" | "archive";
 
-/**
- * An agent's edits as the document's own (set, insert, delete, move, text; ./docs/core.ts), with one help: a path part
- * may name a list item by its id ({ id: 'weld' }), worked out against the state before the edit.
- */
+/** An agent's edits as the document's own (set, insert, delete, move, text; ./docs/core.ts), with one help: a path part
+ * may name a list item by its id ({ id: 'weld' }), worked out against the state before the edit. */
 export function resolveEdits(json: any, edits: unknown): docs.Edit[] {
   if (!Array.isArray(edits) || !edits.length) throw new HttpError("Edits are a list of at least one edit.");
   if (edits.length > 500) throw new HttpError("At most 500 edits at once.");

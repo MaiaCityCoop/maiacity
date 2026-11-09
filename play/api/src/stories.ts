@@ -466,11 +466,9 @@ const isLink = (t: Track) => t.kind === LINK;
 const refsOf = (b: { tracks?: Track[] } | null | undefined): (Clip & Ref)[] =>
   (b?.tracks ?? []).filter(isLink).flatMap((t) => t.clips.filter((c): c is Clip & Ref => typeof c.story === "string" && STORY_ID.test(c.story) && typeof c.version === "string" && HASH.test(c.version)));
 
-/**
- * Reads the versions links name, each once (a request's links are few). A link plays one accepted version of a story,
+/** Reads the versions links name, each once (a request's links are few). A link plays one accepted version of a story,
  * which never changes: a film moves to a newer trailer only by a proposal on the film. A story folded into another
- * (foldStories) keeps its versions, so a link to one of them plays on as it was.
- */
+ * (foldStories) keeps its versions, so a link to one of them plays on as it was. */
 class Linker {
   private seen = new Map<string, Promise<Target | Miss>>();
   constructor(private q: Queryable) {}

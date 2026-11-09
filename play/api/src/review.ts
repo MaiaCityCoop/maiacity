@@ -36,10 +36,8 @@ async function reviewVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
   return { doc: { id: uuid, kind: k.name, what: k.label, label: next.label ?? next.title ?? k.label, ...(next.group ? { group: next.group } : {}), open, ...(breed ? { breed, newBreed: row.makes !== null } : {}) }, variant: v, seedNumber, moved, changes: docs.diff(seed, next), edits, ...retiresOf(h) };
 }
 
-/**
- * One document's intent variant as an intent's detail lists it (intent 2df30a21): its document, seed version, whether
- * Main moved, status and a brief of what it changes, never its content (reviewHeld reads that; brief: ./gist.ts).
- */
+/** One document's intent variant as an intent's detail lists it (intent 2df30a21): its document, seed version, whether
+ * Main moved, status and a brief of what it changes, never its content (reviewHeld reads that; brief: ./gist.ts). */
 async function listedVariant(db: Queryable, p: any, h: { doc_id: string; doc_variant: number | null }) {
   const k = kindOfDoc(h.doc_id) ?? kindOfWork(p.kind)!;
   const uuid = h.doc_id.split(":")[1];
@@ -58,10 +56,8 @@ async function listedVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
   };
 }
 
-/**
- * An intent's work as its detail shows it (intent 2df30a21: opened in about a second, whatever it holds): its first
- * document's kind's extras and edits, every document in `docs` (listedVariant, in brief), and its pieces.
- */
+/** An intent's work as its detail shows it (intent 2df30a21: opened in about a second, whatever it holds): its first
+ * document's kind's extras and edits, every document in `docs` (listedVariant, in brief), and its pieces. */
 export async function reviewDoc(db: Queryable, p: any) {
   const k = kindOfWork(p.kind)!;
   const held = heldOf(p);
@@ -75,11 +71,9 @@ export async function reviewDoc(db: Queryable, p: any) {
   return { doc: first.doc, variant: first.variant, seedNumber: first.seedNumber, moved: first.moved, edits, ...extra, docs: each, ...(pieces.length ? { pieces } : {}) };
 }
 
-/**
- * One document of an intent's work, read when opened (intent 2df30a21; GET /api/intents/:id/docs/:doc): its changes
+/** One document of an intent's work, read when opened (intent 2df30a21; GET /api/intents/:id/docs/:doc): its changes
  * field by field against its seed, its edits, whether Main moved, its kind's extras. A piece held in several versions
- * is named by `variant` too, else its newest. Null where the intent holds no such document.
- */
+ * is named by `variant` too, else its newest. Null where the intent holds no such document. */
 export async function reviewHeld(db: Queryable, id: string, doc: string, variant?: number | null) {
   const p = await workOf(db, id);
   if (!p?.kind || !kindOfWork(p.kind)) return null;
@@ -102,10 +96,8 @@ export async function reviewHeld(db: Queryable, id: string, doc: string, variant
   return { intent: p.id as string, status: p.status as string, ...r, ...extra, doc: r.doc, variant: r.variant };
 }
 
-/**
- * The pieces an intent proposes (intent 02e3a85f): each its piece, label, variant, hash, version to be, which of the
- * intent's pieces it requires and which documents require it; read from each variant's brief (./gist.ts).
- */
+/** The pieces an intent proposes (intent 02e3a85f): each its piece, label, variant, hash, version to be, which of the
+ * intent's pieces it requires and which documents require it; read from each variant's brief (./gist.ts). */
 async function piecesReviewed(db: Queryable, intent: string, held: { doc_id: string; doc_variant: number | null }[]) {
   const { rows } = await db.query<{ doc_id: string; variant_id: string }>(
     `SELECT iv.doc_id, iv.variant_id FROM play.intent_variants iv JOIN play.doc_variants dv ON dv.id = iv.variant_id
@@ -143,10 +135,8 @@ export async function reviewOf(db: Queryable, id: string, shown: any) {
   return { ...p, ...(await reviewDoc(db, p)) };
 }
 
-/**
- * One intent whole: as the board lists it, its work's `review` (reviewOf), and its `brief`, the Intents skill's part
- * for its stage (./skills.ts; null where it says nothing).
- */
+/** One intent whole: as the board lists it, its work's `review` (reviewOf), and its `brief`, the Intents skill's part
+ * for its stage (./skills.ts; null where it says nothing). */
 export async function intentOf(db: Queryable, me: Me | null, id: string) {
   const intent = await intentFor(db, me, id);
   // held (approved, its dependencies not shipped): nothing to do yet, its sub-state says why

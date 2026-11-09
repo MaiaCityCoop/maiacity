@@ -235,10 +235,8 @@ export function cachedStore(inner: BlobStore, maxBytes: number): BlobStore {
   };
 }
 
-/**
- * The bucket where PLAY_BUCKET is set, else the folder PLAY_BLOBS (./blobs); in the bucket, with PLAY_MIRROR_ROOT (the
- * backups' store) every file kept twice and mended from its second copy, and PLAY_CACHE_MB in memory (256; 0 none).
- */
+/** The bucket where PLAY_BUCKET is set, else the folder PLAY_BLOBS (./blobs); in the bucket, with PLAY_MIRROR_ROOT (the
+ * backups' store) every file kept twice and mended from its second copy, and PLAY_CACHE_MB in memory (256; 0 none). */
 export function blobStore(env = process.env): BlobStore {
   if (!env.PLAY_BUCKET) return folderStore(env.PLAY_BLOBS || "blobs");
   let store = bucketStore(env);

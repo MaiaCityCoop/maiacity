@@ -43,11 +43,9 @@ const ARTIFACT_ADMINS = "Only Maia City's admins open the Artifacts.";
 
 const TRACKING = (k: string) => /^utm_/i.test(k) || /^(fbclid|gclid)$/i.test(k);
 
-/**
- * A link as Maia City keeps it, so one page is one artifact: http(s) only; scheme and host lower-cased; #fragment,
+/** A link as Maia City keeps it, so one page is one artifact: http(s) only; scheme and host lower-cased; #fragment,
  * utm_*, fbclid and gclid dropped, the rest of the query as written; no trailing slash; a YouTube video one way
- * (youtu.be/<id>, /shorts/, /embed/, /live/ and m.youtube.com all https://www.youtube.com/watch?v=<id>).
- */
+ * (youtu.be/<id>, /shorts/, /embed/, /live/ and m.youtube.com all https://www.youtube.com/watch?v=<id>). */
 export function urlOf(raw: unknown): string {
   const s = `${raw ?? ""}`.trim();
   let u: URL;
@@ -433,10 +431,8 @@ const stageOf = async (db: Db, id: string) => {
 const formEvidence = (j: any) =>
   `play's form checks passed: one link (${j.url}), a title of ${j.title.length} characters, a description of ${j.description.length}, a summary of ${j.summary.trim().split(/\s+/).length} words in its sections, ${j.authors.length} author${j.authors.length === 1 ? "" : "s"} by id.`;
 
-/**
- * Keep an artifact (its first version proposed); a link kept already answers with it (`kept`), one waiting with its
- * intent. Without an intent it makes its own (ownIntent), kept at once where the rules accept it.
- */
+/** Keep an artifact (its first version proposed); a link kept already answers with it (`kept`), one waiting with its
+ * intent. Without an intent it makes its own (ownIntent), kept at once where the rules accept it. */
 export async function addArtifact(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven, intent?: string) {
   if (intent) return addIn(db, store, me, b, intent);
   admin(me, ARTIFACT_ADMINS);

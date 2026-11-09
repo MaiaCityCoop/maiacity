@@ -65,10 +65,8 @@ export class GitHubError extends Error {
 
 export type GitHub = ReturnType<typeof gitHub>;
 
-/**
- * GitHub's REST API for one repository (`owner/name`) with a token (SHIP_TOKEN), `fetch` given in the tests. An answer
- * that is no 2xx throws GitHubError with GitHub's own message; neither the token nor any header is ever in it.
- */
+/** GitHub's REST API for one repository (`owner/name`) with a token (SHIP_TOKEN), `fetch` given in the tests. An answer
+ * that is no 2xx throws GitHubError with GitHub's own message; neither the token nor any header is ever in it. */
 export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.github.com" }: { token: string; repo: string; fetch?: typeof fetch; api?: string }) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`SHIP_REPO is owner/name: ${repo}`);
   const headers = { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", "user-agent": "play.maia.city ship" };
@@ -147,10 +145,8 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
   };
 }
 
-/**
- * play's GitHub, where SHIP_TOKEN is set (the repository SHIP_REPO, MyAvenCEO/maiacity by default), else null;
- * SHIP_API names another GitHub API than api.github.com, for a play run against a stand-in (never set in production)
- */
+/** play's GitHub, where SHIP_TOKEN is set (the repository SHIP_REPO, MyAvenCEO/maiacity by default), else null;
+ * SHIP_API names another GitHub API than api.github.com, for a play run against a stand-in (never set in production) */
 export function shipGitHub(env: Record<string, string | undefined> = process.env): GitHub | null {
   const token = env.SHIP_TOKEN?.trim();
   return token ? gitHub({ token, repo: env.SHIP_REPO?.trim() || "MyAvenCEO/maiacity", api: env.SHIP_API?.trim() || undefined }) : null;

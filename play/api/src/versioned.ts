@@ -218,10 +218,8 @@ async function variantFor(q: Queryable, docId: string, uuid: string, intent: str
   return made;
 }
 
-/**
- * A new piece variant of an intent that holds a version of that piece already (intent 02e3a85f): it grows from the
- * intent's last one, its first edit that version's state, so it is that version's next; else it grows from Main.
- */
+/** A new piece variant of an intent that holds a version of that piece already (intent 02e3a85f): it grows from the
+ * intent's last one, its first edit that version's state, so it is that version's next; else it grows from Main. */
 async function growFromHeld(q: Queryable, k: Kind, docId: string, v: number, intent: string, author: docs.Author) {
   if (!k.manyPerIntent) return;
   const { rows } = await q.query<{ variant_id: string }>(

@@ -28,10 +28,8 @@ export type Node = {
   "x-loro"?: "text";
 };
 
-/**
- * A document type as the store checks it: its schema's UUID and version in force, the documents' prefix (`type`), the
- * schema's old name (only shown), its node, and its kind's code hooks by UUID (../versioned.ts): `check`, `build`.
- */
+/** A document type as the store checks it: its schema's UUID and version in force, the documents' prefix (`type`), the
+ * schema's old name (only shown), its node, and its kind's code hooks by UUID (../versioned.ts): `check`, `build`. */
 export type DocType = {
   id: string;
   version: number;

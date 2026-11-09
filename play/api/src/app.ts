@@ -39,11 +39,9 @@ type Route = { method: string; path: string; pattern: RegExp; keys: string[]; ha
 
 const json = (body: unknown, init: ResponseInit = {}) => Response.json(body, init);
 
-/**
- * The read-only routes an admin's MCP token also opens (Samuel 2026-11-03), so an agent can load and film a sandbox in
+/** The read-only routes an admin's MCP token also opens (Samuel 2026-11-03), so an agent can load and film a sandbox in
  * its own browser: who it is, the catalog, the files, a sandbox's config, the assets, and the Library (Samuel
- * 2026-11-07). Every other route still wants a session; the MCP server takes the token as before.
- */
+ * 2026-11-07). Every other route still wants a session; the MCP server takes the token as before. */
 const READ_BY_TOKEN = [/^\/api\/me$/, /^\/api\/catalog$/, /^\/api\/files\/[0-9a-f]{64}$/, /^\/api\/sandboxes\/[0-9a-f-]{36}\/config$/, /^\/api\/assets(\/[^/]+){0,4}$/, /^\/api\/library$/];
 async function body(req: Request): Promise<any> {
   try {

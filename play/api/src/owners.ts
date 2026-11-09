@@ -96,10 +96,8 @@ export async function fileTypes(q: Queryable, hashes: string[], me: Pick<Me, "id
   return new Map(rows.map((r) => [r.hash, r.media_type]));
 }
 
-/**
- * A file kept among play's files and in `owner`'s library (the coop's when none): the coop's label is play.files.label
- * (replaced where `relabel`), a person's their row's. Bytes that were everyone's stay everyone's.
- */
+/** A file kept among play's files and in `owner`'s library (the coop's when none): the coop's label is play.files.label
+ * (replaced where `relabel`), a person's their row's. Bytes that were everyone's stay everyone's. */
 export async function keepFile(q: Queryable, f: { hash: string; size: number; media_type: string; bucket_key: string; label?: string | null }, o: { owner?: string; relabel?: boolean } = {}) {
   const owner = o.owner ?? COOP;
   const coop = owner === COOP;

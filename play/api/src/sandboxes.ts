@@ -346,10 +346,8 @@ const HELPERS = new Set(["pin", "pin_latest", "unpin"]);
 /** one of the sandbox's own edit helpers (pin, pin_latest, unpin; set and delete of a config), not a document's edit */
 const isHelper = (e: any) => !!e && typeof e === "object" && (HELPERS.has(e.op) || ((e.op === "set" || e.op === "delete") && typeof e.config === "string"));
 
-/**
- * An edit of a layout: its helpers applied as it stands (each pin checked against the asset's accepted versions and
- * variants), a document's edits by path, or the whole layout; what play does not hold is refused.
- */
+/** An edit of a layout: its helpers applied as it stands (each pin checked against the asset's accepted versions and
+ * variants), a document's edits by path, or the whole layout; what play does not hold is refused. */
 export async function layoutWrite(q: Queryable, cur: any, input: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
   let target: any;
   if (input.whole !== undefined) {

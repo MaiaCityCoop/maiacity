@@ -41,12 +41,10 @@ function codeHash(): string {
 }
 
 let template: Promise<string> | null = null;
-/**
- * The database every suite copies: migrated and seeded once per code, kept as `play_tmpl_<hash>`. Test files run in
+/** The database every suite copies: migrated and seeded once per code, kept as `play_tmpl_<hash>`. Test files run in
  * parallel (intent aa59f248), and migrating and seeding a database each took past a hook's 5 s on a busy runner; a copy
  * is a file copy. On a fresh runner every file wants it at once: one makes it while the others wait on a session
- * advisory lock (CREATE DATABASE can't run in a transaction), then each copies it.
- */
+ * advisory lock (CREATE DATABASE can't run in a transaction), then each copies it. */
 export function templateDb(admin: Bun.SQL): Promise<string> {
   return (template ??= (async () => {
     const name = `play_tmpl_${codeHash()}`;

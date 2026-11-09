@@ -14,10 +14,8 @@ const isObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const key = (p: Path) => JSON.stringify(p);
 
-/**
- * The fields `b` changes from `a`, under the fields a breed may override: down into objects, field by field; a text, a
- * number or a list changed whole is one field.
- */
+/** The fields `b` changes from `a`, under the fields a breed may override: down into objects, field by field; a text, a
+ * number or a list changed whole is one field. */
 export function changedFields(a: any, b: any, roots: string[] = BREED_FIELDS): Path[] {
   const out: Path[] = [];
   const walk = (x: unknown, y: unknown, path: Path) => {

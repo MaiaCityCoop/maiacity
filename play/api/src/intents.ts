@@ -66,12 +66,10 @@ const idOf = (v: unknown) => {
   return id;
 };
 
-/**
- * What in a check's `run` is a placeholder rather than a command, or null: a `run` runs as written in avenBOX, so
+/** What in a check's `run` is a placeholder rather than a command, or null: a `run` runs as written in avenBOX, so
  * nothing in it is left for its reader to fill in. Outside quotes (where a `<div class="card">` or a "…" is only text
  * searched for): an ellipsis (`…`, or `...` as a word), a `<something>` (`<its id>`, `test/<name>.test.ts`; a
- * redirection such as `< in > out` or `2>&1` is none), or TEST_DATABASE_URL given a value (avenBOX sets it).
- */
+ * redirection such as `< in > out` or `2>&1` is none), or TEST_DATABASE_URL given a value (avenBOX sets it). */
 export function placeholderIn(run: string): string | null {
   const bare = run.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "''");
   if (bare.includes("…")) return "…";

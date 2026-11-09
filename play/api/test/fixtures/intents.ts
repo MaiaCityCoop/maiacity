@@ -14,10 +14,8 @@ export const spec = (goal: string, scope: string) => ({
 /** how a suite's agent and admin reach play: an MCP tool call, and an admin's Approve spec on the board */
 export type Hands = { tool: (name: string, args: Record<string, unknown>) => Promise<any>; approve: (id: string) => Promise<{ data: any } | void> };
 
-/**
- * An intent added over MCP (`add` beside its title), specified (`spec`), its spec approved, its must c1 passed
- * (`evidence`): at Proposal. `strict` asserts it was in Build once approved and at Proposal once checked.
- */
+/** An intent added over MCP (`add` beside its title), specified (`spec`), its spec approved, its must c1 passed
+ * (`evidence`): at Proposal. `strict` asserts it was in Build once approved and at Proposal once checked. */
 export async function readyIntent(h: Hands, title: string, o: { spec: object; add?: Record<string, unknown>; evidence?: string; strict?: boolean }) {
   const i = await h.tool("add_intent", { title, ...o.add });
   await h.tool("specify_intent", { intent: i.id, ...o.spec });

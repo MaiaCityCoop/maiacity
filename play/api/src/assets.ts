@@ -11,10 +11,8 @@ import { HttpError } from "./kit/errors";
 /** who asks: their id, for ./owners.ts's rule (null: no one, who sees the coop's alone) */
 const asker = (me: Pick<Me, "id"> | null | undefined) => me?.id ?? null;
 
-/**
- * What a version's card says of it; its measures only where measured on its own recipe (a version proposed before
- * 2026-11-05 took its parent's card whole, so a measure equal to its parent's is the parent's and not shown).
- */
+/** What a version's card says of it; its measures only where measured on its own recipe (a version proposed before
+ * 2026-11-05 took its parent's card whole, so a measure equal to its parent's is the parent's and not shown). */
 export const summary = (record: any, parent?: any) => {
   const c = record?.card ?? {};
   const p = parent?.card;
@@ -118,10 +116,8 @@ export async function pinsOf(db: Queryable, sandbox: string, state?: { pins: Rec
     });
 }
 
-/**
- * The catalog (play/SPEC.md §4): every accepted version and variant by its recipe file's BLAKE3 hash (the one name a
- * sandbox or asset knows it by), with what it is (for showing) and its record (card, manifest, contract, engine).
- */
+/** The catalog (play/SPEC.md §4): every accepted version and variant by its recipe file's BLAKE3 hash (the one name a
+ * sandbox or asset knows it by), with what it is (for showing) and its record (card, manifest, contract, engine). */
 export async function catalogOf(db: Queryable, me: Pick<Me, "id"> | null) {
   const { rows } = await db.query<any>(
     `SELECT v.asset_id, a.grp, a.slug, v.number, NULL::text AS variant, v.recipe_hash AS hash, v.card AS record, f.size, false AS is_default

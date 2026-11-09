@@ -58,11 +58,9 @@ export async function renameMember(db: Queryable, me: Me | null, humanId: string
   return { human: humanId, name: clean };
 }
 
-/**
- * An admin removes a member: the human goes, with their passkeys and membership. Not oneself, never Maia City's last
+/** An admin removes a member: the human goes, with their passkeys and membership. Not oneself, never Maia City's last
  * admin, and not anyone in an asset version's history (its author or who accepted it): versions are frozen, so their
- * name stays on them; change their level instead.
- */
+ * name stays on them; change their level instead. */
 export async function removeMember(db: Db, me: Me | null, humanId: string) {
   const admin = must(me, "manage", "members");
   if (humanId === admin.id) throw new HttpError("You can't remove yourself.", 409);

@@ -17,10 +17,8 @@ const SPEC = {
   })),
 };
 
-/**
- * `n` intents at each stage given, by `author`, a minute apart, every tenth sharing its time with the one before (so
- * ties go by id); the decided ones decided then.
- */
+/** `n` intents at each stage given, by `author`, a minute apart, every tenth sharing its time with the one before (so
+ * ties go by id); the decided ones decided then. */
 export async function seedBoard(db: Queryable, author: string, counts: Partial<Record<string, number>>) {
   const t0 = Date.parse("2026-01-01T00:00:00Z");
   let k = 0;

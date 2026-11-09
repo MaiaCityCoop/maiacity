@@ -61,20 +61,16 @@ function mergedFrom(seen: Pick<PrSeen, "head" | "merged_in">) {
   return out;
 }
 
-/**
- * The commits a result counts on at the head as `seen` (play/SPEC.md §4.12; intent b17a4980): the head, and while its
+/** The commits a result counts on at the head as `seen` (play/SPEC.md §4.12; intent b17a4980): the head, and while its
  * required checks are green, every commit play's clean main merges in a row made it from (main merged in changes
- * nothing the intent's checks were about, and main's checks ran the whole suite on it).
- */
+ * nothing the intent's checks were about, and main's checks ran the whole suite on it). */
 export function countsOn(seen: Pick<PrSeen, "head" | "checks" | "merged_in">) {
   return new Set([seen.head, ...(greenOn(seen) ? mergedFrom(seen) : [])]);
 }
 
-/**
- * The must checks with a `run` that did not last pass on a commit counting on the head (countsOn), by id, grouped by
+/** The must checks with a `run` that did not last pass on a commit counting on the head (countsOn), by id, grouped by
  * what they lack ("c1, c2 passed on 233b24d, not yet on the head 7fbf99b", "c4 no result yet"); `kept`: those passed on
- * a commit before play's main merges ("c1, c2 passed on 233b24d").
- */
+ * a commit before play's main merges ("c1, c2 passed on 233b24d"). */
 function resultsOn(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head" | "checks" | "merged_in">) {
   const head = seen.head;
   const on = countsOn(seen);

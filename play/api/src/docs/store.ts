@@ -156,10 +156,8 @@ async function name(q: Queryable, docId: string, d: LoroDoc, note: string, a: Au
 
 export type Write = { edits: Edit[] } | { target: unknown };
 
-/**
- * One edit (`edits`, or the operations that make the document `target`) on Main or intent variant `variant`, with
- * `message`; null when nothing changed. A decided variant takes no more edits.
- */
+/** One edit (`edits`, or the operations that make the document `target`) on Main or intent variant `variant`, with
+ * `message`; null when nothing changed. A decided variant takes no more edits. */
 export async function commit(db: Db | Queryable, id: string, w: Write & { message: string; author: Author; variant?: number; kind?: "edit" | "import"; at?: Date }): Promise<DocEdit | null> {
   if (!w.message?.trim()) throw new DocError("every edit says what it does: its message is empty");
   return inTx(db, async (q) => {
@@ -496,10 +494,8 @@ export async function variantOf(db: Queryable, id: string, v: number, o: { breed
 
 const cache = new Map<string, { key: string; type: DocType }>();
 
-/**
- * The type schema `id` is now: its Main's newest version, cached by the schema's head. One not yet a document is its
- * seed's v1 (as ensureSchemas makes it); one proposed and not yet accepted is no type yet.
- */
+/** The type schema `id` is now: its Main's newest version, cached by the schema's head. One not yet a document is its
+ * seed's v1 (as ensureSchemas makes it); one proposed and not yet accepted is no type yet. */
 export async function typeFor(q: Queryable, id: string | null | undefined): Promise<DocType> {
   if (!id) throw new DocError("this document names no schema (play.docs.schema_id): run the migrations", 500);
   const { rows } = await q.query<{ head: unknown; n: number | null }>(

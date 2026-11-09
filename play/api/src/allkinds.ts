@@ -112,10 +112,8 @@ const sandbox: Kind = {
   shown: (q, before, after) => layoutShown(q, before, after),
 };
 
-/**
- * A schema's new version (Samuel 2026-11-06) is refused while a document on Main fails it, naming them; its `type`
- * never changes, a new schema's is no other kind's; once accepted, every process's kinds are read again.
- */
+/** A schema's new version (Samuel 2026-11-06) is refused while a document on Main fails it, naming them; its `type`
+ * never changes, a new schema's is no other kind's; once accepted, every process's kinds are read again. */
 const schema: Kind = {
   name: "schema", prefix: "schema", schema: SCHEMA.meta, check: (doc) => docs.nodeProblems(doc?.node), work: "schema_version", table: "play.records", where: "r.kind = 'schema'", label: "schema", group: "schemas", open: "/schemas/?schema={id}&intent={intent}",
   row: { kind: () => "schema", updated: () => new Date() },

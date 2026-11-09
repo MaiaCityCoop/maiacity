@@ -43,11 +43,9 @@ async function building(db: Db, author: string, title: string) {
 
 export type Heavy = { intent: string; pieces: { doc: string; label: string; hashes: string[] }[]; hosts: { asset: string; label: string; version: string }[] };
 
-/**
- * Proposes into intent `intent`: `pieces` pieces in dependency order (each on the one or two below it, at most 3
+/** Proposes into intent `intent`: `pieces` pieces in dependency order (each on the one or two below it, at most 3
  * deep), each of the first `versions` of them in two versions, each with `kb` KB of data, then `hosts` assets requiring
- * the top ones. Once every must passes it is at Proposal, waiting.
- */
+ * the top ones. Once every must passes it is at Proposal, waiting. */
 export async function heavy(db: Db, store: BlobStore, author: string, o: { title: string; pieces: number; versions: number; hosts: number; kb: number; labels?: string[]; hostLabels?: string[] }): Promise<Heavy> {
   const ctx = { db, store };
   const me = () => meOf(db, author);

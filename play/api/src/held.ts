@@ -29,10 +29,8 @@ export const WORK_STATUS = `CASE WHEN i.stage IN ('proposal', 'ship') OR (i.stag
 const DOC_OF = `(SELECT iv.doc_id FROM play.intent_variants iv WHERE iv.intent_id = i.id ORDER BY iv.position LIMIT 1)`;
 const VARIANT_OF = `(SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.intent_id = i.id ORDER BY iv.position LIMIT 1)`;
 
-/**
- * An intent's work as its decision reads it: its refs (first document and variant, and every one it holds), its kind,
- * note, proposer, how and when, and its status, the intent's stage (waiting at Proposal, accepted, else archived).
- */
+/** An intent's work as its decision reads it: its refs (first document and variant, and every one it holds), its kind,
+ * note, proposer, how and when, and its status, the intent's stage (waiting at Proposal, accepted, else archived). */
 export const WORK_OF = `i.id, i.coop_id, i.work AS kind, ${DOC_OF} AS doc_id, ${VARIANT_OF} AS doc_variant,
   COALESCE((SELECT json_agg(json_build_object('doc_id', iv.doc_id, 'doc_variant', iv.variant_id, 'refs', iv.refs) ORDER BY iv.position) FROM play.intent_variants iv WHERE iv.intent_id = i.id), '[]'::json) AS variants,
   ${REFS.map((k) => `i.${k}`).join(", ")},
@@ -121,10 +119,8 @@ export async function ownColumns(q: Queryable, id: string) {
   await q.query(`UPDATE play.intents SET work = $2, ${REFS.map((k, i) => `${k} = $${i + 3}`).join(", ")} WHERE id = $1`, [id, first.kind ?? null, ...REFS.map((k) => first[k] ?? null)]);
 }
 
-/**
- * Document `docId` taken out of intent `intent`'s work (a story folded into another, or withdrawn: ./withdraw.ts): its
- * variant closed, kept in the history, the intent's columns naming its first document again.
- */
+/** Document `docId` taken out of intent `intent`'s work (a story folded into another, or withdrawn: ./withdraw.ts): its
+ * variant closed, kept in the history, the intent's columns naming its first document again. */
 export async function dropDoc(q: Queryable, me: Pick<Me, "id"> | null, intent: string, docId: string) {
   for (const v of await unhold(q, intent, docId)) await closeVariant(q, me, docId, v);
   await ownColumns(q, intent);

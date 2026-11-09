@@ -45,9 +45,7 @@ const acceptedPieces = (q: Queryable): Lookup => async (hashes) => {
   return new Map(rows.map((r) => [r.hash, { requires: r.requires, depth: r.depth }]));
 };
 
-/**
- * The piece versions proposed in intent `intent` (intent 02e3a85f), by the hash of each one's source as it stands.
- */
+/** The piece versions proposed in intent `intent` (intent 02e3a85f), by the hash of each one's source as it stands. */
 export async function intentPieces(q: Queryable, intent: string): Promise<{ doc_id: string; variant: number; position: number; hash: string; source: string; requires: string[] }[]> {
   const { rows } = await q.query<{ doc_id: string; variant_id: string; position: number }>(
     `SELECT iv.doc_id, iv.variant_id, iv.position FROM play.intent_variants iv JOIN play.doc_variants dv ON dv.id = iv.variant_id
@@ -92,10 +90,8 @@ export async function resolvePieces(lookup: Lookup, hashes: string[], most = MOS
   return { all, depth };
 }
 
-/**
- * The one resolver of a source's pieces, at propose, at preview and at Accept (play/SPEC.md §4.5; intent 02e3a85f): an
- * intent's own pieces count as held within that intent.
- */
+/** The one resolver of a source's pieces, at propose, at preview and at Accept (play/SPEC.md §4.5; intent 02e3a85f): an
+ * intent's own pieces count as held within that intent. */
 export async function piecesHeld(q: Queryable, hashes: string[], most = MOST_DEEP, intent?: string | null): Promise<{ all: string[]; depth: number }> {
   if (!hashes.length) return { all: [], depth: 0 };
   const accepted = acceptedPieces(q);

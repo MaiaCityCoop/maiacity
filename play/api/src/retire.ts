@@ -14,10 +14,8 @@ export async function retiredOf(q: Queryable, docId: string): Promise<{ at: stri
   return r?.retired_at ? { at: new Date(r.retired_at).toISOString(), intent: r.retired_by } : null;
 }
 
-/**
- * Document `doc` (its UUID) proposed retired as intent `id`'s work, with its reason. Refused: no reason, a document
- * never accepted or retired already, an intent not in Build or at Proposal (its gate). Gives back the intent.
- */
+/** Document `doc` (its UUID) proposed retired as intent `id`'s work, with its reason. Refused: no reason, a document
+ * never accepted or retired already, an intent not in Build or at Proposal (its gate). Gives back the intent. */
 export async function retireDoc(ctx: Ctx, me: Me | null, id: string, doc: unknown, reason: unknown, via: "mcp" | "web") {
   const who = admin(me, INTENT_ADMINS);
   const why = reasonOf(reason, "A retire", "why the document goes");

@@ -43,11 +43,9 @@ export async function revokeToken(db: Queryable, me: Me | null, id: string) {
   return { id, revoked: true };
 }
 
-/**
- * One of `me`'s tokens marked as avenBOX's, or no longer (play/SPEC.md §4.12, "Only the box's run is evidence"): the
+/** One of `me`'s tokens marked as avenBOX's, or no longer (play/SPEC.md §4.12, "Only the box's run is evidence"): the
  * token kept as the repository's secret PLAY_MCP_TOKEN, held only by main's play/avenbox/intent.ts in the GitHub runs
- * of the intents' checks. A code intent's test and measure results are taken from such a token alone.
- */
+ * of the intents' checks. A code intent's test and measure results are taken from such a token alone. */
 export async function markAvenbox(db: Queryable, me: Me | null, id: string, avenbox: unknown) {
   const who = admin(me, TOKEN_ADMINS);
   if (typeof avenbox !== "boolean") throw new HttpError("avenbox is true or false.", 400);

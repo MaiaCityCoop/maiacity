@@ -1,9 +1,7 @@
-/**
- * The admins' window into play's Postgres, read only (ported from legacy's aven/api/src/tables.ts): every table of the
+/** The admins' window into play's Postgres, read only (ported from legacy's aven/api/src/tables.ts): every table of the
  * schema play with its columns and how many rows it holds, and a page of one table's rows. Each read runs in a READ
  * ONLY transaction, a table is named only as the catalog names it, and a column that keeps a secret or a credential is
- * never sent, only that it is there. A row of another's private thing (./owners.ts) is never sent, nor counted.
- */
+ * never sent, only that it is there. A row of another's private thing (./owners.ts) is never sent, nor counted. */
 import type { Db, Queryable } from "./kit/pg";
 import { ROWS_SEEN } from "./owners";
 import { HttpError } from "./kit/errors";
