@@ -123,14 +123,14 @@ describe('a world shot: the clock', () => {
 	});
 	it('clock: everything a world shot shows at t is the same for the same t', () => {
 		const at3 = worldAt(world, 3, 30, 181);
-		expect(at3).toEqual({ frame: 90, camera: cameraAt(world.camera, 3), sun: sunAt(18.875), exposure: 0.5, lights: { sun: 0.75, sky: 1, lamps: 2 } });
+		expect(at3).toEqual({ frame: 90, camera: cameraAt(world.camera, 3), hour: 18.875, sun: sunAt(18.875), exposure: 0.5, lights: { sun: 0.75, sky: 1, lamps: 2 } });
 		expect(worldAt(structuredClone(world), 3, 30, 181)).toEqual(at3);
 		expect(worldAt(world, 0, 30, 181)).toMatchObject({ frame: 0, sun: sunAt(18.5), lights: { sun: 1 } });
 		expect(worldAt(world, 6, 30, 181)).toMatchObject({ frame: 180, sun: sunAt(19.25), lights: { sun: 0.5 } });
 		// past its end: its last frame, its keys held
 		expect(worldAt(world, 7, 30, 181)).toEqual(worldAt(world, 6, 30, 181));
 		// no hour: the mood's own sun
-		expect(worldAt({ camera: world.camera }, 3, 30, 181)).toMatchObject({ sun: null, exposure: 0, lights: { sun: 1, sky: 1, lamps: 1 } });
+		expect(worldAt({ camera: world.camera }, 3, 30, 181)).toMatchObject({ hour: null, sun: null, exposure: 0, lights: { sun: 1, sky: 1, lamps: 1 } });
 	});
 	it('clock: the maths and the runtime read no clock, chance or environment', () => {
 		for (const f of ['./live.ts', './live-runtime.ts', './world-build.ts']) expect(readFileSync(new URL(f, import.meta.url), 'utf8')).not.toMatch(/new Date|Date\.now|Math\.random|performance\.now|requestAnimationFrame|navigator\.|location\./);

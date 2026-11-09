@@ -31,6 +31,8 @@ import { cardOf } from './catalog.js';
 import { groundMaterial, rowsOf } from '$lib/content/biomes/surfaces.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { coverStream } from '$lib/content/biomes/stream.js';
+import { grassField, grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js';
+import { smallDevice } from '$lib/content/render/budget.js';
 
 /** a mesh's name that lays a biome's floor on it: `biome:` and the biome's recipe hash */
 const FLOOR = /^biome:([0-9a-f]{64})/;
@@ -201,9 +203,18 @@ export function createPlantings(o) {
 				// as dense as the biome is near the eye: a viewer shows one floor, not a village of them
 				density: recipe.density,
 				seed: 707,
-				sown: rows
+				sown: rows,
+				// its grass blade by blade, beside it (below)
+				blades: growsGrass(recipe)
 			})
 		);
+		// its grass, blade by blade ($content/biomes/grass.js): where its grass kinds' colonies are on the floor
+		if (growsGrass(recipe)) {
+			const of = grassOfRecipe(recipe, (x, z) => !Number.isNaN(grid.at(x, z)));
+			const field = grassField({ params: recipe.grass, device: smallDevice() ? 'small' : 'desktop', at: (x, z) => ({ ...of(x, z), y: grid.at(x, z) || 0 }) });
+			o.scene.add(field.object);
+			covers.push({ update: (/** @type {number} */ _x, /** @type {number} */ _z) => field.update(o.camera, performance.now() / 1000), dispose: () => (field.object.removeFromParent(), field.dispose()) });
+		}
 		state.floors++;
 	};
 	return {

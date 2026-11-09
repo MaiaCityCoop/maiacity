@@ -9,6 +9,8 @@
  * the deepest part, and the material colours and clears it by that.
  */
 import * as THREE from 'three'
+import { OwnStandard } from '$lib/content/render/tsl.js'
+import { abs, attribute, dot, float, mix, normalView, positionViewDirection, select, smoothstep, texture, uniform, uv, vec3 } from 'three/tsl'
 import { seeded } from './plants'
 
 const shared = <T,>(make: () => T) => {
@@ -38,29 +40,26 @@ const ripples = shared(() => {
 	return t
 })
 
-/** The water's surface. Call `flow(t)` each frame to keep it moving. */
+/** how far the ripples have drifted (`flow`) */
+const drift = uniform(new THREE.Vector2())
+
+/**
+ * The water's surface, in TSL: its body coloured and cleared by its depth (sandy-green and half clear in the shallows,
+ * dark teal and near opaque in the deep), shaded by the drifting ripples; it reflects the one sky and its sun (the
+ * scene's environment and lights, roughness 0.06), and by a Fresnel term (Schlick's, water's 2 % head on) more of it
+ * where it is seen at a grazing angle, so the far water is the sky's and the near is clear. Call `flow(t)` each frame.
+ */
 export const waterMaterial = shared(() => {
-	const mat = new THREE.MeshStandardMaterial({ map: ripples(), roughness: 0.06, metalness: 0, transparent: true, envMapIntensity: 1.3, side: THREE.DoubleSide, depthWrite: false })
-	mat.onBeforeCompile = (sh) => {
-		sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float depth;\nvarying float vDepth;').replace('#include <uv_vertex>', '#include <uv_vertex>\nvDepth = depth;')
-		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', '#include <common>\nvarying float vDepth;')
-			.replace(
-				'#include <map_fragment>',
-				`vec4 sampledDiffuseColor = texture2D(map, vMapUv);
-				float d = smoothstep(0.0, 1.0, vDepth);
-				vec3 shallow = vec3(0.52, 0.66, 0.46);
-				vec3 mid = vec3(0.12, 0.38, 0.40);
-				vec3 deep = vec3(0.03, 0.15, 0.19);
-				vec3 body = d < 0.5 ? mix(shallow, mid, d * 2.0) : mix(mid, deep, d * 2.0 - 1.0);
-				diffuseColor.rgb = body * (0.82 + 0.32 * sampledDiffuseColor.g);
-				diffuseColor.a = mix(0.45, 0.97, d);`
-			)
-	}
-	mat.customProgramCacheKey = () => 'water-depth'
+	const mat = new OwnStandard({ roughness: 0.06, metalness: 0, transparent: true, side: THREE.DoubleSide, depthWrite: false })
+	const d = smoothstep(0, 1, attribute<'float'>('depth', 'float'))
+	const shallow = vec3(0.52, 0.66, 0.46), mid = vec3(0.12, 0.38, 0.4), deep = vec3(0.03, 0.15, 0.19)
+	const body = select(d.lessThan(0.5), mix(shallow, mid, d.mul(2)), mix(mid, deep, d.mul(2).sub(1)))
+	mat.colorNode = body.mul(texture(ripples(), uv().add(drift)).g.mul(0.32).add(0.82))
+	const fresnel = float(1).sub(abs(dot(normalView, positionViewDirection))).pow(5).mul(0.98).add(0.02)
+	mat.opacityNode = mix(mix(float(0.45), float(0.97), d), float(1), fresnel)
 	return mat
 })
-export const flow = (t: number) => (ripples().offset.set(t * 0.012, -t * 0.05))
+export const flow = (t: number) => void drift.value.set(t * 0.012, -t * 0.05)
 
 /** The bed under the water: wet earth and sand at the edge, dark mud in the deep. */
 const bedMaterial = shared(() => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }))

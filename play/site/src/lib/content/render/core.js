@@ -25,6 +25,7 @@
 import * as THREE from 'three';
 import { PMREMGenerator as NodePMREMGenerator, ShadowNode, WebGPURenderer } from 'three/webgpu';
 import { install } from './nodes/index.js';
+import { screenOutputs } from './tsl.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { reopenOnRestore } from './budget.js';
 import { useRenderer } from './arrays.js';
@@ -352,7 +353,9 @@ export const makeRenderer = (o) => ready(createRenderer(o));
 export function nodes(renderer) {
 	const r = /** @type {any} */ (renderer);
 	if (typeof r.setNodesHandler !== 'function') return;
-	const h = install(r); // three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light)
+	// three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light; ./tsl.js:
+	// on the screen, `toneMapped: false` and `raw` honoured)
+	const h = screenOutputs(r, install(r));
 	const compile = r.compile;
 	if (typeof compile !== 'function') return;
 	r.compile = function (scene, camera, target = null) {
