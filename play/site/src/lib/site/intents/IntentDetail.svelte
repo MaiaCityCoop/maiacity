@@ -67,11 +67,9 @@
 		el.scrollTop = el.scrollHeight;
 	};
 
-	/** what to tell an agent sent to it: play's (GET /api/intents/<id>'s brief, the Intents skill's part for its stage,
-	 *  play/api/src/skills.ts), never written here; null where there is nothing for an agent to do */
-	/** an asset upgrade's builds (the review's, play/api/src/versioned.ts reviewDoc), drawn inline in the Changes tab
-	 *  (Samuel 2026-11-07: "draw the asset right in the Changes tab"), only once that tab is opened; a story's version
-	 *  (the same review's `story`, play/api/src/stories.ts) played there in the Stories player (intent 668e9ffd) */
+	/** what to tell an agent sent to it: play's brief (play/api/src/skills.ts), never written here; null when nothing */
+	/** an asset upgrade's builds (play/api/src/versioned.ts reviewDoc), drawn in the Changes tab once opened (Samuel
+	 *  2026-11-07: "draw the asset right in the Changes tab"); a story's version played there (intent 668e9ffd) */
 	let review = $state<{ id: string; builds: { hash: string; variant: string | null; label: string; first: boolean }[] | null; story: ComponentProps<typeof StoryPlayer>['story'] | null; docs: ReviewedDoc[] } | null>(null);
 	/** each document its work changes (the review's docs, play/api/src/versioned.ts reviewDoc; intent 7c8986c5: any number) */
 	type ReviewedDoc = Listed;
@@ -92,8 +90,7 @@
 			})
 			.catch((e) => (briefError = (e as Error).message));
 	});
-	/** one document taken out of its work, with its reason, before it is decided (intent ee0a7455; play/api/src/withdraw.ts):
-	 *  in Build or at Proposal only; at Proposal the intent goes back to Build, its results kept */
+	/** one document taken out of its work with its reason (intent ee0a7455; play/api/src/withdraw.ts), in Build or at Proposal */
 	const withdrawable = $derived(i.stage === 'build' || i.stage === 'proposal');
 	let withdrawError = $state('');
 	async function withdraw(doc: { id: string; label?: string }) {

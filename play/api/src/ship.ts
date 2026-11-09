@@ -1,6 +1,5 @@
-// Accept ships it (play/SPEC.md §4.12 says it all; Samuel 2026-11-06): Ship's queue and its steps (watched by
-// ./watcher.ts), main merged in (./mainmerge.ts, intent f28822d9), the reconcile (intent 9876ef00), work of play's
-// beside code accepted as its code goes live (intent 7c8986c5). SHIP_TOKEN never leaves this server.
+// Accept ships it (play/SPEC.md §4.12; Samuel 2026-11-06): Ship's queue and steps (./watcher.ts), main merged in
+// (./mainmerge.ts), the reconcile (intent 9876ef00), play's work beside code accepted as it goes live. SHIP_TOKEN never leaves this server.
 import { admin, meOf, type Me } from "./access";
 import { COOP, intentsIn } from "./kit/ids";
 import type { Db, Queryable } from "./kit/pg";
@@ -48,8 +47,7 @@ export type Ship = {
   past?: number[];
   /** what a failed round leaves for the next press: a red step's run on main, run again; else the release */
   again?: "main" | "release";
-  /** what it does when its turn comes and GitHub is ready (null once done): merge the pull request at the checked
-   *  head, or ship again (main's failed jobs run again, or the release) */
+  /** at its turn, GitHub ready (null once done): merge at the checked head, or ship again (failed jobs, or the release) */
   pending?: Pending | null;
   /** when it was accepted (this round), and when it first stood first in line, from which it waits at most 30 minutes */
   accepted?: string;

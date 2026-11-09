@@ -67,10 +67,8 @@ const idOf = (v: unknown) => {
 };
 
 /**
- * What in a check's `run` is a placeholder rather than a command, or null: a `run` runs as written in avenBOX, so
- * nothing in it is left for its reader to fill in. Outside quotes (where a `<div class="card">` or a "…" is only text
- * searched for): an ellipsis (`…`, or `...` as a word), a `<something>` (`<its id>`, `test/<name>.test.ts`; a
- * redirection such as `< in > out` or `2>&1` is none), or TEST_DATABASE_URL given a value (avenBOX sets it).
+ * What in a check's `run` is a placeholder, not a command (a `run` runs as written in avenBOX), or null: outside quotes,
+ * an ellipsis, a `<something>` (not a redirection like `2>&1`), or TEST_DATABASE_URL given a value (avenBOX sets it).
  */
 export function placeholderIn(run: string): string | null {
   const bare = run.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "''");
@@ -197,11 +195,7 @@ export async function dependIntent(db: Db, me: Me | null, id: string, on: unknow
 
 /** the kind of work that is code, beside the schemas' UUIDs, in an intent's work_kind */
 export const CODE = "code";
-/**
- * work_kind as given (add_intent, specify_intent): the kinds of work the intent will bring, each a schema's UUID (an
- * artifact, an asset, a story …: ./kit/ids.ts SCHEMA, or one accepted since) or `code`; undefined where not given (left as
- * it is), null for an empty list (it declares nothing: any kind, as before).
- */
+/** work_kind as given: schema UUIDs (./kit/ids.ts SCHEMA, or one accepted since) or `code`; undefined: unchanged; null for []: any kind. */
 async function workKindOf(q: Queryable, v: unknown): Promise<string[] | null | undefined> {
   if (v === undefined) return undefined;
   if (v === null) return null;
@@ -384,9 +378,8 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   if (moves && !confirms && intent.held_by.length) throw new HttpError(heldText(intent.id, intent.held_by), 409);
   const undeclared = named !== undefined ? notDeclared(intent, { code: true }) : "";
   if (undeclared) throw new HttpError(undeclared, 409);
-  // only the box's run is evidence (play/SPEC.md §4.12, Samuel 2026-11-06): what can decide a code intent (its pull
-  // request named, a test or measure result on a commit or on main, or any once its pull request is named) is taken
-  // from avenBOX's token alone; a look is still judged and recorded by hand
+  // only the box's run is evidence (play/SPEC.md §4.12, Samuel 2026-11-06): what can decide a code intent comes from
+  // avenBOX's token alone; a look is still recorded by hand
   const checkOf = new Map<string, Check>((intent.spec?.checks ?? []).map((c: Check) => [c.id, c]));
   if (!who.box) {
     if (named !== undefined) throw new HttpError(`Intent ${intent.id}: its pull request is named by its run, not by hand: ${BOX_ONLY}.`, 403);
@@ -600,8 +593,7 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
   if (o.work.retire) refs.retire = o.work.retire;
   await holdVariant(q, who, id, o.work.doc_id, Number(o.work.doc_variant), refs);
   await ownColumns(q, id);
-  // in Build, the work waits on the intent until its last must passes (intent 94061718): it then moves to Proposal with
-  // all of it (./intents.ts recordChecks); one whose musts pass already moves now
+  // in Build, work waits on the intent until its last must passes (intent 94061718), then moves to Proposal with it
   const moves = !(await gate.mayMove(q, id, "proposal"));
   await q.query(
     `UPDATE play.intents SET work_note = $2, proposed_by = $3, proposed_via = $4, proposed_at = now(), stage = CASE WHEN $5 THEN 'proposal' ELSE stage END, decided_by = NULL, decided_at = NULL, auto = auto - 'accept' WHERE id = $1`,

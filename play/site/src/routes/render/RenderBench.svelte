@@ -148,11 +148,7 @@
 		}
 	});
 
-	/**
-	 * A rigged build moving as a world moves it: its clips as the box wrote them down, played back by the page's own
-	 * player (content/assets/clips.js, as a crowd plays them, none of the asset's code) on a copy of its skinned mesh, along a plan
-	 * of clips, each blended into the next; the copy carried on by how fast each goes, turned when a quarter turn ends.
-	 */
+	/** A rigged build moving as a world moves it: the box's clips played by the page's player (content/assets/clips.js) on a copy, along a plan of blended clips. */
 	let moving = null;
 	async function movingOf({ values = {}, plan, fps = 30, blendFor = 0.35, camera: cam = null }) {
 		const view = await viewer();
@@ -252,9 +248,8 @@
 			return { frames: out, clips: Object.keys(m.view.hero.view.clips.motion.clips) };
 		},
 		/**
-		 * A crowd of one build, as a world draws one (content/assets/render/crowd.js): `n` of them in a grid `spacing` m apart,
-		 * walking on at `speed` (each its own time), the nearest `max` within `near` m rigged, the rest drawn from afar;
-		 * timed: how long until their builds and clips are here, what posing them costs a frame, the frames a second.
+		 * A crowd of one build as a world draws one (content/assets/render/crowd.js): `n` in a grid `spacing` m apart,
+		 * walking at `speed`, the nearest `max` within `near` rigged; timed: builds and clips here, posing per frame, fps.
 		 */
 		async crowd({ hash, n = 200, clip = 'walk', speed = 1.4, seconds = 6, near = 20, max = 50, spacing = 1.6, eye = [0, 1.7, -6], at = [0, 1, 12] }) {
 			const view = await viewer();

@@ -26,8 +26,7 @@ export const STORY_EDITS =
   "{ op: 'add_track', track: { id, kind, clips }, index? }, { op: 'remove_track', track }, { op: 'set_track', track, fields: { id?, kind? } }, { op: 'shift', from, by, tracks? } (every clip starting at or after `from` seconds moved by `by`), " +
   "{ op: 'set', fields: { format?, fps? } }, { op: 'edit_text', track, clip, field, index, delete?, insert? }; on shots, voice, notes and story tracks clips must not overlap, so retime with shift; a story's whole is { title, …its timeline }. ";
 type VersionInfo = { number: number; id: string; note: string; created: string; author: string | null; approved_by: string | null };
-/** a linked version as it is read: its story (a UUID), title, number and id, its duration and timeline, and its story's
- *  newest accepted number (shown as "v5 available" where it is newer; a link plays only its own version) */
+/** a linked version as read, with its story's newest accepted number (shown "v5 available"; a link plays only its own) */
 export type Linked = { id: string; title: string; number: number; version: string; duration: number; newest: number | null; body: StoryBody };
 export type Links = Record<string, Linked>;
 export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
@@ -59,8 +58,7 @@ const AUDIO: { type: string; is: (b: Uint8Array) => boolean }[] = [
 ];
 export const AUDIO_TYPES = AUDIO.map((a) => a.type);
 export const MOST_VIDEO = 40_000_000;
-/** the video types a shot's video may be, by the bytes they start with: MP4 (any ftyp brand but the audio-only ones) and
- *  WebM (Matroska's EBML header, said to be video) */
+/** a shot's video types by their first bytes: MP4 (any ftyp brand but the audio-only ones) and WebM (EBML, video) */
 const VIDEOS: { type: string; is: (b: Uint8Array) => boolean }[] = [
   { type: "video/mp4", is: (b) => ascii(b, 4, 8) === "ftyp" && !/^(M4A |M4B |M4P )/.test(ascii(b, 8, 12)) },
   { type: "video/webm", is: (b) => b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 },
@@ -102,8 +100,7 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
     const frame = c.frame == null || c.frame === "" ? null : text(c.frame, `${what}'s frame`, 64);
     if (frame !== null && !HASH.test(frame)) throw new HttpError(`${what}'s frame must be an image's file hash (add_story_frame gives one).`);
     const out: Record<string, unknown> = { frame, transition: text(c.transition, `${what}'s transition`, 500) };
-    // its moving picture, if it has one: a video's hash, played muted from video_in (s) for the shot's length, the frame
-    // its still (shown until the video can play, and where no video is)
+    // its moving picture, if any: a video's hash played muted from video_in (s), the frame its still until it plays
     if (c.video != null && c.video !== "") {
       const video = text(c.video, `${what}'s video`, 64);
       if (!HASH.test(video)) throw new HttpError(`${what}'s video must be a video's file hash (add_story_video gives one).`);
@@ -212,8 +209,7 @@ function liveOf(v: unknown, what: string, duration: number) {
   return out;
 }
 
-// ---- a world shot (intent 65d04790; play/site/src/lib/stories/live.ts, which draws it): a whole world, an asset of the
-// group `worlds` (play/SPEC.md §4.11)
+// ---- a world shot (intent 65d04790; drawn by play/site/src/lib/stories/live.ts): a whole asset of group `worlds`
 const WORLD_KEYS = new Set(["asset", "version", "camera", "hour", "exposure", "lights"]);
 const WORLD_LIGHTS = ["sun", "sky", "lamps"];
 function curveOf(v: unknown, what: string, lo: number, hi: number, inShot: InShot): number | [number, number][] {
@@ -467,9 +463,8 @@ const refsOf = (b: { tracks?: Track[] } | null | undefined): (Clip & Ref)[] =>
   (b?.tracks ?? []).filter(isLink).flatMap((t) => t.clips.filter((c): c is Clip & Ref => typeof c.story === "string" && STORY_ID.test(c.story) && typeof c.version === "string" && HASH.test(c.version)));
 
 /**
- * Reads the versions links name, each once (a request's links are few). A link plays one accepted version of a story,
- * which never changes: a film moves to a newer trailer only by a proposal on the film. A story folded into another
- * (foldStories) keeps its versions, so a link to one of them plays on as it was.
+ * Reads the versions links name, each once. A link plays one accepted version, which never changes (a film moves to a
+ * newer trailer only by its own proposal); a story folded into another keeps its versions.
  */
 class Linker {
   private seen = new Map<string, Promise<Target | Miss>>();
@@ -919,8 +914,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
           const decider = await as(v.approved_by ?? v.author);
           await db.transaction((tx) => foldVersion(tx, f.into, { title: v.title, body: v.body, note }, authorOf(author, v.via === "web" ? "site" : "mcp"), author.id, decider.id));
         }
-        // the work of its intents at Proposal, proposed again on the timeline's new head for the same intent (which
-        // closes its intent variant on this story); where it is there already, the intent is archived
+        // its intents' work at Proposal proposed again on the new head for the same intent; already there: archived
         const { rows: open } = await db.query<any>(
           `SELECT ${WORK_OF}, v.title, v.body FROM play.intents i JOIN play.story_versions v ON v.id = i.story_version
             WHERE i.story_id = $1 AND i.work = $2 AND i.stage IN ('build', 'proposal') ORDER BY i.proposed_at`,
@@ -1117,10 +1111,9 @@ export const MOST_COMPOSITION = 2_000_000;
 const COMPOSITION_TYPE = "text/html";
 
 /**
- * Keep one composition among play's files; its hash. It is one HyperFrames composition as written: readable (not bundled
- * or minified), a root naming its data-composition-id, its timeline registered on window.__timelines, and loading nothing
- * from outside play (GSAP and HyperFrames' runtime come from play, by their hash). It runs only in the Stories player's
- * sealed frame and in HyperFrames' renderer, never on play's server or origin.
+ * Keep one HyperFrames composition among play's files; its hash. Readable (not bundled or minified), its root naming its
+ * data-composition-id, its timeline on window.__timelines, loading nothing from outside play; it runs only in the
+ * Stories player's sealed frame and HyperFrames' renderer, never on play's server or origin.
  */
 export async function putComposition(db: Queryable, store: BlobStore, html: unknown, label?: unknown, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (typeof html !== "string" || !html.trim()) throw new HttpError("Give the composition as its HTML (html).");
