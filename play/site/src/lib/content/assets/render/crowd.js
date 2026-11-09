@@ -65,6 +65,7 @@ function built(ref, detail) {
 const again = new Set();
 /** whether a build that failed is asked for again (`AGAIN_AFTER`) @param {string} ref @param {number} detail */
 const retried = (ref, detail) => again.has(labelOf(ref, detail));
+/** @param {string} ref @param {number} detail */
 const labelOf = (ref, detail) => (detail < 1 ? `${ref}?detail=${detail}` : ref);
 const done = new Set();
 

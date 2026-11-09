@@ -54,6 +54,7 @@ export function workerOf() {
 	return worker;
 }
 
+/** @param {Worker} w @param {object} message @param {Transferable[]} moved */
 export const ask = (w, message, moved) =>
 	new Promise((ok, no) => {
 		const id = job++;

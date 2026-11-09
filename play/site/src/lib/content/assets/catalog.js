@@ -107,6 +107,7 @@ export async function catalogReady(sandbox) {
 
 export const SLOT = /^pin:([a-z0-9][a-z0-9-]*)\/([a-zA-Z0-9][a-zA-Z0-9/-]*)(?:\?([^#\s]*))?$/;
 
+/** @param {string} name @param {string} query */
 export const withQuery = (name, query) => `${name}${name.includes('?') ? '&' : '?'}${query}`;
 
 /**
@@ -135,14 +136,17 @@ export function resolve(name) {
 	return parseBuild(query ? withQuery(pinned, query) : pinned);
 }
 
+/** @param {string} name */
 export function hashOf(name) {
 	const { hash } = resolve(name);
 	heldAt(hash);
 	return hash;
 }
 
+/** @param {string} name */
 export const paramsOf = (name) => resolve(name).params;
 
+/** @param {string} name */
 export const buildAt = (name) => {
 	const { hash, params } = resolve(name);
 	return buildOf(hash, params);

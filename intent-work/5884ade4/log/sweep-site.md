@@ -119,3 +119,7 @@ name and body, `// the next thing` lines.
     decoded, and Range kept) and `sandbox5.js` (Samuel's 2026-10-20 pin kept), and three docs of `factory.ts` naming
     their constant again. `factory.ts`'s solar-line recipe, `rooms.ts`'s Waldorf rooms and `solo.js`'s measured
     chamfer error are about the world outside the code, kept.
+23. **The JSDoc types dropped with their prose, put back** (comments only). Moves 15, 19 and 20 took six one-line
+    docs whose `@param` gave plain-JS functions their types for the TypeScript that imports them (`catalog.js`'s
+    `withQuery`, `hashOf`, `paramsOf`, `buildAt`; `store.js`'s `ask`; `crowd.js`'s `labelOf`): each is back as a bare
+    `/** @param … */`. The sweep's edit script now refuses to drop a line carrying a type. svelte-check unchanged.
