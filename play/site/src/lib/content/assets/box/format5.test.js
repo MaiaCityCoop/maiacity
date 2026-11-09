@@ -29,11 +29,12 @@ describe('format 5: a look of its own as data', () => {
 		const got = materialOf(rebuild(data));
 		expect(got.userData.graph.out).toEqual(GLOW.out);
 	});
-	it('a shader of its own without a graph is refused, naming the material', async () => {
-		const own = new THREE.MeshStandardMaterial({ name: 'glowing cap' });
-		own.onBeforeCompile = (sh) => (sh.fragmentShader += '\n');
-		await expect(serialize(mesh(own))).rejects.toThrow(/material 0 \(glowing cap\): a shader of its own/);
-		await expect(serialize(mesh(new THREE.ShaderMaterial()))).rejects.toThrow(/a shader of its own \(ShaderMaterial/);
+	// (patched code and shader materials are refused the same way: scripts/engine.test.ts builds them in engine 6)
+	it('a material of a kind of its own without a graph is refused, naming the material', async () => {
+		class Own extends THREE.MeshStandardMaterial {
+			type = 'OwnMaterial';
+		}
+		await expect(serialize(mesh(new Own({ name: 'glowing cap' })))).rejects.toThrow(/material 0 \(glowing cap\): a shader of its own \(OwnMaterial\)/);
 	});
 	it('a graph that is refused refuses the build, saying why', async () => {
 		const m = new THREE.MeshStandardMaterial();
@@ -44,8 +45,10 @@ describe('format 5: a look of its own as data', () => {
 		await expect(serialize(mesh(toon))).rejects.toThrow(/not a MeshToonMaterial/);
 	});
 	it('the kit’s section caps leave as their look', async () => {
-		const m = new THREE.MeshPhysicalMaterial({ side: THREE.DoubleSide });
-		m.onBeforeCompile = () => {};
+		class Kit extends THREE.MeshPhysicalMaterial {
+			type = 'KitMaterial';
+		}
+		const m = new Kit({ side: THREE.DoubleSide });
 		m.userData.cap = { color: 0x123456, rough: 0.4, metal: 0.2 };
 		const { data } = await serialize(mesh(m));
 		expect(data.materials[0].cap).toEqual({ color: 0x123456, rough: 0.4, metal: 0.2 });

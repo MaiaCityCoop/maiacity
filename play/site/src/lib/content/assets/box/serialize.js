@@ -135,7 +135,8 @@ export async function serialize(root, { controls = [], view } = {}) {
 		if (matAt.has(m)) return matAt.get(m);
 		const type = MATERIALS.includes(m.type) ? m.type : 'MeshStandardMaterial';
 		// a shader of its own: another kind, or code patched into three's (onBeforeCompile)
-		const own = !MATERIALS.includes(m.type) || (m.onBeforeCompile && m.onBeforeCompile.toString() !== m.constructor.prototype.onBeforeCompile?.toString());
+		const patched = !!m.onBeforeCompile && m.onBeforeCompile.toString() !== m.constructor.prototype.onBeforeCompile?.toString();
+		const own = !MATERIALS.includes(m.type) || patched;
 		const params = {};
 		for (const k of PLAIN) if (k in m && (typeof m[k] === 'number' || typeof m[k] === 'boolean')) params[k] = m[k];
 		for (const k of COLORS) if (m[k]?.isColor) params[k] = m[k].getHex(); else if (Array.isArray(m.uniforms?.[k]?.value)) params[k] = m.uniforms[k].value;
@@ -153,7 +154,7 @@ export async function serialize(root, { controls = [], view } = {}) {
 			}
 		}
 		const cap = own ? capOf(m) : null;
-		if (own && !graph && !cap) throw new Error(`${what}: a shader of its own (${m.type}${m.onBeforeCompile ? ', onBeforeCompile' : ''}) never leaves the box: give its look as a node graph (material.userData.graph, ./graph.js)`);
+		if (own && !graph && !cap) throw new Error(`${what}: a shader of its own (${m.type}${patched ? ', onBeforeCompile' : ''}) never leaves the box: give its look as a node graph (material.userData.graph, ./graph.js)`);
 		materials.push({ type, params, name: m.name, ...(cap && { cap }), ...(graph && { graph }) });
 		matAt.set(m, materials.length - 1);
 		return materials.length - 1;

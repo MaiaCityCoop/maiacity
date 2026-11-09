@@ -83,8 +83,8 @@
 		{
 			"v": 6,
 			"date": "2026-11-09",
-			"blake3": "03f34331e2df41fe6ef20c91d8b02930cca42c3d20658800a26f064f15e5ad02",
-			"bytes": 822366,
+			"blake3": "fe405bb3e5a7d1105175bbcffea8d35dfd57f20d42f67a1af7c6f3b75e7a8894",
+			"bytes": 822356,
 			"three": "0.187.0",
 			"modules": [
 				"three",
