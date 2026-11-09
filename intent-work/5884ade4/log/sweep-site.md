@@ -45,3 +45,8 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
    The 2 left are the api's (`play/api/scripts/heavy.ts` `hostSource`, `play/api/src/ship.ts` `Pending`). Of the 12
    dead files, the 5 still there are all outside play/site (`deploy/deploy-time.ts`, kept by infra as a check's `run`;
    `play/api/scripts/{board-speed,detail-size,seed-look}.ts`, `play/api/import/plan.ts`): not this sweep's.
+8. **One keeper of what the browser keeps, `lib/kept.ts`** (special: swallowed, 2 of src's). The board's folded
+   columns and whom one acts as each wrapped localStorage in their own try (the board's two empty). localStorage
+   throwing in a private window or with site data blocked is the browser's, said once in `kept.ts`: `kept`, `keptJson`
+   (a value that isn't JSON reads as none, as the board's parse did), `keep`. Pinned: `kept.test.ts` (no storage,
+   storage that throws, a round trip, bad JSON); gate site, `src/lib/site` tests.

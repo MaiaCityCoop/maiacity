@@ -45,6 +45,7 @@
 	import { createOpened, type Listed } from './opened';
 	import { notLive, type Intent } from './detail';
 	import { kindName, typeOf } from './names';
+	import { keep, keptJson } from '$lib/kept';
 	import { bySub, CLOSED, columnOf, EMPTY, isClosed, loadOpen, loadPage, type ClosedStage, type Paged } from './board';
 
 	// the viewers a review draws its build in, loaded as the board opens
@@ -70,15 +71,11 @@
 	// (Samuel 2026-11-05; the key named for the intents' columns, Samuel 2026-11-06)
 	const FOLDED = 'play:intents:folded';
 	let folded = $state<Record<string, boolean>>({ accepted: true, archived: true });
-	try {
-		const kept = JSON.parse(localStorage.getItem(FOLDED) ?? 'null');
-		if (kept && typeof kept === 'object') folded = kept;
-	} catch {}
+	const wasFolded = keptJson(FOLDED);
+	if (wasFolded && typeof wasFolded === 'object') folded = wasFolded as Record<string, boolean>;
 	function fold(s: Column) {
 		folded = { ...folded, [s]: !folded[s] };
-		try {
-			localStorage.setItem(FOLDED, JSON.stringify(folded));
-		} catch {}
+		keep(FOLDED, JSON.stringify(folded));
 		// Accepted and Archived are fetched only once unfolded (intent 2cb70fb8)
 		if (!folded[s] && isClosed(s) && !paged[s]?.loaded) more(s);
 	}
