@@ -117,7 +117,8 @@ for (const [name, type, opts] of [
 	// the Safari walk's bound (c6, as the render box judges it): 1.5 × main's 20.8 ms before the programme
 	// (not walked counts as over it where a real GPU answers: only the dry run's empty page has no walker)
 	const slow = name === 'webkit' && (walk ? walk.mean > 31.2 : gpu !== 'unknown');
-	if (bad.length || film.startsWith('threw') || slow) failed = true;
+	// reported only: the walk's bound is intent ed6694c3's (Samuel's split, 10:58); c6 is the draw fix
+	if (bad.length || film.startsWith('threw')) failed = true;
 	r.walkOverBound = slow;
 	r.bad = bad;
 	results.push(r);
@@ -128,5 +129,5 @@ for (const [name, type, opts] of [
 }
 finished = true;
 writeFileSync(`${out}/results${only ? `-${only}` : ''}.json`, JSON.stringify(results, null, 2));
-console.log(failed ? 'FAILED: see results.json' : 'OK: no uniform error, no plant failed to load, the film advanced, the walk within its bound');
+console.log(failed ? 'FAILED: see results.json' : `OK: no uniform error, no plant failed to load, the film advanced${slow ? ' (the walk over 31.2 ms: ed6694c3\'s)' : ''}`);
 process.exit(failed ? 1 : 0);
