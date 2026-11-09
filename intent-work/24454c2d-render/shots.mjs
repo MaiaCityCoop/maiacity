@@ -56,13 +56,29 @@ const sites = [
 const VIEWS = [
 	// at walking height: the forest garden by the village, a path crossing it; the cell further out, among the trees
 	{ name: 'walk-near', place: [0, 95, 0, -0.18] },
-	{ name: 'walk-160', place: [0, 160, 0, -0.22] },
 	{ name: 'walk-edge', place: [40, 120, 0.9, -0.2] },
-	// from above: 18 m up looking straight down (crowns, their edges and the paths between), 40 m up at a slant
-	{ name: 'top-95', fly: [0, 18, 95, 0, -1.55] },
-	{ name: 'top-160', fly: [0, 18, 160, 0, -1.55] },
-	{ name: 'above-140', fly: [0, 40, 175, 0, -0.95] }
+	// down on a tree of the forest garden from 8 m and another from 10 m (its guild and litter rings, the shade under
+	// its crown, the gaps between colonies), and at walking height 2.5 m out from a crown's edge looking at its trunk
+	{ name: 'top-trunk-8', trunk: 0, fly: (t) => [t.x, 8, t.z, 0, -1.55] },
+	{ name: 'top-trunk-10', trunk: 1, fly: (t) => [t.x, 10, t.z, 0, -1.55] },
+	{ name: 'walk-canopy-edge', trunk: 0, place: (t) => [t.x, t.z + t.r + 2.5, 0, -0.32] },
+	// from above, 18 m up, the garden as a whole
+	{ name: 'top-95', fly: [0, 18, 95, 0, -1.55] }
 ];
+/**
+ * Two trees of the forest garden to shoot (window.__floorTrunks, the head's code: the same in base and head): the
+ * widest crowns standing most on their own near the village (their rings not run into a neighbour's), the same every run
+ */
+const TRUNKS = () => {
+	const all = window.__floorTrunks ?? [];
+	const alone = (t) => Math.min(...all.filter((u) => u !== t).map((u) => Math.hypot(u.x - t.x, u.z - t.z) - u.r - t.r));
+	const near = all.filter((t) => Math.hypot(t.x, t.z - 110) < 70);
+	return (near.length >= 2 ? near : all)
+		.map((t) => ({ t, score: Math.min(4, alone(t)) + t.r }))
+		.sort((a, b) => b.score - a.score || a.t.x - b.t.x || a.t.z - b.t.z)
+		.slice(0, 2)
+		.map(({ t }) => ({ x: t.x, z: t.z, r: t.r }));
+};
 const meter = meterFile ? readFileSync(meterFile, 'utf8').replace(/^export /gm, '') + '\nwindow.__meter = installMeter(window);\n' : null;
 const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] } : { args: ['--ignore-gpu-blocklist'] });
 const size = { width: 1440, height: 900 };
@@ -85,8 +101,16 @@ for (const site of sites) {
 	await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
 	const up = await settle(page, 4 * 60e3);
 	console.log(`${site.name}: Sandbox 1 ${up ? 'settled' : 'still building'} after ${Math.round((Date.now() - t0) / 1000)} s`);
+	const trunks = await page.evaluate(TRUNKS);
+	console.log(`${site.name}: trees shot ${JSON.stringify(trunks)}`);
 	for (const v of VIEWS) {
-		await page.evaluate((v) => (v.fly ? window.__walker.fly(...v.fly) : window.__walker.place(...v.place)), v);
+		const t = v.trunk === undefined ? null : trunks[v.trunk];
+		if (v.trunk !== undefined && !t) {
+			console.log(`${site.name} ${v.name}: no tree of the forest garden to shoot (window.__floorTrunks empty), skipped`);
+			continue;
+		}
+		const at = { fly: typeof v.fly === 'function' ? v.fly(t) : v.fly, place: typeof v.place === 'function' ? v.place(t) : v.place };
+		await page.evaluate((a) => (a.fly ? window.__walker.fly(...a.fly) : window.__walker.place(...a.place)), at);
 		await page.waitForTimeout(1500);
 		const ok = await settle(page, 2 * 60e3);
 		await page.waitForTimeout(3000);
@@ -94,7 +118,7 @@ for (const site of sites) {
 		const png = `${out}/${site.name}-${v.name}.png`;
 		await page.screenshot({ path: png });
 		// how much cover the floor holds there (the stream's copies), for the record
-		results.push({ site: site.name, view: v.name, settled: ok, meter: m, png });
+		results.push({ site: site.name, view: v.name, settled: ok, meter: m, png, ...(t ? { tree: t } : {}) });
 		console.log(`${site.name} ${v.name}: ${JSON.stringify(m)}${ok ? '' : ' (still building)'}`);
 	}
 	// a 12 s walk at walking height, 30 m in from z = 160 (filmed: no plant pops, no tile edges in the cover)

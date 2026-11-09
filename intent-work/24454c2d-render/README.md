@@ -1,5 +1,24 @@
 # Mac job: intent 24454c2d's c6, plants placed the way nature places them
 
+## Run 4, on `6a4c572` (please run again)
+
+Run 3 is in `out/` as committed at `76b71b2`, moved to `out-run3/`. Its look failed c6: the CPU's points showed the
+rings, but in the shots Sandbox 1 hardly changed (SSIM 0.958–0.996). Too little cover was drawn at those views:
+- the floor was laid at 3.4 a square metre outside and 3.8 in the domes, half the biomes' own 7;
+- the top-down shots looked from 18 m, where the stream (`near` 7 m) had thinned the cover to almost nothing.
+
+`6a4c572` lays both floors at their biome's own density. The census stays within c4's budget: near 10,662,431
+triangles and 5,667 draws, mid 13,973,048 and 4,245. It also exposes the garden's trees as `window.__floorTrunks`.
+
+The views are new: down on two trees from 8 and 10 m, and at walking height at a crown's edge (see *What it shoots*).
+
+Dry run in avenBOX first (intent cb52fbd9), from the repository's root:
+
+    bun play/site/scripts/macjob/dry.ts intent-work/24454c2d-render --at <this branch's commit>
+
+Run it the same way. `run.sh` takes the branch's tip, `6a4c572` or later, and writes `out/`. Then commit `out/` and
+push this branch.
+
 ## Run 3, on `7a8c52a` (please run again)
 
 Run 2 is in `out-run2/`, on `ff3cc57`. Its look failed c6 as well: head's floor was still an even carpet. Every kind
@@ -64,8 +83,12 @@ base on 5181 through the proxy on 3911, head on 5182 through the swapping proxy 
 
 1. **`shots.mjs` (this folder):** Sandbox 1 at 12:00, base then head, each view settled by the render box's `QUIET`,
    with `SEEDED_RANDOM` in every page (`determinism.mjs`, copied from `intent-work/main-baseline/`).
-   - At walking height: `walk-near` (z 95), `walk-160`, `walk-edge` (x 40, z 120, looking along the forest's edge).
-   - From above: `top-95` and `top-160` (18 m up, straight down), `above-140` (40 m up at a slant).
+   - At walking height: `walk-near` (z 95), `walk-edge` (x 40, z 120, looking along the forest's edge), and
+     `walk-canopy-edge` (2.5 m out from a tree's crown, looking at its trunk).
+   - From above: `top-trunk-8` and `top-trunk-10` (straight down on two trees of the forest garden from 8 and 10 m:
+     their guild and litter rings, the shade under the crown, the gaps), and `top-95` (18 m up, the garden as a whole).
+     The trees are read from `window.__floorTrunks`: the widest crowns standing most on their own near the village,
+     the same in base and head.
    - Settling is capped: 4 min for Sandbox 1 to come up, 2 min a view. Since intent 2, Sandbox 1 keeps taking far pictures for
      minutes and never reads as quiet, so a view that doesn't settle is shot anyway and marked `(still building)`.
    - For each view, a still at 1440×900 and the meter over 6 s. Then a 30 m walk in from z = 160 over 12 s, filmed
