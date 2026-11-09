@@ -1,7 +1,7 @@
 <!--
 	THE RENDER BENCH — a recipe file on this machine shown exactly as play shows an asset, for a developer or an agent
 	to look at what it is making, stage by stage, before it is proposed: the same asset box (content/assets/box/host.js,
-	the sandboxed frame running the frozen engine), the same checks and rebuild (content/assets/sources/viewer.js
+	the sandboxed frame running the frozen engine), the same checks and rebuild (content/assets/load.js
 	`vaultBuild`), the same viewer and paper studio (content/assets/VaultAsset.svelte, stage.js). Only where the recipe
 	comes from differs: handed in by the page's caller (`scripts/render.mjs`) instead of read from play's catalog, and held to its own hash like any other.
 

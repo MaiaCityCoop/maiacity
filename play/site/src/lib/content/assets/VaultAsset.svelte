@@ -1,7 +1,7 @@
 <!--
 	ONE OF A VAULT'S ASSETS, SHOWN FROM THE VAULT ALONE — as the asset library shows it: a build of
 	a recipe the Maia City vault keeps, its source its entry's file, read from the vault and held to its hash before
-	anything else (./sources/viewer.js `vaultBuild`), then this device's cache or the box, which runs it on the frozen
+	anything else (./load.js `vaultBuild`), then this device's cache or the box, which runs it on the frozen
 	engine its entry names, checked either way, and shown on the asset stage (./stage.js, ./hero.js) as every asset
 	viewer shows a build (the viewer's core, ./viewer.js, and what it draws round the stage, ./ViewerParts.svelte), in
 	the same turntable ($lib/app/Turntable.svelte, in its place in the page): above the canvas, staying at the top of
@@ -31,8 +31,8 @@
 	import { valuesOf } from './params.js';
 	import { groundOf, groundsIn } from './ground.js';
 	import { createPlantings } from './plantings.js';
-	import { buildName, vaultBuild } from './sources/viewer.js';
-	import { plantOf } from './catalog.js';
+	import { vaultBuild } from './load.js';
+	import { buildOf, plantOf } from './catalog.js';
 	import { VIEWS, asker, camerawork, letGoOf, loop, measure, movesOf, onTap, openStage, safeArea, tabbed, viewsOf } from './viewer.js';
 	import { builtRows, heroReading, labRows, longNote, moveChips, paramTabs, scaleBar, tagLines, viewChips } from './ViewerParts.svelte';
 
@@ -74,7 +74,7 @@
 		}
 	});
 	/** the build asked for: its recipe and the values changed here (one the vault doesn't hold is refused as it is asked) */
-	const wanted = $derived(hash ? buildName(hash, asked) : '');
+	const wanted = $derived(hash ? buildOf(hash, asked) : '');
 	/** the parameter it grows by (a plant's stage), and the stage it stands at, named */
 	const staged = $derived(params.find((p) => p.id === 'stage' && tabbed(p)) ?? null);
 	/**

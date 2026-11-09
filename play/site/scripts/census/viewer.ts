@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /*
  * ASSETS IN THE VIEWER, DRAWN ON THE CPU (intent 660ad67f): each asset named (its UUID) built as the asset viewer
- * builds it (sources/viewer.js `vaultBuild` in the census's headless box, hero.js `forStage`, stage.js `Stage` under
+ * builds it (load.js `vaultBuild` in the census's headless box, hero.js `forStage`, stage.js `Stage` under
  * the sky), then drawn by three's real WebGLRenderer on the kit's fake WebGL (../../src/lib/content/render/nodes/fakegl.js),
  * which throws on a vector uniform given no sequence, as a browser does. Prints one JSON line: each asset's outcome
  * (drawn, or its error and where it came from); exits 1 if any is not drawn. `--group` adds every asset of a group,
@@ -29,7 +29,7 @@ const { catalogReady } = await import(lib('recipes'));
 await catalogReady();
 const { source, INDEX, admitProposed } = await import(lib('content/assets/catalog.js'));
 const { AssetBox } = await import(lib('content/assets/box/host.js'));
-const { vaultBuild } = await import(lib('content/assets/sources/viewer.js'));
+const { vaultBuild } = await import(lib('content/assets/load.js'));
 const { forStage, heroOf } = await import(lib('content/assets/hero.js'));
 const { Stage } = await import(lib('content/assets/stage.js'));
 

@@ -6,7 +6,7 @@ vi.mock('../box/rebuild.js', () => ({ rebuild: (data: any) => ({ rebuilt: data }
 vi.mock('../schemas/index.js', () => ({ checkCard: (card: any) => (card?.fits ? { ok: true, errors: [] } : { ok: false, errors: ['no fit'] }) }))
 
 // @ts-ignore — plain JS
-const { vaultBuild } = await import('./viewer.js')
+const { vaultBuild } = await import('../load.js')
 // @ts-ignore — plain JS
 const cache = await import('../cache/builds.js')
 // @ts-ignore — plain JS
