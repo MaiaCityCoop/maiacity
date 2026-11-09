@@ -13,3 +13,10 @@ Held (open intents' branches change them; untouched here, their tangles under *N
 24454c2d, a5faafad, 0b4c007b, 544485e2, and 4284946e's two files still unlanded.
 
 (Audit in progress.)
+
+## The two additions (Samuel's choice, by the Orchestrator 2026-11-09 07:56Z): Comments and Tests, both
+
+- Comments: comments that restate the implementation go (even phrased as a why); comments about something outside the
+  code stay (a proxy, a browser, a GPU quirk, a person's decision with its date); a workaround's comment goes with it.
+- Tests, last: tests that repeat the implementation or can't fail go; tests tied to internals are rewritten to
+  behaviour; any that fail without a bug are fixed.
