@@ -9,9 +9,9 @@ are two-sided, darker toward the root, and glow with the sun behind them. The ce
 triangles as main, a little fewer (the steady census: near 10,523,087/5,665; mid 13,840,939/4,244; far 2,762,180/1,782). This job checks what the census can't:
 frame time, the film, and that a frame repeats.
 
-**The head is the change on main** (PR #2180's head, `intent/6fd5e63f-living-plants` @ 56db61b77: main a98ceb8 merged in, backlit leaves glowing in their crown's shade, the wind cheap at mid range, the film advancing). The looks are
-drawn on the render kit's TSL materials (cb16b7a5) and the one cover stream (11ead007), both on main now (#2185). So two trees are measured: **main** a98ceb8
-(base, what the change sits on) and **head** 56db61b. head − main is this intent's own cost and what c7 bounds.
+**The head is the change on main** (PR #2180's head, `intent/6fd5e63f-living-plants` @ a7007834c: main 12837b6 merged in (intent 24454c2d's placement), backlit leaves glowing in their crown's shade, the wind cheap at mid range, the film advancing). The looks are
+drawn on the render kit's TSL materials (cb16b7a5) and the one cover stream (11ead007), both on main now (#2185). So two trees are measured: **main** 12837b6
+(base, what the change sits on) and **head** a700783. head − main is this intent's own cost and what c7 bounds.
 
 **Since the run on 8bab28a (mid 34.3 ms against main's 32.3):** the head leaves out at mid range what nobody sees there
 (`render/foliage.js` `LEVELS`): no flutter compiled for looks without one (bark, fruit), flutter skipped per copy beyond
