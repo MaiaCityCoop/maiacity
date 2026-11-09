@@ -123,7 +123,8 @@ play/site's 56 test files, run by nothing today, run and green.
   8); svelte-check 30 errors, of which outside held files: routes/+page.svelte (the icon bug), routes/pieces (an
   Aside prop that is gone), stories' and worlds' tests, scripts/box-worker.ts, vite.config.ts.
 - `census-same.sh`: Sandbox 1 (near, mid, far), Sandbox 3 and the Worlds page draw the same totals at the head as at
-  the merge base.
+  the merge base. Dry run 08:30Z on this branch (no code change yet): same for all three, 2 min with a warm cache (its
+  cache holds trees and fetched inputs, not results).
 
 ## Asks (Samuel's, not done here)
 
