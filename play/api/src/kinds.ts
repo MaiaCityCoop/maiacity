@@ -215,14 +215,14 @@ export function resolveEdits(json: any, edits: unknown): docs.Edit[] {
     let at = json;
     const path = e.path.map((p: unknown, j: number) => {
       let part: string | number;
-      if (p && typeof p === "object" && typeof (p as any).id === "string") {
-        if (!Array.isArray(at)) throw new HttpError(`Edit ${i + 1}: part ${j + 1} of its path names { id: ${(p as any).id} } but there is no list there.`);
-        const k = at.findIndex((x: any) => x?.id === (p as any).id);
-        if (k < 0) throw new HttpError(`Edit ${i + 1}: there is no item ${(p as any).id} in the list at part ${j + 1} of its path.`);
+      if (p && typeof p === "object" && "id" in p && typeof p.id === "string") {
+        if (!Array.isArray(at)) throw new HttpError(`Edit ${i + 1}: part ${j + 1} of its path names { id: ${p.id} } but there is no list there.`);
+        const k = at.findIndex((x: any) => x?.id === p.id);
+        if (k < 0) throw new HttpError(`Edit ${i + 1}: there is no item ${p.id} in the list at part ${j + 1} of its path.`);
         part = k;
       } else if (typeof p === "string" || (typeof p === "number" && Number.isInteger(p))) part = p;
       else throw new HttpError(`Edit ${i + 1}: part ${j + 1} of its path is a field name, an index or { id }.`);
-      at = at?.[part as any];
+      at = at?.[part];
       return part;
     });
     return { ...e, path } as docs.Edit;
