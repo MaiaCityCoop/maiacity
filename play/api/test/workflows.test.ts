@@ -293,7 +293,8 @@ describe("the whole suite on every pull request and on main", () => {
     expect(api.run).not.toMatch(/--changed|\s-t\s|--test-name-pattern|GATE_CHANGED|\.test\.ts/);
     expect(JSON.stringify(api.env ?? {})).not.toContain("GATE_CHANGED");
     const pg = p.jobs.checks.steps.find((s: any) => s.name === "Postgres");
-    expect(pg.run).toContain("-c max_connections=500");
+    expect(pg.run).toContain('-c "max_connections=$PG_MAX_CONNECTIONS"');
+    expect(text("play/avenbox/box.env")).toContain("\nPG_MAX_CONNECTIONS=500\n");
   });
   test("intents.yml and intents-pr.yml run no narrowed suite", () => {
     for (const f of [".github/workflows/intents.yml", ".github/workflows/intents-pr.yml"]) {

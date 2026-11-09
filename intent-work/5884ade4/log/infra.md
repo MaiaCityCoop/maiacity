@@ -124,3 +124,16 @@ committed before and as now, every call they make logged and diffed):
 - Pinned: workflows.test.ts reads intents-pr's `bun-version-file` and `.bun-version`'s 1.4.4; actionlint clean. The
   image can't be built here (no Docker daemon): production's image job builds it.
 - Left: play/SPEC.md names 1.4.4 (not this area's).
+
+## 9. avenBOX's Postgres said once, in play/avenbox/box.env (infra F1, part; infra#3, 4)
+
+- `box.env`: the version (17), port, password, max_connections (500) and the test database's URL. setup.sh, up.sh
+  and gate.sh source it; play-checks.yml's Postgres step sources it for CI's container and writes TEST_DATABASE_URL
+  into the job's environment (127.0.0.1 for localhost, the same port).
+- Same commands: with box.env's values the CI step expands to `docker run -d --name postgres -e
+  POSTGRES_PASSWORD=play -p 5432:5432 postgres:17-alpine -c max_connections=500`, as before; setup.sh's sed and grep
+  and its `ALTER ROLE postgres PASSWORD 'play'` expand as before. setup.sh run again here (as root): every step green,
+  the cluster's `max_connections = 500` as it was; `gate.sh api` green (329 pass) after up.sh.
+- Left: intent.ts keeps its own copy of the URL (intents-pr hands it alone to the box's run, away from the
+  repository); the readiness loops (infra#5) and the two dependency loops (infra#6) are still each script's own.
+- Pinned: workflows.test.ts and deploy-speed.test.ts read the step's `max_connections` and image through box.env.

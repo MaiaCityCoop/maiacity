@@ -65,7 +65,8 @@ has() { echo "$STEPS" | grep -qx "$1"; }
 if has api-types || has api-tests || has site-build || has website-check; then
   bash "$ROOT/play/avenbox/up.sh" || exit 1
 fi
-export TEST_DATABASE_URL="${TEST_DATABASE_URL:-postgres://postgres:play@127.0.0.1:5432/postgres}"
+. "$ROOT/play/avenbox/box.env"
+export TEST_DATABASE_URL="${TEST_DATABASE_URL:-$BOX_DATABASE_URL}"
 LOG=$(mktemp -d)
 
 # step <name> <dir> <command…>: runs it in <dir>, its output kept in a log and its tail shown when it fails
