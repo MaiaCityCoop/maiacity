@@ -1,17 +1,10 @@
 // @ts-nocheck — plain JS, runs inside the box
 /*
- * A BUILD KEPT RUNNING — what moves by itself (a machine's solver, an actor's clips, a fire's flames) moves by its own
- * functions, which never leave the box. So a viewer that shows one asks the box to keep a build of it (`open`) and to
- * tick it, frame by frame (`tick`): the box sets what the page asks (the solver's sliders, the controls, the clip and
- * its time, a pose held, the parts drawn apart or flown in), runs one step of it, and hands back only what changed
- * since the last step, as numbers: each node moved (its place, turn and size, by its place in the walk of the tree,
- * the order the page built it in, ./serialize.js), shown or hidden, its blend shapes, its instances; each mesh
- * reshaped, its positions and normals (engine 5), each material's look and each light that changed (./bake.js
- * `MAT`, `LIGHT`: a fire's flicker); and what the solver reads now (its hero number, its labels' readings, its
- * sliders). The page checks them (../hero.js) and puts them on its own copy, which nothing of the box's touches.
- *
- * A session is one build; a box keeps a few (the last ones ticked), and a torn-down box has none (the page then shows
- * its copy standing still).
+ * A BUILD KEPT RUNNING — what moves by itself (a solver, an actor's clips, a fire) moves by functions that never leave
+ * the box: the page opens a session on a build (`open`) and ticks it, setting what it asks (sliders, controls, a clip
+ * and its time, a pose, parts apart), and gets back only what changed, as numbers by node (./serialize.js order):
+ * places, visibility, blend shapes, instances, reshaped meshes (engine 5), looks and lights (./bake.js), the solver's
+ * readings. The page checks them (../hero.js) on its own copy. A box keeps a few sessions, the last ones ticked.
  */
 import { LIGHT, MAT, SLOTS, lightOf, lookOf, materialsOf, offered, reshaped, shapeOf, trsOf } from './bake.js';
 
