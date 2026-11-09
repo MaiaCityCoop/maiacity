@@ -126,7 +126,6 @@ export function createForest(o) {
 		dirty = true;
 	}
 
-	/** the kinds this forest has */
 	const kinds = () => [...stands.values()].map((st) => st.kind);
 
 	const isMasked = (/** @type {number} */ x, /** @type {number} */ z) => masked.some((m) => (x - m.x) ** 2 + (z - m.z) ** 2 < m.r * m.r);

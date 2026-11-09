@@ -118,8 +118,6 @@ function place(space: Space, rr: number, a: number): Space {
 	return { group: space.group, colliders: space.colliders.map((p) => ({ x: ox + p.x * c + p.z * s, z: oz - p.x * s + p.z * c, r: p.r })) }
 }
 
-/* ── inside: the workshops under the gallery ────────────────────────────── */
-
 function cowork(k: Kit, seed: number): Space {
 	const g = new THREE.Group()
 	const cs: Collider[] = []
@@ -419,8 +417,6 @@ function repair(k: Kit): Space {
 	return { group: g, colliders: cs }
 }
 
-/* ── outside: the café squares round the master dome ───────────────────── */
-
 function parasol(k: Kit, x: number, z: number, mat: THREE.Material): THREE.Group {
 	const g = new THREE.Group()
 	g.add(k.box(0.05, 2.4, 0.05, k.dark, x, 0, z))
@@ -587,8 +583,6 @@ export function cafes(k: Kit, rr: number): Space[] {
 		return place(s, rr, a)
 	})
 }
-
-/* ── outside: the hens ─────────────────────────────────────────────────── */
 
 
 /** The coops, in the forest just beyond the squares, between them: hens' and rabbits' in turn. */

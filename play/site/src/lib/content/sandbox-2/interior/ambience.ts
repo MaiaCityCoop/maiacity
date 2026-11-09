@@ -8,7 +8,6 @@ import { asset } from '$lib/site/media/url'
 import { playIfAllowed, resumeIfAllowed } from '$lib/kernel/media.js'
 
 type SoundName = 'forest' | 'inside' | 'water' | 'hens' | 'geese' | 'goats' | 'frogs' | 'bees' | 'factory' | 'machine' | 'lift'
-/** each sound's recording, by hash */
 const FILES: Record<SoundName, string> = {
 	forest: 'f3ebbb41045f0a45d3a27d6782beb71973fa539e9640d1c7d1b9434b02351575.mp3', // forest_nature.mp3
 	inside: 'b6713600778441dab6c5232fa418af56a85209b17308e16975684fafd6bd3f84.mp3', // soft-nature.mp3
@@ -22,7 +21,6 @@ const FILES: Record<SoundName, string> = {
 	machine: '685b4be78584d58bce7d5a658046f047eddfef1f358acf7939ccac46c2db567e.mp3', // machine.mp3
 	lift: '76059524fa9f0ac77bf2aab1738a344e3dd8526667502302f30637c007fb6be2.mp3' // lift.mp3
 }
-/** how loud each is at its loudest */
 const LOUDEST: Record<SoundName, number> = { forest: 0.27, inside: 0.45, water: 0.69, hens: 0.5, geese: 0.45, goats: 0.4, frogs: 0.5, bees: 0.45, factory: 0.5, machine: 0.55, lift: 0.6 }
 /** the recordings are not equally loud: this brings each to the same level (measured, mean ≈ −28 dB) */
 const LEVEL: Partial<Record<SoundName, number>> = { goats: 22.1, frogs: 0.35, bees: 0.66, geese: 1.5, factory: 2.37, machine: 0.21, lift: 1.37 }
