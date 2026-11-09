@@ -1,21 +1,19 @@
-59599 |   else if (error.error.name === "TargetClosedError")
-59600 |     e = new TargetClosedError2(error.error.message);
-59601 |   else if (error.error.name === "AbortError")
-59602 |     e = new AbortError2(error.error.message);
-59603 |   else
-59604 |     e = Object.assign(new PlaywrightError(error.error.message), { name: error.error.name });
-                                  ^
-error: _wrapApiCall: Executable doesn't exist at /Users/samuelandert/Library/Caches/ms-playwright/chromium-1254/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
-╔════════════════════════════════════════════════════════════╗
-║ Looks like Playwright was just installed or updated.       ║
-║ Please run the following command to download new browsers: ║
-║                                                            ║
-║     npx playwright install                                 ║
-║                                                            ║
-║ <3 Playwright Team                                         ║
-╚════════════════════════════════════════════════════════════╝
+GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+head: Sandbox 1 up and quiet after 78 s
+head near: 27 ms (p95 33.4), cpu 15.9, gpu 19.9, bound gpu
+head mid: 34.6 ms (p95 50), cpu 16.3, gpu 27, bound gpu
+head far: 16.7 ms (p95 16.7), cpu 7.2, gpu 12.5, bound vsync
+error: evaluate: TypeError: Cannot read properties of null (reading 'position')
+    at at (eval at evaluate (:311:30), <anonymous>:11:48)
+    at eval (eval at evaluate (:311:30), <anonymous>:16:17)
+    at UtilityScript.evaluate (<anonymous>:313:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
   log: [],
 
-      at /Users/samuelandert/.bun/install/cache/playwright-core@1.65.0@@@1/lib/coreBundle.js:59604:27
+      at at (eval at evaluate (:311:30), <anonymous>:11:48)
+      at eval (eval at evaluate (:311:30), <anonymous>:16:17)
+      at UtilityScript.evaluate (<anonymous>:313:16)
+      at UtilityScript.<anonymous> (<anonymous>:1:44)
+      at lowSun (/Users/samuelandert/Documents/Development/s6fd5-render/intent-work/6fd5e63f-render/wind.mjs:105:14)
 
 Bun v1.4.2 (macOS arm64)
