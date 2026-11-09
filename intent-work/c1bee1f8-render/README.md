@@ -1,7 +1,11 @@
 # Mac job: intent c1bee1f8's c8, the smoke: every page on WebGPU in Chrome and in Safari
 
 Run 1 (5f829ca, head a1c2823) found WebGPU's own shader errors (fixed in the pull request, 817fe84); this job then
-names the URL of every failed request and keeps the job's own errors apart. The next READY line follows its dry run.
+names the URL of every failed request and keeps the job's own errors apart.
+
+MAC JOB READY: intent-work/c1bee1f8-render@{JOB} intent-work/c1bee1f8-render/README.md, run 2, on the pull request's head
+`817fe847abcd2ff12099fced07f99dda54ab5645` (`HEAD_COMMIT=817fe847abcd2ff12099fced07f99dda54ab5645`). Dry run: DRY RUN
+PASSED at 47909f9 (25.7 s, 2026-11-09 22:50 UTC; only this line changed since).
 
 Intent c1bee1f8-e738-4ff3-aace-4aea1d7e74ae (GPU 9/14), pull request #2186, branch `intent/c1bee1f8-webgpu-switch`.
 Every page draws with `WebGPURenderer`: WebGPU where the browser has it, its own WebGL 2 backend where not. The
