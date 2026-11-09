@@ -46,7 +46,7 @@ function putInMap(m: LoroMap, key: string, v: unknown, n: Node): void {
     if ((v as string).length) t.insert(0, v as string);
   } else if (Array.isArray(v)) fill(m.setContainer(key, new LoroMovableList()), v, n);
   else if (isObj(v)) fill(m.setContainer(key, new LoroMap()), v, n);
-  else m.set(key, v as any);
+  else m.set(key, v);
 }
 /** inserts `v` as its schema says at `i` of list `l` */
 function putInList(l: LoroMovableList, i: number, v: unknown, n: Node): void {
@@ -55,7 +55,7 @@ function putInList(l: LoroMovableList, i: number, v: unknown, n: Node): void {
     if ((v as string).length) t.insert(0, v as string);
   } else if (Array.isArray(v)) fill(l.insertContainer(i, new LoroMovableList()), v, n);
   else if (isObj(v)) fill(l.insertContainer(i, new LoroMap()), v, n);
-  else l.insert(i, v as any);
+  else l.insert(i, v);
 }
 function fill(c: LoroMap | LoroMovableList, v: unknown, n: Node): void {
   if (c instanceof LoroMap) for (const [k, x] of Object.entries(v as object)) putInMap(c, k, x, nodeAt(n, [k]));
@@ -100,7 +100,7 @@ function patchChild(parent: LoroMap | LoroMovableList, key: string | number, cur
   const same = !(cur instanceof LoroMap || cur instanceof LoroMovableList || cur instanceof LoroText || cur instanceof LoroList) && !isObj(v) && !Array.isArray(v) && !isText(n, v) && cur === v;
   if (same) return;
   if (parent instanceof LoroMap) {
-    if (!(cur instanceof LoroMap || cur instanceof LoroMovableList || cur instanceof LoroText) && !isObj(v) && !Array.isArray(v) && !isText(n, v)) parent.set(key as string, v as any);
+    if (!(cur instanceof LoroMap || cur instanceof LoroMovableList || cur instanceof LoroText) && !isObj(v) && !Array.isArray(v) && !isText(n, v)) parent.set(key as string, v);
     else putInMap(parent, key as string, v, n);
   } else {
     const i = key as number;
@@ -203,7 +203,7 @@ export function applyEdits(d: LoroDoc, t: DocType, edits: Edit[]): void {
       const len = cur.length, del = e.delete ?? 0;
       if (!Number.isInteger(e.index) || e.index < 0 || e.index > len || del < 0 || e.index + del > len) throw new EditError(`${fmt(e.path)}: the range ${e.index}+${del} is outside the text of ${len}`);
       cur.splice(e.index, del, e.insert ?? "");
-    } else throw new EditError(`an edit is one of set, insert, delete, move, text, not ${JSON.stringify((e as any).op)}`);
+    } else throw new EditError(`an edit is one of set, insert, delete, move, text, not ${JSON.stringify((e as { op: unknown }).op)}`);
   }
 }
 

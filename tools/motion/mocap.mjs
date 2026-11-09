@@ -29,7 +29,6 @@ export function readBVH(file, unit = 0.01) {
 			const top = stack[stack.length - 1];
 			if (top >= 0) joints[top].offset.copy(v);
 			else {
-				// an end site: kept as the tip of its parent
 				const p = stack[stack.length - 2];
 				joints[p].tip = v;
 			}

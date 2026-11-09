@@ -155,7 +155,7 @@ export async function loginFinish(db: Db, body: any): Promise<Result<Human>> {
         id: key.id,
         publicKey: new Uint8Array(Buffer.from(key.public_key, "base64url")),
         counter: Number(key.counter),
-        transports: key.transports ? (key.transports.split(",") as any) : undefined,
+        transports: key.transports ? key.transports.split(",") : undefined,
       },
     });
   } catch (e) {

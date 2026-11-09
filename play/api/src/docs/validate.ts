@@ -31,7 +31,7 @@ export type Node = {
 /**
  * A document type as the store checks it: the schema's UUID and the version of it in force (its Main's newest), the
  * documents' id prefix (`type`), the schema's old name (only shown), its node, and what its kind says in code beside
- * it (./versioned.ts's hooks, by the schema's UUID): a whole-document `check`, and `build` for code.
+ * it (../versioned.ts's hooks, by the schema's UUID): a whole-document `check`, and `build` for code.
  */
 export type DocType = {
   id: string;

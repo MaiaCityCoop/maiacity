@@ -116,12 +116,12 @@ const checks: Record<string, () => void | Promise<void>> = {
 	 *  spreads): each frame its bend axis (the upper bone's line × the lower's, bent 20° or more) is held to the
 	 *  source's own at that frame, from tools/motion/sources. */
 	twist() {
-		const knees = ['left', 'right'].map((s) => [`${s}UpperLeg`, `${s}LowerLeg`, `${s}Foot`, HINGE[`${s}UpperLeg`][2]]);
+		const knees = ['left', 'right'].map((s): [string, string, string, InstanceType<typeof Vector3>] => [`${s}UpperLeg`, `${s}LowerLeg`, `${s}Foot`, HINGE[`${s}UpperLeg`][2]]);
 		for (const who of PEOPLE) {
 			let worst = 0, at = '';
 			for (const { name, t, pose } of frames(who)) {
 				const { M, J } = posed(who, pose);
-				for (const [a, b, c, ax] of knees as any[]) {
+				for (const [a, b, c, ax] of knees) {
 					const u = J[b].clone().sub(J[a]), l = J[c].clone().sub(J[b]);
 					if (u.angleTo(l) < 0.35) continue;
 					const d = deg(ax.clone().transformDirection(M[a]).angleTo(new Vector3().crossVectors(u, l).normalize()));

@@ -62,12 +62,12 @@ async function source(where, id) {
 			size: +(Math.max(...(info.dimensions ?? [2000])) / 1000).toFixed(2)
 		};
 	}
-	// ambientCG: a zip of its maps
 	await get(`https://ambientcg.com/get?file=${id}_2K-PNG.zip`, join(dir, 'set.zip'));
 	const un = join(dir, 'un');
 	if (!existsSync(un)) execFileSync('python3', ['-I', '-c', `import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])`, join(dir, 'set.zip'), un]);
 	const pick = (re) => readFileSync(join(un, readdirSync(un).find((n) => re.test(n))));
-	const ao = await sharp(pick(/AmbientOcclusion\.png$/)).greyscale().raw().toBuffer({ resolveWithObject: true }).catch(() => null);
+	const ao = await sharp(pick(/AmbientOcclusion\.png$/)).greyscale().raw().toBuffer({ resolveWithObject: true })
+		.catch((e) => (console.warn(`${id}: its ambient occlusion map unread (${e.message}): lit as fully open`), null));
 	const rough = await sharp(pick(/Roughness\.png$/)).greyscale().raw().toBuffer({ resolveWithObject: true });
 	const { width: w, height: h } = rough.info;
 	const ar = Buffer.alloc(w * h * 3);
@@ -91,7 +91,6 @@ const decoder = async (buffer) => {
 	return { data: new Uint8Array(data), width: info.width, height: info.height };
 };
 
-/** a map at px a side as a KTX2 file, kept in play/media by its hash */
 async function ktx2(png, px, kind) {
 	const sized = await sharp(png).resize(px, px, { kernel: 'lanczos3' }).png().toBuffer();
 	const opts =
@@ -141,7 +140,7 @@ for (const [surface, where, id] of SETS) {
 }
 
 const text = `// Made by tools/ground-sets/make.mjs: do not edit by hand. Each surface's scanned set (CC0), its three maps as KTX2
-// files by their BLAKE3 hash (the colour at 2048 and 1024 px, the normal and AO/roughness at 1024) (play's files, ../../kernel/files.js; play/media/<hash>.ktx2), its real
+// files by their BLAKE3 hash (the colour at 2048 and 1024 px, the normal and AO/roughness at 1024) (play's files, $lib/kernel/files.js; play/media/<hash>.ktx2), its real
 // size (m) and its colour's mean (linear).
 /** @type {{ surface: string, id: string, source: string, by: string, licence: 'CC0', size: number, mean: number[], maps: { albedo: Record<2048 | 1024, string>, normal: Record<1024, string>, ar: Record<1024, string> } }[]} */
 export const SETS = [

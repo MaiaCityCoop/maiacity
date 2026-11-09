@@ -65,7 +65,6 @@ if (B.hash(engine) !== LATEST.blake3) throw new Error(`engine-v${LATEST.v}.js do
 const PIECE = /^[0-9a-f]{64}$/;
 const requires = (c) => [...new Set([...c.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]))].filter((n) => PIECE.test(n));
 
-/** a file of play's, by hash, held to it */
 async function playFile(hash) {
 	const res = await fetch(`https://play.maia.city/api/files/${hash}`, { headers: { authorization: `Bearer ${process.env.PLAY_MCP_TOKEN}` } });
 	if (!res.ok) throw new Error(`play's file ${hash.slice(0, 12)}…: HTTP ${res.status}`);

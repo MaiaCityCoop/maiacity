@@ -1,16 +1,5 @@
-// A document retired by an intent (intent 08566782, Samuel 2026-11-07; play/SPEC.md §4.15 "Retire"): an accepted
-// document taken off every list, as an intent's work decided by an admin's Accept, nothing deleted. The coconut film
+// A document retired by an intent (intent 08566782, Samuel 2026-11-07; play/SPEC.md §4.15 "Retire"). The coconut film
 // accepted twice was the case: one story the film, the other an identical stray copy, both on Main.
-//
-//   propose: retire_doc over MCP or POST /api/intents/<id>/retire, with its reason. The intent holds an intent variant of
-//            the document seeded from Main, with no edits, its refs saying `retire` (the reason): ./intents.ts putAtProposal,
-//            gated as any work (Build or Proposal, the intent's declared kinds).
-//   Accept:  ./versioned.ts decideWork marks the document retired (play.docs retired_at, retired_by: the intent), its
-//            variant accepted, Main's content as it was (no new version). Every list leaves it out (./listed.ts).
-//   Archive: its variant closed like any other, the document as it was.
-//
-// Its history stays, read by its UUID (doc_history, doc_at, get_story: `retired` says when and by which intent), and
-// nothing that names it by hash changes: its files, its frozen versions, a story linking one of them.
 import { admin, type Me } from "./access";
 import * as docs from "./docs";
 import type { Db, Queryable } from "./kit/pg";

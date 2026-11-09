@@ -30,7 +30,6 @@ const ppm = Number(arg('ppm', '2000'));
 const flat = process.argv.includes('--flat');
 const out = resolve(arg('out', 'organ.png'));
 
-// the recipe in node, its 'three' from the site
 const require = createRequire(import.meta.url);
 const Module = require('module');
 const three = resolve(SITE, 'node_modules/three/build/three.cjs');
@@ -111,12 +110,14 @@ renderer.render(scene, cam);
 window.done = { w, h, data: renderer.domElement.toDataURL('image/png') };
 </script></body></html>`;
 
+// play/site's Playwright, else one installed here or globally: a place without it is passed over
 let playwright;
 for (const from of [SITE, process.cwd(), '/usr/lib/node_modules/', '/usr/local/lib/node_modules/'])
 	try {
 		playwright = createRequire(resolve(from, 'x.js'))('playwright');
 		break;
 	} catch {}
+if (!playwright) throw new Error('playwright is installed in none of play/site, here, or the global node_modules');
 const browser = await playwright.chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const tab = await browser.newPage();
 await tab.route('http://bench.local/**', (route) => {

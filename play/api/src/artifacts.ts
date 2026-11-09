@@ -504,7 +504,7 @@ async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unkno
     const given = authorsGiven(b.authors);
     next.authors = await db.transaction((tx) => authorIds(tx, who, given));
   }
-  if (!Object.keys(b ?? {}).some((k) => k !== "origin" && (b as any)[k] !== undefined)) throw new HttpError("Nothing to change: give the fields to correct.");
+  if (!Object.keys(b ?? {}).some((k) => k !== "origin" && b[k as keyof ArtifactGiven] !== undefined)) throw new HttpError("Nothing to change: give the fields to correct.");
   const fields = Object.keys(b).filter((k) => k !== "origin").join(", ");
   const note = `Correct the artifact ${next.title}: ${fields}`;
   if (!intent) {
@@ -516,7 +516,7 @@ async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unkno
     return { ...now, waiting: true, intent: own.intent, stage: own.stage, ...(r ? { number: r.number, changes: r.changes } : {}) };
   }
   const r = await proposeDocVersion({ db, store }, who, { doc: id, whole: next, note, intent });
-  return { ...now, waiting: true, intent: r.intent, stage: r.stage, number: (r as any).number, changes: (r as any).changes };
+  return { ...now, waiting: true, intent: r.intent, stage: r.stage, number: "number" in r ? r.number : undefined, changes: "changes" in r ? r.changes : undefined };
 }
 
 /** an artifact's row is what its accepted version says; one kept before artifacts were documents gets its document
