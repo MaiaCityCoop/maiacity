@@ -272,3 +272,15 @@ has 4, this head 2 (content/assets ↔ assets/render, biomes ↔ render/nodes), 
   The fix pass `-u-api2` takes it first, and 3–5, 7–15. **Not fixed (behaviour), for Samuel:** (2) versioned.ts's
   "not both" message never shows; (6) doc_edit's own intent guard skips the work-kind and dependency checks propose
   applies.
+
+### Merged: infra2 (re-audit round 1 fixes), 13:58Z
+
+16 commits (`log/infra2.md`), merged cleanly; gate green (all, 75 s; 356 API tests). CI's checks run the gate now
+(`gate.sh api|site|website --no-up`; job and required-check names unchanged; the only difference: a skipped test is
+red, as the gate always held it, and tsc runs after the Postgres wait). lib.sh holds APP_DIR, the backup layout
+(`SNAPSHOTS_PREFIX`, `STORE_PREFIX`, `snapshots`), CADDY_CONTAINER: every deploy script and production.yml's HTTPS
+diagnostics read them (old and new run against stand-ins logging every call: identical). intent.ts reads the box's
+database URL from box.env; restore.sh's check uses production's database image and waits over TCP; the bucket-keys
+guard lives in server-up.sh; deploy/test_publish_site.py runs in the gate (`gate.sh deploy`); three tests restating
+bun's and Postgres's versions dropped. Kept: src/pg.ts and src/hash.ts (the held assetdocs.ts imports them).
+(At 13:45Z the held set grew by ed6694c3: stories/live.ts and world.test.ts restored to main's; 159 files.)
