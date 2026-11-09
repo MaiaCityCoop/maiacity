@@ -1,31 +1,6 @@
-// Stories (Samuel 2026-11-03): a film as one timeline, so Maia City's admins can play its script through and feel
-// whether it works, and later (motion design, three.js scenes, a frame-by-frame export into a real video) build it
-// there. A story is tracks of clips (play/SPEC.md §12, format `story/1`):
-//
-//   { schema: <its schema's name>, format: "9:16", fps: 30, duration, tracks: [{ id, kind, clips: [{ id, at, duration, … }] }] }
-//
-// Every clip has its place in time (`at`, `duration`, in seconds); what else it holds is its track's kind:
-//   shots  { frame: <an image's file hash>, transition }   — the storyboard; a `scene` will replace the still later
-//   voice  { who, line, cues? }                            — the narration and its subtitle; `cues` its own subtitles,
-//          [{ at (seconds into the clip), text, em? }], else its line is cut evenly (`em`: one set apart, alone, large)
-//   notes  { section, camera, retention, mood }            — what the editor reads beside the picture
-//   story  { story: <another story's UUID>, version }      — one accepted version of that story linked in, its whole
-//          timeline played in the clip's place, the clip as long as it (Samuel 2026-11-04: the trailer its own story,
-//          every film linking the trailer's version it plays; a film moves to a newer one only by a proposal on the film).
-//          Reading a story resolves its links (`links`, linksOf); checkBody refuses a link without a version, to an
-//          unknown story, to itself, around a loop, to a version not that story's or never accepted (Linker)
-// Any clip of any track may sound (the voice's takes, a music or sfx or ambience track's clips): `audio` is a recording
-// kept among play's files by its hash (add_story_audio), `audio_in` where in the recording the clip starts, `gain` in
-// dB, `fade_in`/`fade_out` in seconds, `eq` (biquad bands) and `keys` (gain automation, [s, dB]), as the old studio's
-// clips had them; a track's own `gain` (dB) and `mute` apply to all its clips, and nothing ducks under the voice unless its track says `duck: true`.
-// A clip may hold more than its kind names, and a track may be of a kind not named here (music, sfx, callout, scene):
-// those are kept as given, so a later kind needs no migration. Frames are images kept among play's files by their
-// BLAKE3 hash and served by /api/files/<hash>.
-//
-// Stories are versioned like the assets (play.story_versions, each written once, numbered when accepted; the story's
-// head its newest accepted version) and change only by proposal: an admin's agent proposes a new story or a new
-// version over MCP (./mcp.ts), as the whole timeline or as edits applied to the head, and an admin accepts or archives
-// the intent it puts at Proposal on the intents' board (./versioned.ts `decide`). Admins only, reading and proposing.
+// Stories: a film as one timeline of tracks and clips (play/SPEC.md §12, format `story/1`; Samuel 2026-11-03). A link
+// clip plays one accepted version of another story (Samuel 2026-11-04: the trailer its own story, a film moving to a
+// newer one only by its own proposal). A clip or track of a kind not named here is kept as given: no migration.
 import { byOf, putAtProposal, settle } from "./intents";
 import { randomUUID } from "node:crypto";
 import { admin, COOP, type Me } from "./access";
@@ -44,13 +19,11 @@ import { unreadable } from "./assetdocs";
 import { closeWork, dropDoc, stageAfter, WORK_OF } from "./held";
 import { HttpError } from "./kit/errors";
 
-/** the work a story's version is */
 const STORY_WORK = "story_version";
 type VersionInfo = { number: number; id: string; note: string; created: string; author: string | null; approved_by: string | null };
 /** a linked version as it is read: its story (a UUID), title, number and id, its duration and timeline, and its story's
  *  newest accepted number (shown as "v5 available" where it is newer; a link plays only its own version) */
 export type Linked = { id: string; title: string; number: number; version: string; duration: number; newest: number | null; body: StoryBody };
-/** every version a timeline links, to any depth, by the version's id */
 export type Links = Record<string, Linked>;
 /** a story linking this one, at its newest version, and the number of this one's version it plays */
 export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
@@ -63,23 +36,15 @@ const TRACK_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const CLIP_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/;
 export const FORMATS = ["9:16", "16:9", "1:1", "4:5"];
 const FPS = [24, 25, 30, 48, 50, 60];
-/** a track of this kind links other stories in, a clip each (play/SPEC.md §12, linked stories) */
 export const LINK = "story";
-/** how deep links may nest: a story's links, their links, … at most this many stories down */
 export const MOST_LINK_DEPTH = 4;
-/** the kinds whose clips follow one another on their track, never overlapping */
 const SEQUENTIAL = new Set(["shots", "voice", "notes", LINK]);
 const MOST_TRACKS = 32;
 const MOST_CLIPS = 2000;
-/** the largest story body kept, as JSON */
 const MOST_BODY = 1_000_000;
-/** the largest frame an agent may add */
 export const MOST_FRAME = 4_000_000;
-/** the image types a frame may be, by the bytes they start with */
-/** the largest recording an agent may add */
 export const MOST_AUDIO = 25_000_000;
 const ascii = (b: Uint8Array, from: number, to: number) => String.fromCharCode(...b.slice(from, to));
-/** the audio types a recording may be, by the bytes they start with */
 const AUDIO: { type: string; is: (b: Uint8Array) => boolean }[] = [
   { type: "audio/mpeg", is: (b) => ascii(b, 0, 3) === "ID3" || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0 && (b[1] & 0x06) !== 0) },
   { type: "audio/wav", is: (b) => ascii(b, 0, 4) === "RIFF" && ascii(b, 8, 12) === "WAVE" },
@@ -89,7 +54,6 @@ const AUDIO: { type: string; is: (b: Uint8Array) => boolean }[] = [
   { type: "audio/webm", is: (b) => b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 },
 ];
 export const AUDIO_TYPES = AUDIO.map((a) => a.type);
-/** the largest video an agent may add (a shot's moving picture: an image-to-video or reference-to-video clip) */
 export const MOST_VIDEO = 40_000_000;
 /** the video types a shot's video may be, by the bytes they start with: MP4 (any ftyp brand but the audio-only ones) and
  *  WebM (Matroska's EBML header, said to be video) */
@@ -108,8 +72,6 @@ const iso = (d: Date | string) => new Date(d).toISOString();
 const shotsOf = (b: StoryBody | undefined) => b?.tracks?.find((t) => t.kind === "shots")?.clips ?? [];
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
-/** only Maia City's admins read and propose stories */
-/** a story brought into another (foldStories) takes no proposal: its versions are that story's now */
 const folded = (id: string, into: string) => new HttpError(`Story ${id} is part of story ${into} now, its versions that story's: propose there.`, 409);
 
 export const STORY_ADMINS = "Only Maia City's admins may open the Stories.";
@@ -197,7 +159,6 @@ const vec3 = (v: unknown, what: string): [number, number, number] => {
   if (!Array.isArray(v) || v.length !== 3 || !v.every((x) => typeof x === "number" && Number.isFinite(x) && Math.abs(x) <= 100_000)) throw new HttpError(`${what} must be [x, y, z] in metres.`);
   return v.map((x) => Math.round(x * 1e6) / 1e6) as [number, number, number];
 };
-/** a time in a shot of `duration` seconds, rounded, or refused */
 const shotTime = (duration: number) => (at: unknown, what: string) => {
   const n = typeof at === "number" ? at : NaN;
   if (!Number.isFinite(n) || n < 0 || n > duration + 1e-6) throw new HttpError(`${what} must be a time in the shot, 0 to ${duration} s.`);
@@ -806,8 +767,7 @@ export async function storyOf(db: Queryable, me: Me | null, id: string, number?:
   return { id, title: v.title, version: v.id, number: v.number, note: v.note, created: iso(v.created), author: v.author, versions, ...v.body, links: await linksOf(db, v.body, id), linked_by: await linkedBy(db, id) };
 }
 
-// ---- proposing (play/SPEC.md §4.4, "Version control"): every story is also a Loro document (./storydocs.ts), each
-// intent's work an intent variant of it, each change an edit on one
+// ---- proposing (play/SPEC.md §4.4): every story is also a Loro document (./storydocs.ts)
 
 type StoryProposal = {
   story?: string; // the story a version is of (its UUID); a new story gets one of its own
@@ -820,12 +780,7 @@ type StoryProposal = {
   intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts): no work without an intent
 };
 
-/**
- * A story's version kept in play.story_versions (its frozen, content-addressed row: what pins, links and the player
- * read), the one writer of it. Kept once by its id: a version proposed again, or made again by a fold or a merge, is
- * the row already there; `accept` numbers a proposed one as it is accepted (its number and approver), the document's
- * version of the same number.
- */
+/** the one writer of play.story_versions (what pins, links and the player read); a version kept again is the row there */
 async function keepVersion(q: Queryable, v: { id: string; story: string; parents: string[]; title: string; body: StoryBody; note: string; author?: string | null; number?: number | null; approvedBy?: string | null }, accept = false) {
   await q.query(
     `INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, author, approved_by) VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, $7, $8, $9)
@@ -835,11 +790,9 @@ async function keepVersion(q: Queryable, v: { id: string; story: string; parents
   );
 }
 
-// a story version's id is content-addressed as an asset version's is (./versions.ts, play/SPEC.md §4.3): the same story,
-// parents, title and timeline give the same id; any change to any of them, or to the history it stands on, another
+// content-addressed as an asset version's id is (./versions.ts, play/SPEC.md §4.3)
 const versionIdOf = (story: string, parents: string[], title: string, body: StoryBody) => storyVersionId({ story, parents, title, body });
 
-/** a story's intent variant `v`, still open for edits */
 async function openVariant(tx: Queryable, docId: string, story: string, v: unknown): Promise<{ id: number; seed: docs.Frontiers }> {
   const n = Number(v);
   if (!Number.isInteger(n) || n < 1) throw new HttpError("An intent variant is named by its number (doc_edit gives it).");
@@ -849,11 +802,7 @@ async function openVariant(tx: Queryable, docId: string, story: string, v: unkno
   return { id: n, seed: rows[0].seed };
 }
 
-/**
- * A story's edit as its document's whole new state (./versioned.ts's write hook): its edits (propose_story's ops:
- * set_clip, add_clip, shift, edit_text …) applied to the timeline, or a whole new state (its title and timeline), the
- * timeline checked whole as a proposal is.
- */
+/** ./versioned.ts's write hook: propose_story's ops or a whole new state, the timeline checked whole */
 export async function storyEdit(tx: Queryable, story: string, cur: any, p: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
   const now = asStory(cur);
   if (p.whole !== undefined) {
@@ -880,10 +829,8 @@ export async function proposeStoryVariant(db: Db, me: Me, o: { id: string; varia
   return proposeStory(db, me, { story: o.id, variant: o.variant, note: o.note, ...(o.intent ? { intent: o.intent } : {}) }, false, via);
 }
 
-/** Propose a new story (`fresh`) or a new version of one, as the admin `me`, via `via`: an intent put at Proposal with it, for an admin to decide. */
 export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fresh: boolean, via: "web" | "mcp" = "mcp") {
   const who = admin(me, STORY_ADMINS);
-  // a new story gets a UUID of its own; a version names its story by its UUID
   if (fresh && p?.story !== undefined) throw new HttpError("A new story gets its id when it is proposed: give its title, not an id.");
   const id = fresh ? randomUUID() : `${p?.story ?? ""}`;
   if (!STORY_ID.test(id)) throw new HttpError("Name the story by its id, a UUID (list_stories).");
@@ -951,11 +898,7 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
 export type Fold = { into: string; from: string[] };
 export type FoldReport = { folded: string[]; present: string[]; errors: string[] };
 
-/**
- * One accepted version of a folded story written as the next of the story it is brought into (foldStories): an
- * import, as seedStory is, not work proposed, so it takes no intent (no work without an intent is about work proposed):
- * its document's Main moves by the variant it is written on, accepted at once, and the story's head with it.
- */
+/** a folded story's version written onto the story it is brought into: an import, so no intent (as seedStory) */
 async function foldVersion(tx: Queryable, id: string, v: { title: string; body: StoryBody; note: string }, author: docs.Author, by: string, approver: string) {
   const { rows } = await tx.query<{ head: string | null; number: number | null }>(
     `SELECT s.head, h.number FROM play.stories s LEFT JOIN play.story_versions h ON h.id = s.head WHERE s.id = $1 FOR UPDATE OF s`, [id],
@@ -974,13 +917,7 @@ async function foldVersion(tx: Queryable, id: string, v: { title: string; body: 
   await tx.query(`UPDATE play.stories SET head = $2, title = $3, updated = now() WHERE id = $1`, [id, version, v.title]);
 }
 
-/**
- * Brings stories into one timeline: each story of `from`, in order, has its accepted versions proposed on `into` and
- * accepted there, one after the other, as that story's next versions (each by its own author and approver, its note
- * saying where it came from), and the work of its intents at Proposal proposed again on `into`'s new head, for the same
- * intents (their work on it replaced). Then it is folded: kept with its whole history, listed no more, taking no work. Run with every deploy (import/stories.ts);
- * a version already on `into` (the same title and timeline) is not brought twice, and a folded story is passed over.
- */
+/** one film, one story: `from`'s versions and open work brought onto `into`, then folded; run with every deploy (import/stories.ts) */
 export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
   const out: FoldReport = { folded: [], present: [], errors: [] };
   const as = async (human: string | null): Promise<Me> => {
@@ -1067,12 +1004,7 @@ export async function storyReview(db: Queryable, p: { story_id: string; story_ba
   };
 }
 
-/**
- * Accept or reject a story's work `p` (its intent locked by the caller's transaction), as admin `me`. Accepted, its intent variant is
- * merged into the story's document and the version numbered, the document's version of the same number. Made on a head
- * that has moved on since, it still goes in where the two changes touch different fields (both stand, in a version
- * whose parents are both); where they touch the same field it is archived, kept on its side line, to be proposed again.
- */
+/** a story's work decided (its intent locked by the caller); on a moved head merged where fields differ, else archived */
 export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") {
   if (me.level !== "admin") throw new HttpError("Only Maia City's admins decide on stories.", 403);
   const docId = await ensureStoryDoc(tx, p.story_id);
@@ -1173,7 +1105,6 @@ export async function seedStory(db: Db, id: string, title: string, note: string,
 
 // ---- recordings
 
-/** The audio type of `bytes`, by how they start, or null */
 const audioType = (bytes: Uint8Array): string | null => AUDIO.find((a) => a.is(bytes))?.type ?? null;
 
 /** Keep one recording (MP3, WAV, Ogg, FLAC, M4A or WebM audio, at most MOST_AUDIO bytes) among play's files; its hash. */
@@ -1189,7 +1120,6 @@ async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Array, said
   return { hash, size: bytes.length, media_type: type };
 }
 
-/** A recording given as base64 (an agent's), checked and kept */
 export async function putAudioBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown) {
   if (typeof data !== "string" || !data) throw new HttpError("Give the recording as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
@@ -1200,7 +1130,6 @@ export async function putAudioBase64(db: Queryable, store: BlobStore, data: unkn
 
 // ---- files kept for stories, each with its label (only shown in the Library; a file is named by its hash)
 
-/** A label given with a file: trimmed text of at most 200 characters, or none */
 export function fileLabel(v: unknown): string | undefined {
   if (v == null || v === "") return undefined;
   if (typeof v !== "string") throw new HttpError("A file's label must be text.");
@@ -1215,7 +1144,6 @@ const keepFile = (db: Queryable, hash: string, size: number, type: string, key: 
 
 // ---- documents: a plant's data sheet and its sheet's brief, as Markdown (play/SPEC.md §4.10)
 
-/** a document is Markdown text of at most this many bytes */
 export const MOST_DOCUMENT = 2_000_000;
 /** the one media type play keeps a document as (recipe sources are text/javascript, never shown in the Library) */
 const DOCUMENT_TYPE = "text/markdown";
@@ -1234,7 +1162,6 @@ export async function putDocument(db: Queryable, store: BlobStore, text: unknown
 
 // ---- compositions: a shot's motion design, one HyperFrames composition (play/SPEC.md §12)
 
-/** a composition is readable HTML of at most this many bytes */
 export const MOST_COMPOSITION = 2_000_000;
 /** the media type play keeps a composition as (served as plain text, like every code file) */
 const COMPOSITION_TYPE = "text/html";
@@ -1263,7 +1190,6 @@ export async function putComposition(db: Queryable, store: BlobStore, html: unkn
 
 // ---- videos
 
-/** The video type of `bytes`, by how they start, or null */
 const videoType = (bytes: Uint8Array): string | null => VIDEOS.find((v) => v.is(bytes))?.type ?? null;
 
 /** Keep one video (MP4 or WebM, at most MOST_VIDEO bytes) among play's files; its hash. */
@@ -1279,7 +1205,6 @@ async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Array, said
   return { hash, size: bytes.length, media_type: type };
 }
 
-/** A video given as base64 (an agent's), checked and kept */
 export async function putVideoBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown) {
   if (typeof data !== "string" || !data) throw new HttpError("Give the video as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
@@ -1290,7 +1215,6 @@ export async function putVideoBase64(db: Queryable, store: BlobStore, data: unkn
 
 // ---- frames
 
-/** The image type of `bytes`, by how they start, or null */
 const imageType = (bytes: Uint8Array): string | null => IMAGES.find((i) => i.is(bytes))?.type ?? null;
 
 /** Keep one frame (an image, at most MOST_FRAME bytes) among play's files; its hash. */
@@ -1306,7 +1230,6 @@ export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Arra
   return { hash, size: bytes.length, media_type: type };
 }
 
-/** A frame given as base64 (an agent's), checked and kept */
 export async function putFrameBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown, owner?: string) {
   if (typeof data !== "string" || !data) throw new HttpError("Give the image as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
