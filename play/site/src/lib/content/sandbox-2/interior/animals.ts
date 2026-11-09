@@ -1,16 +1,7 @@
 /**
- * The animals of the land outside: hens scratching in their runs and out
- * under the trees, rabbits in theirs, goats and sheep browsing the forest,
- * geese along the stream, frogs by the ponds, bees round their hives, fish in
- * the ponds and the tanks. Every one is a rigged actor of its breed, built in
- * the asset box as every asset is (the Actors' Saanen goat, by the pin of it the village keeps): near
- * the eye it moves every bone as its kind does — walks with its feet set down
- * and kept there, pecks, scratches, grazes, hops, flies, swims — from the clips
- * the box wrote down, and further off a coarser build of it stands in for
- * itself, a hundred of them a draw call ($content/assets/render/crowd.js). Every
- * animal wanders on its own: it walks,
- * turns, slows, stops to peck or graze, and walks on, always inside its own
- * patch of ground; no two quite the same size.
+ * The animals of the land outside (hens, rabbits, goats, sheep, geese, frogs, bees, fish), each a rigged actor of its
+ * breed built in the asset box, moving every bone near the eye from the clips the box wrote down and a coarser build
+ * further off, a hundred a draw call ($content/assets/render/crowd.js). Each wanders its own patch, no two alike in size.
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
