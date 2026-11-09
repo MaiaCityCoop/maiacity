@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# The dry run's `node` (intent cb52fbd9): a script runs in Bun with the CPU page for playwright (../preload.ts); `node -`
+# and `node -e` (a job's own summing up) run in the real node.
+case "${1:-}" in
+  -|-e|--eval|-p|--check|--version|-v) PATH="$DRY_REAL_PATH" exec node "$@" ;;
+esac
+exec "$DRY_BUN" --preload "$DRY_HOME/preload.ts" "$@"
