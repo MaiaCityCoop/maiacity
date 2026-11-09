@@ -2,6 +2,14 @@
 
 ## SMOKE (newest first)
 - **smoke 1698a55f5: OK** ([602a8849] Every other shader in TSL: water, glass, glows, the plant look, factories, the ; 431 s). 17 pages; all drawn. Frames: near 26.1 ms · mid 34.3 ms · far 16.7 ms.
+  By hand after it (the shaders the smoke doesn't reach): Sandbox 1's water (the creek, the river, the ponds) draws as
+  before, the ponds 3 % brighter (near view's pond 149.8/168.5/154.3 against 146.6/163.2/148.5); at 22:00 the path lamps
+  and the dome's windows glow. Sandbox 1 differs from the last smoke only where the wind moves the canopy. **The Lab
+  (Sandbox 2): its contact dots are 7 device pixels at pixel ratio 2 too** (3.5 CSS px, half the `PointsMaterial` they
+  replaced: `sprites.js` sizes by the drawing buffer), and an experiment picked while the Lab starts kills it ("Could
+  not start the laboratory: Superseded", since 20d9448b5): **fix intent cef10a08**. Not checkable with the read-only
+  token: the factories (`/api/docs` answers 401; the page stops at "Please sign in first", so the smoke's factory shot
+  is only that message).
 - **smoke 3b19a5f99: OK** (0b4c007b live, neutral daylight; 18:13–18:18, 325 s). Every page up and drawn; no error but
   the harness's 401 and the old ambience one (fb220a9c). Frames: near 26.7 ms, mid 34.9, far 16.7. Looks (not breaks):
   the sepia is gone (Sandbox 1 near R/B .969, Sandbox 5 .927; main before was 1.22 / 1.43); the shade at Sandbox 1's mid
