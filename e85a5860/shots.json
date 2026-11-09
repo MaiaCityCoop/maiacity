@@ -4,18 +4,18 @@
    "backend": "webgl2",
    "grass": "tiles",
    "blades": [
-    27093,
-    74896,
-    47680
+    30720,
+    93344,
+    56128
    ]
   },
   "compute": {
    "backend": "webgpu",
    "grass": "indirect",
    "blades": [
-    7748,
-    8742,
-    8883
+    9421,
+    11657,
+    11751
    ]
   }
  },
@@ -49,8 +49,8 @@
   "trodden": true,
   "springsBack": true,
   "bladesComputeVsTiles": [
-   25373,
-   149669
+   32829,
+   180192
   ]
  }
 }
