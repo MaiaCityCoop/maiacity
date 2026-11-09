@@ -4,12 +4,12 @@
 // and no input of its audit, nor anything of the old repository.
 import { describe, expect, test } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import village from '../../../../../api/import/sandboxes/sandbox-6/village.json';
 import audit from '../../../../../api/import/sandboxes/sandbox-6/audit.json';
 
-const SITE = join(dirname(fileURLToPath(import.meta.url)), '../../../..');
+const SITE = fileURLToPath(new URL('../../../../', import.meta.url));
 const read = (p: string) => readFileSync(join(SITE, p), 'utf8');
 const ROUTE = 'src/routes/sandbox-6/+page.svelte';
 const code = () => {

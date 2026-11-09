@@ -210,14 +210,28 @@ describe("the workflows", () => {
     expect(main.jobs.website.uses).toBe("./.github/workflows/website-checks.yml");
     expect([main.jobs.play.name, main.jobs.website.name]).toEqual(["play", "website"]);
     expect(main.permissions).toEqual({ contents: "read", actions: "read", checks: "read", "pull-requests": "read" });
-    const play = yaml(".github/workflows/play-checks.yml").jobs.checks;
+    const jobs = yaml(".github/workflows/play-checks.yml").jobs;
     const site = yaml(".github/workflows/website-checks.yml").jobs.build;
-    expect([play.name, site.name]).toEqual(["API and site", "build"]);
+    expect([jobs.checks.name, site.name]).toEqual(["API and site", "build"]);
     // the required checks are named once, in .github/required-checks.json: main.yml's job name / the called job's name
     const required = JSON.parse(text(".github/required-checks.json"));
     expect(required).toEqual({ play: "play / API and site", website: "website / build" });
-    expect(Object.entries(required)).toEqual([["play", `${main.jobs.play.name} / ${play.name}`], ["website", `${main.jobs.website.name} / ${site.name}`]]);
-    for (const [job, part] of [[play, "play"], [site, "website"]] as [any, string][]) {
+    expect(Object.entries(required)).toEqual([["play", `${main.jobs.play.name} / ${jobs.checks.name}`], ["website", `${main.jobs.website.name} / ${site.name}`]]);
+    // play's (intent 417af727): the tested tree its own job; the API and the site run only when it did not say the very
+    // tree passed, and the check "API and site" ends by naming the tree it covered
+    const tested = jobs.tested.steps.find((s: any) => s.id === "tested");
+    expect(tested.if).toBe("github.event_name == 'push'");
+    expect(tested.env.PART).toBe("play");
+    expect(tested.run).toBe("bash .github/workflows/tested-tree.sh");
+    expect(jobs.tested.outputs.skip).toBe("${{ steps.tested.outputs.skip }}");
+    for (const k of ["api", "site"]) {
+      expect(jobs[k].needs).toBe("tested");
+      expect(jobs[k].if).toBe("needs.tested.outputs.skip != 'true'");
+      expect(jobs[k].services).toBeUndefined();
+    }
+    expect(jobs.checks.steps.at(-1).if).toBe("needs.tested.outputs.skip != 'true'");
+    expect(jobs.checks.steps.at(-1).run).toBe(`echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"`);
+    for (const [job, part] of [[site, "website"]] as [any, string][]) {
       expect(job.services).toBeUndefined();
       const tested = job.steps.find((s: any) => s.id === "tested");
       // only on a push to main may the tested tree skip: on a pull request the step does not run, so nothing skips
@@ -229,9 +243,9 @@ describe("the workflows", () => {
       // a run that tested ends by naming its tree
       expect(job.steps.at(-1).run).toBe(`echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"`);
     }
-    const pgStep = play.steps.find((s: any) => s.name === "Postgres");
+    const pgStep = jobs.api.steps.find((s: any) => s.name === "Postgres");
     expect(pgStep.run).toContain('"postgres:$PG_VERSION-alpine"');
-    expect(play.steps.find((s: any) => s.name === "The API").run).toContain("gate.sh api --no-up");
+    expect(jobs.api.steps.find((s: any) => s.name === "The API").run).toContain("gate.sh api --no-up");
   });
 
   test("every gate kept", () => {

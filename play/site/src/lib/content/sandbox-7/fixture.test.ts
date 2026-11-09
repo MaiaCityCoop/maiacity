@@ -2,7 +2,8 @@
 // the tests: built once, shared.
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import planetJson from '../../../../../api/import/sandboxes/sandbox-7/planet.json';
 import biomesJson from '../../../../../api/import/sandboxes/sandbox-7/biomes.json';
 import sitesJson from '../../../../../api/import/sandboxes/sandbox-7/sites.json';
@@ -10,14 +11,12 @@ import { buildGlobe, type Tile } from './globe';
 import { mapsOf, type GridFile } from './maps';
 import type { Biomes, Planet } from './scene';
 import type { Sites } from './sites';
-import { fileURLToPath } from 'node:url';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
 
 export const planet = planetJson as unknown as Planet;
 export const biomes = biomesJson as unknown as Biomes;
 export const sites = sitesJson as unknown as Sites;
-const MEDIA = join(HERE, '../../../../../media');
+const MEDIA = fileURLToPath(new URL('../../../../../media', import.meta.url));
 export const mapFile = (file: string) => JSON.parse(readFileSync(join(MEDIA, file), 'utf8')) as GridFile;
 
 let built: Tile[] | null = null;

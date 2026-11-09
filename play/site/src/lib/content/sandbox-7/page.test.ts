@@ -4,15 +4,13 @@
 // lift, no map's hash, no site's place), nor anything of the old repository.
 import { describe, expect, test } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { SANDBOX } from '../../kernel/sandboxes.js';
 import { WORLDS } from '../game/film/worlds.js';
 import { biomes, planet, sites } from './fixture.test';
-import { fileURLToPath } from 'node:url';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-
-const SITE = join(HERE, '../../../..');
+const SITE = fileURLToPath(new URL('../../../../', import.meta.url));
 const read = (p: string) => readFileSync(join(SITE, p), 'utf8');
 const ROUTE = 'src/routes/sandbox-7/+page.svelte';
 const COVER = '88528c9521de8682f676c3e2539c3a19ffd2a4731a2343410761025e27fde55e';

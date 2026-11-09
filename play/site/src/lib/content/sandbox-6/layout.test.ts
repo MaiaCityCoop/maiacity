@@ -4,7 +4,7 @@
 import { describe, expect, test } from 'vitest';
 import village from '../../../../../api/import/sandboxes/sandbox-6/village.json';
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import audit from '../../../../../api/import/sandboxes/sandbox-6/audit.json';
 import { auditOf, type Audit } from './audit';
@@ -108,7 +108,7 @@ describe('centre hex', () => {
 	test('the page never calls it Tower180', () => {
 		const shown = JSON.stringify(V.plans.tower.sites.map((s) => s.name)) + JSON.stringify(V.plans.tower.programme);
 		expect(shown).not.toContain('Tower180');
-		const dir = join(dirname(fileURLToPath(import.meta.url)));
+		const dir = fileURLToPath(new URL('.', import.meta.url));
 		for (const f of readdirSync(dir).filter((f) => !f.endsWith('.test.ts'))) expect(`${f}: ${readFileSync(join(dir, f), 'utf8').includes('Tower180')}`).toBe(`${f}: false`);
 	});
 });

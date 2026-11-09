@@ -56,12 +56,12 @@ describe("the tests a change picks", () => {
   });
   test("parts: the website only for the website, the site's build for the site and the API, nothing for an unread note", () => {
     expect(plan(root, ["website/src/app.html"])).toMatchObject({ steps: ["website-check", "website-build"], tests: [] });
-    expect(plan(root, ["play/site/src/x.ts"])).toMatchObject({ steps: ["site-build"], tests: [] });
-    expect(plan(root, ["play/api/src/b.ts"]).steps).toEqual(["api-types", "api-tests", "site-build"]);
+    expect(plan(root, ["play/site/src/x.ts"])).toMatchObject({ steps: ["site-build", "site-tests"], tests: [] });
+    expect(plan(root, ["play/api/src/b.ts"]).steps).toEqual(["api-types", "api-tests", "site-build", "site-tests"]);
     expect(plan(root, ["NOTES.md"])).toMatchObject({ steps: [], tests: [] });
   });
   test("everything with --all", () => {
-    expect(plan(root, null)).toMatchObject({ steps: ["api-types", "api-tests", "site-build", "website-check", "website-build", "deploy-tests", "lint"], tests: "all" });
+    expect(plan(root, null)).toMatchObject({ steps: ["api-types", "api-tests", "site-build", "site-tests", "website-check", "website-build", "deploy-tests", "lint"], tests: "all" });
   });
   test("the deploy's own tests for publish-site.py and its test, and not for another deploy file", () => {
     expect(plan(root, ["deploy/publish-site.py"]).steps).toContain("deploy-tests");
@@ -102,11 +102,11 @@ describe("the gate's plan", () => {
     expect(out).toContain("step website-check");
     expect(out).toContain("step website-build");
     expect(out).not.toContain("step api-");
-    expect(out).not.toContain("step site-build");
+    expect(out).not.toContain("step site-");
   });
   test("--all: every step, every test file", () => {
     const out = gate(["--all", "--plan"]).stdout.toString();
-    for (const s of ["api-types", "api-tests: every file", "site-build", "website-check", "website-build", "deploy-tests", "lint"]) expect(out).toContain(`step ${s}`);
+    for (const s of ["api-types", "api-tests: every file", "site-build", "site-tests", "website-check", "website-build", "deploy-tests", "lint"]) expect(out).toContain(`step ${s}`);
   });
 });
 

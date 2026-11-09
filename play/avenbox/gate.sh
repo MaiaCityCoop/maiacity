@@ -7,9 +7,9 @@
 #   bash play/avenbox/gate.sh --plan                # what it would run, and why; runs nothing
 #   bash play/avenbox/gate.sh api|site|website|lint # one part, whole (as before: other intents' checks run these)
 #   bash play/avenbox/gate.sh deploy               # the deploy's own tests (deploy/test_publish_site.py)
+#   bash play/avenbox/gate.sh physics               # Sandbox 2's physics alone (about ten minutes; site and --all run
+#                                                   # them only when this change touches play/site/src/lib/sandbox-2/)
 #   bash play/avenbox/gate.sh lint <file>…          # the lint on these workflow files
-#   bash play/avenbox/gate.sh site-tests            # play/site's own tests (vitest), only when asked: neither CI nor
-#                                                   # the gate's default runs them (a speed decision left to Samuel)
 #   bash play/avenbox/gate.sh api --no-up           # without up.sh: the caller has Postgres answering at
 #                                                   # TEST_DATABASE_URL and the part's dependencies installed (CI)
 #
@@ -29,9 +29,9 @@ for a in "$@"; do
     --all) ALL=1 ;;
     --plan) PLAN=1 ;;
     --no-up) UP=0 ;;
-    all | api | site | website | deploy | lint | site-tests) PART=$a ;;
-    -*) echo "gate.sh [all|api|site|website|deploy|lint|site-tests] [--all] [--plan] [--no-up]"; exit 2 ;;
-    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|deploy|lint|site-tests] [--all] [--plan] [--no-up]"; exit 2; } ;;
+    all | api | site | website | deploy | lint | physics) PART=$a ;;
+    -*) echo "gate.sh [all|api|site|website|deploy|lint|physics] [--all] [--plan] [--no-up]"; exit 2 ;;
+    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|deploy|lint|physics] [--all] [--plan] [--no-up]"; exit 2; } ;;
   esac
 done
 export PATH="$HOME/.bun/bin:$PATH"
@@ -39,8 +39,8 @@ export PATH="$HOME/.bun/bin:$PATH"
 # the plan: every step with --all, else select.ts's for what changed; one part keeps only its own steps
 if [ ${#FILES[@]} -gt 0 ]; then
   PLANNED="step lint"
-elif [ "$PART" = site-tests ]; then
-  PLANNED="step site-tests"
+elif [ "$PART" = physics ]; then
+  PLANNED="step site-physics"
 elif [ $ALL = 1 ] || [ "$PART" != all ]; then
   PLANNED=$(bun "$ROOT/play/avenbox/select.ts" --all)
 else
@@ -52,7 +52,7 @@ case "$PART" in
   website) KEEP='^step website-' ;;
   deploy) KEEP='^step deploy-' ;;
   lint) KEEP='^step lint' ;;
-  site-tests) KEEP='^step site-tests' ;;
+  physics) KEEP='^step site-physics' ;;
   *) KEEP='^step |^test ' ;;
 esac
 STEPS=$(echo "$PLANNED" | grep -E "$KEEP" | grep '^step ' | cut -c6-)
@@ -72,7 +72,7 @@ if [ $PLAN = 1 ]; then
 fi
 
 has() { echo "$STEPS" | grep -qx "$1"; }
-if [ $UP = 1 ] && { has api-types || has api-tests || has site-build || has website-check || has site-tests; }; then
+if [ $UP = 1 ] && { has api-types || has api-tests || has site-build || has site-tests || has site-physics || has website-check; }; then
   bash "$ROOT/play/avenbox/up.sh" || exit 1
 fi
 . "$ROOT/play/avenbox/box.env"
@@ -119,7 +119,10 @@ if has api-tests; then
   fi
 fi
 has site-build && step "play/site build" play/site bun run build
-has site-tests && step "play/site tests (vitest)" play/site bunx vitest run
+# the site's fast suite (every file but Sandbox 2's physics), after its build, as CI runs it (intent 417af727)
+has site-tests && step "play/site tests" play/site bun run test
+# Sandbox 2's physics, only for a change to their code (select.ts) or by name (gate.sh physics)
+has site-physics && step "play/site Sandbox 2's physics" play/site bun run test:physics
 has website-check && step "website check" website bun run check
 has website-build && step "website build" website bun run build
 has deploy-tests && step "deploy tests (publish-site.py)" . python3 -m unittest deploy/test_publish_site.py

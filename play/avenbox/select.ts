@@ -6,13 +6,13 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-type Plan = {
-  steps: string[]; // in the gate's order: api-types, api-tests, site-build, website-check, website-build, deploy-tests, lint
+export type Plan = {
+  steps: string[]; // in the gate's order: api-types, api-tests, site-build, site-tests, site-physics, website-check, website-build, deploy-tests, lint
   tests: string[] | "all"; // play/api's test files (relative to play/api), or every one
   why: string[];
 };
 
-const STEPS = ["api-types", "api-tests", "site-build", "website-check", "website-build", "deploy-tests", "lint"] as const;
+const STEPS = ["api-types", "api-tests", "site-build", "site-tests", "site-physics", "website-check", "website-build", "deploy-tests", "lint"] as const;
 const DEPLOY_TESTED = ["deploy/publish-site.py", "deploy/test_publish_site.py"];
 const CODE = /\.(ts|js|mjs|cjs|tsx|jsx|json)$/;
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
@@ -46,12 +46,24 @@ function closure(file: string, seen = new Map<string, string>()): Map<string, st
 }
 
 const isMd = (p: string) => p.endsWith(".md");
+/** Sandbox 2's physics tests' code (intent 417af727): `bun run test:physics` in play/site */
+export const PHYSICS = "play/site/src/lib/sandbox-2/";
+
+/** Everything (`--all`, one part named), and Sandbox 2's physics too when the change is known to touch them. */
+export function planAll(root: string, changed: string[] | null): Plan {
+  const p = plan(root, null);
+  if (!changed?.some((f) => f.startsWith(PHYSICS))) return p;
+  const steps = new Set([...p.steps, "site-physics"]);
+  return { ...p, steps: STEPS.filter((s) => steps.has(s)), why: [...p.why, `Sandbox 2's physics: ${PHYSICS} changed`] };
+}
+/** a change everything in play/api depends on */
 const everything = (p: string) =>
   /^play\/api\/(package\.json|bun\.lock|tsconfig[^/]*\.json)$/.test(p) || p.startsWith("play/api/migrations/") ||
   p.startsWith("play/api/test/fixtures/") || /^play\/api\/src\/migrations?[./]/.test(p);
 
 export function plan(root: string, changed: string[] | null): Plan {
-  if (changed === null) return { steps: [...STEPS], tests: "all", why: ["everything: --all, one part named, or no merge base to diff against"] };
+  // everything but Sandbox 2's physics, which only a change known to touch them adds (planAll)
+  if (changed === null) return { steps: STEPS.filter((s) => s !== "site-physics"), tests: "all", why: ["everything: --all, one part named, or no merge base to diff against"] };
   const why: string[] = [];
   const steps = new Set<string>();
   const files = [...new Set(changed.map((p) => p.trim()).filter(Boolean))];
@@ -65,7 +77,10 @@ export function plan(root: string, changed: string[] | null): Plan {
     if (f.startsWith("website/")) steps.add("website-check").add("website-build");
     if (f.startsWith(".github/workflows/")) steps.add("lint");
     if (DEPLOY_TESTED.includes(f)) steps.add("deploy-tests");
-    if (f.startsWith("play/site/") || f.startsWith("play/api/")) steps.add("site-build");
+    // the site's build and its whole test suite (vitest), wherever its build is (intent 417af727)
+    if (f.startsWith("play/site/") || f.startsWith("play/api/")) steps.add("site-build").add("site-tests");
+    // Sandbox 2's physics (about ten minutes): only for a change to its code, as CI runs them on a pull request
+    if (f.startsWith(PHYSICS)) steps.add("site-physics");
     if (f.startsWith("play/api/")) steps.add("api-types");
     if (everything(f)) {
       all = true;
@@ -108,7 +123,8 @@ export function changedPaths(root: string): string[] | null {
 
 if (import.meta.main) {
   const root = resolve(import.meta.dir, "../..");
-  const p = plan(root, process.argv.includes("--all") ? null : changedPaths(root));
+  const changed = changedPaths(root);
+  const p = process.argv.includes("--all") ? planAll(root, changed) : plan(root, changed);
   for (const s of p.steps) console.log(`step ${s}`);
   if (p.tests !== "all") for (const t of p.tests) console.log(`test ${t}`);
   for (const w of p.why) console.log(`why ${w}`);
