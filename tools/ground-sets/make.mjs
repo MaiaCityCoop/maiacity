@@ -67,7 +67,8 @@ async function source(where, id) {
 	const un = join(dir, 'un');
 	if (!existsSync(un)) execFileSync('python3', ['-I', '-c', `import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])`, join(dir, 'set.zip'), un]);
 	const pick = (re) => readFileSync(join(un, readdirSync(un).find((n) => re.test(n))));
-	const ao = await sharp(pick(/AmbientOcclusion\.png$/)).greyscale().raw().toBuffer({ resolveWithObject: true }).catch(() => null);
+	const ao = await sharp(pick(/AmbientOcclusion\.png$/)).greyscale().raw().toBuffer({ resolveWithObject: true })
+		.catch((e) => (console.warn(`${id}: its ambient occlusion map unread (${e.message}): lit as fully open`), null));
 	const rough = await sharp(pick(/Roughness\.png$/)).greyscale().raw().toBuffer({ resolveWithObject: true });
 	const { width: w, height: h } = rough.info;
 	const ar = Buffer.alloc(w * h * 3);
