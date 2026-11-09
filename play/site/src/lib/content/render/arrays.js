@@ -1,11 +1,8 @@
 /*
- * ARRAY TEXTURES FROM PLAY'S FILES — KTX2 files (each a picture, by its BLAKE3 hash: play's file, ../../kernel/files.js) made into one
- * array texture, a layer each, so a shader picks its layer by a number (`texture(t, uv).depth(layer)`): nine surfaces
- * of three maps each would be more textures than a shader stage may sample (16).
- *
- * `useRenderer(renderer)` (./core.js, each renderer it makes) lets the files be read: the transcoder picks the
- * compressed format the graphics card takes. Without one (the census, a test) nothing is read and the layers stay the
- * placeholder they start as.
+ * ARRAY TEXTURES FROM PLAY'S FILES — KTX2 files (by BLAKE3 hash, ../../kernel/files.js) made one array texture, a layer
+ * each, picked by number (`texture(t, uv).depth(layer)`): nine surfaces of three maps would be more textures than a
+ * shader stage may sample (16). `useRenderer(renderer)` (./core.js) lets files be read (the transcoder picks the GPU's
+ * compressed format); without one (the census, a test) the layers stay their placeholder.
  */
 import * as THREE from 'three';
 import { fileUrl } from '../../kernel/files.js';
@@ -35,9 +32,8 @@ const read = (file) => {
 };
 
 /**
- * An array texture of one layer per file, a grey placeholder of a pixel a layer until every file is read (then
- * `onReady` is told, to rebuild what samples it). Files of one size and encoding each.
- * @param {string[]} list the files, `<hash>.ktx2`, in layer order
+ * An array texture of one layer a file, a one-pixel grey placeholder a layer until all are read (then `onReady`, to
+ * rebuild what samples it); files of one size and encoding. @param {string[]} list `<hash>.ktx2`, in layer order
  * @param {{ srgb?: boolean, onReady?: (t: THREE.Texture) => void }} [o]
  * @returns {THREE.DataArrayTexture} the placeholder, its `userData.ready` a promise of the array
  */

@@ -1,10 +1,7 @@
-// A sandbox's layout as a document (src/sandboxes.ts, play/SPEC.md §4.6) against a real Postgres: set TEST_DATABASE_URL,
-// as for ./api.test.ts.
-//
-// c1: a sandbox's layout is sandbox:<uuid>, versioned like every other document through src/versioned.ts: edited in an
-// intent variant with its pin, pin_latest, unpin, set and delete as edit helpers (doc_edit), proposed
-// (propose_doc_version), reviewed on the board with each pin's asset label and version before and after, accepted by an
-// admin, its pins and configs then written from Main, and /api/sandboxes/<uuid>/config answering as before.
+// A sandbox's layout as a document (src/sandboxes.ts, play/SPEC.md §4.6) against a real Postgres (as ./api.test.ts).
+// c1: sandbox:<uuid>, versioned through src/versioned.ts: edited in an intent variant with its helpers (pin, pin_latest,
+// unpin, set, delete), proposed, reviewed with each pin before and after, accepted by an admin, its pins and configs
+// then written from Main, /api/sandboxes/<uuid>/config answering as before.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD } from "../src/recipes";

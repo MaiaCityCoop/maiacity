@@ -37,9 +37,8 @@ const sorted=(a:number,b:number):Range=>a<b?[a,b]:[b,a];
 const corners=([x,y,z]:[Range,Range,Range])=>x.flatMap(px=>y.flatMap(py=>z.map(pz=>v(px,py,pz))));
 const plateCorners=(p:Plate)=>[-1,1].flatMap(a=>[-1,1].flatMap(b=>[-1,1].map(c=>transform(v(a*p.size[0]/2,b*p.size[1]/2,c*p.size[2]/2),p.rotation,p.center))));
 type Shown={r?:[Range,Range,Range];plate?:Plate;color:number};
-/** One rigid part from world-space boxes, convex solids and rotated plates. An optional display list
- * subdivides the same solid into what you see (bricks and their mortar joints); physics uses the
- * collision pieces, which have exactly the same outer surface, volume and mass. */
+/** One rigid part from world-space boxes, convex solids and rotated plates; an optional display list splits the same solid
+ * into what you see (bricks, mortar joints) while physics uses the collision pieces (same outer surface, volume, mass). */
 function part(id:string,look:Look,blocks:Block[],solids:Solid[]=[],plates:Plate[]=[],shown:Shown[]=[]):Box{
  const all=[...blocks.flatMap(b=>corners(b.r)),...solids.flatMap(s=>s.points),...plates.flatMap(plateCorners)];
  const min=v(Math.min(...all.map(p=>p.x)),Math.min(...all.map(p=>p.y)),Math.min(...all.map(p=>p.z))),max=v(Math.max(...all.map(p=>p.x)),Math.max(...all.map(p=>p.y)),Math.max(...all.map(p=>p.z)));

@@ -1,7 +1,6 @@
-// A document in Loro, without the database (play/SPEC.md §4.4): its JSON written into Loro containers as its type's
-// hints say (./validate.ts; its schema a document, ./schemas.ts), edits applied as Loro operations, a whole new state turned into the few operations that
-// make it (so a proposal that sends its whole body still lands as small steps), the state read back as plain JSON at
-// any point of its history, and two states compared field by field.
+// A document in Loro, without the database (play/SPEC.md §4.4): its JSON in Loro containers as its type's hints say
+// (./validate.ts; ./schemas.ts), edits as Loro operations, a whole new state turned into the few operations that make it
+// (a whole-body proposal still lands as small steps), any point of its history read as JSON, two states compared.
 import { LoroDoc, LoroList, LoroMap, LoroMovableList, LoroText } from "loro-crdt";
 import { canonical, hashText } from "../kit/hash";
 import { nodeAt, problemsOf, SchemaError, type DocType, type Node } from "./validate";
@@ -78,9 +77,8 @@ export function seed(d: LoroDoc, t: DocType, json: unknown): void {
 }
 
 /**
- * Turns the document into `target` with the fewest operations it can: texts by their changed lines or characters,
- * a list of objects that carry an `id` by its items (removed, inserted, moved, each kept item changed in place),
- * maps by their changed keys, anything else set where it differs. Not yet committed.
+ * Turns the document into `target` with the fewest operations: texts by changed lines or characters, lists of objects
+ * with an `id` by item (removed, inserted, moved, changed in place), maps by changed keys, else set. Not yet committed.
  */
 export function patchTo(d: LoroDoc, t: DocType, target: unknown): void {
   const problems = problemsOf(t, target);
@@ -229,10 +227,7 @@ export function jsonAt(d: LoroDoc, frontiers: Frontiers): any {
 
 export type Change = { path: string; kind: "added" | "removed" | "changed"; from?: unknown; to?: unknown };
 
-/**
- * What changed from `a` to `b`, field by field. Lists of objects with an `id` are followed by their ids (an item
- * added, removed or changed where it is), other lists item by item.
- */
+/** What changed from `a` to `b`, field by field: lists of objects with an `id` followed by id, other lists item by item. */
 export function diff(a: unknown, b: unknown, path = "$", out: Change[] = []): Change[] {
   if (canonical(a) === canonical(b)) return out;
   if (isObj(a) && isObj(b)) {

@@ -1,10 +1,8 @@
-// Every story is a Loro document too (play/SPEC.md §4.4, §12, "Version control"): `story:<id>`, holding its title and
-// its timeline, every change an edit. The story's versions (play.story_versions, content-addressed, numbered on accept)
-// stay what people and pins read, frozen; the document keeps every edit under them: an agent drafts a change edit by
-// edit on an intent variant (doc_edit), proposes it (propose_doc_version), and accepting merges it into Main and
-// numbers the version, the document's version of the same number. The first time a story is touched here its document
-// is made from its history: each accepted version an edit at its own date, named its number; each intent's work
-// waiting at Proposal an intent variant seeded at its base.
+// Every story is a Loro document too (play/SPEC.md §4.4, §12, "Version control"), `story:<id>`, its title and timeline.
+// Its versions (play.story_versions, content-addressed, numbered on accept) stay what people and pins read; the document
+// keeps every edit under them: drafted on an intent variant (doc_edit), proposed (propose_doc_version), accepted into
+// Main with the version's number. First touched here, it is made from the story's history: each accepted version an edit
+// at its date, each intent's work at Proposal an intent variant seeded at its base.
 import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import { authorOf, versionAt } from "./kinds";
@@ -36,8 +34,8 @@ async function frontiersOf(q: Queryable, docId: string, number: number): Promise
 }
 
 /**
- * The story's document, made from the story's history the first time (in the caller's transaction, the story's row
- * locked): every accepted version an edit at its date and named its number, every intent's work at Proposal an intent variant seeded at its base.
+ * The story's document, made from its history the first time (the caller's transaction, the story's row locked): each
+ * accepted version an edit at its date named its number, each intent's work at Proposal an intent variant at its base.
  */
 export async function ensureStoryDoc(q: Queryable, story: string): Promise<string> {
   const id = docIdOf(story);

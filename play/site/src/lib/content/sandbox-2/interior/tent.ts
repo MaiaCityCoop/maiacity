@@ -1,9 +1,7 @@
 /**
- * THE BELL TENT — where a settler sleeps on the first nights, before any dome
- * stands: a cotton canvas bell tent four metres across, on one pole, room for
- * two to sleep and to sit up in. Two mats and sleeping bags at the back, a
- * lantern on the pole, a crate for a table; outside, the campfire and two
- * chairs.
+ * THE BELL TENT — where a settler sleeps the first nights, before any dome: a cotton canvas bell tent 4 m across on one
+ * pole, room for two to sleep and sit up; mats and sleeping bags at the back, a lantern on the pole, a crate for a table;
+ * outside the campfire and two chairs.
  */
 import * as THREE from 'three'
 import type { Mats } from './interior'

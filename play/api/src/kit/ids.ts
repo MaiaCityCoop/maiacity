@@ -1,6 +1,5 @@
-// The few things play's code names itself (Samuel 2026-11-04: every reference is a UUID or a hash; a name, a slug or a
-// route is only shown). Each was once named by a readable id; migration 0017-uuids gave it the UUID it is known by from
-// then on, uuidOf("<kind>:<old id>") (./uuid.ts), and these are those UUIDs, written out. play/site's
+// The few things play's code names itself (Samuel 2026-11-04: every reference is a UUID or a hash, a name only shown):
+// the UUIDs migration 0017-uuids gave them, uuidOf("<kind>:<old id>") (./uuid.ts), written out; play/site's
 // src/lib/content/assets/sandboxes.js names the sandboxes by the same ones.
 
 /** the Maia City coop, which owns every asset (once 'maia-city') */
@@ -47,9 +46,8 @@ export const SKILL = {
  * the row migration 0027-artifacts makes. Its name is only shown. */
 export const AVENMAIA = "86090f35-1937-8d5d-bd28-194b80430f25";
 
-/** the schemas (play/SPEC.md "Version control", Samuel 2026-11-06): each a document `schema:<uuid>` of the meta-schema, in
- * play's Postgres, its v1 seeded from ../../migrations/schemas by ensureSchemas (../docs/schemas.ts); each made with a random
- * UUID when it became a document. Their labels and old names (story/1 …) are only shown. */
+/** the schemas (play/SPEC.md "Version control", Samuel 2026-11-06): each a document `schema:<uuid>`, v1 seeded by ensureSchemas
+ * (../docs/schemas.ts) from ../../migrations/schemas, a random UUID each; labels and old names (story/1 …) only shown. */
 export const SCHEMA = {
   /** the meta-schema: what every schema is, itself included */
   meta: "42094937-2aec-46f0-a813-81f7c4c970ca",
@@ -79,9 +77,8 @@ export const RULE = {
   artifacts: "0f05a3ee-1aa8-43a2-a3e8-958456f04128",
 } as const;
 
-// ---- the `Intent: <uuid>` trailer every change names its intent by (play/SPEC.md §4.12): read by the reconcile
-// (../ship.ts), the pull request's check (play/avenbox/pr-intent.ts), the live audit (play/avenbox/live-audit.ts) and,
-// as a grep, .github/workflows/intents.yml
+// ---- the `Intent: <uuid>` trailer every change names its intent by (play/SPEC.md §4.12): read by ../ship.ts's reconcile,
+// play/avenbox/pr-intent.ts, play/avenbox/live-audit.ts and, as a grep, .github/workflows/intents.yml
 
 const TRAILER_UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 /** a line `Intent: <uuid>` of a commit message or a pull request's body, any case, the UUID its group 1 */

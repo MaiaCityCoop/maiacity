@@ -1,11 +1,8 @@
-// Runs play's migrations (../migrations: the schema's history, one file `<id>.sql` per migration, its SQL as it ran,
-// kept outside the live code; play/SPEC.md "Migrations"). They run in name order, each once, in one transaction; a
-// migration is never edited after it has shipped, only followed by another. `until` stops after that migration (a test
-// builds a database as it stood then). What SQL can't write is ./seed.ts, run after it by every entry point.
-//
-// A new migration's id is `<UTC time YYYYMMDDHHMM>-<the intent's first 8 hex>-<slug>` (202611071200-e9afc2d5-files):
-// it sorts after every numbered one, and two intents never pick the same, so adding one touches only its own new file.
-// The numbered ids (0001-ownership … up to LAST_NUMBERED) are the ones shipped before, kept as play.migrations names them.
+// Runs play's migrations (../migrations: one file `<id>.sql` each, its SQL as it ran; play/SPEC.md "Migrations") in name
+// order, each once, in one transaction; a shipped migration is never edited, only followed. `until` stops after that one
+// (a test builds a database as it stood then). What SQL can't write is ./seed.ts, run after it by every entry point.
+// A new id is `<UTC YYYYMMDDHHMM>-<the intent's first 8 hex>-<slug>` (202611071200-e9afc2d5-files): it sorts after every
+// numbered one and two intents never pick the same. The numbered ids (0001-ownership … LAST_NUMBERED) shipped before.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Db } from "./kit/pg";
@@ -51,11 +48,10 @@ export async function migrate(db: Db, o: { until?: string; migrations?: Migratio
   const all = o.migrations ?? MIGRATIONS;
   const last = o.until === undefined ? all.length - 1 : all.findIndex((x) => x.id === o.until);
   if (last < 0 && o.until !== undefined) throw new Error(`migrate: no migration ${o.until}`);
-  // Two processes migrate the same database at once on a deploy (play-api as it starts, and the import beside it;
-  // 2026-11-06 the second ran 0029 again after the first had, and failed on its ALTER). So every step takes one
-  // advisory lock for its transaction and looks again whether its migration has run, under the lock.
-  // In production the role play owns the schema but may not create one in the database (play/deploy/setup.sql makes
-  // it), and CREATE SCHEMA IF NOT EXISTS checks that right even when the schema is there: so only create it if missing.
+  // Two processes migrate at once on a deploy (play-api and the import; 2026-11-06 the second ran 0029 again and failed
+  // on its ALTER), so each step takes one advisory lock and looks again, under it, whether its migration has run. In
+  // production play's role owns the schema but may not create one (play/deploy/setup.sql), and CREATE SCHEMA IF NOT
+  // EXISTS checks that right even when it exists: so only create it if missing.
   await db.transaction(async (tx) => {
     await tx.query(lockSql(LOCK.migrations));
     await tx.query(`DO $$ BEGIN

@@ -1,7 +1,6 @@
-// The way to production (play/SPEC.md §4.12, "Accept ships it"), as the workflows say it: release.yml moves production
-// to a commit of main once main.yml is green for a push (or by hand, or play's Accept again, with a sha), fast-forward
-// only, with GITHUB_TOKEN, and starts production.yml on it; production.yml writes SHIP_TOKEN into play's environment on
-// the server; the compose file hands it to play-api. Read as YAML, so a change that breaks the way is seen here.
+// The way to production (play/SPEC.md §4.12) as the workflows say it, read as YAML: release.yml fast-forwards production
+// to a commit of main once main.yml is green for a push (or by hand, or Accept again, with a sha) with GITHUB_TOKEN and
+// starts production.yml, which writes SHIP_TOKEN into play's environment; the compose file hands it to play-api.
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";

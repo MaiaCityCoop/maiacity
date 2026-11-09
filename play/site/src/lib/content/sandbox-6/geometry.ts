@@ -50,10 +50,9 @@ export function capOf(D: number) {
 const capHeight = (c: ReturnType<typeof capOf>, r: number) => Math.max(0, Math.sqrt(Math.max(0, c.R * c.R - r * r)) - (c.R - c.h));
 
 /**
- * A home dome's block (Samuel 2026-10-08): one straight block across the north of the dome, east to west, its long face
- * south over the dome's food garden. Each storey runs as far east and west as the shell lets it at its back corners
- * (`clear` over its ceiling), so it narrows storey by storey; a storey under 6 m long is left out. The fish pond fills
- * the floor between the block and the north rim.
+ * A home dome's block (Samuel 2026-10-08): one straight block across the dome's north, east to west, its long face south
+ * over the food garden; each storey as long as the shell allows at its back corners (`clear` over its ceiling), so it
+ * narrows upward, a storey under 6 m left out. The fish pond fills the floor between the block and the north rim.
  */
 export function homeBlock(D: number, o: HomeShape) {
 	const c = capOf(D), back = o.front + o.depth;

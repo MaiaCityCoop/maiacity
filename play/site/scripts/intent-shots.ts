@@ -5,9 +5,8 @@
  *   bun run dev &                                  # the dev server, http://localhost:5173
  *   bun scripts/intent-shots.ts [out dir]          # <stage>-<width>.png, and each asset upgrade's review drawn
  *
- * The asset upgrades (fixtures.ts ASSETS) are drawn from play's own files, and so is the story played in its Changes
- * tab (fixtures.ts STORIES, intent 668e9ffd): the catalog and the files are read from play.maia.city with
- * PLAY_MCP_TOKEN (its read-only routes, the header sent to play only).
+ * The asset upgrades (fixtures.ts ASSETS) and the story in its Changes tab (fixtures.ts STORIES, intent 668e9ffd) are
+ * drawn from play's own files, read from play.maia.city with PLAY_MCP_TOKEN (read-only routes, sent to play only).
  */
 import { chromium } from 'playwright';
 import { HEX } from '../src/lib/kernel/hash.js';

@@ -1,11 +1,8 @@
-// One intent holds all its work (intent 7c8986c5; play/SPEC.md §4.12 and §4.15), against a real Postgres
-// (TEST_DATABASE_URL, as for ./api.test.ts) and a fake GitHub (./fixtures/github.ts):
-// - documents: two assets' versions, a story's and a skill's proposed on one intent sit side by side, each its own intent
-//   variant; get_intent lists all four; Accept freezes each document's next version in one transaction; archive closes
-//   all of them; proposing one again replaces only that one;
-// - ship: an intent naming a pull request and holding play's work goes Accept and ship; its work waits while it ships;
-//   the reconcile seeing its merge commit live marks it Accepted and accepts its work in that step; a red step brings it
-//   back to Proposal with its work still waiting.
+// One intent holds all its work (intent 7c8986c5; play/SPEC.md §4.12, §4.15) against a real Postgres and a fake GitHub:
+// - documents: two assets', a story's and a skill's versions on one intent side by side, each its intent variant;
+//   get_intent lists all four; Accept freezes each in one transaction; archive closes all; proposing one again replaces it;
+// - ship: an intent with a pull request and play's work goes Accept and ship, its work waiting; the reconcile seeing its
+//   merge live marks it Accepted and accepts its work then; a red step brings it back to Proposal, its work still waiting.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import { type Db } from "../src/kit/pg";

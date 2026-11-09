@@ -1,7 +1,7 @@
 /**
- * SANDBOX 7 · THE SITES — the candidate regions where a new food-forest city could grow (Samuel 2026-11-09: 2,000 km²
- * or more, only villages of under 10,000 people, barren or degraded land that can be brought back), as the planet's
- * `sites` config holds them: each with its numbers, its scores and its sources, every source an artifact play keeps.
+ * SANDBOX 7 · THE SITES — candidate regions for a new food-forest city (Samuel 2026-11-09: 2,000 km² or more, only villages
+ * under 10,000 people, barren or degraded land to bring back), from the planet's `sites` config, each with its numbers,
+ * scores and sources (every source an artifact play keeps).
  */
 /** each 1 to 5: water, land to be had, the legal path, access and the climate for a food forest; and how well building
  * there restores (degraded land, nobody displaced, no intact habitat cleared) and what restoration nearby already shows */

@@ -1,9 +1,6 @@
-// Schemas as documents (src/docs/schemas.ts, play/SPEC.md "Version control") against a real Postgres: set
-// TEST_DATABASE_URL, as for ./api.test.ts.
-//
-// c1: the meta-schema validates itself and every schema; every document names its schema's UUID and the version of
-// it it was written against (test/migrate.test.ts: on a database made before them, every older document named and
-// still valid).
+// Schemas as documents (src/docs/schemas.ts, play/SPEC.md "Version control") against a real Postgres (as ./api.test.ts).
+// c1: the meta-schema validates itself and every schema; every document names its schema's UUID and version (on an older
+// database too: test/migrate.test.ts).
 // c2: a schema's new version, proposed as an intent variant, is refused at Accept while a document on Main fails it,
 // naming that document, and accepted once none does; commits are checked against the new version from then on.
 // c3: a test schema added as a document alone, with no code, is a kind: list_docs, doc_at, doc_history, doc_edit,

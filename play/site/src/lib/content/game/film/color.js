@@ -1,12 +1,9 @@
-// THE FILM'S COLOUR STANDARD — one working space for every picture, from the moment it comes in to the moment it goes
-// out: ACEScct (ACES AP1 primaries, the ACEScct log curve), processed in float. Every source is brought into it by its
-// input transform (IDT), graded in it, and taken out by one output transform (ODT) to what every delivery shows:
-// Rec.709, BT.1886 gamma 2.4, SDR (ACES 2.0 output transform): OpenColorIO's ACES 2.0 studio config, or exact maths. LUTs are made from them only while rendering — natively on
-// the Mac (vault-media's cst and aces2, the final render in vault-render) — never committed; media stays in its own
-// encoding for ever.
-//
-// Shared by the film scripts (Node), Sandbox 4's film camera, the API and the studio. The grade itself (the CDL, the
-// balance) is Rust's alone: vault-render `grade`.
+// THE FILM'S COLOUR STANDARD — one working space from in to out: ACEScct (AP1 primaries, the ACEScct log curve) in float.
+// Each source comes in by its input transform (IDT), is graded there, and leaves by one output transform (ODT): Rec.709,
+// BT.1886 gamma 2.4, SDR (ACES 2.0; OpenColorIO's ACES 2.0 studio config, or exact maths). LUTs are made from them only
+// while rendering, natively on the Mac (vault-media's cst and aces2, the final render in vault-render), never committed;
+// media stays in its own encoding for ever. Shared by the film scripts (Node), Sandbox 4's film camera, the API and the
+// studio; the grade itself (the CDL, the balance) is Rust's alone: vault-render `grade`.
 
 /**
  * Linear light with Rec.709 primaries (D65) — what the world renders, and what Rec.709 video and sRGB pictures decode

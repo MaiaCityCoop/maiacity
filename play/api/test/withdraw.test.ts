@@ -1,8 +1,7 @@
-// A document withdrawn from an intent's work before it is decided (intent ee0a7455; ../src/withdraw.ts), against a real
-// Postgres (TEST_DATABASE_URL, as for ./api.test.ts): two stories on one intent at Proposal, one withdrawn over MCP
-// (withdraw_doc) or by an admin on the board's route, both through ../src/held.ts dropDoc; the intent back in Build with
-// its results kept, the reason in its history; Accept then keeps only the other. Refused for a decided intent, a
-// document not in its work, no reason, and an agent whose admin is an admin no more.
+// A document withdrawn from an intent's work before it is decided (intent ee0a7455; ../src/withdraw.ts) against a real
+// Postgres: two stories at Proposal, one withdrawn over MCP (withdraw_doc) or on the board's route (../src/held.ts
+// dropDoc), the intent back in Build with its results and the reason in its history; Accept then keeps the other.
+// Refused for a decided intent, a document not in its work, no reason, an agent whose admin is no admin now.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Db } from "../src/kit/pg";
 import { fakeGitHub } from "./fixtures/github";

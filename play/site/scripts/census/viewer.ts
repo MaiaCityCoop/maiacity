@@ -1,12 +1,10 @@
 #!/usr/bin/env bun
 /*
- * ASSETS IN THE VIEWER, DRAWN ON THE CPU (intent 660ad67f): each asset named (its UUID) built as the asset viewer
- * builds it (load.js `vaultBuild` in the census's headless box, hero.js `forStage`, stage.js `Stage` under
- * the sky), then drawn by three's real WebGLRenderer on the kit's fake WebGL (../../src/lib/content/render/nodes/fakegl.js),
- * which throws on a vector uniform given no sequence, as a browser does. Prints one JSON line: each asset's outcome
- * (drawn, or its error and where it came from); exits 1 if any is not drawn. `--group` adds every asset of a group,
- * `--intent` builds each as that intent's variant would make it where it holds one (8823eb7c), `--root` runs another
- * tree's play/site (main's, to see a regression), this script's census the same.
+ * ASSETS IN THE VIEWER, DRAWN ON THE CPU (intent 660ad67f): each asset (by UUID) built as the viewer builds it
+ * (load.js `vaultBuild` in the census's headless box, hero.js `forStage`, stage.js `Stage` under the sky) and drawn by
+ * three's WebGLRenderer on the kit's fake WebGL (../../src/lib/content/render/nodes/fakegl.js), which throws on a vector
+ * uniform given no sequence as a browser does. One JSON line of outcomes; exit 1 if any is not drawn. `--group` adds a
+ * group, `--intent` builds each as that intent's variant would (8823eb7c), `--root` runs another tree's play/site.
  *
  *   bun play/site/scripts/census/viewer.ts [<asset uuid>…] [--group <group>] [--intent <uuid>] [--root <tree>/play/site] [--record]
  */

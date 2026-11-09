@@ -1,7 +1,6 @@
-// HOW THE INTENTS' BOARD LOADS (intent 2cb70fb8-fbbf-4473-8ac1-b8d3bb078147): on open, one request, the open columns
-// (Idea, Specify, Build, Proposal, Ship) whole and every column's count; Accepted and Archived, most of the board, are
-// fetched only when unfolded, newest first, a page at a time ("more" asks for the next page by its cursor). Plain
-// functions over the cards the board holds, so ./board.test.ts can follow what is asked of play.
+// HOW THE INTENTS' BOARD LOADS (intent 2cb70fb8-fbbf-4473-8ac1-b8d3bb078147): on open one request, the open columns whole
+// and every count; Accepted and Archived only when unfolded, newest first, a page at a time (by cursor). Plain functions
+// over the board's cards, so ./board.test.ts can follow what is asked of play.
 
 import { CLOSED_STAGES, OPEN_STAGES } from '$stages';
 
@@ -25,10 +24,7 @@ export type Get = <A>(path: string) => Promise<A>;
 /** a closed column as far as it is loaded: loaded at all, and the cursor of its next page (null at its end) */
 export type Paged = { loaded: boolean; next: string | null };
 
-/**
- * The open columns read again (on open, while one ships, after a decision): the cards of the open columns replaced,
- * the closed columns' loaded cards kept (one just decided among them, at the top of its column), and the counts.
- */
+/** The open columns read again (on open, while one ships, after a decision): their cards replaced, closed columns' loaded cards kept, counts. */
 export async function loadOpen<T extends Card>(get: Get, cards: T[]): Promise<{ cards: T[]; counts: Record<string, number> }> {
 	const a = await get<Answer<T>>(openPath());
 	const fresh = new Set(a.intents.map((i) => i.id));
@@ -36,9 +32,8 @@ export async function loadOpen<T extends Card>(get: Get, cards: T[]): Promise<{ 
 }
 
 /**
- * A closed column's next page (its first where `from` is null), added under the cards it holds of that column; one
- * already held (decided while the board was open) is not added twice. With `fresh`, its first page again, those not
- * yet held put on top (decided elsewhere since).
+ * A closed column's next page (its first where `from` is null) added under its cards, none held twice; with `fresh`
+ * its first page again, those not yet held (decided elsewhere since) on top.
  */
 export async function loadPage<T extends Card>(get: Get, cards: T[], stage: ClosedStage, from: Paged | null, fresh = false): Promise<{ cards: T[]; paged: Paged }> {
 	const a = await get<Answer<T>>(pagePath(stage, fresh ? null : from?.next));

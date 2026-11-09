@@ -1,8 +1,7 @@
 /**
- * The sounds of the land: the forest, the stream, the hens, geese and goats, each nearer as you walk up to it, muffled
- * under a dome's glass. Each is a looping recording streamed (not decoded: the five-minute forest costs next to nothing
- * in memory) from the media library, play serving it in parts (Range) so a loop begun anywhere plays at once; Web Audio
- * eases its volume. Where the browser holds sound back, it starts with the first touch, click or key.
+ * The sounds of the land (forest, stream, hens, geese, goats), nearer as you walk up, muffled under a dome's glass: each
+ * a looping recording streamed, not decoded (the five-minute forest costs next to no memory), play serving it in parts
+ * (Range) so a loop begun anywhere plays at once; Web Audio eases the volume; held back, it starts with the first touch.
  */
 import { asset } from '$lib/site/media/url'
 import { playIfAllowed, resumeIfAllowed } from '$lib/kernel/media.js'

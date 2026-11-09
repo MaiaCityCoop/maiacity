@@ -1,13 +1,10 @@
 /**
- * SANDBOX 7 · THE SCENE — the globe of hex cards in three.js, from its tiles (./globe.ts) and its two configs: the planet
- * (its radius, a card's depth, the sea floor) and the biomes (each kind's three shades, its lift and its trees).
- *
- * Every card stands at its biome's height above or below the sea, the sea floor lower the deeper it is. All the cards
- * are one mesh of flat colours: a card's face is n − 2 triangles, and an edge has a side only where the card stands
- * above its neighbour, down to the neighbour's top (the old planet drew a fan from the centre and both sides of every
- * edge, three triangles a corner). A dark core just under the lowest tops shows the deep through any seam. The trees
- * are three instanced meshes (trunk, canopy, fruit) placed on the cards by their biome's rate; the candidate sites one
- * instanced pin each, standing on the card they fall on.
+ * SANDBOX 7 · THE SCENE — the globe of hex cards in three.js from its tiles (./globe.ts) and two configs: the planet
+ * (radius, a card's depth, the sea floor) and the biomes (each kind's three shades, lift and trees). Each card stands at
+ * its biome's height, the sea floor lower the deeper it is; all one mesh of flat colours, a face n − 2 triangles and a
+ * side only above a lower neighbour (the old planet drew a fan and both sides of every edge, three triangles a corner).
+ * A dark core under the lowest tops shows the deep through any seam. Trees are three instanced meshes (trunk, canopy,
+ * fruit) by each biome's rate; the sites one instanced pin each, on the card they fall on.
  */
 import * as THREE from 'three';
 import { BIOMES, type Biome, type Tile } from './globe';

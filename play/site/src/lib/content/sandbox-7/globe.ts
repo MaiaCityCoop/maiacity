@@ -1,15 +1,10 @@
 /**
- * SANDBOX 7 · THE GLOBE — hex cards tiling a sphere.
- *
- * A sphere cannot be tiled with hexagons alone; the closest thing is a Goldberg polyhedron: the dual of a subdivided
- * icosahedron, all hexagons but for twelve pentagons at the icosahedron's corners. Each vertex of the icosphere becomes
- * one card, its corners the centroids of the triangles round it: at frequency f, 10·f² + 2 cards.
- *
- * Each card's biome is decided as the old planet decided it (the old Sandbox 2): the maps say where the land is, what
- * kind it is (the Köppen climates folded into the planet's kinds), where the mountains stand and how deep the sea is;
- * water touching land is shallow; past the polar circles the land is snow and the sea pack ice, its edge after the real
- * year-round mean; a noise on the sphere gives the land's height band and its moisture. Pure geometry and pure noise,
- * no three.js, so it can be tested.
+ * SANDBOX 7 · THE GLOBE — hex cards tiling a sphere: a Goldberg polyhedron, the dual of a subdivided icosahedron, all
+ * hexagons but twelve pentagons at its corners; each icosphere vertex a card whose corners are the centroids of the
+ * triangles round it (frequency f: 10·f² + 2 cards). Biomes decided as the old planet (Sandbox 2) did: the maps say land,
+ * kind (Köppen climates folded in), mountains and sea depth; water touching land is shallow; past the polar circles snow
+ * and pack ice (its edge after the real year-round mean); a noise gives land's height band and moisture. Pure geometry
+ * and noise, no three.js, so it can be tested.
  */
 import type { LandKind, Vec3 } from './maps';
 
@@ -194,10 +189,9 @@ export function buildGlobe(o: GlobeOptions): Tile[] {
 		// at sea the value is the depth, 0 on the shelf, 1 at the deepest painted; on land its height in its band
 		const value = sea ? Math.max(0, o.maps.depthOf(centre)) / o.deepest : (v - threshold) / Math.max(sorted[sorted.length - 1]! - threshold, 1e-6);
 		const moisture = moistures[i]!;
-		// the poles: on land the climate map says where the ice caps are (its snow); on the sea, pack ice, its edge after
-		// the real year-round mean: the Atlantic side open to about 80° N where the warm water goes, the Siberian and
-		// Canadian sides frozen from about 71° N, the Southern Ocean from about 64° S, furthest north in the Weddell Sea;
-		// the noise frays every line
+		// the poles: on land the climate map's ice caps (snow); at sea pack ice after the real year-round mean (Atlantic
+		// open to ~80° N, Siberian and Canadian sides frozen from ~71° N, the Southern Ocean from ~64° S, furthest north
+		// in the Weddell Sea), the noise fraying every line
 		const lat = (Math.asin(Math.max(-1, Math.min(1, centre[1]))) * 180) / Math.PI;
 		const lon = (Math.atan2(centre[0], centre[2]) * 180) / Math.PI;
 		const fray = 6 * (moisture - 0.5);
