@@ -60,9 +60,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
+        env:
+          IMAGE: ${{ steps.tag.outputs.image }}
         run: |
-          docker build -f play/Dockerfile --build-arg PLAY_COMMIT="$GITHUB_SHA" -t "${{ steps.tag.outputs.image }}" .
-          docker push "${{ steps.tag.outputs.image }}"
+          docker build -f play/Dockerfile --build-arg PLAY_COMMIT="$GITHUB_SHA" -t "$IMAGE" .
+          # ghcr.io now and then refuses one push (e5ddf0b2: permission_denied, nothing changed, the next pushed fine):
+          # the push is tried up to three times before the deploy stops (intent 14dc8d5f); the build only once
+          for try in 1 2 3; do
+            if docker push "$IMAGE"; then break; fi
+            [ "$try" -lt 3 ] || { echo "the image: the push failed three times"; exit 1; }
+            echo "the image: the push failed (try $try of 3); again …"; sleep $((10 * try))
+          done
 
   # Before anything on the server changes: play's schema and a full copy of its files to the bucket, with the image that
   # ran with them (deploy/backup.sh, which lists the store and stops if a file is missing). Beside The image, not after

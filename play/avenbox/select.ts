@@ -18,12 +18,12 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 export type Plan = {
-  steps: string[]; // in the gate's order: api-types, api-tests, site-build, website-check, website-build, lint
+  steps: string[]; // in the gate's order: api-types, api-tests, site-build, site-tests, site-physics, website-check, website-build, lint
   tests: string[] | "all"; // play/api's test files (relative to play/api), or every one
   why: string[];
 };
 
-const STEPS = ["api-types", "api-tests", "site-build", "website-check", "website-build", "lint"] as const;
+const STEPS = ["api-types", "api-tests", "site-build", "site-tests", "site-physics", "website-check", "website-build", "lint"] as const;
 const CODE = /\.(ts|js|mjs|cjs|tsx|jsx|json)$/;
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
 
@@ -66,7 +66,8 @@ const everything = (p: string) =>
 
 /** The plan for `changed` (paths from the repository's root), or for everything with `changed` null. */
 export function plan(root: string, changed: string[] | null): Plan {
-  if (changed === null) return { steps: [...STEPS], tests: "all", why: ["everything: --all, one part named, or no merge base to diff against"] };
+  // everything but Sandbox 2's physics: switched off (intent 94c11a28), they run only by name (gate.sh physics)
+  if (changed === null) return { steps: STEPS.filter((s) => s !== "site-physics"), tests: "all", why: ["everything: --all, one part named, or no merge base to diff against"] };
   const why: string[] = [];
   const steps = new Set<string>();
   const files = [...new Set(changed.map((p) => p.trim()).filter(Boolean))];
@@ -79,7 +80,8 @@ export function plan(root: string, changed: string[] | null): Plan {
   for (const f of files) {
     if (f.startsWith("website/")) steps.add("website-check").add("website-build");
     if (f.startsWith(".github/workflows/")) steps.add("lint");
-    if (f.startsWith("play/site/") || f.startsWith("play/api/")) steps.add("site-build");
+    // the site's build and its whole test suite (vitest), wherever its build is (intent 417af727)
+    if (f.startsWith("play/site/") || f.startsWith("play/api/")) steps.add("site-build").add("site-tests");
     if (f.startsWith("play/api/")) steps.add("api-types");
     if (everything(f)) {
       all = true;
@@ -124,7 +126,8 @@ export function changedPaths(root: string): string[] | null {
 
 if (import.meta.main) {
   const root = resolve(import.meta.dir, "../..");
-  const p = plan(root, process.argv.includes("--all") ? null : changedPaths(root));
+  const changed = changedPaths(root);
+  const p = plan(root, process.argv.includes("--all") ? null : changed);
   for (const s of p.steps) console.log(`step ${s}`);
   if (p.tests !== "all") for (const t of p.tests) console.log(`test ${t}`);
   for (const w of p.why) console.log(`why ${w}`);

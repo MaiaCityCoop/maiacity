@@ -666,12 +666,21 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     passed on (`ship.ts`, unchanged); the older head's run is cancelled (`concurrency`) and its record skipped
     (`!cancelled()`): it records nothing and is not red. Looks are still judged and recorded by hand (`check_intent`).
   - **Only the box's run is evidence.** intents-pr.yml runs on `pull_request_target`, for heads in this repository
-    only, in three jobs: **spec** (main's `pr-intent.ts --id` and `intent.ts <uuid> --spec-out`, with avenBOX's token),
-    **run** (the head checked out with `persist-credentials: false`, no secret and a read-only `GITHUB_TOKEN`; main's
-    intent.ts, handed over by spec, runs the spec's checks with `--from <spec> --results-out <file> --root <head>`) and
-    **record** (main's `intent.ts <uuid> --record-from <results> --pr <n> --head <sha>`, with avenBOX's token, refusing
-    results of another intent or another commit; `contents: read` only, skipped when the run is cancelled). The workflow and
-    the intent.ts that hold a token are always main's. **avenBOX's token** is an admin's access token marked so on
+    only, in five jobs, **main** and **run** side by side once **spec** is done, so a run with a Sandbox 1 census
+    takes about 3 minutes, not 6 to 12 (intent 006eb26a): **spec** (main's `pr-intent.ts --id` and `intent.ts <uuid>
+    --spec-out`, with avenBOX's token), **main** (main's measures, no secret: the merge base from GitHub's compare,
+    checked out alone at depth 1 and sparse, measured by main's `play/avenbox/vs-main.ts --main-of <spec>` for every
+    vs-main call in the spec, kept in GitHub's cache by the git objects of what those calls read, so a main that leaves
+    them as they are is not measured again), **run** (the head checked out with `persist-credentials: false`, no secret
+    and a read-only `GITHUB_TOKEN`; main's intent.ts, handed over by spec, runs the spec's checks with `--from <spec>
+    --results-out <file> --root <head>`; a vs-main call there measures the head only, `VS_MAIN_HEAD_OUT`, kept for
+    its check), **compare** (main's `vs-main.ts --fold`, no secret: once both sides are measured, each of the head's
+    calls against main's measure, into its check's result and evidence; main's measure missing fails that check,
+    saying so) and **record** (main's `intent.ts <uuid> --record-from <compared results> --pr <n> --head <sha>`, with
+    avenBOX's token, refusing results of another intent or another commit; `contents: read` only, skipped when the run
+    is cancelled). Nothing is recorded before the comparison. The workflow and the intent.ts that hold a token are
+    always main's; a `workflow_dispatch` with a pull request's number is a dry run of a branch's own file, recording
+    nothing. **avenBOX's token** is an admin's access token marked so on
     play's profile page (`play.api_tokens.avenbox`, migration `202611070145-4ea6b2ed-avenbox-token`; `POST /api/tokens/<id>/avenbox`), the repository
     secret `PLAY_MCP_TOKEN` that intents-pr.yml, intent-named.yml and intents.yml hold. From any other token
     `check_intent` refuses a pull request named and every test or measure result that could decide a code intent (on a

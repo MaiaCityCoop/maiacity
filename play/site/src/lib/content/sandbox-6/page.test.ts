@@ -2,14 +2,15 @@
 // its route on the world kit's page, the places list pointing at it; the page reads its village and audit from its
 // sandbox's config, and the code under src/lib/content/sandbox-6 and src/routes/sandbox-6 holds no site of the village
 // and no input of its audit, nor anything of the old repository.
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import village from '../../../../../api/import/sandboxes/sandbox-6/village.json';
 import audit from '../../../../../api/import/sandboxes/sandbox-6/audit.json';
 import { PLACES } from '../game/places.js';
 
-const SITE = join(import.meta.dir, '../../../..');
+const SITE = fileURLToPath(new URL('../../../../', import.meta.url));
 const read = (p: string) => readFileSync(join(SITE, p), 'utf8');
 const ROUTE = 'src/routes/sandbox-6/+page.svelte';
 const code = () => {

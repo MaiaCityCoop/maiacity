@@ -87,13 +87,20 @@ elif [ -n "${PLAY_DATA_PATH:-}" ] && [ -d "$PLAY_DATA_PATH/blobs" ]; then
 else
   echo "backup: play.env names neither PLAY_BUCKET nor a PLAY_DATA_PATH with blobs/: no files to copy"; exit 1
 fi
-# the bucket now and then answers a copy of a large file with a GatewayTimeout: the sync is run again (it copies only
-# what is still missing), up to three times, before the backup gives up
-for try in 1 2 3; do
-  if copy; then break; fi
-  [ "$try" -lt 3 ] || { echo "backup: adding play's files to the store failed three times"; exit 1; }
-  echo "backup: the copy stopped short (try $try of 3); copying what is still missing …"; sleep $((10 * try))
-done
+# the bucket now and then refuses a call (a GatewayTimeout on a large file's copy, a PutObject error on the snapshot's
+# upload: fb220a9c, e5ddf0b2): the step is run again, up to three times, before the backup gives up (intent 14dc8d5f).
+# Both steps it runs may run again: the sync copies only what is still missing, the upload writes the same three files.
+#   retry <what> <command…>
+retry() {
+  local what="$1" try
+  shift
+  for try in 1 2 3; do
+    if "$@"; then return 0; fi
+    [ "$try" -lt 3 ] || { echo "backup: $what failed three times"; return 1; }
+    echo "backup: $what stopped short (try $try of 3); again …"; sleep $((${RETRY_WAIT:-10} * try))
+  done
+}
+retry "adding play's files to the store" copy || exit 1
 # a snapshot holds every file the dump names, or it is no snapshot: each in the store under its hash, at its size
 backup_cli s3 ls "s3://$BACKUP_BUCKET/$STORE_PREFIX/" --recursive >"$WORK/store.txt"
 MISSING=$(awk 'NR == FNR { n = split($4, k, "/"); have[k[n]] = $3; next } !($1 in have) || have[$1] != $2 { print $1 }' \
@@ -126,7 +133,7 @@ EOF
 
 echo "backup: uploading the snapshot to s3://$BACKUP_BUCKET/$PREFIX/ …"
 # Hetzner's S3 does not take the checksums newer AWS CLIs send by default, only when an operation requires one
-backup_cli s3 cp /work "s3://$BACKUP_BUCKET/$PREFIX/" --recursive --only-show-errors
+retry "uploading the snapshot" backup_cli s3 cp /work "s3://$BACKUP_BUCKET/$PREFIX/" --recursive --only-show-errors || exit 1
 # and all three are there, each at its size
 LISTED=$(S3_TIMEOUT=300 backup_cli s3 ls "s3://$BACKUP_BUCKET/$PREFIX/")
 for f in play.dump files.txt manifest.json; do

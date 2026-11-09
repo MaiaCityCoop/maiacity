@@ -23,7 +23,7 @@ const intent = argv.includes('--intent') ? argv[argv.indexOf('--intent') + 1] : 
 const ids = argv.filter((a) => /^[0-9a-f-]{36}$/.test(a) && a !== intent);
 const all = argv.includes('--all');
 if (!all && (!intent || !ids.length)) throw new Error('own-versions: --intent <uuid> <asset uuid>… | --all');
-setup({ inputs: join(import.meta.dir, 'inputs'), record: argv.includes('--record') });
+setup({ inputs: join(import.meta.dir, 'inputs'), record: argv.includes('--record'), fresh: true });
 
 const get = async (route: string) => {
 	const r = await fetch(route);

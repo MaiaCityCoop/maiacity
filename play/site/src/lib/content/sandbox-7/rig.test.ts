@@ -1,7 +1,7 @@
 // Sandbox 7's camera, from orbit to a walk (intent 8d683ad6, c8): the zoom on a log scale between eye height and the
 // ceiling, the gaze straight down far out and toward the horizon at the bottom, a drag that turns the globe far out and
 // walks near it, the keys walking along the surface at eye height, and a flight that ends over the point it was sent to.
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import * as THREE from 'three';
 import { latLonOf } from './maps';
 import { GlobeRig } from './rig';
