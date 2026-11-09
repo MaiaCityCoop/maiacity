@@ -112,7 +112,7 @@ function resultsOn(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "he
 export const unmetOn = (intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head" | "checks" | "merged_in">) => resultsOn(intent, seen).unmet;
 
 /** what the board says of results kept across play's main merges: "c1, c2 passed on 7aa4590, kept across main's merge", or "" */
-export function keptWhy(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head" | "checks" | "merged_in">) {
+function keptWhy(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head" | "checks" | "merged_in">) {
   const { kept } = resultsOn(intent, seen);
   return kept.length ? `${kept.join("; ")}, kept across main's merge` : "";
 }

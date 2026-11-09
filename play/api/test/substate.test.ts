@@ -156,7 +156,7 @@ describe("results across play's main merges", () => {
 
   test("kept across two main merges in a row", () => {
     let s = carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B }), [A, M1]);
-    // main moves again: play merges M2 into B (./mainmerge.ts goes on with the row), GitHub makes C
+    // main moves again: play merges M2 into B (../src/mainmerge.ts goes on with the row), GitHub makes C
     s = { ...s, merged_in: [...s.merged_in!, merge(B, M2)] };
     s = carrySeen(s, seen({ head: B }));
     expect(s.merged_in).toHaveLength(2);
