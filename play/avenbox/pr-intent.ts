@@ -23,20 +23,23 @@ const intentsIn = (text: string | null | undefined) => [...`${text ?? ""}`.match
 export type Verdict = { ok: boolean; intent?: string; why: string; notes: string[] };
 type Env = { github: string; repo: string; ghToken?: string; play: string; playToken?: string };
 
-async function getJson(url: string, headers: Record<string, string>) {
+type Pull = { title?: string | null; body?: string | null; state?: string; merged_at?: string | null };
+type Commit = { commit?: { message?: string | null } };
+
+async function getJson<T>(url: string, headers: Record<string, string>): Promise<T> {
   const r = await fetch(url, { headers });
   if (!r.ok) throw new Error(`${url} answered ${r.status}`);
-  return r.json() as Promise<any>;
+  return r.json() as Promise<T>;
 }
 
 /** the verdict on pull request `n`: whether it names its one intent, live, and is its active pull request */
 export async function judge(n: number, env: Env): Promise<Verdict> {
   const gh = { accept: "application/vnd.github+json", ...(env.ghToken ? { authorization: `Bearer ${env.ghToken}` } : {}) };
   const base = `${env.github.replace(/\/$/, "")}/repos/${env.repo}`;
-  const pull = await getJson(`${base}/pulls/${n}`, gh);
-  const commits: any[] = [];
+  const pull = await getJson<Pull>(`${base}/pulls/${n}`, gh);
+  const commits: Commit[] = [];
   for (let page = 1; page <= 10; page++) {
-    const got = (await getJson(`${base}/pulls/${n}/commits?per_page=100&page=${page}`, gh)) as any[];
+    const got = await getJson<Commit[]>(`${base}/pulls/${n}/commits?per_page=100&page=${page}`, gh);
     commits.push(...got);
     if (got.length < 100) break;
   }
@@ -57,10 +60,11 @@ export async function judge(n: number, env: Env): Promise<Verdict> {
     return { ok: false, intent, why: `#${n} names intent ${intent}, which is at the ${it.stage} stage: a pull request is the work of an intent at Build, Proposal or Ship.`, notes };
   const active = it.pull_request as number | null;
   if (active && active !== n) {
-    const other = await getJson(`${base}/pulls/${active}`, gh).catch(() => null);
+    let unread = "";
+    const other = await getJson<Pull>(`${base}/pulls/${active}`, gh).catch((e: Error) => ((unread = e.message), null));
     if (other?.state === "open")
       return { ok: false, intent, why: `#${n} is not the active pull request of intent ${intent}: #${active} is, and open. Consolidate this work into #${active}, or close this one.`, notes };
-    notes.push(`the intent's pull request was #${active} (${other?.merged_at ? "merged" : "closed"}): its run names this one`);
+    notes.push(`the intent's pull request was #${active} (${other?.merged_at ? "merged" : unread ? `unread: ${unread}` : "closed"}): its run names this one`);
   }
   return { ok: true, intent, why: `#${n} is the work of intent ${intent} (${it.stage})${active === n ? ", its active pull request" : active ? "" : ", none named yet"}.`, notes };
 }
