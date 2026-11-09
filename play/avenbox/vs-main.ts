@@ -153,11 +153,14 @@ export function mainOf(repo = REPO): string {
 		const base = tryGit(repo, 'merge-base', 'HEAD', 'origin/main');
 		if (base) return base;
 		if (tryGit(repo, 'rev-parse', '--is-shallow-repository') !== 'true') break;
-		if (i < 5) tryGit(repo, 'fetch', '--quiet', `--deepen=${50 << i}`, 'origin', head, '+refs/heads/main:refs/remotes/origin/main');
-		else tryGit(repo, 'fetch', '--quiet', '--unshallow', 'origin', head, '+refs/heads/main:refs/remotes/origin/main');
+		// main by its ref and the head by its hash, each on its own (a server may refuse one), deeper each time
+		const depth = i < 5 ? `--deepen=${50 << i}` : '--deepen=1000000';
+		tryGit(repo, 'fetch', '--quiet', depth, 'origin', '+refs/heads/main:refs/remotes/origin/main');
+		tryGit(repo, 'fetch', '--quiet', depth, 'origin', head);
 	}
 	const tip = tryGit(repo, 'rev-parse', '--verify', '--quiet', 'origin/main^{commit}');
 	if (!tip) throw new Error('vs-main: no origin/main here');
+	console.error(`vs-main: no merge base of HEAD and origin/main here: main is origin/main's tip ${tip.slice(0, 9)}`);
 	return tip;
 }
 

@@ -84,6 +84,8 @@ describe('against main in a git repository', () => {
 	beforeAll(() => {
 		origin = join(TMP, 'origin');
 		execFileSync('git', ['init', '-q', '-b', 'main', origin]);
+		// as GitHub, it hands out any commit by its hash (a pull request's head)
+		git(origin, 'config', 'uploadpack.allowAnySHA1InWant', 'true');
 		commit(origin, 'a.txt', 'one\ntwo\n');
 		base = commit(origin, 'n.txt', '3\n');
 		work = join(TMP, 'work');
