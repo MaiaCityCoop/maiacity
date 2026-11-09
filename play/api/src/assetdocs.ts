@@ -35,6 +35,7 @@ import { SCHEMA } from "./ids";
 import { GROUPS, isGroup } from "./groups";
 import { assetOwner, assetSeen, fileTypes, keepFile, newAssetOwner, OwnerError, PRIVATE_GROUPS, seesAsset } from "./owners";
 import { heldLod, lodGiven, LodError } from "./lod";
+import { GraphsError, heldGraphs } from "./graphs";
 
 export const HISTORY = join(import.meta.dir, "../import/history");
 export const assetDocId = (asset: string) => `asset:${asset}`;
@@ -589,6 +590,13 @@ function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n
   const hash = hashText(source);
   const why = accepted.has(hash) ? null : unreadable(source);
   if (why) throw new VersionError(`The source is not readable: ${why}.`);
+  // its own looks only as node graphs of the one allowlist, checked as the box and the page check them (./graphs.ts)
+  if (!accepted.has(hash))
+    try {
+      heldGraphs(source);
+    } catch (e) {
+      throw e instanceof GraphsError ? new VersionError(e.message) : e;
+    }
   const recipe = RECIPE_HEAD + source + recipeTail(slug, n, variant);
   return { source: { text: source, hash }, recipe: { text: recipe, hash: hashText(recipe) }, libs: libsOf(source), pieces: piecesOf(source) };
 }

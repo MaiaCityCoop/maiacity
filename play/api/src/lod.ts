@@ -88,12 +88,13 @@ export function heldLod(given: unknown, source: string, params: string[], what =
 
 /**
  * A plain JavaScript literal read from `text` at `at`: arrays, objects (keys as names or strings), strings, numbers,
- * true, false and null, with comments and trailing commas; anything else refused.
+ * true, false and null, with comments and trailing commas; anything else refused. `what` names it in a refusal (what
+ * a source exports), `deep` how deep its lists and objects may nest. Also read by ./graphs.ts (a recipe's graphs).
  */
-function literal(text: string, at: number): unknown {
+export function literal(text: string, at: number, { what = "module.exports.levels", deep = 8 } = {}): unknown {
   let i = at;
   const fail = (why: string): never => {
-    throw new LodError(`module.exports.levels is written as a plain literal (lists, objects, numbers, strings): ${why} at character ${i}.`);
+    throw new LodError(`${what} is written as a plain literal (lists, objects, numbers, strings): ${why} at character ${i}.`);
   };
   const space = () => {
     for (;;) {
@@ -127,7 +128,7 @@ function literal(text: string, at: number): unknown {
     space();
     const c = text[i];
     if (c === "[") {
-      if (++depth > 8) fail("too deep");
+      if (++depth > deep) fail("too deep");
       i++;
       const out: unknown[] = [];
       for (;;) {
@@ -143,7 +144,7 @@ function literal(text: string, at: number): unknown {
       return out;
     }
     if (c === "{") {
-      if (++depth > 8) fail("too deep");
+      if (++depth > deep) fail("too deep");
       i++;
       const out: Record<string, unknown> = {};
       for (;;) {
@@ -171,6 +172,11 @@ function literal(text: string, at: number): unknown {
       return out;
     }
     if (c === "'" || c === '"') return str();
+    const hex = /^0[xX][0-9a-fA-F]{1,12}(?![0-9A-Za-z_$])/.exec(text.slice(i, i + 40));
+    if (hex) {
+      i += hex[0].length;
+      return Number(hex[0]);
+    }
     const n = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/.exec(text.slice(i, i + 40));
     if (n) {
       i += n[0].length;
