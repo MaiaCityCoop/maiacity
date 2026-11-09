@@ -31,7 +31,7 @@ import { REPO, treeAt } from '../site/scripts/census/tree';
 
 export type Values = Record<string, number>;
 /** a tolerance for every value (`pct`), or per value by the start of its key (`by`: near, far tris …) */
-export type Bound = { kind: 'within' | 'down'; pct: number; by?: Record<string, number> };
+type Bound = { kind: 'within' | 'down'; pct: number; by?: Record<string, number> };
 export type Measure = { what: 'census' | 'bytes' | 'lines' | 'count'; args: string[] };
 
 const git = (repo: string, ...a: string[]) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28 }).trim();
@@ -42,7 +42,7 @@ const tryGit = (repo: string, ...a: string[]) => {
 		return '';
 	}
 };
-export const cacheDir = () => resolve(process.env.VS_MAIN_CACHE ?? join(process.env.HOME ?? '/tmp', '.cache/maiacity-vs-main'));
+const cacheDir = () => resolve(process.env.VS_MAIN_CACHE ?? join(process.env.HOME ?? '/tmp', '.cache/maiacity-vs-main'));
 
 /** `3%`, `3`, `0.5%` → 3 / 0.5; anything else refused */
 export function parsePct(s: string | undefined): number {

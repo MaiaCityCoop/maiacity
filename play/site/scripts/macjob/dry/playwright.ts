@@ -71,7 +71,7 @@ function treeOf(url: URL) {
 const ROUTES: Record<string, 'sandbox-1' | 'sandbox-3' | 'worlds'> = { '/sandbox-1/': 'sandbox-1', '/sandbox-3/': 'sandbox-3', '/worlds/': 'worlds' };
 
 /** the reason a call is a dry run's failure: a throw in the page, or a call that never settled */
-export class DryHang extends Error {}
+class DryHang extends Error {}
 
 /** a call that settles within `s` seconds, else a hang told with the job's line it was called from */
 function bounded<T>(p: Promise<T>, s: number, what: string, at: string): Promise<T> {
@@ -279,5 +279,6 @@ export const chromium = {
 	launchPersistentContext: async (_dir: string, o?: any) => (clearTimeout(ending), new PersistentContext(o)),
 	name: () => 'chromium'
 };
-export const firefox = chromium, webkit = chromium;
+const firefox = chromium;
+export const webkit = chromium;
 export default { chromium, firefox, webkit };
