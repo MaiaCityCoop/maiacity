@@ -26,7 +26,7 @@
 import * as THREE from 'three';
 import { CAST, SECOND_HOME } from './cast.js';
 import { createControls, ready } from '$lib/content/render/core.js';
-import { worldRenderer } from '$lib/content/render/world.js';
+import { worldFinish, worldRenderer } from '$lib/content/render/world.js';
 import { blend } from '$lib/content/assets/clips.js';
 import { SPEED } from '$lib/content/models/units.js';
 import { lineDur } from './tour.js';
@@ -3675,7 +3675,7 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 		if (!drawn_) return;
 		light(t);
 		drawn.update();
-		if (own) renderer.render(scene, camera);
+		if (own) finish ? finish.render(film ? t : undefined) : renderer.render(scene, camera);
 		if (++frame % 4 === 0) {
 			const w = canvas.clientWidth;
 			const h = canvas.clientHeight;
@@ -3707,7 +3707,11 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 	}
 	// its own frames once the renderer is ready (WebGPU's device asked for; on WebGL at once), unless left before
 	let left = false;
-	const made = ready(renderer);
+	/** @type {import('$lib/content/render/world.js').WorldFinish | null} the picture finished (intent 1f0c6f79): the haze, the device's pipeline */
+	let finish = null;
+	const made = ready(renderer).then(() => {
+		if (!left) finish = worldFinish(renderer, scene, camera, { sky, film });
+	});
 	if (own) void made.then(() => !left && loop());
 
 	/** the film's hold on the world (./film.js): the world brought back to how a moment of the story starts, whatever
@@ -3819,6 +3823,7 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 			window.removeEventListener('keydown', onKey);
 			window.removeEventListener('keyup', onKey);
 			controls.dispose();
+			finish?.dispose();
 			sky.dispose();
 			renderer.dispose();
 		}
