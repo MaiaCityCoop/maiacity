@@ -144,4 +144,18 @@ describe('a graph built', () => {
 		other.userData.graph = { format: 1, nodes: [{ op: 'color', value: 1 }], out: { color: 0 } };
 		expect(presets.of(other)).not.toBe(kept);
 	});
+	it('outputs share the graph: five outputs of one value cost what one does', () => {
+		const nodes = [{ op: 'positionWorld' }];
+		let layer = [];
+		for (let i = 0; i < 60; i++) nodes.push({ op: 'worley', in: [0] }), layer.push(nodes.length - 1);
+		while (layer.length > 1) {
+			const next = [];
+			for (let i = 0; i < layer.length; i += 2) if (i + 1 < layer.length) nodes.push({ op: 'add', in: [layer[i], layer[i + 1]] }), next.push(nodes.length - 1); else next.push(layer[i]);
+			layer = next;
+		}
+		const last = nodes.length - 1;
+		const one = glslOf(built({ format: 1, nodes, out: { roughness: last } })).fragmentShader.length;
+		const five = glslOf(built({ format: 1, nodes, out: { roughness: last, metalness: last, opacity: last, color: last, emissive: last } })).fragmentShader.length;
+		expect(five).toBeLessThan(one * 1.2);
+	});
 });

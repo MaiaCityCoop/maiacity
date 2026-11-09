@@ -122,6 +122,14 @@ describe('what it refuses, saying why', () => {
 		expect(refused(g1([{ op: 'time' }], { opacity: 3 }))).toMatch(/node's place/);
 		expect(Object.keys(OUTPUTS)).toEqual(['color', 'emissive', 'opacity', 'roughness', 'metalness', 'position']);
 	});
+	it('lists with holes: what it checks is what it copies', () => {
+		// eslint-disable-next-line no-sparse-arrays
+		expect(refused({ format: 1, nodes: [, { op: 'float', value: 1 }, { op: 'add', in: [1, 1] }], out: { opacity: 1 } })).toMatch(/without holes/);
+		// eslint-disable-next-line no-sparse-arrays
+		expect(refused(g1([{ op: 'vec3', value: [1, , 3] }], { color: 0 }))).toMatch(/without holes/);
+		const extra = Object.assign([{ op: 'time' }], { more: 1 });
+		expect(refused(g1(extra, { opacity: 0 }))).toMatch(/without holes/);
+	});
 	it('throws a GraphError for checkGraph', () => {
 		expect(() => checkGraph({})).toThrow(GraphError);
 	});

@@ -288,8 +288,9 @@ export function cutBy(m, cut, look) {
 	const face = faceOf(cut);
 	const color = uniform(new THREE.Color(look.color)), rough = uniform(look.rough), metal = uniform(look.metal);
 	m.cap = { face, color, rough, metal };
-	m.roughnessNode = select(face.on, rough, materialRoughness);
-	m.metalnessNode = select(face.on, metal, materialMetalness);
+	// off the cut face, the material's own (its graph's, where it has one: ./graph.js)
+	m.roughnessNode = select(face.on, rough, m.roughnessNode ?? materialRoughness);
+	m.metalnessNode = select(face.on, metal, m.metalnessNode ?? materialMetalness);
 	const nv = normalize(cameraViewMatrix.mul(vec4(face.n.negate(), 0)).xyz);
 	m.normalNode = select(face.on, select(dot(nv, positionView.negate().normalize()).greaterThan(0), nv.negate(), nv), materialNormal);
 	m.side = THREE.DoubleSide;

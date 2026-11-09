@@ -3,8 +3,8 @@
  * A RECIPE'S OWN LOOK, BUILT (intent a5faafad, GPU 14/14): a node graph a recipe gave its material, as plain data the
  * page has checked (../../assets/box/graph.js `checkGraph`, the one allowlist), built into TSL nodes here from that
  * list alone: each operation by its name from `BUILD`, nothing else, no code of the asset's ever run. A graph is
- * built once per output, each node of it a variable of its own (`toVar`), so a value used many times is worked out
- * once and the shader grows with the graph's nodes, never with its paths.
+ * built once, its outputs sharing its nodes, so a value used many times is worked out once per shader stage and the
+ * shader grows with the graph's nodes, never with its paths or its outputs.
  *
  * `applyGraph(n, graph)` gives a node material of ours (./index.js `nodeOf`) the graph's outputs: its colour, glow,
  * opacity, roughness, metalness and its vertices' place. Everything else it draws as before (its lights, its shadow,
@@ -65,55 +65,39 @@ export const BUILD_OPS = Object.keys(BUILD);
 /** an operation of several inputs, each spread to the result's type first (GLSL wants them alike) */
 const wide = ([, ins, types, t], f) => f(...ins.map((v, k) => as(v, types[k], t)));
 
-/** the places of the nodes `i` is worked out from, itself among them */
-function reach(nodes, i) {
-	const seen = new Set(), todo = [i];
-	while (todo.length) {
-		const k = todo.pop();
-		if (seen.has(k)) continue;
-		seen.add(k);
-		todo.push(...(nodes[k].in ?? []));
-	}
-	return seen;
-}
-
-/** a checked list's nodes built (only those in `only`, else all), each a variable, with their types */
-function built(nodes, m, carried, only) {
+/**
+ * A checked list's nodes built once, with their types: each value one TSL node shared by every node and output that
+ * reads it, so three works it out once per shader stage (a value read twice or more is given a variable of its own:
+ * TSL's temporaries), never once per path or per output. A loop is a function of its own, its value carried in a
+ * variable, its body built inside it.
+ */
+function built(nodes, m, carried) {
 	const values = [], types = [];
-	for (const [i, x] of nodes.entries()) {
-		if (only && !only.has(i)) {
-			values.push(undefined);
-			types.push(undefined);
-			continue;
-		}
+	for (const x of nodes) {
 		const ins = (x.in ?? []).map((k) => values[k]);
 		const ts = (x.in ?? []).map((k) => types[k]);
-		let t;
-		if (x.op === 'acc') {
-			values.push(carried.value);
-			types.push(carried.type);
+		if (x.op === 'acc' || x.op === 'index') {
+			values.push(x.op === 'acc' ? carried.value : carried.index);
+			types.push(x.op === 'acc' ? carried.type : 'float');
 			continue;
 		}
-		if (x.op === 'index') {
-			values.push(carried.index);
-			types.push('float');
-			continue;
-		}
-		t = typeOf(x, ts);
-		let v;
-		if (x.op === 'loop') {
-			const acc = ins[0].toVar();
-			Loop(x.count, ({ i }) => {
-				const body = built(x.body, m, { value: acc, type: ts[0], index: float(i) });
-				acc.assign(body.values.at(-1));
-			});
-			v = acc;
-		} else v = BUILD[x.op](x, ins, ts, t, m).toVar();
-		values.push(v);
+		const t = typeOf(x, ts);
+		values.push(x.op === 'loop' ? looped(x, ins[0], ts[0], m) : BUILD[x.op](x, ins, ts, t, m));
 		types.push(t);
 	}
 	return { values, types };
 }
+
+/** a loop of a constant count: its value carried in a variable, its body built once inside it */
+const looped = (x, init, type, m) =>
+	Fn(() => {
+		const acc = init.toVar();
+		Loop(x.count, ({ i }) => {
+			const body = built(x.body, m, { value: acc, type, index: float(i) });
+			acc.assign(body.values.at(-1));
+		});
+		return acc;
+	})();
 
 /** a node's type, from OPS (the one list) */
 function typeOf(x, ts) {
@@ -130,12 +114,9 @@ function typeOf(x, ts) {
 export function applyGraph(n, graph) {
 	const slots = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'emissiveMap', 'aoMap', 'bumpMap'].filter((k) => n[k]?.isTexture);
 	const g = checkGraph(graph, { slots });
-	const output = (name) =>
-		Fn(() => {
-			const i = g.out[name];
-			const { values, types } = built(g.nodes, n, undefined, reach(g.nodes, i));
-			return as(values[i], types[i], OUTPUTS[name]);
-		})();
+	// built once: the outputs share its nodes (one stage's outputs work each value out once between them)
+	const { values, types } = built(g.nodes, n, undefined);
+	const output = (name) => as(values[g.out[name]], types[g.out[name]], OUTPUTS[name]);
 	if (g.out.color !== undefined) n.colorNode = output('color');
 	if (g.out.emissive !== undefined) n.emissiveNode = output('emissive');
 	if (g.out.opacity !== undefined) n.opacityNode = output('opacity');

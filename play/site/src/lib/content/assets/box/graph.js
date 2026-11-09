@@ -32,6 +32,9 @@ export const GRAPH_FORMATS = [1];
 
 export const LIMITS = { nodes: 256, bytes: 32768, depth: 64, cost: 4096, loop: 16, loops: 2, octaves: 8, value: 1e6 };
 
+/** how many different graphs one build may give its materials (each is a shader program of its own to compile) */
+export const GRAPHS_MOST = 32;
+
 /** a material's inputs a graph may draw, and the type each takes */
 export const OUTPUTS = { color: 'vec3', emissive: 'vec3', opacity: 'float', roughness: 'float', metalness: 'float', position: 'vec3' };
 
@@ -149,6 +152,8 @@ function plain(x, what) {
 const list = (x, what, most) => {
 	if (!Array.isArray(x)) fail(`${what} is a list`);
 	if (x.length > most) fail(`${what} has ${x.length} items, more than ${most}`);
+	// every place filled (a list with holes would be read one way and copied another), and nothing beside its items
+	if (Object.keys(x).length !== x.length) fail(`${what} is a list without holes`);
 	return x;
 };
 const number = (x, what) => (typeof x === 'number' && Number.isFinite(x) && Math.abs(x) <= LIMITS.value ? x : fail(`${what} is a number within ±${LIMITS.value}`));

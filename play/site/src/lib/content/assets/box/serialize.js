@@ -22,7 +22,7 @@
  * own is refused, saying which, and no longer goes out silently as a plain one.
  */
 import { ShaderChunk, Vector3 } from 'three';
-import { checkGraph } from './graph.js';
+import { checkGraph, GRAPHS_MOST } from './graph.js';
 
 export const FORMAT = 5;
 /** the kinds a graph may be given: those the page draws as node materials (../../render/nodes/index.js `nodeOf`) */
@@ -85,6 +85,8 @@ export async function serialize(root, { controls = [], view } = {}) {
 	const buffers = new Set();
 	const pending = [];
 	const stats = { tris: 0, skinned: 0 };
+	/** the different graphs given so far, as JSON */
+	const graphs = new Set();
 
 	const array = (a) => {
 		buffers.add(a.buffer);
@@ -152,6 +154,8 @@ export async function serialize(root, { controls = [], view } = {}) {
 			} catch (e) {
 				throw new Error(`${what}: its graph is refused: ${e?.message ?? e}`);
 			}
+			graphs.add(JSON.stringify(graph));
+			if (graphs.size > GRAPHS_MOST) throw new Error(`more than ${GRAPHS_MOST} different graphs in one build: share them between the materials that look alike`);
 		}
 		const cap = own ? capOf(m) : null;
 		if (own && !graph && !cap) throw new Error(`${what}: a shader of its own (${m.type}${patched ? ', onBeforeCompile' : ''}) never leaves the box: give its look as a node graph (material.userData.graph, ./graph.js)`);

@@ -17,7 +17,7 @@
 import * as THREE from 'three';
 import { dualQuaternionSkinning } from '$lib/content/actors/dqs.ts';
 import { FORMAT, GRAPHED, LIGHTS, MATERIALS } from './serialize.js';
-import { checkGraph } from './graph.js';
+import { checkGraph, GRAPHS_MOST } from './graph.js';
 import { LIGHT, MAT } from './bake.js';
 import { MOVE_SAMPLES } from './view.js';
 import { budget, released } from '$lib/content/render/budget.js';
@@ -236,6 +236,9 @@ export function rebuild(data) {
 	const tex = textures.map((t, i) => texture(data.format === 0 ? { ...t, image: images[i] ? i : null } : t, i, images));
 	letPicturesGo(images, tex);
 	const mats = materials.map((x, i) => material(x, i, tex, data.format));
+	// each different graph is a program of its own to compile: a build gives at most so many
+	const graphs = new Set(mats.flatMap((m) => (m.userData.graph ? [JSON.stringify(m.userData.graph)] : [])));
+	if (graphs.size > GRAPHS_MOST) fail(`${graphs.size} different graphs, more than ${GRAPHS_MOST}`);
 	const geos = geometries.map(geometry);
 	let vertices = 0;
 	for (const g of geos) vertices += g.attributes.position.count;

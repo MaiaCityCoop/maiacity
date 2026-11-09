@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { serialize, FORMAT } from './serialize.js';
 import { rebuild, MUSEUM_RED } from './rebuild.js';
 import { GLOW } from './graph.examples.js';
+import { GRAPHS_MOST } from './graph.js';
 
 const mesh = (m) => new THREE.Mesh(new THREE.BoxGeometry(), m);
 const across = async (obj) => rebuild((await serialize(obj)).data);
@@ -80,5 +81,22 @@ describe('format 5: a look of its own as data', () => {
 		data.format = 3;
 		data.materials[0].custom = true;
 		expect(materialOf(rebuild(data)).userData.cap).toBeUndefined();
+	});
+	it(`a build gives at most ${GRAPHS_MOST} different graphs (each a program to compile), in the box and on the page`, async () => {
+		const many = (n) => {
+			const root = new THREE.Object3D();
+			for (let k = 0; k < n; k++) {
+				const m = new THREE.MeshStandardMaterial();
+				m.userData.graph = { format: 1, nodes: [{ op: 'float', value: k }], out: { roughness: 0 } };
+				root.add(mesh(m));
+			}
+			return root;
+		};
+		const ok = await serialize(many(GRAPHS_MOST));
+		expect(() => rebuild(ok.data)).not.toThrow();
+		await expect(serialize(many(GRAPHS_MOST + 1))).rejects.toThrow(/more than 32 different graphs/);
+		// the page holds a build to it whatever the box said
+		ok.data.materials.push({ ...ok.data.materials[0], graph: { format: 1, nodes: [{ op: 'float', value: 99 }], out: { roughness: 0 } } });
+		expect(() => rebuild(ok.data)).toThrow(/33 different graphs, more than 32/);
 	});
 });

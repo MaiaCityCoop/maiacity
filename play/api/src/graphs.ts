@@ -17,14 +17,14 @@ const validator = (await import(at)) as {
   checkGraph(raw: unknown, o?: { slots?: string[] }): { format: number; nodes: unknown[]; out: Record<string, number>; textures?: string[] };
   GraphError: new (why: string) => Error;
   GRAPH_FORMAT: number;
+  GRAPHS_MOST: number;
   LIMITS: Record<string, number>;
 };
-export const { checkGraph, GRAPH_FORMAT } = validator;
+export const { checkGraph, GRAPH_FORMAT, GRAPHS_MOST } = validator;
 
 export class GraphsError extends Error {}
 
-/** how many graphs a recipe may declare, and how long a graph's name may be */
-export const GRAPHS_MOST = 32;
+/** how long a graph's name may be (how many a recipe may declare is the one module's GRAPHS_MOST) */
 const NAME = /^[A-Za-z][A-Za-z0-9_-]{0,39}$/;
 
 /** a shader of its own, written in a source: code patched into three's, a shader material, a node material or TSL */
@@ -35,8 +35,35 @@ const OWN = [
   [/three\/(?:tsl|webgpu)\b/, "TSL"],
 ] as const;
 
-/** a source's text without its comments, roughly (a shader named only in a comment is no shader) */
-const uncommented = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+/**
+ * A source's text without its comments, roughly (a shader named only in a comment is no shader), in one pass over it:
+ * a block comment never closed ends the text.
+ */
+export function uncommented(s: string): string {
+  let out = "";
+  for (let i = 0; i < s.length; ) {
+    const block = s.indexOf("/*", i), line = s.indexOf("//", i);
+    const next = block < 0 ? line : line < 0 ? block : Math.min(block, line);
+    if (next < 0) return out + s.slice(i);
+    // a // after a : is a URL's, kept
+    if (next === line && next > 0 && s[next - 1] === ":") {
+      out += s.slice(i, next + 2);
+      i = next + 2;
+      continue;
+    }
+    out += s.slice(i, next);
+    if (next === block) {
+      const end = s.indexOf("*/", next + 2);
+      if (end < 0) return out;
+      i = end + 2;
+    } else {
+      const end = s.indexOf("\n", next + 2);
+      if (end < 0) return out;
+      i = end;
+    }
+  }
+  return out;
+}
 
 /**
  * The graphs a source declares, `module.exports.graphs = { … }` (or `exports.graphs = …`), read as a plain literal:
