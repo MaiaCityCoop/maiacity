@@ -130,6 +130,18 @@ suite("withdraw a document from an intent's work", () => {
     expect((await call("POST", `/api/intents/${id}/withdraw`, { doc: crypto.randomUUID(), reason: "none such" })).status).toBe(409);
   });
 
+  test("withdraw its last document: the intent names no work of play's any more, its own columns all empty", async () => {
+    const id = await ready("One cut, withdrawn");
+    const a = await story("Last: the one cut", id);
+    expect(a.error).toBeUndefined();
+    const cols = `SELECT work, asset_id, base, version, story_id, story_base, story_version FROM play.intents WHERE id = $1`;
+    expect((await db.query<any>(cols, [id])).rows[0]).toMatchObject({ work: expect.any(String), story_id: a.story });
+    expect((await tool("withdraw_doc", { intent: id, doc: a.story, reason: "proposed by mistake" })).stage).toBe("build");
+    expect(await variants(id)).toEqual([]);
+    expect((await db.query<any>(cols, [id])).rows[0]).toEqual({ work: null, asset_id: null, base: null, version: null, story_id: null, story_base: null, story_version: null });
+    expect((await call("GET", `/api/intents/${id}`)).data.work ?? null).toBeNull();
+  });
+
   test("withdraw a stale draft: an asset's open variant seeded below its head closed, kept; the next doc_edit seeds from Main and proposes", async () => {
     const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
     const first = await ready("A fern, its first version");
