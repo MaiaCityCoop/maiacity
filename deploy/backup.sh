@@ -9,7 +9,7 @@
 # The backup fails unless the store holds every file the dump names, each at its size, and the snapshot's three
 # objects are in the bucket whole. Older snapshots (before 2026-11-05) carry their own full copy (blobs.tar or blobs/).
 # It runs before every deploy (the production workflow's server job, which stops if it fails), and by hand:
-#   bash /opt/maia-city/deploy/backup.sh <label> [commit]
+#   bash deploy/backup.sh <label> [commit]   (from the app's folder, deploy/lib.sh's APP_DIR)
 # Restoring, as a check or as a rollback, is .github/workflows/restore.yml, run by hand. Nothing runs on a schedule
 # (Samuel 2026-11-02; snapshots, Samuel 2026-11-05).
 # Access comes from ../backup.env (the deploy writes it, readable by deploy only):
@@ -31,8 +31,8 @@ fi
 if ! docker exec "$DB_CONTAINER" psql -U maiacity -d maiacity -Atc "SELECT 1 FROM pg_namespace WHERE nspname = 'play'" </dev/null | grep -q 1; then
   echo "backup: no schema play yet (play's first deploy), nothing to back up"; exit 0
 fi
-NAME="$(date -u +%Y%m%dT%H%M%SZ)-${LABEL}"
-PREFIX="BACKUPS/play/$NAME"
+NAME=$(snapshot_name "$LABEL")
+PREFIX="$SNAPSHOTS_PREFIX/$NAME"
 WORK="$(pwd)/backups-tmp/$NAME"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
@@ -45,7 +45,6 @@ timeout 900 docker exec "$DB_CONTAINER" pg_dump -U maiacity -d maiacity -n play 
 # but not copied; 2026-11-05: 2287 rows, 2267 copied)
 docker exec "$DB_CONTAINER" psql -U maiacity -d maiacity -AtF ' ' -c "SELECT hash, size FROM play.files ORDER BY hash" </dev/null >"$WORK/files.txt"
 ROWS=$(wc -l <"$WORK/files.txt")
-STORE_PREFIX="BACKUPS/play-files/blobs"
 # the files into the store: from the bucket where play keeps them there, else from its folder. Only what the store
 # does not hold yet is copied: a sync compares each name and size, and a file named by its hash never changes.
 STORE=folder

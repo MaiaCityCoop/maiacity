@@ -6,6 +6,9 @@
 # and runs in the app's folder, with the deploy/lib.sh the backup job has just put there.
 # shellcheck shell=bash
 set -e
+if [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
+  echo "::error::play keeps its files in the bucket: set HETZNER_S3_ACCESS_KEY and HETZNER_S3_SECRET_KEY."; exit 1
+fi
 . deploy/lib.sh
 exec 9>.env.lock; flock -w 300 9
 # play's database password: made once beside Postgres's data, never in git or a log
@@ -23,7 +26,7 @@ PLAY_BUCKET_ENDPOINT=$S3_ENDPOINT
 PLAY_BUCKET_REGION=$S3_REGION
 PLAY_BUCKET_ACCESS_KEY=$S3_ACCESS_KEY
 PLAY_BUCKET_SECRET_KEY=$S3_SECRET_KEY
-PLAY_MIRROR_ROOT=BACKUPS/play-files/blobs
+PLAY_MIRROR_ROOT=$STORE_PREFIX
 SHIP_TOKEN=$SHIP_TOKEN
 SHIP_REPO=$SHIP_REPO
 EOF2

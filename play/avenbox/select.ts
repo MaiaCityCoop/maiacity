@@ -13,17 +13,20 @@
 //     reads);
 //   - all of them when play/api's package.json, bun.lock, a tsconfig, a migration or test/fixtures changed, or a
 //     changed file no test can be placed against (except the Markdown files, which only a test naming them reads,
-//     and play/site's and the website's own files, which play/api's tests never import).
+//     play/site's and the website's own files, which play/api's tests never import, and deploy/publish-site.py and its
+//     test, which the step deploy-tests runs).
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 type Plan = {
-  steps: string[]; // in the gate's order: api-types, api-tests, site-build, website-check, website-build, lint
+  steps: string[]; // in the gate's order: api-types, api-tests, site-build, website-check, website-build, deploy-tests, lint
   tests: string[] | "all"; // play/api's test files (relative to play/api), or every one
   why: string[];
 };
 
-const STEPS = ["api-types", "api-tests", "site-build", "website-check", "website-build", "lint"] as const;
+const STEPS = ["api-types", "api-tests", "site-build", "website-check", "website-build", "deploy-tests", "lint"] as const;
+/** the deploy's own tests (python3 -m unittest), and what they test */
+const DEPLOY_TESTED = ["deploy/publish-site.py", "deploy/test_publish_site.py"];
 const CODE = /\.(ts|js|mjs|cjs|tsx|jsx|json)$/;
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
 
@@ -79,6 +82,7 @@ export function plan(root: string, changed: string[] | null): Plan {
   for (const f of files) {
     if (f.startsWith("website/")) steps.add("website-check").add("website-build");
     if (f.startsWith(".github/workflows/")) steps.add("lint");
+    if (DEPLOY_TESTED.includes(f)) steps.add("deploy-tests");
     if (f.startsWith("play/site/") || f.startsWith("play/api/")) steps.add("site-build");
     if (f.startsWith("play/api/")) steps.add("api-types");
     if (everything(f)) {
@@ -94,7 +98,7 @@ export function plan(root: string, changed: string[] | null): Plan {
     const hits = tests.filter((t) => reach.get(t)!.has(abs) || (named?.test(reach.get(t)!.get(join(root, "play/api", t))!) ?? false));
     hits.forEach((t) => picked.add(t));
     if (hits.length) why.push(`${f}: ${hits.length} test${hits.length > 1 ? "s" : ""}`);
-    else if (isMd(f) || f.startsWith("play/site/") || f.startsWith("website/")) why.push(`${f}: no API test`);
+    else if (isMd(f) || f.startsWith("play/site/") || f.startsWith("website/") || DEPLOY_TESTED.includes(f)) why.push(`${f}: no API test`);
     else {
       all = true;
       why.push(`every API test: no test placed against ${f}`);

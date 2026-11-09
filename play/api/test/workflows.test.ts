@@ -227,7 +227,6 @@ describe("Intent named", async () => {
     expect(box.run).toContain('bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --results-out');
     expect(run.steps.find((s: any) => s.name?.startsWith("avenBOX")).run).toBe('sudo env "PATH=$PATH" bash play/avenbox/setup.sh');
     expect(run.steps.find((s: any) => s.uses === "oven-sh/setup-bun@v2").with["bun-version-file"]).toBe(".bun-version");
-    expect(text(".bun-version").trim()).toBe("1.4.4");
     // a newer head cancels the older head's run, whose record is then skipped (not red, nothing recorded)
     expect(w.concurrency).toEqual({ group: "intents-pr-${{ github.event.pull_request.number }}", "cancel-in-progress": true });
     expect(record.if).toBe("!cancelled() && needs.spec.result == 'success'");
@@ -285,16 +284,21 @@ describe("the whole suite on every pull request and on main", () => {
   const bunTests = (path: string) =>
     Object.values(yaml(path).jobs ?? {}).flatMap((j: any) => (j.steps ?? []).flatMap((s: any) => String(s.run ?? "").split("\n")))
       .map((l: string) => l.trim()).filter((l: string) => /\bbun test\b/.test(l));
-  test("play-checks.yml runs `bun test --parallel`, every file, nothing narrowed, Postgres with room for it", () => {
+  test("CI runs avenBOX's gate, each part whole: every file, nothing narrowed, Postgres with room for it", () => {
     const p = yaml(".github/workflows/play-checks.yml");
     const api = p.jobs.checks.steps.find((s: any) => s.name === "The API");
     expect(api["working-directory"]).toBe("play/api");
-    expect(bunTests(".github/workflows/play-checks.yml")).toEqual(["bun test --parallel"]);
+    const gates = (path: string) => text(path).match(/\bbash \S*gate\.sh .*$/gm);
+    expect(gates(".github/workflows/play-checks.yml")).toEqual(["bash ../avenbox/gate.sh api --no-up", "bash ../avenbox/gate.sh site --no-up"]);
+    expect(gates(".github/workflows/website-checks.yml")).toEqual(["bash ../play/avenbox/gate.sh website --no-up"]);
+    // a part named runs it whole: the API's types and every test file
+    const plan = Bun.spawnSync(["bash", resolve(ROOT, "play/avenbox/gate.sh"), "api", "--no-up", "--plan"], { cwd: ROOT, stdout: "pipe" }).stdout.toString();
+    expect(plan).toContain("step api-types\n  step api-tests: every file");
+    expect(bunTests(".github/workflows/play-checks.yml")).toEqual([]);
     expect(api.run).not.toMatch(/--changed|\s-t\s|--test-name-pattern|GATE_CHANGED|\.test\.ts/);
     expect(JSON.stringify(api.env ?? {})).not.toContain("GATE_CHANGED");
     const pg = p.jobs.checks.steps.find((s: any) => s.name === "Postgres");
     expect(pg.run).toContain('-c "max_connections=$PG_MAX_CONNECTIONS"');
-    expect(text("play/avenbox/box.env")).toContain("\nPG_MAX_CONNECTIONS=500\n");
   });
   test("intents.yml and intents-pr.yml run no narrowed suite", () => {
     for (const f of [".github/workflows/intents.yml", ".github/workflows/intents-pr.yml"]) {

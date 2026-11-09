@@ -30,11 +30,11 @@ trap cleanup EXIT
 json() { sed -n "s/^ *\"$1\": *\"\(.*\)\",\{0,1\}$/\1/p" "$WORK/manifest.json" | head -1; }
 
 if [ "$NAME" = latest ]; then
-  NAME=$(s3 backup -v "$WORK:/work" -- s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" | awk '/PRE /{print $2}' | tr -d / | grep -E '^[0-9]{8}T[0-9]{6}Z-' | sort | tail -1)
-  [ -n "$NAME" ] || { echo "restore: there is no backup under BACKUPS/play/"; exit 1; }
+  NAME=$(snapshots -v "$WORK:/work" | tail -1)
+  [ -n "$NAME" ] || { echo "restore: there is no backup under $SNAPSHOTS_PREFIX/"; exit 1; }
 fi
-echo "restore: $MODE from s3://$BACKUP_BUCKET/BACKUPS/play/$NAME/ …"
-s3 backup -v "$WORK:/work" -- s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$NAME/" /work/ --recursive --only-show-errors
+echo "restore: $MODE from s3://$BACKUP_BUCKET/$SNAPSHOTS_PREFIX/$NAME/ …"
+s3 backup -v "$WORK:/work" -- s3 cp "s3://$BACKUP_BUCKET/$SNAPSHOTS_PREFIX/$NAME/" /work/ --recursive --only-show-errors
 # a backup is both halves, the dump and the files, or it is none: a snapshot's files are in the shared store
 # (files.txt names them), an older backup's in its own blobs.tar or blobs/
 for f in play.dump manifest.json; do
@@ -44,19 +44,22 @@ done
 echo "restore: manifest $(tr -d '\n ' < "$WORK/manifest.json")"
 IMAGE=$(json image)
 IMAGE="${IMAGE:-$PLAY_IMAGE}"
-if [ -n "${GHCR_TOKEN:-}" ]; then echo "$GHCR_TOKEN" | docker login ghcr.io -u "${ACTOR:-deploy}" --password-stdin >/dev/null 2>&1 || true; fi
+if [ -n "${GHCR_TOKEN:-}" ]; then
+  echo "$GHCR_TOKEN" | docker login ghcr.io -u "${ACTOR:-deploy}" --password-stdin >/dev/null 2>&1 \
+    || echo "restore: docker login to ghcr.io failed; an image the server lacks may not pull"
+fi
 docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE" >/dev/null
 docker image inspect "$PLAY_IMAGE" >/dev/null 2>&1 || docker pull "$PLAY_IMAGE" >/dev/null
 mkdir -p "$WORK/data"
 if [ -f "$WORK/files.txt" ]; then
   # a snapshot: the files it names, from the store every snapshot shares (a file named by its hash never changes, so
   # the store's copy is the one the snapshot was made with); each must be there, at its size
-  echo "restore: fetching the $(wc -l <"$WORK/files.txt") files it names from s3://$BACKUP_BUCKET/BACKUPS/play-files/blobs/ …"
+  echo "restore: fetching the $(wc -l <"$WORK/files.txt") files it names from s3://$BACKUP_BUCKET/$STORE_PREFIX/ …"
   mkdir -p "$WORK/data/blobs"
   # the store synced down whole (in parallel, only what is not here yet), then whatever this snapshot does not name
   # taken out again below
   S3_TIMEOUT=2400 s3 backup -v "$WORK:/work" -- \
-    s3 sync "s3://$BACKUP_BUCKET/BACKUPS/play-files/blobs/" /work/data/blobs/ --size-only --only-show-errors
+    s3 sync "s3://$BACKUP_BUCKET/$STORE_PREFIX/" /work/data/blobs/ --size-only --only-show-errors
   while read -r h size; do
     f="$WORK/data/blobs/${h:0:2}/$h"
     [ -f "$f" ] && [ "$(stat -c %s "$f")" = "$size" ] || { echo "restore: the store lacks $h (or holds it at another size): not a whole snapshot"; exit 1; }
@@ -70,9 +73,10 @@ chmod -R a+rX "$WORK/data"
 
 if [ "$MODE" = check ]; then
   docker network create "$NET" >/dev/null
-  docker run -d --name "$NET-db" --network "$NET" -e POSTGRES_PASSWORD=restore postgres:17-alpine >/dev/null
-  for _ in $(seq 1 60); do docker exec "$NET-db" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
-  sleep 2
+  # production's own Postgres image: pg_restore takes a dump of its major
+  docker run -d --name "$NET-db" --network "$NET" -e POSTGRES_PASSWORD=restore "$(docker inspect -f '{{.Config.Image}}' "$DB_CONTAINER")" >/dev/null
+  # over TCP: the image's first start (initdb) answers only on its socket until it is ready
+  for _ in $(seq 1 60); do docker exec "$NET-db" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break; sleep 1; done
   docker exec -i "$NET-db" pg_restore -U postgres -d postgres --no-owner --no-acl < "$WORK/play.dump"
   echo "restore: the dump is in a throwaway Postgres; checking it against its files …"
   # the newest image's check (src/verify.ts), which reads the schema and the files alone

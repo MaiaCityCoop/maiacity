@@ -29,7 +29,7 @@ broken() {
   # whole: missing, or its bytes not hashing to its name (a write cut short by a full disk); asked of play's own code,
   # in a one-off container of its image on the compose network, so it works while play itself is down
   compose run --rm -T --no-deps -e PLAY_BUCKET="${PLAY_BUCKET:-}" play-api bun -e '
-    import { connect } from "/app/api/src/pg.ts";
+    import { connect } from "/app/api/src/kit/pg.ts";
     import { blobStore } from "/app/api/src/blobs.ts";
     const db = connect(), store = blobStore();
     const { rows } = await db.query("SELECT hash FROM play.files ORDER BY hash");
@@ -51,7 +51,7 @@ report() {
   echo "## Disks"; df -h / "${DATA:-/}" | sed 's/^/    /'
   echo "## Docker"; docker system df | sed 's/^/    /'
   echo "## Largest under the app, the volume and Docker"
-  sudo du -xsh /opt/maia-city/* /var/lib/docker /var/log 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
+  sudo du -xsh "$APP_DIR"/* /var/lib/docker /var/log 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
   if [ -n "$DATA" ]; then
     sudo du -xsh "$(dirname "$DATA")"/* 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
     echo "## The largest folders on the data volume"
@@ -77,7 +77,7 @@ aws() { S3_TIMEOUT=0 S3_READ_TIMEOUT=300 s3 backup -- "$@"; }
 
 # whether a file's bytes hash to its name (by play's own hash, in a container of its image)
 whole_file() {
-  [ -s "$1" ] && [ "$(docker run --rm -i -v "$1:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$2" ]
+  [ -s "$1" ] && [ "$(docker run --rm -i -v "$1:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/kit/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$2" ]
 }
 
 # a file's good bytes put back into play's store (the bucket or the folder)
@@ -99,9 +99,9 @@ mend() {
   local left=""
   for h in $want; do
     local found=""
-    for k in $(ls -d /opt/maia-city/play-folder-blobs-* 2>/dev/null | sort -r); do
+    for k in $(ls -d "$APP_DIR"/play-folder-blobs-* 2>/dev/null | sort -r); do
       if sudo test -s "$k/blobs/${h:0:2}/$h"; then
-        local t; t=$(mktemp /opt/maia-city/backups-tmp/kept-XXXX); sudo cat "$k/blobs/${h:0:2}/$h" > "$t"
+        local t; t=$(mktemp "$APP_DIR/backups-tmp/kept-XXXX"); sudo cat "$k/blobs/${h:0:2}/$h" > "$t"
         if whole_file "$t" "$h"; then put_back "$h" "$t"; echo "mend: $h put back from $k"; found=1; fi
         rm -f "$t"; [ -n "$found" ] && break
       fi
@@ -111,12 +111,12 @@ mend() {
   want=$(echo $left)
   [ -n "$want" ] || return 0
   echo "mend: looking for $(echo $want | wc -w) in the backups …"
-  local tmp; tmp=$(mktemp -d /opt/maia-city/backups-tmp/mend-XXXX)
-  # first the store every snapshot shares (BACKUPS/play-files/blobs/<xx>/<hash>, deploy/backup.sh)
+  local tmp; tmp=$(mktemp -d "$APP_DIR/backups-tmp/mend-XXXX")
+  # first the store every snapshot shares (<xx>/<hash> under lib.sh's STORE_PREFIX, deploy/backup.sh)
   left=""
   for h in $want; do
     local f="$tmp/store-$h"
-    aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play-files/blobs/${h:0:2}/$h" - </dev/null >"$f" 2>/dev/null || true
+    aws s3 cp "s3://$BACKUP_BUCKET/$STORE_PREFIX/${h:0:2}/$h" - </dev/null >"$f" 2>/dev/null || true
     if whole_file "$f" "$h"; then put_back "$h" "$f"; echo "mend: $h put back from the backups' store"; else left="$left $h"; fi
     rm -f "$f"
   done
@@ -124,10 +124,10 @@ mend() {
   # then the older backups, each with its own full copy
   # the newest backups first: each one's blobs.tar streamed through tar, which takes out only the files wanted (a
   # backup of the folder holds blobs/blobs/<xx>/<hash>)
-  for b in $(aws s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" </dev/null | awk '{print $2}' | tr -d / | grep -E '^[0-9]{8}T[0-9]{6}Z-' | sort -r | head -8); do
+  for b in $(S3_TIMEOUT=0 S3_READ_TIMEOUT=300 snapshots | sort -r | head -8); do
     [ -n "$want" ] || break
     local names=""; for h in $want; do names="$names blobs/blobs/${h:0:2}/$h"; done
-    aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$b/blobs.tar" - </dev/null 2>/dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
+    aws s3 cp "s3://$BACKUP_BUCKET/$SNAPSHOTS_PREFIX/$b/blobs.tar" - </dev/null 2>/dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
     left=""
     for h in $want; do
       f="$tmp/blobs/blobs/${h:0:2}/$h"
@@ -147,7 +147,7 @@ mend() {
 forget_lost() {
   local lost; lost=$(broken || true)
   [ -n "$lost" ] || { echo "forget-lost: every file is whole"; return 0; }
-  local dump; dump=$(mktemp /opt/maia-city/backups-tmp/play-data-XXXX.sql)
+  local dump; dump=$(mktemp "$APP_DIR/backups-tmp/play-data-XXXX.sql")
   docker exec "$DB_CONTAINER" pg_dump -U maiacity -d maiacity -n play --data-only --inserts </dev/null > "$dump"
   for h in $lost; do
     local n; n=$(grep -o "$h" "$dump" | wc -l)
@@ -172,8 +172,8 @@ clean() {
   sudo journalctl --vacuum-size=200M 2>&1 | tail -1 || true
   sudo apt-get clean || true
   echo "clean: the leftovers of backups and restores"
-  sudo find /opt/maia-city/backups-tmp -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null || true
-  mkdir -p /opt/maia-city/backups-tmp
+  sudo find "$APP_DIR/backups-tmp" -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null || true
+  mkdir -p "$APP_DIR/backups-tmp"
   mend
   forget_lost
 }

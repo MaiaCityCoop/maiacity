@@ -1,8 +1,8 @@
 name: SSH to the server
 description: >-
   Makes `ssh prod` reach the production server (deploy/lib.sh's HOST) as deploy, trusting only the host keys pinned in
-  DEPLOY_KNOWN_HOSTS, never whatever answers at its address; and puts production's constants from deploy/lib.sh
-  (APP_DIR, S3_BUCKET, S3_ENDPOINT, S3_REGION) into the job's environment.
+  DEPLOY_KNOWN_HOSTS, never whatever answers at its address; and puts deploy/lib.sh's APP_DIR, the app's folder the
+  jobs' ssh commands name, into the job's environment.
 
 # Every job that reaches the server over SSH prepares it here, after its checkout (production.yml, restore.yml,
 # server.yml), so they all trust the same pinned keys. The keys are written under the alias `prod` (HostKeyAlias), so
@@ -29,7 +29,7 @@ runs:
         KNOWN_HOSTS: ${{ inputs.known-hosts }}
       run: |
         . "$GITHUB_WORKSPACE/deploy/lib.sh"
-        printf 'APP_DIR=%s\nS3_BUCKET=%s\nS3_ENDPOINT=%s\nS3_REGION=%s\n' "$APP_DIR" "$S3_BUCKET" "$S3_ENDPOINT" "$S3_REGION" >> "$GITHUB_ENV"
+        echo "APP_DIR=$APP_DIR" >> "$GITHUB_ENV"
         NAME=$HOST
         if [ -z "$KNOWN_HOSTS" ]; then
           echo "::error title=DEPLOY_KNOWN_HOSTS is not set::Nothing reaches the server until its host keys are pinned. On your Mac, run: ssh-keyscan -t ed25519 $NAME — and on the server check its fingerprint matches: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub (compare with: ssh-keyscan -t ed25519 $NAME | ssh-keygen -lf -). Then paste the ssh-keyscan line into the repository secret DEPLOY_KNOWN_HOSTS (Settings > Secrets and variables > Actions)."
@@ -42,7 +42,6 @@ runs:
           HOST=$(getent ahostsv4 "$NAME" | awk '{print $1; exit}')
           [ -n "$HOST" ] || { echo "::error::$NAME does not resolve"; exit 1; }
         fi
-        echo "HOST=$HOST" >> "$GITHUB_ENV"
         mkdir -p ~/.ssh && chmod 700 ~/.ssh
         # each line's key type and key, under the alias prod: a line may start with a host field (known_hosts,
         # ssh-keyscan) or with its key type (a .pub file); comments, blank lines and markers are left out

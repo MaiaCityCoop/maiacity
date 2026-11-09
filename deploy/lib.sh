@@ -10,9 +10,14 @@ HOST=api.maia.city
 S3_BUCKET=maiacity
 S3_ENDPOINT=https://hel1.your-objectstorage.com
 S3_REGION=hel1
+# the backups' layout in their bucket (deploy/backup.sh): the snapshots, and the store of play's files every snapshot
+# shares, which play also writes each file to as its second copy (play.env's PLAY_MIRROR_ROOT, server-up.sh)
+SNAPSHOTS_PREFIX=BACKUPS/play
+STORE_PREFIX=BACKUPS/play-files/blobs
 # the containers the compose files name
 DB_CONTAINER=maia-city-db
 PLAY_CONTAINER=maia-city-play
+CADDY_CONTAINER=maia-city-caddy
 
 # docker compose on play's three files, from the app's folder
 compose() {
@@ -27,6 +32,13 @@ answers() {
     sleep "$3"
   done
   return 1
+}
+
+# snapshot_name <label>: a new snapshot's name, <when>-<label>, which snapshots finds by its <when>
+snapshot_name() { echo "$(date -u +%Y%m%dT%H%M%SZ)-$1"; }
+# snapshots [docker run options …]: the snapshots' names in the backups' bucket, oldest first
+snapshots() {
+  s3 backup "$@" -- s3 ls "s3://$BACKUP_BUCKET/$SNAPSHOTS_PREFIX/" | awk '/PRE /{print $2}' | tr -d / | grep -E '^[0-9]{8}T[0-9]{6}Z-' | sort
 }
 
 # s3 <backup|play> [docker run options …] -- <aws arguments …>: the AWS CLI in its container against the backups' bucket

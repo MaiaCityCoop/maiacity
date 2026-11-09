@@ -3,7 +3,8 @@
 //   node build-recipe.mjs <recipe.js> <pieces-folder> [params as JSON]
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-const SITE = new URL("../../play/site/node_modules/three/", import.meta.url).pathname;
+import { SITE as PLAY_SITE } from "../site.cjs";
+const SITE = join(PLAY_SITE, "node_modules/three/");
 const THREE = await import(SITE + "build/three.module.js");
 const addons = { "three/addons/utils/BufferGeometryUtils.js": await import(SITE + "examples/jsm/utils/BufferGeometryUtils.js"), "three/addons/geometries/RoundedBoxGeometry.js": await import(SITE + "examples/jsm/geometries/RoundedBoxGeometry.js") };
 const [recipe, folder, paramsJson] = process.argv.slice(2);

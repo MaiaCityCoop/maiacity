@@ -192,6 +192,17 @@ describe("avenBOX's runner: its modes", () => {
     expect(r.out).toContain("· c4 look (must): judge it by eye: by eye");
   });
 
+  test("--from without TEST_DATABASE_URL gives the checks the root's box.env database", async () => {
+    const box = mkdtempSync(join(tmpdir(), "avenbox-env-"));
+    mkdirSync(join(box, "play/avenbox"), { recursive: true });
+    writeFileSync(join(box, "play/avenbox/box.env"), "PG_PORT=5999\nPG_PASSWORD=pw\nBOX_DATABASE_URL=postgres://postgres:$PG_PASSWORD@127.0.0.1:$PG_PORT/postgres\n");
+    const spec = { intent: { id: ID, stage: "build", title: "The box" }, checks: [{ id: "c1", check: "its database", how: "test", by: "the URL", run: `echo "db=$TEST_DATABASE_URL"`, must: true }] };
+    writeFileSync(join(dir, "db-spec.json"), JSON.stringify(spec));
+    const r = await run(["--from", join(dir, "db-spec.json"), "--results-out", join(dir, "db.json"), "--root", box], { TEST_DATABASE_URL: undefined, PLAY_MCP_TOKEN: undefined });
+    expect(r.code).toBe(0);
+    expect(JSON.parse(readFileSync(join(dir, "db.json"), "utf8")).results[0].evidence).toMatch(/\ndb=postgres:\/\/postgres:pw@127\.0\.0\.1:5999\/postgres$/);
+  });
+
   test("--record-from sends check_intent with where avenBOX, the commit, the run's address and pr; only of the intent named, on the head", async () => {
     calls.length = 0;
     const results = join(dir, "results.json");

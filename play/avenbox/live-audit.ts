@@ -13,11 +13,9 @@
 // merged its pull request on main, else its commits on main. It is live when each is an ancestor of the running commit.
 // It prints every mismatch (live and not Accepted, Accepted and not live), and exits 0 only with none.
 import { resolve } from "node:path";
-import { tool as playTool } from "./play";
+import { PLAY_SITE as site, tool as playTool } from "./play";
 
 const ROOT = resolve(import.meta.dir, "../..");
-const site = (process.env.PLAY_URL || "https://play.maia.city").replace(/\/$/, "");
-const endpoint = process.env.PLAY_MCP_URL || `${site}/api/mcp`;
 const token = process.env.PLAY_MCP_TOKEN;
 if (!token) {
   console.error("PLAY_MCP_TOKEN is not set: an admin's play access token (play's profile page).");
@@ -29,7 +27,7 @@ const git = (...args: string[]) => {
   return { code: p.exitCode ?? 1, out: `${p.stdout}`.trim() };
 };
 
-const tool = (name: string, args: Record<string, unknown>) => playTool(name, args, { endpoint, token });
+const tool = (name: string, args: Record<string, unknown>) => playTool(name, args, { token });
 
 const given = Bun.argv.indexOf("--commit");
 const commit = given > 0 ? Bun.argv[given + 1] : ((await (await fetch(`${site}/api/version`)).json().catch(() => ({}))) as { commit?: string | null }).commit;

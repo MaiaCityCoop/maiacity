@@ -20,6 +20,8 @@ URL=$BOX_DATABASE_URL
 export PATH="$HOME/.bun/bin:$PATH"
 say() { echo "avenBOX: $*"; }
 ready() { pg_isready -q -h 127.0.0.1 -p "$PORT" 2> /dev/null; }
+# up to 10 s for it to answer
+wait_ready() { for _ in $(seq 1 40); do ready && return 0; sleep 0.25; done; return 1; }
 # starting a cluster is root's (avenBOX runs as root; main's runner has sudo)
 as_root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo -n "$@"; fi; }
 # the cluster set to our port (pg_lsclusters: version, name, port …)
@@ -39,7 +41,7 @@ if ! ready; then
       as_root pg_ctlcluster "$V" "$C" start > /dev/null 2>&1
     }
   fi
-  for _ in $(seq 1 40); do ready && break; sleep 0.25; done
+  wait_ready
 fi
 if ! ready; then
   say "PostgreSQL does not answer on 127.0.0.1:$PORT (see /var/log/postgresql/); the checks that need it will fail"
@@ -52,7 +54,7 @@ pq() { PGPASSWORD=$PG_PASSWORD psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc "$1
 if [ "$(pq 'show max_connections')" -lt "$MAXC" ] 2> /dev/null; then
   read -r V C <<< "$(ours)"
   pq "ALTER SYSTEM SET max_connections = $MAXC" > /dev/null && [ -n "${V:-}" ] && as_root pg_ctlcluster "$V" "$C" restart > /dev/null 2>&1
-  for _ in $(seq 1 40); do ready && break; sleep 0.25; done
+  wait_ready
   say "max_connections: $(pq 'show max_connections')"
 fi
 

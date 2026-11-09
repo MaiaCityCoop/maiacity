@@ -1,14 +1,17 @@
 #!/bin/bash
-# The checks CI runs, in avenBOX (play/SPEC.md §4.12, "Checks run in avenBOX"): what .github/workflows/play-checks.yml
-# and website-checks.yml run, in their order, here, before a push; and the workflows' lint.
+# The checks, in avenBOX (play/SPEC.md §4.12, "Checks run in avenBOX"): run here before a push, and by CI itself
+# (.github/workflows/play-checks.yml: `api` and `site`; website-checks.yml: `website`); and the workflows' lint.
 #
 #   bash play/avenbox/gate.sh                       # what this change touched (intent aa59f248; ./select.ts)
 #   bash play/avenbox/gate.sh --all                 # everything, as CI and main run it
 #   bash play/avenbox/gate.sh --plan                # what it would run, and why; runs nothing
 #   bash play/avenbox/gate.sh api|site|website|lint # one part, whole (as before: other intents' checks run these)
+#   bash play/avenbox/gate.sh deploy               # the deploy's own tests (deploy/test_publish_site.py)
 #   bash play/avenbox/gate.sh lint <file>…          # the lint on these workflow files
 #   bash play/avenbox/gate.sh site-tests            # play/site's own tests (vitest), only when asked: neither CI nor
 #                                                   # the gate's default runs them (a speed decision left to Samuel)
+#   bash play/avenbox/gate.sh api --no-up           # without up.sh: the caller has Postgres answering at
+#                                                   # TEST_DATABASE_URL and the part's dependencies installed (CI)
 #
 # What a change touched: since the merge base with origin/main, plus the working tree (GATE_CHANGED="<paths>" names
 # them instead). play/api's tests are the ones that import a changed file or name it; all of them when a change is
@@ -20,14 +23,15 @@
 # tests run in parallel (one worker per core, each test file its own database).
 set -u
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-PART=all ALL=0 PLAN=0 FILES=()
+PART=all ALL=0 PLAN=0 UP=1 FILES=()
 for a in "$@"; do
   case "$a" in
     --all) ALL=1 ;;
     --plan) PLAN=1 ;;
-    all | api | site | website | lint | site-tests) PART=$a ;;
-    -*) echo "gate.sh [all|api|site|website|lint|site-tests] [--all] [--plan]"; exit 2 ;;
-    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|lint|site-tests] [--all] [--plan]"; exit 2; } ;;
+    --no-up) UP=0 ;;
+    all | api | site | website | deploy | lint | site-tests) PART=$a ;;
+    -*) echo "gate.sh [all|api|site|website|deploy|lint|site-tests] [--all] [--plan] [--no-up]"; exit 2 ;;
+    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|deploy|lint|site-tests] [--all] [--plan] [--no-up]"; exit 2; } ;;
   esac
 done
 export PATH="$HOME/.bun/bin:$PATH"
@@ -46,6 +50,7 @@ case "$PART" in
   api) KEEP='^step api-|^test ' ;;
   site) KEEP='^step site-' ;;
   website) KEEP='^step website-' ;;
+  deploy) KEEP='^step deploy-' ;;
   lint) KEEP='^step lint' ;;
   site-tests) KEEP='^step site-tests' ;;
   *) KEEP='^step |^test ' ;;
@@ -67,7 +72,7 @@ if [ $PLAN = 1 ]; then
 fi
 
 has() { echo "$STEPS" | grep -qx "$1"; }
-if has api-types || has api-tests || has site-build || has website-check || has site-tests; then
+if [ $UP = 1 ] && { has api-types || has api-tests || has site-build || has website-check || has site-tests; }; then
   bash "$ROOT/play/avenbox/up.sh" || exit 1
 fi
 . "$ROOT/play/avenbox/box.env"
@@ -83,9 +88,11 @@ step() {
   if (cd "$ROOT/$dir" && "$@") > "$log" 2>&1; then
     local counts
     counts=$(grep -E '^ +[0-9]+ (pass|skip|fail)$' "$log" | xargs | sed 's/ \([0-9]\)/, \1/g')
+    # on GitHub the whole output, folded (a runner keeps no log file)
+    [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::$name" && cat "$log" && echo "::endgroup::"
     echo "✓ $name ($((SECONDS - start)) s${counts:+; $counts})"
   else
-    tail -40 "$log"
+    if [ -n "${GITHUB_ACTIONS:-}" ]; then cat "$log"; else tail -40 "$log"; fi
     echo "✗ $name ($((SECONDS - start)) s; the whole output: $log)"
     exit 1
   fi
@@ -113,6 +120,7 @@ has site-build && step "play/site build" play/site bun run build
 has site-tests && step "play/site tests (vitest)" play/site bunx vitest run
 has website-check && step "website check" website bun run check
 has website-build && step "website build" website bun run build
+has deploy-tests && step "deploy tests (publish-site.py)" . python3 -m unittest deploy/test_publish_site.py
 has lint && step "workflows' lint (actionlint)" . bash play/avenbox/actionlint.sh "${FILES[@]}"
 [ -n "$STEPS" ] || echo "nothing of the gate's touched by this change (gate.sh --all runs everything)"
 echo "avenBOX gate: green ($PART$([ $ALL = 1 ] && echo ', --all'); $((SECONDS - START)) s)"
