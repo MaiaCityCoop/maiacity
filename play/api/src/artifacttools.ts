@@ -1,7 +1,7 @@
 // Artifacts' tools over MCP (play/SPEC.md §4.13; served by ./mcp.ts): Maia City's links kept by avenMAIA, each read,
 // added or corrected as an intent's work (./artifacts.ts), and their authors.
 import { admin } from "./access";
-import { addArtifact, AUTHOR_KINDS, authorOf, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
+import { addArtifact, getAuthor, AUTHOR_KINDS, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
 import type { Tool, ToolCtx } from "./mcptool";
 
 export const artifactTools = ({ auto, db, store }: ToolCtx): Tool[] => [
@@ -126,6 +126,6 @@ export const artifactTools = ({ auto, db, store }: ToolCtx): Tool[] => [
         required: ["author"],
         additionalProperties: false,
       },
-      run: async ({ author }, me) => authorOf(db, me, author),
+      run: async ({ author }, me) => getAuthor(db, me, author),
     },
 ];

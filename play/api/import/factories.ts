@@ -1,18 +1,16 @@
 // The factories kept in the repo as they were first made (./factories/<id>/: the line and its bill of process as code,
 // AirSup's runtime's spec and our numbers worked out from the parts): each written into play's Postgres as the v1 of its
-// Loro document (../src/factories.ts) only when play holds no factory of its id yet. From then on play's Postgres is the
+// Loro document (./seeddocs.ts) only when play holds no factory of its id yet. From then on play's Postgres is the
 // source of truth: a factory changes only by proposal (over MCP), and nothing here writes over it. Run with every
 // deploy, by ./run.ts.
 import type { Db } from "../src/kit/pg";
-import { seedDoc } from "../src/versioned";
+import { seedDocs, type Seed } from "./seeddocs";
 import { FACTORY } from "../src/kit/ids";
 import { lifetracLine } from "./factories/lifetrac-line/index.js";
-import "../src/allkinds";
 
 export { lifetracLine };
-export type FactoriesReport = { seeded: string[]; present: string[]; errors: string[] };
 
-export const FACTORIES = [
+export const FACTORIES: Seed[] = [
   {
     id: FACTORY.lifetrac,
     at: new Date("2026-11-03T12:00:00Z"),
@@ -21,15 +19,4 @@ export const FACTORIES = [
   },
 ];
 
-export async function seedFactories(db: Db): Promise<FactoriesReport> {
-  const out: FactoriesReport = { seeded: [], present: [], errors: [] };
-  for (const f of FACTORIES) {
-    try {
-      if (await seedDoc(db, "factory", { id: f.id, json: f.json(), note: f.note, at: f.at })) out.seeded.push(f.id);
-      else out.present.push(f.id);
-    } catch (e) {
-      out.errors.push(`${f.id}: ${String((e as Error)?.message ?? e).slice(0, 300)}`);
-    }
-  }
-  return out;
-}
+export const seedFactories = (db: Db) => seedDocs(db, "factory", FACTORIES);

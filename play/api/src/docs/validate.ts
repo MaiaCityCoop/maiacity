@@ -46,7 +46,7 @@ export type DocType = {
 };
 
 export class SchemaError extends HttpError {
-  constructor(public problems: string[]) {
+  constructor(problems: string[]) {
     super(problems.slice(0, 6).join("; ") + (problems.length > 6 ? ` (and ${problems.length - 6} more)` : ""));
   }
 }

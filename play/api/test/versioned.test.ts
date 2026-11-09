@@ -12,13 +12,13 @@
 // asset's and a story's frozen rows written), archived, and a clash on a moved seed archived; get_asset and get_story
 // read an intent's variant too.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import { createDoc } from "../src/docs";
 import { COOP, SCHEMA } from "../src/kit/ids";
 import { type Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
 import { register, unregister } from "../src/kinds";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 /** the test's own kind: a gadget, a label, a count of cogs and a note */
 /** the gadget's schema: a document of the meta-schema like every schema, made here as its test's setup */
@@ -43,12 +43,7 @@ const GADGET = {
 const gadgetCheck = (doc: any) => [...(doc.cogs === 13 ? ["a gadget never has 13 cogs"] : []), ...(doc.colour && doc.colour === doc.label ? ["a gadget is never named its colour"] : [])];
 
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
-const SPEC = {
-  goal: "A document says more.",
-  nothing_to_reduce: "A test fixture: nothing to reduce.",
-  scope: "One document. Nothing else changes.",
-  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
-};
+const SPEC = fx.spec("A document says more.", "One document. Nothing else changes.");
 
 suite("one version control", () => {
   let f: Fresh, db: Db;
@@ -65,11 +60,8 @@ suite("one version control", () => {
     await createDoc(db, { id: `schema:${GADGET_SCHEMA}`, schema: SCHEMA.meta, json: GADGET, author: { human: null, via: "import" }, version: "v1" });
     register({ name: "gadget", prefix: "gadget", schema: GADGET_SCHEMA, check: gadgetCheck, work: "gadget_version", table: "play.gadgets", label: "gadget", group: "gadgets", item: (j) => ({ cogs: j.cogs }) });
     api = appOn(db);
-    for (const n of ["ada", "cit"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: cookieFor(h.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    who.ada = await human(db, "ada");
+    who.cit = await human(db, "cit", null);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
   });
@@ -82,13 +74,7 @@ suite("one version control", () => {
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
   const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** an intent in Build, its spec approved, its one must check passed: ready to take work */
-  const readyIntent = async (title: string) => {
-    const i = await tool("add_intent", { title });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
-    return i.id as string;
-  };
+  const readyIntent = (title: string) => fx.readyIntent({ tool, approve: (id) => call("ada", "POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, strict: true });
 
   // ---- c1
 

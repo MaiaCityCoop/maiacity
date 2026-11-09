@@ -5,14 +5,14 @@
 // deploy's jobs, each a step on the intent; all green, Accepted; a red one, back to Proposal with the report, from
 // where Accept ships it again. SHIP_TOKEN is sent to GitHub only.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import type { BlobStore } from "../src/blobs";
 import { type Db } from "../src/kit/pg";
 import { reconcile, runningCommit, tailOf } from "../src/ship";
 import { startShipWatcher, watchShips } from "../src/watcher";
 import { ACCEPTED_CONTEXT, gitHub, shipGitHub, type Pull } from "../src/github";
 import { fakeGitHub, green, job, REPO, run, sha, TOKEN } from "./fixtures/github";
-import { agentToken, type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tempStore, tool as mcpTool, until } from "./kit";
+import { agentToken, type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool, until } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 
@@ -34,11 +34,8 @@ suite("accept ships it", () => {
     store = tempStore();
     api = appOn(db, { store, github: gh.gh });
     bare = appOn(db, { store });
-    for (const n of ["ada", "cit"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: cookieFor(h.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    who.ada = await human(db, "ada");
+    who.cit = await human(db, "cit", null);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
     // the GitHub runs' token (play/SPEC.md §4.12): what decides a code intent is recorded with it alone
     token = (await agentToken(api, who.ada.cookie, { avenbox: true })).token;
@@ -94,7 +91,7 @@ suite("accept ships it", () => {
   const writesSince = (from: number) => gh.calls.slice(from).filter((c) => c.method !== "GET");
 
   /** what is in Ship from an earlier case done with: the queue is one for the whole database */
-  const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
+  const clearShips = () => fx.clearShips(db);
   const shipOf = async (id: string) => (await intent(id)).ship;
   const stateOf = async (id: string) => Object.fromEntries((await shipOf(id)).steps.map((s: any) => [s.key, s.state]));
   const readyOf = async (id: string) => (await shipOf(id)).steps.find((s: any) => s.key === "ready");

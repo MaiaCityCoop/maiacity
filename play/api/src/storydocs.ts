@@ -5,10 +5,9 @@
 // numbers the version, the document's version of the same number. The first time a story is touched here its document
 // is made from its history: each accepted version an edit at its own date, named its number; each intent's work
 // waiting at Proposal an intent variant seeded at its base.
-import type { Me } from "./access";
 import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
-import { versionAt } from "./kinds";
+import { authorOf, versionAt } from "./kinds";
 import { holdVariant } from "./held";
 import { SCHEMA } from "./kit/ids";
 
@@ -26,15 +25,14 @@ export function asStory(json: any): { title: string; body: StoryBody } {
 }
 /** a story not accepted yet stands on an empty timeline: its intent's variant fills it */
 const BLANK = (title: string) => ({ schema: STORY_SCHEMA, title, format: "9:16", fps: 30, duration: 0, tracks: [] });
-export const authorOf = (me: Pick<Me, "id"> | null, via: string | null | undefined): docs.Author => ({ human: me?.id ?? null, via: via === "mcp" ? "mcp" : via === "import" ? "import" : "site" });
 
 type VersionRow = { id: string; number: number; title: string; body: StoryBody; note: string; author: string | null; approved_by: string | null; created: Date };
 
 /** the frontiers of the document's version `number` */
 async function frontiersOf(q: Queryable, docId: string, number: number): Promise<docs.Frontiers> {
-  const { rows } = await q.query<{ frontiers: docs.Frontiers }>(`SELECT frontiers FROM play.doc_versions WHERE doc_id = $1 AND number = $2`, [docId, number]);
-  if (!rows[0]) throw new docs.DocError(`${docId} has no version ${number}`, 500);
-  return rows[0].frontiers;
+  const frontiers = await docs.versionFrontiers(q, docId, number);
+  if (!frontiers) throw new docs.DocError(`${docId} has no version ${number}`, 500);
+  return frontiers;
 }
 
 /**

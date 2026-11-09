@@ -6,10 +6,9 @@
 // (propose_doc_version), reviewed on the board with each pin's asset label and version before and after, accepted by an
 // admin, its pins and configs then written from Main, and /api/sandboxes/<uuid>/config answering as before.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD } from "../src/recipes";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 /** Sandbox 2, as migration 0003 made it (its UUID from 0017) */
 const S2 = "7a7894a9-f37a-8181-9164-920389ee7675";
@@ -32,11 +31,8 @@ suite("a sandbox's layout as a document", () => {
     f = await freshDb();
     db = f.db;
     api = appOn(db);
-    for (const n of ["ada", "cit"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: cookieFor(h.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    who.ada = await human(db, "ada");
+    who.cit = await human(db, "cit", null);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
   });

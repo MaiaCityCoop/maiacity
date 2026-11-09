@@ -2,8 +2,7 @@
 import { app } from "./app";
 import { initSessions } from "./auth";
 import { blobStore } from "./blobs";
-import { migrate } from "./migrations";
-import { seed } from "./seed";
+import { prepare } from "./seed";
 import { connect } from "./kit/pg";
 import { siteHandler } from "./site";
 import { reconcile, runningCommit } from "./ship";
@@ -13,9 +12,8 @@ import { syncKinds } from "./kinds";
 import "./allkinds";
 
 const db = connect();
-const ran = await migrate(db);
+const ran = await prepare(db);
 if (ran.length) console.log(`migrations: ${ran.join(", ")}`);
-await seed(db);
 await initSessions(db);
 // every accepted schema whose documents no kind of the code holds is a kind of its own (./versioned.ts)
 await syncKinds(db);

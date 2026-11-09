@@ -13,7 +13,7 @@ import { asOne, closeWork, heldOf, NO_INTENT, stageAfter, workOf } from "./held"
 import { archiveAsAuthor, byOf, getIntent, gate, mustDecide, noSuchIntent, putAtProposal, settle } from "./intents";
 import { retireAccepted, retiredOf } from "./retire";
 import { piecesOf } from "./pieces";
-import { authorOf, docRef, iso, kindNamed, kindOfDoc, kindOfWork, kinds, named, overlap, qi, resolveEdits, seen, syncKinds, versionAt, type Ctx, type Input, type Kind, type Verdict } from "./kinds";
+import { authorOf, docRef, iso, kindNamed, kindOfDoc, kindOfWork, kinds, named, namesOf, overlap, qi, resolveEdits, seen, syncKinds, versionAt, type Ctx, type Input, type Kind, type Verdict } from "./kinds";
 
 const DOC_ADMINS = "A document's versions, edits and variants are for Maia City's admins, for now.";
 function text(v: unknown, what: string, most: number): string {
@@ -24,8 +24,7 @@ function text(v: unknown, what: string, most: number): string {
 
 async function versionsNamed(db: Queryable, docId: string) {
   const versions = await docs.versionsOf(db, docId);
-  const ids = [...new Set(versions.map((v) => v.author).filter((x): x is string => !!x))];
-  const names = new Map((await db.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [ids])).rows.map((r) => [r.id, r.name]));
+  const names = await namesOf(db, versions.map((v) => v.author));
   return versions.map((v) => ({ number: v.number, note: v.note, at: iso(v.created), acceptedBy: v.author ? names.get(v.author) ?? null : null, contentHash: v.contentHash }));
 }
 
@@ -111,8 +110,7 @@ export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { vari
   if (o.variant !== undefined && !(Number.isInteger(o.variant) && o.variant >= 1)) throw new HttpError("A variant is named by its number (doc_history gives them).", 404);
   const edits = await named(db, await docs.history(db, docId, o.variant === undefined ? {} : { variant: o.variant }), versions);
   const vs = await docs.variantsOf(db, docId);
-  const ids = [...new Set(vs.map((v) => v.created_by).filter((x): x is string => !!x))];
-  const names = new Map((await db.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [ids])).rows.map((r) => [r.id, r.name]));
+  const names = await namesOf(db, vs.map((v) => v.created_by));
   const intents = new Map(
     (await db.query<{ id: string; stage: string; title: string }>(`SELECT id, stage, title FROM play.intents WHERE id = ANY($1::uuid[])`, [vs.map((v) => v.intent_id).filter(Boolean)])).rows.map((r) => [r.id, r]),
   );
@@ -344,7 +342,7 @@ async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId
   if (kind.ready) await kind.ready(tx, now, p.intent ?? null);
   await docs.propose(tx, docId, v, { note, author });
   // every document goes in beside the others the intent holds (intent 7c8986c5)
-  const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via: via === "mcp" ? "mcp" : "web" });
+  const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: kind.work, doc_id: docId, doc_variant: v }, note, via });
   const number = ((await docs.versionsOf(tx, docId)).at(-1)?.number ?? 0) + 1;
   return { intent, stage: await stageAfter(tx, intent), doc: uuid, kind: kind.name, number, variant: v, edits: (await docs.history(tx, docId, { variant: v })).length, changes: changes.length };
 }

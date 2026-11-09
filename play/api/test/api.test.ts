@@ -22,7 +22,8 @@ const PAPAYA_STORY = "7adaf0b3-01a9-8bb9-b250-d2bee7016c4c";
 import { COOP } from "../src/kit/ids";
 import { randomUUID } from "node:crypto";
 import { leveled } from "./fixtures/lod";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const recipe = (id: string, v: number, variant: string | null = null, note = "") =>
   `${RECIPE_HEAD}module.exports.recipe = () => ({});${note}\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, ${JSON.stringify(variant)});\n});\n`;
@@ -40,12 +41,7 @@ suite("play API", () => {
     db = f.db;
     store = folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
     api = appOn(db, { store });
-    for (const n of ["ada", "eve", "cit", "cit2", "trav"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: cookieFor(h.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = ANY($1)`, [[who.ada.id, who.eve.id]]);
-    await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = ANY($1)`, [[who.cit.id, who.cit2.id]]);
+    for (const [n, level] of [["ada", "admin"], ["eve", "admin"], ["cit", "citizen"], ["cit2", "citizen"], ["trav", null]] as const) who[n] = await human(db, n, level);
   });
 
   afterAll(async () => {
@@ -602,13 +598,8 @@ suite("play API", () => {
   const tool = rawTool;
   /** every edit is an intent's: each variant a test drafts is made for an intent of its own, ready to propose */
   const variantIntent = new Map<number, string>();
-  const readyIntent = async (title: string, token = storyToken) => {
-    const i = (await rawTool("add_intent", { title }, token)).out;
-    await rawTool("specify_intent", { intent: i.id, goal: "It changes.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "One story.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }] }, token);
-    await call("ada", "POST", `/api/intents/${i.id}/approve`);
-    await rawTool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] }, token);
-    return i.id as string;
-  };
+  const readyIntent = (title: string, token = storyToken) =>
+    fx.readyIntent({ tool: async (name, args) => (await rawTool(name, args, token)).out, approve: (id) => call("ada", "POST", `/api/intents/${id}/approve`) }, title, { spec: fx.spec("It changes.", "One story.") });
   /** a story's edits, a `title` among them as a field's edit */
   const editsOf = (a: Record<string, any>) => (a.title !== undefined ? [...(a.edits ?? []), { op: "set", fields: { title: a.title } }] : a.edits);
   /** a story's whole timeline, its `title` with it */
@@ -1015,9 +1006,7 @@ suite("play API", () => {
     expect((await call("cit", "POST", "/api/tokens", { name: "x" })).data.error).toBe("Only Maia City's admins may make access tokens, for now.");
     // a token whose owner is no longer an admin opens nothing; a revoked one neither
     // (an admin of this test's own, so no other test's demotion reaches it)
-    const h = await createHuman(db, `librarian-${randomUUID().slice(0, 8)}`);
-    who.librarian = { id: h.id, cookie: cookieFor(h.id) };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    const h = (who.librarian = await human(db, `librarian-${randomUUID().slice(0, 8)}`));
     const theirs = (await call("librarian", "POST", "/api/tokens", { name: "their library" })).data;
     expect(theirs.token).toMatch(/^play_/);
     expect((await by("GET", "/api/library", theirs.token)).status).toBe(200);

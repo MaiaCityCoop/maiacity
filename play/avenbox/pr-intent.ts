@@ -12,13 +12,13 @@
 // consolidate into, or to close this one. It reads GitHub (GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_TOKEN: read only)
 // and play (get_intent over its MCP: PLAY_MCP_URL, PLAY_MCP_TOKEN). It runs from main, in
 // .github/workflows/intent-named.yml and intents-pr.yml: it reads the pull request, never checks it out.
+import { intentsIn as trailers } from "../api/src/kit/ids";
 import { call, PLAY_MCP } from "./play";
 
-const LINE = /^\s*Intent:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/gim;
 const LIVE = ["build", "proposal", "ship"];
 
-/** the intents a text names on its `Intent: <uuid>` lines, lower case */
-const intentsIn = (text: string | null | undefined) => [...`${text ?? ""}`.matchAll(LINE)].map((m) => m[1].toLowerCase());
+/** the intents a text names on its `Intent: <uuid>` lines, lower case, an indented line too */
+const intentsIn = (text: string | null | undefined) => trailers(text, { indented: true });
 
 export type Verdict = { ok: boolean; intent?: string; why: string; notes: string[] };
 type Env = { github: string; repo: string; ghToken?: string; play: string; playToken?: string };

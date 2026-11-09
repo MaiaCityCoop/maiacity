@@ -6,12 +6,11 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createHuman } from "../src/auth";
 import { type Db } from "../src/kit/pg";
-import { INTENT_STAGES } from "../src/intents";
+import { INTENT_STAGES } from "../src/kit/stages";
 import { SCHEMA, SKILL } from "../src/kit/ids";
 import { avenmaia, intents, seedSkills } from "../import/skills";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 const BEFORE = join(import.meta.dir, "fixtures/instructions-before");
 
@@ -30,11 +29,8 @@ suite("skills: what play teaches its agents, kept once", () => {
     f = await freshDb();
     db = f.db;
     api = appOn(db);
-    for (const n of ["ada", "cit"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: cookieFor(h.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    who.ada = await human(db, "ada");
+    who.cit = await human(db, "cit", null);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
   });

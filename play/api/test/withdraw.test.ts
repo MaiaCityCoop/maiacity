@@ -7,6 +7,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Db } from "../src/kit/pg";
 import { fakeGitHub } from "./fixtures/github";
 import { agentToken, appOn, freshDb, human, quiet, request, suite, tool as mcpTool, type Api, type Fresh } from "./kit";
+import * as fx from "./fixtures/intents";
 
 suite("withdraw a document from an intent's work", () => {
   let f: Fresh, db: Db, api: Api, restore: () => void;
@@ -39,13 +40,7 @@ suite("withdraw a document from an intent's work", () => {
     checks: [{ check: "It looks right", how: "look", by: "the board beside the sheet" }],
   };
   /** an intent at Proposal, its one must passed, ready to take work */
-  const ready = async (title: string) => {
-    const i = await tool("add_intent", { title, kind: "improve" });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "seen" }] })).stage).toBe("proposal");
-    return i.id as string;
-  };
+  const ready = (title: string) => fx.readyIntent({ tool, approve: (id) => call("POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, add: { kind: "improve" }, evidence: "seen", strict: true });
   const story = (title: string, intent: string) =>
     tool("propose_story", { title, note: "its first cut", intent, body: { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] } });
   const variants = async (intent: string) =>
@@ -128,6 +123,18 @@ suite("withdraw a document from an intent's work", () => {
     expect((await variants(id)).map((h) => h.doc_id)).toEqual([`story:${b2.story}`]);
     expect((await row(id)).steps.at(-1)).toMatchObject({ from: "build", to: "build", via: "site", doc: `story:${a.story}` });
     expect((await call("POST", `/api/intents/${id}/withdraw`, { doc: crypto.randomUUID(), reason: "none such" })).status).toBe(409);
+  });
+
+  test("withdraw its last document: the intent names no work of play's any more, its own columns all empty", async () => {
+    const id = await ready("One cut, withdrawn");
+    const a = await story("Last: the one cut", id);
+    expect(a.error).toBeUndefined();
+    const cols = `SELECT work, asset_id, base, version, story_id, story_base, story_version FROM play.intents WHERE id = $1`;
+    expect((await db.query<any>(cols, [id])).rows[0]).toMatchObject({ work: expect.any(String), story_id: a.story });
+    expect((await tool("withdraw_doc", { intent: id, doc: a.story, reason: "proposed by mistake" })).stage).toBe("build");
+    expect(await variants(id)).toEqual([]);
+    expect((await db.query<any>(cols, [id])).rows[0]).toEqual({ work: null, asset_id: null, base: null, version: null, story_id: null, story_base: null, story_version: null });
+    expect((await call("GET", `/api/intents/${id}`)).data.work ?? null).toBeNull();
   });
 
   test("withdraw a stale draft: an asset's open variant seeded below its head closed, kept; the next doc_edit seeds from Main and proposes", async () => {

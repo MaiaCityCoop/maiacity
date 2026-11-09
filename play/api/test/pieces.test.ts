@@ -6,7 +6,6 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { COOP } from "../src/kit/ids";
 import { meOf } from "../src/access";
 import { proposeAsset } from "../src/assetdocs";
-import { createHuman } from "../src/auth";
 import { type BlobStore } from "../src/blobs";
 import { hashText } from "../src/kit/hash";
 import { SCHEMA } from "../src/kit/ids";
@@ -15,7 +14,7 @@ import { type Db } from "../src/kit/pg";
 import { MOST_DEEP, piecesShown } from "../src/pieces";
 import { decide, docAt, docHistory, listDocs, proposeDocVersion } from "../src/versioned";
 import "../src/allkinds";
-import { type Fresh, freshDb, suite, tempStore } from "./kit";
+import { type Fresh, freshDb, human, suite, tempStore } from "./kit";
 
 
 const pieceSource = (n: number) => `// the kit's wheels, as written\nconst three = require("three");\nmodule.exports.wheels = ${n};\nmodule.exports.three = three;\n`;
@@ -50,8 +49,7 @@ suite("pieces", () => {
     f = await freshDb({ prefix: "play_pieces" });
     db = f.db;
     store = tempStore();
-    ada = (await createHuman(db, "ada")).id;
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [ada]);
+    ada = (await human(db, "ada")).id;
   });
   afterAll(async () => {
     await f?.drop();

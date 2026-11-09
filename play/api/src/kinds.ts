@@ -29,7 +29,7 @@ import type { Db, Queryable } from "./kit/pg";
 import { UUID } from "./kit/uuid";
 import { HttpError } from "./kit/errors";
 
-/** how a hook is called: the database, the file store, who, how */
+/** how a hook is called: the database and the file store */
 export type Ctx = { db: Db; store: BlobStore };
 export type Input = { edits?: unknown; whole?: unknown };
 
@@ -59,6 +59,10 @@ export type Kind = {
   row?: Record<string, (json: any) => unknown>;
   /** its document made where it is missing (from the kind's own history) */
   ensure?: (q: Queryable, ctx: Ctx, id: string) => Promise<void>;
+  /** what its documents take as edits beyond a document's own, as MCP tells an agent (doc_edit, propose_doc_version) */
+  edits?: string;
+  /** whether what its schema says it holds is told among the formats in MCP's tools/list (./mcp.ts formatsOf) */
+  told?: boolean;
   /** an edit of an agent's turned into the document's own: edits, or the whole new state */
   write?: (q: Queryable, id: string, cur: any, input: Input) => Promise<docs.Write>;
   /** the kind's own propose, its intent variant as it stands (an asset's recipe files and frozen version; a story's) */
@@ -145,10 +149,15 @@ export const iso = (d: Date | string) => new Date(d).toISOString();
 /** who an edit is by, as the store keeps it: a person, through MCP, the site or the import */
 export const authorOf = (me: Pick<Me, "id"> | null, via: string | null | undefined): docs.Author => ({ human: me?.id ?? null, via: via === "mcp" ? "mcp" : via === "import" ? "import" : "site" });
 
+/** the names of the humans `ids` names (none, or one more than once, is fine), by id */
+export async function namesOf(q: Queryable, ids: (string | null | undefined)[]): Promise<Map<string, string>> {
+  const some = [...new Set(ids.filter((x): x is string => !!x))];
+  return new Map((await q.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [some])).rows.map((r) => [r.id, r.name]));
+}
+
 /** each edit with its author's name, and the version it was named where one was */
 export async function named(db: Queryable, edits: docs.DocEdit[], versions: docs.Version[] = []) {
-  const ids = [...new Set(edits.map((s) => s.author).filter((x): x is string => !!x))];
-  const names = new Map((await db.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [ids])).rows.map((r) => [r.id, r.name]));
+  const names = await namesOf(db, edits.map((s) => s.author));
   const at = new Map(versions.map((v) => [docs.frontiersKey(v.frontiers), v.number]));
   // a version marks the latest edit at its point (a merge that only caught Main up stands where the intent variant's
   // last edit stood: the merge is the edit that made it the version)

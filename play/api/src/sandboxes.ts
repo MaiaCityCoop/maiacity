@@ -10,11 +10,10 @@ import type { Db, Queryable } from "./kit/pg";
 import { admin, must, type Me } from "./access";
 import { canonical } from "./kit/hash";
 import { UUID } from "./kit/uuid";
-import { readableRefs } from "../import/plan";
+import { readableRefs } from "./recipes";
 import { assetSeen } from "./owners";
 import * as docs from "./docs";
 import { SCHEMA } from "./kit/ids";
-import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
 import { holdVariant, intentIdOf } from "./held";
 import { noSuchIntent } from "./intents";
 import { resolveEdits } from "./kinds";
@@ -22,6 +21,12 @@ import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
 
 class SandboxError extends HttpError {}
+
+/** what a layout takes as edits beyond a document's own: its helpers (layoutWrite), told to an agent over MCP (./kinds.ts Kind.edits) */
+export const LAYOUT_EDITS =
+  "A sandbox's layout takes its own helpers (all of one edit's, not mixed with the edits above): { op: 'pin', slot, asset?, version?, variant?, params? } pins a slot (a new one needs `asset`, a UUID): `version` an accepted version's number, the asset's newest if left out; `variant` a variant's name, null for the version's default, kept where left out (and the new version has it); `params` its values ({ stage: 9 }), null for none, kept where left out; " +
+  "{ op: 'pin_latest', asset, variant? } moves every slot that pins the asset to its newest version; { op: 'unpin', slot } (no config may still name it); " +
+  "{ op: 'set', config, path, value } sets the value at a path of a config (['outside', 'trees', 3, 'weight']; an index one past the end adds an item; path [] sets the whole config, a new one too); { op: 'delete', config, path } removes it (path []: the whole config). A config names an asset only by { slot }, never by a ref.";
 
 const SLOT = /^[A-Za-z0-9][A-Za-z0-9_.\/-]{0,199}$/;
 const CONFIG = /^[a-z][a-z0-9-]*$/;
@@ -355,29 +360,21 @@ const isHelper = (e: any) => !!e && typeof e === "object" && (HELPERS.has(e.op) 
  * whole layout; what it would hold that play does not is refused.
  */
 export async function layoutWrite(q: Queryable, cur: any, input: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
-  try {
-    let target: any;
-    if (input.whole !== undefined) {
-      if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new HttpError("A whole layout is an object (doc_at's `json`).");
-      target = { ...(input.whole as object), schema: cur.schema };
-    } else if (Array.isArray(input.edits) && input.edits.length && input.edits.every(isHelper)) {
-      const { state } = await applyEdits(q, { pins: cur.pins ?? {}, configs: cur.configs ?? {} }, input.edits);
-      target = { ...cur, pins: state.pins, configs: state.configs };
-    } else {
-      if (Array.isArray(input.edits) && input.edits.some(isHelper)) throw new HttpError("Give the sandbox's edit helpers (pin, pin_latest, unpin, set and delete of a config) or a document's edits, not both in one edit.");
-      // a document's edits, applied to the layout as it stands to check what they make
-      const t = await docs.typeFor(q, SCHEMA.sandbox);
-      const d = newDoc();
-      seed(d, t, cur);
-      applyDocEdits(d, t, resolveEdits(cur, input.edits));
-      target = jsonOf(d);
-    }
-    const problems = await layoutProblems(q, target);
-    if (problems.length) throw new HttpError(problems[0]);
-    return { target };
-  } catch (e) {
-    throw e instanceof SandboxError ? new HttpError(e.message, e.status) : e;
+  let target: any;
+  if (input.whole !== undefined) {
+    if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new HttpError("A whole layout is an object (doc_at's `json`).");
+    target = { ...(input.whole as object), schema: cur.schema };
+  } else if (Array.isArray(input.edits) && input.edits.length && input.edits.every(isHelper)) {
+    const { state } = await applyEdits(q, { pins: cur.pins ?? {}, configs: cur.configs ?? {} }, input.edits);
+    target = { ...cur, pins: state.pins, configs: state.configs };
+  } else {
+    if (Array.isArray(input.edits) && input.edits.some(isHelper)) throw new HttpError("Give the sandbox's edit helpers (pin, pin_latest, unpin, set and delete of a config) or a document's edits, not both in one edit.");
+    // a document's edits, applied to the layout as it stands to check what they make
+    target = docs.applied(await docs.typeFor(q, SCHEMA.sandbox), cur, resolveEdits(cur, input.edits));
   }
+  const problems = await layoutProblems(q, target);
+  if (problems.length) throw new HttpError(problems[0]);
+  return { target };
 }
 
 /** each slot whose pin two layouts hold differently, before and after, its asset named by its label and version */

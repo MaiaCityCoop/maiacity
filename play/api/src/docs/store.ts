@@ -53,6 +53,11 @@ async function loadMain(q: Queryable, row: DocRow): Promise<LoroDoc> {
   const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 AND seq > $3 ORDER BY seq`, [row.id, row.main, row.snapshot_seq]);
   return fromBytes(row.snapshot ? toBytes(row.snapshot) : null, rows.map((r) => toBytes(r.bytes)));
 }
+/** variant `v`'s own edits of document `id`, in order, imported into `d` */
+async function importEdits(q: Queryable, d: LoroDoc, id: string, v: number | string) {
+  const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [id, v]);
+  if (rows.length) d.importBatch(rows.map((x) => toBytes(x.bytes)));
+}
 /**
  * A variant as it is now: what it grew from at its seed (Main; for an intent variant of a breed, that breed), its own
  * edits on top. A breed's own edits include every edit of Main merged into it since (trackMain).
@@ -63,8 +68,7 @@ async function loadVariant(q: Queryable, row: DocRow, v: VariantRow, main?: Loro
   const d = from.forkAt(v.seed);
   d.setRecordTimestamp(true);
   d.setChangeMergeInterval(0);
-  const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [row.id, v.id]);
-  if (rows.length) d.importBatch(rows.map((r) => toBytes(r.bytes)));
+  await importEdits(q, d, row.id, v.id);
   return d;
 }
 
@@ -293,8 +297,7 @@ export async function previewMerge(db: Queryable, id: string, v: number): Promis
     const json = breedOn(jsonOf(main), jsonOf(into.doc), into.overrides);
     return { json, contentHash: contentHash(json), concurrent: into.concurrent, problems: problemsOf(await typeFor(db, row.schema_id), json) };
   }
-  const { rows } = await db.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [id, v]);
-  if (rows.length) main.importBatch(rows.map((x) => toBytes(x.bytes)));
+  await importEdits(db, main, id, v);
   const json = jsonOf(main);
   return { json, contentHash: contentHash(json), concurrent: !sameFrontiers(r.seed, row.head), problems: problemsOf(await typeFor(db, row.schema_id), json) };
 }
@@ -323,8 +326,7 @@ export async function accept(db: Db | Queryable, id: string, v: number, o: { aut
       main.setPeerId(await peerFor(q, id, row.main, o.author));
       patchTo(main, t, mine);
     } else {
-      const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [id, v]);
-      main.importBatch(rows.map((x) => toBytes(x.bytes)));
+      await importEdits(q, main, id, v);
     }
     const json = jsonOf(main), hash = contentHash(json);
     const problems = problemsOf(t, json);
@@ -359,8 +361,7 @@ async function intoBreed(q: Queryable, row: DocRow, r: VariantRow, main: LoroDoc
   doc.setChangeMergeInterval(0);
   const before = doc.version();
   const was = jsonOf(doc);
-  const { rows } = await q.query<{ bytes: Uint8Array }>(`SELECT bytes FROM play.doc_edits WHERE doc_id = $1 AND variant = $2 ORDER BY seq`, [row.id, r.id]);
-  if (rows.length) doc.importBatch(rows.map((x) => toBytes(x.bytes)));
+  await importEdits(q, doc, row.id, r.id);
   const overrides = union(b?.overrides ?? [], changedFields(was, jsonOf(doc)));
   return { doc, before, overrides, concurrent: b ? !sameFrontiers(r.seed, b.head) : false, breed: b };
 }
@@ -458,13 +459,19 @@ export async function history(db: Queryable, id: string, o: { variant?: number }
   return rows.map((r) => ({ seq: Number(r.seq), variant: r.type === "main" ? null : Number(r.variant), kind: r.kind, author: r.author, via: r.via, message: r.message, frontiers: r.frontiers, created: r.created, bytes: Number(r.bytes) }));
 }
 
+/** the frontiers of document `id`'s version `number`, or null where it has none */
+export async function versionFrontiers(q: Queryable, id: string, number: number): Promise<Frontiers | null> {
+  const { rows } = await q.query<{ frontiers: Frontiers }>(`SELECT frontiers FROM play.doc_versions WHERE doc_id = $1 AND number = $2`, [id, number]);
+  return rows[0]?.frontiers ?? null;
+}
+
 /** the document's JSON at an edit (its seq) or a named version */
 export async function stateAt(db: Queryable, id: string, at: { edit: number } | { version: number }): Promise<any> {
   const row = await rowOf(db, id);
   if ("version" in at) {
-    const { rows } = await db.query<{ frontiers: Frontiers }>(`SELECT frontiers FROM play.doc_versions WHERE doc_id = $1 AND number = $2`, [id, at.version]);
-    if (!rows[0]) throw new DocError(`${id} has no version ${at.version}`, 404);
-    return jsonAt(await loadMain(db, row), rows[0].frontiers);
+    const frontiers = await versionFrontiers(db, id, at.version);
+    if (!frontiers) throw new DocError(`${id} has no version ${at.version}`, 404);
+    return jsonAt(await loadMain(db, row), frontiers);
   }
   const { rows } = await db.query<{ variant: string; frontiers: Frontiers; type: string; status: string; breed: string | null; makes: string | null }>(
     `SELECT u.variant, u.frontiers, v.type, v.status, v.breed, v.makes FROM play.doc_edits u JOIN play.doc_variants v ON v.id = u.variant WHERE u.doc_id = $1 AND u.seq = $2`,

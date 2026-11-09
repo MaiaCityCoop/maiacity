@@ -2,10 +2,9 @@
 // (TEST_DATABASE_URL): the open stages always come back whole, no cap across the board; the closed stages (Accepted,
 // Archived) come a page at a time, newest first, by `limit` and the cursor `before`; every stage's count beside them.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import { type Db } from "../src/kit/pg";
 import { OPEN, seedBoard } from "./fixtures/board";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, suite } from "./kit";
 
 suite("board loads", () => {
   let f: Fresh, db: Db;
@@ -17,12 +16,10 @@ suite("board loads", () => {
     f = await freshDb();
     db = f.db;
     api = appOn(db);
-    const ada = await createHuman(db, "ada");
-    const cit = await createHuman(db, "cit");
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [ada.id]);
-    await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [cit.id]);
-    cookie = cookieFor(ada.id);
-    citizen = cookieFor(cit.id);
+    const ada = await human(db, "ada");
+    const cit = await human(db, "cit", "citizen");
+    cookie = ada.cookie;
+    citizen = cit.cookie;
     // 40 open (8 at each open stage), the oldest of them older than every decided one; 600 accepted, 40 archived
     await seedBoard(db, ada.id, { idea: 8, specify: 8, build: 8, proposal: 8, ship: 8, accepted: 600, archived: 40 });
   }, 60_000);

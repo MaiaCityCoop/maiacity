@@ -15,7 +15,7 @@ import { admin, type Me } from "./access";
 import type { Db } from "./kit/pg";
 import { UUID } from "./kit/uuid";
 import { INTENT_ADMINS, intentFor, intentRow, reasonOf, moveBack } from "./intents";
-import { closeVariant, dropDoc, variantsOf, workOf } from "./held";
+import { closeVariant, dropDoc, ownColumns, variantsOf, workOf } from "./held";
 import { HttpError } from "./kit/errors";
 
 /** a withdrawal, as it is kept on the intent beside its steps back */
@@ -45,7 +45,7 @@ export async function withdrawDoc(db: Db, me: Me | null, id: string, doc: unknow
     for (const d of drafts) await closeVariant(tx, who, d.doc_id, Number(d.id));
     // none left: the intent names no work of play's any more
     if (!(await variantsOf(tx, intent.id)).length)
-      await tx.query(`UPDATE play.intents SET work = NULL, asset_id = NULL, base = NULL, version = NULL, story_id = NULL, story_base = NULL, story_version = NULL WHERE id = $1`, [intent.id]);
+      await ownColumns(tx, intent.id);
     const step: Withdrawal = { at: new Date().toISOString(), by: who.name, human: who.id, via, from: w.stage, to: "build", reason: why, doc: docId };
     // at Proposal it goes back to Build, its results kept; nothing is decided by it
     await moveBack(tx, intent.id, "withdrawn", JSON.stringify([step]));

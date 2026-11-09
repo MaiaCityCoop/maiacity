@@ -1,13 +1,13 @@
-// The Factories on Loro (src/factories.ts, play/SPEC.md §4.7) against a real Postgres: set TEST_DATABASE_URL, as for
+// The Factories on Loro (src/allkinds.ts' factory, import/factories.ts; play/SPEC.md §4.8) against a real Postgres: set TEST_DATABASE_URL, as for
 // ./api.test.ts. The LifeTrac line seeded as its v1, read by admins only, drafted step by step over MCP, proposed,
 // reviewed field by field, accepted as v2; a proposal on an old version merged where it touches other fields and
 // archived where it touches the same.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import { type Db } from "../src/kit/pg";
 import { lifetracLine, seedFactories } from "../import/factories";
 import { FACTORY } from "../src/kit/ids";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, suite, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const LT = FACTORY.lifetrac;
 
@@ -21,11 +21,8 @@ suite("the Factories on Loro", () => {
     f = await freshDb();
     db = f.db;
     api = appOn(db);
-    for (const n of ["ada", "cit"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: cookieFor(h.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    who.ada = await human(db, "ada");
+    who.cit = await human(db, "cit", null);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
   });
 
@@ -38,13 +35,7 @@ suite("the Factories on Loro", () => {
   const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
 
   /** an intent in Prototype, its spec approved, its one must check passed (at Proposal by itself): every edit is an intent's */
-  const readyIntent = async (title: string) => {
-    const i = await tool("add_intent", { title });
-    await tool("specify_intent", { intent: i.id, goal: "It changes.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "One document.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }] });
-    await call("ada", "POST", `/api/intents/${i.id}/approve`);
-    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
-    return i.id as string;
-  };
+  const readyIntent = (title: string) => fx.readyIntent({ tool, approve: (id) => call("ada", "POST", `/api/intents/${id}/approve`) }, title, { spec: fx.spec("It changes.", "One document.") });
 
   test("the LifeTrac line is seeded once as its v1, and a valid factory/1", async () => {
     const doc = lifetracLine();

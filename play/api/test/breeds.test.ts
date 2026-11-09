@@ -8,18 +8,13 @@
 // by one too (`new_breed`); either Accept makes the asset's next frozen version, every breed's recipe built and its
 // asset_variants row written.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import { hashText } from "../src/kit/hash";
 import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, suite, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
-const SPEC = {
-  goal: "A breed changes.",
-  nothing_to_reduce: "A test fixture: nothing to reduce.",
-  scope: "One breed. Nothing else changes.",
-  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
-};
+const SPEC = fx.spec("A breed changes.", "One breed. Nothing else changes.");
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
 
 suite("breeds", () => {
@@ -33,13 +28,7 @@ suite("breeds", () => {
   /** a tool called over MCP by the admin's token: its result as JSON, or its error's text */
   const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** an intent in Build, its spec approved, its one must check passed: ready to take work (every edit is an intent's) */
-  const readyIntent = async (title: string) => {
-    const i = await tool("add_intent", { title });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
-    return i.id as string;
-  };
+  const readyIntent = (title: string) => fx.readyIntent({ tool, approve: (id) => call("POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, strict: true });
   const accept = async (intent: string) => (await call("POST", `/api/intents/${intent}/accept`)).data;
   const breedsOf = async () => (await tool("doc_history", { doc: papaya })).variants.filter((v: any) => v.type === "breed");
   const breed = async (name: string) => {
@@ -57,9 +46,7 @@ suite("breeds", () => {
     f = await freshDb();
     db = f.db;
     api = appOn(db);
-    const h = await createHuman(db, "ada");
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
-    cookie = cookieFor(h.id);
+    ({ cookie } = await human(db, "ada"));
     token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
 
     // a papaya of two kinds, proposed as a version of variants and accepted: its variants are its breeds from then on

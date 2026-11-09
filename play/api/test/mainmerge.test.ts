@@ -8,13 +8,12 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
-import { createHuman } from "../src/auth";
 import { mainMergeState, mergeMain } from "../src/mainmerge";
 import { type Db } from "../src/kit/pg";
 import { watchPulls, watchTick } from "../src/watcher";
 import { type Pull, MERGES_CONTEXT } from "../src/github";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tempStore, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
 
 const SPEC = {
   goal: "Something of play's is made.",
@@ -41,9 +40,7 @@ suite("main merged into open intent pull requests", () => {
     gh = fakeGitHub();
     store = tempStore();
     api = appOn(db, { store, github: gh.gh });
-    const h = await createHuman(db, "ada");
-    cookie = cookieFor(h.id);
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    ({ cookie } = await human(db, "ada"));
     const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
     token = made.token;
     await call("POST", `/api/tokens/${made.id}/avenbox`, { avenbox: true });
@@ -156,7 +153,7 @@ suite("main merged into open intent pull requests", () => {
   test("a builder's push wins: update-branch refused because the head moved (422) changes nothing on the intent, and the next tick reads the new head before anything else is done", async () => {
     const state = mainMergeState();
     const c = await codeAtProposal();
-    await watchPulls(db, gh.gh);
+    await watchPulls(db, gh.gh, store);
     mainMoves();
     // the builder pushes after the watcher read the head and before it updates
     const pushed = gh.commit(sha(++commits), "the builder's push", [c.head], false);
@@ -177,7 +174,7 @@ suite("main merged into open intent pull requests", () => {
     expect(updates(from).map((x) => x.body)).toEqual([{ expected_head_sha: pushed }]);
     // any other refusal of GitHub's is not taken as done: it is tried again
     const d = await codeAtProposal();
-    await watchPulls(db, gh.gh);
+    await watchPulls(db, gh.gh, store);
     mainMoves();
     gh.refuseUpdate({ status: 500, message: "GitHub is down" });
     from = gh.calls.length;

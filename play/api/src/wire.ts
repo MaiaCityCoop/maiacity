@@ -1,6 +1,7 @@
 // What play's API answers, as types the site imports (`$wire` in play/site; `import type` only: nothing here runs).
 // Each type is the API's own, re-exported, so the site's copy cannot drift from what is served.
-export type { IntentKind, IntentStage, Check, Spec, Result, Dep } from "./intents";
+export type { IntentKind, Check, Spec, Result, Dep } from "./intents";
+export type { IntentStage } from "./kit/stages";
 export type { Ship, Step as ShipStep, StepState } from "./ship";
 export type { Sub, PrSeen } from "./substate";
 export type { Clip, Track, StoryBody } from "./storydocs";

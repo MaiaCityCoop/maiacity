@@ -17,14 +17,13 @@
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { hashBytes, HASH } from "../api/src/kit/hash";
+import { stagedBody } from "../api/src/kit/stages";
 import { PLAY_MCP as endpoint, tool } from "./play";
 
 const argv = Bun.argv.slice(2);
 const at = argv.indexOf("--out");
 const OUT = resolve(at >= 0 && argv[at + 1] ? argv[at + 1] : join(import.meta.dir, "../../.claude/skills"));
 const token = process.env.PLAY_MCP_TOKEN;
-/** an intent's stages in their order (play/api/src/intents.ts INTENT_STAGES) */
-const STAGES = ["idea", "specify", "build", "proposal", "ship", "accepted", "archived"];
 const say = (s: string) => console.log(`skills: ${s}`);
 
 if (!token) {
@@ -49,11 +48,7 @@ const scalar = (s: string) => (/^[A-Za-z0-9][\w .,()/+-]*$/.test(s) && !/: | #/.
 function skillMd(name: string, id: string, version: number, s: any, uses: string[]): string {
   const fm: string[] = [`name: ${name}`, `description: ${scalar(`${s.description ?? s.note ?? s.label}`.replace(/\s+/g, " ").trim().slice(0, 1024))}`];
   for (const [k, v] of Object.entries(s.frontmatter ?? {})) fm.push(`${k}: ${scalar(Array.isArray(v) ? v.join(" ") : `${v}`)}`);
-  let body = `${s.body ?? ""}`.trim();
-  if (!body) {
-    const stages = STAGES.map((st) => [st, s.stages?.[st]] as const).filter(([, t]) => `${t ?? ""}`.trim());
-    body = [`# ${s.label}`, `${s.system ?? ""}`.trim(), ...stages.map(([st, t]) => `## At ${st}\n\n${`${t}`.trim()}`)].filter(Boolean).join("\n\n");
-  }
+  const body = `${s.body ?? ""}`.trim() || stagedBody(s, `# ${s.label}`);
   const foot = [`play skill ${id} v${version}, written from play's database (play/avenbox/skills.ts): change it there, by proposal.`];
   if (uses.length) foot.push(`Uses: ${uses.join(", ")}.`);
   return `---\n${fm.join("\n")}\n---\n\n${body}\n\n<!-- ${foot.join(" ")} -->\n`;

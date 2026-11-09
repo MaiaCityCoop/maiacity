@@ -3,10 +3,12 @@
 // fetched only when unfolded, newest first, a page at a time ("more" asks for the next page by its cursor). Plain
 // functions over the cards the board holds, so ./board.test.ts can follow what is asked of play.
 
+import { CLOSED_STAGES, OPEN_STAGES } from '$stages';
+
 /** the columns always loaded whole */
-export const OPEN = ['idea', 'specify', 'build', 'proposal', 'ship'] as const;
+export const OPEN = OPEN_STAGES;
 /** the columns loaded only when unfolded, a page at a time */
-export const CLOSED = ['accepted', 'archived'] as const;
+export const CLOSED = CLOSED_STAGES;
 export type ClosedStage = (typeof CLOSED)[number];
 /** a closed column's page */
 export const PAGE = 50;

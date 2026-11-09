@@ -1,18 +1,16 @@
 // The skills kept in the repo as they were first written (./skills/: avenMAIA and the Intents skill): each written into
-// play's Postgres as the v1 of its Loro document (../src/skills.ts) only when play holds no skill of its id yet. From
+// play's Postgres as the v1 of its Loro document (./seeddocs.ts) only when play holds no skill of its id yet. From
 // then on play's Postgres is the source of truth: a skill changes only by proposal (over MCP), and nothing here writes
 // over it. Run with every deploy, by ./run.ts.
 import type { Db } from "../src/kit/pg";
-import { seedDoc } from "../src/versioned";
+import { seedDocs, type Seed } from "./seeddocs";
 import { SKILL } from "../src/kit/ids";
 import { avenmaia } from "./skills/avenmaia";
 import { intents } from "./skills/intents";
-import "../src/allkinds";
 
 export { avenmaia, intents };
-export type SkillsReport = { seeded: string[]; present: string[]; errors: string[] };
 
-export const SKILLS = [
+export const SKILLS: Seed[] = [
   {
     id: SKILL.avenmaia,
     at: new Date("2026-11-06T12:00:00Z"),
@@ -27,15 +25,4 @@ export const SKILLS = [
   },
 ];
 
-export async function seedSkills(db: Db): Promise<SkillsReport> {
-  const out: SkillsReport = { seeded: [], present: [], errors: [] };
-  for (const s of SKILLS) {
-    try {
-      if (await seedDoc(db, "skill", { id: s.id, json: s.json(), note: s.note, at: s.at })) out.seeded.push(s.id);
-      else out.present.push(s.id);
-    } catch (e) {
-      out.errors.push(`${s.id}: ${String((e as Error)?.message ?? e).slice(0, 300)}`);
-    }
-  }
-  return out;
-}
+export const seedSkills = (db: Db) => seedDocs(db, "skill", SKILLS);

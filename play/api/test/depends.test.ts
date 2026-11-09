@@ -5,13 +5,13 @@
 // Every forward gate is one function, mayMove: a stub of it refusing everything makes every forward path refuse.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
-import { createHuman } from "../src/auth";
 import { gate } from "../src/intents";
 import { type Db } from "../src/kit/pg";
 import { watchShips } from "../src/watcher";
 import { type Pull } from "../src/github";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tempStore, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tempStore, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 const SPEC = {
@@ -38,11 +38,7 @@ suite("intents depend on intents", () => {
     gh = fakeGitHub();
     store = tempStore();
     api = appOn(db, { store, github: gh.gh });
-    for (const n of ["ada", "bea"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: cookieFor(h.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = ANY($1)`, [[who.ada.id, who.bea.id]]);
+    for (const n of ["ada", "bea"]) who[n] = await human(db, n);
     for (const n of ["ada", "bea"]) {
       const made = (await call(n, "POST", "/api/tokens", { name: "agent" })).data;
       tokens[n] = made.token;
@@ -109,7 +105,7 @@ suite("intents depend on intents", () => {
       job(base + 34, "The website", "completed", "success"),
     ]);
   };
-  const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
+  const clearShips = () => fx.clearShips(db);
   /** the pull requests play merged, since call `from` */
   const merged = (from = 0) => gh.calls.slice(from).filter((c) => c.method === "PUT").map((c) => c.path);
   const setStage = (id: string, stage: string) =>
