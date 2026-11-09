@@ -30,11 +30,11 @@ trap cleanup EXIT
 json() { sed -n "s/^ *\"$1\": *\"\(.*\)\",\{0,1\}$/\1/p" "$WORK/manifest.json" | head -1; }
 
 if [ "$NAME" = latest ]; then
-  NAME=$(s3 backup -v "$WORK:/work" -- s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" | awk '/PRE /{print $2}' | tr -d / | grep -E '^[0-9]{8}T[0-9]{6}Z-' | sort | tail -1)
-  [ -n "$NAME" ] || { echo "restore: there is no backup under BACKUPS/play/"; exit 1; }
+  NAME=$(snapshots -v "$WORK:/work" | tail -1)
+  [ -n "$NAME" ] || { echo "restore: there is no backup under $SNAPSHOTS_PREFIX/"; exit 1; }
 fi
-echo "restore: $MODE from s3://$BACKUP_BUCKET/BACKUPS/play/$NAME/ …"
-s3 backup -v "$WORK:/work" -- s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$NAME/" /work/ --recursive --only-show-errors
+echo "restore: $MODE from s3://$BACKUP_BUCKET/$SNAPSHOTS_PREFIX/$NAME/ …"
+s3 backup -v "$WORK:/work" -- s3 cp "s3://$BACKUP_BUCKET/$SNAPSHOTS_PREFIX/$NAME/" /work/ --recursive --only-show-errors
 # a backup is both halves, the dump and the files, or it is none: a snapshot's files are in the shared store
 # (files.txt names them), an older backup's in its own blobs.tar or blobs/
 for f in play.dump manifest.json; do
@@ -51,12 +51,12 @@ mkdir -p "$WORK/data"
 if [ -f "$WORK/files.txt" ]; then
   # a snapshot: the files it names, from the store every snapshot shares (a file named by its hash never changes, so
   # the store's copy is the one the snapshot was made with); each must be there, at its size
-  echo "restore: fetching the $(wc -l <"$WORK/files.txt") files it names from s3://$BACKUP_BUCKET/BACKUPS/play-files/blobs/ …"
+  echo "restore: fetching the $(wc -l <"$WORK/files.txt") files it names from s3://$BACKUP_BUCKET/$STORE_PREFIX/ …"
   mkdir -p "$WORK/data/blobs"
   # the store synced down whole (in parallel, only what is not here yet), then whatever this snapshot does not name
   # taken out again below
   S3_TIMEOUT=2400 s3 backup -v "$WORK:/work" -- \
-    s3 sync "s3://$BACKUP_BUCKET/BACKUPS/play-files/blobs/" /work/data/blobs/ --size-only --only-show-errors
+    s3 sync "s3://$BACKUP_BUCKET/$STORE_PREFIX/" /work/data/blobs/ --size-only --only-show-errors
   while read -r h size; do
     f="$WORK/data/blobs/${h:0:2}/$h"
     [ -f "$f" ] && [ "$(stat -c %s "$f")" = "$size" ] || { echo "restore: the store lacks $h (or holds it at another size): not a whole snapshot"; exit 1; }

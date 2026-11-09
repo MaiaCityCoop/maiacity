@@ -31,8 +31,8 @@ fi
 if ! docker exec "$DB_CONTAINER" psql -U maiacity -d maiacity -Atc "SELECT 1 FROM pg_namespace WHERE nspname = 'play'" </dev/null | grep -q 1; then
   echo "backup: no schema play yet (play's first deploy), nothing to back up"; exit 0
 fi
-NAME="$(date -u +%Y%m%dT%H%M%SZ)-${LABEL}"
-PREFIX="BACKUPS/play/$NAME"
+NAME=$(snapshot_name "$LABEL")
+PREFIX="$SNAPSHOTS_PREFIX/$NAME"
 WORK="$(pwd)/backups-tmp/$NAME"
 mkdir -p "$WORK"
 trap 'rm -rf "$WORK"' EXIT
@@ -45,7 +45,6 @@ timeout 900 docker exec "$DB_CONTAINER" pg_dump -U maiacity -d maiacity -n play 
 # but not copied; 2026-11-05: 2287 rows, 2267 copied)
 docker exec "$DB_CONTAINER" psql -U maiacity -d maiacity -AtF ' ' -c "SELECT hash, size FROM play.files ORDER BY hash" </dev/null >"$WORK/files.txt"
 ROWS=$(wc -l <"$WORK/files.txt")
-STORE_PREFIX="BACKUPS/play-files/blobs"
 # the files into the store: from the bucket where play keeps them there, else from its folder. Only what the store
 # does not hold yet is copied: a sync compares each name and size, and a file named by its hash never changes.
 STORE=folder

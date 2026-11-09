@@ -112,11 +112,11 @@ mend() {
   [ -n "$want" ] || return 0
   echo "mend: looking for $(echo $want | wc -w) in the backups …"
   local tmp; tmp=$(mktemp -d "$APP_DIR/backups-tmp/mend-XXXX")
-  # first the store every snapshot shares (BACKUPS/play-files/blobs/<xx>/<hash>, deploy/backup.sh)
+  # first the store every snapshot shares (<xx>/<hash> under lib.sh's STORE_PREFIX, deploy/backup.sh)
   left=""
   for h in $want; do
     local f="$tmp/store-$h"
-    aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play-files/blobs/${h:0:2}/$h" - </dev/null >"$f" 2>/dev/null || true
+    aws s3 cp "s3://$BACKUP_BUCKET/$STORE_PREFIX/${h:0:2}/$h" - </dev/null >"$f" 2>/dev/null || true
     if whole_file "$f" "$h"; then put_back "$h" "$f"; echo "mend: $h put back from the backups' store"; else left="$left $h"; fi
     rm -f "$f"
   done
@@ -124,10 +124,10 @@ mend() {
   # then the older backups, each with its own full copy
   # the newest backups first: each one's blobs.tar streamed through tar, which takes out only the files wanted (a
   # backup of the folder holds blobs/blobs/<xx>/<hash>)
-  for b in $(aws s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" </dev/null | awk '{print $2}' | tr -d / | grep -E '^[0-9]{8}T[0-9]{6}Z-' | sort -r | head -8); do
+  for b in $(S3_TIMEOUT=0 S3_READ_TIMEOUT=300 snapshots | sort -r | head -8); do
     [ -n "$want" ] || break
     local names=""; for h in $want; do names="$names blobs/blobs/${h:0:2}/$h"; done
-    aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$b/blobs.tar" - </dev/null 2>/dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
+    aws s3 cp "s3://$BACKUP_BUCKET/$SNAPSHOTS_PREFIX/$b/blobs.tar" - </dev/null 2>/dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
     left=""
     for h in $want; do
       f="$tmp/blobs/blobs/${h:0:2}/$h"

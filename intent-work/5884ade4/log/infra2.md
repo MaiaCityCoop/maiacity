@@ -30,3 +30,17 @@ scratchpad, `infra2/`).
 - Same commands (stand-ins as infra.md's, `infra2/fake/`, old = the branch before the move): server-care.sh report and
   clean, with the bucket and with the folder; backup.sh and restore.sh (check, rollback both ways) as a guard: every
   call identical (mktemp's random suffix normalised). `bash -n`; shellcheck finds only the warning it had (SC2024).
+
+## 3. The backups' layout said once, in lib.sh (re-infra#3)
+
+- lib.sh: `SNAPSHOTS_PREFIX=BACKUPS/play`, `STORE_PREFIX=BACKUPS/play-files/blobs`, `snapshot_name <label>` (the
+  `<when>-<label>` backup.sh names a snapshot) and `snapshots [docker run options]` (the one "list snapshots" pipeline,
+  oldest first, matching that `<when>`). backup.sh, restore.sh and server-care.sh use them instead of their own
+  prefixes and two copies of the pipeline; server-up.sh writes `PLAY_MIRROR_ROOT=$STORE_PREFIX` into play.env, so
+  play's second copy and the backups name one store.
+- Same commands: backup.sh (bucket, folder), restore.sh (check latest and by name, rollback both ways), server-care.sh
+  clean (bucket, folder, and with the store missing the file, so it walks the older snapshots: a new stand-in case)
+  and server-up.sh (a new stand-in run, `fake/up.sh`: its calls and the play.env it writes): identical. (The stand-in's
+  log orders `openssl` and `sudo tee` of one pipe as they happen to run; normalised.)
+- Left: play/api (`blobs.ts`' comments, `bucket.test.ts`) and restore.yml's header name the prefix in words; the image
+  takes it from play.env.
