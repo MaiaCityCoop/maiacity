@@ -1,6 +1,6 @@
 # Mac job: intent c1bee1f8's c8, the smoke: every page on WebGPU in Chrome and in Safari
 
-MAC JOB READY: intent-work/c1bee1f8-render@{JOB} intent-work/c1bee1f8-render/README.md, on the pull request's head
+MAC JOB READY: intent-work/c1bee1f8-render@c8c9422 (this commit's parent 34b86e8 is the dry-run job; only this line changed) intent-work/c1bee1f8-render/README.md, on the pull request's head
 `b798efcfda9f82a9edb41856b9034026e7ca7f2a` (`HEAD_COMMIT=b798efcfda9f82a9edb41856b9034026e7ca7f2a`). Dry run: DRY RUN
 PASSED at 34b86e8 (25.7 s, 2026-11-09 22:05 UTC).
 
