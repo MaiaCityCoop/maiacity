@@ -14,6 +14,8 @@ export const LOCK = {
   rulesSeed: 4_711_033,
   /** the sandboxes' layouts made documents from their rows (../sandboxes.ts ensureLayouts) */
   layoutsMove: 4_711_034,
+  /** the tests' template database, made by one test file while the others wait (../../test/kit.ts); a session lock */
+  testTemplate: 4_711_035,
 } as const;
 
 /** the SQL that takes lock `n` for the caller's transaction */

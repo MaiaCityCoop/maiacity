@@ -11,6 +11,7 @@ import { COOKIE, createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
 import { prepare } from "../src/seed";
+import { LOCK } from "../src/kit/locks";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import type { GitHub } from "../src/github";
@@ -45,28 +46,30 @@ let template: Promise<string> | null = null;
 /**
  * The database every suite copies: migrated and seeded once per code, kept as `play_tmpl_<hash>`. Test files run in
  * parallel (intent aa59f248), and migrating and seeding a database each took past a hook's 5 s on a busy runner; a copy
- * is a file copy. Made under a name of its own and renamed into place: a rename can't win twice, so a file that loses
- * the race drops its own and copies the winner's.
+ * is a file copy. On a fresh runner every file wants it at once: one makes it while the others wait on a session
+ * advisory lock (CREATE DATABASE can't run in a transaction), then each copies it.
  */
 function templateDb(admin: Bun.SQL): Promise<string> {
   return (template ??= (async () => {
     const name = `play_tmpl_${codeHash()}`;
-    const have = await admin`SELECT 1 FROM pg_database WHERE datname = ${name}`;
-    if (have.length) return name;
-    const making = `${name}_${process.pid}_${Math.floor(Math.random() * 1e6)}`;
-    await admin.unsafe(`CREATE DATABASE ${making}`);
-    const u = new URL(DB_URL);
-    u.pathname = `/${making}`;
-    const sql = new Bun.SQL(u.toString());
-    const db = fromBunSql(sql);
-    await prepare(db);
-    await sql.close();
+    const c = await admin.reserve();
     try {
-      await admin.unsafe(`ALTER DATABASE ${making} RENAME TO ${name}`);
-    } catch (e) {
-      // another file named its template first: 42P04, or 23505 when both renames meet in pg_database's unique index
-      if (!["42P04", "23505"].includes((e as { errno?: string }).errno ?? "")) throw e;
-      await admin.unsafe(`DROP DATABASE ${making} WITH (FORCE)`);
+      await c.unsafe(`SELECT pg_advisory_lock(${LOCK.testTemplate})`);
+      const have = await c`SELECT 1 FROM pg_database WHERE datname = ${name}`;
+      if (!have.length) {
+        const making = `${name}_${process.pid}`;
+        await c.unsafe(`DROP DATABASE IF EXISTS ${making} WITH (FORCE)`);
+        await c.unsafe(`CREATE DATABASE ${making}`);
+        const u = new URL(DB_URL);
+        u.pathname = `/${making}`;
+        const sql = new Bun.SQL(u.toString());
+        await prepare(fromBunSql(sql));
+        await sql.close();
+        await c.unsafe(`ALTER DATABASE ${making} RENAME TO ${name}`);
+      }
+    } finally {
+      await c.unsafe(`SELECT pg_advisory_unlock(${LOCK.testTemplate})`);
+      c.release();
     }
     return name;
   })());
