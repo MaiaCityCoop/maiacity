@@ -19,8 +19,11 @@ import { heroOf } from '../content/assets/hero.js';
 import { Stage } from '../content/assets/stage.js';
 import { createRenderer } from '../content/render/core.js';
 import { createSky } from '../content/sandbox-kit/sky.js';
+
 import { cameraAt, stepAt, worldAt, type CameraKey, type World } from './live';
 import { blobWorker, buildWorld, built, engineOf, type WorldBuildSpec } from './world-build';
+/** the hour a live shot's sky is held at (its sun is the stage's own, pinned: this moves only its clouds and its light) */
+export const LIVE_HOUR = 15;
 
 /** what compose.ts hands a live shot: its engine, recipe and pieces by hash, a build's values per step, its camera */
 type Spec = { engine: { v: number; hash: string }; recipe: string; pieces: string[]; builds: Record<string, string>[]; times: number[]; camera: CameraKey[]; size: [number, number]; at: number; duration: number };
@@ -108,7 +111,9 @@ function shot(tl: any, id: string, spec: Spec) {
 			const renderer = createRenderer({ canvas, pixelRatio: 1, shadows: 'pcf', preserve: true });
 			renderer.setSize(w, h, false);
 			camera = new THREE.PerspectiveCamera(40, w / h, 0.05, 2000);
-			stage = new Stage(renderer, camera, { sky: true });
+			// the sky's hour held: by the in-game clock its clouds drifted with the wall clock, so the same t drawn minutes
+			// apart differed (two seeks, SSIM 0.998; intent 602a8849's c7 on the Mac, 2026-11-09)
+			stage = new Stage(renderer, camera, { sky: true, hour: LIVE_HOUR });
 			stage.resize(w, h);
 			shown = builds;
 		} finally {
@@ -132,6 +137,7 @@ type WorldSpec = WorldBuildSpec & { size: [number, number]; at: number; shots: W
 function world(tl: any, spec: WorldSpec) {
 	const [w, h] = spec.size;
 	let renderer: any, scene: THREE.Scene, camera: THREE.PerspectiveCamera, sky: ReturnType<typeof createSky>, mood: any;
+	let skyHour = LIVE_HOUR;
 	let copies: THREE.Object3D[] = [], places: Float32Array[] = [];
 	const lamps: { light: THREE.Light; k: number }[] = [];
 	const made = (async () => {
@@ -151,7 +157,8 @@ function world(tl: any, spec: WorldSpec) {
 		renderer = createRenderer({ canvas: gl, pixelRatio: 1, toneMapping: 'agx', shadows: 'pcf', preserve: true });
 		renderer.setSize(w, h, false);
 		camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 20000);
-		sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 } });
+		// the sky's hour the shot's (its clouds' drift and its light), never the in-game clock's, which follows the wall clock
+		sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 }, clock: () => skyHour });
 	})();
 	for (const s of spec.shots) {
 		let pen: CanvasRenderingContext2D | null = null, drawn = NaN;
@@ -162,6 +169,7 @@ function world(tl: any, spec: WorldSpec) {
 			const m = places[Math.min(at.frame, places.length - 1)];
 			copies.forEach((c, i) => c.matrix.fromArray(m, i * 16));
 			// the hour's sun over the world's mood, then each light scaled by the shot and the exposure in stops
+			skyHour = at.hour ?? LIVE_HOUR;
 			sky.mood(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
 			sky.sun.intensity *= at.lights.sun;
 			scene.environmentIntensity *= at.lights.sky;

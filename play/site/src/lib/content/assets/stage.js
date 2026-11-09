@@ -62,11 +62,12 @@ export class Stage {
 	/**
 	 * @param {THREE.WebGLRenderer} renderer the page's renderer (its tone mapping is set while the stage draws)
 	 * @param {THREE.PerspectiveCamera} camera
-	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
+	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean, hour?: number }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
 	 *   a smaller, softer-sampled shadow), so it draws smoothly and fits in a phone's memory ($content/render/core.js);
-	 *   `sky`: shown under the afternoon sky ($content/sandbox-kit/sky.js) instead of in the paper studio
+	 *   `sky`: shown under the afternoon sky ($content/sandbox-kit/sky.js) instead of in the paper studio; `hour`: the
+	 *   sky's hour held (its clouds' drift and its light), else the in-game clock's, which follows the wall clock
 	 */
-	constructor(renderer, camera, { theme = 'paper', low = false, sky = false } = {}) {
+	constructor(renderer, camera, { theme = 'paper', low = false, sky = false, hour } = {}) {
 		this.renderer = renderer;
 		this.camera = camera;
 		this.theme = theme;
@@ -110,7 +111,7 @@ export class Stage {
 			this.scene.environment.dispose();
 			this.scene.environment = null;
 			this.scene.background = null;
-			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25 });
+			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25, ...(hour === undefined ? {} : { clock: () => hour }) });
 			this.sky.stars.visible = false;
 		}
 		// lights: a soft key with its shadow, a cool rim, a gentle fill (the environment does most of the work)

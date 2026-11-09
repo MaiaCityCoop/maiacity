@@ -1,5 +1,28 @@
 (() => {
   var __defProp = Object.defineProperty;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  function __accessProp(key) {
+    return this[key];
+  }
+  var __toCommonJS = (from) => {
+    var entry = (__moduleCache ??= new WeakMap).get(from), desc;
+    if (entry)
+      return entry;
+    entry = __defProp({}, "__esModule", { value: true });
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (var key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(entry, key))
+          __defProp(entry, key, {
+            get: __accessProp.bind(from, key),
+            enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+          });
+    }
+    __moduleCache.set(from, entry);
+    return entry;
+  };
+  var __moduleCache;
   var __returnValue = (v) => v;
   function __exportSetter(name, newValue) {
     this[name] = __returnValue.bind(null, newValue);
@@ -13,6 +36,12 @@
         set: __exportSetter.bind(all, name)
       });
   };
+
+  // src/lib/stories/live-runtime.ts
+  var exports_live_runtime = {};
+  __export(exports_live_runtime, {
+    LIVE_HOUR: () => LIVE_HOUR
+  });
 
   // node_modules/three/build/three.module.js
   var exports_three_module = {};
@@ -64950,7 +64979,7 @@ vec3 skyHorizon(vec3 dir) {
   var touchFirst = () => typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 
   class Stage {
-    constructor(renderer, camera, { theme = "paper", low = false, sky = false } = {}) {
+    constructor(renderer, camera, { theme = "paper", low = false, sky = false, hour } = {}) {
       this.renderer = renderer;
       this.camera = camera;
       this.theme = theme;
@@ -64981,7 +65010,7 @@ vec3 skyHorizon(vec3 dir) {
         this.scene.environment.dispose();
         this.scene.environment = null;
         this.scene.background = null;
-        this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25 });
+        this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25, ...hour === undefined ? {} : { clock: () => hour } });
         this.sky.stars.visible = false;
       }
       const key = new DirectionalLight(16774118, paper ? 2.4 : 2.6);
@@ -65611,6 +65640,7 @@ vec3 skyHorizon(vec3 dir) {
     return {
       frame: frameOf(since + t, fps, frames),
       camera: cameraAt(w.camera, t),
+      hour: w.hour == null ? null : curveAt(w.hour, t, 12),
       sun: w.hour == null ? null : sunAt2(curveAt(w.hour, t, 12)),
       exposure: curveAt(w.exposure, t, 0),
       lights: { sun: curveAt(w.lights?.sun, t, 1), sky: curveAt(w.lights?.sky, t, 1), lamps: curveAt(w.lights?.lamps, t, 1) }
@@ -66938,6 +66968,7 @@ vec3 skyHorizon(vec3 dir) {
   var AWAY = new Matrix4().makeScale(0, 0, 0);
 
   // src/lib/stories/live-runtime.ts
+  var LIVE_HOUR = 15;
   var W = window;
   var code = (hash) => {
     const text = W.__playCode?.[hash];
@@ -67011,7 +67042,7 @@ vec3 skyHorizon(vec3 dir) {
         const renderer = createRenderer({ canvas, pixelRatio: 1, shadows: "pcf", preserve: true });
         renderer.setSize(w, h, false);
         camera = new PerspectiveCamera(40, w / h, 0.05, 2000);
-        stage = new Stage(renderer, camera, { sky: true });
+        stage = new Stage(renderer, camera, { sky: true, hour: LIVE_HOUR });
         stage.resize(w, h);
         shown = builds;
       } finally {
@@ -67022,6 +67053,7 @@ vec3 skyHorizon(vec3 dir) {
   function world(tl, spec) {
     const [w, h] = spec.size;
     let renderer, scene, camera, sky, mood;
+    let skyHour = LIVE_HOUR;
     let copies = [], places = [];
     const lamps = [];
     const made = (async () => {
@@ -67043,7 +67075,7 @@ vec3 skyHorizon(vec3 dir) {
       renderer = createRenderer({ canvas: gl, pixelRatio: 1, toneMapping: "agx", shadows: "pcf", preserve: true });
       renderer.setSize(w, h, false);
       camera = new PerspectiveCamera(40, w / h, 0.1, 20000);
-      sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 } });
+      sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 }, clock: () => skyHour });
     })();
     for (const s of spec.shots) {
       let pen = null, drawn = NaN;
@@ -67054,6 +67086,7 @@ vec3 skyHorizon(vec3 dir) {
         const at = worldAt(s, t, spec.fps, spec.frames, s.at - spec.at);
         const m = places[Math.min(at.frame, places.length - 1)];
         copies.forEach((c, i) => c.matrix.fromArray(m, i * 16));
+        skyHour = at.hour ?? LIVE_HOUR;
         sky.mood(at.sun ? { ...mood, sun: at.sun.sun, az: at.sun.az } : mood);
         sky.sun.intensity *= at.lights.sun;
         scene.environmentIntensity *= at.lights.sky;

@@ -198,6 +198,10 @@ describe('compose: a live shot', () => {
 		expect(hashText(b)).toBe(hashText(a));
 		expect(compose(fixture.story, {}, {}, assets)).toBe(compose(JSON.parse(JSON.stringify(fixture.story)), {}, {}, assets));
 		for (const f of ['./live.ts', './live-runtime.ts']) expect(readFileSync(new URL(f, import.meta.url), 'utf8')).not.toMatch(/new Date|Date\.now|Math\.random|process\.env|navigator\.|location\./);
+		// and no sky of it on the in-game clock, which follows the wall clock (../content/sandbox-kit/sky-clock.test.ts)
+		const rt = readFileSync(new URL('./live-runtime.ts', import.meta.url), 'utf8');
+		expect(rt).toMatch(/new Stage\([^)]*hour: LIVE_HOUR/);
+		expect([...rt.matchAll(/createSky\(([^;]*)\);/g)].map((m) => /clock:/.test(m[1]))).toEqual([true]);
 	});
 	it('live: the runtime a composition loads is a classic script that parses and defines playLive', () => {
 		// a composition loads it with a plain <script src>, never as a module: import.meta there throws as it parses, and
