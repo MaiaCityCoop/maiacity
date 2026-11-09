@@ -1,7 +1,6 @@
 /*
- * The village's coops, hutches and playgrounds as tiny geodesic domes (the hen dome 5.6 m across, the rabbit dome wired
- * all over against foxes and hawks, the play dome round a sandpit). Each builder returns its group and the circles it
- * takes up (for walking round it), in its own frame at real measure: its run or its sand at +z, the ground at y = 0.
+ * The village's coops, hutches and playgrounds as tiny geodesic domes; each builder returns its group and the circles it
+ * takes up, in its own frame at real measure (its run or sand at +z, the ground at y = 0).
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -33,8 +32,8 @@ const MAT = {
 };
 
 /**
- * A geodesic dome: an icosphere's triangles of radius R above the ground (squashed to `squash`), a strut on every edge,
- * each triangle given the material `panel` gives its middle (null: open).
+ * A geodesic dome: an icosphere's triangles above the ground (squashed by `squash`), a strut on every edge, each panel
+ * the material `panel` gives it (null: open).
  * @param {THREE.Group} g @param {number} R @param {number} detail @param {number} squash
  * @param {number} strut the struts' radius @param {THREE.Material} strutMat
  * @param {(c: THREE.Vector3, R: number) => THREE.Material | null} panel

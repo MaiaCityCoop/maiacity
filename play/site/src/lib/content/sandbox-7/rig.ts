@@ -167,9 +167,7 @@ export class GlobeRig {
 		return !!this.flight;
 	}
 
-	/**
-	 * Advance by `dt` s of real time: a flight keeps to the clock (lands on time however few frames); keys, inertia and
-	 * the eased zoom step at most 0.1 s a frame, so a stall never jumps */
+	/** Advance by `dt` s of real time: a flight keeps to the clock; the rest steps at most 0.1 s a frame, so a stall never jumps */
 	update(seconds: number) {
 		const dt = Math.min(0.1, seconds);
 		if (this.flight) {

@@ -1,9 +1,7 @@
 // @ts-nocheck — plain JS, kept loose on purpose
 /**
- * The travel van MaiaCity V2's story rides in (Samuel 2026-10-13: far more detail, real people, no ball heads): the old
- * minibus (things/travel-van@1, built in the asset box) with see-through glass, packed for a long road, its people
- * seated stand-ins (actors/stand-in@11, posed by ./drawn.js `actor`) swaying with the road. Its frame: +z ahead, +x the
- * sliding door's side, the floor at FLOOR.
+ * The travel van MaiaCity V2's story rides in (Samuel 2026-10-13: far more detail, real people, no ball heads), its
+ * people seated stand-ins swaying with the road. Its frame: +z ahead, +x the sliding door's side, the floor at FLOOR.
  */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -127,18 +125,14 @@ export function wearFace(face, { joy = 0, sleeper = false, ease = 1 } = {}) {
 	const to = sleeper ? { joy: 0.1, friendly: 0 } : { joy: 0.25 + 0.75 * joy, friendly: 1 - 0.6 * joy };
 	for (const [k, v] of Object.entries(to)) if (d[k] !== undefined) w[d[k]] += (v - w[d[k]]) * ease;
 }
-/** the woman beside you turned to you as she talks (on her left, +x): her shoulders and head round to you, a little
- *  forward, as people sit when they tell each other something on a long ride (Samuel 2026-10-13: a conversation, no phone) */
+/** the woman beside you turned to you as she talks (Samuel 2026-10-13: a conversation, no phone) */
 const TALK = { spine: [0.06, 0.1, 0], chest: [0.04, 0.16, 0], neck: [0.02, 0.26, 0], head: [0.04, 0.42, 0.02] };
 
 /** the minibus's lower body (wayside.js travelVan): 1.9 × 0.9 × 4.9 m, its middle 0.85 m up */
 const LOWER_BODY = { y: 0.85, size: [1.9, 0.9, 4.9] };
 const _size = new THREE.Vector3();
 
-/**
- * The minibus's body as the box built it, made the story's van: its glass see-through and its lower body's lid (which
- * from inside hides the seats, laps and floor) cut away under the upper body. @param {THREE.Object3D} body
- */
+/** The minibus's body made the story's van: glass see-through, its lower lid (hiding the seats from inside) cut away. @param {THREE.Object3D} body */
 export function seeThrough(body) {
 	body.traverse((o) => {
 		if (!o.isMesh) return;
@@ -156,8 +150,7 @@ export function seeThrough(body) {
 	return body;
 }
 
-/** all in the van and its people (stand-ins built in the box: ./things.js standInRef; `drawn` puts them in, `pick` what a
- *  tap finds), beside the body (seeThrough). @param {ReturnType<typeof import('./drawn.js').createDrawn>} drawn @param {string} [pick] */
+/** all in the van and its people (./things.js standInRef), beside the body. @param {ReturnType<typeof import('./drawn.js').createDrawn>} drawn @param {string} [pick] */
 export function packedVan(drawn, pick) {
 	const van = new THREE.Group();
 	// every fixed piece goes into one mesh a material

@@ -1,10 +1,7 @@
 /**
- * SANDBOX 7 · THE GLOBE — hex cards tiling a sphere: a Goldberg polyhedron, the dual of a subdivided icosahedron, all
- * hexagons but twelve pentagons at its corners; each icosphere vertex a card whose corners are the centroids of the
- * triangles round it (frequency f: 10·f² + 2 cards). Biomes decided as the old planet (Sandbox 2) did: the maps say land,
- * kind (Köppen climates folded in), mountains and sea depth; water touching land is shallow; past the polar circles snow
- * and pack ice (its edge after the real year-round mean); a noise gives land's height band and moisture. Pure geometry
- * and noise, no three.js, so it can be tested.
+ * SANDBOX 7 · THE GLOBE — hex cards tiling a sphere: a Goldberg polyhedron (10·f² + 2 cards, twelve of them pentagons).
+ * Biomes decided as the old planet (Sandbox 2) did, from the maps; past the polar circles snow and pack ice. Pure
+ * geometry and noise, no three.js, so it can be tested.
  */
 import type { LandKind, Vec3 } from './maps';
 
