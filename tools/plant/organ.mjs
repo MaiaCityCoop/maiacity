@@ -30,7 +30,6 @@ const ppm = Number(arg('ppm', '2000'));
 const flat = process.argv.includes('--flat');
 const out = resolve(arg('out', 'organ.png'));
 
-// the recipe in node, its 'three' from the site
 const require = createRequire(import.meta.url);
 const Module = require('module');
 const three = resolve(SITE, 'node_modules/three/build/three.cjs');
