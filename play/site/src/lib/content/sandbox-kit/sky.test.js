@@ -29,19 +29,19 @@ describe('the sun by its height', () => {
 		}
 		expect(sunLight(deg(-3)).intensity).toBe(0);
 	});
-	test('near white by 25°: at 30° within a few percent of a real noon sun, (255, 228, 206)', () => {
+	test('near white by 25°: at 30° daylight that casts no colour (0b4c007b: no sepia noon), blue nearly as strong as red', () => {
 		const c = sunLight(deg(30)).color.clone().convertLinearToSRGB();
-		const want = [255, 228, 206].map((v) => v / 255);
-		c.toArray().forEach((v, i) => expect(Math.abs(v - want[i])).toBeLessThan(0.03));
+		expect(c.b / c.r).toBeGreaterThan(0.85);
+		expect(c.g / c.r).toBeGreaterThan(0.88);
 		const at25 = sunLight(deg(25)).color.clone().convertLinearToSRGB();
 		expect(at25.b / at25.r).toBeGreaterThan(0.75);
 		// and still warm low down: golden at 8°
 		const at8 = sunLight(deg(8)).color.clone().convertLinearToSRGB();
-		expect(at8.b / at8.r).toBeLessThan(0.65);
+		expect(at8.b / at8.r).toBeLessThan(0.7);
 	});
-	test('its colour from 0xff7a2f at the horizon to 0xfff2e0 overhead', () => {
+	test('its colour from 0xff7a2f at the horizon to a neutral, faintly cool white overhead (0xf4f7ff)', () => {
 		expect(sunLight(0).color.getHex()).toBe(new THREE.Color(0xff7a2f).getHex());
-		expect(sunLight(deg(90)).color.getHex()).toBe(new THREE.Color(0xfff2e0).getHex());
+		expect(sunLight(deg(90)).color.getHex()).toBe(new THREE.Color(0xf4f7ff).getHex());
 	});
 });
 
