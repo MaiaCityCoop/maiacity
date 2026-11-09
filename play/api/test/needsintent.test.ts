@@ -5,22 +5,14 @@
 // POST /api/intents: without `intent` refused, naming add_intent, nothing written; naming an intent at any stage but
 // Build or Proposal refused, nothing written; naming one in Build with every must check passed, taken, the intent at
 // Proposal with that work and its spec. And Postgres holds it: an intent in Build, at Proposal or in Ship has a spec.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { COOP } from "../src/access";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+import { createHuman } from "../src/auth";
 import * as docs from "../src/docs";
-import { Rate } from "../src/limits";
 import { migrate, MIGRATIONS } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { agentToken, type Api, appOn, cookieFor, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
 const SPEC = {
@@ -37,38 +29,17 @@ const BODY = { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", c
 const isWork = (name: string) => name.startsWith("propose_") || ["doc_edit"].includes(name);
 const CONSTRAINT = "202611070300-706ed873-intents-specified";
 
-async function freshDb(prefix: string) {
-  const name = `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-  const admin = new Bun.SQL(URL_!);
-  await admin.unsafe(`CREATE DATABASE ${name}`);
-  const u = new URL(URL_!);
-  u.pathname = `/${name}`;
-  const sql = new Bun.SQL(u.toString());
-  return { name, admin, sql, db: fromBunSql(sql) };
-}
-
 suite("no work without an intent", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
   let n = 0;
   let K = "", asset = "", art = "", story = "";
 
-  const call = async (as: string | null, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = {};
-    if (as) headers.cookie = who[as].cookie;
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  const rpc = async (method: string, params?: unknown) =>
-    (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }) }))).json()).result;
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const res = await rpc("tools/call", { name, arguments: args });
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
+  const rpc = async (method: string, params?: unknown) => (await kitRpc(api, token, method, params)).json.result;
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** an intent in Build, its spec approved and every must check passed */
   const readyIntent = async (title: string) => {
     const i = await tool("add_intent", { title });
@@ -98,14 +69,11 @@ suite("no work without an intent", () => {
   };
 
   beforeAll(async () => {
-    ({ name, admin, sql, db } = await freshDb("play_needsintent"));
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
-    const made = await createHuman(db, "ada");
-    who.ada = { id: made.id, cookie: `play_session=${tokenFor(made.id)}` };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
-    token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
+    f = await freshDb({ prefix: "play_needsintent" });
+    db = f.db;
+    api = appOn(db);
+    who.ada = await human(db, "ada");
+    token = (await agentToken(api, who.ada.cookie)).token;
     // what the paths change: a skill, an asset, an artifact, each accepted for an intent of its own
     K = crypto.randomUUID();
     await seedDoc(db, "skill", { id: K, json: { schema: "skill/1", label: "A skill", group: "tests", system: "Say it." }, note: "v1" });
@@ -120,9 +88,7 @@ suite("no work without an intent", () => {
     story = s.story;
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("no work without an intent: every work tool and POST /api/intents, called without one, is refused naming add_intent, nothing written", async () => {
@@ -142,7 +108,7 @@ suite("no work without an intent", () => {
     }
     // who may propose is asked first: a visitor 401, a citizen 403
     const cit = await createHuman(db, "cit");
-    const citizen = `play_session=${tokenFor(cit.id)}`;
+    const citizen = cookieFor(cit.id);
     const post = (cookie?: string) => api.fetch(new Request("http://play.test/api/intents", { method: "POST", headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) }, body: JSON.stringify({ asset, source: SOURCE("a citizen's") }) }));
     expect((await post()).status).toBe(401);
     expect((await post(citizen)).status).toBe(403);
@@ -221,14 +187,13 @@ suite("no work without an intent", () => {
 });
 
 suite("every intent at Proposal has a spec", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
+  let f: Fresh, db: Db;
   beforeAll(async () => {
-    ({ name, admin, sql, db } = await freshDb("play_specified"));
+    f = await freshDb({ prefix: "play_specified", migrate: false });
+    db = f.db;
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("every intent at Proposal has a spec: after migrate, Build, Proposal and Ship refuse an intent without one; a spec-less one at Proposal from before ends archived, its variant kept", async () => {

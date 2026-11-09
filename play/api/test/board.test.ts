@@ -1,52 +1,36 @@
 // The intents' board opens fast (intent 2cb70fb8-fbbf-4473-8ac1-b8d3bb078147) against a real Postgres
 // (TEST_DATABASE_URL): the open stages always come back whole, no cap across the board; the closed stages (Accepted,
 // Archived) come a page at a time, newest first, by `limit` and the cursor `before`; every stage's count beside them.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
+import { createHuman } from "../src/auth";
+import { type Db } from "../src/kit/pg";
 import { OPEN, seedBoard } from "./fixtures/board";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, suite } from "./kit";
 
 suite("board loads", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   let cookie = "";
   let citizen = "";
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db);
     const ada = await createHuman(db, "ada");
     const cit = await createHuman(db, "cit");
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [ada.id]);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [cit.id]);
-    cookie = `play_session=${tokenFor(ada.id)}`;
-    citizen = `play_session=${tokenFor(cit.id)}`;
+    cookie = cookieFor(ada.id);
+    citizen = cookieFor(cit.id);
     // 40 open (8 at each open stage), the oldest of them older than every decided one; 600 accepted, 40 archived
     await seedBoard(db, ada.id, { idea: 8, specify: 8, build: 8, proposal: 8, ship: 8, accepted: 600, archived: 40 });
   }, 60_000);
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   const get = async (path: string, as = cookie) => {

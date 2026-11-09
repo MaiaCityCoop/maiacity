@@ -2,26 +2,17 @@
 // goes, read from what play keeps on it, against a real Postgres (TEST_DATABASE_URL) and a fake GitHub
 // (./fixtures/github.ts): the time at each stage (an agent's, a person's, CI's) and each ship step's, each day's
 // numbers, CI minutes and each run's slowest steps, play's main merges counted, the budgets, and who may read it.
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { seedSkills } from "../import/skills";
 import { COOP } from "../src/access";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+import { createHuman } from "../src/auth";
 import { BUDGETS, daysOf, delivery, NO_GITHUB } from "../src/delivery";
-import { Rate } from "../src/limits";
 import { carrySeen, mainMergeState } from "../src/mainmerge";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import { watchTick } from "../src/watcher";
 import { newId } from "../src/kit/uuid";
 import { fakeGitHub, job, REPO, run, sha } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite } from "./kit";
 
 const MIN = 60_000;
 const NOW = Date.parse("2026-11-07T18:00:00Z");
@@ -32,38 +23,29 @@ const res = (t: string, more: Record<string, unknown> = {}) => ({ pass: true, ev
 const step = (key: string, a: string, b?: string, state = "green") => ({ key, name: key, state, started: a, ...(b ? { finished: b } : {}) });
 
 suite("delivery", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   let gh: ReturnType<typeof fakeGitHub>;
   let ada = "", cookie = "", travelerCookie = "", token = "";
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     await seedSkills(db);
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
+    api = appOn(db, { github: gh.gh });
     const h = await createHuman(db, "ada");
     ada = h.id;
-    cookie = `play_session=${tokenFor(h.id)}`;
+    cookie = cookieFor(h.id);
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
     const t = await createHuman(db, "tom");
-    travelerCookie = `play_session=${tokenFor(t.id)}`;
+    travelerCookie = cookieFor(t.id);
     const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
     token = made.token;
   });
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   beforeEach(async () => {
@@ -74,23 +56,8 @@ suite("delivery", () => {
     gh.jobs.clear();
   });
 
-  async function call(method: string, path: string, body?: unknown, c = cookie) {
-    const headers: Record<string, string> = c ? { cookie: c } : {};
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  }
-  let n = 0;
-  const rpc = async (method: string, params: unknown) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }),
-      }),
-    );
-    return r.json();
-  };
+  const call = (method: string, path: string, body?: unknown, c = cookie) => request(api, { cookie: c }, method, path, body);
+  const rpc = async (method: string, params: unknown) => (await kitRpc(api, token, method, params)).json;
 
   /** an intent as play keeps it, its times and records as given */
   async function intent(f: Record<string, unknown>) {

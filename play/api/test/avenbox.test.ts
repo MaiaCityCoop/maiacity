@@ -8,57 +8,31 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFile
 import { hashBytes } from "../src/kit/hash";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
+import { type Db } from "../src/kit/pg";
+import { agentToken, type Api, appOn, type Fresh, freshDb, human, suite, tool as mcpTool } from "./kit";
 
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
 const RUNNER = resolve(import.meta.dir, "../../avenbox/intent.ts");
 
 suite("avenBOX's runner", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string, server: ReturnType<typeof Bun.serve>;
+  let f: Fresh, db: Db, api: Api, server: ReturnType<typeof Bun.serve>;
   let token = "";
   let ada = { id: "", cookie: "" };
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    const api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db);
     server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: (req) => api.fetch(req) });
-    const h = await createHuman(db, "ada");
-    ada = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [ada.id]);
-    const r = await fetch(`${server.url}api/tokens`, { method: "POST", headers: { cookie: ada.cookie, "content-type": "application/json" }, body: JSON.stringify({ name: "agent" }) });
-    token = ((await r.json()) as any).token;
+    ada = await human(db, "ada");
+    token = (await agentToken(api, ada.cookie)).token;
   });
 
   afterAll(async () => {
     server?.stop(true);
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const tool = async (name: string, args: Record<string, unknown>) => {
-    const r = await fetch(`${server.url}api/mcp`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
-    });
-    const res = ((await r.json()) as any).result;
-    return res.isError ? { error: res.content[0].text } : JSON.parse(res.content[0].text);
-  };
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** intent.ts as main's runner runs it: its token, GitHub's token and the Actions run in its environment (the same here
    *  as on GitHub's own runner, where these are GitHub's) */
   const ACTIONS = { GITHUB_ACTIONS: "true", GITHUB_SERVER_URL: "https://github.example", GITHUB_REPOSITORY: "maia/city", GITHUB_RUN_ID: "7" };

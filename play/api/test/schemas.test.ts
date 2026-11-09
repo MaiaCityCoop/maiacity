@@ -8,23 +8,15 @@
 // naming that document, and accepted once none does; commits are checked against the new version from then on.
 // c3: a test schema added as a document alone, with no code, is a kind: list_docs, doc_at, doc_history, doc_edit,
 // propose_doc_version and Accept over MCP, and /api/docs/<uuid>.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createHuman } from "../src/auth";
 import { problemsOf, readDoc, typeFor } from "../src/docs";
 import { SCHEMA } from "../src/kit/ids";
-import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
 import { unregister } from "../src/kinds";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 /** a kind that is a schema alone: nothing of it is written in play's code */
 const NOTE_SCHEMA = {
@@ -45,25 +37,18 @@ const NOTE_SCHEMA = {
 };
 
 suite("schemas as documents", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
 
   beforeAll(async () => {
-    name = `play_schemas_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db);
     for (const n of ["ada", "cit"]) {
       const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
+      who[n] = { id: h.id, cookie: cookieFor(h.id) };
     }
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
@@ -71,27 +56,13 @@ suite("schemas as documents", () => {
   });
   afterAll(async () => {
     unregister("note");
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string | null, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = {};
-    if (as) headers.cookie = who[as].cookie;
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
-  const rpc = async (method: string, params?: unknown): Promise<any> =>
-    (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }) }))).json()).result;
+  const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
+  const rpc = async (method: string, params?: unknown): Promise<any> => (await kitRpc(api, token, method, params)).json.result;
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
-  const raw = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const res = await rpc("tools/call", { name, arguments: args });
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const raw = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** every edit is an intent's (intent 847c5d38): a variant this test drafts is made for an intent of its own, in Build with
    * its one check passed, and proposed for it */
   const variantIntent = new Map<number, string>();
@@ -102,7 +73,7 @@ suite("schemas as documents", () => {
     await raw("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
     return i.id as string;
   };
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
+  async function tool(name: string, args: Record<string, unknown>): Promise<any> {
     if (name === "doc_edit" && args.intent === undefined) {
       const intent = (args.variant != null ? variantIntent.get(Number(args.variant)) : undefined) ?? (await readyIntent(`An edit: ${args.message}`));
       const r = await raw(name, { ...args, intent });
@@ -114,7 +85,7 @@ suite("schemas as documents", () => {
     // no work without an intent (intent 706ed873): work proposed at once is an intent's of its own, ready for it
     if (name === "propose_doc_version" && args.intent === undefined && args.variant == null) return raw(name, { ...args, intent: await readyIntent(`A proposal: ${args.note}`) });
     return raw(name, args);
-  };
+  }
   const accept = (intent: string) => call("ada", "POST", `/api/intents/${intent}/accept`);
   const q = async (s: string, p: unknown[] = []) => (await db.query<any>(s, p)).rows;
 

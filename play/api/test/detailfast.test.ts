@@ -5,49 +5,24 @@
 // a refused Accept says why.
 //
 // c2 runs `-t "accept answers"`: every test of that check is named so, under its own describe.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore, type BlobStore } from "../src/blobs";
-import { Rate } from "../src/limits";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import type { BlobStore } from "../src/blobs";
+import type { Db } from "../src/kit/pg";
 import { heavy, type Heavy } from "../scripts/heavy";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, human, request, suite, tempStore } from "./kit";
 
 /** a database of its own, migrated, with an admin and the API */
 function fixture(tag: string) {
-  const f = {} as { admin: Bun.SQL; sql: Bun.SQL; db: Db; name: string; store: BlobStore; ada: string; api: ReturnType<typeof app> };
+  const f = {} as { fresh: Fresh; db: Db; store: BlobStore; ada: string; api: Api };
   beforeAll(async () => {
-    f.name = `play_detailfast_${tag}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    f.admin = new Bun.SQL(URL_!);
-    await f.admin.unsafe(`CREATE DATABASE ${f.name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${f.name}`;
-    f.sql = new Bun.SQL(u.toString());
-    f.db = fromBunSql(f.sql);
-    await migrate(f.db);
-    await initSessions(f.db);
-    f.store = folderStore(mkdtempSync(join(tmpdir(), "play-detailfast-")));
-    f.ada = (await createHuman(f.db, "ada")).id;
-    await f.db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [f.ada]);
-    f.api = app({ db: f.db, store: f.store, rate: new Rate(0) });
+    f.fresh = await freshDb({ prefix: `play_detailfast_${tag}` });
+    f.db = f.fresh.db;
+    f.store = tempStore();
+    f.ada = (await human(f.db, "ada")).id;
+    f.api = appOn(f.db, { store: f.store });
   });
-  afterAll(async () => {
-    await f.sql?.close();
-    await f.admin?.unsafe(`DROP DATABASE IF EXISTS ${f.name} WITH (FORCE)`);
-    await f.admin?.close();
-  });
-  const call = async (method: string, path: string) => {
-    const r = await f.api.fetch(new Request(`http://play.test${path}`, { method, headers: { cookie: `play_session=${tokenFor(f.ada)}` } }));
-    const text = await r.text();
-    return { status: r.status, bytes: text.length, data: text ? JSON.parse(text) : null };
-  };
+  afterAll(() => f.fresh?.drop());
+  const call = (method: string, path: string) => request(f.api, { cookie: cookieFor(f.ada) }, method, path).then((r) => ({ ...r, bytes: r.text.length }));
   /** 99b612ec's shape: 8 pieces in dependency order, 3 of them in two versions, and 2 assets requiring them */
   const like99 = (title: string) => heavy(f.db, f.store, f.ada, { title, pieces: 8, versions: 3, hosts: 2, kb: 40 });
   return { f, call, like99 };

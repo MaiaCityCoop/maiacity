@@ -27,7 +27,7 @@ export type Fresh = { db: Db; sql: Bun.SQL; url: string; name: string; drop: () 
 
 /**
  * A database of its own on TEST_DATABASE_URL's server, migrated as play-api starts (`migrate: false` leaves it empty,
- * `until` stops at that migration), sessions signed; `drop()` closes and drops it.
+ * `until` stops at that migration, as an older play's database), sessions signed; `drop()` closes and drops it.
  */
 export async function freshDb(o: { prefix?: string; migrate?: boolean; until?: string } = {}): Promise<Fresh> {
   const name = `${o.prefix ?? "play_test"}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
@@ -39,7 +39,7 @@ export async function freshDb(o: { prefix?: string; migrate?: boolean; until?: s
   const db = fromBunSql(sql);
   if (o.migrate !== false) {
     await migrate(db, o.until ? { until: o.until } : {});
-    await initSessions(db);
+    if (!o.until) await initSessions(db);
   }
   const drop = async () => {
     await sql.close();
@@ -68,7 +68,7 @@ export async function human(db: Db, name: string, level: "admin" | "citizen" | "
   return { id: h.id, cookie: cookieFor(h.id) };
 }
 
-export type Answer = { status: number; data: any; headers: Headers };
+export type Answer = { status: number; data: any; headers: Headers; text: string };
 
 /** One request to the app: `data` is the body's JSON, else its text, else null (an empty body). */
 export async function request(api: Api, who: { cookie?: string | null; bearer?: string | null }, method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<Answer> {
@@ -84,13 +84,13 @@ export async function request(api: Api, who: { cookie?: string | null; bearer?: 
   } catch {
     // not JSON: kept as its text
   }
-  return { status: r.status, data, headers: r.headers };
+  return { status: r.status, data, headers: r.headers, text };
 }
 
 /** an access token of the admin whose cookie it is, made on the profile's route; `avenbox` flags it as the GitHub runs' */
 export async function agentToken(api: Api, cookie: string, o: { name?: string; avenbox?: boolean } = {}): Promise<{ id: string; token: string }> {
   const made = await request(api, { cookie }, "POST", "/api/tokens", { name: o.name ?? "agent" });
-  if (made.status !== 200) throw new Error(`POST /api/tokens: ${made.status} ${JSON.stringify(made.data)}`);
+  if (made.status !== 201) throw new Error(`POST /api/tokens: ${made.status} ${JSON.stringify(made.data)}`);
   if (o.avenbox) {
     const r = await request(api, { cookie }, "POST", `/api/tokens/${made.data.id}/avenbox`, { avenbox: true });
     if (r.data?.avenbox !== true) throw new Error(`POST /api/tokens/:id/avenbox: ${r.status} ${JSON.stringify(r.data)}`);

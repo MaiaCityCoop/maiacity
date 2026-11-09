@@ -2,24 +2,20 @@
 // TEST_DATABASE_URL, as for api.test.ts. A piece is a document of its own schema, made and changed by an intent's
 // variant; each accepted version's source is kept among play's files by its hash; a minified piece is refused; an
 // asset's version may require only an accepted piece version's hash, and keeps building the version it names.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { meOf } from "../src/access";
 import { proposeAsset } from "../src/assetdocs";
 import { createHuman } from "../src/auth";
-import { folderStore, type BlobStore } from "../src/blobs";
+import { type BlobStore } from "../src/blobs";
 import { hashText } from "../src/kit/hash";
 import { SCHEMA } from "../src/kit/ids";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import { MOST_DEEP, piecesShown } from "../src/pieces";
 import { decide, docAt, docHistory, listDocs, proposeDocVersion } from "../src/versioned";
 import "../src/allkinds";
+import { type Fresh, freshDb, suite, tempStore } from "./kit";
 
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
 const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
 
 const pieceSource = (n: number) => `// the kit's wheels, as written\nconst three = require("three");\nmodule.exports.wheels = ${n};\nmodule.exports.three = three;\n`;
@@ -27,7 +23,7 @@ const assetSource = (piece: string) =>
   `const kit = require("${piece}");\nmodule.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant }, build() { return kit.wheels; } };\n};\n`;
 
 suite("pieces", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string, store: BlobStore;
+  let f: Fresh, db: Db, store: BlobStore;
   let ada: string;
   const ctx = () => ({ db, store });
   const me = () => meOf(db, ada);
@@ -51,22 +47,14 @@ suite("pieces", () => {
   };
 
   beforeAll(async () => {
-    name = `play_pieces_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    store = folderStore(mkdtempSync(join(tmpdir(), "play-pieces-")));
+    f = await freshDb({ prefix: "play_pieces" });
+    db = f.db;
+    store = tempStore();
     ada = (await createHuman(db, "ada")).id;
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [ada]);
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("after migrate the piece schema exists, a document of the meta-schema", async () => {

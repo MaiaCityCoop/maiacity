@@ -3,49 +3,33 @@
 // keyframes, its hour, exposure and lights over the shot. Against a real Postgres (TEST_DATABASE_URL, as ./api.test.ts):
 // proposed over MCP with propose_story and set_clip, kept as given (rounded), refused out of shape or for a world play
 // doesn't have.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
+import { createHuman } from "../src/auth";
+import { type Db } from "../src/kit/pg";
 import { COOP } from "../src/access";
 import { fakeGitHub } from "./fixtures/github";
+import { type Api, appOn, cookieFor, type Fresh, freshDb, quiet, request, suite, tool as mcpTool } from "./kit";
 
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 const H = (c: string) => c.repeat(64);
 
 suite("a world shot", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   let cookie = "", token = "";
-  const keep = { log: console.log, warn: console.warn };
+  let restore = () => {};
   /** a world, its accepted and its proposed version; a plant and its accepted version */
   const world = randomUUID(), plant = randomUUID();
   const V = { world: H("a"), proposed: H("b"), plant: H("c") };
 
   beforeAll(async () => {
-    console.log = () => {};
-    console.warn = () => {};
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: fakeGitHub().gh });
+    restore = quiet();
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db, { github: fakeGitHub().gh });
     const h = await createHuman(db, "ada");
-    cookie = `play_session=${tokenFor(h.id)}`;
+    cookie = cookieFor(h.id);
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
     token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
     // a world and a plant as play keeps them: their recipes among the files, their versions, one of the world's not accepted
@@ -58,32 +42,12 @@ suite("a world shot", () => {
   });
 
   afterAll(async () => {
-    Object.assign(console, keep);
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    restore();
+    await f?.drop();
   });
 
-  const call = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    const text = await r.text();
-    return { status: r.status, data: text ? JSON.parse(text) : null };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   const SPEC = { goal: "A world plays in a shot.", nothing_to_reduce: "A test fixture.", scope: "A story.", checks: [{ check: "It plays", how: "look", by: "the player" }] };
   const building = async (title: string) => {
     const i = await tool("add_intent", { title, kind: "improve" });

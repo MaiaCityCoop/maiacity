@@ -4,49 +4,35 @@
 // is built, its checks' results recorded while it is being built, and a proposal for it taken only once every must check
 // passes. Every proposal is an intent's: one made without an intent gets one of its own, and the intent follows its
 // proposals as they are decided.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate, MIGRATIONS } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createHuman } from "../src/auth";
+import { MIGRATIONS } from "../src/migrations";
+import { type Db } from "../src/kit/pg";
 import { UUID } from "../src/kit/uuid";
 import { placeholderIn } from "../src/intents";
 import { seedSkills } from "../import/skills";
 import { SANDBOX, SKILL } from "../src/kit/ids";
 import { seedDoc } from "../src/versioned";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 
 suite("intents", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, sql: Bun.SQL, db: Db;
+  let api: Api;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
   let boxToken = "";
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    sql = f.sql;
+    db = f.db;
     await seedSkills(db); // what the MCP teaches is the skills'
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    api = appOn(db);
     for (const n of ["ada", "bea", "cit"]) {
       const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
+      who[n] = { id: h.id, cookie: cookieFor(h.id) };
     }
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = ANY($1)`, [[who.ada.id, who.bea.id]]);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
@@ -58,41 +44,19 @@ suite("intents", () => {
   });
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string | null, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = {};
-    if (as) headers.cookie = who[as].cookie;
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
-  const rpc = async (method: string, params?: unknown, bearer = token) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${bearer}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }),
-      }),
-    );
-    return (await r.json()).result;
-  };
+  const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
+  const rpc = async (method: string, params?: unknown, bearer = token) => (await kitRpc(api, bearer, method, params)).json.result;
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, any>, bearer = token): Promise<any> => {
-    // an asset's next version: its source edited on an intent variant and proposed (propose_doc_version)
-    if (name === "propose_version") {
-      // (the assets it is used on have no accepted version yet, so no card to carry their levels of detail on)
-      const { asset, source, note, intent } = args;
-      return tool("propose_doc_version", { doc: asset, note, edits: [{ op: "set", path: ["source"], value: source }, { op: "set", path: ["card"], value: { card: { lod: { levels: "derived" } } } }], ...(intent ? { intent } : {}) }, bearer);
-    }
-    const res = await rpc("tools/call", { name, arguments: args }, bearer);
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const tool = (name: string, args: Record<string, any>, bearer = token): Promise<any> => mcpTool(api, bearer, name, args);
+  /**
+   * An asset's next version for `intent`: its source set on the asset's document and proposed (propose_doc_version).
+   * The assets it is used on have no accepted version yet, so no card to carry their levels of detail on.
+   */
+  const proposeSource = ({ asset, source, note, intent }: { asset: string; source: string; note: string; intent: string }) =>
+    tool("propose_doc_version", { doc: asset, note, edits: [{ op: "set", path: ["source"], value: source }, { op: "set", path: ["card"], value: { card: { lod: { levels: "derived" } } } }], intent });
   /** a tool called by avenBOX's token, as the GitHub runs call it */
   const box = (name: string, args: Record<string, unknown>) => tool(name, args, boxToken);
 
@@ -254,7 +218,7 @@ suite("intents", () => {
     const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Taller fern", source: SOURCE, note: "x", intent: i.id });
     expect((await tool("get_intent", { intent: i.id })).stage).toBe("proposal");
     // proposed again for the same intent: the new work replaces it, the earlier one's intent variant closed, kept in the history
-    const again = await tool("propose_version", { asset: made.asset, source: SOURCE + "// taller\n", note: "taller still", intent: i.id });
+    const again = await proposeSource({ asset: made.asset, source: SOURCE + "// taller\n", note: "taller still", intent: i.id });
     expect(again).toMatchObject({ intent: i.id, stage: "proposal" });
     const held = await tool("get_intent", { intent: i.id });
     expect(held.work).toMatchObject({ version: again.version, note: "taller still" });
@@ -499,7 +463,7 @@ suite("intents", () => {
     expect((await tool("check_intent", { intent: i.id, results: all })).error).toContain("no work of it waits there");
     // other work made on the same base goes in first: its work is archived by itself, and an intent with an approved
     // spec goes back to Build, its results cleared, to be built on the new head
-    const first = await tool("propose_version", { asset: made.asset, source: SOURCE + "// first\n", note: "first in", intent: await readyIntent("First in") });
+    const first = await proposeSource({ asset: made.asset, source: SOURCE + "// first\n", note: "first in", intent: await readyIntent("First in") });
     expect((await call("ada", "POST", `/api/intents/${first.intent}/accept`)).data.stage).toBe("accepted");
     expect(await tool("get_intent", { intent: i.id })).toMatchObject({ stage: "build", results: null, decided_by: null, work: { status: "archived", version: made.version } });
     expect((await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [made.variant])).rows[0].status).toBe("archived");
@@ -545,7 +509,7 @@ suite("intents", () => {
     expect(got.spec).toMatchObject({ goal: SPEC.goal });
     expect((await call("ada", "POST", `/api/intents/${own}/accept`)).data.stage).toBe("accepted");
     // an agent archives its own at Proposal, made over MCP; not one proposed on the page
-    const v2 = await tool("propose_version", { asset: made.asset, source: SOURCE + "// v2\n", note: "on v1", intent: await readyIntent("Plain fern v2") });
+    const v2 = await proposeSource({ asset: made.asset, source: SOURCE + "// v2\n", note: "on v1", intent: await readyIntent("Plain fern v2") });
     expect(await tool("archive_intent", { intent: v2.intent })).toMatchObject({ intent: v2.intent, stage: "archived" });
     const page = await call("ada", "POST", "/api/intents", { asset: made.asset, source: SOURCE + "// by the page\n", note: "on the page", intent: await readyIntent("Plain fern by the page") });
     expect(page.status).toBe(201);

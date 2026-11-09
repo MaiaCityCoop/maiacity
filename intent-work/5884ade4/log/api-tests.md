@@ -18,3 +18,28 @@ behaviour is pinned, and for every test removed why it could not fail or only re
    `quiet`, `suite`) is what the next moves move every suite onto; its `suite` fails, never skips, without
    `TEST_DATABASE_URL` (api-tests#30). src/auth.ts exports the cookie's name `COOKIE` (export only; api-tests#4).
    Tests: 329 → 355 (26 added).
+2. **Every suite on the kit (F1, F3 in part, F4).** 37 suites (all but the held `assetdocs.test.ts`) make their database
+   with `freshDb` (one `CREATE DATABASE` left, the kit's; migrate.test's old databases are `freshDb({ migrate: false })`
+   or `{ until }`), their app with `appOn`, their admins and tokens with `human`/`agentToken`, and call play with the
+   kit's `request` (non-JSON bodies kept as text, never null), `rpc` and `tool` (one result shape: a tool's text as JSON
+   or `{ error }`, a JSON-RPC error's message, a refused request's status). What each file kept is a one-line adapter
+   naming whom it calls as. `suite` replaces the 37 `describe.skip`s: without `TEST_DATABASE_URL` a suite fails. The
+   hand loops "migrate up to X" (onerecord, uuids, artifacts' 0026 database) are `migrate`'s `until`; the copied
+   `COOP` literals in intentpieces and migrate import it. The legacy-tool shims are gone (F4): api.test's
+   `propose_story_version`/`story_edit`/`propose_version` are named fixtures (`proposeStory`, `editStory`,
+   `proposeAssetEdits`) that build `propose_doc_version`/`doc_edit` calls, and intents.test's is `proposeSource`.
+   Removes api-tests#1, #2, #3 (cookies through the exported name), #4, #5, #6, #17 (onerecord, uuids), #24, #25 (the
+   names), #28, #30, #32. Pinned: the whole suite, 355 tests, none removed.
+   - Assertions that changed, each because it tested the test's own code:
+     - api.test "a story proposal is checked whole": the shim answered "Give edits or the whole document, not both."
+       itself, before play saw the call. Play's own answer to a timeline and edits at once is "Propose an intent
+       variant (its number), edits, or the whole document." (versioned.ts' "not both" is reachable only with a
+       `variant`): the test now holds play's answer. Found for the api area: that message misleads for "both".
+     - api.test "an agent makes a change edit by edit": `not.toContain("story_edit")` became "no tool named story_*":
+       the same guard (a story is edited as every document is), without naming the gone tool.
+   - Assertions removed: skills.test `expect([...SKILL_STAGES]).toEqual([...INTENT_STAGES])` compared
+     `INTENT_STAGES` with itself (both names import the one constant since the api merge): it could not fail.
+     withdraw.test's `spyOn(held, "dropDoc")` + `toHaveBeenCalledTimes(1)` (api-tests#20) pinned which function is
+     called; the test already asserts what it does (the variant archived, the work list, the stage, the reason).
+   - schemas.test keeps its wrapper that names an intent for a `doc_edit`/`propose_doc_version` without one (now a
+     function over the kit's `tool`): the `variantIntent` part of F4 is left (*Next untangles*).

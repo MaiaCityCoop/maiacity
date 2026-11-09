@@ -2,12 +2,11 @@
 // api.test.ts. Every edit kept with who, why and when; any edit read back exactly; intent variants merged into Main on
 // accept; versions named with the hash of their content and never changed; code merged with other edits accepted only
 // once its merged result was previewed.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createHuman } from "../src/auth";
 import { canonical } from "../src/kit/hash";
 import { readSource } from "../import/sources";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import {
   accept, close, commit, COMPACT_AFTER, contentHash, createDoc, diff, DocError, history, nameVersion,
   previewMerge, propose, readDoc, SchemaError, stateAt, variant, versionsOf, type Author,
@@ -16,9 +15,8 @@ import { EditError } from "../src/docs/core";
 import { SCHEMA } from "../src/kit/ids";
 // the kinds: what each schema cannot say (a story's clips inside its duration, an asset's source is code), by its UUID
 import "../src/allkinds";
+import { type Fresh, freshDb, suite } from "./kit";
 
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const same = (a: unknown, b: unknown) => expect(canonical(a)).toBe(canonical(b));
 
@@ -44,27 +42,19 @@ const STORY = {
 };
 
 suite("documents in Loro", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
+  let f: Fresh, db: Db;
   let ada: Author, cit: Author, mcp: Author;
 
   beforeAll(async () => {
-    name = `play_docs_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
+    f = await freshDb({ prefix: "play_docs" });
+    db = f.db;
     const a = await createHuman(db, "ada"), c = await createHuman(db, "cit");
     ada = { human: a.id, via: "site" };
     mcp = { human: a.id, via: "mcp" };
     cit = { human: c.id, via: "site" };
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("a story is created as its first step and named v1 by the hash of its content", async () => {

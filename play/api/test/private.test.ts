@@ -11,20 +11,11 @@
 //              sandbox can't pin it; only group characters may be private
 // -t board     c4: an intent whose work is a private character is shown to and decided by its owner alone
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
 import { SANDBOX } from "../src/kit/ids";
-import { Rate } from "../src/limits";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Db } from "../src/kit/pg";
+import { agentToken, type Answer, type Api, appOn, type Fresh, freshDb, human, request, suite, tool as mcpTool } from "./kit";
 
 const SPEC = {
   goal: "A private thing of one person's.",
@@ -41,37 +32,17 @@ const NEVER = "0".repeat(63) + "1";
 type Who = { id: string; cookie: string; token: string };
 
 suite("private to its owner", () => {
-  let root: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   let A: Who, B: Who, T: Who;
-  let n = 0;
 
-  const call = async (who: Who | null, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = who ? { cookie: who.cookie } : {};
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
+  /** what one asked answers: its status and body, compared whole with what one never kept answers */
+  const answer = ({ status, data }: Answer) => ({ status, data });
+  const call = (who: Who | null, method: string, path: string, body?: unknown) => request(api, { cookie: who?.cookie }, method, path, body).then(answer);
   /** a read-only route by an admin's token, as an agent's browser reads it */
-  const byToken = async (who: Who, path: string) => {
-    const r = await api.fetch(new Request(`http://play.test${path}`, { headers: { authorization: `Bearer ${who.token}` } }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
+  const byToken = (who: Who, path: string) => request(api, { bearer: who.token }, "GET", path).then(answer);
   /** a tool called over MCP by `who`'s token: its result as JSON, or its error's text */
-  const tool = async (who: Who, name: string, args: Record<string, unknown>): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${who.token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const j = await r.json();
-    if (j.error) return { error: j.error.message as string };
-    const res = j.result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const tool = (who: Who, name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, who.token, name, args);
   /** an intent of `who`'s in Build, its spec approved by them, its one must check passed: ready to take work */
   const readyIntent = async (who: Who, title: string) => {
     const i = await tool(who, "add_intent", { title });
@@ -99,34 +70,21 @@ suite("private to its owner", () => {
       if (!page.length || out.length >= Number(r.data?.total ?? 0)) return out;
     }
   };
-  const human = async (nm: string, level: "admin" | "traveler"): Promise<Who> => {
-    const h = await createHuman(db, nm);
-    await db.query(`UPDATE play.memberships SET level = $2 WHERE human_id = $1`, [h.id, level]);
-    const who = { id: h.id, cookie: `play_session=${tokenFor(h.id)}`, token: "" };
-    if (level === "admin") who.token = (await call(who, "POST", "/api/tokens", { name: `${nm}'s agent` })).data.token;
+  const person = async (nm: string, level: "admin" | "traveler"): Promise<Who> => {
+    const who = { ...(await human(db, nm, level)), token: "" };
+    if (level === "admin") who.token = (await agentToken(api, who.cookie, { name: `${nm}'s agent` })).token;
     return who;
   };
 
   beforeAll(async () => {
-    name = `play_private_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    root = new Bun.SQL(URL_!);
-    await root.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
-    A = await human("ada", "admin");
-    B = await human("bo", "admin");
-    T = await human("tim", "traveler");
+    f = await freshDb({ prefix: "play_private" });
+    db = f.db;
+    api = appOn(db);
+    A = await person("ada", "admin");
+    B = await person("bo", "admin");
+    T = await person("tim", "traveler");
   });
-  afterAll(async () => {
-    await sql?.close();
-    await root?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await root?.close();
-  });
+  afterAll(() => f?.drop());
 
   describe("library", () => {
     test("library: a file in A's personal library is served to A alone, and to everyone else as one that never was", async () => {

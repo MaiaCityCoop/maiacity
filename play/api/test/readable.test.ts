@@ -6,22 +6,14 @@
 // and keeps a long line is refused with the readable message; a new asset with a long line is refused. Both shapes
 // the legacy people come in: a version with its own source, and a version of variants (breeds).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { COOP } from "../src/access";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore, type BlobStore } from "../src/blobs";
+import { createHuman } from "../src/auth";
+import { type BlobStore } from "../src/blobs";
 import { hashText } from "../src/kit/hash";
-import { Rate } from "../src/limits";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 import { newId } from "../src/kit/uuid";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tempStore, tool as mcpTool } from "./kit";
 
 const SPEC = {
   goal: "A person moves.",
@@ -36,30 +28,13 @@ const READABLE = (line: string) => `module.exports.recipe = function (id, v, var
 const LONG_REFUSED = /The source is not readable: a line of it is \d+ characters long/;
 
 suite("readable", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string, store: BlobStore;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db, store: BlobStore;
+  let api: Api;
   let cookie = "";
   let token = "";
 
-  const call = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   const readyIntent = async (title: string) => {
     const i = await tool("add_intent", { title });
     await tool("specify_intent", { intent: i.id, ...SPEC });
@@ -108,26 +83,17 @@ suite("readable", () => {
   };
 
   beforeAll(async () => {
-    name = `play_readable_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    store = folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
-    api = app({ db, store, rate: new Rate(0) });
+    f = await freshDb();
+    db = f.db;
+    store = tempStore();
+    api = appOn(db, { store });
     const h = await createHuman(db, "ada");
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
-    cookie = `play_session=${tokenFor(h.id)}`;
+    cookie = cookieFor(h.id);
     token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("the fixture's source has a 46,925-character line", () => {

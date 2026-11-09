@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
+import { createHuman, initSessions } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { hashText } from "../src/kit/hash";
 import { migrate } from "../src/migrations";
@@ -16,34 +16,11 @@ import { fromBunSql, type Db } from "../src/kit/pg";
 import { RECIPE_HEAD } from "../src/recipes";
 import { STEPS } from "../src/ship";
 import { mediaNamed, runImport } from "../import/run";
+import { cookieFor, freshDb, suite } from "./kit";
 
 const ROOT = resolve(import.meta.dir, "../../..");
 const text = (path: string) => readFileSync(resolve(ROOT, path), "utf8");
 const yaml = (path: string) => Bun.YAML.parse(text(path)) as any;
-const URL_ = process.env.TEST_DATABASE_URL;
-const pg = URL_ ? describe : describe.skip;
-
-/** a fresh database of its own, migrated */
-async function freshDb(): Promise<{ db: Db; url: string; drop: () => Promise<void> }> {
-  const name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-  const admin = new Bun.SQL(URL_!);
-  await admin.unsafe(`CREATE DATABASE ${name}`);
-  const u = new URL(URL_!);
-  u.pathname = `/${name}`;
-  const sql = new Bun.SQL(u.toString());
-  const db = fromBunSql(sql);
-  await migrate(db);
-  return {
-    db,
-    url: u.toString(),
-    drop: async () => {
-      await sql.close();
-      await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-      await admin.close();
-    },
-  };
-}
-
 /** a store that counts every call made of it, and what it was asked about */
 function counting(inner: BlobStore) {
   const calls: string[] = [];
@@ -60,7 +37,7 @@ function counting(inner: BlobStore) {
 const recipe = (id: string, v: number) => `${RECIPE_HEAD}module.exports.recipe = () => ({});\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, null);\n});\n`;
 const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
 
-pg("the deploy's import", () => {
+suite("the deploy's import", () => {
   let t: Awaited<ReturnType<typeof freshDb>>;
   beforeAll(async () => {
     t = await freshDb();
@@ -135,7 +112,7 @@ pg("the deploy's import", () => {
   }, 60_000);
 });
 
-pg("a media file play's files lack", () => {
+suite("a media file play's files lack", () => {
   test("is an import error naming its hash: no feed is asked, play mends its files from its second copy", async () => {
     const t = await freshDb();
     try {
@@ -401,7 +378,7 @@ describe("tested tree", () => {
   }, 120_000);
 });
 
-pg("play-api", () => {
+suite("play-api", () => {
   let t: Awaited<ReturnType<typeof freshDb>>;
   beforeAll(async () => {
     t = await freshDb();
@@ -415,7 +392,7 @@ pg("play-api", () => {
     // the session secret in the database first, so this process and play-api sign alike
     await initSessions(db);
     const h = await createHuman(db, "sig");
-    const cookie = `play_session=${tokenFor(h.id)}`;
+    const cookie = cookieFor(h.id);
     // port 0: the server takes a free one and names it ("play-api on :<port>"), so no other test or worker holds it.
     // Its output is read as it comes (a pipe left unread fills and stops the child) and waited on: the test goes on
     // when the server says it listens, and fails at once with its own error if it exits (intent aa59f248: under

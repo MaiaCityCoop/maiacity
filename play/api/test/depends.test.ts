@@ -3,23 +3,14 @@
 // An intent may name the intents it depends on, each by its UUID; while any of them is not shipped (Accepted) it is held
 // at every forward gate: approve, Proposal on its checks, work proposed for it, accept, Accept and ship, Ship's turn.
 // Every forward gate is one function, mayMove: a stub of it refusing everything makes every forward path refuse.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createHuman } from "../src/auth";
 import { gate } from "../src/intents";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
+import { type Db } from "../src/kit/pg";
 import { watchShips } from "../src/watcher";
 import { type Pull } from "../src/github";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 const SPEC = {
@@ -33,27 +24,20 @@ const SPEC = {
 };
 
 suite("intents depend on intents", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   const tokens: Record<string, string> = {};
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
+    api = appOn(db, { github: gh.gh });
     for (const n of ["ada", "bea"]) {
       const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
+      who[n] = { id: h.id, cookie: cookieFor(h.id) };
     }
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = ANY($1)`, [[who.ada.id, who.bea.id]]);
     for (const n of ["ada", "bea"]) {
@@ -65,32 +49,11 @@ suite("intents depend on intents", () => {
   });
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie: who[as].cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>, as = "ada"): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${tokens[as]}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    if (r.status !== 200) return { error: `${r.status}` };
-    const j = await r.json();
-    if (j.error) return { error: j.error.message as string };
-    const text = j.result.content[0].text;
-    return j.result.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (as: string, method: string, path: string, body?: unknown) => request(api, { cookie: who[as].cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>, as = "ada"): Promise<any> => mcpTool(api, tokens[as], name, args);
   const intent = async (id: string) => (await call("ada", "GET", `/api/intents/${id}`)).data;
   const decide = (id: string, verdict: string) => call("ada", "POST", `/api/intents/${id}/${verdict}`);
   const depend = (id: string, on: string, drop?: boolean) => tool("depend_intent", { intent: id, on, ...(drop ? { drop } : {}) });
@@ -382,8 +345,7 @@ suite("intents depend on intents", () => {
     expect((await tool("specify_intent", { intent: a.id, ...SPEC })).depends_on).toHaveLength(1);
     expect((await tool("specify_intent", { intent: a.id, ...SPEC, depends_on: [a.id] })).error).toContain("itself");
     // the tools' schemas say it
-    const r = await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${tokens.ada}` }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) }));
-    const tools = (await r.json()).result.tools as any[];
+    const tools = (await kitRpc(api, tokens.ada, "tools/list")).json.result.tools as any[];
     for (const t of ["add_intent", "specify_intent"]) expect(tools.find((x) => x.name === t).inputSchema.properties.depends_on.type).toBe("array");
     expect(tools.find((x) => x.name === "depend_intent").inputSchema.required).toEqual(["intent", "on"]);
     // an admin's agent's only: a token whose owner is no admin opens nothing; no route adds one by hand

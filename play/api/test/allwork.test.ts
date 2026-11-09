@@ -6,85 +6,43 @@
 // - ship: an intent naming a pull request and holding play's work goes Accept and ship; its work waits while it ships;
 //   the reconcile seeing its merge commit live marks it Accepted and accepts its work in that step; a red step brings it
 //   back to Proposal with its work still waiting.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { type Db } from "../src/kit/pg";
 import { reconcile } from "../src/ship";
 import { watchShips } from "../src/watcher";
 import { type Pull } from "../src/github";
 import { seedDoc } from "../src/versioned";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { agentToken, type Api, appOn, type Fresh, freshDb, human, quiet, request, suite, tool as mcpTool } from "./kit";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 
 suite("one intent holds all its work", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
-  const keep = { log: console.log, warn: console.warn };
+  let restore = () => {};
 
   beforeAll(async () => {
-    console.log = () => {};
-    console.warn = () => {};
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    restore = quiet();
+    f = await freshDb();
+    db = f.db;
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
-    const h = await createHuman(db, "ada");
-    who.ada = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
-    const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
-    token = made.token;
+    api = appOn(db, { github: gh.gh });
+    who.ada = await human(db, "ada");
     // the GitHub runs' token: a code intent's checks are recorded with it alone
-    expect((await call("POST", `/api/tokens/${made.id}/avenbox`, { avenbox: true })).data.avenbox).toBe(true);
+    token = (await agentToken(api, who.ada.cookie, { avenbox: true })).token;
   });
 
   afterAll(async () => {
-    Object.assign(console, keep);
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    restore();
+    await f?.drop();
   });
 
-  const call = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie: who.ada.cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    const text = await r.text();
-    return { status: r.status, data: text ? JSON.parse(text) : null };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: who.ada.cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
 
   const SPEC = {
     goal: "Two people and their film change together.",

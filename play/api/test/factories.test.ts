@@ -2,76 +2,40 @@
 // ./api.test.ts. The LifeTrac line seeded as its v1, read by admins only, drafted step by step over MCP, proposed,
 // reviewed field by field, accepted as v2; a proposal on an old version merged where it touches other fields and
 // archived where it touches the same.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createHuman } from "../src/auth";
+import { type Db } from "../src/kit/pg";
 import { lifetracLine, seedFactories } from "../import/factories";
 import { FACTORY } from "../src/kit/ids";
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tool as mcpTool } from "./kit";
 
 const LT = FACTORY.lifetrac;
 
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
-
 suite("the Factories on Loro", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db);
     for (const n of ["ada", "cit"]) {
       const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
+      who[n] = { id: h.id, cookie: cookieFor(h.id) };
     }
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
   });
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string | null, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = {};
-    if (as) headers.cookie = who[as].cookie;
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
+  const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, unknown>) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
 
   /** an intent in Prototype, its spec approved, its one must check passed (at Proposal by itself): every edit is an intent's */
   const readyIntent = async (title: string) => {

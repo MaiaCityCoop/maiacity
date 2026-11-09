@@ -4,29 +4,25 @@
 // request's head and merges it at once, the intent in Ship; the ship watcher follows main's checks, the release and the
 // deploy's jobs, each a step on the intent; all green, Accepted; a red one, back to Proposal with the report, from
 // where Accept ships it again. SHIP_TOKEN is sent to GitHub only.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
+import { createHuman } from "../src/auth";
 import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
+import { type Db } from "../src/kit/pg";
 import { readFileSync } from "node:fs";
 import { reconcile, runningCommit, tailOf } from "../src/ship";
 import { startShipWatcher, watchShips } from "../src/watcher";
-import { ACCEPTED_CONTEXT, gitHub, shipGitHub, type Job, type Pull, type Run } from "../src/github";
-import { fakeGitHub, green, iso, job, REPO, run, sha, TOKEN } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { ACCEPTED_CONTEXT, gitHub, shipGitHub, type Pull } from "../src/github";
+import { fakeGitHub, green, job, REPO, run, sha, TOKEN } from "./fixtures/github";
+import { agentToken, appOn, cookieFor, type Fresh, freshDb, request, suite, tool as mcpTool } from "./kit";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 
 suite("accept ships it", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
+  let f: Fresh, db: Db;
   let api: ReturnType<typeof app>, bare: ReturnType<typeof app>;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
@@ -37,60 +33,34 @@ suite("accept ships it", () => {
 
   beforeAll(async () => {
     for (const k of ["log", "warn", "error"] as const) (console as any)[k] = (...a: unknown[]) => (said.push(a.map((x) => (x instanceof Error ? `${x.message}\n${x.stack}` : typeof x === "string" ? x : JSON.stringify(x))).join(" ")), (keep as any)[k](...a));
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     gh = fakeGitHub();
     const store = folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
-    api = app({ db, store, rate: new Rate(0), github: gh.gh });
-    bare = app({ db, store, rate: new Rate(0) });
+    api = appOn(db, { store, github: gh.gh });
+    bare = appOn(db, { store });
     for (const n of ["ada", "cit"]) {
       const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
+      who[n] = { id: h.id, cookie: cookieFor(h.id) };
     }
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
-    const made = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data;
-    token = made.token;
     // the GitHub runs' token (play/SPEC.md §4.12): what decides a code intent is recorded with it alone
-    expect((await call("ada", "POST", `/api/tokens/${made.id}/avenbox`, { avenbox: true })).data.avenbox).toBe(true);
+    token = (await agentToken(api, who.ada.cookie, { avenbox: true })).token;
   });
 
   afterAll(async () => {
     Object.assign(console, keep);
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string | null, method: string, path: string, body?: unknown, through = () => api) => {
-    const headers: Record<string, string> = {};
-    if (as) headers.cookie = who[as].cookie;
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await through().fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    const text = await r.text();
-    expect(text).not.toContain(TOKEN);
-    return { status: r.status, data: text ? JSON.parse(text) : null };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  /** a request as `as`, to `through()` (play by default); GitHub's token is never in what play answers */
+  const call = (as: string | null, method: string, path: string, body?: unknown, through = () => api) =>
+    request(through(), { cookie: as ? who[as].cookie : null }, method, path, body).then((r) => {
+      expect(r.text).not.toContain(TOKEN);
+      return r;
+    });
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
 
   const SPEC = {
     goal: "A change of play's code is shipped.",
@@ -526,7 +496,7 @@ suite("accept ships it", () => {
     return i.id as string;
   };
   /** play as it runs `commit` (its PLAY_COMMIT) */
-  const running = (commit: string | null) => app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh, commit });
+  const running = (commit: string | null) => appOn(db, { github: gh.gh, commit });
   /** a ship all the way green on GitHub, the watcher's look against `commit` */
   const shipped = async (title: string, commit: (merge: string) => string | null, base: number) => {
     await clearShips();

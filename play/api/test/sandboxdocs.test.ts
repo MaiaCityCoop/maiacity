@@ -5,20 +5,11 @@
 // intent variant with its pin, pin_latest, unpin, set and delete as edit helpers (doc_edit), proposed
 // (propose_doc_version), reviewed on the board with each pin's asset label and version before and after, accepted by an
 // admin, its pins and configs then written from Main, and /api/sandboxes/<uuid>/config answering as before.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { Rate } from "../src/limits";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createHuman } from "../src/auth";
+import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD } from "../src/recipes";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 /** Sandbox 2, as migration 0003 made it (its UUID from 0017) */
 const S2 = "7a7894a9-f37a-8181-9164-920389ee7675";
@@ -32,52 +23,30 @@ const SPEC = {
 };
 
 suite("a sandbox's layout as a document", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
 
   beforeAll(async () => {
-    name = `play_sandboxdocs_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db);
     for (const n of ["ada", "cit"]) {
       const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
+      who[n] = { id: h.id, cookie: cookieFor(h.id) };
     }
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string | null, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = {};
-    if (as) headers.cookie = who[as].cookie;
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
-  const rpc = async (method: string, params: unknown) =>
-    (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }) }))).json()).result;
+  const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
-  const raw = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const res = await rpc("tools/call", { name, arguments: args });
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const raw = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** an intent in Build, its spec approved and its one check passed: ready to take work (no work without an intent) */
   const ready = async (title: string) => {
     const i = await raw("add_intent", { title });
@@ -88,10 +57,10 @@ suite("a sandbox's layout as a document", () => {
   };
   /** every edit and every piece of work is an intent's (intents 847c5d38, 706ed873): an edit or a propose this test
    * makes without naming one is made for an intent of its own, ready to take it */
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    if ((name !== "doc_edit" && name !== "propose_doc_version") || args.intent !== undefined) return raw(name, args);
-    return raw(name, { ...args, intent: await ready(`${name}: ${args.message ?? args.note}`) });
-  };
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> =>
+    (name !== "doc_edit" && name !== "propose_doc_version") || args.intent !== undefined
+      ? raw(name, args)
+      : ready(`${name}: ${args.message ?? args.note}`).then((intent) => raw(name, { ...args, intent }));
   const config = async (as = "cit", intent?: string) => (await call(as, "GET", `/api/sandboxes/${S2}/config${intent ? `?intent=${intent}` : ""}`)).data;
 
   test("c1: edited in an intent variant with its helpers, proposed, reviewed pin by pin, accepted, its rows written from Main", async () => {
@@ -200,7 +169,7 @@ suite("a sandbox's layout as a document", () => {
     expect((await config()).assets.gate).toBe(v2);
 
     // propose_sandbox_change is gone: a layout changes as every document does
-    const names = (await rpc("tools/list", {})).tools.map((t: any) => t.name);
+    const names = (await kitRpc(api, token, "tools/list", {})).json.result.tools.map((t: any) => t.name);
     expect(names).not.toContain("propose_sandbox_change");
     expect(names).toEqual(expect.arrayContaining(["get_sandbox", "doc_edit", "propose_doc_version"]));
   }, 60_000);

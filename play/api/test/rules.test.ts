@@ -3,25 +3,17 @@
 // changed only by a person's Accept; matchRule says which rule meets an intent at Approve spec or Accept, and
 // autoMove takes the move a person would, through the one decision path (./intents.ts decided), the rule written as
 // who decided. Each test is one check of the intent's spec (c1–c9), named as its run names it.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createHuman } from "../src/auth";
 import * as docs from "../src/docs";
 import { RULE, RULES, SCHEMA } from "../src/kit/ids";
 import { decisions } from "../src/intents";
 import { autoMove } from "../src/decide";
-import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import { FIRST_RULE, RULES_DOC, RULES_V1, matchRule, type Rule } from "../src/rules";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tool as mcpTool } from "./kit";
 
 const words = (k: number, w: string) => Array.from({ length: k }, () => w).join(" ");
 const SUMMARY = `## What it is\n\n${words(200, "artifact")}\n\n## Key points\n\n${Array.from({ length: 20 }, () => `- ${words(10, "point")}`).join("\n")}\n\n## The topic\n\n${words(193, "topic")}`;
@@ -36,31 +28,14 @@ const BODY = { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", c
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
 
 suite("auto-accept rules", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
-  let n = 0;
 
-  const call = async (as: string, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie: who[as].cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (as: string, method: string, path: string, body?: unknown) => request(api, { cookie: who[as].cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   const intent = async (id: string) => (await call("ada", "GET", `/api/intents/${id}`)).data;
   const stageOf = async (id: string) => (await intent(id)).stage as string;
   /** an intent specified (declaring `work_kind` where given), approved by ada where it waits at Specify, its check passed */
@@ -105,19 +80,12 @@ suite("auto-accept rules", () => {
   const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
 
   beforeAll(async () => {
-    name = `play_rules_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
+    api = appOn(db, { github: gh.gh });
     const made = await createHuman(db, "ada");
-    who.ada = { id: made.id, cookie: `play_session=${tokenFor(made.id)}` };
+    who.ada = { id: made.id, cookie: cookieFor(made.id) };
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
     const t = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data;
     token = t.token;
@@ -125,9 +93,7 @@ suite("auto-accept rules", () => {
     await call("ada", "POST", `/api/tokens/${t.id}/avenbox`, { avenbox: true });
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   // ---- c1
