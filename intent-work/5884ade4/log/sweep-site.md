@@ -50,3 +50,9 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
    throwing in a private window or with site data blocked is the browser's, said once in `kept.ts`: `kept`, `keptJson`
    (a value that isn't JSON reads as none, as the board's parse did), `keep`. Pinned: `kept.test.ts` (no storage,
    storage that throws, a round trip, bad JSON); gate site, `src/lib/site` tests.
+9. **Sound and video start as the browser allows, `kernel/media.js`** (special: swallowed, 4 of src's). The calls'
+   player, the dome's ambience (×2) and the Library's hover preview swallowed every rejection of `play()` and
+   `resume()`. The autoplay policy's `NotAllowedError` and a superseded play's `AbortError` are the browser's and stay
+   quiet; anything else (a source it can't play, a closed context) is now said with `console.warn`.
+   `playIfAllowed`, `resumeIfAllowed`; the ambience's resume, already handled, takes the same. Pinned:
+   `media.test.js`; gate site; svelte-check unchanged.

@@ -6,6 +6,7 @@
  * an answer from the API, which a plain <audio> started that late would not.
  */
 import { fileBytes } from '$lib/api';
+import { resumeIfAllowed } from '$lib/kernel/media.js';
 
 const LENGTH = 7; // seconds of a call
 const FADE = 1.2;
@@ -49,7 +50,7 @@ export function stopCall() {
 export async function playCall(hash: string, gain = 1, onEnd?: () => void): Promise<void> {
 	stopCall();
 	const c = audio();
-	if (c.state === 'suspended') await c.resume().catch(() => {});
+	if (c.state === 'suspended') await resumeIfAllowed(c);
 	const buffer = await bufferOf(hash);
 	if (c.state !== 'running') return void onEnd?.(); // not yet touched: no sound allowed
 	const src = c.createBufferSource();

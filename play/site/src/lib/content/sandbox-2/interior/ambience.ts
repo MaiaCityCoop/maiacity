@@ -13,6 +13,7 @@
  * recording in parts (Range), so a loop begun anywhere in it plays at once.
  */
 import { asset } from '$lib/site/media/url'
+import { playIfAllowed, resumeIfAllowed } from '$lib/kernel/media.js'
 
 type SoundName = 'forest' | 'inside' | 'water' | 'hens' | 'geese' | 'goats' | 'frogs' | 'bees' | 'factory' | 'machine' | 'lift'
 /** each sound's recording, by hash */
@@ -91,8 +92,8 @@ export function ambience(): Ambience {
 		if (gone) return false
 		make()
 		if (!ctx) return false
-		if (ctx.state !== 'running') void ctx.resume().then(() => ctx?.state === 'running' && unlisten(), () => {})
-		for (const { el } of tracks.values()) if (el.paused) void el.play().catch(() => {})
+		if (ctx.state !== 'running') void resumeIfAllowed(ctx).then((on) => on && unlisten())
+		for (const { el } of tracks.values()) if (el.paused) void playIfAllowed(el)
 		if (ctx.state === 'running') unlisten()
 		return ctx.state === 'running'
 	}
@@ -101,7 +102,7 @@ export function ambience(): Ambience {
 		const now = ctx.currentTime
 		for (const [name, { el, gain }] of tracks) {
 			const src = asset(FILES[name])
-			if (src && el.getAttribute('src') !== src) { el.src = src; void el.play().catch(() => {}) }
+			if (src && el.getAttribute('src') !== src) { el.src = src; void playIfAllowed(el) }
 			const v = (wanted[name] ?? 0) * LOUDEST[name] * (LEVEL[name] ?? 1) * (underGlass && !['forest', 'inside', 'factory', 'machine', 'lift'].includes(name) ? 0.5 : 1)
 			// a slow glide, so nothing ever switches on or off
 			gain.gain.setTargetAtTime(v, now, 0.6)
