@@ -45,7 +45,6 @@
 	// the coop's own, for an admin acting as Maia City (Samuel 2026-11-04: the stories moved here; 2026-11-05: the
 	// proposals left for the nav pill's star)
 	const CITY: Tile[] = [
-		// our films as timelines, storyboard beside the script, to feel whether they work (routes/stories)
 		{ href: '/stories/', label: 'Stories', note: 'Our films as timelines: storyboard, voice, notes', icon: 'studio' },
 		LIBRARY(true),
 		// every link from the net Maia City keeps, its summaries and its authors, kept by avenMAIA: all of them artifacts

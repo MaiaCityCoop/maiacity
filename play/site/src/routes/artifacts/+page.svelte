@@ -80,7 +80,6 @@
 	const date = (d: string | null) => (d ? calendarDay(d) : '');
 	const names = (a: AuthorRef[]) => a.map((x) => x.name).join(', ');
 
-	/** the page's address from what it shows: an artifact or an author opened, and the filters */
 	function address() {
 		const q = new URLSearchParams();
 		if (artifactId) q.set('artifact', artifactId);
@@ -160,7 +159,6 @@
 		document.querySelector('.middle')?.scrollTo({ top: 0 });
 	}
 	const openArtifact = (id: string) => go(() => ((artifactId = id), (intentId = '')));
-	/** an artifact's fields from its document */
 	const fromDoc = (d: Doc) => {
 		const j = d.json;
 		return { url: j.url ?? '', title: j.title ?? '', description: j.description ?? '', summary: j.summary ?? '', kind: j.kind ?? 'other', tags: j.tags ?? [], published: j.published ?? null, origin: (j.origin ?? 'human') as Origin, text_hash: j.text_hash ?? null };

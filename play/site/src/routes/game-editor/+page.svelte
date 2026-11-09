@@ -58,7 +58,6 @@
 	const levelling = $derived(config?.json.schema === 'levels/1' ? (config.json as Levelling) : null);
 	const rows = $derived(levelling ? ledger(levelling) : []);
 	const last = $derived(rows.at(-1));
-	/** the phases in order, each with its rows */
 	const phases = $derived.by(() => {
 		const out: { phase: string; rows: Row[] }[] = [];
 		for (const r of rows) {
