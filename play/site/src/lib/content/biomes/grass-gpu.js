@@ -19,7 +19,7 @@
  * arithmetic, the environment `E` what the blade reads (its hash, its clumps, the mask, the eye, the view's planes).
  */
 import * as THREE from 'three';
-import { CELL, FADE, DEVICES, clumpCentre, draw, seedOf } from './grass.js';
+import { CELL, FADE, DEVICES, PATCH, clumpCentre, draw, seedOf } from './grass.js';
 /** @typedef {import('./grass.js').GrassMask} GrassMask */
 
 /** blades a square metre near on WebGPU, by device (intent 7's instanced tiles keep DEVICES' density) */
@@ -96,7 +96,8 @@ export function choose(K, E, cx, cz, j, v) {
 
 	/* nested thinning: grass.js `keep` and `growAt`, the mask thinning it by rank as distance does */
 	const keepD = K.sel(K.le(d, v.dev.near), K.f(1), K.sel(K.ge(d, b2), K.f(0), K.pow(K.div(K.f(v.dev.near), K.max(d, 1e-6)), v.dev.falloff ?? 1.5)));
-	const kept = K.mul(keepD, m.grass);
+	// grass.js `standing`: a colony dense, the ground between bare (intent 7's PATCH)
+	const kept = K.mul(keepD, K.smooth(PATCH[0], PATCH[1], m.grass));
 	const reach = K.mul(K.add(K.mul(E.draw(s, 9), 0.1), 0.9), b2);
 	const grow = K.mul(
 		K.clamp(K.div(K.sub(K.mul(kept, 1 + FADE), rank), K.add(K.mul(kept, FADE), 1e-4)), 0, 1),
