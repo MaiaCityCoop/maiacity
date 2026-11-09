@@ -355,8 +355,7 @@ export function nodes(renderer) {
 	if (typeof r.setNodesHandler !== 'function') return;
 	// three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light; ./tsl.js:
 	// on the screen, `toneMapped: false` and `raw` honoured)
-	const h = install(r);
-	screenOutputs(r, h);
+	const h = screenOutputs(r, install(r));
 	const compile = r.compile;
 	if (typeof compile !== 'function') return;
 	r.compile = function (scene, camera, target = null) {
