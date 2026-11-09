@@ -1,5 +1,78 @@
 look: chromium: launch
 look: chromium: Sandbox 5
 look: chromium: Sandbox 1
-chromium (ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)): Sandbox 5 built in 46 s, 42 programs linked walking, 0 uniform/load errors; Sandbox 1's film advanced 0…5 s
+chromium (ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)): Sandbox 5 built in 28 s, 48 programs linked walking, 0 uniform/load errors, 32 clashes caught; Sandbox 1's film advanced 0…5 s
+  clash  ~ :
+    was …float nodeUniform18;
+	uint nodeUniform20;
+	mat4 nodeUniform22;
+	float nodeUniform24;
+	float nodeUniform25;
+};
+
+layout( s…
+    is  …float nodeUniform18;
+	uint nodeUniform20;
+	mat4 nodeUniform27;
+	float nodeUniform29;
+	float nodeUniform30;
+};
+
+layout( s…
+  clash  ~ :
+    was …	float nodeUniform23;
+	uint nodeUniform25;
+	mat4 nodeUniform27;
+	float nodeUniform29;
+	float nodeUniform30;
+	uint nodeUn…
+    is  …	float nodeUniform23;
+	uint nodeUniform25;
+	mat4 nodeUniform32;
+	float nodeUniform34;
+	float nodeUniform35;
+	uint nodeUn…
+  clash  ~ :
+    was …float nodeUniform18;
+	uint nodeUniform20;
+	mat4 nodeUniform22;
+	float nodeUniform24;
+	float nodeUniform25;
+};
+
+layout( s…
+    is  …float nodeUniform18;
+	uint nodeUniform20;
+	mat4 nodeUniform27;
+	float nodeUniform29;
+	float nodeUniform30;
+};
+
+layout( s…
+  clash  ~ :
+    was …	float nodeUniform23;
+	uint nodeUniform25;
+	mat4 nodeUniform27;
+	float nodeUniform29;
+	float nodeUniform30;
+	uint nodeUn…
+    is  …	float nodeUniform23;
+	uint nodeUniform25;
+	mat4 nodeUniform32;
+	float nodeUniform34;
+	float nodeUniform35;
+	uint nodeUn…
+  clash  ~ :
+    was …	float nodeUniform23;
+	uint nodeUniform25;
+	mat4 nodeUniform27;
+	float nodeUniform29;
+	float nodeUniform30;
+	uint nodeUn…
+    is  …	float nodeUniform23;
+	uint nodeUniform25;
+	mat4 nodeUniform32;
+	float nodeUniform34;
+	float nodeUniform35;
+	uint nodeUn…
 OK: no uniform error, no plant failed to load, the film advanced
