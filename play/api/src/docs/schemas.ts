@@ -4,7 +4,7 @@
 // subset ./validate.ts reads. Postgres is the source: every commit, merge and preview checks against the schema's Main
 // (typeFor, cached by the schema document's head), and every document names the schema it was written against
 // (play.docs.schema_id) and that schema's version (schema_version). A schema changes only as every document does: by an
-// intent variant, accepted by a person (./versioned.ts refuses the Accept while a document on Main fails it).
+// intent variant, accepted by a person (../versioned.ts refuses the Accept while a document on Main fails it).
 //
 // The seed (each schema's v1 as play wrote it in code before) and what a schema can't say are ./seed.ts; ensureSchemas
 // makes the seed's documents at the end of migrate(), only where absent; a schema is read as a type by ./store.ts typeFor.
