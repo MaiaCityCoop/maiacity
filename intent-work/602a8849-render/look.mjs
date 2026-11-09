@@ -78,6 +78,8 @@ let gpu = 'unknown';
 
 async function open(site, path, errors) {
 	const ctx = await browser.newContext({ viewport: { width: W, height: H } });
+	// a software GPU (avenBOX's SwiftShader) draws a frame of Sandbox 1 in more than 30 s: a screenshot waits for one
+	ctx.setDefaultTimeout(15 * 60e3);
 	const page = await ctx.newPage();
 	page.on('pageerror', (e) => errors.push(`${path} pageerror: ${String(e).slice(0, 600)}`));
 	page.on('console', (m) => m.type() === 'error' && errors.push(`${path} console: ${m.text().slice(0, 600)}`));
@@ -170,7 +172,8 @@ for (const site of sites) {
 			shots.push(['s1-water-river', { ...facing(river.x, river.z, 14, Math.atan2(river.x, river.z) + Math.PI) }, river]);
 		}
 		for (const [i, d] of places.domes.slice(0, 2).entries()) shots.push([`s1-dome-${i}`, { x: d.x + d.R * 0.35, z: d.z + d.R * 0.35, yaw: Math.atan2(0.35, 0.35), pitch: 0.12 }, d]);
-		for (const v of S1) shots.push([`s1-${v.view}`, v]);
+		// the looks alone (LOOKS=1, avenBOX): near, mid and far only fed the Mac's frame times
+		if (!process.env.LOOKS) for (const v of S1) shots.push([`s1-${v.view}`, v]);
 		for (const [view, v, target] of shots) {
 			await page.evaluate((v) => window.__walker.place(v.x, v.z, v.yaw, v.pitch), v);
 			await page.waitForTimeout(1500);
