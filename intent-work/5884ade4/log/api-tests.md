@@ -104,3 +104,34 @@ behaviour is pinned, and for every test removed why it could not fail or only re
    api.test's SQL, deploy-speed and pieces; the `access.ts` re-export in six tests and fixtures/board), and the
    bucket key is `keyOf` (readable, deploy-speed), not `blobs/${hash.slice(0, 2)}/…` (api-tests#12). Pinned: the
    files touched, unchanged.
+
+## Tests removed, all of them
+
+- board.test "no LIMIT 500 is left in intents.ts": a grep of a file kept as a test (move 3).
+
+Assertions removed inside tests that stay: skills.test's `SKILL_STAGES` vs `INTENT_STAGES` (one constant compared with
+itself), withdraw.test's spy on `dropDoc`, ship.test's regexes over ship.ts, intents.ts and decide.ts (moves 2, 3).
+329 tests before this area's work; 355 after the pinning tests (move 1); 354 now.
+
+## Measures (`bun intent-work/5884ade4/measure.ts`)
+
+- `tests`: files creating their own database 41 → 2 (the kit; the held assetdocs.test), call/tool helpers copied
+  52 → 0, suites that skip without a database 37 → 0, sleeps in tests 6 → 1, calls of gone MCP tools 58 → 0, tests
+  reading src's source text 5 → 0. All in bounds.
+- `special`, play/api's part: sleeps in play/api 6 → 1; in play/api/test, swallowed errors → 0 and `as any` 40 → 6.
+- `dead`, this area's part: play/api/scripts' three files gone, heavy.ts a fixture, `hostSource` no export.
+
+## Next untangles (api-tests)
+
+- **F2, one intent-lifecycle fixture**: `SPEC` and "an intent ready for work" (`readyIntent`, `ready`, `building`…)
+  are still copied in about 25 files, and four `codeAtProposal`s; `clearShips` in five. Next: `test/fixtures/intents.ts`.
+- **F4's other half**: schemas.test's wrapper that names an intent for a call without one (`variantIntent`); api.test
+  finds intents by `slug` (api-tests#33).
+- **F5, tests by subject**: gate, avenbox, workflows and deploy-speed's workflow and tested-tree sections still live in
+  play/api/test (workflows.test.ts changes on main, f63774a3: left until play merges it in); SIGTERM still in
+  deploy-speed; files still named after intents (needsintent, nobypass, onerecord, allwork, detailfast).
+- **Admin bootstrap** left inline in about 20 files (`createHuman` + `UPDATE … level = 'admin'`, now with the kit's
+  `cookieFor`): the kit's `human` takes it where a file is next changed.
+- The held assetdocs.test.ts adopts the kit once its intent closes (its own database bootstrap and MCP call stay).
+- Found for the api area: `proposeDocVersion`'s "Give edits or the whole document, not both." (src/versioned.ts) is
+  reachable only with a `variant`; without one, both given answers the "neither" message.
