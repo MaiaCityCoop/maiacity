@@ -115,3 +115,11 @@ scratchpad, `infra2/`).
   box.env `PG_VERSION=17`. Kept beside them, the behaviour: setup-bun reads `.bun-version`, CI's Postgres step runs
   `postgres:$PG_VERSION-alpine` with `max_connections=$PG_MAX_CONNECTIONS` from box.env. A bump of bun or Postgres now
   edits only the file that says it. Both files green.
+
+## 14a. deploy/test_publish_site.py in the gate (re-infra#14)
+
+- A gate step `deploy-tests` (`python3 -m unittest deploy/test_publish_site.py`) and a part `gate.sh deploy`: select.ts
+  plans it when deploy/publish-site.py or its test changes (and those two no longer pull every API test), `--all`
+  runs it. CI's parts (api, site, website) are unchanged: it runs where the gate runs, as F6 asked.
+- Pinned: gate.test.ts (the plan picks it for those two files and not for another deploy file; `--all`'s steps);
+  `gate.sh deploy` green (6 tests, 1 skipped without CADDY, as before).

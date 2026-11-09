@@ -6,6 +6,7 @@
 #   bash play/avenbox/gate.sh --all                 # everything, as CI and main run it
 #   bash play/avenbox/gate.sh --plan                # what it would run, and why; runs nothing
 #   bash play/avenbox/gate.sh api|site|website|lint # one part, whole (as before: other intents' checks run these)
+#   bash play/avenbox/gate.sh deploy               # the deploy's own tests (deploy/test_publish_site.py)
 #   bash play/avenbox/gate.sh lint <file>…          # the lint on these workflow files
 #   bash play/avenbox/gate.sh site-tests            # play/site's own tests (vitest), only when asked: neither CI nor
 #                                                   # the gate's default runs them (a speed decision left to Samuel)
@@ -28,9 +29,9 @@ for a in "$@"; do
     --all) ALL=1 ;;
     --plan) PLAN=1 ;;
     --no-up) UP=0 ;;
-    all | api | site | website | lint | site-tests) PART=$a ;;
-    -*) echo "gate.sh [all|api|site|website|lint|site-tests] [--all] [--plan] [--no-up]"; exit 2 ;;
-    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|lint|site-tests] [--all] [--plan] [--no-up]"; exit 2; } ;;
+    all | api | site | website | deploy | lint | site-tests) PART=$a ;;
+    -*) echo "gate.sh [all|api|site|website|deploy|lint|site-tests] [--all] [--plan] [--no-up]"; exit 2 ;;
+    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|deploy|lint|site-tests] [--all] [--plan] [--no-up]"; exit 2; } ;;
   esac
 done
 export PATH="$HOME/.bun/bin:$PATH"
@@ -49,6 +50,7 @@ case "$PART" in
   api) KEEP='^step api-|^test ' ;;
   site) KEEP='^step site-' ;;
   website) KEEP='^step website-' ;;
+  deploy) KEEP='^step deploy-' ;;
   lint) KEEP='^step lint' ;;
   site-tests) KEEP='^step site-tests' ;;
   *) KEEP='^step |^test ' ;;
@@ -118,6 +120,7 @@ has site-build && step "play/site build" play/site bun run build
 has site-tests && step "play/site tests (vitest)" play/site bunx vitest run
 has website-check && step "website check" website bun run check
 has website-build && step "website build" website bun run build
+has deploy-tests && step "deploy tests (publish-site.py)" . python3 -m unittest deploy/test_publish_site.py
 has lint && step "workflows' lint (actionlint)" . bash play/avenbox/actionlint.sh "${FILES[@]}"
 [ -n "$STEPS" ] || echo "nothing of the gate's touched by this change (gate.sh --all runs everything)"
 echo "avenBOX gate: green ($PART$([ $ALL = 1 ] && echo ', --all'); $((SECONDS - START)) s)"
