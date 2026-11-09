@@ -17,7 +17,7 @@ function run(tool: "sheet.ts" | "sheet-edit.ts", args: string[], env: Record<str
   writeFileSync(fix, "Keep the whole plate; redraw cell 1.");
   writeFileSync(sheet, "not really a jpeg");
   const base = tool === "sheet.ts"
-    ? ["--kind", "plant", "--brief", brief, "--out", join(tmp, "out"), "--no-upload"]
+    ? [...(args.includes("--kind") ? [] : ["--kind", "plant"]), "--brief", brief, "--out", join(tmp, "out"), "--no-upload"]
     : ["--sheet", sheet, "--fix", fix, "--out", join(tmp, "out", "sheet-3"), "--no-upload"];
   // ImageMagick stubbed too (a runner may not have it): `convert <in> … <out>` copies in to out
   const bin = join(tmp, "bin");
@@ -100,5 +100,28 @@ console.log("not reached");
     expect(posts.length).toBe(1);
     expect(p.stdout.toString()).not.toContain("not reached");
     expect(p.stderr.toString()).toContain("fal: 1 call made, 1 image asked (--allow 1).");
+  });
+});
+
+describe("sheet.ts makes a character's plate from a person's own photos (intent a4f8dc85)", () => {
+  const photo = () => {
+    const f = join(mkdtempSync(join(tmpdir(), "sheet-photo-")), "photo.jpg");
+    writeFileSync(f, "not really a photo");
+    return f;
+  };
+
+  test("with --ref, a dry run goes to the edit model, kept in the personal library, and sends nothing", () => {
+    const r = run("sheet.ts", ["--kind", "character", "--ref", photo(), "--library", "personal", "--dry-run"]);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("fal-ai/nano-banana-pro/edit");
+    expect(r.out).toContain("library personal");
+    expect(r.requests).toEqual([]);
+  });
+
+  test("a character's sheet in Maia City's Library (--library coop) is refused before any network call", () => {
+    const r = run("sheet.ts", ["--kind", "character", "--ref", photo(), "--library", "coop", "--dry-run"]);
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("only in the personal library");
+    expect(r.requests).toEqual([]);
   });
 });
