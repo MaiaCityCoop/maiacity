@@ -1,9 +1,9 @@
 // Sandbox 7's planet draws cheaply (intent 8d683ad6, c7): built on the CPU from its tiles and its configs, it is at most
 // eight draw objects (the cards one mesh, the core, three tree meshes, the sites' pins one mesh) and its cards at most
 // 60 % of the triangles the old planet drew for them (a fan and two side triangles a corner).
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import * as THREE from 'three';
-import { biomes, planet, tiles } from './fixture.test';
+import { biomes, planet, tiles } from './fixture';
 import { buildPlanet, census, oldCardTris, topOf } from './scene';
 
 describe('the planet in 3D', () => {

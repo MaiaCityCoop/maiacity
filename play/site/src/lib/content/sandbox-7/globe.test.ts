@@ -1,10 +1,10 @@
 // Sandbox 7 is the old planet (intent 8d683ad6, c5 and c6): the same cards, the same twelve pentagons and as many cards
 // of each biome as the old code drew from the same maps; and each biome the old one's colours, height and trees, every
 // card standing where its biome puts it.
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import * as THREE from 'three';
 import { BIOMES, census, WATER } from './globe';
-import { biomes, planet, tiles } from './fixture.test';
+import { biomes, planet, tiles } from './fixture';
 import { colourOf, topOf, treesOn } from './scene';
 
 /**
@@ -43,18 +43,22 @@ describe('the same planet', () => {
 		expect(T.filter((t) => t.corners.length === 6)).toHaveLength(T.length - 12);
 	});
 	test('every card’s neighbours share an edge with it, each across one of its edges, and it theirs', () => {
+		// every card checked, the wrong ones named, one expect (51,842 cards: one expect each call would take vitest past its 5 s)
+		const wrong: string[] = [];
+		const sorted = (x: number[]) => [...x].sort((a, b) => a - b).join(',');
 		T.forEach((t, i) => {
-			expect(t.edges).toHaveLength(t.corners.length);
-			expect([...t.edges].sort((a, b) => a - b)).toEqual([...t.neighbours].sort((a, b) => a - b));
+			if (t.edges.length !== t.corners.length) wrong.push(`${i}: ${t.edges.length} edges, ${t.corners.length} corners`);
+			if (sorted(t.edges) !== sorted(t.neighbours)) wrong.push(`${i}: its edges are not its neighbours`);
 			for (const [k, j] of t.edges.entries()) {
 				const o = T[j]!;
-				expect(o.edges).toContain(i);
+				if (!o.edges.includes(i)) wrong.push(`${i}: ${j} has no edge back to it`);
 				// the two share the edge's two corners
 				const a = t.corners[k]!, b = t.corners[(k + 1) % t.corners.length]!;
 				const has = (p: number[]) => o.corners.some((c) => Math.hypot(c[0] - p[0]!, c[1] - p[1]!, c[2] - p[2]!) < 1e-9);
-				expect(has(a) && has(b)).toBe(true);
+				if (!(has(a) && has(b))) wrong.push(`${i}: edge ${k} not shared with ${j}`);
 			}
 		});
+		expect(wrong.slice(0, 20)).toEqual([]);
 	});
 	test('as many cards of each biome as the old planet, within 1 %, and its land cards within 0.5 %', () => {
 		const now = census(T);

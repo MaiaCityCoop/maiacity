@@ -1,5 +1,9 @@
 # play's checks, called by main.yml: the API's tests against a real Postgres (play/api/test), its types, and the site's
-# build (play/site), which also holds the copied modules to resolving, and its tests (vitest).
+# build (play/site), which also holds the copied modules to resolving, and its tests (intent 417af727): the site's fast
+# suite (`bun run test`: every file but Sandbox 2's physics) starts at the job's beginning, in the background beside
+# the API's tests and the build, and is awaited at its end. Sandbox 2's physics (`bun run test:physics`, about ten
+# minutes) is its own job, not a required check: on a pull request that touches play/site/src/lib/sandbox-2/, and on
+# every push to main.
 #
 # On a pull request they always run in full, and end by noting the tree they tested ("Tested tree"). On a push to main
 # (intent 5ab64b8e) they pass without running again only when the pushed tree is that very tree, for the pull request
@@ -17,8 +21,7 @@ jobs:
   checks:
     name: API and site
     runs-on: ubuntu-24.04
-    # the site's whole suite takes about 12 min of it on 4 cores (intent 417af727)
-    timeout-minutes: 30
+    timeout-minutes: 20
     permissions:
       contents: read
       actions: read
@@ -44,6 +47,14 @@ jobs:
         if: steps.tested.outputs.skip != 'true'
         with:
           bun-version: 1.4.4
+      # the site's fast suite, in the background: its output and exit code kept for "The site's tests" to await
+      - name: The site's tests, started
+        if: steps.tested.outputs.skip != 'true'
+        working-directory: play/site
+        run: |
+          bun install --frozen-lockfile
+          bunx svelte-kit sync
+          nohup bash -c 'bun run test > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &
       - name: The API
         if: steps.tested.outputs.skip != 'true'
         working-directory: play/api
@@ -63,8 +74,52 @@ jobs:
         run: |
           bun install --frozen-lockfile
           bun run build
-          # the site's whole test suite (vitest), every file, after its build (intent 417af727)
-          bun run test
+      - name: The site's tests
+        if: steps.tested.outputs.skip != 'true'
+        run: |
+          start=$SECONDS
+          until [ -f "$RUNNER_TEMP/site-tests.exit" ]; do sleep 2; done
+          cat "$RUNNER_TEMP/site-tests.log"
+          echo "the site's tests: awaited $((SECONDS - start)) s after the build"
+          exit "$(cat "$RUNNER_TEMP/site-tests.exit")"
       - name: Tested tree
         if: steps.tested.outputs.skip != 'true'
         run: echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"
+
+  physics:
+    name: Sandbox 2's physics
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Whether it runs
+        id: touched
+        env:
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # every push to main runs them; a pull request only when it changes Sandbox 2's code (its files against the
+          # merge base, as GitHub lists them)
+          if [ "$EVENT" = push ]; then echo "run=true" >> "$GITHUB_OUTPUT"; echo "a push to main: the physics run"; exit 0; fi
+          files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          if echo "$files" | grep -q '^play/site/src/lib/sandbox-2/'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; echo "play/site/src/lib/sandbox-2/ changed: the physics run"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"; echo "nothing of Sandbox 2's changed: the physics don't run"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.touched.outputs.run == 'true'
+      - uses: oven-sh/setup-bun@v2
+        if: steps.touched.outputs.run == 'true'
+        with:
+          bun-version: 1.4.4
+      - name: The physics
+        if: steps.touched.outputs.run == 'true'
+        working-directory: play/site
+        run: |
+          bun install --frozen-lockfile
+          bun run test:physics
