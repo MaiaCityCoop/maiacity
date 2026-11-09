@@ -1,7 +1,7 @@
 // What the Stories player reads from play before a film is composed (./inputs.ts), fetch mocked: compositions held to
 // their hash, a live shot's asset version as compose reads it, the frame's files from the site or from play.
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { hashText } from '$lib/content/game/hash.js';
+import { hashText } from '$lib/kernel/hash.js';
 import { compositions, fileOf, liveAssets } from './inputs';
 import { VENDOR } from './compose';
 import type { StoryBody } from './timeline';
