@@ -1,10 +1,7 @@
 #!/usr/bin/env bun
 /*
- * HOW SOON SANDBOX 1 IS QUIET, COLD AND WARM (intent 7af6e162, c3): Sandbox 1 built on the CPU (./run.ts) twice, each
- * a process of its own, on one fresh asset cache (OPFS on disk, ./opfs.ts): the first with nothing kept (cold, as a
- * device's first visit, or a Mac job in a fresh browser profile), the second reading what the first kept (warm, a second
- * visit). For each: the seconds until the world is quiet (../quiet.js), the pictures taken, and the pictures taken on a
- * 30 m walk from near in 1 m steps (each step a few frames, then quiet again).
+ * HOW SOON SANDBOX 1 IS QUIET, COLD AND WARM (intent 7af6e162, c3): Sandbox 1 built on the CPU twice, cold then warm,
+ * on one fresh asset cache, and walked 30 m from near.
  *
  *   bun play/site/scripts/census/settle.ts [--ratio 0.25] [--max 30]
  *
@@ -22,7 +19,6 @@ const SITE = resolve(import.meta.dir, '../..');
 type Load = { quiet: boolean; seconds: number; taken: number; walkTaken: number; walkQuiet: boolean; copies: number };
 
 if (argv[0] === '--one') {
-	// one load, in this process: the cache is CENSUS_CACHE, as the parent made it
 	const { setup } = await import('./setup');
 	setup({ inputs: join(SITE, 'scripts/census/inputs'), cache: process.env.CENSUS_CACHE });
 	const { mountSandbox1, untilQuiet, VIEWS } = await import('./run');
@@ -36,7 +32,6 @@ if (argv[0] === '--one') {
 	g.__walker.place(n.x, n.z, n.yaw, n.pitch);
 	await untilQuiet(180_000);
 	const before = taken(g) ?? 0;
-	// 30 m from near towards the master dome, a metre a step
 	for (let m = 1; m <= 30; m++) {
 		g.__walker.place(n.x, n.z - m, n.yaw, n.pitch);
 		await untilQuiet(150);

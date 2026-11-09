@@ -8,8 +8,6 @@
  * `--intent` builds each as that intent's variant would make it where it holds one (8823eb7c), `--root` runs another
  * tree's play/site (main's, to see a regression), this script's census the same.
  *
- * play's routes are read as pinned in ./inputs, as the census reads them; `--record` pins what is not (PLAY_MCP_TOKEN).
- *
  *   bun play/site/scripts/census/viewer.ts [<asset uuid>…] [--group <group>] [--intent <uuid>] [--root <tree>/play/site] [--record]
  */
 import { join, resolve } from 'node:path';
@@ -35,7 +33,6 @@ const { vaultBuild } = await import(lib('content/assets/sources/viewer.js'));
 const { forStage, heroOf } = await import(lib('content/assets/hero.js'));
 const { Stage } = await import(lib('content/assets/stage.js'));
 
-/** a promise, the page's clock turned while it is open */
 async function turning<T>(p: Promise<T>) {
 	let done = false;
 	const q = p.finally(() => (done = true));

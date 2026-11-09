@@ -21,7 +21,6 @@ const out = mkdtempSync(join(tmpdir(), 'census-match-'));
 const WITHIN = 0.01;
 let ok = true;
 const rows: { site: string; what: string; mac: number; census: number; off: string; ok: string }[] = [];
-/** a count held to the Mac's within 1%, or shown beside them only (`held` false) */
 const row = (site: string, what: string, mac: number, census: number, held = true) => {
 	const off = (census - mac) / mac;
 	const pass = Math.abs(off) <= WITHIN;
