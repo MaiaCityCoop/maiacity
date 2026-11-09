@@ -7,13 +7,13 @@ import * as THREE from 'three';
 import * as tsl from 'three/tsl';
 import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import { fakeGL } from './nodes/fakegl.js';
-import { foliageOf } from './foliage.js';
+import { LEAK, foliageOf } from './foliage.js';
 import { windNodes } from './wind.js';
 
 globalThis.self ??= globalThis;
 globalThis.ImageBitmap ??= class {};
 
-function draw(material, { instanced = true } = {}) {
+function draw(material, { instanced = true, receive = false } = {}) {
 	const { gl, shaders } = fakeGL();
 	const r = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl });
 	r.shadowMap.enabled = true;
@@ -30,6 +30,7 @@ function draw(material, { instanced = true } = {}) {
 		for (let i = 0; i < 3; i++) mesh.setMatrixAt(i, new THREE.Matrix4().makeTranslation(i, 0, 0));
 	}
 	mesh.castShadow = true;
+	mesh.receiveShadow = receive;
 	scene.add(mesh);
 	const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
 	camera.position.set(0, 1, 4);
@@ -66,6 +67,18 @@ describe('a leaf drawn by its look', () => {
 		expect(vertex).toMatch(/vFoliageHeight/);
 		expect(fragment).toMatch(/vFoliageHeight/);
 		expect(fragment).toMatch(/pow\(/);
+	});
+
+	test("a backlit leaf in its own crown's shade still glows: the light through it is the sun before the shadow, let through by LEAK, tinted lighter", () => {
+		const wind = windNodes(tsl, { strength: 0.7 });
+		for (const receive of [false, true]) {
+			const { fragment } = draw(foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }), { receive });
+			// the glow's tint, the leaf's colour lightened
+			expect(fragment).toMatch(/sqrt\(/);
+			expect(fragment).toMatch(/pow\(/);
+		}
+		expect(LEAK).toBeGreaterThan(0);
+		expect(LEAK).toBeLessThan(1);
 	});
 
 	test('what is not read far off is left out: no flutter where a look has none or a level is coarse, no glow from level 2', () => {

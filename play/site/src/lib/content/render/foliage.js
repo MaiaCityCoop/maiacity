@@ -19,7 +19,7 @@
  */
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
-import { abs, clamp, diffuseColor, dot, float, mix, normalLocal, normalView, normalize, positionLocal, positionViewDirection, pow, select, varying, vec3 } from 'three/tsl';
+import { abs, clamp, diffuseColor, dot, float, mix, normalLocal, normalView, normalize, positionLocal, positionViewDirection, pow, select, sqrt, varying, vec3 } from 'three/tsl';
 import { THIN, lookOf } from '../assets/look.js';
 import { windLook } from './wind.js';
 
@@ -28,11 +28,17 @@ export const CROWN = 0.62;
 /** how far a leaf's normal is turned toward the outside of its crown (0 its own, 1 the crown's) */
 export const ROUND = 0.45;
 /** how much darker the foot is than the tip (the share of its colour the foot keeps) */
-export const FOOT = 0.55;
+export const FOOT = 0.7;
 /** how far past the terminator light wraps (0 Lambert) */
 export const WRAP = 0.35;
 /** the backlight lobe: how the light's way is bent by the normal, how tight the lobe is, how bright */
 export const BACK = Object.freeze({ distortion: 0.3, power: 4, scale: 1.6 });
+/**
+ * How much of the sun comes through a crown's own shadow to a leaf lit from behind (0 none, 1 as if unshadowed): the
+ * leaves facing the eye in a backlit crown are in the shade of the leaves behind them, yet glow, because the light
+ * passes leaf through leaf. Without it the shadow cancels the glow and a backlit crown goes dark.
+ */
+export const LEAK = 0.5;
 /**
  * What a coarser level of a kind (../assets/render/lod.js: 0 its finest, drawn near) leaves out, what no eye reads that
  * far, so the many copies drawn at mid range cost little more than without a look: from level 1 the tips' flutter
@@ -48,7 +54,7 @@ const translucent = (Model, translucency, height) =>
 	class extends Model {
 		direct(input, builder) {
 			super.direct(input, builder);
-			const { lightDirection, lightColor, reflectedLight } = input;
+			const { lightDirection, lightColor, lightNode, reflectedLight } = input;
 			const n = normalView;
 			const dotNL = dot(n, lightDirection);
 			// wrap: the part of the light past the terminator, what Lambert's clamp left out
@@ -56,8 +62,12 @@ const translucent = (Model, translucency, height) =>
 			// the backlight: light from behind, through the leaf toward the eye
 			const through = pow(clamp(dot(positionViewDirection, lightDirection.add(n.mul(BACK.distortion)).negate()), 0, 1), BACK.power);
 			const tip = mix(float(0.35), float(1), height);
-			const add = lightColor.mul(diffuseColor.rgb).mul(wrapped.mul(1 / Math.PI).add(through.mul(translucency).mul(tip).mul(BACK.scale / Math.PI)));
-			reflectedLight.directDiffuse.addAssign(add);
+			// the light through it: the sun as it is before the shadow (three's baseColorNode), let through the crown's own
+			// shade by LEAK; tinted by the leaf's colour lightened (its square root: what a leaf lets through is yellower and
+			// brighter than what it reflects)
+			const shade = builder?.object?.receiveShadow && lightNode?.light?.castShadow && lightNode?.shadowNode && lightNode?.baseColorNode ? lightNode.baseColorNode.mul(mix(float(LEAK), float(1), lightNode.shadowNode)) : lightColor;
+			const glow = shade.mul(sqrt(diffuseColor.rgb)).mul(through.mul(translucency).mul(tip).mul(BACK.scale / Math.PI));
+			reflectedLight.directDiffuse.addAssign(lightColor.mul(diffuseColor.rgb).mul(wrapped.mul(1 / Math.PI)).add(glow));
 		}
 	};
 
