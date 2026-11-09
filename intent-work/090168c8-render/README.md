@@ -3,6 +3,12 @@
 GPU work runs only on Samuel's Mac (Metal), never on SwiftShader in the cloud. This job draws Sandbox 1's grass, the
 blades of `play/site/src/lib/content/biomes/grass.js`, and measures what they cost on the GPU.
 
+**Dry run first, in avenBOX** (intent cb52fbd9; it must print DRY RUN PASSED before the job is reported ready):
+
+```sh
+bun play/site/scripts/macjob/dry.ts intent-work/090168c8-render --at <the job's commit>
+```
+
 **On the Mac**, from the repository's root:
 
 ```sh
@@ -12,7 +18,7 @@ bash intent-work/090168c8-render/run.sh
 
 - **Needs:** bun, node, Playwright with its Chromium, ffmpeg, curl, and `PLAY_MCP_TOKEN`. The token is read by the
   read-only proxy, as `selector-shots.mjs` reads play. No fal, nothing paid.
-- **Determinism:** the render box's `determinism.mjs`, fetched from `intent-work/main-baseline-render`.
+- **Determinism:** the tree's own `play/site/scripts/macjob/determinism.js` (as the census uses it).
   - `SEEDED_RANDOM` is an init script.
   - Every view waits for `QUIET`, for at most about 3–4 minutes: since intent 2, Sandbox 1 keeps taking far-tree
     pictures for minutes and never counts as quiet. `settled` in `results.json` says whether a view got there.

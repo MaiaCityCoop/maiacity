@@ -2,21 +2,20 @@
 # Intent 090168c8's Mac job (c7, c8): real grass in Sandbox 1 on Samuel's Mac (Metal).
 #   bash intent-work/090168c8-render/run.sh      (from the repository's root, on the branch intent/090168c8-real-grass)
 # Needs bun, node, Playwright with its Chromium, ffmpeg, curl, PLAY_MCP_TOKEN (reads play through the read-only proxy).
-# No fal, nothing paid. Uses the render box's determinism (intent-work/main-baseline-render).
+# No fal, nothing paid. Uses the tree's own determinism (play/site/scripts/macjob/determinism.js, as the census does).
+# Dry-run first in avenBOX: bun play/site/scripts/macjob/dry.ts intent-work/090168c8-render --at <this commit>
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"; J="$REPO/intent-work/090168c8-render"; OUT="$J/out"; W="${WORK:-$HOME/090168c8-work}"
 rm -rf "$W" && mkdir -p "$W" "$OUT"
-# the render box's determinism, from its branch
-git -C "$REPO" fetch -q origin intent-work/main-baseline-render
-git -C "$REPO" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$W/determinism.mjs"
+DET="$REPO/play/site/scripts/macjob/determinism.js"
 cd "$REPO/play/site" && bun install >/dev/null
 PORT=5182
 PLAY_API=http://localhost:3911 bunx vite dev --port $PORT --strictPort >"$W/vite.log" 2>&1 &
 VITE=$!; trap 'kill $VITE 2>/dev/null || true' EXIT
 until curl -sf "http://localhost:$PORT/" >/dev/null; do sleep 1; done
 cd "$REPO"
-DETERMINISM="$W/determinism.mjs" node "$J/grass.mjs" --site head=http://localhost:$PORT --out "$W" 2>&1 | tee "$OUT/run-log.txt"
-DETERMINISM="$W/determinism.mjs" node "$J/grass.mjs" --site head=http://localhost:$PORT --out "$W" --small 2>&1 | tee "$OUT/run-log-small.txt"
+DETERMINISM="$DET" node "$J/grass.mjs" --site head=http://localhost:$PORT --out "$W" 2>&1 | tee "$OUT/run-log.txt"
+DETERMINISM="$DET" node "$J/grass.mjs" --site head=http://localhost:$PORT --out "$W" --small 2>&1 | tee "$OUT/run-log-small.txt"
 cp "$W"/results*.json "$OUT/"
 # the stills, small for git
 for p in "$W"/*.png; do ffmpeg -loglevel error -y -i "$p" -vf "scale=1440:-2" -q:v 3 "$OUT/$(basename "${p%.png}").jpg"; done
