@@ -34,7 +34,8 @@
  * `ground`, a plant's soil at 0 rather than under its roots).
  */
 import * as THREE from 'three';
-import { ShaderPass, createPost } from '$lib/content/render/post.js';
+import { NodePass, createPost } from '$lib/content/render/post.js';
+import { dot, float, fract, length, mix, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl';
 import { createSky } from '$lib/content/sandbox-kit/sky.js';
 import { precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
 import { budget } from '$lib/content/render/budget.js';
@@ -61,11 +62,12 @@ export class Stage {
 	/**
 	 * @param {THREE.WebGLRenderer} renderer the page's renderer (its tone mapping is set while the stage draws)
 	 * @param {THREE.PerspectiveCamera} camera
-	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
+	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean, hour?: number }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
 	 *   a smaller, softer-sampled shadow), so it draws smoothly and fits in a phone's memory ($content/render/core.js);
-	 *   `sky`: shown under the afternoon sky ($content/sandbox-kit/sky.js) instead of in the paper studio
+	 *   `sky`: shown under the afternoon sky ($content/sandbox-kit/sky.js) instead of in the paper studio; `hour`: the
+	 *   sky's hour held (its clouds' drift and its light), else the in-game clock's, which follows the wall clock
 	 */
-	constructor(renderer, camera, { theme = 'paper', low = false, sky = false } = {}) {
+	constructor(renderer, camera, { theme = 'paper', low = false, sky = false, hour } = {}) {
 		this.renderer = renderer;
 		this.camera = camera;
 		this.theme = theme;
@@ -109,7 +111,7 @@ export class Stage {
 			this.scene.environment.dispose();
 			this.scene.environment = null;
 			this.scene.background = null;
-			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25 });
+			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25, ...(hour === undefined ? {} : { clock: () => hour }) });
 			this.sky.stars.visible = false;
 			// the sky is no surface: the occlusion's normal and depth pass leaves it out (as it did the old viewer sky), else
 			// its box shades the sky above the asset dark
@@ -145,16 +147,15 @@ export class Stage {
 		// at the canvas's own pixels (a composer given its target counts them 1:1 until told the ratio)
 		const css = r.getSize(new THREE.Vector2());
 		const paper = this.theme === 'paper';
-		const grade = new ShaderPass({
-			uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uVig: { value: paper ? 0.1 : 0.32 }, uGrain: { value: paper ? 0.012 : 0.02 }, uSat: { value: 1.06 }, uRes: { value: new THREE.Vector2(size.x, size.y) } },
-			vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-			fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uVig, uGrain, uSat; uniform vec2 uRes; varying vec2 vUv;
-				float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-				void main(){ vec3 c = texture2D(tDiffuse, vUv).rgb;
-					float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat);
-					vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y; c *= 1.0 - uVig * smoothstep(0.35, 1.25, length(q));
-					c += (h(vUv * uRes + fract(uTime) * 91.7) - 0.5) * uGrain;
-					gl_FragColor = vec4(c, 1.0); }`
+		// the grade (AirSup's, in TSL: ../render/post.js NodePass): saturation, a vignette and a fine grain
+		const u = { uTime: uniform(0), uVig: uniform(paper ? 0.1 : 0.32), uGrain: uniform(paper ? 0.012 : 0.02), uSat: uniform(1.06), uRes: uniform(new THREE.Vector2(size.x, size.y)) };
+		const grade = new NodePass(u, (at, p) => {
+			let c = at(p).rgb;
+			c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, u.uSat);
+			const q = p.sub(0.5).mul(vec2(u.uRes.x.div(u.uRes.y), 1));
+			c = c.mul(float(1).sub(u.uVig.mul(smoothstep(0.35, 1.25, length(q)))));
+			const h = fract(sin(dot(p.mul(u.uRes).add(fract(u.uTime).mul(91.7)), vec2(12.9898, 78.233))).mul(43758.5453));
+			return vec4(c.add(h.sub(0.5).mul(u.uGrain)), 1);
 		});
 		/** the bloom's threshold, after the lens (render): under the sky only the sun's glare blooms, not the sky round it
 		 *  (bright near the sun: a threshold of 1, 2, 4 or 8 through the lens still laid a haze over the asset) */

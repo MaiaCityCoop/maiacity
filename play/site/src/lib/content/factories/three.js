@@ -11,10 +11,9 @@
  */
 import * as THREE from 'three';
 import { createControls, createRenderer } from '$lib/content/render/core.js';
-import { createComposer } from '$lib/content/render/post.js';
+import { NodePass, createComposer } from '$lib/content/render/post.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
@@ -48,12 +47,12 @@ function Composer(renderer, target) {
 }
 
 /** three.js and the addons the factory runtime uses, under one name */
-export const T = /** @type {typeof THREE & { EffectComposer: typeof EffectComposer, RenderPass: typeof RenderPass, ShaderPass: typeof ShaderPass, UnrealBloomPass: typeof UnrealBloomPass, GTAOPass: typeof GTAOPass, OutputPass: typeof OutputPass, RoomEnvironment: typeof RoomEnvironment, OrbitControls: typeof OrbitControls, RoundedBoxGeometry: typeof RoundedBoxGeometry, BufferGeometryUtils: typeof BufferGeometryUtils }} */ ({
+export const T = /** @type {typeof THREE & { EffectComposer: typeof EffectComposer, RenderPass: typeof RenderPass, NodePass: typeof NodePass, UnrealBloomPass: typeof UnrealBloomPass, GTAOPass: typeof GTAOPass, OutputPass: typeof OutputPass, RoomEnvironment: typeof RoomEnvironment, OrbitControls: typeof OrbitControls, RoundedBoxGeometry: typeof RoundedBoxGeometry, BufferGeometryUtils: typeof BufferGeometryUtils }} */ ({
 	...THREE,
 	WebGLRenderer: /** @type {typeof THREE.WebGLRenderer} */ (/** @type {unknown} */ (Renderer)),
 	EffectComposer: /** @type {typeof EffectComposer} */ (/** @type {unknown} */ (Composer)),
 	RenderPass,
-	ShaderPass,
+	NodePass,
 	UnrealBloomPass,
 	GTAOPass,
 	OutputPass,
