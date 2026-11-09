@@ -172,6 +172,14 @@ function parentOf(d: LoroDoc, path: Path): [LoroMap | LoroMovableList, string | 
 }
 export const fmt = (p: Path) => "$" + p.map((x) => (typeof x === "number" ? `[${x}]` : `.${x}`)).join("");
 
+/** `json`, a document of type `t`, as `edits` would leave it (nothing kept); the caller checks the result against its type */
+export function applied(t: DocType, json: unknown, edits: Edit[]): any {
+  const d = newDoc();
+  seed(d, t, json);
+  applyEdits(d, t, edits);
+  return jsonOf(d);
+}
+
 /** applies `edits` (not yet committed); the caller checks the whole result against its type */
 export function applyEdits(d: LoroDoc, t: DocType, edits: Edit[]): void {
   for (const e of edits) {

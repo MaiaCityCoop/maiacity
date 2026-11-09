@@ -14,7 +14,6 @@ import { readableRefs } from "./recipes";
 import { assetSeen } from "./owners";
 import * as docs from "./docs";
 import { SCHEMA } from "./kit/ids";
-import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
 import { holdVariant, intentIdOf } from "./held";
 import { noSuchIntent } from "./intents";
 import { resolveEdits } from "./kinds";
@@ -355,29 +354,21 @@ const isHelper = (e: any) => !!e && typeof e === "object" && (HELPERS.has(e.op) 
  * whole layout; what it would hold that play does not is refused.
  */
 export async function layoutWrite(q: Queryable, cur: any, input: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
-  try {
-    let target: any;
-    if (input.whole !== undefined) {
-      if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new HttpError("A whole layout is an object (doc_at's `json`).");
-      target = { ...(input.whole as object), schema: cur.schema };
-    } else if (Array.isArray(input.edits) && input.edits.length && input.edits.every(isHelper)) {
-      const { state } = await applyEdits(q, { pins: cur.pins ?? {}, configs: cur.configs ?? {} }, input.edits);
-      target = { ...cur, pins: state.pins, configs: state.configs };
-    } else {
-      if (Array.isArray(input.edits) && input.edits.some(isHelper)) throw new HttpError("Give the sandbox's edit helpers (pin, pin_latest, unpin, set and delete of a config) or a document's edits, not both in one edit.");
-      // a document's edits, applied to the layout as it stands to check what they make
-      const t = await docs.typeFor(q, SCHEMA.sandbox);
-      const d = newDoc();
-      seed(d, t, cur);
-      applyDocEdits(d, t, resolveEdits(cur, input.edits));
-      target = jsonOf(d);
-    }
-    const problems = await layoutProblems(q, target);
-    if (problems.length) throw new HttpError(problems[0]);
-    return { target };
-  } catch (e) {
-    throw e instanceof SandboxError ? new HttpError(e.message, e.status) : e;
+  let target: any;
+  if (input.whole !== undefined) {
+    if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new HttpError("A whole layout is an object (doc_at's `json`).");
+    target = { ...(input.whole as object), schema: cur.schema };
+  } else if (Array.isArray(input.edits) && input.edits.length && input.edits.every(isHelper)) {
+    const { state } = await applyEdits(q, { pins: cur.pins ?? {}, configs: cur.configs ?? {} }, input.edits);
+    target = { ...cur, pins: state.pins, configs: state.configs };
+  } else {
+    if (Array.isArray(input.edits) && input.edits.some(isHelper)) throw new HttpError("Give the sandbox's edit helpers (pin, pin_latest, unpin, set and delete of a config) or a document's edits, not both in one edit.");
+    // a document's edits, applied to the layout as it stands to check what they make
+    target = docs.applied(await docs.typeFor(q, SCHEMA.sandbox), cur, resolveEdits(cur, input.edits));
   }
+  const problems = await layoutProblems(q, target);
+  if (problems.length) throw new HttpError(problems[0]);
+  return { target };
 }
 
 /** each slot whose pin two layouts hold differently, before and after, its asset named by its label and version */

@@ -67,3 +67,15 @@ left for Samuel.
   `RECIPE_HEAD`, `Label` (only plan.test read them through it) gone; plan.test imports src/recipes.ts.
 - plan.test's "refs parse" case went with parseRef; in its place a case for what sandboxes.ts actually asks (no self:
   every readable ref in a layout is found), which nothing tested. Count unchanged (356).
+
+## 7. Errors: layoutWrite's no-op rethrow gone, docs.applied (re-api#9)
+
+- layoutWrite's try/catch turned a SandboxError into an HttpError with the same message and status: gone.
+  `SandboxError` itself stays: the kept-changes import in sandboxes.ts tells it apart (`instanceof SandboxError`).
+- `docs.applied(t, json, edits)` (docs/core.ts): a document's state with edits applied, nothing kept. sandboxes.ts uses
+  it instead of reaching into docs/core's newDoc/seed/applyEdits/jsonOf.
+- SchemaError's `problems` was public and never read: a plain constructor parameter now.
+- Not done, and why: `DocError.extra` **is** read (docs.test and the held assetdocs.test assert `extra.needsPreview`
+  and `extra.mergedHash`): the re-audit missed it. EditError (docs.test's `toThrow(EditError)`) and OwnerError (the held
+  assetdocs' rethrow) are told apart, so they stay.
+- Pinned by the suite (sandboxdocs and docs tests cover layoutWrite's three paths and their refusals).
