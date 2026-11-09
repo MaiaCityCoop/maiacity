@@ -26,6 +26,14 @@ export { SURFACE, SURFACES, groundMaterial, inTrack, rowsOf, surfacesAt } from '
 export { MASKS } from './masks.js';
 
 /**
+ * The cover kinds that are grass, and how: 1 short, 2 tall; one list for every place that asks (the blade field and its
+ * mask, ./grass.js; the cover stream and a biome's patch, which leave these kinds to the blades). A verge's `drygrass`
+ * is its grass (the tired land's cover; roadside-verge v2: "the verge's sparse grass … blade by blade").
+ * @type {Readonly<Record<string, 1 | 2>>}
+ */
+export const GRASSY = Object.freeze({ grass: 1, tallgrass: 2, drygrass: 1 });
+
+/**
  * @typedef {'grass' | 'tallgrass' | 'sedge' | 'moss' | 'daisy' | 'buttercup' | 'clover' | 'forgetmenot' | 'anemone' | 'cranesbill' | 'woodruff' | 'woodsorrel' | 'ramsons' | 'strawberry' | 'blueberry' | 'fern' | 'litter' | 'deadwood' | 'stones' | 'mushrooms'} Cover
  *   a kind of cover, by its name: each is built by play (the Biome cover asset, its kind), named on the biome's card by its build
  */

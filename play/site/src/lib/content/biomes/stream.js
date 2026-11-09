@@ -17,7 +17,7 @@
  * where the eye is (in the floor's own ground) every frame.
  */
 import * as THREE from 'three';
-import { layTile } from './index.js';
+import { GRASSY, layTile } from './index.js';
 
 /**
  * @param {{
@@ -50,7 +50,7 @@ export function coverStream(o) {
 	const { recipe, drawn } = o;
 	// each kind by the build its biome's card names (a hash): drawn finely however small, so never as a picture
 	const kinds = recipe.cover.map((c) => {
-		if (o.blades && !c.rows && (c.kind === 'grass' || c.kind === 'tallgrass')) return null;
+		if (o.blades && !c.rows && GRASSY[c.kind]) return null;
 		if (!c.ref) throw new Error(`the biome names no asset for its cover kind ${c.kind}`);
 		return drawn.use(c.ref, false, false);
 	});

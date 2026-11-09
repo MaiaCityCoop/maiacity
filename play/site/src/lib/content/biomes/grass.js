@@ -37,7 +37,7 @@
  */
 import * as THREE from 'three';
 import { fbm2, vn } from './noise.js';
-import { colonyAt } from './index.js';
+import { GRASSY, colonyAt } from './index.js';
 import { MASKS, canopyOf, maskAt, reliefAt, ringAt } from './masks.js';
 import * as TSL from 'three/tsl';
 import { windNodes, worldSeconds } from '../render/wind.js';
@@ -444,7 +444,7 @@ export class GrassMask {
  * @returns {(x: number, z: number) => { grass: number, tall: number }}
  */
 export function grassOfRecipe(recipe, open, world = {}) {
-	const kinds = recipe.cover.map((c) => (c.kind === 'grass' ? 1 : c.kind === 'tallgrass' ? 2 : 0));
+	const kinds = recipe.cover.map((c) => (GRASSY[c.kind] ?? 0));
 	const masks = recipe.masks ? { ...MASKS, ...recipe.masks } : null;
 	const ringOut = Math.max(...recipe.cover.map((c) => c.ring?.[1] ?? 0), 0);
 	// the canopy's lookup, made once the world's trees are known (and again if more are planted)
@@ -477,7 +477,7 @@ export function grassOfRecipe(recipe, open, world = {}) {
 	};
 }
 /** whether a biome grows grass @param {import('./index.js').Recipe} recipe */
-export const growsGrass = (recipe) => recipe.cover.some((c) => c.kind === 'grass' || c.kind === 'tallgrass');
+export const growsGrass = (recipe) => recipe.cover.some((c) => GRASSY[c.kind]);
 
 /* ── the field: tiles round the eye ── */
 

@@ -32,6 +32,7 @@ import { groundMaterial, rowsOf } from '$lib/content/biomes/surfaces.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { coverStream } from '$lib/content/biomes/stream.js';
 import { grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js';
+import { GRASSY } from '$lib/content/biomes/index.js';
 import { grassFieldOn } from '$lib/content/render/nodes/grass-compute.js';
 import { smallDevice } from '$lib/content/render/budget.js';
 
@@ -238,7 +239,7 @@ export function createPlantings(o) {
 		ground.geometry.computeBoundingSphere();
 		const r = (ground.geometry.parameters?.radius ?? ground.geometry.boundingSphere?.radius ?? 6) - 0.1;
 		recipe.cover.forEach((c) => {
-			if (!c.rows && (c.kind === 'grass' || c.kind === 'tallgrass')) {
+			if (!c.rows && GRASSY[c.kind]) {
 				const kind = root.getObjectByName(`cover-${c.kind}`);
 				if (kind) kind.visible = false;
 			}
