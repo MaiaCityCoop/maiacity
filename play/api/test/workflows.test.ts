@@ -2,7 +2,7 @@
 // to a commit of main once main.yml is green for a push (or by hand, or Accept again, with a sha) with GITHUB_TOKEN and
 // starts production.yml, which writes SHIP_TOKEN into play's environment; the compose file hands it to play-api.
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -405,8 +405,8 @@ describe("the whole suite on every pull request and on main", () => {
 
 // intent 417af727: the site's own tests gate every merge as play/api's do; 8823eb7c reached main with one of them red
 // because CI only built the site. Each on a runner of its own (beside the API's on one they starved its 5 s timeouts):
-// the API's tests alone, the site's build and fast suite, Sandbox 2's physics apart (when their code changes and on
-// main); the required check "API and site" needs the first two.
+// the API's tests alone, the site's build and fast suite (Sandbox 2's physics switched off, intent 94c11a28); the
+// required check "API and site" needs both.
 describe("the site's tests on every pull request and on main", () => {
   const p = yaml(".github/workflows/play-checks.yml");
   const lines = (s: any) => String(s.run).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
@@ -460,40 +460,23 @@ describe("the site's tests on every pull request and on main", () => {
     expect(run("failure", "", "skipped", "skipped")).toBe(false);
     expect(run("success", "true", "success", "failure")).toBe(false);
   });
-  // intent 14dc8d5f: in main's run the physics held release.yml (it starts once main's whole run is done) for ten minutes
-  test("main's run holds no physics: Sandbox 2's physics run in physics.yml, on every push to main and on a pull request that changes them", () => {
-    // main's run: the called workflows hold no job of the physics, and nothing of them is named there
+  // intent 94c11a28 (Samuel 2026-11-09: "We don't care about sandbox 2 physics test so just switch them off all
+  // together"): no workflow runs Sandbox 2's physics, so none holds a release or reds main; by hand they still run
+  test("Sandbox 2's physics are switched off: no workflow runs them, and main's run is only the API, the site and the website", () => {
     const main = yaml(".github/workflows/main.yml");
     expect(Object.keys(main.jobs).sort()).toEqual(["play", "website"]);
-    for (const f of [".github/workflows/main.yml", ".github/workflows/play-checks.yml", ".github/workflows/website-checks.yml"]) {
+    expect(existsSync(resolve(ROOT, ".github/workflows/physics.yml"))).toBe(false);
+    for (const f of readdirSync(resolve(ROOT, ".github/workflows")).filter((f) => /\.ya?ml$/.test(f)).map((f) => `.github/workflows/${f}`)) {
       expect([f, text(f).includes("test:physics")]).toEqual([f, false]);
-      for (const j of Object.values(yaml(f).jobs) as any[]) expect(j.name).not.toBe("Sandbox 2's physics");
+      for (const j of Object.values(yaml(f).jobs ?? {}) as any[]) expect([f, j?.name]).not.toEqual([f, "Sandbox 2's physics"]);
     }
     // release.yml waits only for main's run
     expect(yaml(".github/workflows/release.yml").on.workflow_run.workflows).toEqual(["main"]);
-    // physics.yml: a workflow of its own, not main
-    const ph = yaml(".github/workflows/physics.yml");
-    expect(ph.name).toBe("physics");
-    expect(ph.on.push).toEqual({ branches: ["main"] });
-    expect(ph.on.pull_request.branches).toEqual(["main"]);
-    expect(ph.on.pull_request.paths).toEqual(["play/site/src/lib/sandbox-2/**"]);
-    expect(ph.on.pull_request.types).toEqual(main.on.pull_request.types);
-    expect(Object.keys(ph.on).sort()).toEqual(["pull_request", "push"]);
-    expect(ph.permissions).toEqual({ contents: "read" });
-    const j = ph.jobs.physics;
-    expect(Object.keys(ph.jobs)).toEqual(["physics"]);
-    expect(j.name).toBe("Sandbox 2's physics");
-    expect(j["runs-on"]).toBe("ubuntu-24.04");
-    // a draft runs nothing, as in main's run
-    expect(j.if).toBe("github.event_name == 'push' || !github.event.pull_request.draft");
-    const run = j.steps.find((s: any) => s.name === "The physics");
-    expect(run["working-directory"]).toBe("play/site");
-    expect(lines(run)).toEqual(["bun install --frozen-lockfile", "bun run test:physics"]);
-    // not one of the checks main must pass for a deploy
     expect(text(".github/actions/main-green/action.yml")).not.toContain("physics");
-    expect(text(".github/workflows/physics.yml")).not.toContain("secrets.");
+    // by hand, as before
+    expect(site["test:physics"]).toBe("vitest run src/lib/sandbox-2/tests");
   });
-  test("the site's tests: gate.sh site runs the fast suite after the build, and the physics only for a change to them (select.ts)", () => {
+  test("the site's tests: gate.sh site runs the fast suite after the build, and the physics only by name (gate.sh physics)", () => {
     const gate = text("play/avenbox/gate.sh");
     const build = gate.indexOf('has site-build && step "play/site build" play/site bun run build');
     const tests = gate.indexOf('has site-tests && step "play/site tests" play/site bun run test\n');
@@ -508,8 +491,9 @@ describe("the site's tests on every pull request and on main", () => {
     expect(fast).toContain("step site-tests");
     expect(fast).not.toContain("step site-physics");
     expect(fast).not.toMatch(/step (api|website)-/);
-    expect(plan("site", "play/site/src/lib/sandbox-2/wind.ts")).toContain("step site-physics");
-    expect(plan("all", "play/site/src/lib/sandbox-2/wind.ts")).toContain("step site-physics");
+    // a change to Sandbox 2's code no longer brings them, in a part or in --all
+    expect(plan("site", "play/site/src/lib/sandbox-2/wind.ts")).not.toContain("step site-physics");
+    expect(plan("all", "play/site/src/lib/sandbox-2/wind.ts")).not.toContain("step site-physics");
     expect(plan("all", "play/site/src/lib/stories/live.ts")).not.toContain("step site-physics");
     expect(plan("physics", "").trim().split("\n").slice(1)).toEqual(["  step site-physics"]);
   });

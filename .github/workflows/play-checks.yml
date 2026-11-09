@@ -3,8 +3,8 @@
 #
 # Each on a runner of its own, in parallel (they starved each other's 5 s timeouts on one): the job "API" (Postgres,
 # the API's types and its whole suite, alone) and the job "Site" (its build, then its fast suite: vitest without Sandbox
-# 2's physics, then its *.bun.test.ts with Bun). Sandbox 2's physics are not here but in physics.yml, a workflow of their
-# own (intent 14dc8d5f): in main's run they held release.yml, which starts once main's whole run is done. The required
+# 2's physics, then its *.bun.test.ts with Bun). Sandbox 2's physics are switched off (intent 94c11a28; Samuel
+# 2026-11-09): no workflow runs them; they run by hand only (play/avenbox/gate.sh physics). The required
 # check keeps its name: the job "API and site" needs "API" and "Site" and is green only when both are.
 #
 # On a pull request they always run in full, and end by noting the tree they tested ("Tested tree"). On a push to main

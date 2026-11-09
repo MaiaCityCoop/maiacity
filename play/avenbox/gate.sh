@@ -7,8 +7,8 @@
 #   bash play/avenbox/gate.sh --plan                # what it would run, and why; runs nothing
 #   bash play/avenbox/gate.sh api|site|website|lint # one part, whole (as before: other intents' checks run these)
 #   bash play/avenbox/gate.sh deploy               # the deploy's own tests (deploy/test_publish_site.py)
-#   bash play/avenbox/gate.sh physics               # Sandbox 2's physics alone (about ten minutes; site and --all run
-#                                                   # them only when this change touches play/site/src/lib/sandbox-2/)
+#   bash play/avenbox/gate.sh physics               # Sandbox 2's physics, by hand only (about ten minutes): switched
+#                                                   # off everywhere else (intent 94c11a28; Samuel 2026-11-09)
 #   bash play/avenbox/gate.sh lint <file>…          # the lint on these workflow files
 #   bash play/avenbox/gate.sh api --no-up           # without up.sh: the caller has Postgres answering at
 #                                                   # TEST_DATABASE_URL and the part's dependencies installed (CI)
@@ -121,7 +121,7 @@ fi
 has site-build && step "play/site build" play/site bun run build
 # the site's fast suite (every file but Sandbox 2's physics), after its build, as CI runs it (intent 417af727)
 has site-tests && step "play/site tests" play/site bun run test
-# Sandbox 2's physics, only for a change to their code (select.ts) or by name (gate.sh physics)
+# Sandbox 2's physics, only by name (gate.sh physics): switched off for every change (intent 94c11a28)
 has site-physics && step "play/site Sandbox 2's physics" play/site bun run test:physics
 has website-check && step "website check" website bun run check
 has website-build && step "website build" website bun run build

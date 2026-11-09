@@ -13,8 +13,6 @@ play/api/src/lod.ts
 play/api/test/assetdocs.test.ts
 play/api/test/graphs.test.ts
 play/site/scripts/census.ts
-play/site/scripts/census/cards.test.ts
-play/site/scripts/census/cards.ts
 play/site/scripts/census/census.test.ts
 play/site/scripts/census/counting.js
 play/site/scripts/census/dom.ts
@@ -32,7 +30,6 @@ play/site/scripts/census/inputs/061ea0805bb288119187.json.gz
 play/site/scripts/census/inputs/07788d4b5e71e88952d3.json.gz
 play/site/scripts/census/inputs/083b7b296e933ad239b4.json.gz
 play/site/scripts/census/inputs/08eb14f2600a36bdaba3.json.gz
-play/site/scripts/census/inputs/091bc14eb44e78caa060.json.gz
 play/site/scripts/census/inputs/0a7c5bbb5d16123761d9.json.gz
 play/site/scripts/census/inputs/0c1bd76930b7bcefe3e1.json.gz
 play/site/scripts/census/inputs/0d5966d3321b52590052.json.gz
@@ -73,7 +70,6 @@ play/site/scripts/census/inputs/2b4489bcd95ca66a55df.json.gz
 play/site/scripts/census/inputs/2c2267c293dfae27edaf.json.gz
 play/site/scripts/census/inputs/2c2cb056e0fde1a6c656.json.gz
 play/site/scripts/census/inputs/2d6f58f529ed1d6e70a5.json.gz
-play/site/scripts/census/inputs/2d82f351537dd423c4d1.json.gz
 play/site/scripts/census/inputs/2e3bd7b76fa4c1e47596.json.gz
 play/site/scripts/census/inputs/2fdfd927b32cacfee94b.json.gz
 play/site/scripts/census/inputs/30f73863ef0108ae3e6e.json.gz
@@ -144,7 +140,6 @@ play/site/scripts/census/inputs/58197b0b796ced1194dc.json.gz
 play/site/scripts/census/inputs/59962a85c650b7df60c0.json.gz
 play/site/scripts/census/inputs/59d836c34a214df79647.json.gz
 play/site/scripts/census/inputs/59f6ed602a4eb63cb19b.json.gz
-play/site/scripts/census/inputs/5a5bcb09205be0609e0e.json.gz
 play/site/scripts/census/inputs/5ad2bfc810375e975d9a.json.gz
 play/site/scripts/census/inputs/5aec5043899c38a5b498.json.gz
 play/site/scripts/census/inputs/5bb7a244f619894c19e7.json.gz
@@ -168,7 +163,6 @@ play/site/scripts/census/inputs/65a6d6b05d6720b23b9a.json.gz
 play/site/scripts/census/inputs/6648fa79d89a27747f42.json.gz
 play/site/scripts/census/inputs/673fa43703fd784d3dbe.json.gz
 play/site/scripts/census/inputs/676d63807159feaef32e.json.gz
-play/site/scripts/census/inputs/67bca99138479c0cf603.json.gz
 play/site/scripts/census/inputs/687ac60fe188cb1ba44c.json.gz
 play/site/scripts/census/inputs/691ed8c6f87a034ab257.json.gz
 play/site/scripts/census/inputs/693bfa70ab5883dcdae8.json.gz
@@ -335,7 +329,6 @@ play/site/scripts/census/inputs/b946caf1c00e393f1404.json.gz
 play/site/scripts/census/inputs/b9b15ebe7b26027ddd55.json.gz
 play/site/scripts/census/inputs/bae49456fc414a1d7f25.json.gz
 play/site/scripts/census/inputs/bb18bcd3f1dd3c9d01cd.json.gz
-play/site/scripts/census/inputs/bc0ab40d5e2edabd322e.json.gz
 play/site/scripts/census/inputs/bc8b4abd448b8402fe9b.json.gz
 play/site/scripts/census/inputs/bca8e904575c2eb7bc4a.json.gz
 play/site/scripts/census/inputs/bcc4bd479738338c5956.json.gz
@@ -397,7 +390,6 @@ play/site/scripts/census/inputs/db3491552833442a6cfc.json.gz
 play/site/scripts/census/inputs/dbcaac522e1b9e04f145.json.gz
 play/site/scripts/census/inputs/dc7e2b3295a4fb241964.json.gz
 play/site/scripts/census/inputs/de5c9c670fffec2b0bb0.json.gz
-play/site/scripts/census/inputs/deb81c95cee09c7106d0.json.gz
 play/site/scripts/census/inputs/dfd87b7a8edb6b0333d8.json.gz
 play/site/scripts/census/inputs/e02223112d39d0cdc9fa.json.gz
 play/site/scripts/census/inputs/e0e64d80e8a7a1e1e6d2.json.gz
@@ -409,7 +401,6 @@ play/site/scripts/census/inputs/e2f0456086b82428da49.json.gz
 play/site/scripts/census/inputs/e432e5518e8d2b4a8a84.json.gz
 play/site/scripts/census/inputs/e480176f82c87758ef90.json.gz
 play/site/scripts/census/inputs/e4c81c01134a29e18651.json.gz
-play/site/scripts/census/inputs/e4ea50bb16df925827b2.json.gz
 play/site/scripts/census/inputs/e5849c6e83adbdfc4662.json.gz
 play/site/scripts/census/inputs/e586945959b6fbc90fe1.json.gz
 play/site/scripts/census/inputs/e5ecbdc88d9c204a2214.json.gz
@@ -461,6 +452,7 @@ play/site/scripts/census/inputs/fff817ac43ad2a510832.json.gz
 play/site/scripts/census/inputs/files/007437b9961eebe758089c7b9321be65c7f917748292c21f83924bc78fdbb1bd.gz
 play/site/scripts/census/inputs/files/00a26d9f0bd3ac44ebcf4dcd6185cfbf628069adeb898d74ae3e2781fbf0049f.gz
 play/site/scripts/census/inputs/files/010b5037df64ff724446c57c0919f4724a045ddc0dda8ed1d66e62ea89cc6830.gz
+play/site/scripts/census/inputs/files/0112909a5fab60bdb4c709c77ec7a10bf43d85cf5542e6a9e0468c179e2d6d95.gz
 play/site/scripts/census/inputs/files/0148b835559d55823d83f34a28bbff06999b8327c1a5ea34f11c33ac4f9201ef.gz
 play/site/scripts/census/inputs/files/01f34104e46301b314ff310d171f748c70c3758615134a4e772683732e74a5bb.gz
 play/site/scripts/census/inputs/files/0240da70e6b30f3705133e3e3a14c6ba4ce0cd7f01215303e257bcad6bcb134f.gz
@@ -471,6 +463,7 @@ play/site/scripts/census/inputs/files/0340121b4fdd13a559a389fb42649edcc369d1e86f
 play/site/scripts/census/inputs/files/03cfebc874618d47085a79948db542b580847a5a92afdd1a73f52fc56c662cc4.gz
 play/site/scripts/census/inputs/files/03d3fb2497d95e3b350a089650ffc1c957d601d5594b9c54b424cb8560c75862.gz
 play/site/scripts/census/inputs/files/0432a56156b5a07ed7e72ff4d8bc03e7f9c2ffd8f859d9c062aeb4ad83c063b1.gz
+play/site/scripts/census/inputs/files/046f2ad3112296ea605f06e1847dfaf5b151b7a52012d886ecbca88b05c9e2d6.gz
 play/site/scripts/census/inputs/files/04e2df822b49036558accc453e0b9c8894b28fdde93bfae54e02fce0887d1baf.gz
 play/site/scripts/census/inputs/files/051d15aad5459569a65bcf0f0db48fcafc018ae169fcfb8fe52edf6c30230022.gz
 play/site/scripts/census/inputs/files/066108a07fb016ad1da79d3dd62938479b610c53282d599a10357e2a6e032932.gz
@@ -486,6 +479,7 @@ play/site/scripts/census/inputs/files/0b7b647ba9ecc5e447b3ebdc2f2b89c5c05efeb3ee
 play/site/scripts/census/inputs/files/0ba97b402ad7c3f276b00746a49320c5bbccb7066b1c92fa8f81d33c154d6135.gz
 play/site/scripts/census/inputs/files/0ce8a1c67c7f2a45b1ba1f232cdac4f5f51451535c0b468dffd1f05afe66a9e8.gz
 play/site/scripts/census/inputs/files/0d9649a8fc439f83c01ef38869e8896b98a7c43301d6f9728db638ba74933fe9.gz
+play/site/scripts/census/inputs/files/0e0f38a1541e9641ece14472866836932a6f7f1570dbd490306eb3d8e90cb928.gz
 play/site/scripts/census/inputs/files/0e4ca3205de4e334ad18816b17bc3b5494ca77545580ee3ab300ab448a5d3c36.gz
 play/site/scripts/census/inputs/files/1031fc8f9b6e31bd32d6471c6beb2b24948013c89abf73b4d8847db3cb5aef23.gz
 play/site/scripts/census/inputs/files/10ac1f93cc8e90dfdb2f5e3664983e0122e74dfb8e9a647fd0ebd382fd34037d.gz
@@ -504,15 +498,18 @@ play/site/scripts/census/inputs/files/197e3ab44404991d0b2d86b24ab7f4046b63dc27ca
 play/site/scripts/census/inputs/files/198013e401a240862769e2e68b9038ee0e32128a77131f7ffa3bccdc77f70193.gz
 play/site/scripts/census/inputs/files/19d166606ccbddc347e74bff41c347b780043935c7cb914205b778de0647f19b.gz
 play/site/scripts/census/inputs/files/19ea3eb6240bfc98a0e3e25b231da3b8968a6be2456009fd1bee0e541783f8c8.gz
+play/site/scripts/census/inputs/files/1c205f28b2e0ac5124648666d8da67f4b9f5b5f1ec0f3818fe8ff4d284d48d65.gz
 play/site/scripts/census/inputs/files/1c96ad556450066f496b3fff67c32d305e094d25dc707a83af138d17cb51802f.gz
 play/site/scripts/census/inputs/files/1e654620a3806ad8cd55d43bcfbbc0698112f43a9c6a23219aad9f954120a6a9.gz
 play/site/scripts/census/inputs/files/1edea43fa91987537322161ed43ed975209723188f60420409721df28c520f48.gz
+play/site/scripts/census/inputs/files/1ee7a207008b601004b0bfc96b7aa7db9cfd4f9ddc2f44db3b93733d0b8d111d.gz
 play/site/scripts/census/inputs/files/1f0b1045f45780fe8cb9d592dc14045046be99e8f5da16ae8f4e6972bdbb32bd.gz
 play/site/scripts/census/inputs/files/1f131ff3a4b48057f6438389f3d60cf883c20f50ecadb08853571d6071cfbba1.gz
 play/site/scripts/census/inputs/files/2064ce4c74e724d26bc5e8c4095ceca01d33e2560fd6895147d52a875f2055ba.gz
 play/site/scripts/census/inputs/files/208562c1f3a8ccee8a83348a7909dc290d429f6642a16633c49d1b01cdf41932.gz
 play/site/scripts/census/inputs/files/21956fd95483c9e32cc02f729e25b9901c760e9d35c427fa56d2e350bb65b95e.gz
 play/site/scripts/census/inputs/files/21bf4c369da310f9c8223c5dcac43f3334e5b0c651da461d6d464c3e8e34c536.gz
+play/site/scripts/census/inputs/files/23ee39d5f005a5ef6630780ecee536368b0c37aa58e9ef87b48901a6fb53306c.gz
 play/site/scripts/census/inputs/files/242eb7c41a95e590a2f2b4292b8616c5fc90f44ac12b3c1ab5051522043b6ff0.gz
 play/site/scripts/census/inputs/files/24aae755e2c903f3b2d9cb0677e841a127c7733de8d8862c332231c7829e71d4.gz
 play/site/scripts/census/inputs/files/2651e8a2be83b93a5158d24e47836f7827d0ab0b6718dc87808161f88955d86d.gz
@@ -538,7 +535,6 @@ play/site/scripts/census/inputs/files/319c289e42658ebcd2e3954015fe5b564ea5a3e0da
 play/site/scripts/census/inputs/files/32317ae3258ea1b7957bde81a17684a1802a9b0d4968f0087e91a971b3259582.gz
 play/site/scripts/census/inputs/files/328dc1427fbbbaa14f4d4abc9f6d19c5fd3cb0948daa911f5c89156610bcfdd4.gz
 play/site/scripts/census/inputs/files/32e9307ef35c17021db3cd76caa0aff0179412cc2e2d1f578fcdb9c0c1188e7a.gz
-play/site/scripts/census/inputs/files/345412c32deec427fb710492e96639aba9f2e326a9b242000d12c8ea6f7ea444.gz
 play/site/scripts/census/inputs/files/34d5da36c8a78fff5c482e1ab769e70ef7db5df367118f99e3fedffdf521e082.gz
 play/site/scripts/census/inputs/files/34e25e211b4485f482d10c269de308c293737286cdda4b2aaeaa3d112ddac991.gz
 play/site/scripts/census/inputs/files/354f1f223c4ce15fcf0aede7c680422e189c20ec707a3d94880cf3095f667799.gz
@@ -559,6 +555,7 @@ play/site/scripts/census/inputs/files/3d6b0848f22a38112a375e40492c51c000f70148bf
 play/site/scripts/census/inputs/files/3ebe422869577ffc2a13466de3c30d23124c34eb358da2188b2aec9d632b867f.gz
 play/site/scripts/census/inputs/files/3f8eb87b1846894dffd592a08d1374b4adec792cc4121a135aa12772a788ee80.gz
 play/site/scripts/census/inputs/files/4044d0ea3add20bf29131f84bb7743b535665f89bfb2fc430e41139eb2a01f1d.gz
+play/site/scripts/census/inputs/files/40bddda135841dfddd1620acc1bb24fdb4af9e5e0d6d320d29a9137cba88855d.gz
 play/site/scripts/census/inputs/files/421a3fbbe8bf232387ef2d1125188e7b7b7dd544b91e0105e491c7e22dccb33a.gz
 play/site/scripts/census/inputs/files/43ed615b97b5c94fdfb3c9af7619cca6125067a7324e1ab938a6822e6af568e8.gz
 play/site/scripts/census/inputs/files/44a760c613a8cd15440ccaf4849b92701c08c8c868203f3e75846cb32fc9dce2.gz
@@ -572,6 +569,8 @@ play/site/scripts/census/inputs/files/487c6863f9e63345aec6e4375595993cb6f404c0e5
 play/site/scripts/census/inputs/files/4885dc9f370983e106d5e52b3b1fedcd25bac86f3ddc856e295a06c35f155d1f.gz
 play/site/scripts/census/inputs/files/48f6c55d2f0d3993561b9f91a374a237971439963d03292490d18821cd9686d5.gz
 play/site/scripts/census/inputs/files/49e0b946d6bb82bdf843d2203af603cd54ef4f1eca8896dab2d1d4daedeafdc9.gz
+play/site/scripts/census/inputs/files/4a44b1ce4da8e233f416e5d02266173feddd5bb43920064f51200ee8781d4a0d.gz
+play/site/scripts/census/inputs/files/4ab473008917cf61ab0a3425f5b8b59a33aa956b99f6148774880ebe37218a07.gz
 play/site/scripts/census/inputs/files/4b098a5ad036577ce64cb5e18031735abd2f547dc097b0cfbc8f9cd0eb72bc52.gz
 play/site/scripts/census/inputs/files/4bb94dd949e98a9620448706538a46a316235e5d9e75ff9efb3f27f0ead5c5d4.gz
 play/site/scripts/census/inputs/files/4dd79bea17447351880772247d2d24a3aa3a9f7ab85eb713a76ddf9caa31d6f9.gz
@@ -587,15 +586,19 @@ play/site/scripts/census/inputs/files/5a762b2c3e5962617b1947189f2c15d214f7abe638
 play/site/scripts/census/inputs/files/5cfa6bd0ca3c59a857c3e166487cbf7de9ba09c94f47e6586e19eca031483374.gz
 play/site/scripts/census/inputs/files/5ff094ec444a167df09efebbaed53682237bc06dca9ee3e6cbfc0dfd5f7a9bfd.gz
 play/site/scripts/census/inputs/files/60729a17b1429012bb76ece222a19eb2bd3d72723b147c579e41abd24433e213.gz
+play/site/scripts/census/inputs/files/615313f84585d984db2330958d505ad5e4b4bda92423ebb019e19fbe054b382c.gz
 play/site/scripts/census/inputs/files/61ce730eeeeca7a2d36678e64acab4a117dabd5b8dfede93fd998300b77ef6a2.gz
 play/site/scripts/census/inputs/files/61e89f2773480446006f120f930565061f629eb1c54bcf546629791da67b5736.gz
 play/site/scripts/census/inputs/files/626d916df41832e125e6d9fad0273204f4f1f9dda481e54f3624a98d0c5a274a.gz
 play/site/scripts/census/inputs/files/62b8ca3fcff11aadd10cc9661f9f0c55213b50bae9e75737881f9f031102cd99.gz
+play/site/scripts/census/inputs/files/62d28e7d0e57991c8a7ee8791902e1d098084efbf40fedf2dd56de8bcce44992.gz
 play/site/scripts/census/inputs/files/6319769072595f2cf1427ea6eeb60eaef0195b0c8153742c7138da027d332cb3.gz
+play/site/scripts/census/inputs/files/6390b7b5e4cae1e8607a32e42e1c5a8d9941bd22524dc6f3c92af7f888a6da49.gz
 play/site/scripts/census/inputs/files/64bfaa5cbc963ccba4146b6b30d0b23a68a149e8e8363833432f374c87db1d2c.gz
 play/site/scripts/census/inputs/files/64ed023f2ef3052a7f47cd877b1c34f14a4a82dfbd2ddcb22a62b00f00312c84.gz
 play/site/scripts/census/inputs/files/6503f0f6643e1877c4b2c8f4db92fe78ca1cc0ab8ff36279c07b51b38300f568.gz
 play/site/scripts/census/inputs/files/65919d32231a3ad12838209f2f0c00f3fc8c4aada242b2c7b8815bd2bba3d93c.gz
+play/site/scripts/census/inputs/files/65c1df0307ef5147ee655c222182a519383d1aa675f6abfbba567a1550628be5.gz
 play/site/scripts/census/inputs/files/6668b89fdee74e8742319d9014d38305c3b7396577ee443d4c4e89d1e2c7d621.gz
 play/site/scripts/census/inputs/files/6a53db59b9b41cb1ff98afc1084b3bc7f9c41fb114e6db466231754ae0e8673a.gz
 play/site/scripts/census/inputs/files/6cad3123eebfd101de5e7d0342ec3c1cebcbb44d1527fd8ded84e7dbae9dd79a.gz
@@ -608,6 +611,7 @@ play/site/scripts/census/inputs/files/73f882bbc9d2c879a1e2552b882b429cc52fc32444
 play/site/scripts/census/inputs/files/74a3be28deaee6d13177ba9b250faf7812ac6066c879479d5ea99e5cfdcfcd5a.gz
 play/site/scripts/census/inputs/files/76c2fa4070b78a4671be0b6f931d7cf9991db923ec1f12c050070df3552857af.gz
 play/site/scripts/census/inputs/files/77c3efbf8d52ef36aba2ed21c27eaeea2a42385dea8c2b1871dc397055e68f7e.gz
+play/site/scripts/census/inputs/files/7881e95233b4426a06fa5a456d5d10490d313d79e6621aa264f43a803e720dac.gz
 play/site/scripts/census/inputs/files/78928b23c9d4052dfde9026d435743faf3a9d3753784b6083f38a694ffb363e6.gz
 play/site/scripts/census/inputs/files/78e431a18d0fb93187cdb9bc7a3b41369002fcfd381932c1d1631baa5ff2f3b5.gz
 play/site/scripts/census/inputs/files/790f8ed7b6cfe747091982305d1a7d6c6e754edd5cc428ff478c738480066b05.gz
@@ -620,11 +624,13 @@ play/site/scripts/census/inputs/files/7b7c0b9c1ce0b554910adb314bfe90941eea1e18bf
 play/site/scripts/census/inputs/files/7bdd8b11cf13146f47c0003b8129dc20aac54f55316e17b0b843715ac6520fc4.gz
 play/site/scripts/census/inputs/files/7c0c052efcff6c72e1ddb8cf1ee4133576c80fceff413d2bb0e84e16a960814d.gz
 play/site/scripts/census/inputs/files/7c88a91172fb355a2dba37f1ef6d9b44a385758103127b11a04b1779afe20cff.gz
+play/site/scripts/census/inputs/files/7cb8df834f18f5011c18c7d0c0c47a677dfab155216a75da723835409a07ec71.gz
 play/site/scripts/census/inputs/files/7d0996f078edfba4fd922548a5f5fb91aae1720d30a826d23b7d1c15256fa700.gz
 play/site/scripts/census/inputs/files/7dfc767dd7a3d12c3d55fa037c5f138e179f1d7bd0421977aaa3ab084177c240.gz
 play/site/scripts/census/inputs/files/7e468b3c379757e7ae50366ef0e94eb31f5ecea12de654ab328b41d25ead2e61.gz
 play/site/scripts/census/inputs/files/7fc409c6020d80954905ccce4ce8013126c09b795703e507760afe9d8aaf7bb0.gz
 play/site/scripts/census/inputs/files/817cdfcde25f493712a0abedd101136e398906c7327b7ef3bf67eccf773a2eee.gz
+play/site/scripts/census/inputs/files/818ca0e20fb333bde3fbf23177a72ada3a183093955d1d428d6296cd694dbc39.gz
 play/site/scripts/census/inputs/files/81936aee5dcb389885f4c155122c9af604f5f5122dfe6485142b5a1333c21f8d.gz
 play/site/scripts/census/inputs/files/837862067cd04fed5257b52a430a9e979aacf14a5c4145f676b4f2f24e8cafc2.gz
 play/site/scripts/census/inputs/files/87d6f7277f97e1d6e0eb44288ad3dad36e963e6db1c97ec8312ccbdbe0c50e20.gz
@@ -649,7 +655,6 @@ play/site/scripts/census/inputs/files/95ebc5fb0021c204dcd50f0afb93312a31b810ee59
 play/site/scripts/census/inputs/files/9653758c4f5279ebd6d513db988e6889eb65478cfb2c6f632b549eeb2961f232.gz
 play/site/scripts/census/inputs/files/96b1e54192f83fe114fbc33d2d9c2e911392fb106a4bfac82046359e907f1ce8.gz
 play/site/scripts/census/inputs/files/96bf54c31773958413481f8d0810d54641e230b0ed057cbdf689f8d7abd99e8b.gz
-play/site/scripts/census/inputs/files/96e31d8caf4b6eba4aaa8f014c55e4e2bea715c17a83b22b083bf78e09b55003.gz
 play/site/scripts/census/inputs/files/9785f10a322aee6c2377bf5a312682fef191e644f99923e17b032afba91d7742.gz
 play/site/scripts/census/inputs/files/97afd0294b5fd442b64bf108a1b7ea40aa342241106cde3c816743001b2e6736.gz
 play/site/scripts/census/inputs/files/99917b67db3dbc1ef36ba3d9ea5cca717c14f094ec8ddeb0dd67f8dc506de3c6.gz
@@ -680,9 +685,11 @@ play/site/scripts/census/inputs/files/ac819756e1928f39c5bd88b2c4b00e3b3c8c4a5170
 play/site/scripts/census/inputs/files/b1b6aff6afea2ff45982fd36c792f715a6a9da775c6ff5f693da121db838f177.gz
 play/site/scripts/census/inputs/files/b1db6068e4babcf0e74e8b7728dbab2a2644513b7211b5a5c0ca4193727174ab.gz
 play/site/scripts/census/inputs/files/b229cb949b9d8c91564bfe10708c64e172ce1ee4ba52c04edc16f075b37a6e6d.gz
+play/site/scripts/census/inputs/files/b2ab8b43d701f384162a199dca6fd89b9ea8f723d23ad5e8c55cbdad465942af.gz
 play/site/scripts/census/inputs/files/b2dd6981894de23da30fc8f53c6fd3edb63cae3272a1e4ed173a742a66efcc03.gz
 play/site/scripts/census/inputs/files/b35619451d0c66566bc69e204febd0f2bf9409e6f4cffda07573d5f0f0b9c50e.gz
 play/site/scripts/census/inputs/files/b3731a08a995e5908a23c950eb2c19c50f8b1b177f3f504d20a56a44266f01c6.gz
+play/site/scripts/census/inputs/files/b38fdc0d5936b83257909c96b4ea9884074dbf2d1c78bff4e4081116ed376e65.gz
 play/site/scripts/census/inputs/files/b41d2465ec6260afadbce1ceab06158dfb7219d613c9924ea2f746ed5f6ab642.gz
 play/site/scripts/census/inputs/files/b4e26d012bbd6f2a0a78c52eb909c4196e4cbc137bc3b1b6418fb5d8420469e8.gz
 play/site/scripts/census/inputs/files/b52c78ffe3df915d1d49159cadd84c7507f5ad473ff43f07f0fa98c1dbaef205.gz
@@ -696,7 +703,6 @@ play/site/scripts/census/inputs/files/b8903cc884dee98c59614fa4be6e2e176343aedbf4
 play/site/scripts/census/inputs/files/b8ca5e1b35bdb23cd251f7e41deb70856d7903ffdf847d68509f6bc23561682e.gz
 play/site/scripts/census/inputs/files/bbe8ef3f4a1697b643533eeb3a1f4df2563fc6da643a033d9ceb781e6a7a4d07.gz
 play/site/scripts/census/inputs/files/bc4243f62ce7be9d792b40f00fb5538d6c69b5edf0f5db1feb2fb309fdd286df.gz
-play/site/scripts/census/inputs/files/bda5f47f04585579fd92a7b13fb4d659c6da0139b185a6571e0772ab46cc564d.gz
 play/site/scripts/census/inputs/files/be3dc369ced8726d9eabd6eb17595a59e6dacb5782a0a883d7da6788e75224d0.gz
 play/site/scripts/census/inputs/files/bf4cc696d88a901f97480e81cfb38aae808d9075ea25069814770a511b6c172e.gz
 play/site/scripts/census/inputs/files/bf4f0dddf72f6da34b6e3044dbd67fc8c1966b781dad917e78c1f6cfffdfdf14.gz
@@ -720,7 +726,6 @@ play/site/scripts/census/inputs/files/cb0f7851bcdce660bd34374edb99e8b186b939057b
 play/site/scripts/census/inputs/files/cb5a3cf443e60d3eadd5640e5bdfbd9d14d7257351625f8a0039290c98b7cdff.gz
 play/site/scripts/census/inputs/files/cbcf2d34c32fbb5dfc76f06a23d3de7029683b45ac0f031dc3e96504d91c1d37.gz
 play/site/scripts/census/inputs/files/cc1d089160e3a2d346f64b927f6012ca32185eb1117fd1101c08746b554bd504.gz
-play/site/scripts/census/inputs/files/cc8cdaac8fcc97a4cb25c96d05b909662697e3f421980bab08f997e7d6498363.gz
 play/site/scripts/census/inputs/files/cca976887741163ccdb41b06da079a35bc0fd9b65c8dedb2a6f5592f77474321.gz
 play/site/scripts/census/inputs/files/cd43bcbce21671e001a27f041229f9f36aa9640fb62a5f1d2dea6d5bea1b72bb.gz
 play/site/scripts/census/inputs/files/cfbec67475e30087fd0029ae3c27831f23a9717e7cc525e484bc8df52e6a40bb.gz
@@ -749,6 +754,7 @@ play/site/scripts/census/inputs/files/e553e6431d6dce275a7ddc1633651a177b1f15fb9b
 play/site/scripts/census/inputs/files/e5b26cffb5e8035680c9dce5fb72fad5aa380d1d59d9cb5889d0e1f1fc01f879.gz
 play/site/scripts/census/inputs/files/e5f631f060cd236f8fe09ea7d9182c6afa46dee3e4dd5e17a04f4eb4b3439994.gz
 play/site/scripts/census/inputs/files/e5fa4db114cb3a78805522ffae1abd7c946302a86ff0bf147a7230ad72de750d.gz
+play/site/scripts/census/inputs/files/e60f6354531226c6d4494cf9514522bd4a3ff2077b2df80be10c3e71eeb1f30c.gz
 play/site/scripts/census/inputs/files/e84d4ddbdb9afbc73c966582aeacb892a6e7547e4d4d759d93cc88f69409cb01.gz
 play/site/scripts/census/inputs/files/e94fb36d894d835b7fcdabcd4b8bf75fb30301af4e02a2e2c7d459be54fe15f2.gz
 play/site/scripts/census/inputs/files/ea8c593d84e2e752481fedd02a0516034cf2762d99540f2832b8a7a57a725a14.gz
@@ -756,7 +762,6 @@ play/site/scripts/census/inputs/files/eb3adb66f75e67bfe43d4aaa83bef89304b52ac332
 play/site/scripts/census/inputs/files/ebd105b8b7250b83f94b27c3c41301746f2c9428889bb442df60bbd81f3a4485.gz
 play/site/scripts/census/inputs/files/ec030c1938280dabb35cdc3ea76433eacd437aa9a75f8cfc2c3bd0ab417b396b.gz
 play/site/scripts/census/inputs/files/ec79ae6b8b688f47b8b02a42f92cb0e63dd0f590fc5ffa565ed288dfa70468e9.gz
-play/site/scripts/census/inputs/files/ecae8ac29b4d4493284f7f4ff7c7a5e4908511eb8eaaf8a073c289f261cf05c8.gz
 play/site/scripts/census/inputs/files/ecf63e9d5e3ce922120d9e759b3ad040f4ef0044b2371ea180cedd627e3513a2.gz
 play/site/scripts/census/inputs/files/ee080c437f9a4bd871300d60a68c46c0991a97a78af6b74923151e6726b9654d.gz
 play/site/scripts/census/inputs/files/ee14ab38e3464666ad2c46bf04fcd3ca4db6ccd2b814f46ebff0208e2eef21fe.gz
@@ -765,11 +770,9 @@ play/site/scripts/census/inputs/files/eee7716a8b7e2647743bff03942974c607fac5056c
 play/site/scripts/census/inputs/files/ef1fc1d3a2a5d2cb3927c5d95490e47983e9e38a18606b6cb447bf90835df738.gz
 play/site/scripts/census/inputs/files/ef604dcf2c67158cef839d5e497a7ddceda82d1b71daefc382b95a468988e823.gz
 play/site/scripts/census/inputs/files/efa7df23e3ded3429229199248b09e07dcdbb2432940edb47706c4c05e75e225.gz
-play/site/scripts/census/inputs/files/f0334ad2a6e4ecb7ce07d52a64019519107e278592fb8a588370266885f6e671.gz
 play/site/scripts/census/inputs/files/f049ee9c57abf922fad266b9094d2a28cb9b0c4f74c4de666904574f48b7a4af.gz
 play/site/scripts/census/inputs/files/f09b6904d8986fd7dd995a8dfef6f882095d8f12891b9a12e8cc9c3280cc3e43.gz
 play/site/scripts/census/inputs/files/f2f40358fa900613085784fd6967ff368ef2b5e90e8f77320d13d0f28f63c4d9.gz
-play/site/scripts/census/inputs/files/f36e4737b648c2b757ee125027891c523de11a58fc454b2b2460c9380ffc736d.gz
 play/site/scripts/census/inputs/files/f3b3bb7856168ff3c5ce0ad18ac9cdcef3322651fb922e8037cb67c4b9941c0e.gz
 play/site/scripts/census/inputs/files/f4059fa760f5a79461cc4cbd829cee8acb14c82c4d708dc37f06d368a5d41604.gz
 play/site/scripts/census/inputs/files/f74a6b7416f1aa37f3987d69f7f3373646ca084e76528ab847d40ed67d90cf7a.gz
@@ -846,6 +849,7 @@ play/site/src/lib/content/render/grade.js
 play/site/src/lib/content/render/lint.test.js
 play/site/src/lib/content/render/meter.js
 play/site/src/lib/content/render/meter.test.js
+play/site/src/lib/content/render/nodes/bake.scratch.test.ts
 play/site/src/lib/content/render/nodes/canopy.js
 play/site/src/lib/content/render/nodes/clip.test.js
 play/site/src/lib/content/render/nodes/fakegl.js
@@ -886,4 +890,3 @@ play/site/src/lib/stories/old-city.bun.test.ts
 play/site/src/lib/stories/old-city.test.ts
 play/site/src/routes/game/map/scene.ts
 play/site/static/engines/engine-v7.js
-play/site/vite.config.ts
