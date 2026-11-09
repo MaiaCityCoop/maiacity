@@ -20,7 +20,6 @@ for (const path of process.argv.slice(2)) {
     const r = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.setPixelRatio(2); r.toneMapping = T.ACESFilmicToneMapping;
     document.body.innerHTML = ""; document.body.appendChild(r.domElement);
     const cam = new T.PerspectiveCamera(s.cam.fov, W / H, 0.05, 200); cam.position.set(...s.cam.pos); cam.lookAt(...s.cam.target);
-    // per-corner UVs: one vertex per triangle corner
     const n = s.tris.length, P = new Float32Array(n * 3), UV = new Float32Array(n * 2);
     for (let i = 0; i < n; i++) { const v = s.tris[i]; P.set([s.pos[3 * v], s.pos[3 * v + 1], s.pos[3 * v + 2]], 3 * i); if (s.uvt) UV.set([s.uvt[2 * i], s.uvt[2 * i + 1]], 2 * i) }  // OBJ's v is up, as three's with flipY
     const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(P, 3)); if (s.uvt) g.setAttribute("uv", new T.BufferAttribute(UV, 2));

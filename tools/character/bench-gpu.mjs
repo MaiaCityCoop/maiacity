@@ -10,7 +10,6 @@ const THREE = new URL("../../play/site/node_modules/three/", import.meta.url).pa
 if (process.platform !== "darwin" && !process.env.RENDER_ANYWHERE) { console.error("GPU renders run on the Mac (Metal), not here."); process.exit(1); }
 const [recipe, folder, out, seconds = "20", fps = "24"] = process.argv.slice(2);
 mkdirSync(join(out, "frames"), { recursive: true });
-// the recipe and every piece it names, recursively, as sources by hash
 const sources = {};
 const walk = (src) => { for (const h of src.match(/require\('([0-9a-f]{64})'\)/g) ?? []) { const k = h.slice(9, 73); if (!sources[k]) { const f = join(folder, k + ".js"); if (!existsSync(f)) throw new Error("missing piece " + k); sources[k] = readFileSync(f, "utf8"); walk(sources[k]); } } };
 const main = readFileSync(recipe, "utf8"); walk(main);
