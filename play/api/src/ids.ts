@@ -18,6 +18,8 @@ export const SANDBOX = {
   five: "ac154784-c938-47ee-ac74-d61fc91583b3",
   /** Sandbox 6, one village at its real size (intent 67f0404a): a random UUID, the one migration <time>-67f0404a-sandbox-6 gives it */
   six: "80f37471-b59c-4a23-8278-2ad062b37939",
+  /** Sandbox 7, the hex planet (intent 8d683ad6): a random UUID, the one migration <time>-8d683ad6-sandbox-7 gives it */
+  seven: "27c1e07e-ad8f-4996-9d1a-c5c12b9aaaff",
 } as const;
 
 /** the factories' first versions, made by the deploy's import (../import/factories.ts): each uuidOf("factory:<its first name>") */

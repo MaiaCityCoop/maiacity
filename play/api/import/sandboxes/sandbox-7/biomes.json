@@ -1,0 +1,107 @@
+{
+	"note": "How each kind of card is painted and how tall it stands, after Soundfall: three shades (light, mid, dark, chosen by the card's value; the sea's a ramp by depth), its lift above or below the sea, and how many trees a card grows on average. The old planet's values (the old Sandbox 2).",
+	"kinds": {
+		"sea": {
+			"shades": [
+				"#4fc1c8",
+				"#2a93a8",
+				"#154e6b"
+			],
+			"lift": -0.6,
+			"trees": 0
+		},
+		"shallow": {
+			"shades": [
+				"#a9e6e6",
+				"#7fd6db",
+				"#5cc7d1"
+			],
+			"lift": -0.35,
+			"trees": 0
+		},
+		"ice": {
+			"shades": [
+				"#f4f9fc",
+				"#e3eef5",
+				"#cfe0ec"
+			],
+			"lift": -0.3,
+			"trees": 0
+		},
+		"sand": {
+			"shades": [
+				"#f2d9a4",
+				"#e9c98c",
+				"#dcb87a"
+			],
+			"lift": 0.05,
+			"trees": 0
+		},
+		"earth": {
+			"shades": [
+				"#d2bf9c",
+				"#bfa780",
+				"#a89066"
+			],
+			"lift": 0.1,
+			"trees": 0.06
+		},
+		"grass": {
+			"shades": [
+				"#a9d98a",
+				"#8fc773",
+				"#79b45f"
+			],
+			"lift": 0.12,
+			"trees": 0.4
+		},
+		"forest": {
+			"shades": [
+				"#6fae6a",
+				"#4f9459",
+				"#3d7d4a"
+			],
+			"lift": 0.2,
+			"trees": 2.4
+		},
+		"taiga": {
+			"shades": [
+				"#5f9a7e",
+				"#43816a",
+				"#336655"
+			],
+			"lift": 0.22,
+			"trees": 2
+		},
+		"mountain": {
+			"shades": [
+				"#bdb5a8",
+				"#9e968a",
+				"#7f776c"
+			],
+			"lift": 0.6,
+			"trees": 0.5
+		},
+		"snow": {
+			"shades": [
+				"#fbfdff",
+				"#eef4f9",
+				"#d9e6f0"
+			],
+			"lift": 0.28,
+			"trees": 0
+		}
+	},
+	"tree": {
+		"trunk": "#8b5e3c",
+		"canopy": [
+			"#3f8f5a",
+			"#5aa66a",
+			"#2f7a4c"
+		],
+		"fruit": "#e0524a",
+		"trunkHeight": 0.55,
+		"canopyRadius": 0.42,
+		"fruited": 0.35
+	}
+}

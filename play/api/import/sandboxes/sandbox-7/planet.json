@@ -1,0 +1,45 @@
+{
+	"note": "The hex planet: a Goldberg polyhedron, the dual of an icosahedron subdivided frequency times (10·f²+2 cards, twelve of them pentagons), each card a prism standing at its biome's height. Its maps are play's files by their BLAKE3 hash, each in one grid format (width, height, codes, run-length rows).",
+	"frequency": 72,
+	"radius": 120,
+	"depth": 1.8,
+	"core": 0.9,
+	"poles": true,
+	"seaFloor": {
+		"drop": 0.25,
+		"deepest": 8
+	},
+	"maps": {
+		"land": {
+			"file": "3008d02e66a17c6ab2085648e98c26de82108740c99b13bcdc98d33081495fe5.json",
+			"source": "Natural Earth 110m land (naturalearthdata.com), a quarter-degree mask",
+			"licence": "public domain"
+		},
+		"biomes": {
+			"file": "6e0ba45d2f86b9298c96290b4dafa97f5f1b8efc4cc612d623a792a156603f88.json",
+			"source": "Köppen-Geiger 0.5° (Kottek et al. 2006, World Map of the Köppen-Geiger climate classification updated, Meteorologische Zeitschrift 15:259–263), folded into the planet's kinds",
+			"licence": "freely downloadable from koeppen-geiger.vu-wien.ac.at; cite Kottek et al. 2006"
+		},
+		"depth": {
+			"file": "d9b79f048723881cc4d1d84aa9195b9c401d91666265a7d274515a447d77e190.json",
+			"source": "Natural Earth 10m bathymetry (naturalearthdata.com), its depth layers on a quarter-degree grid",
+			"licence": "public domain"
+		},
+		"mountains": {
+			"file": "2bd56c6f2a495013236ed2c0004466740f27a2e4b9e1e308e0cd125ef45cf872.json",
+			"source": "Natural Earth 50m geography regions, the Range/mtn polygons (naturalearthdata.com), rasterised at a quarter degree",
+			"licence": "public domain"
+		}
+	},
+	"view": {
+		"start": {
+			"lat": 18.7,
+			"lon": -10.6
+		},
+		"altitude": 2.4,
+		"ceiling": 5,
+		"eye": 0.9,
+		"background": "#f2efe7",
+		"fill": 0.55
+	}
+}

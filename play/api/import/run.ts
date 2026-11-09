@@ -90,12 +90,13 @@ export async function legacyRan(db: Queryable): Promise<string | null> {
   return rows[0] ? new Date(rows[0].ran).toISOString() : null;
 }
 
-const MEDIA_TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", mp4: "video/mp4", mp3: "audio/mpeg", ktx2: "image/ktx2" };
+const MEDIA_TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", mp4: "video/mp4", mp3: "audio/mpeg", ktx2: "image/ktx2", json: "application/json" };
 /** a media file named by its hash and ending (`<hash>.<ending>`), its endings the ones MEDIA_TYPES knows */
 const NAMED_MEDIA = new RegExp(`\\b([0-9a-f]{64})\\.(${Object.keys(MEDIA_TYPES).join("|")})\\b`, "g");
 
 /** every media file play's site names by its hash (`<hash>.<ending>` in play/site/src: the sandboxes' covers, their sounds,
- * the ground's scanned surfaces) */
+ * the ground's scanned surfaces), and every one the sandboxes' layouts kept in the repo name (./sandboxes/: Sandbox 7's
+ * maps, intent 8d683ad6) */
 export function mediaNamed(): { hash: string; ending: string }[] {
   const dir = join(ROOT, "play/site/src");
   const out = new Map<string, string>();
@@ -104,14 +105,15 @@ export function mediaNamed(): { hash: string; ending: string }[] {
   } catch {
     throw new Error(`play's site sources are not at ${dir}: the media they name can't be found`);
   }
-  const walk = (d: string) => {
+  const walk = (d: string, files: RegExp) => {
     for (const f of readdirSync(d)) {
       const p = join(d, f);
-      if (statSync(p).isDirectory()) walk(p);
-      else if (/\.(js|ts|svelte)$/.test(f)) for (const m of readFileSync(p, "utf8").matchAll(NAMED_MEDIA)) out.set(m[1], m[2]);
+      if (statSync(p).isDirectory()) walk(p, files);
+      else if (files.test(f)) for (const m of readFileSync(p, "utf8").matchAll(NAMED_MEDIA)) out.set(m[1], m[2]);
     }
   };
-  walk(dir);
+  walk(dir, /\.(js|ts|svelte)$/);
+  walk(join(import.meta.dir, "sandboxes"), /\.json$/);
   // the animals' sounds (./sounds.json) too
   for (const s of Object.values(SOUNDS)) {
     const m = /^([0-9a-f]{64})\.(mp3)$/.exec(s.file);
