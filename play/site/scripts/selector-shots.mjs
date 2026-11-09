@@ -2,7 +2,7 @@
 /*
  * A WORLD'S COST AT FIXED VIEWS, BEFORE AND AFTER — intent 6295a650's c4 and c5 (every world draws by the one
  * selector): Sandbox 1 (the village of $content/sandbox-2/interior, its forest and domes) placed at fixed views
- * (`__walker.place`), each measured once nothing more is being built (`__assets.stats().building` 0): its frame time
+ * (`__walker.place`), each measured once the world is quiet (./quiet.js): its frame time
  * and the triangles the page drew per frame (every draw call counted in WebGL), and a screenshot; Sandbox 3 (the old
  * city) photographed as it opens. Run on a real GPU (a Mac's Metal): software rendering's frame times say nothing.
  *
@@ -13,12 +13,6 @@
  * `window.__meter = installMeter(window)`), each view's 4 s sampled by it too: its frame time, p95, CPU and GPU time and
  * what bounds the frame (`meter` in results.json; intent b03f9fb4's c9).
  *
- * --hour <h>: the world's hour (default 12; 19.44 is a sun of 8° on the sky's day); --tag <t>: put before every file's
- * name and the results' views (so two hours share a folder); --small: a phone (390 × 844, touch, the small device's
- * finishing, intent 1f0c6f79), Sandbox 1 near only; --determinism <file>: the render box's determinism.mjs, its
- * SEEDED_RANDOM an init script and its QUIET the settle; each view then also records `window.__finish` (the finishing
- * plan the page drew by, intent 1f0c6f79) and the backend.
- *
  * --census <view>: that view alone, and with it the census of every copy the renderers hold there (`__assets.kinds()`:
  * Sandbox 1's outdoor forest `out`, the domes' `in`, the library): each copy's distance from the eye, its size on screen,
  * the level the selector chose for it (a shape's index, or `picture`) and that level's triangles, in
@@ -28,14 +22,14 @@
  * Each --site is a dev server (bun run dev) of one tree, its API pointed at the read-only proxy this script starts
  * on 127.0.0.1:3911 (PLAY_API=http://localhost:3911 bunx vite dev --port …): GET and HEAD of /api/… only, sent to
  * play.maia.city with the admin token in PLAY_MCP_TOKEN (the header goes to play and nowhere else). The sites are
- * measured one after the other, never side by side. Out: <out>/<site>-<world>-<view>.png and <out>/results.json, and
+ * measured one after the other, never side by side, each in its own profile kept between jobs (./mac-page.mjs): Sandbox 1
+ * is opened once to warm the page's asset cache, and measured on the next load (`--cold`: the first), each quiet by
+ * ./quiet.js. Out: <out>/<site>-<world>-<view>.png and <out>/results.json, and
  * a table on stdout.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { openSite, gpuOf, settle } from './mac-page.mjs';
 import { playProxy } from './macjob/proxy.mjs';
-
-const { chromium } = createRequire(import.meta.url)('playwright');
 
 const argv = process.argv.slice(2);
 const sites = [];
@@ -44,7 +38,8 @@ let out = 'shots';
 let census = null;
 /** the frame meter's source, injected whole (`--meter`) */
 let meterFile = null;
-let HOUR_ARG = 12, tag = '', small = false, determinismFile = null;
+/** measure Sandbox 1's first load, not the next (`--cold`): what a fresh profile draws */
+let cold = false;
 for (let i = 0; i < argv.length; i++) {
 	if (argv[i] === '--site') {
 		const [name, url] = argv[++i].split('=');
@@ -52,17 +47,8 @@ for (let i = 0; i < argv.length; i++) {
 	} else if (argv[i] === '--out') out = argv[++i];
 	else if (argv[i] === '--census') census = argv[++i];
 	else if (argv[i] === '--meter') meterFile = argv[++i];
-	else if (argv[i] === '--hour') HOUR_ARG = Number(argv[++i]);
-	else if (argv[i] === '--tag') tag = argv[++i] + '-';
-	else if (argv[i] === '--small') small = true;
-	else if (argv[i] === '--determinism') determinismFile = argv[++i];
+	else if (argv[i] === '--cold') cold = true;
 }
-/** the render box's determinism (SEEDED_RANDOM, QUIET), or none */
-const determinism = determinismFile ? await import(determinismFile.startsWith('/') ? determinismFile : `${process.cwd()}/${determinismFile}`) : null;
-/** the browser's context: the Mac's screen at 1440 × 900, or a phone */
-const contextOf = () => (small ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } });
-/** what the page drew by: the finishing plan, the backend */
-const finishOf = (page) => page.evaluate(() => ({ plan: window.__finish?.plan ?? null, backend: window.__finish?.backend ?? null })).catch(() => null);
 if (!sites.length) throw new Error('give at least one --site name=url');
 mkdirSync(out, { recursive: true });
 
@@ -77,7 +63,7 @@ const VIEWS = [
 const proxy = await playProxy();
 
 /** the world's hour, the same for every site and view (the sky's film hook, sandbox-kit/sky.js): noon, lamps out */
-const HOUR = HOUR_ARG;
+const HOUR = 12;
 
 /** counts every triangle the page draws, per frame (window.__tri.frames: [time, triangles]); and pins the hour */
 function countTriangles(hour) {
@@ -96,35 +82,6 @@ function countTriangles(hour) {
 		wrap('drawArraysInstanced', 2, 3);
 		wrap('drawElementsInstanced', 1, 4);
 	}
-	// WebGPU's draws too (intent c1bee1f8): its render passes', triangles by the pipeline's topology (three's default a list)
-	const P = w.GPURenderPassEncoder?.prototype, D = w.GPUDevice?.prototype;
-	if (P && D) {
-		const topology = new WeakMap(), pipeline = new WeakMap();
-		for (const name of ['createRenderPipeline', 'createRenderPipelineAsync']) {
-			const make = D[name];
-			if (!make) continue;
-			D[name] = function (desc) {
-				const got = make.call(this, desc);
-				const keep = (pl) => (pl && topology.set(pl, desc?.primitive?.topology ?? 'triangle-list'), pl);
-				return got && typeof got.then === 'function' ? got.then(keep) : keep(got);
-			};
-		}
-		const set = P.setPipeline;
-		P.setPipeline = function (pl) {
-			pipeline.set(this, pl);
-			return set.call(this, pl);
-		};
-		for (const name of ['draw', 'drawIndexed']) {
-			const f = P[name];
-			if (!f) continue;
-			P[name] = function (count, n = 1, ...rest) {
-				const t = topology.get(pipeline.get(this)) ?? 'triangle-list';
-				if (t === 'triangle-list') w.__tri.now += Math.floor(count / 3) * n;
-				else if (t === 'triangle-strip') w.__tri.now += Math.max(0, count - 2) * n;
-				return f.call(this, count, n, ...rest);
-			};
-		}
-	}
 	const raf = w.requestAnimationFrame.bind(w);
 	const tick = (t) => {
 		w.__tri.frames.push([t, w.__tri.now]);
@@ -140,15 +97,6 @@ const meterScript = meterFile ? readFileSync(meterFile, 'utf8').replace(/^export
 /** the meter's sample of the next `s` seconds, or null without it */
 const metered = (page, s = 4) => (meterScript ? page.evaluate((s) => window.__meter.sample(s), s) : Promise.resolve(null));
 
-// a Mac's Metal, as the render box ran it (intent-work/6295a650-render/out/NOTES.md); the GPU named first
-// WebGPU on Metal too (intent c1bee1f8), where the page draws with WebGPURenderer
-const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] } : { args: ['--ignore-gpu-blocklist'] });
-{
-	const p = await browser.newPage();
-	console.log('GPU:', await p.evaluate(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g?.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; }));
-	console.log('WebGPU:', await p.evaluate(async () => { const a = await navigator.gpu?.requestAdapter?.(); return a ? `${a.info?.vendor ?? ''} ${a.info?.architecture ?? ''} ${a.info?.description ?? ''}`.trim() || 'an adapter' : 'none'; }).catch(() => 'none'));
-	await p.close();
-}
 const results = [];
 
 /**
@@ -190,26 +138,24 @@ async function takeCensus(page, site, v) {
 	console.log(`${site.name} census at ${v.name}: ${rows.reduce((a, r) => a + r.tris, 0).toLocaleString('en')} triangles in shapes, the costliest kinds:`);
 	console.table(rows.slice(0, 40));
 }
-const building = (page) => determinism ? page.evaluate(determinism.QUIET).catch(() => null) : page.evaluate(() => { const s = window.__assets?.stats?.(); return s ? ['out', 'in', 'library'].reduce((a, k) => a + (s[k]?.building ?? 0), 0) : null; }).catch(() => null);
-const settle = async (page, ms) => {
-	for (const end = Date.now() + ms; Date.now() < end; await page.waitForTimeout(2000)) if ((await building(page)) === 0) return true;
-	return false;
-};
 for (const site of sites) {
-	const ctx = await browser.newContext(contextOf());
+	const ctx = await openSite(site.name);
 	const page = await ctx.newPage();
-	if (determinism) await page.addInitScript({ content: determinism.SEEDED_RANDOM });
 	await page.addInitScript(countTriangles, HOUR);
 	if (meterScript) await page.addInitScript(meterScript);
-	const t0 = Date.now();
-	await page.goto(`${site.url}/sandbox-1/`, { waitUntil: 'domcontentloaded' });
-	await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
-	const settled = await settle(page, 10 * 60e3);
-	console.log(`${site.name}: Sandbox 1 up and ${settled ? 'settled' : 'still building'} after ${Math.round((Date.now() - t0) / 1000)} s`);
-	for (const v of census ? VIEWS.filter((v) => v.name === census) : small ? VIEWS.filter((v) => v.name === 'near') : VIEWS) {
+	console.log(`${site.name}: GPU ${await gpuOf(page)}`);
+	// opened once to warm the page's asset cache (a profile's first load builds and photographs every kind), then measured
+	for (const load of cold ? ['first'] : ['first', 'measured']) {
+		const t0 = Date.now();
+		await page.goto(`${site.url}/sandbox-1/`, { waitUntil: 'domcontentloaded' });
+		await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
+		const s = await settle(page, 10 * 60e3);
+		console.log(`${site.name}: Sandbox 1's ${load} load up and ${s.quiet ? 'quiet' : 'still building'} after ${Math.round((Date.now() - t0) / 1000)} s (${s.taken} pictures taken)`);
+	}
+	for (const v of census ? VIEWS.filter((v) => v.name === census) : VIEWS) {
 		await page.evaluate((v) => window.__walker.place(v.x, v.z, v.yaw, v.pitch), v);
 		await page.waitForTimeout(1500);
-		const ok = await settle(page, 3 * 60e3);
+		const { quiet: ok } = await settle(page, 3 * 60e3);
 		await page.waitForTimeout(3000);
 		await page.evaluate(() => (window.__tri.frames.length = 0));
 		await page.waitForTimeout(8000);
@@ -220,35 +166,29 @@ for (const site of sites) {
 			return { frames: d.length, frameMs: d.length ? +(d.reduce((a, b) => a + b, 0) / d.length).toFixed(1) : null, frameP95: d[Math.floor(d.length * 0.95)] ?? null, tris: Math.round(tris[tris.length >> 1] ?? 0), trisMax: Math.round(tris[tris.length - 1] ?? 0), assets: { out: of(s.out), in: of(s.in), library: of(s.library) } };
 		});
 		const meter = await metered(page);
-		const png = `${out}/${tag}${site.name}-sandbox-1-${v.name}.png`;
+		const png = `${out}/${site.name}-sandbox-1-${v.name}.png`;
 		await page.screenshot({ path: png });
-		// which backend drew it (../src/lib/content/render/core.js `ready`: webgpu, webgl2, webgl), and the finishing plan (intent 1f0c6f79)
-		const backend = await page.evaluate(() => window.__rendererBackend ?? 'webgl');
-		const finish = await finishOf(page);
-		results.push({ site: site.name, world: 'sandbox-1', view: tag + v.name, hour: HOUR, settled: ok, ...m, meter, backend, finish, png });
-		if (finish?.plan) console.log(`${site.name} ${tag}${v.name}: finishing ${finish.plan.device} (${backend}), scale ${finish.plan.scale}, ${finish.plan.aa}${finish.plan.ao ? ', AO' : ''}${finish.plan.bloom ? ', bloom' : ''}${finish.plan.contact ? ', contact shadows' : ''}`);
+		results.push({ site: site.name, world: 'sandbox-1', view: v.name, settled: ok, ...m, meter, png });
 		if (census) await takeCensus(page, site, v);
 		console.log(`${site.name} sandbox-1 ${v.name}: ${m.frameMs} ms/frame (p95 ${m.frameP95?.toFixed?.(1)}), ${m.tris.toLocaleString('en')} tris drawn (max ${m.trisMax.toLocaleString('en')})${ok ? '' : ', still building'}`);
 	}
 	await ctx.close();
-	if (census || small) continue;
+	if (census) continue;
 	// Sandbox 3, the old city, as it opens (c5: the same things there, nothing missing far off)
-	const ctx3 = await browser.newContext(contextOf());
+	const ctx3 = await openSite(site.name);
 	const p3 = await ctx3.newPage();
-	if (determinism) await p3.addInitScript({ content: determinism.SEEDED_RANDOM });
 	await p3.addInitScript(countTriangles, HOUR);
 	if (meterScript) await p3.addInitScript(meterScript);
 	await p3.goto(`${site.url}/sandbox-3/`, { waitUntil: 'domcontentloaded' });
 	await p3.waitForTimeout(60e3);
 	const meter3 = await metered(p3);
-	const png3 = `${out}/${tag}${site.name}-sandbox-3-open.png`;
+	const png3 = `${out}/${site.name}-sandbox-3-open.png`;
 	await p3.screenshot({ path: png3 });
 	const t3 = await p3.evaluate(() => { const t = window.__tri.frames.map((x) => x[1]).filter((x) => x > 0).sort((a, b) => a - b); return Math.round(t[t.length >> 1] ?? 0); });
-	results.push({ site: site.name, world: 'sandbox-3', view: tag + 'open', hour: HOUR, tris: t3, meter: meter3, backend: await p3.evaluate(() => window.__rendererBackend ?? 'webgl'), finish: await finishOf(p3), png: png3 });
+	results.push({ site: site.name, world: 'sandbox-3', view: 'open', tris: t3, meter: meter3, png: png3 });
 	console.log(`${site.name} sandbox-3 open: ${t3.toLocaleString('en')} tris drawn`);
 	await ctx3.close();
 }
-writeFileSync(`${out}/${tag}results.json`, JSON.stringify(results, null, 1));
+writeFileSync(`${out}/results.json`, JSON.stringify(results, null, 1));
 console.table(results.map(({ site, world, view, frameMs, frameP95, tris, trisMax }) => ({ site, world, view, frameMs, frameP95, tris, trisMax })));
-await browser.close();
 proxy.close();
