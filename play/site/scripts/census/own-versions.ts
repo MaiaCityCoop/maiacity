@@ -8,10 +8,11 @@
  *
  * `--all` (intent d3ef7454): every asset of every group, its newest accepted version's source and each of its variants',
  * checked to keep none of the old version code (no `HISTORY =`, no `versioned(` list, no `recipeIn(` picking a version
- * out of one): play's version is the only numbering. Prints the assets that keep it and a count per group.
+ * out of one): play's version is the only numbering. Prints the assets that keep it and a count per group. With
+ * `--intent`, an asset that intent proposes is checked as its variant makes it.
  *
  *   bun play/site/scripts/census/own-versions.ts --intent <uuid> <asset uuid>… [--record]
- *   bun play/site/scripts/census/own-versions.ts --all [--record]
+ *   bun play/site/scripts/census/own-versions.ts --all [--intent <uuid>] [--record]
  */
 import { join } from 'node:path';
 
@@ -43,10 +44,13 @@ if (all) {
 		let n = 0;
 		for (const a of assets) {
 			const head = (await (await get(`/api/assets/${a.id}`)).json()).versions[0];
-			const sources = [...new Set([head.source, ...(head.variants ?? []).map((x: any) => x.source)].filter(Boolean))] as string[];
-			const why = new Set<string>();
-			for (const h of sources) for (const w of keeps(await (await get(`/api/files/${h}`)).text())) why.add(w);
-			if (why.size) n++, console.log(`FAIL ${group}/${a.slug} (${a.id}) v${head.number}: ${[...why].join(', ')}`);
+			const mine = intent ? await fetch(`/api/assets/${a.id}/recipe?intent=${intent}`) : null;
+			const made = mine?.ok ? await mine.json() : null;
+			const texts = made
+				? [sourceOf(await (await get(`/api/files/${made.hash}`)).text())]
+				: await Promise.all(([...new Set([head.source, ...(head.variants ?? []).map((x: any) => x.source)].filter(Boolean))] as string[]).map(async (h) => (await get(`/api/files/${h}`)).text()));
+			const why = new Set(texts.flatMap(keeps));
+			if (why.size) n++, console.log(`FAIL ${group}/${a.slug} (${a.id}) ${made ? `→ v${made.v}` : `v${head.number}`}: ${[...why].join(', ')}`);
 		}
 		bad += n;
 		console.log(`${n ? 'FAIL' : 'ok  '} ${group}: ${n} of ${assets.length} keep their own version code`);
