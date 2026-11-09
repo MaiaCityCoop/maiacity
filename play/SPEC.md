@@ -755,9 +755,15 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
       **`update-branch`** (`PUT /pulls/<n>/update-branch`, `expected_head_sha` the head it read), once per head and main's
       head, under the intent's row (an Accept pressed meanwhile waits and finds it moved). It is a push made with
       `SHIP_TOKEN`, so GitHub runs the required checks and the box's run (`intents-pr.yml` on `synchronize`) records the
-      intent's checks on the new head: **working**, *main merged in: its checks run on \<head\>*, until every must is
-      recorded on it, then **waiting** again. A builder's push in between makes GitHub refuse it (422): nothing is done,
-      the next tick reads the new head first. Kept on `pr_seen` (`main_merged`).
+      intent's checks on the new head. **A clean main merge keeps an intent's results** (intent b17a4980, Samuel
+      2026-11-09): a must's result counts on the commit it was recorded on and on every head play's own main merges in a
+      row made from it (`pr_seen.merged_in`: each `{from, main, to}`, `to` taken only where GitHub's merge commit has
+      the parents `[from, main]`), while the required checks are green on that head; the board says so (*Accept and
+      ship: c1, c2 passed on 7aa4590, kept across main's merge*). So an intent at Proposal stays **waiting**: working
+      only while GitHub makes the new head (*main merged in: GitHub makes #N's new head*) and its required checks run.
+      The box's run still records on the new head, and a red it records replaces the kept pass (**failed**). A builder's
+      push, a conflict, a red or missing required check, or a merge play did not make carries nothing. A builder's push
+      in between makes GitHub refuse the update (422): nothing is done, the next tick reads the new head first.
     - **in conflict** (`mergeable` false): **failed**, *conflicts with main: \<files\>*, the files changed both on the
       branch (`GET /pulls/<n>/files`) and on main since their merge base (`GET /compare/<base>...main`), in Build too.
       play posts the commit status **`Merges with main`** (`failure`, that line, the intent's link) on its head, once per
@@ -819,9 +825,10 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   last result failed, its pull request in conflict with main (*conflicts with main: \<files\>*, in Build too: *Main
   merged into open pull requests by play*, above), red, a draft, closed or not into main. **waiting** (a human
   gate): at Specify a spec with its reduce step (*Approve spec*, held or not); at Proposal work of play's (*Accept*), or
-  code whose pull request's head is the one every must check with a run last passed on, mergeable, its required checks
+  code whose pull request's head is the one every must check with a run last passed on (or a head play's clean main
+  merges made from it, its results kept), mergeable, its required checks
   green, not a draft, not held (*Accept and ship*). **working** (an agent, GitHub or Ship busy): in Build; code with
-  main merged in by play whose checks run on its new head (*main merged in*); code whose head moved past the checked commit, whose required checks run, whose mergeability GitHub hasn't worked out, or whose
+  main merged in by play while GitHub makes its new head or its required checks run there (*main merged in*); code whose head moved past the checked commit, whose required checks run, whose mergeability GitHub hasn't worked out, or whose
   pull request was read more than 60 s ago (*reading #N on GitHub*); in Ship on its way. **idle** (nothing moves until
   something else does): held by a dependency (*held: waits for …*), in Ship queued behind another, an Idea. What GitHub
   says is read by Ship's watcher every 10 s into the intent's `pr_seen` (head, draft, mergeable, the required checks,
