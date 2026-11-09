@@ -14,7 +14,8 @@ bash intent-work/090168c8-render/run.sh
   read-only proxy, as `selector-shots.mjs` reads play. No fal, nothing paid.
 - **Determinism:** the render box's `determinism.mjs`, fetched from `intent-work/main-baseline-render`.
   - `SEEDED_RANDOM` is an init script.
-  - Every view waits for `QUIET`.
+  - Every view waits for `QUIET`, for at most about 3–4 minutes: since intent 2, Sandbox 1 keeps taking far-tree
+    pictures for minutes and never counts as quiet. `settled` in `results.json` says whether a view got there.
   - The hour is pinned (`__interiorHour`), and so is the world's clock (`__worldTime` = 100 for the stills, stepped
     1/24 s a frame for the films). The gusts are the same in every run.
 - **Renderer:** it prints `renderer: …`. If that is not Apple's Metal, it stops and draws nothing.

@@ -74,7 +74,9 @@ await page.addInitScript(() => {
 	window.__interiorHour = 12;
 	window.__worldTime = 100;
 });
-const quiet = async (ms = 10 * 60e3) => {
+// every settle capped at a few minutes: since intent 2, Sandbox 1 keeps taking far-tree pictures for minutes and never
+// counts as quiet (the Mac render box, 2026-11-09); a view is shot when it is quiet or when its wait is up
+const quiet = async (ms = 4 * 60e3) => {
 	for (const end = Date.now() + ms; Date.now() < end; await page.waitForTimeout(2000)) if ((await page.evaluate(QUIET).catch(() => null)) === 0) return true;
 	return false;
 };
