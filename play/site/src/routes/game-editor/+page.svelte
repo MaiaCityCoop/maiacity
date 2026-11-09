@@ -32,15 +32,16 @@
 	const id = $derived(params.get('config') ?? list[0]?.id ?? '');
 	const wantV = $derived(params.get('v'));
 	const wantIntent = $derived(params.get('intent'));
+	/** the config as the address asks for it: an intent's work, a version, or Main */
+	const asked = () => (wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '');
 	$effect(() => {
 		if (!admin) return;
 		api<Item[]>('/docs?kind=game_config').then((l) => (list = l), (e) => (error = e.message));
 	});
 	$effect(() => {
 		if (!admin || !id) return;
-		const q = wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '';
 		let gone = false;
-		api<Config>(`/docs/${id}${q}`).then(
+		api<Config>(`/docs/${id}${asked()}`).then(
 			(c) => !gone && ((config = c), (error = '')),
 			(e) => !gone && (error = e.message)
 		);
@@ -50,7 +51,7 @@
 	/** its History: a version picked is that version; an edit picked, the config as it stood at it */
 	async function picked_(p: Pick | null) {
 		if (!config) return;
-		if (!p) return void (config = await api<Config>(`/docs/${config.id}${wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : ''}`));
+		if (!p) return void (config = await api<Config>(`/docs/${config.id}${asked()}`));
 		if ('version' in p) return void at(config.id, p.version === config.number ? undefined : p.version);
 		config = await api<Config>(`/docs/${config.id}?edit=${p.edit.seq}`);
 	}
