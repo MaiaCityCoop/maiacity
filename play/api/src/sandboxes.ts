@@ -31,7 +31,8 @@ type Pin = { version: string; variant: string | null; params: Record<string, str
 type SandboxState = { pins: Record<string, Pin>; configs: Record<string, unknown> };
 type Key = string | number;
 
-export 
+export
+/** only Maia City's admins change a sandbox, for now */
 const SANDBOX_ADMINS = "Only Maia City's admins change a sandbox's layout, for now.";
 
 async function sandboxRow(q: Queryable, sandbox: string) {
