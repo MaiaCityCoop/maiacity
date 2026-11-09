@@ -30,16 +30,8 @@ play/site/src/lib/content/actors/dqs.test.ts
 play/site/src/lib/content/actors/dqs.ts
 play/site/src/lib/content/assets/box/engine.js
 play/site/src/lib/content/assets/box/engine.test.ts
-play/site/src/lib/content/assets/box/engine/card.js
-play/site/src/lib/content/assets/box/engine/engine.js
-play/site/src/lib/content/assets/box/engine/live.js
-play/site/src/lib/content/assets/box/engine/loader.js
-play/site/src/lib/content/assets/box/engine/lockdown.js
-play/site/src/lib/content/assets/box/engine/modules.js
-play/site/src/lib/content/assets/box/engine/refs.js
-play/site/src/lib/content/assets/box/engine/shim.js
 play/site/src/lib/content/assets/box/fixtures/glow-mushroom.js
-play/site/src/lib/content/assets/box/format5.test.js
+play/site/src/lib/content/assets/box/format6.test.js
 play/site/src/lib/content/assets/box/graph.examples.js
 play/site/src/lib/content/assets/box/graph.js
 play/site/src/lib/content/assets/box/graph.test.js
@@ -140,5 +132,6 @@ play/site/src/lib/stories/old-city.test.ts
 play/site/src/lib/stories/world.test.ts
 play/site/src/routes/game/map/scene.ts
 play/site/static/engines/engine-v6.js
+play/site/static/engines/engine-v7.js
 play/site/static/live/719f7adaefbbd53d26a05341ccf895196c0835bdfe884b74ad3478cfa0f742b9.js
 play/site/static/live/live-runtime.js
