@@ -342,32 +342,3 @@ export function grass(): THREE.CanvasTexture {
 	cache.set(key, tex)
 	return tex
 }
-
-/** A clump of grass blades on transparent ground, for the tufts that stand up out of the lawn. */
-export function grassBlades(): THREE.CanvasTexture {
-	const key = 'grass-blades'
-	const hit = cache.get(key)
-	if (hit) return hit
-	const w = 128, h = 128
-	const canvas = document.createElement('canvas')
-	canvas.width = w
-	canvas.height = h
-	const x = canvas.getContext('2d')!
-	const r = rng(91)
-	for (let i = 0; i < 70; i++) {
-		const bx = 8 + r() * (w - 16)
-		const top = 10 + r() * 60
-		const lean = (r() - 0.5) * 40
-		const gg = 110 + r() * 90
-		x.strokeStyle = r() < 0.1 ? `rgb(${180 + r() * 30},${170 + r() * 20},${100})` : `rgb(${50 + r() * 50},${gg},${40 + r() * 30})`
-		x.lineWidth = 1.5 + r() * 2
-		x.beginPath()
-		x.moveTo(bx, h)
-		x.quadraticCurveTo(bx + lean * 0.3, (h + top) / 2, bx + lean, top)
-		x.stroke()
-	}
-	const tex = new THREE.CanvasTexture(canvas)
-	tex.colorSpace = THREE.SRGBColorSpace
-	cache.set(key, tex)
-	return tex
-}
