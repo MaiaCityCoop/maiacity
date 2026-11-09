@@ -10,7 +10,8 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import { span } from '$lib/site/intents/took';
 
 	type Stage = 'idea' | 'specify' | 'build' | 'proposal' | 'ship';
@@ -32,14 +33,15 @@
 		['proposal', 'Proposal', 'waiting for a person: Accept'],
 		['ship', 'Ship', 'CI: merge, main, release, deploy']
 	];
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	const days = $derived(Number(page.url.searchParams.get('days') ?? 7) || 7);
 	let ci = $state(false);
 	let d = $state<Delivery | null>(null);
 	let error = $state('');
 	let busy = $state(false);
 	$effect(() => {
-		if (!admin) return void (session.me && goto('/', { replaceState: true }));
+		if (!admin) return;
 		let gone = false;
 		busy = true;
 		api<Delivery>(`/delivery?days=${days}${ci ? '&ci=1' : ''}`).then(

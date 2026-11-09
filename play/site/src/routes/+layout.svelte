@@ -25,7 +25,7 @@
 	import { closeIntents, intentsModal, openIntents } from '$lib/site/intents/intents.svelte';
 	import { pillContext } from '$lib/site/app/pill.svelte.js';
 	import { footHost } from '$lib/site/app/foot.js';
-	import { loadMe, session, signOut } from '$lib/session.svelte';
+	import { loadMe, session, signOut, isAdmin } from '$lib/session.svelte';
 	import { acting, actAs } from '$lib/acting.svelte';
 	import SignIn from '$lib/SignIn.svelte';
 	import { dev } from '$app/environment';
@@ -118,7 +118,7 @@
 		if (!me) return;
 		const list = [
 			{ id: 'me', label: me.name, sub: `Your account · ${me.level}`, text: initials(me.name), colour: '#c8744f', shape: 'human' as const },
-			...(me.level === 'admin' ? [{ id: 'maia-city', label: 'Maia City', sub: 'The coop · its admins act for it', text: 'MC', colour: '#24452f', shape: 'coop' as const }] : [])
+			...(isAdmin() ? [{ id: 'maia-city', label: 'Maia City', sub: 'The coop · its admins act for it', text: 'MC', colour: '#24452f', shape: 'coop' as const }] : [])
 		];
 		return pillContext({
 			title: 'Act as',
@@ -147,8 +147,8 @@
 		<div class="app-dock">
 			<!-- what floats over the pill (its account menu, a toast) is moved here, so the pill keeps its size -->
 			<div class="foot-stack" use:footHost></div>
-			<NavPill founder={session.me.founder == null ? null : { number: session.me.founder }} name={session.me.name} onsignout={signOut} intents={session.me.level === 'admin'} />
+			<NavPill founder={session.me.founder == null ? null : { number: session.me.founder }} name={session.me.name} onsignout={signOut} intents={isAdmin()} />
 		</div>
-		{#if intentsModal.open && session.me.level === 'admin'}<IntentsModal />{/if}
+		{#if intentsModal.open && isAdmin()}<IntentsModal />{/if}
 	</div>
 {/if}

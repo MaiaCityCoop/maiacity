@@ -12,7 +12,8 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
@@ -26,7 +27,8 @@
 		intent?: { id: string; status: string; note: string };
 	};
 
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let layout = $state<Layout | null>(null);
 	let error = $state('');
@@ -35,7 +37,7 @@
 	const wantV = $derived(params.get('v'));
 	const wantIntent = $derived(params.get('intent'));
 	$effect(() => {
-		if (!admin) return void (session.me && goto('/', { replaceState: true }));
+		if (!admin) return;
 		api<Item[]>('/docs?kind=sandbox').then((l) => (list = l), (e) => (error = e.message));
 	});
 	const query = () => (wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '');

@@ -10,8 +10,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, fileUrl } from '$lib/api';
-	import { session } from '$lib/session.svelte';
-	import { goto } from '$app/navigation';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Aside, { type ChainVersion, type Pick } from '$lib/app/Aside.svelte';
@@ -19,7 +19,8 @@
 
 	type Item = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
 
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let story = $state<Story | null>(null);
 	let picked = $state('');
@@ -57,7 +58,7 @@
 	onMount(async () => {
 		// admins only (Samuel 2026-11-03): anyone else is taken back to the dashboard, as from the Factories and the
 		// Proposals; the API hands stories to admins alone
-		if (!admin) return void goto('/', { replaceState: true });
+		if (!admin) return;
 		try {
 			list = await api<Item[]>('/stories');
 		} catch (e) {

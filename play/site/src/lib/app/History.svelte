@@ -47,7 +47,7 @@
 <script lang="ts">
 	import { untrack, type Snippet } from 'svelte';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Changes from './Changes.svelte';
 
 	let {
@@ -80,7 +80,7 @@
 	} = $props();
 
 	type Version = { number: number; note: string; at: string; acceptedBy?: string | null };
-	const admin = $derived(session.me?.level === 'admin');
+	const admin = $derived(isAdmin());
 	const edits = $derived(h?.edits ?? []);
 	const mainVersions = $derived(h?.versions ?? []);
 	const variants = $derived(h?.variants ?? []);

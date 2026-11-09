@@ -34,7 +34,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import { wayBack } from '$lib/site/app/back.svelte.js';
 	import { intentsModal } from './intents.svelte';
 	import { initialsOf, shortWhen } from '$lib/format';
@@ -54,7 +54,7 @@
 	/** how the board is closed (the modal's ×, Escape with nothing open on it) */
 	let { onclose }: { onclose?: () => void } = $props();
 	// admins only for now (Samuel 2026-11-02): the nav pill's star is greyed out for everyone else
-	const admin = $derived(session.me?.level === 'admin');
+	const admin = $derived(isAdmin());
 
 	const COLUMNS = [
 		['idea', 'Idea'],

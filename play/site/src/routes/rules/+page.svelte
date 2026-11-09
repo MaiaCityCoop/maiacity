@@ -10,7 +10,8 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
 
@@ -20,7 +21,8 @@
 	type Item = { id: string; label: string; number: number };
 	type Version = { number: number; contentHash: string };
 
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	let item = $state<Item | null>(null);
 	let set = $state<RuleSet | null>(null);
 	let versions = $state<Version[]>([]);
@@ -33,7 +35,7 @@
 	const wantV = $derived(params.get('v') ?? (byHash ? `${versions.find((v) => v.contentHash === byHash)?.number ?? ''}` : null));
 	const marked = $derived(params.get('rule'));
 	$effect(() => {
-		if (!admin) return void (session.me && goto('/', { replaceState: true }));
+		if (!admin) return;
 		api<Item[]>('/docs?kind=rules').then((l) => (item = l[0] ?? null), (e) => (error = e.message));
 		api<Item[]>('/docs?kind=schema').then((l) => (schemas = new Map(l.map((s) => [s.id, s.label]))), () => {});
 		api<{ id: string; name: string }[]>('/members').then((l) => (people = new Map(l.map((m) => [m.id, m.name]))), () => {});

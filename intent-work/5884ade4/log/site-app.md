@@ -54,3 +54,10 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
    changes) is untouched: only its script and its build markup line changed. Removes site-app#7 (board/detail part),
    #9, #12 and #13 (board/detail part), #18, #23, #35 (board), #39 (board/detail). Pinned by the intents' vitest
    suites (56 tests), the build and svelte-check.
+10. **One admin gate.** `isAdmin()` in `lib/session.svelte.ts` is the one `level === 'admin'` (25 → 1), and
+    `adminsOnly()` (`lib/admins.svelte.ts`) the one redirect of an admins' page to the dashboard, called by the 14 pages
+    that had it, written two ways (`goto('/', { replaceState: true })` in routes 15 → 1, the intents' link's own). The
+    seven `session.me &&` guards were always true (the layout draws a page only once someone is signed in) and go with
+    them. Pages that only hid things (profile, game editor, dashboard, Aside, History, the board) read `isAdmin()`.
+    Removes site-app#21, #33. Behaviour unchanged: the same pages redirect, on the same condition. Pinned by the build
+    and svelte-check.

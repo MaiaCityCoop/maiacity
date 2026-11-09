@@ -6,7 +6,7 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
-	import { loadMe, session } from '$lib/session.svelte';
+	import { loadMe, session, isAdmin } from '$lib/session.svelte';
 
 	let name = $state(session.me?.name ?? '');
 	let said = $state('');
@@ -17,7 +17,7 @@
 
 	// an admin's access tokens, for an agent working for them over MCP (/api/mcp): the token shown once, here alone
 	type Token = { id: string; name: string; created: string; last_used: string | null; revoked_at: string | null; avenbox: boolean };
-	const admin = $derived(session.me?.level === 'admin');
+	const admin = $derived(isAdmin());
 	let tokens = $state<Token[]>([]);
 	let tokenName = $state('');
 	let fresh = $state<{ name: string; token: string } | null>(null);

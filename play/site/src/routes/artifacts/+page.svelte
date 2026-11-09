@@ -12,12 +12,12 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
 	import { api, fileUrl } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import { markdown } from '$lib/site/markdown/index.js';
 
 	const PAGE = 50;
@@ -66,7 +66,8 @@
 	let busy = $state(false);
 	let error = $state('');
 	let side = $state<'' | 'nav' | 'aside'>('');
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 
 	const host = (u: string) => {
 		try {
@@ -178,7 +179,7 @@
 	const all = () => go(() => ((artifactId = ''), (authorId = ''), (kind = ''), (tag = ''), (origin = ''), (query = '')));
 
 	onMount(() => {
-		if (!admin) return void goto('/', { replaceState: true });
+		if (!admin) return;
 		fromAddress();
 		void show();
 		void loadAuthors();

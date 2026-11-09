@@ -10,7 +10,7 @@
 <script lang="ts">
 	import Icon from '$lib/site/app/Icon.svelte';
 	import { asset } from '$lib/site/media/url';
-	import { session } from '$lib/session.svelte';
+	import { session, isAdmin } from '$lib/session.svelte';
 	import { asCity } from '$lib/acting.svelte';
 	import { GROUP_APPS } from '$lib/app/groups';
 
@@ -65,7 +65,7 @@
 		{ href: '/postgres/', label: 'Postgres', note: 'Every table and its rows, read only', icon: 'database' }
 	];
 	const city = $derived(asCity());
-	const admin = $derived(session.me?.level === 'admin');
+	const admin = $derived(isAdmin());
 	const apps = $derived([...APPS, ...(city ? [] : [LIBRARY(false)])].filter((t) => !t.admins || admin));
 </script>
 

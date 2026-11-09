@@ -8,11 +8,11 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 
 	const PAGE = 50;
 
@@ -28,7 +28,8 @@
 	let busy = $state(false);
 	/** the row opened whole, by its place on the page */
 	let open = $state(-1);
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	const found = $derived(tables.filter((t) => t.name.includes(query.trim().toLowerCase())));
 	const table = $derived(tables.find((t) => t.name === chosen));
 	const row = $derived(data && open >= 0 ? data.rows[open] : null);
@@ -48,7 +49,7 @@
 	}
 
 	onMount(() => {
-		if (!admin) return void goto('/', { replaceState: true });
+		if (!admin) return;
 		void load();
 	});
 

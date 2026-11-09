@@ -14,7 +14,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
@@ -24,7 +24,7 @@
 	type Version = { number: number; note: string; at: string; acceptedBy: string | null };
 	type Config = { id: string; json: any; number: number; version?: number; edit?: number; versions: Version[]; intent?: { id: string; status: string; note: string } };
 
-	const admin = $derived(session.me?.level === 'admin');
+	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let config = $state<Config | null>(null);
 	let error = $state('');

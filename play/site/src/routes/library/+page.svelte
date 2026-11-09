@@ -12,11 +12,11 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import { api, fileText, fileUrl as url } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import { acting, asCity } from '$lib/acting.svelte';
 
 	const PAGE = 60;
@@ -47,7 +47,8 @@
 	let saving = $state(false);
 	let copied = $state(false);
 	let owner = $state<Owner | null>(null);
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	/** the library of whoever the person acts as: Maia City's (the coop's) or their own */
 	const library = $derived<'coop' | 'personal'>(asCity() ? 'coop' : 'personal');
 	// a document is Markdown (a plant's data sheet, its sheet's brief); the rest by their media type
@@ -81,7 +82,7 @@
 		loaded = true;
 	}
 	onMount(() => {
-		if (!admin) return void goto('/', { replaceState: true });
+		if (!admin) return;
 		const given = new URLSearchParams(location.search);
 		kind = given.get('kind') ?? '';
 		// a link straight to one file (the asset library's data sheet and brief): the search for its hash

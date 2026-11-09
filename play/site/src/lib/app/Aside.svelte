@@ -18,7 +18,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Frame from './Frame.svelte';
 	import History, { type ChainVersion, type Pick, type Edit, type Variant } from './History.svelte';
 
@@ -54,7 +54,7 @@
 		onPick?: (p: Pick | null) => void | Promise<void>;
 	} = $props();
 
-	const admin = $derived(session.me?.level === 'admin');
+	const admin = $derived(isAdmin());
 	// a world's layout, read here: as its address says (?layout=<uuid>/v3, /e12, /<intent>)
 	const at = typeof location === 'undefined' ? '' : (new URLSearchParams(location.search).get('layout') ?? '').split('/')[1] ?? '';
 	let read = $state<Ref | null>(null);
