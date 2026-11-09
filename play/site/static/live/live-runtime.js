@@ -59983,8 +59983,8 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
   };
 
   // node_modules/three/examples/jsm/loaders/KTX2Loader.js
-  var WASM_BIN_URL = new URL("../libs/basis/basis_transcoder.wasm", import.meta.url).toString();
-  var WASM_JS_URL = new URL("../libs/basis/basis_transcoder.js", import.meta.url).toString();
+  var WASM_BIN_URL = new URL("../libs/basis/basis_transcoder.wasm", "file:///live/live-runtime.js").toString();
+  var WASM_JS_URL = new URL("../libs/basis/basis_transcoder.js", "file:///live/live-runtime.js").toString();
   var _taskCache = new WeakMap;
   var _activeLoaders = 0;
   var _zstd;

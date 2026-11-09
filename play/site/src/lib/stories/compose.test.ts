@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { Script } from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
 import { codeOf, compose, CSP, FRAME, filesOf, laid, seal, VENDOR } from './compose';
 import { buildsOf, cameraAt, stepAt, stepTimes, valuesAt, type Live, type LiveAsset } from './live';
@@ -197,6 +198,17 @@ describe('compose: a live shot', () => {
 		expect(hashText(b)).toBe(hashText(a));
 		expect(compose(fixture.story, {}, {}, assets)).toBe(compose(JSON.parse(JSON.stringify(fixture.story)), {}, {}, assets));
 		for (const f of ['./live.ts', './live-runtime.ts']) expect(readFileSync(new URL(f, import.meta.url), 'utf8')).not.toMatch(/new Date|Date\.now|Math\.random|process\.env|navigator\.|location\./);
+	});
+	it('live: the runtime a composition loads is a classic script that parses and defines playLive', () => {
+		// a composition loads it with a plain <script src>, never as a module: import.meta there throws as it parses, and
+		// playLive is never defined (c7 on the Mac, 2026-11-09: three's KTX2Loader brought import.meta.url in)
+		const src = readFileSync(new URL('../../../static/live/live-runtime.js', import.meta.url), 'utf8');
+		expect(hashText(src)).toBe(VENDOR.live.hash);
+		expect(src).not.toMatch(/import\.meta/);
+		const W: Record<string, unknown> = { URL, TextDecoder, TextEncoder, console, setTimeout, clearTimeout, queueMicrotask, performance };
+		W.window = W.self = W.globalThis = W;
+		new Script(src, { filename: 'live-runtime.js' }).runInNewContext(W);
+		expect(Object.keys(W.playLive as object).sort()).toEqual(['shot', 'world']);
 	});
 	it('live: names by hash the frozen box engine, the recipe, its pieces and the live runtime, and keeps the still as its poster', () => {
 		expect(codeOf(out)).toEqual([engine.blake3, PIECE, assets[palm.version].recipe]);
