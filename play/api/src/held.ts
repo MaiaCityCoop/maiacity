@@ -1,16 +1,10 @@
 // An intent's work (play/SPEC.md §4.12; Samuel 2026-11-06: "not a proposal belongs to an intent: the intent has a state,
-// proposal"). One record, the intent: what it changes is on it (the kind of work; the documents it changes, each by an
-// intent variant of its own, play.intent_variants; an asset's or story's frozen version and the one it
-// was made on), with what the work says of itself, who proposed it, how and when. Proposal is only a
-// stage: its work done and checked, waiting for the decision. To propose is to put an intent at Proposal: the intent
-// named (its gate held before, ./intents.ts intentReady) takes the work; no work without an intent (intent 706ed873):
-// with none named, nothing is taken. An intent holds all its work (intents 847c5d38 and 7c8986c5, Samuel 2026-11-06/07):
-// any number of documents, whatever their kind (an asset's or story's version among them, its refs on its own intent
-// variant), each going in beside the others (its variant of that same document replaced), and a pull request beside
-// them; they are all accepted in one transaction or archived together, and with code, once its code is live
-// (./ship.ts reconcile). Deciding settles it: accepted, or archived (a moved base archives it too; its intent then goes
-// back to Build, to be built on the new head). This module is the work's SQL: what an intent holds and how it holds it;
-// its stage moves (putAtProposal, settle) are ./intents.ts'.
+// proposal"): one record, the intent, holding what it changes (each document by an intent variant, play.intent_variants;
+// an asset's or story's frozen version and its base) and who proposed it, how and when. No work without an intent
+// (intent 706ed873). It holds any number of documents and a pull request beside them (intents 847c5d38 and 7c8986c5,
+// Samuel 2026-11-06/07), all accepted in one transaction (with code, once live: ./ship.ts reconcile) or archived
+// together; a moved base archives it and sends the intent back to Build. This module is the work's SQL; its stage moves
+// (putAtProposal, settle) are ./intents.ts'.
 import type { Me } from "./access";
 import { COOP } from "./kit/ids";
 import * as docs from "./docs";
@@ -39,9 +33,8 @@ const DOC_OF = `(SELECT iv.doc_id FROM play.intent_variants iv WHERE iv.intent_i
 const VARIANT_OF = `(SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.intent_id = i.id ORDER BY iv.position LIMIT 1)`;
 
 /**
- * An intent's work as what decides it reads it: its refs (its first document and variant, and every one it holds), and
- * (named as the work's) its kind, note, who proposed it, how and when, and its status, which is the intent's stage
- * (waiting at Proposal, accepted, else archived).
+ * An intent's work as its decision reads it: its refs (first document and variant, and every one it holds), its kind,
+ * note, proposer, how and when, and its status, the intent's stage (waiting at Proposal, accepted, else archived).
  */
 export const WORK_OF = `i.id, i.coop_id, i.work AS kind, ${DOC_OF} AS doc_id, ${VARIANT_OF} AS doc_variant,
   COALESCE((SELECT json_agg(json_build_object('doc_id', iv.doc_id, 'doc_variant', iv.variant_id, 'refs', iv.refs) ORDER BY iv.position) FROM play.intent_variants iv WHERE iv.intent_id = i.id), '[]'::json) AS variants,
@@ -87,11 +80,9 @@ export async function closeVariant(q: Queryable, me: Pick<Me, "id"> | null, docI
 const OWN_REFS = `(SELECT jsonb_strip_nulls(jsonb_build_object('kind', w.work, ${REFS.map((k) => `'${k}', w.${k}`).join(", ")})) FROM play.intents w WHERE w.id = $1 AND w.work IS NOT NULL)`;
 
 /**
- * An intent variant made the intent's work on its document, in place of any it held there before (that one closed),
- * beside every other document it holds; a piece's goes in after any it holds of that piece, its next version (intent
- * 02e3a85f). `refs` is what its version names beyond its document (its kind, an asset's or
- * story's version and the one it was made on); none given, a variant already held keeps its own, and an intent's first
- * takes the intent's own columns (a variant made for work kept from before).
+ * An intent variant made the intent's work on its document (closing any it held there), beside every other document;
+ * a piece's goes in after any it holds of that piece, its next version (intent 02e3a85f). `refs` is what its version
+ * names beyond its document; none given, a held variant keeps its own, and an intent's first takes the intent's columns.
  */
 export async function holdVariant(q: Queryable, me: Pick<Me, "id"> | null, intent: string, docId: string, variant: number, refs?: Record<string, unknown>) {
   const given = refs === undefined ? null : JSON.stringify(refs);
@@ -134,18 +125,15 @@ export async function ownColumns(q: Queryable, id: string) {
 }
 
 /**
- * Document `docId` taken out of intent `intent`'s work (a story folded into another: its work moved to the timeline it
- * is now; or withdrawn, proposed by mistake: ./withdraw.ts): its intent variant closed, kept in the history, the intent's own columns naming its first document again.
+ * Document `docId` taken out of intent `intent`'s work (a story folded into another, or withdrawn: ./withdraw.ts): its
+ * variant closed, kept in the history, the intent's columns naming its first document again.
  */
 export async function dropDoc(q: Queryable, me: Pick<Me, "id"> | null, intent: string, docId: string) {
   for (const v of await unhold(q, intent, docId)) await closeVariant(q, me, docId, v);
   await ownColumns(q, intent);
 }
 
-/**
- * The one way variants leave an intent's work (intent ee0a7455): those of document `docId`, or, none named, every one
- * decided already (archived or accepted). Gives back the variants taken out.
- */
+/** The one way variants leave an intent's work (intent ee0a7455): those of `docId`, or else every decided one; gives them back. */
 export async function unhold(q: Queryable, intent: string, docId: string | null): Promise<number[]> {
   const { rows } = await q.query<{ variant_id: string }>(
     `DELETE FROM play.intent_variants iv USING play.doc_variants v WHERE iv.intent_id = $1 AND v.id = iv.variant_id

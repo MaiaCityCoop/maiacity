@@ -1,7 +1,6 @@
-// An intent's work as people review it (play/SPEC.md §4.12, intent 2df30a21): its detail lists every document it
-// changes in brief, and one document's changes are read when it is opened, field by field, with its kind's extras (an
-// asset's builds, a story's player, a layout's pins before and after); the intent read whole with its review and its
-// brief, what an agent sent to it does at its stage.
+// An intent's work as people review it (play/SPEC.md §4.12, intent 2df30a21): its detail lists every document it changes
+// in brief; one document's changes are read field by field when opened, with its kind's extras; the intent read whole
+// with its review and its brief.
 import type { Me } from "./access";
 import * as docs from "./docs";
 import { hashText } from "./kit/hash";
@@ -38,9 +37,8 @@ async function reviewVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
 }
 
 /**
- * One document's intent variant as an intent's detail lists it (intent 2df30a21): its document, the version it grew
- * from, whether Main moved since, its status and what it changes in brief (how many fields, which), never its content:
- * that is read when the document is opened (reviewHeld). Its brief is kept on the variant (./gist.ts).
+ * One document's intent variant as an intent's detail lists it (intent 2df30a21): its document, seed version, whether
+ * Main moved, status and a brief of what it changes, never its content (reviewHeld reads that; brief: ./gist.ts).
  */
 async function listedVariant(db: Queryable, p: any, h: { doc_id: string; doc_variant: number | null }) {
   const k = kindOfDoc(h.doc_id) ?? kindOfWork(p.kind)!;
@@ -61,10 +59,8 @@ async function listedVariant(db: Queryable, p: any, h: { doc_id: string; doc_var
 }
 
 /**
- * An intent's work on its documents as its detail shows it (intent 2df30a21: opened in about a second, whatever it
- * holds): its first document's kind's own extras (an asset's builds, a story's player, a layout's pins) and the edits
- * that made it, every document it changes listed in `docs` (listedVariant: in brief, without its content), and its
- * pieces. What one document changes, field by field, is read when it is opened: reviewHeld.
+ * An intent's work as its detail shows it (intent 2df30a21: opened in about a second, whatever it holds): its first
+ * document's kind's extras and edits, every document in `docs` (listedVariant, in brief), and its pieces.
  */
 export async function reviewDoc(db: Queryable, p: any) {
   const k = kindOfWork(p.kind)!;
@@ -80,11 +76,9 @@ export async function reviewDoc(db: Queryable, p: any) {
 }
 
 /**
- * One document of an intent's work as people review it, read when it is opened (intent 2df30a21; GET
- * /api/intents/:id/docs/:doc): what it changes field by field against its seed, the edits that made it, whether Main
- * moved since, and its kind's own extras (an asset's builds, a story's player, a layout's pins). `doc` is its document's
- * UUID; a piece held in several versions is named by its `variant` too, its newest otherwise. Null where the intent
- * holds no such document.
+ * One document of an intent's work, read when opened (intent 2df30a21; GET /api/intents/:id/docs/:doc): its changes
+ * field by field against its seed, its edits, whether Main moved, its kind's extras. A piece held in several versions
+ * is named by `variant` too, else its newest. Null where the intent holds no such document.
  */
 export async function reviewHeld(db: Queryable, id: string, doc: string, variant?: number | null) {
   const p = await workOf(db, id);
@@ -109,9 +103,8 @@ export async function reviewHeld(db: Queryable, id: string, doc: string, variant
 }
 
 /**
- * The pieces an intent proposes as the board lists them (intent 02e3a85f): each its piece, label, variant, hash and the
- * version it is to be, which of the intent's pieces it requires and which of its documents require it; read from each
- * variant's brief (./gist.ts), not from the documents again.
+ * The pieces an intent proposes (intent 02e3a85f): each its piece, label, variant, hash, version to be, which of the
+ * intent's pieces it requires and which documents require it; read from each variant's brief (./gist.ts).
  */
 async function piecesReviewed(db: Queryable, intent: string, held: { doc_id: string; doc_variant: number | null }[]) {
   const { rows } = await db.query<{ doc_id: string; variant_id: string }>(
@@ -142,11 +135,7 @@ async function piecesReviewed(db: Queryable, intent: string, held: { doc_id: str
   return out;
 }
 
-/**
- * An intent's work as people review it before they decide (`shown`: the intent's work as ./intents.ts lists it): for
- * a document's version, what it changes and the edits it was made in (./review.ts reviewDoc, with its kind's own
- * extras: an asset's builds, a story's player, a sandbox's pins before and after).
- */
+/** An intent's work as reviewed before deciding (`shown` as ./intents.ts lists it): each version's changes and edits (reviewDoc). */
 export async function reviewOf(db: Queryable, id: string, shown: any) {
   const p = { ...(await workOf(db, id)), ...shown, id };
   if (!p.kind) return null;
@@ -155,9 +144,8 @@ export async function reviewOf(db: Queryable, id: string, shown: any) {
 }
 
 /**
- * One intent, whole: as the board lists it, its work's review where it holds work (`review`: what it changes, as
- * people read it before they decide, reviewOf), and its `brief`: what an agent sent to it does at its
- * stage, the Intents skill's part for it (./skills.ts; null where it says nothing).
+ * One intent whole: as the board lists it, its work's `review` (reviewOf), and its `brief`, the Intents skill's part
+ * for its stage (./skills.ts; null where it says nothing).
  */
 export async function intentOf(db: Queryable, me: Me | null, id: string) {
   const intent = await intentFor(db, me, id);
@@ -166,10 +154,7 @@ export async function intentOf(db: Queryable, me: Me | null, id: string) {
   return { ...intent, brief: held ? null : await briefOf(db, intent), review: intent.work ? await reviewOf(db, intent.id, intent.work) : null };
 }
 
-/**
- * One document of an intent's work, read when it is opened (intent 2df30a21): what it changes, field by field, with its
- * kind's extras (reviewHeld), for whoever may open the intent; `variant` names one of a piece's versions.
- */
+/** One document of an intent's work, read when opened (reviewHeld), for whoever may open the intent; `variant` a piece's version. */
 export async function intentDocOf(db: Queryable, me: Me | null, id: string, doc: string, variant: number | null) {
   const intent = await intentFor(db, me, id);
   const r = await reviewHeld(db, intent.id, doc, variant);

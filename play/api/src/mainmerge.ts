@@ -1,18 +1,17 @@
 // Main merged into open intent pull requests by play (play/SPEC.md §4.12 "Accept ships it"; intent f28822d9, Samuel
-// 2026-11-07: "This merging main conflicts steps should be also automated right?"). Ship's watcher runs it each tick,
-// after it has read every open intent's pull request (./watcher.ts watchPulls, the intents' pr_seen):
-// - a pull request of an intent in Build or at Proposal, open into main, mergeable and behind main's head is updated
-//   with GitHub's update-branch (main merged into its branch, `expected_head_sha` the head read), once per head and
-//   main's head. It is a push made with SHIP_TOKEN, so GitHub runs the required checks and the box's run
-//   (intents-pr.yml on `synchronize`) records the intent's checks on the new head. Each merge play made is kept in a
-//   row (pr_seen.merged_in): the results on the head it merged from count on the head GitHub made of it once the
-//   required checks are green there (./substate.ts countsOn; intent b17a4980), so an intent at Proposal stays waiting.
-//   A builder's push in between makes GitHub refuse it (422): nothing is done, the next tick reads the new head first.
-// - one in conflict (mergeable false) is failed, "conflicts with main: <files>" (the files both sides changed since
-//   their merge base), and play posts the commit status 'Merges with main' (failure, that line) on its head, which
-//   wakes its builder session subscribed to the pull request; success once it merges again. Not a required check.
-// Never an intent in Ship, Accepted or Archived, never a pull request into another branch or naming no intent, never
-// a merge into main or production.
+// 2026-11-07: "This merging main conflicts steps should be also automated right?"), each tick of Ship's watcher after
+// watchPulls (./watcher.ts) read them:
+// - a pull request of an intent in Build or at Proposal, open into main, mergeable and behind main is updated with
+//   GitHub's update-branch (`expected_head_sha` the head read), once per head and main head, pushed with SHIP_TOKEN so
+//   the required checks and the box's run (intents-pr.yml) run on the new head. Play's merges are kept in a row
+//   (pr_seen.merged_in): the results on the head it merged from count on the new one once its required checks are green
+//   (./substate.ts countsOn; intent b17a4980), so an intent at Proposal stays waiting. A builder's push in between makes
+//   GitHub refuse it (422): the next tick reads the new head first.
+// - one in conflict is failed, "conflicts with main: <files>" (both sides' changes since their merge base), and play
+//   posts the status 'Merges with main' (failure) on its head, waking its builder session; success once it merges.
+//   Not a required check.
+// Never an intent in Ship, Accepted or Archived, a pull request into another branch or naming no intent, nor a merge
+// into main or production.
 import type { Db } from "./kit/pg";
 import { GitHubError, intentLink, keepSeen, MERGES_CONTEXT, openPulls, type GitHub } from "./github";
 import { conflictWhy, short, type PlayMerge, type PrSeen } from "./substate";
@@ -27,11 +26,9 @@ export const mainMergeState = (): MainMergeState => ({ main: null, done: new Map
 const fit = (s: string) => (s.length <= DESCRIPTION_MOST ? s : `${s.slice(0, DESCRIPTION_MOST - 1)}…`);
 
 /**
- * A pull request read again (`seen`), with what play keeps of its main merges carried from the read before (`was`):
- * play's merges in a row (while the head is the last one's, or the head it merged from while GitHub makes it), the
- * conflict's files (while the head is the same) and the status last posted. A new head is the merge play made only
- * where GitHub says its parents (`parents`, the head's: carried() reads them) are the head it merged from and main as
- * it merged it; any other head (a builder's push) ends the row.
+ * A pull request read again (`seen`) with what play keeps of its main merges from the read before (`was`): its merges in
+ * a row, the conflict's files (same head), the status last posted. A new head is play's merge only where its parents
+ * (carried()) are the head it merged from and main as merged; any other head (a builder's push) ends the row.
  */
 export function carrySeen(was: PrSeen | null | undefined, seen: PrSeen, parents?: string[]): PrSeen {
   if (!was || was.pr !== seen.pr) return seen;
@@ -68,10 +65,9 @@ async function conflictFiles(gh: GitHub, seen: PrSeen, main: string) {
 }
 
 /**
- * One look: main's head read, then every intent in Build or at Proposal whose pull request (as watchPulls just read it)
- * is open into main: in conflict, failed with its files and 'Merges with main' failure on its head; mergeable again,
- * that status success; mergeable and behind main, main merged into it (update-branch) under the intent's row, so an
- * Accept pressed meanwhile waits and finds it moved.
+ * One look: main's head read, then each intent in Build or at Proposal with an open pull request into main: in conflict,
+ * failed and 'Merges with main' failure; mergeable again, success; behind main, update-branch under the intent's row,
+ * so an Accept pressed meanwhile waits and finds it moved.
  */
 export async function mergeMain(db: Db, gh: GitHub, state: MainMergeState, at = Date.now()) {
   const main = await gh.branchHead("main");

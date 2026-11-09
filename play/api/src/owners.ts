@@ -1,14 +1,11 @@
-// Owners (play/SPEC.md "Owners"; intent 732d8a38, the first slice of Ownership 8fc46819; Samuel 2026-11-07): every
-// asset and every file belongs to an account, a person's own (their human's UUID) or the Maia City coop's (./kit/ids.ts
-// COOP). What a person owns is private to its owner: to anyone else, another admin included, it answers exactly as
-// what never was (404 with the same words, left out of every list). This is the one place that says so: whose library
-// a file is in and who may see it (the only module that reads play.files for people), which assets a person sees, and
-// which intents (one whose work is another's private asset is not shown to them).
+// Owners (play/SPEC.md "Owners"; intent 732d8a38, the first slice of Ownership 8fc46819; Samuel 2026-11-07): every asset
+// and file belongs to an account, a person's (their human's UUID) or the coop's (./kit/ids.ts COOP). What a person owns
+// is private: to anyone else, another admin included, it answers exactly as what never was (404, the same words, in no
+// list). This is the one place that says so (the only module reading play.files for people).
 //
-// A file is named by its hash, so the same bytes may be in several libraries at once: each library holding it is a row
-// of play.file_owners, with that library's own label (the coop's label stays play.files.label). A file is everyone's
-// (every member reads it, as every file was) while the coop's library holds it or no library row names it; one only in
-// personal libraries is seen by those persons alone. An asset has one owner (play.assets.owner); only one in group
+// A file is named by its hash, so the same bytes may be in several libraries, each a row of play.file_owners with its
+// own label (the coop's stays play.files.label). A file is everyone's while the coop's library holds it or no library
+// names it; one only in personal libraries is theirs alone. An asset has one owner (play.assets.owner); only group
 // `characters` may be a person's for now.
 import { COOP } from "./kit/ids";
 import type { Me } from "./access";
@@ -37,10 +34,7 @@ export const assetSeen = (a: string, p: string) => `(${a}.owner = '${COOP}' OR $
 /** a file by its hash `h` that `p` sees: in the coop's library, in theirs, or in none */
 const fileSeen = (h: string, p: string) =>
   `(EXISTS (SELECT 1 FROM play.file_owners fo WHERE fo.hash = ${h} AND (fo.owner = '${COOP}' OR fo.owner = ${p}::uuid)) OR NOT EXISTS (SELECT 1 FROM play.file_owners fo WHERE fo.hash = ${h}))`;
-/**
- * an intent row `i` that `p` sees: none of its work is another's private asset (its frozen version's, or an intent
- * variant of its document).
- */
+/** an intent row `i` that `p` sees: none of its work is another's private asset (its frozen version, or a variant's document) */
 export const intentSeen = (i: string, p: string) =>
   `NOT EXISTS (SELECT 1 FROM play.assets pa WHERE pa.id IN (SELECT ${i}.asset_id
        UNION ALL SELECT split_part(px.doc_id, ':', 2)::uuid FROM play.intent_variants px WHERE px.intent_id = ${i}.id AND px.doc_id LIKE 'asset:%'
@@ -95,10 +89,7 @@ export async function fileHidden(q: Queryable, me: Pick<Me, "id"> | null, hash: 
   return rows.length > 0;
 }
 
-/**
- * The media types of the files of `hashes` that `me` sees (`me` null: everyone's files alone, what a coop's story or
- * a public asset may name, so that no one is shown a file they can't open).
- */
+/** The media types of `hashes`' files `me` sees (null: everyone's only, what a coop story may name, so no one sees a file they can't open). */
 export async function fileTypes(q: Queryable, hashes: string[], me: Pick<Me, "id"> | null = null): Promise<Map<string, string>> {
   if (!hashes.length) return new Map();
   const { rows } = await q.query<{ hash: string; media_type: string }>(`SELECT f.hash, f.media_type FROM play.files f WHERE f.hash = ANY($1) AND ${fileSeen("f.hash", "$2")}`, [hashes, who(me)]);
@@ -106,9 +97,8 @@ export async function fileTypes(q: Queryable, hashes: string[], me: Pick<Me, "id
 }
 
 /**
- * A file kept among play's files (its bytes already in the store) and in `owner`'s library (the coop's where none is
- * named). The coop's label is play.files.label (a new one replacing the old where `relabel`, none keeping it); a
- * person's is their library row's. Bytes that were everyone's before stay everyone's.
+ * A file kept among play's files and in `owner`'s library (the coop's when none): the coop's label is play.files.label
+ * (replaced where `relabel`), a person's their row's. Bytes that were everyone's stay everyone's.
  */
 export async function keepFile(q: Queryable, f: { hash: string; size: number; media_type: string; bucket_key: string; label?: string | null }, o: { owner?: string; relabel?: boolean } = {}) {
   const owner = o.owner ?? COOP;
@@ -188,9 +178,8 @@ const PRIVATE_INTENT = "a private intent";
 const EDGE_KEYS = ["depends_on", "needed_by", "held_by"] as const;
 
 /**
- * `out` (an intent, a list of them, or any answer holding them) as `me` may read it: every dependency edge to an
- * intent whose work is another's private asset shows "a private intent" with no id, its title gone from the sub-state's
- * reason too. Nothing else changes (how many hold it, their stages).
+ * `out` (intents, or any answer holding them) as `me` may read it: an edge to an intent whose work is another's private
+ * asset shows "a private intent", no id, its title gone from the sub-state's reason too; nothing else changes.
  */
 export async function maskEdges<T>(q: Queryable, me: Pick<Me, "id"> | null, out: T): Promise<T> {
   const ids = new Set<string>();

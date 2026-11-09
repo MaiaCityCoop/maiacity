@@ -1,9 +1,7 @@
 // One version control (play/SPEC.md "Version control", Samuel 2026-11-06): every versioned kind is one entry of the
-// registry below (each kind's entry is ./allkinds.ts's); ./versioned.ts does the rest for each.
-//
-// A schema with no hooks needs no code (Samuel 2026-11-06): every accepted schema whose documents no entry here holds is
-// a kind of its own (syncKinds), its rows in play.records, so a new type is a schema document and the intent that
-// accepts it. A schema's new version is accepted only while every document on Main still validates against it.
+// registry below (each entry in ./allkinds.ts); ./versioned.ts does the rest. A schema with no hooks needs no code
+// (Samuel 2026-11-06): an accepted schema no entry holds is a kind of its own (syncKinds, its rows in play.records). A
+// schema's new version is accepted only while every document on Main still validates against it.
 import { COOP } from "./kit/ids";
 import type { Me } from "./access";
 import type { BlobStore } from "./blobs";
@@ -44,9 +42,8 @@ export type Kind = {
   review?: (q: Queryable, p: any) => Promise<Record<string, unknown>>;
   /** the kind's own decide (an asset accepted only on the head it was made on; a story's frozen rows) */
   decide?: (tx: Queryable, ctx: Ctx, me: Me, p: any, verdict: Verdict) => Promise<any>;
-  /** what its Accept holds a version to first, in the Accept's transaction, with the state the merge makes: why it no
-   *  longer holds (archived, back to Build), else null; a refusal throws (a sandbox's pins play no longer keeps; a
-   *  schema failing a document on Main) */
+  /** what its Accept holds a version to first (its transaction, the merged state): why it no longer holds (archived,
+   *  back to Build), else null; a refusal throws (a sandbox pin play no longer keeps; a schema failing Main) */
   before?: (tx: Queryable, docId: string, variant: number, merged: any) => Promise<string | null>;
   item?: (json: any) => Record<string, unknown>;
   more?: (q: Queryable, uuid: string) => Promise<Record<string, unknown>>;
@@ -62,8 +59,7 @@ export type Kind = {
   breeds?: boolean;
   /** what its schema and check can't say without the database, held as its version is proposed for intent `intent` (a piece's pieces: each an accepted one or one proposed in the same intent); throws why not */
   ready?: (q: Queryable, json: any, intent?: string | null) => Promise<void>;
-  /** what an accepted version keeps beside its row, in the Accept's transaction (a piece's source among play's files, a
-   *  sandbox's pins for the worlds, a schema's kinds read again) */
+  /** what an accepted version keeps beside its row, in the Accept's transaction (a piece's source, a sandbox's pins, a schema's kinds) */
   accepted?: (tx: Queryable, ctx: Ctx, docId: string, number: number, json: any, intent?: string | null) => Promise<void>;
 };
 
@@ -88,9 +84,8 @@ export function unregister(name: string): void {
 }
 
 /**
- * Every accepted schema whose documents no kind holds becomes a kind of its own: its name and prefix its `type`, its
- * label its schema's, its rows in play.records. Read again before every lookup, so a schema accepted in one process is a
- * kind in every other; a kind registered in code stays as its code says.
+ * Every accepted schema no kind holds becomes a kind (name and prefix its `type`, label its schema's, rows in
+ * play.records), read again before every lookup so it is one in every process; a kind in code stays as its code says.
  */
 export async function syncKinds(q: Queryable): Promise<void> {
   const schemas = await docs.schemasOf(q);
@@ -124,8 +119,7 @@ export async function namesOf(q: Queryable, ids: (string | null | undefined)[]):
 export async function named(db: Queryable, edits: docs.DocEdit[], versions: docs.Version[] = []) {
   const names = await namesOf(db, edits.map((s) => s.author));
   const at = new Map(versions.map((v) => [docs.frontiersKey(v.frontiers), v.number]));
-  // a version marks the latest edit at its point (a merge that only caught Main up stands where the intent variant's
-  // last edit stood: the merge is the edit that made it the version)
+  // a version marks the latest edit at its point (a merge that only caught Main up stands where the variant's last edit did)
   const marked = new Map<number, number>();
   for (let i = edits.length - 1; i >= 0; i--) {
     const n = at.get(docs.frontiersKey(edits[i].frontiers));
@@ -173,9 +167,8 @@ export async function docRef(q: Queryable, ctx: Ctx | null, id: unknown, me: Pic
 export type Verdict = "accept" | "archive";
 
 /**
- * The edits an agent sends, as the document's own (set, insert, delete, move, text; ./docs/core.ts), with one help: a
- * part of a path may name an item of a list by its id ({ id: 'weld' }) instead of its index, worked out against the
- * state as it stands before the edit.
+ * An agent's edits as the document's own (set, insert, delete, move, text; ./docs/core.ts), with one help: a path part
+ * may name a list item by its id ({ id: 'weld' }), worked out against the state before the edit.
  */
 export function resolveEdits(json: any, edits: unknown): docs.Edit[] {
   if (!Array.isArray(edits) || !edits.length) throw new HttpError("Edits are a list of at least one edit.");
@@ -200,10 +193,7 @@ export function resolveEdits(json: any, edits: unknown): docs.Edit[] {
   });
 }
 
-/**
- * What a kind's documents hold, as its schema says it, for the agents over MCP (the tools' descriptions): its node's
- * description, or a field's; from its accepted schema, else from its seed (a schema accepted before it said one).
- */
+/** A kind's documents as its schema describes them, for the MCP tools' descriptions: from its accepted schema, else its seed. */
 export async function formatOf(q: Queryable, kind: string, field?: string): Promise<string> {
   const k = kindNamed(kind);
   if (!k) return "";
