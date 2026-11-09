@@ -12,7 +12,7 @@
  */
 const Module = require('module');
 const path = require('path');
-const SITE = process.env.PLAY_SITE ?? path.resolve(__dirname, '../../../../play/site');
+const { SITE } = require('../site.cjs');
 const original = Module._resolveFilename;
 Module._resolveFilename = function (req, ...a) {
 	if (req === 'three') return original.call(this, path.join(SITE, 'node_modules/three/build/three.cjs'), ...a);

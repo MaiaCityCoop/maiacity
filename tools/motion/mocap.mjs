@@ -2,9 +2,8 @@
 // A source: { name, fps, joints: [{ name, parent (index or -1), offset: Vector3 (cm or m as given), rest: Quaternion }],
 //             frames: [{ root: Vector3, q: Quaternion[] (local, per joint) }], unit (metres per source unit) }
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-const require = createRequire(new URL('../../play/site/x.js', import.meta.url));
-export const THREE = require('three');
+import { siteRequire } from '../site.cjs';
+export const THREE = siteRequire('three');
 const { Vector3, Quaternion, Euler } = THREE;
 
 export function readBVH(file, unit = 0.01) {

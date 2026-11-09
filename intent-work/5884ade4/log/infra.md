@@ -137,3 +137,17 @@ committed before and as now, every call they make logged and diffed):
 - Left: intent.ts keeps its own copy of the URL (intents-pr hands it alone to the box's run, away from the
   repository); the readiness loops (infra#5) and the two dependency loops (infra#6) are still each script's own.
 - Pinned: workflows.test.ts and deploy-speed.test.ts read the step's `max_connections` and image through box.env.
+
+## 10. The tools find play/site one way (infra F8, part; infra#27, 53)
+
+- `tools/site.cjs`: `SITE` (PLAY_SITE when set, else the repository's play/site beside tools/) and `siteRequire`
+  (require as play/site resolves). tools/motion (box.mjs, boxtime.mjs, check.ts, mocap.mjs) and tools/plant
+  (silhouette.cjs, nan-check.cjs, organ.mjs) take it instead of six relative paths of their own.
+- Fixed with it: silhouette.cjs and nan-check.cjs resolved `../../../../play/site`, two levels above the repository
+  (written for a skill's folder), so they worked only with PLAY_SITE set; organ.mjs defaulted to an absolute
+  /home/user/maiacity path. Now each finds the checkout it is in.
+- Pinned: `bun tools/motion/check.ts directions` and `wave` all ok; box.mjs and mocap.mjs import (their exports as
+  before); site.cjs's named exports load from node's ESM and bun.
+- Left: tools/character (held at the audit; its files name `../../play/site` too), the committed mirror of play's
+  documents in tools/motion (pieces/, assets/, proposed.json: needs intent b9e6ad45 accepted first), and a check of
+  the committed paths skills name (infra#28).

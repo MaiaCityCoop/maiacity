@@ -13,7 +13,8 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 const HERE = new URL('.', import.meta.url).pathname;
-const SITE = new URL('../../play/site/', import.meta.url).pathname;
+import { SITE as PLAY_SITE } from '../site.cjs';
+const SITE = `${PLAY_SITE}/`;
 const B = await import('./box.mjs');
 
 const args = process.argv.slice(2);
