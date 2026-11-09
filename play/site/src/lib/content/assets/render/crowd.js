@@ -152,7 +152,7 @@ const meshOf = (root) => {
 export function crowd(refs, counts, o) {
 	const { near, max, scale = 1, lift = 0, shadows = true, detail = FAR, seen = SEEN } = o;
 	// the boxes and the recipes, made ready now while the world loads: the first build asked for (the first shot's)
-	// finds them warm
+	// finds them warm, and a failure is said there, where a build is asked for
 	void loaderOf().catch(() => {});
 	const object = new THREE.Group();
 	/** far: the coarse build at rest, one instanced mesh a coat */

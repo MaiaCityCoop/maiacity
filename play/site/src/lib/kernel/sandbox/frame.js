@@ -101,7 +101,8 @@ export class Shell {
 	/** starts the shell (once; again after it was torn down) */
 	start() {
 		if (this.ready) return this.ready;
-		// a stop while it starts ends the start too (its frame gone, its load never comes): nothing waits on it for ever
+		// a stop while it starts ends the start too (its frame gone, its load never comes): nothing waits on it for ever;
+		// a stop after the start has no race left to end, and nothing to say
 		const halted = new Promise((_, no) => (this.halt = no));
 		halted.catch(() => {});
 		const ready = (this.ready = (async () => {

@@ -78,3 +78,7 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
     (world.js, held, types them by their defaults, whose `onRoam` takes no argument). Types only: svelte-check's
     errors unchanged; gate site. Left: 13 in tests (stand-in globals and partial fixtures) and one comment's
     "as any other" (`render/simplify.js`).
+14. **The six swallows left each say why** (comments only). play/site's swallowed errors are 6 (src 15 → 6, scripts
+    2 → 0), each about something outside its line: the cache worker's probe byte (a best-effort clean-up), the box's
+    and the story worker's `end` of a session whose worker may be gone, the shell's `halted` (a stop after its start
+    has no race left), and two warm-ups (`crowd.js`, `drawn.js`) whose failure is said where a build is asked for.

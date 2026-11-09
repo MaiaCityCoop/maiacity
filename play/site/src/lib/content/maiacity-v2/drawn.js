@@ -56,7 +56,7 @@ const modules = () =>
 		bonePoser: k.poser
 	})));
 // in a page, fetched as soon as the world's code is: the box is asked for the first builds before the world's first
-// frame (its shaders compiled, seconds on a slow machine) holds the page up
+// frame (its shaders compiled, seconds on a slow machine) holds the page up; a failure is said where a build asks
 if (typeof window !== 'undefined' && window.document?.createElement) modules().catch(() => {});
 
 /**

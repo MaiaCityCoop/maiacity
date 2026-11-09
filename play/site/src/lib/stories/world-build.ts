@@ -81,6 +81,7 @@ export function engineOf(recipe: { hash: string; code: string }, engine: number,
 		/** kept running, as ../content/assets/hero.js `runner` starts it in the page's box */
 		start: async (given: Record<string, string> | undefined, nodes: number) => {
 			const { session } = await ask('live', { recipe, given, nodes });
+			// ending a session on a worker that already went has nothing to end (as the page's box, host.js `end`)
 			return { tick: (a: unknown) => ask('tick', { session, ask: a }), breakIt: async () => {}, end: () => ask('end', { session }).catch(() => {}) };
 		},
 		end: () => die(new Error('ended'))
