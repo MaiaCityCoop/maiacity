@@ -1,5 +1,4 @@
-// The API against a real Postgres: set TEST_DATABASE_URL (a server where this may create and drop a database), e.g.
-// postgres://postgres@127.0.0.1:5544/postgres. Without it these tests are skipped.
+// The API against a real Postgres (TEST_DATABASE_URL, a server where ./kit.ts `freshDb` makes and drops a database).
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -17,7 +16,7 @@ import { hashText } from "../src/kit/hash";
 import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD } from "../src/recipes";
 import { UUID } from "../src/kit/uuid";
-/** the repo's papaya story (import/stories/papaya-v2-devlog/story.json names it by this) */
+/** the repo's papaya story (import/stories/papaya-v2-devlog/story.json) */
 const PAPAYA_STORY = "7adaf0b3-01a9-8bb9-b250-d2bee7016c4c";
 import { COOP } from "../src/kit/ids";
 import { randomUUID } from "node:crypto";
@@ -49,10 +48,7 @@ suite("play API", () => {
   });
 
   const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
-  /**
-   * no work without an intent (play/SPEC.md §4.12): an intent ready for work, in Build with its spec approved and its
-   * one must check passed, by admin `as`; each proposal here is its own intent's
-   */
+  /** an intent in Build, spec approved and its one must passed, by admin `as` (no work without one, play/SPEC.md §4.12) */
   const ready = async (as = "ada", title = "A test's work") => {
     const id = randomUUID();
     const spec = { goal: "It changes.", scope: "A test fixture.", nothing_to_reduce: "A test fixture.", checks: [{ id: "c1", check: "It holds", how: "test", by: "true", run: "true", must: true, step: "mvp" }] };
@@ -64,14 +60,13 @@ suite("play API", () => {
     );
     return id;
   };
-  /** an asset's version proposed over HTTP (POST /api/intents) by admin `as`, for an intent of its own made ready for it */
   const propose = async (as: string, body: Record<string, unknown>) => call(as, "POST", "/api/intents", { intent: await ready(as), ...leveled(body) });
-  /** an intent's work decided by an admin: what the work came to (its status, number, version, merged, message), or the refusal */
+  /** an intent's work decided by an admin: what it came to, or the refusal */
   const decided = async (intent: string, verdict: "accept" | "archive") => {
     const r = await call("ada", "POST", `/api/intents/${intent}/${verdict}`);
     return r.data?.decision ? { ...r.data.decision, stage: r.data.stage } : r.data;
   };
-  /** the intents at Proposal, each as its work (its kind, label, status, who proposed it, how), named by the intent's id */
+  /** the intents at Proposal, each as its work, named by the intent's id */
   const waiting = async () => (await call("ada", "GET", "/api/intents?stage=proposal")).data.map((i: any) => ({ ...i.work, id: i.id, intent: i }));
 
   test("knows its commit: GET /api/version answers the commit its image was built with (PLAY_COMMIT), to anyone; /api/health as it was", async () => {
@@ -588,7 +583,7 @@ suite("play API", () => {
   let storyToken = "";
   /** the stories' agent: its token made by the first story test that asks (each runs alone too, picked with -t) */
   const storyAgent = async () => (storyToken ||= (await call("ada", "POST", "/api/tokens", { name: "stories" })).data.token);
-  /** a tool called over MCP: its error's text, or its structured result; every propose names an intent, one made ready for it unless the test names its own */
+  /** a tool over MCP: its error's text, or its structured result; a propose without `intent` gets one made ready */
   const rawTool = async (name: string, args: Record<string, unknown>, token = storyToken) => {
     token ||= await storyAgent();
     if ((name.startsWith("propose_") || name === "add_artifact" || name === "update_artifact") && args.intent === undefined) args = { ...args, intent: await ready() };
@@ -600,21 +595,16 @@ suite("play API", () => {
   const variantIntent = new Map<number, string>();
   const readyIntent = (title: string, token = storyToken) =>
     fx.readyIntent({ tool: async (name, args) => (await rawTool(name, args, token)).out, approve: (id) => call("ada", "POST", `/api/intents/${id}/approve`) }, title, { spec: fx.spec("It changes.", "One story.") });
-  /** a story's edits, a `title` among them as a field's edit */
   const editsOf = (a: Record<string, any>) => (a.title !== undefined ? [...(a.edits ?? []), { op: "set", fields: { title: a.title } }] : a.edits);
-  /** a story's whole timeline, its `title` with it */
   const wholeOf = (a: Record<string, any>) => ({ ...(a.title !== undefined ? { title: a.title } : {}), ...a.body });
-  /**
-   * A story's next version proposed with propose_doc_version: its whole timeline (`body`) or its edits (`edits`, a
-   * `title`), on its intent variant `variant` where named, for the intent that variant was drafted for.
-   */
+  /** A story's next version (propose_doc_version): its whole `body` or its `edits`, on `variant` where named. */
   const proposeStory = (args: Record<string, any>, token = storyToken) => {
     const { story, note, body, variant } = args;
     const intent = args.intent ?? (variant != null ? variantIntent.get(Number(variant)) : undefined);
     const edits = body === undefined ? editsOf(args) : args.edits;
     return rawTool("propose_doc_version", { doc: story, note, ...(variant != null ? { variant } : {}), ...(intent ? { intent } : {}), ...(body !== undefined ? { whole: wholeOf(args) } : {}), ...(edits !== undefined ? { edits } : {}) }, token);
   };
-  /** one edit of a story with doc_edit, on its intent variant `variant` or a new one for an intent of its own */
+  /** one doc_edit of a story, on `variant` or a new one for an intent of its own */
   const editStory = async (args: Record<string, any>, token = storyToken) => {
     const { story, message, body, variant } = args;
     const intent = args.intent ?? (variant != null ? variantIntent.get(Number(variant)) : undefined) ?? (await readyIntent(`An edit of ${story}`, token));
@@ -622,10 +612,7 @@ suite("play API", () => {
     if (r.out?.variant != null) variantIntent.set(Number(r.out.variant), intent);
     return r;
   };
-  /**
-   * An asset's next version proposed with propose_doc_version: its source, its kinds, the params its recipe declares
-   * and its documents, each a field of the asset's document.
-   */
+  /** An asset's next version (propose_doc_version): its source, kinds, params and documents, each a field. */
   const proposeAssetEdits = (args: Record<string, any>, token = storyToken) => {
     const { asset, note, source, variants, default_variant, params } = args;
     const edits: any[] = [];
@@ -965,9 +952,8 @@ suite("play API", () => {
   });
 
   /**
-   * The Library as an agent reads it (intent 140fdce6): its own token, a plate of its own (a PNG made here, so its hash is
-   * new each run), used by a story's first shot (accepted) and named as a new asset's reference sheet (proposed). Each
-   * test makes it afresh, so either runs alone (`bun test -t`).
+   * The Library as an agent reads it (intent 140fdce6): its own token, a fresh PNG plate used by a story's first shot
+   * (accepted) and named as a new asset's sheet (proposed), made afresh by each test so either runs alone (`bun test -t`).
    */
   const libraryFixture = async () => {
     const token = (await call("ada", "POST", "/api/tokens", { name: "library" })).data.token as string;
@@ -1004,8 +990,7 @@ suite("play API", () => {
     expect((await call(null, "GET", "/api/library")).data.error).toBe("Please sign in first.");
     expect((await call("cit", "GET", "/api/intents")).data.error).toBe("Only Maia City's admins keep the intents.");
     expect((await call("cit", "POST", "/api/tokens", { name: "x" })).data.error).toBe("Only Maia City's admins may make access tokens, for now.");
-    // a token whose owner is no longer an admin opens nothing; a revoked one neither
-    // (an admin of this test's own, so no other test's demotion reaches it)
+    // a token whose owner is no longer an admin opens nothing (an admin of this test's own); a revoked one neither
     const h = (who.librarian = await human(db, `librarian-${randomUUID().slice(0, 8)}`));
     const theirs = (await call("librarian", "POST", "/api/tokens", { name: "their library" })).data;
     expect(theirs.token).toMatch(/^play_/);
@@ -1240,8 +1225,7 @@ suite("play API", () => {
     await db.query(`INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, created) VALUES ($1, '${OLD}', 2, $2, 'Old', ($3::text)::jsonb, 'two', '2026-10-02T10:00:00Z')`, [v2, [v1], JSON.stringify(body("second"))]);
     await db.query(`INSERT INTO play.story_versions (id, story_id, parents, title, body, note, author) VALUES ($1, '${OLD}', $2, 'Old', ($3::text)::jsonb, 'three', $4)`, [p3, [v2], JSON.stringify(body("third")), who.ada.id]);
     await db.query(`UPDATE play.stories SET head = $1 WHERE id = '${OLD}'`, [v2]);
-    // an intent at Proposal (specified, as every one there is) whose work was proposed before the documents: it has no
-    // intent variant yet
+    // an intent at Proposal whose work was proposed before the documents: it has no intent variant yet
     const pid = await ready("ada", "Old v3");
     await db.query(
       `UPDATE play.intents SET stage = 'proposal', work = 'story_version', story_id = '${OLD}', story_base = $2, story_version = $3, work_note = 'three', proposed_by = $4, proposed_via = 'mcp', proposed_at = now() WHERE id = $1`,
