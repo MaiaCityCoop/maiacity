@@ -1,10 +1,7 @@
 /**
- * SANDBOX 7 · THE MAPS — where the land is, what grows there, how deep the sea is and where the mountains stand.
- *
- * The planet's four maps are play's files, named by their BLAKE3 hash in its planet config (Sandbox 7's layout), each in
- * one grid format: an equirectangular grid `width` × `height` from 90° N and 180° W, its rows run-length encoded as
- * `<letter><run>…`, each letter a value in `codes` (a kind, or a depth layer). One decoder reads all four; a card asks
- * with its centre, a unit vector (latitude from y, longitude round it, atan2(x, z)).
+ * SANDBOX 7 · THE MAPS — land, what grows, sea depth and mountains: four play files named by hash in the planet config,
+ * one grid format (equirectangular `width` × `height` from 90° N and 180° W, rows run-length encoded `<letter><run>…`,
+ * each letter a value in `codes`). One decoder reads all four; a card asks with its centre's unit vector.
  */
 export type Vec3 = readonly [number, number, number] | number[];
 export type Value = string | number;
@@ -20,9 +17,8 @@ export type Grid = {
 	/** the value at a point */
 	sample: (p: Vec3) => Value;
 	/**
-	 * The value at a point, or where it is not one `want`s, the first nearby that is, out to `radius` cells: on a `ring`
-	 * (only the cells that far, ring by ring) or a `square` (every cell that far or nearer, again ring by ring). Undefined
-	 * where none is: two maps drawing a coast differently meet here.
+	 * The value at a point, or where it is not one `want`s, the first nearby that is out to `radius` cells, on a `ring`
+	 * or a `square`, ring by ring; undefined where none is (two maps drawing a coast differently meet here).
 	 */
 	near: (p: Vec3, want: (v: Value) => boolean, radius: number, shape: 'ring' | 'square') => Value | undefined;
 };

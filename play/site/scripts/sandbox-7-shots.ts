@@ -1,13 +1,9 @@
 /**
- * Intent 8d683ad6's c11: Sandbox 7 as its proposal would make it, shot to be looked at against the old planet's cover.
- * This branch's API runs on a scratch database on avenBOX's Postgres (TEST_DATABASE_URL, dropped at the end), Sandbox
- * 7's layout holding the planet, biomes and sites it proposes (play/api/import/sandboxes/sandbox-7) and its four maps
- * among its files (from play/media, as the deploy's import puts them); the built site is served by `vite preview` (its
- * /api proxied to the API at :3911) and shot as an admin: the whole globe over the Atlantic, Europe and Africa; the
- * sites' list; a flight to the best site and its card; the walk on the cards; at 1440×900 and 390×844. Nothing is
- * written on play.
- *
- *   bun run build && bun scripts/sandbox-7-shots.ts [out dir]
+ * Intent 8d683ad6's c11: Sandbox 7 as its proposal would make it, shot against the old planet's cover. The API runs on a
+ * scratch database on avenBOX's Postgres (TEST_DATABASE_URL, dropped at the end) holding the layout it proposes
+ * (play/api/import/sandboxes/sandbox-7) and its four maps (from play/media); `vite preview` serves the built site (/api
+ * proxied to :3911), shot as an admin at 1440×900 and 390×844: the globe, the sites, a flight to the best, the walk.
+ * Nothing is written on play.   bun run build && bun scripts/sandbox-7-shots.ts [out dir]
  */
 import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

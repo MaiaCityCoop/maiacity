@@ -1,23 +1,16 @@
 /**
- * SANDBOX 7 · THE CAMERA RIG — from orbit to a walk, as the old planet's was.
- *
- * One camera, one continuous control. Far out it orbits the globe looking straight down at the point beneath it; as it
- * comes closer it tilts toward the horizon, and at the bottom of the zoom it stands at eye height on the cards and
- * walks. Everything scales with altitude: a drag that swings a hemisphere from orbit moves a few steps on the ground.
- *
+ * SANDBOX 7 · THE CAMERA RIG — from orbit to a walk, as the old planet's was: one camera, one continuous control. Far out
+ * it orbits looking straight down, closer it tilts toward the horizon, and at the bottom of the zoom it stands at eye
+ * height on the cards and walks; everything scales with altitude.
  *   drag          far: pan the globe · near: turn (left–right) and walk (up–down)
  *   wheel / pinch altitude, on a log scale
  *   W A S D / ↑↓  walk and strafe · Q E ← → turn
- *   on a phone    the page's joystick walks as the keys do (`move`); two fingers pinch the altitude; at walking height
- *                 one finger looks round
- *   the walk      zooming in past the threshold hands the gaze to the mouse (pointer lock): the cursor goes, a reticle
- *                 marks the centre and the mouse turns the gaze; Esc lets go, a click takes it again, zooming out gives
- *                 it back. Where the page may not lock the pointer the cursor stays as a crosshair and still turns it.
+ *   on a phone    the joystick walks as the keys do (`move`); two fingers pinch; at walking height one finger looks round
+ *   the walk      past the threshold the mouse takes the gaze (pointer lock, a reticle at the centre); Esc lets go, a
+ *                 click takes it again, zooming out gives it back; where locking is refused a crosshair still turns it
  *   flyTo         a flight to a point (a site), the camera coming down over it
- *
- * The position is a unit vector on the sphere, an altitude above the surface and a heading (a bearing from local
- * north). The camera looks along the heading, pitched from −89° (orbit) to −11° (walking). Its maths needs no page:
- * the listeners are only added when it is given the canvas.
+ * Position: a unit vector, an altitude and a heading (bearing from local north), pitched −89° (orbit) to −11° (walking).
+ * Its maths needs no page: listeners are added only when it is given the canvas.
  */
 import * as THREE from 'three';
 import { unitAt } from './maps';
@@ -31,7 +24,6 @@ type RigOptions = {
 	ceiling: number;
 	/** where to start: the point beneath the camera */
 	start: { lat: number; lon: number };
-	/** the starting altitude */
 	altitude: number;
 	/** a reticle to show while the mouse has the gaze */
 	reticle?: HTMLElement;
@@ -66,7 +58,6 @@ export class GlobeRig {
 	readonly eye: number;
 	readonly ceiling: number;
 	readonly surface: number;
-	/** the keys held down */
 	readonly keys = new Set<string>();
 	private dragging = false;
 	private last = { x: 0, y: 0 };
@@ -172,15 +163,13 @@ export class GlobeRig {
 		this.flight = { from: this.pos.clone(), to: new THREE.Vector3(...unitAt(lat, lon)), from_alt: this.altitude, to_alt: Math.min(this.ceiling, Math.max(this.eye, altitude)), t: 0 };
 	}
 
-	/** whether a flight is under way */
 	get flying() {
 		return !!this.flight;
 	}
 
 	/**
-	 * advance by `dt` seconds of real time: a flight keeps to the clock (it lands on time however few frames a slow
-	 * screen draws); keys, inertia and the eased zoom step at most a tenth of a second a frame, so a stall never jumps
-	 */
+	 * Advance by `dt` s of real time: a flight keeps to the clock (lands on time however few frames); keys, inertia and
+	 * the eased zoom step at most 0.1 s a frame, so a stall never jumps */
 	update(seconds: number) {
 		const dt = Math.min(0.1, seconds);
 		if (this.flight) {
