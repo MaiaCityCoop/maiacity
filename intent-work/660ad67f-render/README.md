@@ -27,6 +27,10 @@ bash intent-work/660ad67f-render/run.sh      # optional: a commit of the fix; de
   - the City bus draws;
   - the Pickup and the Fiat 500 F aren't built by the box (`no asset machines/pickup@2:pickup`, `no asset machines/fiat500@2`);
   - the Delivery van throws at its first draw. Its `body paint` gets a number in a texture slot (`nodeUniform11`), and that happens before bd087014 too.
+**Run 4** (after run 3, `out/` 4491373: no errors in either browser, but Safari linked 47 programs walking and the render box's walk measured a mean of 43.8 ms against a bound of 31.2 ms):
+- **The fix** (PR head 0c75e93): `render/core.js`'s `precompile` now builds the kit's node materials too, each paired with its program, so a level's plant programs link while it loads.
+- **The walk is now this job's**, as the render box walks it: 20 s after Sandbox 5 is up, 24 m straight ahead through the dome over 12 s (`__walker.place` each frame), every frame interval kept (frames, mean, p95, over 100 ms, max).
+- **WebKit's mean must be at most 31.2 ms** (1.5 × main's 20.8 ms before the programme), else `FAILED`. Chromium's walk is reported.
 - **Out:** `out/` (screenshots, `results-<browser>.json`, `stdout-<browser>.txt`). Commit it to this branch and push.
 
 **Dry run** (intent cb52fbd9; it passed in avenBOX before this was reported ready): `bun play/site/scripts/macjob/dry.ts intent-work/660ad67f-render --at <this branch's commit>`, from a checkout holding cb52fbd9's `scripts/macjob`. It builds Sandbox 1 on the CPU. Sandbox 5's route is an empty page there, so its waits time out, and the job tolerates that.

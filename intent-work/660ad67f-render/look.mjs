@@ -51,11 +51,34 @@ for (const [name, type, opts] of [
 	const t0 = Date.now();
 	await page.waitForFunction(() => window.__assets?.stats && !['out', 'in', 'library'].some((k) => window.__assets.stats()[k]?.building), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
 	const built = (Date.now() - t0) / 1000;
+	// the walk (the render box's wk5): 20 s after it is up, 24 m straight ahead through the dome over 12 s, every frame's
+	// interval kept
+	await page.waitForTimeout(20_000);
 	const before = await ev(() => window.__links ?? 0, 0);
-	await page.mouse.click(720, 450);
-	await page.keyboard.down('w');
-	await page.waitForTimeout(12_000);
-	await page.keyboard.up('w');
+	const walk = await ev(
+		() =>
+			new Promise((done) => {
+				const w = window.__walker;
+				if (!w?.place) return done(null);
+				const x0 = w.position.x, z0 = w.position.z, yaw = w.yaw(), dx = -Math.sin(yaw), dz = -Math.cos(yaw);
+				const gaps = [];
+				let t0 = null, last = null;
+				const step = (t) => {
+					if (t0 === null) t0 = t;
+					if (last !== null) gaps.push(t - last);
+					last = t;
+					const k = Math.min(1, (t - t0) / 12000);
+					w.place(x0 + dx * 24 * k, z0 + dz * 24 * k, yaw, 0);
+					if (k < 1) requestAnimationFrame(step);
+					else {
+						const s = [...gaps].sort((a, b) => a - b), mean = gaps.reduce((a, b) => a + b, 0) / Math.max(1, gaps.length);
+						done({ frames: gaps.length, mean: +mean.toFixed(1), p95: +(s[Math.floor(0.95 * (s.length - 1))] ?? 0).toFixed(1), over100: gaps.filter((g) => g > 100).length, max: +(s.at(-1) ?? 0).toFixed(1) });
+					}
+				};
+				requestAnimationFrame(step);
+			}),
+		null
+	);
 	const walked = (await ev(() => window.__links ?? 0, 0)) - before;
 	const gpu = await ev(() => { const g = document.querySelector('canvas')?.getContext('webgl2'); const e = g?.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; }, 'unknown');
 	await page.screenshot({ path: `${out}/${name}-sandbox-5.png` });
@@ -89,17 +112,20 @@ for (const [name, type, opts] of [
 		const errors = said.splice(0).filter((t) => !/toNonIndexed|TextureSource|did not grow/.test(t));
 		vehicles.push({ label, id, uniformErrors: errors.filter((t) => BAD.test(t)).length, errors: errors.slice(0, 20) });
 	}
-	const r = { browser: name, gpu, vehicles, sandbox5: { builtSeconds: built, programsLinkedWhileWalking: walked, programsLinkedTotal: await ev(() => window.__links ?? 0, 0), clashes: s5.clashes, errors: s5.said }, sandbox1: { film, errors: said.splice(0) } };
+	const r = { browser: name, gpu, vehicles, sandbox5: { builtSeconds: built, walk, programsLinkedWhileWalking: walked, programsLinkedTotal: await ev(() => window.__links ?? 0, 0), clashes: s5.clashes, errors: s5.said }, sandbox1: { film, errors: said.splice(0) } };
 	const bad = [...r.sandbox5.errors, ...r.sandbox1.errors].filter((t) => BAD.test(t));
-	if (bad.length || film.startsWith('threw')) failed = true;
+	// the Safari walk's bound (c6, as the render box judges it): 1.5 × main's 20.8 ms before the programme
+	const slow = name === 'webkit' && !!walk && walk.mean > 31.2;
+	if (bad.length || film.startsWith('threw') || slow) failed = true;
+	r.walkOverBound = slow;
 	r.bad = bad;
 	results.push(r);
-	console.log(`${name} (${gpu}): Sandbox 5 built in ${built.toFixed(0)} s, ${walked} programs linked walking, ${bad.length} uniform/load errors, ${s5.clashes.length} clashes caught; Sandbox 1's film ${film}`);
+	console.log(`${name} (${gpu}): Sandbox 5 built in ${built.toFixed(0)} s, walk ${walk ? `${walk.frames} frames, mean ${walk.mean} ms, p95 ${walk.p95}, ${walk.over100} over 100 ms, max ${walk.max}` : 'not walked'}, ${walked} programs linked walking, ${bad.length} uniform/load errors, ${s5.clashes.length} clashes caught; Sandbox 1's film ${film}`);
 	for (const v of vehicles) console.log(`  viewer ${v.label}: ${v.uniformErrors} uniform errors, ${v.errors.length} errors${v.errors[0] ? `: ${v.errors[0].slice(0, 160)}` : ''}`);
 	for (const c of s5.clashes.slice(0, 5)) console.log(`  clash ${c.a} ~ ${c.b}:\n    was …${c.was}…\n    is  …${c.at}…`);
 	await browser.close();
 }
 finished = true;
 writeFileSync(`${out}/results${only ? `-${only}` : ''}.json`, JSON.stringify(results, null, 2));
-console.log(failed ? 'FAILED: see results.json' : 'OK: no uniform error, no plant failed to load, the film advanced');
+console.log(failed ? 'FAILED: see results.json' : 'OK: no uniform error, no plant failed to load, the film advanced, the walk within its bound');
 process.exit(failed ? 1 : 0);
