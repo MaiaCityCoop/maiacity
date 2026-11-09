@@ -161,7 +161,7 @@ const artifact: Kind = {
 // (./assetdocs.ts unreadable); each accepted version's source kept among play's files by its hash. A new piece's Main
 // is only its schema until it is accepted. An intent may hold several versions of one piece, in order (intent 02e3a85f).
 const piece: Kind = {
-  name: "piece", prefix: "piece", schema: SCHEMA.piece, work: "piece_version", table: "play.records", where: "r.kind = 'piece'", label: "piece", group: "pieces",
+  name: "piece", prefix: "piece", schema: SCHEMA.piece, work: "piece_version", table: "play.records", where: "r.kind = 'piece'", label: "piece", group: "pieces", manyPerIntent: true,
   check: (doc) => {
     if (Object.keys(doc ?? {}).length <= 1) return [];
     const out = ["label", "source"].filter((f) => doc[f] === undefined).map((f) => `$.${f}: a piece has its ${f}`);

@@ -80,6 +80,8 @@ export type Kind = {
   shown?: (q: Queryable, before: any, after: any) => Promise<Record<string, unknown>>;
   /** its row's owner column (an asset's: ./owners.ts), where a document may be a person's own, private to them: to anyone else it is as one that never was */
   owned?: string;
+  /** whether an intent may hold several versions of one of its documents, in order, each the next (a piece's: intent 02e3a85f) */
+  manyPerIntent?: boolean;
   /** whether its documents have breeds (an asset's: play/SPEC.md "Breeds") */
   breeds?: boolean;
   /** what its schema and check can't say without the database, held as its version is proposed for intent `intent` (a piece's pieces: each an accepted one or one proposed in the same intent); throws why not */

@@ -267,7 +267,7 @@ async function variantFor(q: Queryable, docId: string, uuid: string, intent: str
  * intent's last one, its first edit that version's state, so it is that version's next; else it grows from Main.
  */
 async function growFromHeld(q: Queryable, k: Kind, docId: string, v: number, intent: string, author: docs.Author) {
-  if (k.name !== "piece") return;
+  if (!k.manyPerIntent) return;
   const { rows } = await q.query<{ variant_id: string }>(
     `SELECT iv.variant_id FROM play.intent_variants iv JOIN play.doc_variants dv ON dv.id = iv.variant_id
       WHERE iv.intent_id = $1 AND iv.doc_id = $2 AND iv.variant_id <> $3 AND dv.status = 'proposed' ORDER BY iv.position DESC LIMIT 1`,
@@ -472,7 +472,7 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
   const kindOf = (h: { doc_id: string }) => kindOfDoc(h.doc_id) ?? own;
   const hooked = held.filter((h) => !!kindOf(h).decide);
   // its pieces (intent 02e3a85f): kept first, in the order they require each other, each exactly as proposed
-  const pieces = held.filter((h) => !hooked.includes(h) && kindOf(h).name === "piece");
+  const pieces = held.filter((h) => !hooked.includes(h) && kindOf(h).manyPerIntent);
   if (verdict === "archive") {
     if (!hooked.length) return archive();
     let first: any = null;

@@ -97,3 +97,8 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
     hand-written UPDATEs in intents, stepback and withdraw (api-flow #37). Ship's own stage writes stay in ship.ts:
     ship.test pins that the reconcile is the one write of 'accepted' there. "There is no such intent" 13 → 2.
     Pinned: intents.test, withdraw.test, retire.test, private.test (the same 404 text), depends.test, the whole suite.
+11. **A piece's several versions per intent is a kind flag** (`Kind.manyPerIntent`, set on the piece kind in
+    allkinds.ts), read by versioned.ts' growFromHeld and decideWork and by held.ts' holdVariant instead of
+    `k.name === "piece"` and `docId.startsWith("piece:")` (api-flow #33, api-docs#15 code side, #36, F4). The
+    `ON CONFLICT … WHERE doc_id NOT LIKE 'piece:%'` stays: it names migration 02e3a85f's partial index, which
+    Postgres matches by its predicate. Pinned: intentpieces.test, pieces.test, the whole suite.

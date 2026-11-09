@@ -17,6 +17,7 @@ import * as docs from "./docs";
 import type { Queryable } from "./kit/pg";
 import { UUID } from "./kit/uuid";
 import { gistOf } from "./gist";
+import { kindOfDoc } from "./kinds";
 
 /** what a piece of work names: its kind ("<kind>_version" of a versioned kind, ./versioned.ts) and its refs (play.intents' work columns, and its document's variant: play.intent_variants) */
 export type Work = {
@@ -96,7 +97,7 @@ const OWN_REFS = `(SELECT jsonb_strip_nulls(jsonb_build_object('kind', w.work, '
 export async function holdVariant(q: Queryable, me: Pick<Me, "id"> | null, intent: string, docId: string, variant: number, refs?: Record<string, unknown>) {
   const given = refs === undefined ? null : JSON.stringify(refs);
   // a piece may be held in several versions, in order (intent 02e3a85f): each variant goes in after the others
-  const piece = docId.startsWith("piece:");
+  const piece = !!kindOfDoc(docId)?.manyPerIntent;
   const { rows } = await q.query<{ variant_id: string }>(
     `SELECT variant_id FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2${piece ? " AND variant_id = $3" : ""}`,
     piece ? [intent, docId, variant] : [intent, docId],
