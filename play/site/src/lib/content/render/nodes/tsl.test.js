@@ -2,13 +2,13 @@
 // stage's soil and floor. Where glslangValidator is installed (avenBOX), each shader is also checked as GLSL ES 3.0.
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as THREE from 'three';
 import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
-import { groundMaterial } from '../biomes/surfaces.js';
-import { groundOf } from './ground.js';
+import { groundMaterial } from '../../biomes/surfaces.js';
+import { groundOf } from '../../assets/ground.js';
 
 /** a material's shaders as the node handler builds them, against a stand-in context (no graphics card) */
 function glslOf(material) {
@@ -70,5 +70,22 @@ describe('the ground in TSL', () => {
 			let i = 0;
 			for (const m of mats) valid(`stage${sky ? '-sky' : ''}${i++}`, glslOf(m));
 		});
+});
+
+// three's compileAsync can wait forever on a node material under WebGLNodesHandler: every warm-up goes through
+// render/core.js's precompile, which leaves node materials to compile as they are first drawn
+describe('warm-ups', () => {
+	it('call compileAsync only in render/core.js', () => {
+		const src = join(import.meta.dirname, '../../..'), found = [];
+		const walk = (d) => {
+			for (const f of readdirSync(d)) {
+				const p = join(d, f);
+				if (statSync(p).isDirectory()) walk(p);
+				else if (/\.(js|ts|svelte)$/.test(f) && !/\.test\./.test(f) && /compileAsync\(/.test(readFileSync(p, 'utf8'))) found.push(p.slice(src.length + 1));
+			}
+		};
+		walk(src);
+		expect(found).toEqual(['content/render/core.js']);
+	});
 });
 

@@ -140,6 +140,7 @@ try {
 		await page.screenshot({ path: join(work, `player-${t}.png`), clip: { x: 0, y: 0, width: W, height: H }, timeout: 300_000 });
 	}
 	await browser.close();
+	// how alike, by SSIM
 	const scores = at.map((t) => {
 		const out = run(['ffmpeg', '-loglevel', 'info', '-i', join(work, `render-${t}.png`), '-i', join(work, `player-${t}.png`), '-lavfi', 'ssim', '-f', 'null', '-']);
 		const s = Number(out.match(/All:([0-9.]+)/)?.[1]);

@@ -20,6 +20,7 @@ export type Live = { asset: string; version: string; variant?: string; values?: 
  *  and its variants' recipes */
 export type LiveAsset = { asset: string; version: string; recipe: string; pieces?: string[]; engine: number; params?: { id: string | number; name?: string }[]; variants?: Record<string, { recipe: string; pieces?: string[] }> };
 
+export const MOST_STEPS = 24;
 export const STEPS = 8;
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
@@ -111,6 +112,7 @@ export function curveAt(c: Curve | undefined, t: number, or: number): number {
 
 /** how many frames a shot of `duration` s holds at `fps`: its first and its last both drawn */
 export const framesOf = (duration: number, fps: number) => Math.max(1, Math.round(duration * fps) + 1);
+/** the frame a moment shows: t's nearest, within the shot */
 export const frameOf = (t: number, fps: number, frames: number) => Math.min(frames - 1, Math.max(0, Math.round(t * fps)));
 
 /** the sun at an hour (0 … 24) on a day's arc: up at 6 in the east (az 90°), highest at noon (50° in the south, 180°),

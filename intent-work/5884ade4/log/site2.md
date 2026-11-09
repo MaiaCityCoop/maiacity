@@ -22,6 +22,12 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    nothing) is `content/render/warmups.test.js`, beside `core.js`. Folder cycles no held file closes: 2 → 0. Layers
    stay 11: `render/nodes` turns more stable (I 0.43 → 0.33) and the held `render/nodes/ground.js → biomes/sets.js`
    is now the upward import in its place, held alone. Pinned: the same 5 tests, passing; gate site.
+   **Undone** (held since): intent ed6694c3 now holds `render/nodes/tsl.test.js`, `stories/live.ts` and
+   `world.test.ts`, and 8823eb7c `scripts/render.mjs` and `story-parity.ts`. The test is back at its path (the move
+   and its split reverted in one commit), and this branch's comment edits of the two scripts and of live.ts with it.
+   Held, the test's imports are set aside, so the cycle stays uncounted (held-free folder cycles 0); its
+   `render/nodes → content/assets` stays among the layers, held. `render.mjs` still names the bench at
+   `src/lib/content/assets/RenderBench.svelte` (now `src/routes/render/`): Next untangles.
 3. **Comments naming a file that is gone: 3 (6 after move 1) → 0** (comments only). The bench's own `./catalog.js`,
    `./clips.js` and `./render/crowd.js` name `content/assets/…` now; three of play/api's tests named
    `./intents.ts` and `./select.ts` beside them, which are `../src/intents.ts` and `play/avenbox/select.ts`.
