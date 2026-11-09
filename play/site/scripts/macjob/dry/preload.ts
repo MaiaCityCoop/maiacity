@@ -16,3 +16,13 @@ plugin({
 		b.onResolve({ filter: /^(playwright|@playwright\/test)$/ }, () => ({ path: SHIM }));
 	}
 });
+
+// a job's own servers (its proxy to play on 3911) take a free port: no browser reaches them here, and two dry runs side
+// by side would otherwise fight over one
+import http from 'node:http';
+const listen = http.Server.prototype.listen;
+http.Server.prototype.listen = function (this: http.Server, ...a: any[]) {
+	if (typeof a[0] === 'number') a[0] = 0;
+	else if (a[0] && typeof a[0] === 'object' && 'port' in a[0]) a[0] = { ...a[0], port: 0 };
+	return listen.apply(this, a as any);
+} as typeof listen;
