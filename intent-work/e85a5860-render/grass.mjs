@@ -68,13 +68,13 @@ const RENDERERS = small ? ['webgpu'] : ['webgl2', 'webgpu'];
 
 const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu', '--enable-features=Vulkan,WebGPU'] } : { args: ['--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] });
 const ctx = await browser.newContext(small ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } });
-await ctx.addInitScript({ content: SEEDED_RANDOM });
-await ctx.addInitScript({ content: meterScript });
-await ctx.addInitScript(() => {
+const page = await ctx.newPage();
+await page.addInitScript({ content: SEEDED_RANDOM });
+await page.addInitScript({ content: meterScript });
+await page.addInitScript(() => {
 	window.__interiorHour = 12;
 	window.__worldTime = 100;
 });
-const page = await ctx.newPage();
 const adapter = await page.evaluate(async () => {
 	const a = await navigator.gpu?.requestAdapter();
 	const info = a?.info ?? (await a?.requestAdapterInfo?.());
@@ -141,7 +141,8 @@ for (const r of RENDERERS) {
 	await page.waitForFunction(() => window.__walker && window.__assets && window.__grass, null, { timeout: 10 * 60e3 });
 	const mode = await page.evaluate(() => window.__grass.mode ?? 'tiles');
 	console.log(`${r}: the grass's ${mode}`);
-	if (r === 'webgpu' && mode !== 'indirect') throw new Error('?renderer=webgpu did not choose the blades on the card: no WebGPU here?');
+	// on the Mac a WebGPU page that fell back measures nothing of this intent's (the dry run in avenBOX has no GPU: it goes on)
+	if (r === 'webgpu' && mode !== 'indirect' && process.platform === 'darwin') throw new Error('?renderer=webgpu did not choose the blades on the card: no WebGPU here?');
 	const spot = results.spot ?? (results.spot = await findSpot());
 	console.log(`up after ${Math.round((Date.now() - t0) / 1000)} s; the meadow at ${spot.x}, ${spot.z} (grass ${spot.g.toFixed(2)})`);
 	for (const light of LIGHTS) {
@@ -156,7 +157,7 @@ for (const r of RENDERERS) {
 			await page.screenshot({ path: png });
 			const withGrass = await page.evaluate(() => window.__meter.sample(4));
 			const drawn = await blades();
-			const choice = r === 'webgpu' && !small && light.name === 'noon' ? await checkChoice() : null;
+			const choice = mode === 'indirect' && !small && light.name === 'noon' ? await checkChoice() : null;
 			await page.evaluate(() => (window.__grass.object.visible = false));
 			const without = await page.evaluate(() => window.__meter.sample(4));
 			await page.evaluate(() => (window.__grass.object.visible = true));
@@ -165,7 +166,7 @@ for (const r of RENDERERS) {
 			console.log(`${r} ${light.name} ${h.name}: frame ${withGrass.frame_ms} ms (gpu ${withGrass.gpu_ms}, bound ${withGrass.bound}); the grass ${grassGpuMs} GPU ms in ${withGrass.calls - without.calls} draws; blades ${drawn.join(' / ')}${choice ? `; card vs CPU differ ${choice.share} of ${choice.drawn} (never reach the vertex stage: ${choice.neverVertex})` : ''}`);
 		}
 	}
-	if (r !== 'webgpu' || small) continue;
+	if (mode !== 'indirect' || small) continue;
 
 	/* the trample: 12 m walked through the meadow at 1.3 m/s, then turned round to look back along the path */
 	const x0 = results.spot.x, z0 = results.spot.z + 6;

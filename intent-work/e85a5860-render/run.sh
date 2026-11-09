@@ -24,9 +24,12 @@ for p in "$W"/*.png; do ffmpeg -loglevel error -y -i "$p" -vf "scale=1440:-2" -q
 for l in noon sun8; do for h in walk up2; do
   ffmpeg -loglevel error -y -i "$W/webgl2-$l-$h.png" -i "$W/webgpu-$l-$h.png" -filter_complex "[0:v]scale=-2:720[a];[1:v]scale=-2:720[b];[a][b]hstack" -q:v 3 "$OUT/beside-$l-$h.jpg"
 done; done
-# the trodden path springing back, 0 / 2 / 5 / 10 s side by side
+# the trodden path springing back, 0 / 2 / 5 / 10 s side by side, and the walking film (drawn only where the blades
+# are chosen on the card: on the Mac always, as grass.mjs stops where WebGPU fell back; not in avenBOX's dry run)
+if [ -f "$W/trample-0s.png" ]; then
 ffmpeg -loglevel error -y -i "$W/trample-0s.png" -i "$W/trample-2s.png" -i "$W/trample-5s.png" -i "$W/trample-10s.png" -filter_complex "[0:v]scale=-2:480[a];[1:v]scale=-2:480[b];[2:v]scale=-2:480[c];[3:v]scale=-2:480[d];[a][b][c][d]hstack=4" -q:v 3 "$OUT/trample-strip.jpg"
 ffmpeg -loglevel error -y -framerate 24 -i "$W/film-noon/%04d.jpg" -vf "scale=1440:-2" -c:v libx264 -crf 24 -pix_fmt yuv420p "$OUT/film-noon.mp4"
+fi
 du -sh "$OUT"/*
 grep '^verdict' "$OUT/run-log.txt" "$OUT/run-log-small.txt"
 echo "Push $OUT to the branch intent-work/e85a5860-render (as every job's results), never onto intent/e85a5860-grass-compute: no frame reaches main"

@@ -9,6 +9,17 @@ twice at every view:
 
 It measures what each one costs on the GPU.
 
+**Dry run first, in avenBOX** (intent cb52fbd9, `play/site/scripts/macjob/README.md`): the job on the CPU with the
+CPU stand-ins, which proves its script and its plumbing, not its pictures or times:
+
+```sh
+bun play/site/scripts/macjob/dry.ts intent-work/e85a5860-render --at <the job's commit>
+```
+
+It printed DRY RUN PASSED in avenBOX. There the WebGPU page falls back to its tiles (no GPU), so the compute's own
+steps run only on the Mac: reading the choice back, the trample and the film. They are guarded so a fallback
+can't reach them.
+
 **On the Mac**, from the repository's root:
 
 ```sh
