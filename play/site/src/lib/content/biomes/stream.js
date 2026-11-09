@@ -26,7 +26,7 @@ import { layTile } from './index.js';
  *   open?: (x: number, z: number, margin?: number) => boolean,
  *   tile?: number, reach?: number, near?: number, thin?: number, perFrame?: number, seed?: number, density?: number,
  *   origin?: [number, number], at?: [number, number, number], hidden?: boolean, heightAt?: (x: number, z: number) => number,
- *   sown?: number, trunks?: import('./masks.js').Trunk[]
+ *   sown?: number, trunks?: import('./masks.js').Trunk[], blades?: boolean
  * }} o
  *   drawn: the renderer it is drawn by (its kinds used, copies taken and given back); recipe: the biome, each kind of
  *   its cover naming its build (`ref`); open: whether cover may stand at x, z (not on a path, in the water, in a
@@ -38,7 +38,9 @@ import { layTile } from './index.js';
  *   it is shown; heightAt: the floor's height at x, z of its own ground where it is not flat (and its relief, for a biome's wet and
  *   slope masks); sown: the way a field's lines run (radians from +x towards +z; ./surfaces.js `rowsOf`), for the
  *   kinds a machine sowed; trunks: the trees standing on it, each its place and crown's radius in its own ground, for
- *   a biome's canopy masks (./masks.js). `open` may take a third argument, a margin: how far a kind keeps clear
+ *   a biome's canopy masks (./masks.js). `open` may take a third argument, a margin: how far a kind keeps clear;
+ *   blades: its grass drawn blade by blade by a grass field beside it (./grass.js, intent 090168c8), so its grass
+ *   kinds (not sown) are laid as before, the other kinds where they were, but none of their copies drawn here
  */
 export function coverStream(o) {
 	const tile = o.tile ?? 12, reach = o.reach ?? 30, perFrame = o.perFrame ?? 1, seed = o.seed ?? 1;
@@ -48,6 +50,7 @@ export function coverStream(o) {
 	const { recipe, drawn } = o;
 	// each kind by the build its biome's card names (a hash): drawn finely however small, so never as a picture
 	const kinds = recipe.cover.map((c) => {
+		if (o.blades && !c.rows && (c.kind === 'grass' || c.kind === 'tallgrass')) return null;
 		if (!c.ref) throw new Error(`the biome names no asset for its cover kind ${c.kind}`);
 		return drawn.use(c.ref, false, false);
 	});
@@ -59,6 +62,7 @@ export function coverStream(o) {
 	const lay = (/** @type {number} */ ix, /** @type {number} */ iz) => {
 		const copies = [];
 		layTile(recipe, ix, iz, { tile, seed, density: o.density, open: o.open, origin: [ox, oz], sown: o.sown, trunks: o.trunks, heightAt: o.heightAt }).forEach(({ m: M, rank, tint }, k) => {
+			if (!kinds[k]) return;
 			for (let i = 0; i < rank.length; i++) {
 				m.fromArray(M, i * 16);
 				const e = m.elements;
