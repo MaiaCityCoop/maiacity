@@ -1,0 +1,38 @@
+# Sandbox 2's physics (`bun run test:physics` in play/site, about ten minutes): on every push to main, and on a pull
+# request to main that changes play/site/src/lib/sandbox-2/ (a draft runs nothing, as main.yml). A workflow of its own
+# (intent 14dc8d5f), not a job of main.yml's: release.yml starts once main's whole run is done, and the physics held
+# every release behind them. Not a required check and not one production's main-green reads; a red run stays on the
+# commit for everyone to see.
+name: physics
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths: ["play/site/src/lib/sandbox-2/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: physics-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  physics:
+    name: Sandbox 2's physics
+    if: github.event_name == 'push' || !github.event.pull_request.draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: The physics
+        working-directory: play/site
+        run: |
+          bun install --frozen-lockfile
+          bun run test:physics
