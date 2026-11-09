@@ -54,7 +54,7 @@ describe('the render core holds', () => {
 		expect(stages.filter((f) => !/\.ready\b/.test(f.text)).map((f) => f.path)).toEqual([]);
 		expect(files.find((f) => f.path === 'lib/content/factories/app.js')?.text).toMatch(/ready\(look\.renderer\)/);
 	});
-	// a compileAsync that gathers a node material never settles under WebGLNodesHandler: every warm-up is precompile's
+	// every warm-up is precompile's, which pairs each node material's build with its program (./core.js `nodes`)
 	test('every warm-up goes through the core’s precompile', () => {
 		expect(outside(/\bcompileAsync\s*\(/, [CORE])).toEqual([]);
 	});

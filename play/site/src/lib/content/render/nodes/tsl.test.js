@@ -72,10 +72,10 @@ describe('the ground in TSL', () => {
 		});
 });
 
-// three's compileAsync can wait forever on a node material under WebGLNodesHandler: every warm-up goes through
-// render/core.js's precompile, which leaves node materials to compile as they are first drawn
+// every warm-up goes through render/core.js's precompile, which builds node materials too, each paired with its program
+// (660ad67f): nothing calls three's compileAsync, which never pairs a node material's build (on WebGL's handler)
 describe('warm-ups', () => {
-	it('call compileAsync only in render/core.js', () => {
+	it('call compileAsync nowhere', () => {
 		const src = join(import.meta.dirname, '../../..'), found = [];
 		const walk = (d) => {
 			for (const f of readdirSync(d)) {
@@ -85,7 +85,13 @@ describe('warm-ups', () => {
 			}
 		};
 		walk(src);
-		expect(found).toEqual(['content/render/core.js']);
+		// but the core's precompile on a WebGPURenderer (intent c1bee1f8), where compileAsync is three's own warm-up and
+		// pairs what it builds: its one call, inside its WebGPU branch
+		const core = 'content/render/core.js';
+		expect(found.filter((f) => f.split('\\').join('/') !== core)).toEqual([]);
+		const text = readFileSync(join(src, core), 'utf8');
+		expect(text.match(/compileAsync\(/g)?.length ?? 0).toBeLessThanOrEqual(1);
+		if (/compileAsync\(/.test(text)) expect(text.slice(text.indexOf('if (isWebGPU(renderer)) {\n\t\tconst turn'), text.search(/compileAsync\(/)).length).toBeLessThan(200);
 	});
 });
 
