@@ -342,3 +342,12 @@ behaviour:
   catching a body that is no JSON, comment nits; graph.ts follows the census's `lib('<path>')` loader.
 Left, noted: the pieces page's two dead snippets (they are the aside Samuel may decide to wire up: *Asks*); ~25
 tests spell the two required checks' names (fixture data of GitHub's answers); setup.sh (held) beside box.env.
+
+### Marked ready (14:51Z) and its first run in avenBOX on GitHub
+
+c1–c10 passed. c11 red: uuids.test's beforeAll passed 5 s, because on a fresh runner every test file made the
+template at once; one makes it now while the others wait (a session advisory lock, `LOCK.testTemplate`), shown
+from no template three times, once beside eight busy loops on four cores. c12 red: the runner's checkout has no
+origin/main; census-same.sh now fetches and unshallows as vs-main.ts does (shown on a depth-1 clone of GitHub). Main
+was merged in by hand for its one real conflict (routes/game-editor/+page.svelte: this branch's `$wire` DocVersion and
+`isAdmin`, main's new levelling rows), with 7af6e162 landed.
