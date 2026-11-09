@@ -1019,20 +1019,21 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	// the layout pins it (grass.js's own where it pins none)
 	const meadowBiome = flora ? null : biomeOr(FLOORS.meadow)
 	const grassBiome = flora ? FLOOR_BIOME : meadowBiome
-	const grassOf = grassBiome && growsGrass(grassBiome) ? grassOfRecipe(grassBiome) : flora ? null : () => ({ grass: 0.9, tall: 0.3 })
+	const grassOf = grassBiome && growsGrass(grassBiome) ? grassOfRecipe(grassBiome, (x, z, margin) => floorOpen(x, z, margin), { trunks: floorTrunks, heightAt: groundY }) : flora ? null : () => ({ grass: 0.9, tall: 0.3 })
 	let grassOpen = false
 	const grass = grassOf
 		? grassField({
 				params: grassBiome?.grass,
 				device: smallDevice() ? 'small' : 'desktop',
-				// on the ground's relief (groundY), as every plant and the cover stand
+				// on the ground's relief (groundY), as every plant and the cover stand; off the paths' stones (their points
+				// 1.5 m apart down the middle of a ribbon 2.4 m wide, so 1.5 m from them is off the stones)
 				at: flora
-					? (x, z) => (grassOpen && floorOpen(x, z) ? { ...grassOf(x, z), y: groundY(x, z) } : { grass: 0, tall: 0 })
+					? (x, z) => (grassOpen && floorOpen(x, z) && !nearPath(x, z, 1.5) ? { ...grassOf(x, z), y: groundY(x, z) } : { grass: 0, tall: 0 })
 					: (x, z) => (!grassOpen || !inHex(x, z) || inDome(x, z, 1) || inSquare(x, z) || nearPath(x, z, 1.6) || nearWater(x, z, W / 2 + 0.4) ? { grass: 0, tall: 0 } : { ...grassOf(x, z), y: groundY(x, z) })
 			})
 		: null
 	if (grass) scene.add(grass.object)
-	// for the checks that measure it (intent-work/090168c8-render): its blades by level, and it shown or not
+	// for the checks that look at it (c7's screenshots): its blades by level, its mask, and it shown or not
 	;(window as unknown as { __grass?: typeof grass }).__grass = grass
 	const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sv = new THREE.Vector3()
 	const mat = (x: number, y: number, z: number, rot: number, sx: number, sy = sx, sz = sx) => new THREE.Matrix4().compose(p.set(x, y + groundY(x, z), z), q.setFromEuler(e.set(0, rot, 0)), sv.set(sx, sy, sz))

@@ -38,6 +38,7 @@
 import * as THREE from 'three';
 import { fbm2, vn } from './noise.js';
 import { colonyAt } from './index.js';
+import { MASKS, canopyOf, maskAt, reliefAt, ringAt } from './masks.js';
 import * as TSL from 'three/tsl';
 import { windNodes, worldSeconds } from '../render/wind.js';
 import { grassMaterial, grassUniforms } from '../render/nodes/grass.js';
@@ -147,14 +148,26 @@ export function keep(d, dev) {
 /** how far over what is kept a blade still shows, sinking (in rank: a share of what is kept, so as few far as near) */
 export const FADE = 0.12;
 /**
+ * How much of the ground its grass stands on where the mask grows `grass` (0…1): a colony stands dense with bare ground
+ * between, as grass grows, never thin all over; the mask's shares from PATCH[0] (none) to PATCH[1] (all of it).
+ */
+export const PATCH = /** @type {const} */ ([0.04, 0.4]);
+/** @param {number} grass */
+export const standing = (grass) => smooth(PATCH[0], PATCH[1], grass);
+/**
+ * How many real blades a drawn one stands for across: a desktop draws about 120 a square metre near where a meadow holds
+ * thousands, so each is drawn as wide as the few it stands for and the ground is covered as a meadow's is.
+ */
+export const STANDS = 2.5;
+/**
  * How far it grows (0…1) where it stands, with its rank and its end, where the mask grows `grass` (0…1): the mask thins
- * it by rank as distance does, so where half the ground is grass half the blades stand, the same half further out.
+ * it by rank as distance does (by `standing`: a colony dense, the ground between bare), the same blades further out.
  * @param {number} d @param {number} rank @param {number} end 0.9…1 @param {{ bands: number[], near: number, falloff?: number }} dev
  */
 export function growAt(d, rank, end, dev, grass = 1) {
 	const reach = /** @type {number} */ (dev.bands[2]) * end;
 	const edge = 1 - smooth(reach - 6, reach, d);
-	const k = keep(d, dev) * grass;
+	const k = keep(d, dev) * standing(grass);
 	return Math.min(1, Math.max(0, (k * (1 + FADE) - rank) / (k * FADE + 1e-4))) * edge;
 }
 /** the circle the field ends in, for a blade (its end, 0.9…1 of the reach) @param {number} end @param {{ bands: number[] }} dev */
@@ -400,19 +413,38 @@ export class GrassMask {
 }
 
 /**
- * How much grass a biome's cover grows at x, z, and how much of it tall: what `coverAt` would choose there, as a share
- * (its grass kinds against every kind there, and the ground its plants leave bare).
- * @param {import('./index.js').Recipe} recipe @param {(x: number, z: number) => boolean} [open]
+ * How much grass a biome's cover grows at x, z, and how much of it tall: what its laying would choose there, as a share
+ * (its grass kinds against every kind there, and the ground its plants leave bare). A biome with masks weighs each kind
+ * by them as its laying does (index.js `layMasked`, ./masks.js `maskAt`): the canopy's shade and edge and the rings
+ * round its trunks (`trunks`), the hollows and slopes (`heightAt`), and each kind's keep-clear off the paths and the
+ * water (`open` with its `clear`), so the blades stand where its grass would and nowhere else.
+ * @param {import('./index.js').Recipe} recipe @param {(x: number, z: number, margin?: number) => boolean} [open]
+ * @param {{ trunks?: import('./masks.js').Trunk[], heightAt?: (x: number, z: number) => number }} [world]
  * @returns {(x: number, z: number) => { grass: number, tall: number }}
  */
-export function grassOfRecipe(recipe, open) {
+export function grassOfRecipe(recipe, open, world = {}) {
 	const kinds = recipe.cover.map((c) => (c.kind === 'grass' ? 1 : c.kind === 'tallgrass' ? 2 : 0));
+	const masks = recipe.masks ? { ...MASKS, ...recipe.masks } : null;
+	const ringOut = Math.max(...recipe.cover.map((c) => c.ring?.[1] ?? 0), 0);
+	// the canopy's lookup, made once the world's trees are known (and again if more are planted)
+	/** @type {ReturnType<typeof canopyOf> | null} */
+	let canopy = null, trunksSeen = -1;
+	const canopyHere = (/** @type {number} */ x, /** @type {number} */ z) => {
+		const t = world.trunks;
+		if (!masks || !t?.length) return null;
+		if (t.length !== trunksSeen) (canopy = canopyOf(t, masks.band, ringOut)), (trunksSeen = t.length);
+		return /** @type {ReturnType<typeof canopyOf>} */ (canopy)(x, z);
+	};
 	return (x, z) => {
 		if (open && !open(x, z)) return { grass: 0, tall: 0 };
+		const can = masks ? canopyHere(x, z) : null, relief = masks ? reliefAt(world.heightAt, x, z) : null;
 		let empty = 1, total = 0, grass = 0, tall = 0;
 		recipe.cover.forEach((c, i) => {
 			if (c.rows) return;
-			const m = colonyAt(recipe, i, x, z), fill = c.fill ?? 0.85;
+			let m = colonyAt(recipe, i, x, z);
+			// a kind with a ring stands in it round every trunk, its colonies or not; then its masks (its laying's sums)
+			if (masks && (m = Math.max(m, ringAt(c, can))) > 0) m = Math.min(1, m * maskAt(c, can, relief, open, x, z));
+			const fill = c.fill ?? 0.85;
 			empty *= 1 - fill * m;
 			const v = c.share * fill * m;
 			total += v;
@@ -458,7 +490,7 @@ export function tilesAround(x, z, dev, n, over) {
 		const m = over ? over(tx * CELL, tz * CELL, w) : { ready: true, most: 1 };
 		if (!m.ready || m.most <= 0) return;
 		// every blade with a rank under what is kept at its nearest point where the mask grows the most, and the fade over it
-		const count = Math.min(n, Math.ceil(n * Math.min(1, keep(d, dev) * m.most * (1 + FADE)) + 1));
+		const count = Math.min(n, Math.ceil(n * Math.min(1, keep(d, dev) * standing(m.most) * (1 + FADE)) + 1));
 		if (count > 0) out.push({ tx, tz, level, count });
 	};
 	const r = Math.ceil(end / W);
