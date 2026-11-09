@@ -25,12 +25,13 @@
  *   light     normals rounded across the blade and turned to the ground's with distance (fully by the last band's end),
  *             wrapped diffuse, light through the tips seen against the sun, low gloss fading with distance, roots
  *             darkened as the grass is dense; shadows received, never cast
- *   wind      a gust field rolling over the blades (`wind`; intent 6's one wind replaces it), the walker and animals
+ *   wind      the world's one wind rolling over the blades (`wind`: render/wind.js, intent 6fd5e63f), the walker and animals
  *             pushing them aside (`push`: up to PUSHERS pushers a frame)
  *   where     where grass grows and how tall (a mask round the eye, `GrassMask`: the biome's grass kinds' colonies,
  *             what is open), a blade standing where the mask says, a tile with no grass in it never drawn
  *
- * `grassField({ params, mask, device })` → `{ object, update(camera, time) }`: add `object` to the scene, call `update`
+ * `grassField({ params, at, device, wind })` → `{ object, update(camera, time, { sun, pushers, height, budget }), count(),
+ * dispose() }`: add `object` to the scene, call `update`
  * every frame. Its node material is drawn by every renderer the core makes (render/core.js `createRenderer`, which
  * installs three's nodes handler: intent b03f9fb4).
  */
