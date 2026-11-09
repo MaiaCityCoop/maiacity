@@ -37,6 +37,8 @@ export type Row = {
 	treasury: {
 		/** euros raised so far, villagers' and investors' */
 		raised: number;
+		/** of which villagers brought, and investors */
+		euros: { villagers: number; investors: number };
 		/** euros spent on what the levels so far unlocked */
 		spent: number;
 		/** raised less spent */
@@ -52,7 +54,7 @@ export type Row = {
 
 export function ledger(c: Levelling): Row[] {
 	const rows: Row[] = [];
-	let before = 0, raised = 0, spent = 0, hearts = 0, minds = 0, investorMinds = 0;
+	let before = 0, villagerEuros = 0, investorEuros = 0, spent = 0, hearts = 0, minds = 0, investorMinds = 0;
 	c.levels.forEach((level, i) => {
 		const joined = Math.max(0, level.villagers - before);
 		before = level.villagers;
@@ -64,7 +66,9 @@ export function ledger(c: Levelling): Row[] {
 		const invMinds = inv / pe;
 		const minted = all.minds + invMinds;
 		const cost = level.unlocks.reduce((t, u) => t + u.cost, 0);
-		raised += all.euros + inv;
+		villagerEuros += all.euros;
+		investorEuros += inv;
+		const raised = villagerEuros + investorEuros;
 		spent += cost;
 		hearts += all.hearts;
 		minds += minted;
@@ -79,7 +83,7 @@ export function ledger(c: Levelling): Row[] {
 			investor: { euros: inv, minds: invMinds, share: minted ? invMinds / minted : 0 },
 			minted,
 			cost,
-			treasury: { raised, spent, left: raised - spent, hearts, minds, investors: minds ? investorMinds / minds : 0, value: minds * pe },
+			treasury: { raised, euros: { villagers: villagerEuros, investors: investorEuros }, spent, left: raised - spent, hearts, minds, investors: minds ? investorMinds / minds : 0, value: minds * pe },
 		});
 	});
 	return rows;

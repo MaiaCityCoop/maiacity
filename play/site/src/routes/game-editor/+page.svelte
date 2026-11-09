@@ -102,7 +102,7 @@
 
 					<div class="stats">
 						<div><span>Villagers</span><b>{whole(last.level.villagers)}</b><small>{rows.length} levels</small></div>
-						<div><span>Raised</span><b>{euros(last.treasury.raised)}</b><small>{euros(rows.reduce((t, r) => t + r.villagers.euros, 0))} villagers · {euros(rows.reduce((t, r) => t + r.investor.euros, 0))} investors</small></div>
+						<div><span>Raised</span><b>{euros(last.treasury.raised)}</b><small>{euros(last.treasury.euros.villagers)} villagers · {euros(last.treasury.euros.investors)} investors</small></div>
 						<div><span>Built</span><b>{euros(last.treasury.spent)}</b><small>{euros(last.treasury.left)} left in the treasury</small></div>
 						<div><span>Hearts</span><b>{short(last.treasury.hearts)}</b><small>in the coop's treasury</small></div>
 						<div><span>Minds</span><b>{short(last.treasury.minds)}</b><small>investors hold {pct(last.treasury.investors)}</small></div>
