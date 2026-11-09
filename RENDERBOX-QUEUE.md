@@ -5,7 +5,9 @@
 (#8 every other shader; by hand after it: the Lab's contact dots and its start race, **fix intent cef10a08**), aa593c290
 (544485e2) and 3b19a5f99 (0b4c007b); details below. **#9 is armed and goes first:** its job starts within two minutes
 of `MAC JOB READY` at a new tip of intent-work/c1bee1f8-render, and a deploy's smoke now waits while it is ready or
-running.
+running. For #9's builder: **WebGPU works headless on this Mac with no extra flag**: Chromium 153 with mac-page.mjs's
+`LAUNCH` (adapter `apple` / `metal-3`, `requestDevice` ok) and Playwright's WebKit 26.6, Safari 26.6's engine (adapter
+`apple`, device ok). So the job can drive both through Playwright (`chromium`, `webkit`); no safaridriver.
 
 - **smoke 4417092b7: OK** ([090168c8] Real grass: blades you could walk through, near to far (#2183); 292 s). 16 pages; all drawn. Frames: near 29.1 ms · mid 38.4 ms · far 16.7 ms.
   Looks: the blades show at Sandbox 1's near and mid views (green tufts over the soil and in the path's verges, where
