@@ -1,14 +1,13 @@
 /*
  * REFS — one way to name an asset at a version, `group/id@v[:variant][?parameters]`, and to find its builder in a set
- * of groups. The page asks every group (./index.js `assetAt`, `objectAt`); the asset box asks only the groups built as
- * one object (./groups.js). Both go through here, so a ref means the same thing everywhere. The parameters are the
- * ones its recipe declares (./params.js): `plants/apple@2?seed=maia&stage=9`.
+ * of groups (`assetIn`, `objectIn`; the box's engine builds through `buildWith`), so a ref means the same thing
+ * everywhere. The parameters are the ones its recipe declares (./params.js): `plants/apple@2?seed=maia&stage=9`.
  */
 import { argsOf, paramsIn, queryOf, valuesOf } from './params.js';
 
-/** @typedef {import('./groups.js').Group} Group */
-/** @typedef {import('./groups.js').Item} Item */
-/** @typedef {import('./groups.js').AnyVersion} AnyVersion */
+/** @typedef {{ list: () => Promise<Item[]> }} Group */
+/** @typedef {{ id: string, versions: AnyVersion[] }} Item */
+/** @typedef {{ v: number, build: any, kept: boolean }} AnyVersion */
 
 /**
  * A ref as its parts; `params` as text, undefined when it names none. @param {string} ref
@@ -50,7 +49,7 @@ export function pick(list, id, v, variant) {
 }
 
 /**
- * An asset at a version in `groups`, by its ref (see ./index.js `assetAt`).
+ * An asset at a version in `groups`, by its ref.
  * @param {Record<string, Group>} groups
  * @param {string} ref
  * @returns {Promise<{ group: string, item: Item, version: AnyVersion, build: any, kept: boolean } | undefined>}
@@ -85,7 +84,7 @@ export async function buildWith({ build, params = [], ref }, given, args = []) {
 }
 
 /**
- * An asset at a version in `groups`, built (see ./index.js `objectAt`), with the ref's values, else `args` (`buildWith`).
+ * An asset at a version in `groups` built, with the ref's values, else `args` (`buildWith`).
  * @param {Record<string, Group>} groups
  * @param {string} ref
  * @param {...any} args

@@ -1,7 +1,7 @@
 // @ts-nocheck — plain JS, runs in the box and in the page
 /*
  * WHAT A MATERIAL IS, AS DATA (intent 6fd5e63f) — a recipe can't send a shader out of the box (./box/serialize.js), so a
- * material says what it *is* instead, and the page's own TSL draws it (../render/wind.js, ./render/foliage.js): its
+ * material says what it *is* instead, and the page's own TSL draws it (../render/wind.js, ../render/foliage.js): its
  * `look`, one of KINDS, with three numbers in checked ranges:
  *
  *   translucency   0…1    how much sunlight comes through it from behind (a leaf's glow at golden hour; bark none)

@@ -1,86 +1,63 @@
 // @ts-nocheck — plain JS, trusted: runs in the page's worker (./simplify.worker.js), or in the page
 /*
- * An asset's lower levels of detail (./lod.js) made from a finer level's geometry (./prepare.js) by meshoptimizer's
- * simplifier, the one three.js ships (three/addons/libs/meshopt_simplifier.module.js: library code, never the
- * recipe's). A plant keeps its recipe's own levels, one over its ceiling brought under it here. A lower level leaves
- * out the bones' weights (a posed copy is drawn from level 0's tree, ./index.js) and the blend shapes (a pose is baked
- * in first, ./prepare.js).
+ * An asset's lower levels of detail (./lod.js) made from a finer level's geometry (./prepare.js) by the meshoptimizer
+ * simplifier three.js ships (library code, never the recipe's). A plant keeps its recipe's own levels, one over its
+ * ceiling brought under it here. A lower level leaves out the bones' weights (a posed copy is drawn from level 0's
+ * tree, ./index.js) and the blend shapes (a pose is baked in first).
  */
 import { MeshoptSimplifier } from 'three/addons/libs/meshopt_simplifier.module.js';
 import { STRETCH } from './lod.js';
-/** the simplifier's code, made ready once */
 export const ready = MeshoptSimplifier.ready;
 
-/**
- * This simplifier's version: part of the key every level it made is kept by on this device (../cache/levels.js
- * `levelKeyOf`). Raised whenever what it makes of a build changes (its weights, its passes, its error), so no level made
- * the old way is drawn again.
- */
+/** Part of every level's key on this device (../cache/levels.js `levelKeyOf`): raised whenever what it makes changes. */
 export const VERSION = 1;
 
 /** what a lower level leaves out: the bones' weights, which only a posed copy, drawn from level 0's tree, uses */
 export const LEFT = new Set(['skinIndex', 'skinWeight']);
 
 /**
- * How much a change in each attribute weighs against a change of the shape, as meshoptimizer weighs them (a change of
- * 1 in the attribute as much as one of the size of the drawing it is on, `weighed`): a normal turned the most, a
- * colour less, a picture's place least (a texture's tiling runs to many units).
+ * How much a change in each attribute weighs against a change of the shape (1 in the attribute as much as the size of
+ * the drawing, `weighed`): a normal the most, a colour less, a picture's place least (a texture's tiling runs far).
  */
 const WEIGHTS = { normal: 0.5, color: 0.25, uv: 0.02 };
 
-/**
- * How much a change of a picture's place weighs on a drawing a picture is painted on (its colour map: a van's two
- * colours, a tent's canvas), as a normal does: a corner moved across it shows another colour, not a texture's tiling.
- */
+/** A picture's place on a painted drawing (a van's two colours, a tent's canvas) weighs as a normal does. */
 const PAINTED = 0.5;
 
 /**
- * How many times more a normal weighs in a level's first making: its shading kept as it was (a van's panels, a
- * pickup's lamps, a hutch's round struts). A level that cannot come to its share so is made again with WEIGHTS as they
- * are, lighter (`lowerDraws`); and so is every level of a kind smooth all through (EDGED).
+ * How many times more a normal weighs in a level's first making (a van's panels, a pickup's lamps, a hutch's struts).
+ * A level that cannot come to its share so is made again with WEIGHTS (`lowerDraws`), as is a kind smooth all through.
  */
 const SHADED = 4;
 
 /**
- * A drawing with at least this share of its places a hard edge (a panel's rim, a box's corners) has edges to keep lit.
- * A kind none of whose drawings has (a goat's coat, a person's skin) has no panels: its outline is what shows, and it
- * is weighed as WEIGHTS are from the first.
+ * A drawing with at least this share of its places a hard edge has edges to keep lit. A kind none of whose drawings
+ * has (a goat's coat, a person's skin) shows its outline, and is weighed as WEIGHTS are from the first.
  */
 const EDGED = 0.01;
 
-/**
- * a drawing this light (triangles) or lighter, drawn once, is kept as it is: there is nothing in a box or a card to
- * take away worth the trouble. One drawn many times (a tent's poles, a pickup's wheel nuts) is weighed by all its copies.
- */
+/** A drawing this light (triangles) drawn once is kept as it is; one drawn many times is weighed by all its copies. */
 const TINY = 24;
 
 const maxOf = (A) => (A instanceof Uint8Array ? 255 : A instanceof Uint16Array ? 65535 : A instanceof Int8Array ? 127 : A instanceof Int16Array ? 32767 : 1);
 
-/** an attribute's components as floats */
 const floats = (a) => (a.array instanceof Float32Array && !a.normalized ? a.array : Float32Array.from(a.array, (v) => (a.normalized ? v / maxOf(a.array) : v)));
 
-/**
- * a loose piece this many pixels across or more (where its level is drawn biggest) keeps its outer corners, and is put
- * back if the simplifier folds it away: a part several pixels big there (a mirror, a wiper, a lamp) is seen
- */
+/** a loose piece this many pixels across or more keeps its outer corners, put back if folded away (a mirror, a lamp) */
 export const KEEP = 3;
 
 /** a piece kept whole, when it is kept (`levelAt`), of so many places or fewer: a box's */
 export const BOX = 12;
 
-/**
- * How a kind is looked at to find the pieces of it never seen (`seenOf`): from SIDES directions spread over the sphere,
- * each a picture `px` pixels across its ball, the size it is drawn at where level 2 hands over and more.
- */
+/** `seenOf` looks at a kind from SIDES directions, each a picture `px` across its ball (as drawn where level 2 starts) */
 export const SEEN = { px: 384, sides: 42 };
 
 /** a level this much over its share (a times) has its never seen pieces looked for, and left out */
 const OVER = 1.05;
 
 /**
- * A shape's corners welded where they are the same, near enough: every attribute it keeps, rounded to its grain, the
- * same. Its triangles that come to nothing (two corners at one place, whatever else they carry: no area) are left
- * out. And each corner's place: the corners at one point, whatever their other attributes (`place`, of `places`).
+ * A shape's corners welded where every attribute, rounded to its grain, is the same; triangles with no area left out;
+ * and each corner's place: the corners at one point whatever their other attributes (`place`, of `places`).
  * @param {{ attributes: Record<string, { array: ArrayLike<number>, itemSize: number, normalized?: boolean }>, index: ArrayLike<number> }} shape
  * @returns {{ attributes: Record<string, { array: any, itemSize: number, normalized: boolean }>, index: Uint32Array, count: number, place: Int32Array, places: number }}
  */
@@ -241,10 +218,9 @@ function boxOfPieces(pieces, which) {
 }
 
 /**
- * The attributes the simplifier weighs, side by side as floats, and their weights (a picture's place heavier on a
- * drawing `painted`), and so with a normal SHADED times heavier (`shaded`): a change weighs against the size of the
- * drawing, as meshoptimizer weighs it. (Weighed against each loose piece's own size, a small part's shading came
- * cheap, and a coop's struts and a van's lamps lost theirs first.)
+ * The attributes the simplifier weighs, as floats, with their weights (a picture's place heavier when `painted`, a
+ * normal SHADED times heavier when `shaded`), against the drawing's size. (Against each loose piece's own size, a coop's
+ * struts and a van's lamps lost their shading first.)
  */
 function weighed(attributes, count, painted) {
 	const parts = [];
@@ -286,10 +262,7 @@ function compact(welded, index) {
 /** how sharply two faces may meet and still be shaded as one smooth surface, once a shape is shaded again (radians) */
 const CREASE = (50 * Math.PI) / 180;
 
-/**
- * The places of a shape that are a hard edge: two of their corners' normals more than CREASE apart (a box's corners, a
- * panel's rim). @param {Int32Array} place each corner's place, of `places`
- */
+/** The places that are a hard edge: two corners' normals more than CREASE apart. @param {Int32Array} place of `places` */
 function hardPlaces(normal, place, places) {
 	const hard = new Uint8Array(places);
 	if (!normal) return hard;
@@ -307,14 +280,11 @@ function hardPlaces(normal, place, places) {
 }
 
 /**
- * A welded shape's triangles `index`, simplified across its seams, shaded again where what is left of it calls for: a
- * corner where two faces were once a hard edge (a machine's panel against the next) may have been folded across it,
- * and its old normal then lights the faces on the other side wrongly (a dark crease, a pale band). A corner of a
- * triangle whose normal still lies within CREASE of the triangle's own keeps it (a curved panel keeps the smooth
- * shading it was made with), and so does one at a place that was no hard edge (a strut's round side, folded thinner,
- * still lit as round); any other takes the faces round its place that meet its own at less than CREASE, weighed by
- * their area. The corners of one welded corner with the same normal are one corner again, keeping its colour and
- * picture's place.
+ * A welded shape's triangles `index`, simplified across its seams, shaded again where needed: a corner folded across a
+ * hard edge lights the faces beyond it wrongly (a dark crease, a pale band). A corner whose normal lies within CREASE of
+ * its triangle's keeps it, and so does one at a place with no hard edge (a strut's round side); any other takes the
+ * area-weighted normal of the faces round its place within CREASE. Corners of one welded corner with the same normal
+ * are one corner again.
  */
 function reshade(welded, index) {
 	const P = floats(welded.attributes.position);
@@ -424,8 +394,7 @@ function readied(shape) {
 }
 
 /**
- * A shape's weighed attributes (a readied drawing's, or the drawings' together), each corner's scaled by how big its
- * loose piece is against its drawing: a leaf's shading weighs on a leaf as a branch's on a branch, so a crown kept
+ * A shape's weighed attributes, each corner's scaled by how big its loose piece is against its drawing: so a crown kept
  * whole (`every`) gives up its wood's triangles before its leaves'.
  */
 function relative(g) {
@@ -456,10 +425,7 @@ const LAYOUT = [
 	['uv', 2]
 ];
 
-/**
- * The drawings drawn once as one shape for the simplifier, each moved along x past the one before so that none takes
- * another's corners; where two meet on an open edge (`shared`), neither moves.
- */
+/** The drawings as one shape, each moved along x past the one before; where two meet on an open edge, neither moves. */
 function together(rs) {
 	let count = 0;
 	const offset = rs.map((r) => {
@@ -521,11 +487,10 @@ function together(rs) {
 }
 
 /**
- * A drawing's triangles at one level, before it is simplified: its pieces smaller than the level draws left out (a
- * plan that keeps `every` piece, a plant's, leaves none out), and so its pieces never seen (`seen`, when looked for);
- * the corners the simplifier may not move (`lock`): each piece's outer ones, the furthest along each axis, for a piece
- * at least KEEP pixels across (and three of every piece's, for `every`); how much bigger it is drawn than made
- * (`scale`), and how big a piece is put back if it comes to nothing (`keep`, m).
+ * A drawing's triangles at one level, before it is simplified: its pieces smaller than the level draws left out (none
+ * for `every`, a plant's), and its pieces never seen (`seen`); the corners the simplifier may not move (`lock`: each
+ * piece's outermost along each axis for a piece at least KEEP pixels across, three of every piece's for `every`); its
+ * `scale`, and how big a piece is put back if it comes to nothing (`keep`, m).
  */
 function levelAt(r, d, plan, seen) {
 	const { pieces, welded } = r;
@@ -605,9 +570,8 @@ function levelAt(r, d, plan, seen) {
 }
 
 /**
- * The simplifier's passes, in turn until one comes near enough its share: each how many times the level's error it
- * may stray by, how (see above), and whether it is taken only if it does. A level still over its ceiling after them is
- * passed again allowed further, its smallest pieces pruned.
+ * The simplifier's passes, in turn until one comes near its share: each how many times the level's error it may stray
+ * by, and whether it is taken only if it does. One still over its ceiling is passed again further, small pieces pruned.
  */
 const PASSES = [
 	[1, []],
@@ -616,10 +580,8 @@ const PASSES = [
 ];
 
 /**
- * A shape for the simplifier (`g`: a readied drawing, or drawings together) cut to its triangles `index`, simplified
- * to `tris` triangles, its corners `lock` kept, within `error` metres where it can (see the passes above); the number
- * of the pass it came from (`first` the first's), or 0 when nothing could be taken away, and what a pass allowed
- * further came to though short of its share (`short`).
+ * A shape (`g`) cut to its triangles `index`, simplified to `tris`, its corners `lock` kept, within `error` metres where
+ * it can; the pass it came from (0 when nothing could be taken away), and a further pass that fell short (`short`).
  * @returns {{ index: Uint32Array, error: number, pass: number, short?: { index: Uint32Array, error: number, pass: number } }}
  */
 function simplified(g, index, lock, tris, error, passes = PASSES, first = 1) {
@@ -648,9 +610,8 @@ function simplified(g, index, lock, tris, error, passes = PASSES, first = 1) {
 }
 
 /**
- * A drawing's triangles after the simplifier, with each piece it should keep (in `at`, at least its `keep` across)
- * that it folded to nothing put back alone: as plain as the level's error lets it, and at least a few triangles (a
- * rod of eight sides as a thin box), or as it was when even that folds it away; and how far those stray (m).
+ * A drawing's triangles after the simplifier, each piece it should keep (in `at`) that it folded to nothing put back
+ * alone, as plain as the level's error lets it (a rod of eight sides as a thin box); and how far those stray (m).
  */
 function survived(r, at, index, error) {
 	const { pieces } = r;
@@ -681,10 +642,9 @@ function survived(r, at, index, error) {
 }
 
 /**
- * Which pieces of a kind are ever seen from outside it: every drawing at every place it is drawn, looked at from
- * SEEN.sides directions spread over the sphere (from below too: a lamp hung high is seen so), each a picture SEEN.px
- * pixels across the kind's ball, its nearest faces kept in each pixel. A face of a drawing drawn on one side only hides
- * nothing from its other; a drawing seen through (glass, a net) hides nothing, and is seen where nothing hides it.
+ * Which pieces of a kind are ever seen from outside: every copy of every drawing looked at from SEEN.sides directions
+ * (from below too: a lamp hung high), each a picture SEEN.px across the ball, its nearest faces kept per pixel. A
+ * one-sided face hides nothing from behind; a drawing seen through (glass, a net) hides nothing.
  * @returns {Promise<false | { pieces: Uint8Array, copies: Uint8Array }[]>} for each drawing, whether each of its pieces
  *   is seen in any of its copies, and whether each copy is seen at all; false when every piece is
  */
@@ -810,18 +770,15 @@ async function seenOf(draws, rs, pause) {
 }
 
 /**
- * How a lighter level is looked at for its outline (`outlinesOf`): from `sides` directions spread over the sphere, each
- * a picture as many pixels across the kind's ball as the level is drawn at its biggest, halved (as the levels check
- * compares them), and `px` at most. One brought to its share by straying further (STRETCH) is taken only if its
- * outline strays (a share of what either covers) `most` at most, the worst a level read as before this check, or no
- * more than `more` further than its careful pass's.
+ * How a lighter level's outline is checked (`outlinesOf`): `sides` directions, each a picture as many pixels across as
+ * the level is drawn at its biggest, halved, `px` at most. One brought to its share by STRETCH is taken only if its
+ * outline strays `most` at most (a share of what either covers), or no more than `more` past its careful pass's.
  */
 export const LOOK = { sides: 10, px: 512, more: 0.01, most: 0.03 };
 
 /**
- * How far some lighter levels of a kind stray from the outline of the first (`sets`, each for each drawing its welded
- * triangles, or null): each drawn at every place it is drawn, both sides, from LOOK.sides directions, and each pixel
- * only covered or not; for each, the pixels it and the first do not share against those either covers.
+ * How far lighter levels (`sets`) stray from the first's outline: each drawn at every place, both sides, from LOOK.sides
+ * directions; the pixels it and the first do not share against those either covers.
  * @param {number} smallest a pixel where the level is drawn biggest (m, ./lod.js `smallestOf`)
  * @returns {Promise<number[]>}
  */
@@ -997,9 +954,8 @@ export async function lowerDraws(draws, plans, pause) {
 				return [a, b];
 			};
 			/**
-			 * Every drawing simplified to the level, `less` triangles under what it may cost and its ceiling (the room
-			 * for the pieces put back after): each drawing's triangles, how far it strays, and its pass.
-			 * @returns {Promise<Map<number, { index: Uint32Array, error: number, pass: number }>>}
+			 * Every drawing simplified to the level, `less` triangles under its share and ceiling (room for the pieces
+			 * put back after). @returns {Promise<Map<number, { index: Uint32Array, error: number, pass: number }>>}
 			 */
 			const fitted = async (less) => {
 				const budget = Math.max(1, plan.budget - less), top = most - less;
@@ -1132,9 +1088,8 @@ export async function lowerDraws(draws, plans, pause) {
 	/** whether the kind is smooth all through, none of its drawings with hard edges (EDGED): once known */
 	let smooth = null;
 	/**
-	 * One level as its shading is kept, or, when that cannot come to its share by the passes (only by pruning its
-	 * pieces for its ceiling, or not at all), lighter; a crown kept whole, or a kind smooth all through, lighter from
-	 * the first
+	 * One level as its shading is kept, or lighter when that cannot come to its share by the passes; a crown kept
+	 * whole, or a kind smooth all through, lighter from the first.
 	 */
 	const best = async (plan, seen) => {
 		if (plan.every) return lowered(plan, seen, false);
