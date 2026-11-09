@@ -18,6 +18,7 @@ import { seedStories, type StoriesReport } from "./stories";
 import { ensureAssetDocs, type AssetDocsReport } from "../src/assetdocs";
 import { seedFactories, type FactoriesReport } from "./factories";
 import { seedGameConfigs, type GameConfigsReport } from "./gameconfigs";
+import { seedSandboxLayouts, type SandboxLayoutsReport } from "./sandboxes";
 import { seedSkills, type SkillsReport } from "./skills";
 
 // the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
@@ -39,6 +40,8 @@ export type Report = {
   gameConfigs: GameConfigsReport;
   /** the skills kept in the repo (what play teaches its agents), each written once into play's Postgres as its document's v1 (./skills.ts) */
   skills: SkillsReport;
+  /** the sandboxes' layouts kept in the repo, each written once as its layout document's v1 (./sandboxes.ts) */
+  sandboxLayouts: SandboxLayoutsReport;
   /** every asset's Loro document, made from its history where it has none (../src/assetdocs.ts) */
   assetDocs: AssetDocsReport;
   /** when the legacy import ran (play.imports), or null where it never did (a database not restored from play's) */
@@ -58,6 +61,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { media?: boolea
     factories: { seeded: [], present: [], errors: [] },
     gameConfigs: { seeded: [], present: [], errors: [] },
     skills: { seeded: [], present: [], errors: [] },
+    sandboxLayouts: { seeded: [], present: [], errors: [] },
     assetDocs: { made: 0, variants: 0, kept: 0, breeds: 0, edits: 0, versions: 0, bytes: 0, errors: [] },
     legacy: { ran: await legacyRan(db) },
     ok: false,
@@ -70,12 +74,13 @@ export async function runImport(db: Db, store: BlobStore, opts: { media?: boolea
   report.factories = await seedFactories(db);
   report.gameConfigs = await seedGameConfigs(db);
   report.skills = await seedSkills(db);
+  report.sandboxLayouts = await seedSandboxLayouts(db);
   log("making every asset's document from its history…");
   report.assetDocs = await ensureAssetDocs(db, store);
   // no sweep of the store here (intent 5ab64b8e): the deploy's file check is the backup's, one listing of the store
   // before anything changes (deploy/backup.sh stops the deploy if a file is missing), and play mends a file its
   // bucket lacks from that second copy on read (blobs.ts mirroredStore). Reading every file again is server.yml's.
-  report.ok = !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.factories.errors.length && !report.gameConfigs.errors.length && !report.skills.errors.length && !report.assetDocs.errors.length;
+  report.ok = !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.factories.errors.length && !report.gameConfigs.errors.length && !report.skills.errors.length && !report.sandboxLayouts.errors.length && !report.assetDocs.errors.length;
   return report;
 }
 
@@ -85,10 +90,13 @@ export async function legacyRan(db: Queryable): Promise<string | null> {
   return rows[0] ? new Date(rows[0].ran).toISOString() : null;
 }
 
-const MEDIA_TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", mp4: "video/mp4", mp3: "audio/mpeg", ktx2: "image/ktx2" };
+const MEDIA_TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", mp4: "video/mp4", mp3: "audio/mpeg", ktx2: "image/ktx2", json: "application/json" };
+/** a media file named by its hash and ending (`<hash>.<ending>`), its endings the ones MEDIA_TYPES knows */
+const NAMED_MEDIA = new RegExp(`\\b([0-9a-f]{64})\\.(${Object.keys(MEDIA_TYPES).join("|")})\\b`, "g");
 
 /** every media file play's site names by its hash (`<hash>.<ending>` in play/site/src: the sandboxes' covers, their sounds,
- * the ground's scanned surfaces) */
+ * the ground's scanned surfaces), and every one the sandboxes' layouts kept in the repo name (./sandboxes/: Sandbox 7's
+ * maps, intent 8d683ad6) */
 export function mediaNamed(): { hash: string; ending: string }[] {
   const dir = join(ROOT, "play/site/src");
   const out = new Map<string, string>();
@@ -97,14 +105,15 @@ export function mediaNamed(): { hash: string; ending: string }[] {
   } catch {
     throw new Error(`play's site sources are not at ${dir}: the media they name can't be found`);
   }
-  const walk = (d: string) => {
+  const walk = (d: string, files: RegExp) => {
     for (const f of readdirSync(d)) {
       const p = join(d, f);
-      if (statSync(p).isDirectory()) walk(p);
-      else if (/\.(js|ts|svelte)$/.test(f)) for (const m of readFileSync(p, "utf8").matchAll(/\b([0-9a-f]{64})\.(jpg|jpeg|png|webp|mp4|mp3|ktx2)\b/g)) out.set(m[1], m[2]);
+      if (statSync(p).isDirectory()) walk(p, files);
+      else if (files.test(f)) for (const m of readFileSync(p, "utf8").matchAll(NAMED_MEDIA)) out.set(m[1], m[2]);
     }
   };
-  walk(dir);
+  walk(dir, /\.(js|ts|svelte)$/);
+  walk(join(import.meta.dir, "sandboxes"), /\.json$/);
   // the animals' sounds (./sounds.json) too
   for (const s of Object.values(SOUNDS)) {
     const m = /^([0-9a-f]{64})\.(mp3)$/.exec(s.file);

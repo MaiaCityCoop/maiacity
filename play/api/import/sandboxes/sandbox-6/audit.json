@@ -1,0 +1,681 @@
+{
+	"note": "Sandbox 6's audit (play/SPEC.md §4.6; intent 67f0404a): every input the page's numbers come from, each with its source (an artifact play keeps), a decision (Samuel's, dated) or an estimate and why. Nothing here is taken from the old Sandbox 6's figures; `old` lists what that page showed, for the report only.",
+	"inputs": {
+		"livingPerson": {
+			"label": "Living space a resident has in Germany (net, Wohnfläche)",
+			"unit": "m²",
+			"value": 49.2,
+			"source": "89a1fd17-5994-4f6a-bd50-0903c1fcaccd"
+		},
+		"grossFactor": {
+			"label": "Gross floor area of a multi-family building to its living space (BGF ÷ Wohnfläche)",
+			"unit": "×",
+			"value": 1.55,
+			"source": "33062cd9-f54c-45e6-ae3d-2d1eac62e540"
+		},
+		"budget": {
+			"label": "What villagers and investors raise for the village's part",
+			"unit": "€",
+			"value": 200000000,
+			"decided": "Samuel 2026-11-09: investors capped at €112,500 a new villager, €125,000 with the villager's own €12,500; about €175–200M"
+		},
+		"heatKm": {
+			"label": "Length of the village's heat network",
+			"unit": "km",
+			"value": 11.5,
+			"estimate": "The research's compact layout takes 8–15 km in all (4–6 km a hex is too long for the load, under 200 kWh a metre a year): the middle of that range until the network is laid out"
+		},
+		"pvKwp": {
+			"label": "Solar field: its size",
+			"unit": "kWp",
+			"value": null,
+			"pending": "the village's power demand is not yet worked out"
+		},
+		"batteryKwh": {
+			"label": "Battery: its size",
+			"unit": "kWh",
+			"value": null,
+			"pending": "the village's evening load is not yet worked out"
+		},
+		"biogasKwe": {
+			"label": "Biogas plant: its size",
+			"unit": "kWe",
+			"value": null,
+			"pending": "the village's food and garden waste is not yet worked out"
+		},
+		"geothermalMwth": {
+			"label": "Geothermal plant: its size",
+			"unit": "MWth",
+			"value": null,
+			"pending": "the village's heat demand is not yet worked out"
+		},
+		"commonHousePerResident": {
+			"label": "Shared kitchens, dining and common rooms a resident (a cohousing common house)",
+			"unit": "m²",
+			"value": 9,
+			"source": "633843e7-c94c-45ed-9300-d8f2f948c803"
+		},
+		"halls": {
+			"label": "Community halls in the tower",
+			"unit": "halls",
+			"value": 1,
+			"decided": "Samuel 2026-11-09: \"Theatre and library move into tower\"; the school, clinic and town hall stay in the village centre"
+		},
+		"hallM2": {
+			"label": "A two-court village hall, 18 × 17 m (seats up to 356, 496 with a stage)",
+			"unit": "m²",
+			"value": 306,
+			"source": "86c1811d-4e1e-4481-9ff1-ea7dbdfde2dc"
+		},
+		"sportPerResident": {
+			"label": "Usable sports hall a resident (municipalities up to 10,000)",
+			"unit": "m²",
+			"value": 0.37,
+			"source": "3314248e-37e5-4358-9ff9-32c7d717d19d"
+		},
+		"libraries": {
+			"label": "Libraries in the tower",
+			"unit": "libraries",
+			"value": 1,
+			"decided": "Samuel 2026-11-09: \"Theatre and library move into tower\"; the school, clinic and town hall stay in the village centre"
+		},
+		"libraryM2": {
+			"label": "A village library below 2,500 inhabitants, at least",
+			"unit": "m²",
+			"value": 75,
+			"source": "2f076865-1d1f-4c41-a2e3-3c55e6999aae"
+		},
+		"workshopPerResident": {
+			"label": "Workshops and studios a resident",
+			"unit": "m²",
+			"value": 0.1,
+			"estimate": "About one registered user a m² (makerspace survey, artifact a730499b) times a tenth of the residents registered: no per-resident benchmark for community workshops was found"
+		},
+		"marketPerResident": {
+			"label": "Market hall and cafés a resident",
+			"unit": "m²",
+			"value": 0.5,
+			"estimate": "No per-resident benchmark found for a village market hall and cafés: half a square metre a resident gives ~700 m², a market hall with a few stalls and two cafés"
+		},
+		"coworkDesksPerResident": {
+			"label": "Co-working desks a resident",
+			"unit": "desks",
+			"value": 0.0625,
+			"source": "cb5dceb7-4ad9-4051-968f-fb640b25e4f4"
+		},
+		"deskM2": {
+			"label": "Floor an open-plan desk (open-plan rooms of 400 m² or more), its share of circulation",
+			"unit": "m²",
+			"value": 13.5,
+			"source": "ba96cac2-f1d4-4d7d-bf5d-6f2b31f1b5b7"
+		},
+		"guestRooms": {
+			"label": "Guest rooms for visitors",
+			"unit": "rooms",
+			"value": 20,
+			"estimate": "No benchmark found for a village's guest rooms; Samuel asked for tens, not 1,200: about one room for every 70 residents"
+		},
+		"guestRoomM2": {
+			"label": "Floor a guest room, its bath and share of corridor",
+			"unit": "m²",
+			"value": 25,
+			"estimate": "A simple double room with its bath (~18 m²) and its share of corridor: no source read"
+		},
+		"usableShare": {
+			"label": "Usable floor of the tower's gross (NUF ÷ BGF)",
+			"unit": "×",
+			"value": 0.75,
+			"estimate": "A public building's walls, core, stairs and plant take about a quarter of its gross floor (IFLA's library guidance adds 20 % non-assignable space to the net, before walls): no direct source read"
+		}
+	},
+	"split": {
+		"note": "What the village's €200M pays for and what each coop invests itself (Samuel 2026-11-09), the same lines as the levelling intent 1df683fd's.",
+		"village": [
+			"land",
+			"dome buildings (their shells, floors and glazing, the panels built into the glazing)",
+			"the homes inside the home domes",
+			"the Tower180's shell, floors, core, lifts and services",
+			"the village centre's halls",
+			"roads and paths",
+			"water works, wastewater and nutrient recycling",
+			"the microgrid and power lines",
+			"the district heat network",
+			"the tech container itself, its Starlink and server"
+		],
+		"coop": [
+			"the works' and the dome factory's lines and machines (each works coop)",
+			"the workshops' tools",
+			"the food domes' production kit (the food coops)",
+			"the tower tenants' fit-out: shops, hotel, offices",
+			"the solar fields and their batteries (a solar coop)",
+			"the tech container's 50 kWp solar and battery (an energy coop)",
+			"the biogas plant (a biogas coop)",
+			"the geothermal plant and its wells (a geothermal coop)"
+		]
+	},
+	"costs": [
+		{
+			"id": "shell-40",
+			"label": "Glazed geodesic dome shell, 40 m",
+			"payer": "village",
+			"qty": {
+				"shell": 40
+			},
+			"contractor": [
+				1300,
+				2000,
+				3500
+			],
+			"self": [
+				350,
+				575,
+				800
+			],
+			"unit": "€/m² shell",
+			"basis": "structure and envelope",
+			"source": "built up from glazing €500–1,000/m² installed, glulam 0.03–0.12 m³/m² × €2,000–3,000/m³, steel hubs",
+			"estimate": true,
+			"note": "self-built high: not given for 40 m, taken between the 350 low and the 120 m's 1,000"
+		},
+		{
+			"id": "shell-80",
+			"label": "Glazed geodesic dome shell, 80 m",
+			"payer": "village",
+			"qty": {
+				"shell": 80
+			},
+			"contractor": [
+				1400,
+				2200,
+				3800
+			],
+			"self": [
+				350,
+				650,
+				900
+			],
+			"unit": "€/m² shell",
+			"basis": "structure and envelope",
+			"source": "as the 40 m row",
+			"estimate": true,
+			"note": "self-built low and high: not given for 80 m, taken between the 40 m's and the 120 m's"
+		},
+		{
+			"id": "shell-120",
+			"label": "Glazed geodesic dome shell, 120 m",
+			"payer": "village",
+			"qty": {
+				"shell": 120
+			},
+			"contractor": [
+				1500,
+				2500,
+				4200
+			],
+			"self": [
+				350,
+				725,
+				1000
+			],
+			"unit": "€/m² shell",
+			"basis": "structure and envelope",
+			"source": "as the 40 m row",
+			"estimate": true,
+			"note": "self-built low: the 40 m's 350, not given for 120 m"
+		},
+		{
+			"id": "ring-40",
+			"label": "Foundation ring, 40 m dome",
+			"payer": "village",
+			"qty": {
+				"ring": 40
+			},
+			"contractor": [
+				60000,
+				200000,
+				340000
+			],
+			"self": [
+				60000,
+				200000,
+				340000
+			],
+			"unit": "€ a dome",
+			"basis": "1–3 m³ a metre of rim × €500–900/m³",
+			"source": "Eden ring beam section (dywidag.com)",
+			"estimate": true,
+			"note": "no self-built price given: a contractor's pour, the same"
+		},
+		{
+			"id": "ring-80",
+			"label": "Foundation ring, 80 m dome",
+			"payer": "village",
+			"qty": {
+				"ring": 80
+			},
+			"contractor": [
+				130000,
+				405000,
+				680000
+			],
+			"self": [
+				130000,
+				405000,
+				680000
+			],
+			"unit": "€ a dome",
+			"basis": "as the 40 m row",
+			"source": "Eden ring beam section (dywidag.com)",
+			"estimate": true,
+			"note": "typical: between low and high"
+		},
+		{
+			"id": "ring-120",
+			"label": "Foundation ring, 120 m dome",
+			"payer": "village",
+			"qty": {
+				"ring": 120
+			},
+			"contractor": [
+				190000,
+				595000,
+				1000000
+			],
+			"self": [
+				190000,
+				595000,
+				1000000
+			],
+			"unit": "€ a dome",
+			"basis": "as the 40 m row",
+			"source": "Eden ring beam section (dywidag.com)",
+			"estimate": true,
+			"note": "typical: between low and high"
+		},
+		{
+			"id": "homes",
+			"label": "Homes inside a home dome (no roof, no façade)",
+			"payer": "village",
+			"qty": {
+				"homeGfa": true
+			},
+			"contractor": [
+				1103,
+				1553,
+				2028
+			],
+			"self": [
+				550,
+				780,
+				1015
+			],
+			"unit": "€/m² BGF",
+			"basis": "BKI timber multi-family houses, KG 300+400 incl. VAT, Q1 2024: 1,575 / 2,070 / 2,535 €/m² BGF (read in full), less 30 / 25 / 20 % for no roof and no weather façade under a dome; self-built about half of it (materials 40–50 % plus licensed trades)",
+			"source": "BKI Bestseller 2024 (akhb.de)",
+			"estimate": true,
+			"artifact": "1076d968-2dd9-42bb-bac9-004eca0c6a21",
+			"note": "The research's 1,820 / 2,300 / 3,360 €/m² BGF is in neither source it named (GdW gives 2,370–4,374 €/m² of living area): replaced by BKI's timber value"
+		},
+		{
+			"id": "tower",
+			"label": "The tower's shell and core",
+			"payer": "village",
+			"qty": {
+				"towerGfa": true
+			},
+			"contractor": [
+				4000,
+				5750,
+				8000
+			],
+			"self": [
+				4000,
+				5750,
+				8000
+			],
+			"unit": "€/m² GFA",
+			"basis": "tall-building shell and core, contractor: not self-built at height",
+			"source": "Building magazine cost model; Commerzbank Tower; Elbtower (structurae, Bauwelt); Mjøstårnet (khl.com)",
+			"note": "typical: the middle of 5,500–6,000"
+		},
+		{
+			"id": "land",
+			"label": "Farmland",
+			"payer": "village",
+			"qty": {
+				"land": true
+			},
+			"contractor": [
+				13218,
+				15484,
+				35300
+			],
+			"self": [
+				13218,
+				15484,
+				35300
+			],
+			"unit": "€/ha",
+			"basis": "2024 sales, total area; transfer tax not included",
+			"source": "Amt für Statistik Berlin-Brandenburg (low, read in full); top agrar from Destatis (high, read in full); typical: the research's Brandenburg / Saxony figure, unverified",
+			"note": "high: 35,300, not the research's 35,600, which no source gives",
+			"artifacts": [
+				"49b97004-3b41-4169-8901-c98da1347e01",
+				"50364255-5eb7-4259-9078-1346b78cbbea"
+			]
+		},
+		{
+			"id": "roads",
+			"label": "Village roads, asphalt",
+			"payer": "village",
+			"qty": {
+				"roads": "road"
+			},
+			"contractor": [
+				330000,
+				500000,
+				1600000
+			],
+			"self": [
+				330000,
+				500000,
+				1600000
+			],
+			"unit": "€/km",
+			"basis": "a 5.5 m municipal road: 330–660 € a running metre for its asphalt build-up (a cost calculator); a full widening with drainage and safety works ~1.6 M€/km (Kreisstraße BT 6, 2026)",
+			"source": "BauCheck (low, read in full); Bayreuther Tagblatt (high, read in full); typical: the research's, unverified",
+			"note": "typical between the two read; no municipal or state source gives 0.33–0.74 M€/km",
+			"artifacts": [
+				"695d5b92-4d44-4653-8b97-988be97e4f4f",
+				"8b14dba9-e3fa-47f4-94d5-dd5a8a837425"
+			],
+			"estimate": true
+		},
+		{
+			"id": "paths",
+			"label": "Footpaths, gravel",
+			"payer": "village",
+			"qty": {
+				"roads": "path"
+			},
+			"contractor": [
+				42000,
+				70000,
+				180000
+			],
+			"self": [
+				42000,
+				70000,
+				180000
+			],
+			"unit": "€/km",
+			"basis": "gravel farm track, contractor",
+			"source": "landtag.ltsh.de; topagrar; spd-fraktion-niedersachsen.de 2025",
+			"note": "typical: an estimate within the 40–100 the research gives"
+		},
+		{
+			"id": "heat",
+			"label": "Heat network",
+			"payer": "village",
+			"qty": {
+				"input": "heatKm",
+				"per": 1000
+			},
+			"contractor": [
+				600,
+				1300,
+				2500
+			],
+			"self": [
+				600,
+				1300,
+				2500
+			],
+			"unit": "€/m of trench",
+			"basis": "pipe and civil works, before ~40 % BEW subsidy",
+			"source": "Kirchheim am Neckar price sheet 2024: 600 €/m net beyond a connection's 10 m, a lower bound (read in full); typical and high: the research's, unverified",
+			"note": "Breuna's network: 38 M€ for 26 km with its heat generators, ~1,460 €/m (read in full)",
+			"artifact": "a945eb1d-e2be-4df4-9712-751216f2facb",
+			"estimate": true
+		},
+		{
+			"id": "heat-connect",
+			"label": "Heat connections, one a building",
+			"payer": "village",
+			"qty": {
+				"count": "buildings"
+			},
+			"contractor": [
+				13000,
+				15000,
+				18500
+			],
+			"self": [
+				13000,
+				15000,
+				18500
+			],
+			"unit": "€ each",
+			"basis": "a connection's lump sum up to 10 m (6,000 € net) and its transfer station (7,000–12,500 € net, up to 100 kW)",
+			"source": "Kirchheim am Neckar price sheet 2024 (read in full)",
+			"note": "a dome over 100 kW of heat needs a larger station: not priced; the price sheet's connection fee by load (4,500–25,750 € net) is a charge that recovers the network's cost, not counted again",
+			"artifact": "a945eb1d-e2be-4df4-9712-751216f2facb",
+			"estimate": true
+		},
+		{
+			"id": "water",
+			"label": "Waterworks: plant and wells",
+			"payer": "village",
+			"qty": {
+				"each": 1
+			},
+			"contractor": [
+				2600000,
+				2975000,
+				4300000
+			],
+			"self": [
+				2600000,
+				2975000,
+				4300000
+			],
+			"unit": "€",
+			"basis": "a small waterworks",
+			"source": "rheinpfalz.de; zfk.de; oberdorf.bl.ch 2025",
+			"note": "typical: the middle of 2.9–3.05 M€"
+		},
+		{
+			"id": "wastewater",
+			"label": "Wastewater and nutrient recycling",
+			"payer": "village",
+			"qty": {
+				"beds": true
+			},
+			"contractor": [
+				547,
+				1250,
+				1400
+			],
+			"self": [
+				547,
+				1250,
+				1400
+			],
+			"unit": "€ a resident (PE)",
+			"basis": "a new plant",
+			"source": "verkuendung-bayern.de; rheinpfalz.de (Trulben); Eawag 2006",
+			"note": "mains and sewers a km not found: not in it"
+		},
+		{
+			"id": "mv-cable",
+			"label": "Microgrid: medium-voltage cable along the roads",
+			"payer": "village",
+			"qty": {
+				"roads": "road"
+			},
+			"contractor": [
+				70000,
+				70000,
+				70000
+			],
+			"self": [
+				70000,
+				70000,
+				70000
+			],
+			"unit": "€/km",
+			"basis": "standard cost, installed",
+			"source": "arera.it 2013"
+		},
+		{
+			"id": "substations",
+			"label": "Microgrid: a local substation a hex",
+			"payer": "village",
+			"qty": {
+				"hexes": true
+			},
+			"contractor": [
+				60000,
+				74000,
+				88000
+			],
+			"self": [
+				60000,
+				74000,
+				88000
+			],
+			"unit": "€ each",
+			"basis": "",
+			"source": "nordkurier.de 2025; zfk.de",
+			"note": "typical: between 60 and 88 k€"
+		},
+		{
+			"id": "fibre",
+			"label": "Fibre along the roads",
+			"payer": "village",
+			"qty": {
+				"roads": "road"
+			},
+			"contractor": [
+				50000,
+				80000,
+				175000
+			],
+			"self": [
+				50000,
+				80000,
+				175000
+			],
+			"unit": "€/km",
+			"basis": "in a trench",
+			"source": "infranken.de; nordkurier.de; ihk.de",
+			"note": "high: the middle of 150–200"
+		},
+		{
+			"id": "pv",
+			"label": "Solar field and its inverters",
+			"payer": "coop",
+			"qty": {
+				"input": "pvKwp"
+			},
+			"contractor": [
+				700,
+				800,
+				900
+			],
+			"self": [
+				700,
+				800,
+				900
+			],
+			"unit": "€/kWp",
+			"basis": "ground-mounted over 1 MWp, net of VAT, 2024 (read in full)",
+			"source": "Fraunhofer ISE, Stromgestehungskosten 2024",
+			"coop": "solar coop",
+			"artifact": "8f855386-599c-4b3d-8c79-1cc88226858a"
+		},
+		{
+			"id": "battery",
+			"label": "Battery storage",
+			"payer": "coop",
+			"qty": {
+				"input": "batteryKwh"
+			},
+			"contractor": [
+				155,
+				350,
+				700
+			],
+			"self": [
+				155,
+				350,
+				700
+			],
+			"unit": "€/kWh",
+			"basis": "MWh-scale system",
+			"source": "BNEF 2025; topagrar",
+			"coop": "solar coop",
+			"note": "typical: the middle of 200–500"
+		},
+		{
+			"id": "biogas",
+			"label": "Biogas plant",
+			"payer": "coop",
+			"qty": {
+				"input": "biogasKwe"
+			},
+			"contractor": [
+				6500,
+				8000,
+				10000
+			],
+			"self": [
+				6500,
+				8000,
+				10000
+			],
+			"unit": "€/kWe",
+			"basis": "75–150 kW plant",
+			"source": "wochenblatt-dlv.de; topagrar 2025",
+			"coop": "biogas coop"
+		},
+		{
+			"id": "geothermal",
+			"label": "Deep geothermal plant and wells",
+			"payer": "coop",
+			"qty": {
+				"input": "geothermalMwth"
+			},
+			"contractor": [
+				2000000,
+				2500000,
+				2800000
+			],
+			"self": [
+				2000000,
+				2500000,
+				2800000
+			],
+			"unit": "€/MWth",
+			"basis": "drilling ~€1,000/m; a doublet 20–30 M€+ whatever its size",
+			"source": "idw-online.de 2023–24; lenk.bayern.de; Holzkirchen flyer",
+			"coop": "geothermal coop"
+		}
+	],
+	"old": {
+		"gfaPerson": 62,
+		"dome40Beds": 10,
+		"dome80Beds": 40,
+		"dome40Storeys": 3,
+		"dome80Storeys": 6,
+		"hexBeds": 290,
+		"villageBeds": 1740,
+		"towerApartments": 108,
+		"villageEuros": 514000000,
+		"note": "What the old Sandbox 6 showed (the branch SNAPSHOT_2611101): listed for the report, never used"
+	},
+	"research": {
+		"note": "The unit costs are the market research of 2026-11-09, made at Samuel's request (\"make the costs research now\"): public web sources, 2023–2026 prices in euros (GBP 1.18, USD 0.87–0.92, CHF 1.07). Its limit: page fetching was blocked where it was made, so every figure comes from search-engine extracts of the cited pages, not full reads; a row with one source is unverified; a row marked an estimate is the researcher's own build-up. Contractor: installed by a contractor. Self-built: materials, the villagers' own labour (structural design, cranes and licensed trades still bought). Six of its rows were then read in full (2026-11-09, from avenBOX): solar, land, homes, roads and the heat network were corrected to what those pages say, each kept as an artifact; glulam was confirmed.",
+		"by": "market research 2026-11-09 (handing session, at Samuel's request)"
+	}
+}

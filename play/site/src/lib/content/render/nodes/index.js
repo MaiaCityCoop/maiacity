@@ -35,8 +35,9 @@ import {
 const handlers = new WeakMap();
 
 /**
- * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: one of the kit's (`isKit`)
- * drawn into a target comes out linear and untoned, as three's own do; every other as the handler draws it.
+ * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: every node material drawn
+ * into a target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for the
+ * screen), the sky's and the environment three bakes from it too.
  * @param {THREE.WebGLRenderer} r
  */
 export function install(r) {
@@ -45,36 +46,37 @@ export function install(r) {
 	r.setNodesHandler(h);
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
-	// only the kit's own are drawn linear and untoned into a target (keyed apart as 'target'); every other node material
-	// keeps the handler's key and output (cb16b7a5)
-	let keying = null;
+	// the object being keyed, for the kit's shapes (shapeOf)
 	const keyOf = h.customProgramCacheKeyCallback;
 	h.customProgramCacheKeyCallback = function () {
-		keying = this;
 		drawing = h.nodeFrame.object;
 		try {
 			return keyOf.call(this);
 		} finally {
-			keying = drawing = null;
+			drawing = null;
 		}
 	};
-	// a kit material meeting a program built from other source draws this frame with the owner's uniforms (none into a
-	// layout not its own), then keys by its id; each clash kept in __clashes (660ad67f)
-	const src = new WeakMap(), meet = h.onUpdateProgram.bind(h);
-	h.onUpdateProgram = (m, p, props) => {
-		const b = m._latestBuilder, s = b && b.vertexShader + b.fragmentShader, first = !h.programCache.get(m)?.has(p);
-		meet(m, p, props);
-		const o = src.get(p);
-		if (!m.isKit || !first || !s || o?.s === s) return;
-		if (!o) return void src.set(p, { s, m });
-		let i = 0;
-		while (s[i] === o.s[i]) i++;
-		(globalThis.__clashes ??= []).push({ a: o.m.name, b: m.name, at: s.slice(i - 60, i + 60), was: o.s.slice(i - 60, i + 60) });
-		const e = h.programCache.get(o.m)?.get(p);
-		(m.own = m.needsUpdate = true), (props.uniforms = e?.uniforms ?? {}), (props.uniformsList = e?.uniformsList ?? []), (m.uniformsGroups = e?.uniformsGroups ?? []);
+	// three builds a node material once per program (a mesh's shadows, a target) but keeps only its last build. Its
+	// n-th build made its n-th program (each build is a miss of three's `programs`, which keeps their order), and a
+	// program met first takes that build, in a frame or after a warm-up's compile (8823eb7c: a car's paint drew its body
+	// with its ends' build; ed6694c3: one rule for both)
+	const made = new WeakMap(), build = h.build.bind(h), meet = h.onUpdateProgram.bind(h);
+	h.build = (m, o, q) => {
+		build(m, o, q);
+		if (!made.has(m)) made.set(m, []), m.addEventListener('dispose', () => made.delete(m));
+		made.get(m).push({ uniforms: q.uniforms, builder: m._latestBuilder });
 	};
-	h.getOutputCallback = (node, builder) => (onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node);
-	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
+	h.onUpdateProgram = (m, p, q) => {
+		const own = !h.programCache.get(m)?.has(p) && made.get(m)?.[[...(q.programs?.values() ?? [])].indexOf(p)];
+		if (own) (q.uniforms = own.uniforms), (m._latestBuilder = own.builder);
+		meet(m, p, q);
+	};
+	// in a target three's own materials come out linear and untoned, the screen alone tone mapped and encoded: so do
+	// ours, every node material, the sky's too (544485e2: the viewers' sky, toned in its own shader and again at the
+	// post stack's output, came out a dark olive under AgX, a washed cream under Neutral). Keyed apart, the screen's
+	// program by the renderer's tone and colour space, a target's as one.
+	h.getOutputCallback = (node, builder) => (onScreen() ? screen(node, builder) : node);
+	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
 	handlers.set(r, h);
 	return h;
 }
@@ -268,7 +270,7 @@ export const ours = (Base) =>
 		}
 		// a program for each shape, not each material (by id, Safari linked 88 in 8 frames in Sandbox 5: bd087014)
 		customProgramCacheKey() {
-			return `${super.customProgramCacheKey()}#${this.own ? this.id : shapeOf(this, drawing)}`;
+			return `${super.customProgramCacheKey()}#${shapeOf(this, drawing)}`;
 		}
 		copy(source) {
 			super.copy(source);

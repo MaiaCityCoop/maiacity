@@ -17,10 +17,14 @@
  * Format 4 (engine 5): a light as a light (`light`: its kind, colour, brightness, reach, fall-off, a spot's cone and
  * where it points), not a bare node; its controls with what else they change (./bake.js: each mesh reshaped, each
  * material's look, each light); and an actor's clips written down as tables (`view.clips.motion`, ./clips.js).
+ * Format 5 (engine 6, intent 6fd5e63f): a material says what it is (`look`, ../look.js: leaf, grass, petal, bark, stem,
+ * fruit or stone, with its translucency, stiffness and flutter), as its recipe set it on `userData.look`, so the page's
+ * own shaders draw it (the wind, light through leaves); the page checks it.
  */
 import { ShaderChunk, Vector3 } from 'three';
+import { plainLook } from '../look.js';
 
-export const FORMAT = 4;
+export const FORMAT = 5;
 /** the lights that go out as lights */
 export const LIGHTS = { PointLight: 'point', SpotLight: 'spot', DirectionalLight: 'directional', AmbientLight: 'ambient', HemisphereLight: 'hemisphere' };
 
@@ -136,7 +140,8 @@ export async function serialize(root, { controls = [], view } = {}) {
 		if (type !== 'MeshStandardMaterial' || !m.isShaderMaterial) for (const k of MAPS) if (m[k]?.isTexture) params[k] = texture(m[k]);
 		if (m.normalScale?.isVector2) params.normalScale = [m.normalScale.x, m.normalScale.y];
 		const cap = custom ? capOf(m) : null;
-		materials.push({ type, params, name: m.name, custom: !!custom, ...(cap && { cap }) });
+		const look = plainLook(m.userData?.look);
+		materials.push({ type, params, name: m.name, custom: !!custom, ...(cap && { cap }), ...(look && { look }) });
 		matAt.set(m, materials.length - 1);
 		return materials.length - 1;
 	};
