@@ -131,13 +131,39 @@ function copyOf(v) {
 	return v;
 }
 
-/** a box's or the cache's build, checked and built into objects; throws with the reason it was refused */
-function open({ data, card }, hash) {
+/**
+ * A box's or the cache's build, checked and built into objects; throws with the reason it was refused (after `label`,
+ * the recipe's name, where given).
+ */
+export function open({ data, card }, hash, label) {
+	const refused = (why) => new Error(label ? `${label}: refused, ${why}` : `refused: ${why}`);
 	const verdict = checkCard(card);
-	if (!verdict.ok) throw new Error(`refused: its card does not fit: ${verdict.errors.slice(0, 3).join('; ')}`);
-	if (card.recipe !== hash) throw new Error('refused: its card names another recipe');
+	if (!verdict.ok) throw refused(`its card does not fit: ${verdict.errors.slice(0, 3).join('; ')}`);
+	if (card.recipe !== hash) throw refused('its card names another recipe');
 	return { obj: rebuild(data), card, data };
 }
+
+/**
+ * The build this device's cache keeps under `key`, checked (`open`), and how long its read took (ms, `read`);
+ * undefined if there is none. One that does not pass is dropped, to be built anew.
+ * @param {Pick<typeof cache, 'get' | 'drop'>} store @param {string} key @param {string} hash @param {string} [label]
+ */
+export async function cached(store, key, hash, label) {
+	const t0 = now();
+	const hit = await store.get(key);
+	const read = now() - t0;
+	if (!hit) return undefined;
+	try {
+		return { ...open(hit, hash, label), read };
+	} catch {
+		// spoiled, or kept by an older page: gone, and built anew
+		await store.drop(key);
+		return undefined;
+	}
+}
+
+/** a box's build kept in this device's cache: settles true once kept, false if it was not @param {Pick<typeof cache, 'put'>} store */
+export const kept = (store, key, built) => store.put(key, built).catch(() => false);
 
 /**
  * A build, ready to put into a scene: `obj`, its `card`, its plain `data`, where it came `from` ('cache' or 'box'),
@@ -156,16 +182,12 @@ export async function loadAsset(name, { box, cache: useCache = true, store = cac
 	const key = cache.keyOf({ engine: c.engine.blake3, recipe: c.hash, params: c.values });
 	const said = { name: c.name, key, label: c.at.label };
 	if (useCache) {
-		const hit = await store.get(key);
-		const t1 = now();
+		const asked = now();
+		const hit = await cached(store, key, c.hash);
 		if (hit) {
-			try {
-				const got = open(hit, c.hash);
-				return { ...got, ...said, from: 'cache', stored: Promise.resolve(true), ms: { read: Math.round(t1 - t0), rebuild: Math.round(now() - t1), total: Math.round(now() - t0) } };
-			} catch {
-				// spoiled, or kept by an older page: gone, and built anew
-				await store.drop(key);
-			}
+			const { read, ...got } = hit;
+			const t1 = asked + read;
+			return { ...got, ...said, from: 'cache', stored: Promise.resolve(true), ms: { read: Math.round(t1 - t0), rebuild: Math.round(now() - t1), total: Math.round(now() - t0) } };
 		}
 	}
 	const t1 = now();
@@ -185,7 +207,7 @@ export async function loadAsset(name, { box, cache: useCache = true, store = cac
 		const given = c.values && Object.fromEntries(Object.entries(c.values).map(([k, v]) => [k, String(v)]));
 		// a box handed in builds only what its engine runs: a recipe made for another builds in a box of its own engine
 		const built = await (box?.engine === c.engine.v ? box : boxOf(c.engine.v)).build(recipe, given, { timeout });
-		const stored = useCache ? store.put(key, built).catch(() => false) : Promise.resolve(false);
+		const stored = useCache ? kept(store, key, built) : Promise.resolve(false);
 		return { built, stored, t2 };
 	})();
 	if (useCache) {

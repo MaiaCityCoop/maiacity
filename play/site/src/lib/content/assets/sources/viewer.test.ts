@@ -10,14 +10,24 @@ const { vaultBuild } = await import('./viewer.js')
 // @ts-ignore — plain JS
 const cache = await import('../cache/builds.js')
 // @ts-ignore — plain JS
+const catalog = await import('../catalog.js')
+// @ts-ignore — plain JS
 const { LATEST } = await import('../box/engines.js')
+// @ts-ignore — plain JS
+const { TIMEOUT } = await import('../box/host.js')
+// @ts-ignore — plain JS
+const { hashText } = await import('../../../kernel/hash.js')
 
-const R = 'c'.repeat(64)
+// two recipes handed to the page's catalog (as the benches hand theirs): one that takes values, one that takes none
+const CODE = 'defineRecipe(() => ({ fern: 2 }))', BARE = 'defineRecipe(() => ({ stone: 1 }))'
+const R = hashText(CODE), R0 = hashText(BARE)
 const params = [{ id: 'seed', label: 'Seed', type: 'string', value: 'maia' }, { id: 'stage', label: 'Stage', type: 'integer', min: 0, max: 9, value: 3 }]
-const source = (p: any = params) => ({
-	index: { engine: LATEST.v, recipes: { [R]: { label: 'Fern v2', params: p, v: 2 } } },
-	recipeAt: vi.fn(async (hash: string) => ({ hash, code: 'defineRecipe(() => ({}))', pieces: [] }))
-})
+catalog.admitHanded([
+	{ hash: R, code: CODE, group: 'plants', id: 'fern', v: 2, label: 'Fern v2', params },
+	{ hash: R0, code: BARE, group: 'things', id: 'stone', v: 1, label: 'Fern v2' }
+])
+const source = (p: any = params) => ({ ...catalog.source, recipeAt: vi.fn(catalog.source.recipeAt) })
+const R_OF = (p: any = params) => (p.length ? R : R0)
 const built = { data: { nodes: [] }, card: { fits: true, recipe: R } }
 let store: any, box: any
 beforeEach(() => {
@@ -36,7 +46,7 @@ describe('vaultBuild', () => {
 		expect(a.label).toBe('Fern v2')
 		expect(a.given).toEqual({ seed: 'maia', stage: '9' })
 		expect(a.obj).toEqual({ rebuilt: built.data })
-		expect(box.build).toHaveBeenCalledWith({ hash: R, code: 'defineRecipe(() => ({}))', pieces: [] }, { seed: 'maia', stage: '9' })
+		expect(box.build).toHaveBeenCalledWith({ hash: R, code: CODE, pieces: [] }, { seed: 'maia', stage: '9' }, { timeout: TIMEOUT })
 		expect(await a.stored).toBe(true)
 		const key = cache.keyOf({ engine: LATEST.blake3, recipe: R, params: { seed: 'maia', stage: 9 } })
 		expect(store.put).toHaveBeenCalledWith(key, built)
@@ -59,7 +69,7 @@ describe('vaultBuild', () => {
 
 	it('says why it could not', async () => {
 		await expect(vaultBuild(source(), 'd'.repeat(64), {}, { box, store })).rejects.toThrow(/is in the Maia City vault/)
-		await expect(vaultBuild(source([]), R, { seed: 'x' }, { box, store })).rejects.toThrow('Fern v2 takes no parameters')
+		await expect(vaultBuild(source([]), R_OF([]), { seed: 'x' }, { box, store })).rejects.toThrow('Fern v2 takes no parameters')
 		await expect(vaultBuild(source(), R, { stage: '12' }, { box, store })).rejects.toThrow(/^Fern v2: /)
 		box.build = vi.fn(async () => { throw new Error('timed out') })
 		await expect(vaultBuild(source(), R, {}, { box, store })).rejects.toThrow('Fern v2: the box could not build it (timed out)')

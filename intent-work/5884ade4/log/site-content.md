@@ -47,3 +47,12 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
    The census's Sandbox 3 totals vary at one and the same tree (four runs at HEAD: 301, 296, 296, 296 draws; the merge
    base's runs gave 296, 297 and 303): its `DIFF` here is that noise, not this move. `scripts/live-runtime.ts --check`
    fails before and after this branch (the pinned runtime is older than the stories' sources; held).
+6. **One way to load a build** (site-assets#1, #2, #34 part; site-assets F1). `sources/viewer.js` `vaultBuild` is a thin
+   call into `load.js`: the card check (`open`, now exported, naming the recipe where the viewer's messages did), the
+   cache read with its spoiled-entry drop (`cached`), the keep (`kept`), the engine its card names (`engineOf`, which is
+   the index's for all 705 rows of the census's catalog) and the manifest/contract check (`heldTo`) it skipped; a box of
+   another engine is not handed a recipe it doesn't run. Its own `buildName` copy goes (`buildOf`, re-exported under
+   the old name for `VaultAsset.svelte`, held). `loadAsset`'s cache read goes through `cached` with its times as they
+   were. `sources/viewer.test.ts` now builds from the page's catalog (recipes handed in as the benches hand theirs) and
+   pins the box's timeout. Census: Worlds (the viewer's build) and Sandbox 1 same, Sandbox 3 its noise (297 draws, a
+   total the merge base gave too).
