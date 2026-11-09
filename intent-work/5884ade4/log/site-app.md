@@ -30,3 +30,8 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
 6. **A story's links and section colours read in `timeline.ts`.** `slotsOf`, `linkName`, `newerOf`, `linkHref` and
    `colourOf` moved verbatim out of StoryPlayer.svelte (the player and the timeline split next both draw them), with
    tests first in `timeline.test.ts` (a link in its place, a lost one, a newer version, the colours as they were).
+7. **The Stories timeline is its own component.** `lib/stories/StoryTimeline.svelte` draws the sections, the mood
+   line, the lanes (links, shots, voice, sound) and the playhead, and scrubs (its `dragging` bound to the player, which
+   holds the clock); StoryPlayer keeps the frame, playback, full screen, speech and the rail (655 → 418 lines). Removes
+   site-app#24. Pinned by a server render of the player before and after on both fixture stories (identical markup,
+   scoped class hashes aside; a throwaway test, not kept), the stories tests, the build and svelte-check.
