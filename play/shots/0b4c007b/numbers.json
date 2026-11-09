@@ -1,0 +1,74 @@
+{
+	"sandbox-1-main.png": {
+		"rgb": [
+			153.8,
+			142.6,
+			127.6
+		],
+		"redToBlue": 1.205,
+		"quiet": false,
+		"seconds": 626,
+		"hour": 12,
+		"errors": []
+	},
+	"sandbox-1-head.png": {
+		"rgb": [
+			127.5,
+			131.3,
+			124.7
+		],
+		"redToBlue": 1.022,
+		"quiet": false,
+		"seconds": 833,
+		"hour": 12,
+		"errors": []
+	},
+	"sandbox-3-main.png": {
+		"rgb": [
+			142.4,
+			156.3,
+			119.6
+		],
+		"redToBlue": 1.191,
+		"quiet": false,
+		"seconds": 400,
+		"hour": 12,
+		"errors": []
+	},
+	"sandbox-3-head.png": {
+		"rgb": [
+			111.2,
+			150,
+			103.4
+		],
+		"redToBlue": 1.075,
+		"quiet": false,
+		"seconds": 398,
+		"hour": 12,
+		"errors": []
+	},
+	"sandbox-5-main.png": {
+		"rgb": [
+			124,
+			125.4,
+			113.3
+		],
+		"redToBlue": 1.094,
+		"quiet": false,
+		"seconds": 447,
+		"hour": 12,
+		"errors": []
+	},
+	"sandbox-5-head.png": {
+		"rgb": [
+			90.6,
+			108.6,
+			103.7
+		],
+		"redToBlue": 0.874,
+		"quiet": false,
+		"seconds": 420,
+		"hour": 12,
+		"errors": []
+	}
+}
