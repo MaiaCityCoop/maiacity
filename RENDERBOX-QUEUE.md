@@ -1,6 +1,9 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+- **smoke 7b7746e76: OK** (#6 6fd5e63f live, living plants; 16:12–16:18, 319 s). Every page up and drawn; no error
+  but the harness's 401 and the old ambience one (fb220a9c). Sandbox 1 settled in 84 s (106 pictures: the plants'
+  builds are new, so the warm profile took them again). Frames: near 26.9 ms, mid 35.3, far 16.7.
 - **smoke 53f3bada9: OK** (7af6e162 live; 15:49–15:54, 332 s; Chromium on ANGLE Metal, warm profile `smoke-main`).
   Every page up and drawn (none blank): Sandbox 1–5; viewers grass, goat, forklift, banana, potted olive, shops, elder
   woman, Old City world; factories; game map. Sandbox 1 settled quiet in 71 s (108 pictures, a fresh profile's first
