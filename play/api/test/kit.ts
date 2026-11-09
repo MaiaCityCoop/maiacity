@@ -49,7 +49,7 @@ let template: Promise<string> | null = null;
  * is a file copy. On a fresh runner every file wants it at once: one makes it while the others wait on a session
  * advisory lock (CREATE DATABASE can't run in a transaction), then each copies it.
  */
-function templateDb(admin: Bun.SQL): Promise<string> {
+export function templateDb(admin: Bun.SQL): Promise<string> {
   return (template ??= (async () => {
     const name = `play_tmpl_${codeHash()}`;
     const c = await admin.reserve();

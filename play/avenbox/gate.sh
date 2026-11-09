@@ -100,6 +100,8 @@ step() {
 # play/api's tests (the files given, or every one), in parallel; red when one fails or is skipped
 api_tests() {
   local out s
+  # the database every test file copies, made once before they start (play/api/test/template.ts)
+  bun test/template.ts || return 1
   out=$(bun test --parallel "$@" 2>&1)
   s=$?
   echo "$out"
