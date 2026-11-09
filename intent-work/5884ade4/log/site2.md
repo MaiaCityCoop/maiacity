@@ -14,3 +14,11 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    (`routes/render/+page.svelte` its one importer, in development only): it now sits beside that page and imports
    the asset kit by `$lib`. Pinned: the same component, moved; gate site; svelte-check's errors unchanged (all in held
    files).
+2. **The ground's TSL test beside the ground** (cycles: `content/biomes ↔ content/render/nodes`). `render/nodes/tsl.test.js`
+   built `biomes/surfaces.js`'s `groundMaterial` and `assets/ground.js`'s `groundOf`: the one non-held import from
+   `render/nodes` back into `biomes` (the other, `render/nodes/ground.js → biomes/sets.js`, is held), and the layers'
+   `render/nodes → content/assets`. It is now `content/assets/ground.test.js`, beside `ground.js`, which already
+   imports `biomes`; its warm-ups check (no `compileAsync` but `render/core.js`'s, a walk of `src/lib`, importing
+   nothing) is `content/render/warmups.test.js`, beside `core.js`. Folder cycles no held file closes: 2 → 0. Layers
+   stay 11: `render/nodes` turns more stable (I 0.43 → 0.33) and the held `render/nodes/ground.js → biomes/sets.js`
+   is now the upward import in its place, held alone. Pinned: the same 5 tests, passing; gate site.
