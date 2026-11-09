@@ -61,7 +61,7 @@ export const PUSHERS = 8;
  * @type {Record<'desktop' | 'small', { density: number, bands: [number, number, number], near: number, minPx: number, falloff: number }>}
  */
 export const DEVICES = {
-	desktop: { density: 120, bands: [8, 25, 70], near: 6, minPx: 1.5, falloff: 1.8 },
+	desktop: { density: 150, bands: [8, 25, 70], near: 6, minPx: 1.5, falloff: 1.8 },
 	small: { density: 70, bands: [5, 15, 35], near: 4, minPx: 1.5, falloff: 1.5 }
 };
 
@@ -155,7 +155,7 @@ export const PATCH = /** @type {const} */ ([0.04, 0.4]);
 /** @param {number} grass */
 export const standing = (grass) => smooth(PATCH[0], PATCH[1], grass);
 /**
- * How many real blades a drawn one stands for across: a desktop draws about 120 a square metre near where a meadow holds
+ * How many real blades a drawn one stands for across: a desktop draws about 150 a square metre near where a meadow holds
  * thousands, so each is drawn as wide as the few it stands for and the ground is covered as a meadow's is.
  */
 export const STANDS = 2.5;
