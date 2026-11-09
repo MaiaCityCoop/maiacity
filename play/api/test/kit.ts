@@ -10,7 +10,7 @@ import { app } from "../src/app";
 import { COOKIE, createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
-import { seed } from "../src/seed";
+import { prepare } from "../src/seed";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import type { GitHub } from "../src/github";
@@ -59,8 +59,7 @@ function templateDb(admin: Bun.SQL): Promise<string> {
     u.pathname = `/${making}`;
     const sql = new Bun.SQL(u.toString());
     const db = fromBunSql(sql);
-    await migrate(db, {});
-    await seed(db);
+    await prepare(db);
     await sql.close();
     try {
       await admin.unsafe(`ALTER DATABASE ${making} RENAME TO ${name}`);

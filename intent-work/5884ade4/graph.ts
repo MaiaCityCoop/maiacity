@@ -11,12 +11,13 @@ const files = execSync('git ls-files', { encoding: 'utf8' })
 	.split('\n')
 	.filter((f) => /\.(ts|js|mjs|svelte)$/.test(f) && !SKIP.test(f) && !/\.d\.ts$/.test(f));
 const known = new Set(files);
-const SPEC = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bexport\s*\*\s*from\s*|new URL\(\s*)['"`]((?:\.{1,2}|\$lib)\/[^'"`]+|\$wire)['"`]/g;
+const SPEC = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*|\bexport\s*\*\s*from\s*|new URL\(\s*)['"`]((?:\.{1,2}|\$lib)\/[^'"`]+|\$wire|\$stages)['"`]/g;
 // $lib is the package's src/lib (play/site, website)
 const lib = (from: string) => from.replace(/^((?:play\/site|website)\/).*$/, '$1src/lib');
 
 function resolve(from: string, spec: string): string | null {
-	if (spec === '$wire') return known.has('play/api/src/wire.ts') ? 'play/api/src/wire.ts' : null;
+	const ALIAS: Record<string, string> = { $wire: 'play/api/src/wire.ts', $stages: 'play/api/src/kit/stages.ts' };
+	if (spec in ALIAS) return known.has(ALIAS[spec]) ? ALIAS[spec] : null;
 	const clean = spec.replace(/\?.*$/, '');
 	const base = clean.startsWith('$lib/') ? normalize(join(lib(from), clean.slice(5))) : normalize(join(dirname(from), clean));
 	const tries = [base, ...['.ts', '.js', '.mjs', '.svelte', '/index.ts', '/index.js'].map((e) => base + e)];

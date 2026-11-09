@@ -289,3 +289,18 @@ bun's and Postgres's versions dropped. Kept: src/pg.ts and src/hash.ts (the held
   copies one template per code (`play_tmpl_<hash of migrations and src>`), made once and claimed by a rename (a
   file losing the race drops its own): a copy 140 ms, a migrate and seed 661 ms on an idle box. `migrate: false` and
   `until` keep the slow path. gate api green twice (from no template, and with one): 356 pass.
+
+### Merged: api2 (re-audit round 1 fixes), 14:15Z
+
+18 commits (`log/api2.md`); one conflict (live-audit.ts: infra2's PLAY_SITE and api2's intentsIn); gate green (all,
+75 s; 358 API tests: two pinning tests added). The watcher's missing store: the fixer found it couldn't be reached
+(every intent the watcher reads has a pull request, accepted by acceptAndShip; a rule refuses an intent holding both
+code and play's work), so a test now pins the watcher's rule path and the store is passed, the cast gone. One reader
+of the `Intent:` trailer (`kit/ids.ts intentsIn`) for ship.ts, pr-intent.ts and live-audit.ts, each accepting exactly
+what it did (intents.yml's grep kept; a bun line wouldn't behave the same). One stage list (`kit/stages.ts`, read by
+the API, avenBOX and the site as `$stages`). Each kind carries its own edit text (mcp.ts names no kind; the composed
+text byte-identical). `prepare(db)` (migrate then seed) at every entry point and the test template. One seed loop for
+the repo's documents (import/seeddocs.ts). The shared intent fixture took over 12 `readyIntent`, 7 `SPEC`, all 5
+`clearShips`; `human()` replaced 22 admin bootstraps. **For Samuel:** pr-intent.ts accepts an indented `Intent:` line
+the reconcile and intents.yml never see, and the JS readers take the UUID on the line after `Intent:` where the
+workflow's grep doesn't (kept as they are: behaviour).
