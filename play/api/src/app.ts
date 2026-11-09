@@ -330,8 +330,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     if (q.get("edit") != null) return json(await storyAt(db, m, p.id, { edit: Number(q.get("edit")) }));
     return json(await storyOf(db, m, p.id, q.get("v") == null ? undefined : Number(q.get("v"))));
   });
-  async function fetch(req: Request, server?: unknown): Promise<Response> {
-    if (costly(req) && !rate.allows(clientOf(req, server as any)))
+  async function fetch(req: Request, server?: Parameters<typeof clientOf>[1]): Promise<Response> {
+    if (costly(req) && !rate.allows(clientOf(req, server)))
       return json({ error: "Too many requests: try again in a minute." }, { status: 429, headers: { "Retry-After": "60" } });
     const path = new URL(req.url).pathname;
     let allowed: string[] = [];
