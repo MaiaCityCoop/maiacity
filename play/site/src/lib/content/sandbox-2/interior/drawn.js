@@ -74,7 +74,7 @@ export function createFlora(o) {
 		...drawn,
 		/**
 		 * How far off a small plant of kind k (a shrub or the cover, `r`) is put down: as far as the forest streams its
-		 * kind, and never past where the selector (its last threshold, ./lod.js) would draw its picture: a small
+		 * kind, and never past where the selector (its last threshold, assets/render/lod.js) would draw its picture: a small
 		 * plant, which has none, is left out past it (`Forest.update`).
 		 * @param {any} k a kind of the renderer's
 		 */
