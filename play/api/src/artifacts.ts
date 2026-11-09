@@ -510,3 +510,14 @@ async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unkno
   const r = await proposeDocVersion({ db, store }, who, { doc: id, whole: next, note, intent });
   return { ...now, waiting: true, intent: r.intent, stage: r.stage, number: (r as any).number, changes: (r as any).changes };
 }
+
+/** an artifact's row is what its accepted version says; one kept before artifacts were documents gets its document
+ *  made from its row, as its v1, the first time it is read (./allkinds.ts's ensure) */
+const ARTIFACT_ROW = `url, title, description, summary, kind, tags, to_char(published, 'YYYY-MM-DD') AS published, text_hash, origin, agent_id AS agent, operator_id AS operator, token_id AS token, author_ids AS authors`;
+export async function ensureArtifactDoc(q: Queryable, id: string) {
+  const { rows } = await q.query<any>(`SELECT ${ARTIFACT_ROW}, created FROM play.artifacts WHERE id = $1`, [id]);
+  const { created, ...r } = rows[0] ?? {};
+  if (!r.title) return;
+  const note = "kept before artifacts were documents";
+  await docs.createDoc(q, { id: `artifact:${id}`, schema: SCHEMA.artifact, json: { schema: "artifact/1", ...r, tags: r.tags ?? [], authors: r.authors ?? [] }, author: { human: r.operator, via: "import" }, message: `v1: ${note}`, at: created, version: note });
+}

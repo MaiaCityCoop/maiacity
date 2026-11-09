@@ -36,3 +36,20 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
    (was Ship's 4711030), the rule set's seed (was 4711030) and the layouts' move (was the intent edges' 4711031).
    Removes api-flow#1, api-docs#13. Pinned: depends.test (edges added at once), ship.test (the queue), migrate.test
    and rules.test (seeds), the whole suite.
+5. **The kind registry below versioned.ts; every kind registered in one place.** `src/kinds.ts` holds the `Kind`
+   type, the registry (register, syncKinds, kindNamed, kindOfWork, kindOfDoc, workKinds, workSql), `docRef`,
+   `resolveEdits` and the helpers every kind shares (one `authorOf` with the import's `via` too, `named`, `versionAt`,
+   `overlap`, `Ctx`, `Verdict`). `src/allkinds.ts` registers the nine kinds in their old order (asset, story, factory,
+   game_config, skill, sandbox, schema, artifact, piece), wiring each to the module that does its part; it is the new
+   small entry that imports the held assetdocs.ts, so versioned.ts imports no kind module. Entry points import it:
+   app.ts, index.ts, import/{run,factories,gameconfigs,skills,stories}.ts, scripts/heavy.ts, and the tests that
+   reached the kinds through versioned.ts' side effect (docs, migrate, pieces, intentpieces). The layout's and the
+   schema's Accept no longer take the generic decide as a parameter or wrap it: the registry has a `before` hook (what
+   an Accept holds a merge to: a layout's pins still kept, a schema failing no document on Main, its prefix) and the
+   `accepted` hook writes the sandbox's rows and reads the schemas' kinds again, so `decideDoc` (a copy of
+   decideWork's merge) goes, and one `writeRow` replaces three copies of the row update. `AutoBy` moves to access.ts
+   beside `Me`. Removes api-flow E1, E2 (part), #19 (part), #25 (decideLayout's callback), api-docs#2, #3, #18,
+   #25, #26, #34 (the `assetDocFor` re-export). The file cycle goes from 16 files to 6 (+ stories ↔ storydocs);
+   versioned.ts 1,295 → 822 lines. Pinned: versioned.test (register/unregister), schemas.test (prefix, failing
+   documents, syncKinds), sandboxdocs.test (a layout's Accept and rows), allwork.test (several documents, one
+   Accept), intentpieces.test, the whole suite.

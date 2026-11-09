@@ -29,6 +29,7 @@ import { proposeAsset, recipeAt } from "./assetdocs";
 import { authorOf, listAuthors, listArtifacts, artifactOf } from "./artifacts";
 import { HttpError } from "./kit/errors";
 import { statusOf } from "./fault";
+import "./allkinds";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
 type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };

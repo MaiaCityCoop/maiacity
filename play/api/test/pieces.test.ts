@@ -16,6 +16,7 @@ import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { MOST_DEEP, piecesShown } from "../src/pieces";
 import { decide, docAt, docHistory, listDocs, proposeDocVersion } from "../src/versioned";
+import "../src/allkinds";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;

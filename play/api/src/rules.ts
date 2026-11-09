@@ -12,7 +12,8 @@
 import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import { COOP, RULE, RULES, SCHEMA } from "./kit/ids";
-import { kindOfWork } from "./versioned";
+import { kindOfWork } from "./kinds";
+import type { AutoBy } from "./access";
 import { LOCK, lockSql } from "./kit/locks";
 
 export const GATES = ["approve", "accept"] as const;
@@ -26,8 +27,6 @@ export type Match = {
 export type Rule = { id: string; label: string; gates: Gate[]; match: Match; reason: string };
 /** the rule set in force: its Main's newest version, and that version's BLAKE3 content hash */
 export type RuleSet = { rules: Rule[]; hash: string; number: number };
-/** who decided, where a rule did: the rule (its UUID, its label only shown), the rule set's version and the rule's reason */
-export type AutoBy = { rule: string; label: string; rules: string; reason: string };
 
 /** the rule set's document, and its schema's */
 export const RULES_DOC = `rules:${RULES}`;

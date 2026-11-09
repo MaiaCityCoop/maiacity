@@ -6,7 +6,8 @@ import { migrate } from "./migrations";
 import { connect } from "./kit/pg";
 import { siteHandler } from "./site";
 import { reconcile, runningCommit, shipGitHub, startShipWatcher } from "./ship";
-import { syncKinds } from "./versioned";
+import { syncKinds } from "./kinds";
+import "./allkinds";
 
 const db = connect();
 const ran = await migrate(db);

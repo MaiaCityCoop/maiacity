@@ -19,6 +19,7 @@ import { ensureAssetDocs, type AssetDocsReport } from "../src/assetdocs";
 import { seedFactories, type FactoriesReport } from "./factories";
 import { seedGameConfigs, type GameConfigsReport } from "./gameconfigs";
 import { seedSkills, type SkillsReport } from "./skills";
+import "../src/allkinds";
 
 // the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
 const ROOT = process.env.PLAY_REPO ?? join(import.meta.dir, "../../..");

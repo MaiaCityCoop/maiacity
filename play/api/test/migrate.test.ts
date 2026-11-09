@@ -21,7 +21,7 @@ import { storyVersionId } from "../src/versions";
 import { oldAccept, oldBranch, oldCommit, oldCreate, oldPropose } from "./fixtures/olddocs";
 import { problemsOf, readDoc, typeFor } from "../src/docs";
 import { SCHEMA } from "../src/kit/ids";
-import "../src/versioned";
+import "../src/allkinds";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;

@@ -9,7 +9,7 @@ import type { Me } from "./access";
 import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import type { StoryBody } from "./stories";
-import { versionAt } from "./versioned";
+import { versionAt } from "./kinds";
 import { holdVariant } from "./work";
 import { SCHEMA } from "./kit/ids";
 

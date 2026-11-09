@@ -37,7 +37,7 @@ import { UUID } from "./kit/uuid";
 import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
 import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, storyDocAt, versionAtFrontiers } from "./storydocs";
-import { overlap } from "./versioned";
+import { overlap } from "./kinds";
 import { storyListed } from "./listed";
 import { fileTypes, keepFile as keepOwned } from "./owners";
 import { unreadable } from "./assetdocs";
@@ -1315,4 +1315,21 @@ export async function putFrameBase64(db: Queryable, store: BlobStore, data: unkn
   if (clean.length > Math.ceil((MOST_FRAME * 4) / 3) + 8) throw new HttpError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new HttpError("That is not base64.");
   return putFrame(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label), owner);
+}
+
+/** a story: its tracks' and clips' ids each once, every clip inside the story's duration */
+export function storyCheck(doc: any): string[] {
+  const out: string[] = [];
+  const tracks = new Set<string>();
+  for (const t of doc.tracks ?? []) {
+    if (tracks.has(t.id)) out.push(`track ${t.id}: its id is taken twice`);
+    tracks.add(t.id);
+    const clips = new Set<string>();
+    for (const c of t.clips ?? []) {
+      if (clips.has(c.id)) out.push(`track ${t.id}, clip ${c.id}: its id is taken twice`);
+      clips.add(c.id);
+      if (c.at + c.duration > doc.duration + 1e-6) out.push(`track ${t.id}, clip ${c.id}: ends at ${+(c.at + c.duration).toFixed(3)} s, after the story's ${doc.duration} s`);
+    }
+  }
+  return out;
 }

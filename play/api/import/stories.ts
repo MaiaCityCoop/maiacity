@@ -8,6 +8,7 @@ import type { BlobStore } from "../src/blobs";
 import type { Db } from "../src/kit/pg";
 import { foldStories, putFrame, seedStory, STORY_ID, type Fold, type FoldReport } from "../src/stories";
 import { ensureStoryDocs } from "../src/storydocs";
+import "../src/allkinds";
 
 export const STORIES = join(import.meta.dir, "stories");
 

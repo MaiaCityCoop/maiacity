@@ -21,198 +21,29 @@
 // A schema with no hooks needs no code (Samuel 2026-11-06): every accepted schema whose documents no entry here holds is
 // a kind of its own (syncKinds), its rows in play.records, so a new type is a schema document and the intent that
 // accepts it. A schema's new version is accepted only while every document on Main still validates against it.
-import { admin, type Me } from "./access";
-import type { BlobStore } from "./blobs";
+import { admin, COOP, type Me } from "./access";
 import * as docs from "./docs";
 import { randomUUID } from "node:crypto";
-import { SCHEMA } from "./kit/ids";
 import { hashText } from "./kit/hash";
-import { SKILL_STAGES } from "./skills";
 import type { Db, Queryable } from "./kit/pg";
-import { NOTE_MOST } from "./notes";
 import { UUID } from "./kit/uuid";
-import { closeWork, NO_INTENT, putAtProposal, settle, stageAfter, WORK_OF, workOf } from "./work";
-import { decideLayout, ensureLayoutDoc, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck } from "./sandboxes";
-import { autoAfter, byOf, decideIntent, getIntent, gate, mustDecide, type IntentVerdict } from "./intents";
-import type { AutoBy } from "./rules";
-import { acceptAndShip, acceptCode, runningCommit, type GitHub } from "./ship";
-import { assetDocFor, assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant, unreadable } from "./assetdocs";
-import { gistOf } from "./gist";
-import { storyListed } from "./listed";
-import { retireAccepted, retiredOf } from "./retire";
-import { intentPieces, keepPiece, PieceError, pieceProblems, piecesHeld, piecesOf } from "./pieces";
-import { decideStory, proposeStoryVariant, storyEdit, storyReview } from "./stories";
-import { ensureStoryDoc } from "./storydocs";
-import { COOP } from "./access";
-import { seesIntent } from "./owners";
 import { HttpError } from "./kit/errors";
-
-/** how a hook is called: the database, the file store, who, how */
-export type Ctx = { db: Db; store: BlobStore };
-type Input = { edits?: unknown; whole?: unknown };
-
-export type Kind = {
-  /** its name, as list_docs takes it */
-  name: string;
-  /** its documents' id prefix: <prefix>:<uuid> */
-  prefix: string;
-  /** its schema: a document of the meta-schema, by its UUID (./kit/ids.ts SCHEMA, or a schema accepted since) */
-  schema: string;
-  /** what its schema can't say: a whole-document check, and that its content is code (built and previewed before it is accepted) */
-  check?: (doc: any) => string[];
-  build?: boolean;
-  /** its rows among the table's, where the table holds other kinds' too (play.records) */
-  where?: string;
-  /** the work an intent holding one of its versions names: <name>_version */
-  work: string;
-  /** the table of its rows (each its UUID and its label), the column its label is in, and a filter of the listed */
-  table: string;
-  labelColumn?: string;
-  listed?: string;
-  /** only shown: what one is called, the board's group for it, and the page that opens one (`{id}` its UUID, `{intent}` an intent's) */
-  label: string;
-  group: string;
-  open?: string;
-  /** an accepted version's fields its row keeps (column → field of the document) */
-  row?: Record<string, (json: any) => unknown>;
-  /** its document made where it is missing (from the kind's own history) */
-  ensure?: (q: Queryable, ctx: Ctx, id: string) => Promise<void>;
-  /** an edit of an agent's turned into the document's own: edits, or the whole new state */
-  write?: (q: Queryable, id: string, cur: any, input: Input) => Promise<docs.Write>;
-  /** the kind's own propose, its intent variant as it stands (an asset's recipe files and frozen version; a story's) */
-  propose?: (ctx: Ctx, me: Me, o: { id: string; variant: number; note: string; intent?: string }, via: "web" | "mcp") => Promise<Record<string, unknown> & { intent: string }>;
-  /** what the board shows of its work beside the changes and edits (an asset's builds, a story's player) */
-  review?: (q: Queryable, p: any) => Promise<Record<string, unknown>>;
-  /** the kind's own decide (an asset accepted only on the head it was made on; a story's frozen rows) */
-  decide?: (tx: Queryable, ctx: Ctx, me: Me, p: any, verdict: Verdict) => Promise<any>;
-  /** its list item's extra fields, from its document, and from the database */
-  item?: (json: any) => Record<string, unknown>;
-  more?: (q: Queryable, uuid: string) => Promise<Record<string, unknown>>;
-  /** what a read of one shows beside its `json` (a sandbox's pins by their assets' labels and versions) */
-  view?: (q: Queryable, json: any, id: string) => Promise<Record<string, unknown>>;
-  /** what a change shows beside its field diff, from the state before it and after it (a sandbox's pins before and after) */
-  shown?: (q: Queryable, before: any, after: any) => Promise<Record<string, unknown>>;
-  /** its row's owner column (an asset's: ./owners.ts), where a document may be a person's own, private to them: to anyone else it is as one that never was */
-  owned?: string;
-  /** whether its documents have breeds (an asset's: play/SPEC.md "Breeds") */
-  breeds?: boolean;
-  /** what its schema and check can't say without the database, held as its version is proposed for intent `intent` (a piece's pieces: each an accepted one or one proposed in the same intent); throws why not */
-  ready?: (q: Queryable, json: any, intent?: string | null) => Promise<void>;
-  /** what an accepted version keeps beside its row, in the Accept's transaction (a piece's source among play's files) */
-  accepted?: (tx: Queryable, ctx: Ctx, docId: string, number: number, json: any, intent?: string | null) => Promise<void>;
-};
-
-const KINDS: Kind[] = [];
-/** the kinds that are a schema alone (syncKinds), by their name */
-const SCHEMA_KINDS = new Set<string>();
-
-/** a kind registered: its hooks known to the store by its schema's UUID, its entry to the module */
-export function register(k: Kind): Kind {
-  if (!/^[a-z][a-z_]{0,31}$/.test(k.name) || !/^[a-z][a-z_]{0,31}$/.test(k.prefix)) throw new Error(`a kind's name and prefix are lowercase words: ${k.name}, ${k.prefix}`);
-  if (!UUID.test(k.schema)) throw new Error(`kind ${k.name}: its schema is named by its UUID`);
-  if (k.work !== `${k.name}_version`) throw new Error(`kind ${k.name}: its work is ${k.name}_version`);
-  const at = KINDS.findIndex((x) => x.name === k.name);
-  if (at >= 0) KINDS.splice(at, 1);
-  KINDS.push(k);
-  SCHEMA_KINDS.delete(k.name);
-  docs.hook(k.schema, { check: k.check, build: k.build });
-  return k;
-}
-/** a kind taken out of the registry again (a test's own kind, once its test is done) */
-export function unregister(name: string): void {
-  const at = KINDS.findIndex((x) => x.name === name);
-  if (at >= 0) docs.hook(KINDS.splice(at, 1)[0].schema, {});
-  SCHEMA_KINDS.delete(name);
-}
-
-/**
- * Every accepted schema whose documents no kind holds becomes a kind of its own: its name and prefix its `type`, its
- * label its schema's, its rows in play.records. Read again before every lookup, so a schema accepted in one process is a
- * kind in every other; a kind registered in code stays as its code says.
- */
-export async function syncKinds(q: Queryable): Promise<void> {
-  const schemas = await docs.schemasOf(q);
-  // a kind whose schema is no accepted one (its Accept rolled back) is no kind
-  for (const name of [...SCHEMA_KINDS]) if (!schemas.some((s) => s.id === kindNamed(name)?.schema)) unregister(name);
-  for (const s of schemas) {
-    const type = s.json.type;
-    if (KINDS.some((k) => k.schema === s.id || (k.prefix === type && !SCHEMA_KINDS.has(k.name)))) continue;
-    if (!/^[a-z][a-z_]{0,31}$/.test(type)) continue;
-    const label = `${s.json.label}`.toLowerCase();
-    register({ name: type, prefix: type, schema: s.id, work: `${type}_version`, table: "play.records", where: `r.kind = '${type}'`, row: { kind: () => type, updated: () => new Date() }, label, group: label });
-    SCHEMA_KINDS.add(type);
-  }
-}
-export const kinds = (): readonly Kind[] => KINDS;
-export const kindNamed = (name: string) => KINDS.find((k) => k.name === name) ?? null;
-export const kindOfWork = (work: string | null | undefined) => KINDS.find((k) => k.work === work) ?? null;
-export const kindOfDoc = (docId: string | null | undefined) => KINDS.find((k) => `${docId ?? ""}`.startsWith(k.prefix + ":")) ?? null;
-/** every kind of work an intent may hold */
-export const workKinds = () => KINDS.map((k) => k.work);
-
-// ---- written once: who names an edit, the version an edit or a seed is, two changes that touch the same field, errors
-
-const iso = (d: Date | string) => new Date(d).toISOString();
-const authorOf = (me: Pick<Me, "id"> | null, via: string): docs.Author => ({ human: me?.id ?? null, via: via === "mcp" ? "mcp" : "site" });
-
-/** each edit with its author's name, and the version it was named where one was */
-export async function named(db: Queryable, edits: docs.DocEdit[], versions: docs.Version[] = []) {
-  const ids = [...new Set(edits.map((s) => s.author).filter((x): x is string => !!x))];
-  const names = new Map((await db.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [ids])).rows.map((r) => [r.id, r.name]));
-  const at = new Map(versions.map((v) => [docs.frontiersKey(v.frontiers), v.number]));
-  // a version marks the latest edit at its point (a merge that only caught Main up stands where the intent variant's
-  // last edit stood: the merge is the edit that made it the version)
-  const marked = new Map<number, number>();
-  for (let i = edits.length - 1; i >= 0; i--) {
-    const n = at.get(docs.frontiersKey(edits[i].frontiers));
-    if (n !== undefined && ![...marked.values()].includes(n)) marked.set(i, n);
-  }
-  return edits.map((s, i) => ({ seq: s.seq, variant: s.variant, kind: s.kind, author: s.author ? names.get(s.author) ?? null : null, via: s.via, message: s.message, at: iso(s.created), bytes: s.bytes, version: marked.get(i) ?? null }));
-}
-
-/** the version whose point of Main is `frontiers` (a variant's seed), or null */
-export const versionAt = (versions: docs.Version[], frontiers: docs.Frontiers): number | null =>
-  // the newest of those at that point: an Accept on a breed names Main's next version where Main stands
-  versions.findLast((v) => docs.frontiersKey(v.frontiers) === docs.frontiersKey(frontiers))?.number ?? null;
-
-/** do two sets of changed paths touch the same field (one the other's, or inside it)? */
-export function overlap(a: string[], b: string[]): string[] {
-  const inside = (x: string, y: string) => x === y || x.startsWith(y + ".") || x.startsWith(y + "[");
-  return a.filter((x) => b.some((y) => inside(x, y) || inside(y, x)));
-}
+import { NOTE_MOST } from "./notes";
+import { closeWork, NO_INTENT, putAtProposal, settle, stageAfter, WORK_OF, workOf } from "./work";
+import { autoAfter, byOf, decideIntent, getIntent, gate, mustDecide, type IntentVerdict } from "./intents";
+import type { AutoBy } from "./access";
+import { acceptAndShip, acceptCode, runningCommit, type GitHub } from "./ship";
+import { gistOf } from "./gist";
+import { retireAccepted, retiredOf } from "./retire";
+import { piecesOf } from "./pieces";
+import { seesIntent } from "./owners";
+import { authorOf, docRef, iso, kindNamed, kindOfDoc, kindOfWork, kinds, named, overlap, qi, resolveEdits, seen, syncKinds, versionAt, type Ctx, type Input, type Kind, type Verdict } from "./kinds";
 
 const DOC_ADMINS = "A document's versions, edits and variants are for Maia City's admins, for now.";
 function text(v: unknown, what: string, most: number): string {
   if (typeof v !== "string" || !v.trim()) throw new HttpError(`${what} is missing.`);
   if (v.length > most) throw new HttpError(`${what} is longer than ${most} characters.`);
   return v.trim();
-}
-const qi = (s: string) => s.replace(/[^a-z0-9_.]/g, "");
-
-/** the SQL of a kind's rows `r` that `p` sees: a document that may be a person's own is theirs or the coop's (./owners.ts) */
-const seen = (k: Kind, p: string) => (k.owned ? `(r.${qi(k.owned)} = '${COOP}' OR r.${qi(k.owned)} = ${p}::uuid)` : "");
-
-/**
- * A document named by its UUID, as `me` sees it (another's private one is as one that never was): its kind and id, its
- * document made where its kind makes it from its own history
- */
-export async function docRef(q: Queryable, ctx: Ctx | null, id: unknown, me: Pick<Me, "id"> | null): Promise<{ kind: Kind; uuid: string; docId: string }> {
-  const uuid = `${id ?? ""}`.toLowerCase();
-  if (!UUID.test(uuid)) throw new HttpError("Name the document by its UUID (list_docs).", 404);
-  await syncKinds(q);
-  if (!KINDS.length) throw new HttpError("play keeps no versioned kind.", 500);
-  const { rows } = await q.query<{ k: string }>(
-    KINDS.map((k, i) => `SELECT '${k.name}' AS k, ${i} AS o FROM ${qi(k.table)} r WHERE r.id::text = $1${[k.where, seen(k, "$2")].filter(Boolean).map((w) => ` AND ${w}`).join("")}`).join(" UNION ALL ") + " ORDER BY o LIMIT 1",
-    KINDS.some((k) => k.owned) ? [uuid, me?.id ?? null] : [uuid],
-  );
-  const kind = rows[0] ? kindNamed(rows[0].k) : null;
-  if (!kind) throw new HttpError(`play keeps no document ${uuid} (list_docs).`, 404);
-  const docId = `${kind.prefix}:${uuid}`;
-  if (kind.ensure && ctx) {
-    const { rows: have } = await q.query(`SELECT 1 FROM play.docs WHERE id = $1`, [docId]);
-    if (!have.length) await kind.ensure(q, ctx, uuid);
-  }
-  return { kind, uuid, docId };
 }
 
 /** a document's versions, each with who accepted it and its note */
@@ -246,8 +77,8 @@ async function intentVariant(db: Queryable, docId: string, intent: unknown) {
 export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
   const who = admin(me, DOC_ADMINS);
   await syncKinds(db);
-  const ks = kind === undefined || kind === null || kind === "" ? KINDS : [kindNamed(`${kind}`)].filter((k): k is Kind => !!k);
-  if (!ks.length) throw new HttpError(`A kind is one of ${KINDS.map((k) => k.name).join(", ")}.`);
+  const ks = kind === undefined || kind === null || kind === "" ? kinds() : [kindNamed(`${kind}`)].filter((k): k is Kind => !!k);
+  if (!ks.length) throw new HttpError(`A kind is one of ${kinds().map((k) => k.name).join(", ")}.`);
   const out: Record<string, unknown>[] = [];
   for (const k of ks) {
     const { rows } = await db.query<any>(
@@ -298,7 +129,6 @@ export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}
     return viewed({ ...base, json: await docs.stateAt(db, docId, { version: at.version }), version: at.version });
   }
   return viewed({ ...base, json: (await docs.readDoc(db, docId)).json, version: number });
-
 }
 
 /**
@@ -341,7 +171,6 @@ export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { vari
       intent: v.intent_id ? { id: v.intent_id, stage: intents.get(v.intent_id)?.stage ?? null, title: intents.get(v.intent_id)?.title ?? null } : null,
     })),
   };
-
 }
 
 /**
@@ -375,38 +204,9 @@ export async function docChanges(ctx: Ctx, me: Me | null, id: unknown, o: { edit
   const before = i > 0 ? await docs.stateAt(db, docId, { edit: line[i - 1].seq }) : line === all ? null : await docs.seedOf(db, docId, Number(rows[0].variant));
   const extra = kind.shown ? await kind.shown(db, before, after) : {};
   return { id: uuid, kind: kind.name, edit: o.edit, changes: docs.diff(before, after), edits: await named(db, [line[i]], versions), ...extra };
-
 }
 
 // ---- editing and proposing
-
-/**
- * The edits an agent sends, as the document's own (set, insert, delete, move, text; ./docs/core.ts), with one help: a
- * part of a path may name an item of a list by its id ({ id: 'weld' }) instead of its index, worked out against the
- * state as it stands before the edit.
- */
-export function resolveEdits(json: any, edits: unknown): docs.Edit[] {
-  if (!Array.isArray(edits) || !edits.length) throw new HttpError("Edits are a list of at least one edit.");
-  if (edits.length > 500) throw new HttpError("At most 500 edits at once.");
-  return edits.map((e: any, i) => {
-    if (!e || typeof e !== "object" || !Array.isArray(e.path)) throw new HttpError(`Edit ${i + 1} names no path (a list of field names, indexes or { id }).`);
-    if (e.path[0] === "schema") throw new HttpError(`Edit ${i + 1}: a document's schema is not edited.`);
-    let at = json;
-    const path = e.path.map((p: unknown, j: number) => {
-      let part: string | number;
-      if (p && typeof p === "object" && typeof (p as any).id === "string") {
-        if (!Array.isArray(at)) throw new HttpError(`Edit ${i + 1}: part ${j + 1} of its path names { id: ${(p as any).id} } but there is no list there.`);
-        const k = at.findIndex((x: any) => x?.id === (p as any).id);
-        if (k < 0) throw new HttpError(`Edit ${i + 1}: there is no item ${(p as any).id} in the list at part ${j + 1} of its path.`);
-        part = k;
-      } else if (typeof p === "string" || (typeof p === "number" && Number.isInteger(p))) part = p;
-      else throw new HttpError(`Edit ${i + 1}: part ${j + 1} of its path is a field name, an index or { id }.`);
-      at = at?.[part as any];
-      return part;
-    });
-    return { ...e, path } as docs.Edit;
-  });
-}
 
 /** an edit's write: the kind's own, else the edits resolved, or the whole state with its schema kept */
 async function writeOf(q: Queryable, k: Kind, uuid: string, cur: any, input: Input): Promise<docs.Write> {
@@ -505,7 +305,7 @@ async function newVariant(tx: Queryable, k: Kind, docId: string, uuid: string, p
 async function newDocument(q: Queryable, who: Me, kindName: unknown, whole: unknown): Promise<string> {
   await syncKinds(q);
   const k = kindNamed(`${kindName ?? ""}`);
-  if (!k) throw new HttpError(`A kind is one of ${KINDS.map((x) => x.name).join(", ")}.`);
+  if (!k) throw new HttpError(`A kind is one of ${kinds().map((x) => x.name).join(", ")}.`);
   if (k.table !== "play.records") throw new HttpError(`A new ${k.label} is made its own way (propose_asset, propose_story), not by propose_doc_version.`);
   if (!whole || typeof whole !== "object" || Array.isArray(whole)) throw new HttpError(`A new ${k.label} is its whole first state (\`whole\`).`);
   const uuid = randomUUID();
@@ -783,38 +583,10 @@ async function piecesReviewed(db: Queryable, intent: string, held: { doc_id: str
   return out;
 }
 
-/**
- * Accept or archive a document's intent variant (`p`, its intent locked by the caller's transaction), as admin `me`.
- * Accepted, it is merged into Main and named the next version, its row keeping the version's label (and group);
- * seeded from a version that is no longer Main's newest, it still goes in where the two changes touch different
- * fields, and is archived where they touch the same, or where the merged whole is no longer valid.
- */
-export async function decideDoc(tx: Queryable, me: Me, p: any, verdict: Verdict) {
-  const k = kindOfWork(p.kind)!;
-  if (me.level !== "admin") throw new HttpError(`Only Maia City's admins decide on ${k.group}.`, 403);
-  const docId = p.doc_id as string, v = Number(p.doc_variant);
-  const author = authorOf(me, "web");
-  const archive = async (message?: string) => {
-    await settle(tx, p.id, "archived", verdict === "archive" ? me.id : null);
-    await closeWork(tx, me, p);
-    return { id: p.id as string, status: "archived" as const, ...(message ? { message } : {}) };
-  };
-  if (verdict === "archive") return archive();
-  const preview = await docs.previewMerge(tx, docId, v);
-  if (preview.concurrent) {
-    const was = await docs.seedOf(tx, docId, v);
-    const now = (await docs.readDoc(tx, docId)).json, mine = (await docs.readDoc(tx, docId, { variant: v })).json;
-    const clash = overlap(docs.diff(was, now).map((c) => c.path), docs.diff(was, mine).map((c) => c.path));
-    if (clash.length) return archive(`The ${k.label} has a newer version than the one this was seeded from, and it changes what that changed too (${clash.slice(0, 3).map((c) => c.replace(/^\$\./, "")).join(", ")}). Propose the change again on its newest version.`);
-  }
-  if (preview.problems.length) return archive(`Merged into the ${k.label} as it is now, this is no longer a valid ${k.label}: ${preview.problems.slice(0, 3).join("; ")}. Propose it again on its newest version.`);
-  const named_ = await docs.accept(tx, docId, v, { author, note: p.note });
-  const cols = { [k.labelColumn ?? "label"]: preview.json.label ?? preview.json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(preview.json)])) };
-  const names = Object.keys(cols).map(qi);
-  await tx.query(`UPDATE ${qi(k.table)} SET ${names.map((c, i) => `${c} = $${i + 2}`).join(", ")} WHERE id = $1`, [docId.split(":")[1], ...Object.values(cols)]);
-  await settle(tx, p.id, "accepted", byOf(me));
-  return { id: p.id as string, status: "accepted" as const, number: named_.number, ...(preview.concurrent ? { merged: true } : {}) };
-
+/** an accepted version's row: its label (or title) and the fields its kind's row keeps, in the caller's transaction */
+async function writeRow(tx: Queryable, k: Kind, docId: string, json: any) {
+  const cols = { [k.labelColumn ?? "label"]: json.label ?? json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(json)])) };
+  await tx.query(`UPDATE ${qi(k.table)} SET ${Object.keys(cols).map((c, i) => `${qi(c)} = $${i + 2}`).join(", ")} WHERE id = $1`, [docId.split(":")[1], ...Object.values(cols)]);
 }
 
 /**
@@ -822,9 +594,10 @@ export async function decideDoc(tx: Queryable, me: Me, p: any, verdict: Verdict)
  * `me`: every one of them in this one transaction, or none (intent 7c8986c5: any number, whatever their kind). Accepted,
  * each intent variant is merged into its Main and named its next version, its row keeping what the version says;
  * seeded from a version that is no longer Main's newest, it still goes in where the two changes touch different fields.
- * A kind with its own decide (an asset's, a story's frozen rows, a layout's, a schema's) decides its own documents, each
- * with its own refs, once every other one has been found to go in. Where one clashes (the same field changed), is no
- * longer valid merged, or its kind's decide does not take it, none goes in: the intent is archived whole (back to Build).
+ * A kind's `before` holds each merge to what its schema can't say (a layout's pins, a schema's documents). A kind with
+ * its own decide (an asset's, a story's frozen rows) decides its own documents, each with its own refs, once every other
+ * one has been found to go in. Where one clashes (the same field changed), is no longer valid merged, no longer holds,
+ * or its kind's decide does not take it, none goes in: the intent is archived whole (back to Build).
  */
 export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdict: Verdict) {
   const own = kindOfWork(p.kind)!;
@@ -868,6 +641,8 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
       if (clash.length) return archive(`The ${k.label} has a newer version than the one this was seeded from, and it changes what that changed too (${clash.slice(0, 3).map((c) => c.replace(/^\$\./, "")).join(", ")})${which}. Propose the change again on its newest version.`);
     }
     if (preview.problems.length) return archive(`Merged into the ${k.label} as it is now, this is no longer a valid ${k.label}: ${preview.problems.slice(0, 3).join("; ")}${which}. Propose it again on its newest version.`);
+    const why = k.before ? await k.before(tx, h.doc_id, h.doc_variant, preview.json) : null;
+    if (why) return archive(`${why}${which}`);
     merges.push({ h, k, preview });
   }
   // the order its pieces go in: each after the pieces of the intent it requires, and after its piece's earlier versions
@@ -881,8 +656,7 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
     const k = kindOf(h);
     const v = await docs.accept(tx, h.doc_id, h.doc_variant, { author, note: p.note, whole: { json } });
     if (k.accepted) await k.accepted(tx, ctx, h.doc_id, v.number, json, p.id);
-    const cols = { [k.labelColumn ?? "label"]: json.label ?? json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(json)])) };
-    await tx.query(`UPDATE ${qi(k.table)} SET ${Object.keys(cols).map((c, i) => `${qi(c)} = $${i + 2}`).join(", ")} WHERE id = $1`, [h.doc_id.split(":")[1], ...Object.values(cols)]);
+    await writeRow(tx, k, h.doc_id, json);
     numbers.push(v.number);
   }
   for (const h of hooked) {
@@ -903,16 +677,13 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
   for (const { h, k, preview } of merges) {
     const v = await docs.accept(tx, h.doc_id, h.doc_variant, { author, note: p.note });
     if (k.accepted) await k.accepted(tx, ctx, h.doc_id, v.number, preview.json);
-    const cols = { [k.labelColumn ?? "label"]: preview.json.label ?? preview.json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(preview.json)])) };
-    const names = Object.keys(cols).map(qi);
-    await tx.query(`UPDATE ${qi(k.table)} SET ${names.map((c, i) => `${c} = $${i + 2}`).join(", ")} WHERE id = $1`, [h.doc_id.split(":")[1], ...Object.values(cols)]);
+    await writeRow(tx, k, h.doc_id, preview.json);
     numbers.push(v.number);
   }
   for (const h of retires) await retireAccepted(tx, me, p.id, h.doc_id, h.doc_variant);
   if (first) return { ...first, ...(numbers.length ? { numbers } : {}) };
   await settle(tx, p.id, "accepted", byOf(me));
   return { id: p.id as string, status: "accepted" as const, number: numbers[0], ...(numbers.length > 1 ? { numbers } : {}), ...(merges[0]?.preview.concurrent ? { merged: true } : {}), ...(retires.length ? { retired: retires.map((h) => h.doc_id.split(":")[1]) } : {}) };
-
 }
 
 /**
@@ -937,8 +708,6 @@ async function piecesInOrder(q: Queryable, pieces: { doc_id: string; doc_variant
   }
   return out.map(({ h, json }) => ({ h, json }));
 }
-
-export type Verdict = "accept" | "archive";
 
 /**
  * An intent's work as people review it before they decide (`shown`: the intent's work as ./intents.ts lists it): for
@@ -1043,230 +812,10 @@ async function decideOne(ctx: Ctx, me: Me | null, w: any, verdict: IntentVerdict
   return { ...(await getIntent(db, w.id)), ...said };
 }
 
-// ---- the board's SQL, from the registry: a document's label and group by its kind
 
-/** the SQL of a work's label and group, by its document's kind (`i` the intent) */
-export function workSql() {
-  const label = KINDS.length
-    ? `CASE split_part(iv0.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN (SELECT r.${qi(k.labelColumn ?? "label")} FROM ${qi(k.table)} r WHERE r.id::text = split_part(iv0.doc_id, ':', 2))`).join(" ")} END`
-    : "NULL";
-  const group = KINDS.length ? `CASE split_part(iv0.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN '${k.group}'`).join(" ")} END` : "NULL";
-  const what = KINDS.length ? `CASE split_part(iv0.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN '${k.label}'`).join(" ")} END` : "NULL";
-  return { label, group, what };
-}
-
-// ---- the kinds, each named by its schema's UUID, with what its schema can't say
-
-/** a story: its tracks' and clips' ids each once, every clip inside the story's duration */
-function storyCheck(doc: any): string[] {
-  const out: string[] = [];
-  const tracks = new Set<string>();
-  for (const t of doc.tracks ?? []) {
-    if (tracks.has(t.id)) out.push(`track ${t.id}: its id is taken twice`);
-    tracks.add(t.id);
-    const clips = new Set<string>();
-    for (const c of t.clips ?? []) {
-      if (clips.has(c.id)) out.push(`track ${t.id}, clip ${c.id}: its id is taken twice`);
-      clips.add(c.id);
-      if (c.at + c.duration > doc.duration + 1e-6) out.push(`track ${t.id}, clip ${c.id}: ends at ${+(c.at + c.duration).toFixed(3)} s, after the story's ${doc.duration} s`);
-    }
-  }
-  return out;
-}
-/** an asset: its variants' names each once, its default variant one of them */
-function assetCheck(doc: any): string[] {
-  const out: string[] = [];
-  const names = new Set<string>();
-  for (const v of doc.variants ?? []) {
-    if (names.has(v.name)) out.push(`variant ${v.name}: its name is taken twice`);
-    names.add(v.name);
-  }
-  if (doc.defaultVariant !== undefined && doc.variants?.length && !names.has(doc.defaultVariant)) out.push(`its default variant ${doc.defaultVariant} is none of its variants`);
-  return out;
-}
-/** a factory: its stations, parts and stock named once and named only where they are (an operation at a station of the line) */
-function factoryCheck(doc: any): string[] {
-  const out: string[] = [];
-  const stations = new Set<string>();
-  for (const s of doc.line?.stations ?? []) {
-    if (stations.has(s.id)) out.push(`station ${s.id}: its id is taken twice`);
-    stations.add(s.id);
-  }
-  for (const s of doc.line?.stations ?? []) for (const a of s.after ?? []) if (!stations.has(a)) out.push(`station ${s.id}: it comes after ${a}, which is no station of the line`);
-  for (const r of doc.line?.layout?.ring ?? []) if (typeof r === "string" && !stations.has(r)) out.push(`the layout's ring names ${r}, which is no station of the line`);
-  const assemblies = new Set((doc.assemblies ?? []).map((a: any) => a.id));
-  const parts = new Set<string>();
-  for (const p of doc.parts ?? []) {
-    if (parts.has(p.id)) out.push(`part ${p.id}: its id is taken twice`);
-    parts.add(p.id);
-    if (p.assembly !== undefined && assemblies.size && !assemblies.has(p.assembly)) out.push(`part ${p.id}: its assembly ${p.assembly} is none of the factory's`);
-    for (const k of [p.raw?.stock, ...(p.raw?.also ?? [])]) if (k !== undefined && !doc.stock?.[k]) out.push(`part ${p.id}: it is made from ${k}, which is no stock the factory buys`);
-    for (const o of p.ops ?? []) if (!stations.has(o.at)) out.push(`part ${p.id}: an operation at ${o.at}, which is no station of the line`);
-  }
-  for (const [st, ops] of Object.entries<any[]>(doc.handling ?? {})) {
-    if (!stations.has(st)) out.push(`handling at ${st}, which is no station of the line`);
-    for (const o of ops) if (o.at !== st) out.push(`handling at ${st}: an operation names ${o.at}`);
-  }
-  return out;
-}
-/** the levelling: its levels' ids each once, each level more villagers than the one before */
-function levelsCheck(doc: any): string[] {
-  const out: string[] = [];
-  const ids = new Set<string>();
-  let last = 0;
-  for (const l of doc.levels ?? []) {
-    if (ids.has(l.id)) out.push(`level ${l.id}: its id is taken twice`);
-    ids.add(l.id);
-    if (l.villagers <= last) out.push(`level ${l.id}: ${l.villagers} villagers, not more than the level before (${last})`);
-    last = l.villagers;
-  }
-  return out;
-}
-
-const ensureAsset = (q: Queryable, ctx: Ctx, id: string) => ensureAssetDoc(q, ctx.store, id).then(() => undefined);
-register({
-  name: "asset", prefix: "asset", schema: SCHEMA.asset, check: assetCheck, build: true, work: "asset_version", table: "play.assets", owned: "owner", label: "asset", group: "assets", breeds: true,
-  ensure: ensureAsset,
-  write: async (_q, _id, cur, input) => (input.whole !== undefined ? { target: { ...(input.whole as object), schema: cur.schema } } : { edits: assetEdits(cur, input.edits) }),
-  propose: (ctx, me, o, via) => proposeAssetVariant(ctx, me, o, via),
-  review: (q, p) => assetReview(q, p),
-  decide: (tx, ctx, me, p, verdict) => decideAsset(tx, ctx.store, me, p, verdict),
-});
-register({
-  name: "story", prefix: "story", schema: SCHEMA.story, check: storyCheck, work: "story_version", table: "play.stories", labelColumn: "title", listed: storyListed("r"), label: "story", group: "stories",
-  ensure: (q, _ctx, id) => ensureStoryDoc(q, id).then(() => undefined),
-  write: (q, id, cur, input) => storyEdit(q, id, cur, input),
-  propose: (ctx, me, o, via) => proposeStoryVariant(ctx.db, me, o, via),
-  review: (q, p) => storyReview(q, p),
-  decide: (tx, _ctx, me, p, verdict) => decideStory(tx, me, p, verdict),
-});
-register({
-  name: "factory", prefix: "factory", schema: SCHEMA.factory, check: factoryCheck, work: "factory_version", table: "play.factories", label: "factory", group: "factories", open: "/factories/?factory={id}&intent={intent}",
-  row: { updated: () => new Date() },
-  item: (json) => ({ note: json.note ?? "", stations: json.line?.stations?.length ?? 0, parts: json.parts?.length ?? 0 }),
-});
-register({
-  name: "game_config", prefix: "game", schema: SCHEMA.levels, check: levelsCheck, work: "game_config_version", table: "play.game_configs", label: "config", group: "game", open: "/game-editor/?config={id}&intent={intent}",
-  row: { updated: () => new Date() },
-  item: (json) => ({ note: json.note ?? "", schema: json.schema }),
-});
-register({
-  name: "skill", prefix: "skill", schema: SCHEMA.skill, work: "skill_version", table: "play.records", where: "r.kind = 'skill'", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
-  row: { kind: () => "skill", updated: () => new Date() },
-  item: (json) => ({ note: json.note ?? "", group: json.group, stages: SKILL_STAGES.filter((s) => `${json.stages?.[s] ?? ""}`.trim()) }),
-});
-register({
-  name: "sandbox", prefix: "sandbox", schema: SCHEMA.sandbox, check: sandboxCheck, work: "sandbox_version", table: "play.sandboxes", labelColumn: "title", label: "layout", group: "sandboxes", open: "/sandboxes/{id}/?intent={intent}",
-  ensure: (q, _ctx, id) => ensureLayoutDoc(q, id).then(() => undefined),
-  write: (q, _id, cur, input) => layoutWrite(q, cur, input),
-  review: (q, p) => layoutReview(q, p),
-  decide: (tx, _ctx, me, p, verdict) => decideLayout(tx, me, p, verdict, decideDoc),
-  item: (json) => ({ pins: Object.keys(json.pins ?? {}).length, configs: Object.keys(json.configs ?? {}) }),
-  view: (q, json, id) => layoutView(q, json, id),
-  shown: (q, before, after) => layoutShown(q, before, after),
-});
-
-/**
- * A schema's new version accepted (Samuel 2026-11-06): refused while any document on Main fails it, naming them; a
- * schema's documents keep their prefix (its `type` never changes), and a new schema's prefix is no other kind's. Then
- * accepted as every document is, and every process's kinds read again.
- */
-async function decideSchema(tx: Queryable, me: Me, p: any, verdict: Verdict) {
-  if (verdict !== "accept") return decideDoc(tx, me, p, verdict);
-  const docId = p.doc_id as string, uuid = docId.split(":")[1];
-  const preview = await docs.previewMerge(tx, docId, Number(p.doc_variant));
-  if (!preview.problems.length) {
-    const next = preview.json as docs.SchemaJson;
-    const had = (await docs.versionsOf(tx, docId)).length > 0;
-    if (had) {
-      const was = (await docs.readDoc(tx, docId)).json as docs.SchemaJson;
-      if (was.type !== next.type) throw new HttpError(`A schema's documents keep their prefix: this one's are ${was.type}:, not ${next.type}:.`, 409);
-    } else if (KINDS.some((k) => k.prefix === next.type) || (await docs.schemasOf(tx)).some((x) => x.json.type === next.type)) {
-      throw new HttpError(`The prefix ${next.type}: is another kind's: a new schema names its own.`, 409);
-    }
-    const type = { schema: next.node, check: docs.hooksOf(uuid).check };
-    const { rows } = await tx.query<{ id: string }>(`SELECT d.id FROM play.docs d WHERE d.schema_id = $1 AND EXISTS (SELECT 1 FROM play.doc_versions v WHERE v.doc_id = d.id) ORDER BY d.id`, [uuid]);
-    const failing: string[] = [];
-    for (const r of rows) {
-      const problems = docs.problemsOf(type, (await docs.readDoc(tx, r.id)).json);
-      if (problems.length) failing.push(`${r.id.split(":")[1]} (${problems.slice(0, 2).join("; ")})`);
-    }
-    if (failing.length) throw new HttpError(`This version of the schema fails ${failing.length} document${failing.length > 1 ? "s" : ""} on Main: ${failing.slice(0, 10).join(", ")}${failing.length > 10 ? " …" : ""}. Change them first, or the schema so they still validate.`, 409);
-  }
-  const r = await decideDoc(tx, me, p, verdict);
-  if (r.status === "accepted") await syncKinds(tx);
-  return r;
-}
-register({
-  name: "schema", prefix: "schema", schema: SCHEMA.meta, check: (doc) => docs.nodeProblems(doc?.node), work: "schema_version", table: "play.records", where: "r.kind = 'schema'", label: "schema", group: "schemas", open: "/schemas/?schema={id}&intent={intent}",
-  row: { kind: () => "schema", updated: () => new Date() },
-  item: (json) => ({ note: json.note ?? "", type: json.type, name: json.name }),
-  // the documents written against it: each its UUID, its kind, and the version of the schema it was last written against
-  more: async (q, uuid) => ({
-    documents: (await q.query<{ id: string; v: number | null }>(`SELECT id, schema_version AS v FROM play.docs WHERE schema_id = $1 AND id <> 'schema:' || $1::text ORDER BY created, id`, [uuid])).rows.map((r) => ({ id: r.id.split(":")[1], kind: kindOfDoc(r.id)?.name ?? null, schemaVersion: r.v })),
-  }),
-  decide: (tx, _ctx, me, p, verdict) => decideSchema(tx, me, p, verdict),
-});
-
-// an artifact (./artifacts.ts): its row is what its accepted version says; one kept before artifacts were documents
-// gets its document made from its row, as its v1, the first time it is read
-const ARTIFACT_ROW = `url, title, description, summary, kind, tags, to_char(published, 'YYYY-MM-DD') AS published, text_hash, origin, agent_id AS agent, operator_id AS operator, token_id AS token, author_ids AS authors`;
-async function ensureArtifactDoc(q: Queryable, id: string) {
-  const { rows } = await q.query<any>(`SELECT ${ARTIFACT_ROW}, created FROM play.artifacts WHERE id = $1`, [id]);
-  const { created, ...r } = rows[0] ?? {};
-  if (!r.title) return;
-  const note = "kept before artifacts were documents";
-  await docs.createDoc(q, { id: `artifact:${id}`, schema: SCHEMA.artifact, json: { schema: "artifact/1", ...r, tags: r.tags ?? [], authors: r.authors ?? [] }, author: { human: r.operator, via: "import" }, message: `v1: ${note}`, at: created, version: note });
-}
-const field = (f: string) => (json: any) => json[f] ?? null;
-/** a kept artifact has every field (a new one's Main is only its schema until it is accepted) */
-const ARTIFACT_FIELDS = ["url", "title", "description", "summary", "kind", "origin", "agent", "authors"];
-const ARTIFACT_CHECK = (doc: any) => (Object.keys(doc ?? {}).length > 1 ? ARTIFACT_FIELDS.filter((f) => doc[f] === undefined).map((f) => `$.${f}: an artifact has its ${f}`) : []);
-register({
-  name: "artifact", prefix: "artifact", schema: SCHEMA.artifact, check: ARTIFACT_CHECK, work: "artifact_version", table: "play.artifacts", labelColumn: "title", listed: "r.title IS NOT NULL", label: "artifact", group: "artifacts", open: "/artifacts/?artifact={id}&intent={intent}",
-  ensure: (q, _ctx, id) => ensureArtifactDoc(q, id),
-  row: {
-    ...Object.fromEntries(["url", "description", "summary", "kind", "published", "text_hash", "origin"].map((f) => [f, field(f)])),
-    tags: (j) => j.tags ?? [], author_ids: (j) => j.authors ?? [], agent_id: field("agent"), operator_id: field("operator"), token_id: field("token"),
-  },
-  item: (json) => ({ url: json.url ?? null }),
-});
-
-// a piece (./pieces.ts, play/SPEC.md §4.5): readable source a recipe names by its hash; each accepted version's source
-// kept among play's files by its hash. A new piece's Main is only its schema until it is accepted.
-const PIECE_CHECK = (doc: any) => {
-  if (Object.keys(doc ?? {}).length <= 1) return [];
-  const out = ["label", "source"].filter((f) => doc[f] === undefined).map((f) => `$.${f}: a piece has its ${f}`);
-  return out.length ? out : pieceProblems(doc.source, unreadable);
-};
-const asPieceError = async (run: () => Promise<unknown>) => {
-  try {
-    await run();
-  } catch (e) {
-    throw e instanceof PieceError ? new HttpError(e.message) : e;
-  }
-};
-register({
-  name: "piece", prefix: "piece", schema: SCHEMA.piece, check: PIECE_CHECK, work: "piece_version", table: "play.records", where: "r.kind = 'piece'", label: "piece", group: "pieces",
-  row: { kind: () => "piece", updated: () => new Date() },
-  item: (json) => ({ note: json.note ?? "", bytes: Buffer.byteLength(`${json.source ?? ""}`) }),
-  ready: (q, json, intent) =>
-    asPieceError(async () => {
-      const source = `${json?.source ?? ""}`;
-      // one version of a piece's source per intent: a second the same is no new version
-      if (intent && (await intentPieces(q, intent)).some((x) => x.hash === hashText(source))) throw new PieceError("This intent proposes that piece's source already: a version of a piece is new source.");
-      await piecesHeld(q, piecesOf(source), 3, intent);
-    }),
-  accepted: (tx, ctx, docId, number, json, intent) => asPieceError(() => keepPiece(tx, ctx.store, docId, number, json, intent)),
-  more: async (q, uuid) => ({
-    versions: (await q.query<{ number: number; hash: string; requires: string[]; depth: number }>(`SELECT number, hash, requires, depth FROM play.piece_versions WHERE piece_id = $1 ORDER BY number`, [uuid])).rows,
-  }),
-});
-
-export { assetDocFor };
-
-// kept for ./assetdocs.ts (held by other intents: intent-work/5884ade4/held.txt), which names play's one error and wraps
-// its reads as before: a document's errors are HttpErrors already
+// kept for ./assetdocs.ts (held by other intents: intent-work/5884ade4/held.txt), which takes these from here: the
+// registry's helpers are ./kinds.ts's, play's one error ./kit/errors.ts's, and a document's errors are HttpErrors already
+export { named, versionAt, type Ctx, type Verdict };
 export { HttpError as VersionError };
 export function asVersionError<R>(run: () => Promise<R>): Promise<R> {
   return run();

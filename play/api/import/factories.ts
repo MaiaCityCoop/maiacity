@@ -7,6 +7,7 @@ import type { Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
 import { FACTORY } from "../src/kit/ids";
 import { lifetracLine } from "./factories/lifetrac-line/index.js";
+import "../src/allkinds";
 
 export { lifetracLine };
 export type FactoriesReport = { seeded: string[]; present: string[]; errors: string[] };

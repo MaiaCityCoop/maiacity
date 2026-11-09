@@ -9,6 +9,7 @@ import { meOf } from "../src/access";
 import { hashText } from "../src/kit/hash";
 import type { Db } from "../src/kit/pg";
 import { proposeDocVersion } from "../src/versioned";
+import "../src/allkinds";
 
 const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
 

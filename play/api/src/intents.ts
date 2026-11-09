@@ -3,16 +3,17 @@
 // Agents add, specify and build it over MCP; an admin approves its spec and decides it at Proposal, where work of play's
 // is applied (./versioned.ts decide) and code is shipped (./ship.ts). Every move forward is one gate, mayMove.
 import { intentSeen, seesIntent } from "./owners";
-import { admin, COOP, meOf, type Me } from "./access";
+import { admin, COOP, meOf, type AutoBy, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import type { Db, Queryable } from "./kit/pg";
-import { factsOf, matchRule, ruleSetOf, type AutoBy } from "./rules";
+import { factsOf, matchRule, ruleSetOf } from "./rules";
 import type { GitHub } from "./ship";
 import { NOTE_MOST } from "./notes";
 import { briefOf } from "./skills";
 import { newId, UUID } from "./kit/uuid";
 import { closeWork, intentIdOf, WORK_STATUS } from "./work";
-import { decideAny, workKinds, workSql } from "./versioned";
+import { decideAny } from "./versioned";
+import { workKinds, workSql } from "./kinds";
 import { decidable, sub, unmetOn } from "./substate";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";

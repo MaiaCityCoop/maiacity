@@ -16,8 +16,7 @@ import * as docs from "./docs";
 import type { Db, Queryable } from "./kit/pg";
 import { INTENT_ADMINS, intentRow, LINE_MOST } from "./intents";
 import { seesIntent } from "./owners";
-import { authorOf } from "./storydocs";
-import { docRef, type Ctx } from "./versioned";
+import { authorOf, docRef, type Ctx } from "./kinds";
 import { putAtProposal } from "./work";
 import { HttpError } from "./kit/errors";
 

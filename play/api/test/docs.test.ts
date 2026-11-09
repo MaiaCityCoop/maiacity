@@ -15,7 +15,7 @@ import {
 import { EditError } from "../src/docs/core";
 import { SCHEMA } from "../src/kit/ids";
 // the kinds: what each schema cannot say (a story's clips inside its duration, an asset's source is code), by its UUID
-import "../src/versioned";
+import "../src/allkinds";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;

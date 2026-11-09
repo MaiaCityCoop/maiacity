@@ -7,7 +7,8 @@ import { COOP } from "./kit/ids";
 export type Level = "admin" | "citizen" | "traveler";
 export type Rule = { read?: string[]; propose?: string[]; decide?: string[]; manage?: string[] };
 export type Action = keyof Rule;
-import type { AutoBy } from "./rules";
+/** who decided, where a rule did: the rule (its UUID, its label only shown), the rule set's version and the rule's reason */
+export type AutoBy = { rule: string; label: string; rules: string; reason: string };
 import { HttpError } from "./kit/errors";
 /** a human signed in; `token`, the id of the access token they came by, when it is an agent over MCP (./tokens.ts);
  *  `box`, that token is avenBOX's (the GitHub runs of the intents' checks: play/SPEC.md §4.12); `auto`, set only where

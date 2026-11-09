@@ -16,7 +16,7 @@ import * as docs from "./docs";
 import { SCHEMA } from "./kit/ids";
 import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
 import { closeWork, holdVariant, intentIdOf, settle } from "./work";
-import { resolveEdits } from "./versioned";
+import { resolveEdits } from "./kinds";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
 
@@ -464,7 +464,7 @@ export async function layoutReview(q: Queryable, p: any) {
 }
 
 /** the rows the worlds read, written from a layout (in the caller's transaction) */
-async function writeRows(tx: Queryable, sandbox: string, json: any) {
+export async function writeRows(tx: Queryable, sandbox: string, json: any) {
   const pins = Object.entries<Pin>(json.pins ?? {});
   await tx.query(`DELETE FROM play.sandbox_pins WHERE sandbox_id = $1 AND NOT (slot = ANY($2))`, [sandbox, pins.map(([s]) => s)]);
   for (const [slot, p] of pins)
@@ -484,28 +484,16 @@ async function writeRows(tx: Queryable, sandbox: string, json: any) {
 }
 
 /**
- * Accept or archive a layout's intent variant (`decide`: ./versioned.ts decideDoc, the one decide every kind shares):
- * accepted, it is merged into Main and named the next version, and Main's pins and configs are written to the rows
- * the worlds read, in this transaction. One that no longer holds on the layout as it is (a pin of a version or variant
- * play no longer keeps; one kept from before layouts were documents that no longer held then) is archived instead.
+ * What a layout's Accept holds it to first (./kinds.ts before), in the Accept's transaction, its sandbox's row locked:
+ * one that no longer holds on the layout as it is (a pin of a version or variant play no longer keeps; one kept from
+ * before layouts were documents that no longer held then) is archived, saying why. Accepted, Main's pins and configs
+ * are written to the rows the worlds read (writeRows, its accepted hook).
  */
-export async function decideLayout(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive", decide: (tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") => Promise<any>) {
-  admin(me, SANDBOX_ADMINS);
-  const docId = p.doc_id as string, sandbox = docId.split(":")[1];
-  await tx.query(`SELECT 1 FROM play.sandboxes WHERE id = $1 FOR UPDATE`, [sandbox]);
-  if (verdict === "accept") {
-    const v = Number(p.doc_variant);
-    const empty = !(await docs.history(tx, docId, { variant: v })).length;
-    const problems = empty ? ["it no longer held on the layout when the layout became a document"] : await layoutProblems(tx, (await docs.previewMerge(tx, docId, v)).json);
-    if (problems.length) {
-      await settle(tx, p.id, "archived", null);
-      await closeWork(tx, me, p);
-      return { id: p.id as string, status: "archived" as const, message: `Merged into the layout as it is now, this no longer holds: ${problems[0]}. Propose it again on its newest version.` };
-    }
-  }
-  const r = await decide(tx, me, p, verdict);
-  if (r.status === "accepted") await writeRows(tx, sandbox, (await docs.readDoc(tx, docId)).json);
-  return r;
+export async function layoutBefore(tx: Queryable, docId: string, v: number, merged: any): Promise<string | null> {
+  await tx.query(`SELECT 1 FROM play.sandboxes WHERE id = $1 FOR UPDATE`, [docId.split(":")[1]]);
+  const empty = !(await docs.history(tx, docId, { variant: v })).length;
+  const problems = empty ? ["it no longer held on the layout when the layout became a document"] : await layoutProblems(tx, merged);
+  return problems.length ? `Merged into the layout as it is now, this no longer holds: ${problems[0]}. Propose it again on its newest version.` : null;
 }
 
 /** The sandbox at a version or an edit of its layout's history, to walk it so (admins; `?v=` or `?edit=` on its config). */

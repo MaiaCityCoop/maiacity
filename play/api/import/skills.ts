@@ -7,6 +7,7 @@ import { seedDoc } from "../src/versioned";
 import { SKILL } from "../src/kit/ids";
 import { avenmaia } from "./skills/avenmaia";
 import { intents } from "./skills/intents";
+import "../src/allkinds";
 
 export { avenmaia, intents };
 export type SkillsReport = { seeded: string[]; present: string[]; errors: string[] };

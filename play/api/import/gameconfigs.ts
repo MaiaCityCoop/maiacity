@@ -6,6 +6,7 @@ import type { Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
 import { GAME_CONFIG } from "../src/kit/ids";
 import { levelling } from "./gameconfigs/levelling";
+import "../src/allkinds";
 
 export { levelling };
 export type GameConfigsReport = { seeded: string[]; present: string[]; errors: string[] };
