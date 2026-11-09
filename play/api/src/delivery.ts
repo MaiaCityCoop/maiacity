@@ -17,8 +17,8 @@ import { admin, COOP, type Me } from "./access";
 import { INTENT_ADMINS } from "./intents";
 import { intentSeen } from "./owners";
 import type { Queryable } from "./kit/pg";
-import type { GitHub, Job, Run } from "./ship";
-import type { PrSeen } from "./substate";
+import type { GitHub, Job, Run } from "./github";
+import { short, type PrSeen } from "./substate";
 
 const MIN = 60_000;
 export const STAGES = ["idea", "specify", "build", "proposal", "ship"] as const;

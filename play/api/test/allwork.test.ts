@@ -16,7 +16,8 @@ import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import { reconcile, watchShips, type Pull } from "../src/ship";
+import { reconcile, watchShips } from "../src/ship";
+import { type Pull } from "../src/github";
 import { seedDoc } from "../src/versioned";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
 

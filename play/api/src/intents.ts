@@ -7,7 +7,7 @@ import { admin, COOP, meOf, type AutoBy, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import type { Db, Queryable } from "./kit/pg";
 import { factsOf, matchRule, ruleSetOf } from "./rules";
-import type { GitHub } from "./ship";
+import type { GitHub } from "./github";
 import { NOTE_MOST } from "./notes";
 import { briefOf } from "./skills";
 import { newId, UUID } from "./kit/uuid";

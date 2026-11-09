@@ -5,7 +5,8 @@ import { blobStore } from "./blobs";
 import { migrate } from "./migrations";
 import { connect } from "./kit/pg";
 import { siteHandler } from "./site";
-import { reconcile, runningCommit, shipGitHub, startShipWatcher } from "./ship";
+import { reconcile, runningCommit, startShipWatcher } from "./ship";
+import { shipGitHub } from "./github";
 import { syncKinds } from "./kinds";
 import "./allkinds";
 

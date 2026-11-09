@@ -40,7 +40,8 @@ type Row = {
   pr_seen?: PrSeen | null;
 };
 
-const short = (s: string) => s.slice(0, 7);
+/** a commit as people read it: its first seven characters */
+export const short = (s: string) => s.slice(0, 7);
 /** the text a hold is read by, on the board and in every refusal of a held intent's move */
 export const heldWhy = (held: { title: string }[]) => `held: waits for ${held.map((d) => d.title).join(", ")}`;
 

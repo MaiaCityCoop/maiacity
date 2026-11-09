@@ -21,7 +21,7 @@
 import type { BlobStore } from "./blobs";
 import type { Db } from "./kit/pg";
 import { admin, type Me } from "./access";
-import type { GitHub } from "./ship";
+import type { GitHub } from "./github";
 import { assetOf, listAssets } from "./assets";
 import { archiveOwn, docAt, docEdit, docHistory, listDocs, proposeDocVersion, reviewOf } from "./versioned";
 import { kinds, syncKinds, workKinds } from "./kinds";

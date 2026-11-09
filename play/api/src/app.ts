@@ -16,7 +16,8 @@ import { inviteOpen, listMembers, makeInvite, removeMember, renameMember, rename
 import { listTables, readTable } from "./tables";
 import { layoutAt, proposedState, SandboxError } from "./sandboxes";
 import { decideAny, docAt, docChanges, docHistory, listDocs, reviewHeld, reviewOf } from "./versioned";
-import { runningCommit, shipWork, type GitHub } from "./ship";
+import { runningCommit, shipWork } from "./ship";
+import type { GitHub } from "./github";
 import { NO_INTENT } from "./work";
 import { withdrawDoc } from "./withdraw";
 import { retireDoc } from "./retire";

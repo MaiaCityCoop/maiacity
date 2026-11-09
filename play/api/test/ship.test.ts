@@ -15,7 +15,8 @@ import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import { readFileSync } from "node:fs";
-import { ACCEPTED_CONTEXT, gitHub, reconcile, runningCommit, shipGitHub, startShipWatcher, tailOf, watchShips, type Job, type Pull, type Run } from "../src/ship";
+import { reconcile, runningCommit, startShipWatcher, tailOf, watchShips } from "../src/ship";
+import { ACCEPTED_CONTEXT, gitHub, shipGitHub, type Job, type Pull, type Run } from "../src/github";
 import { fakeGitHub, green, iso, job, REPO, run, sha, TOKEN } from "./fixtures/github";
 
 const URL_ = process.env.TEST_DATABASE_URL;

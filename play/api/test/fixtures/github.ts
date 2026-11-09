@@ -1,6 +1,6 @@
 // A fake GitHub for play's tests (src/ship.ts): GitHub's REST API for one repository answered here, behind the real
 // client, so every request play makes (its path, its body, its Bearer) is seen.
-import { gitHub, type Job, type Pull, type Run } from "../../src/ship";
+import { gitHub, type Job, type Pull, type Run } from "../../src/github";
 
 export const TOKEN = "github_pat_SHIPTOKEN_not_to_be_seen_0123456789";
 export const REPO = "MyAvenCEO/maiacity";
