@@ -121,13 +121,14 @@ export function createRenderer(o = {}) {
 
 /**
  * three's WebGLNodesHandler installed on a renderer, so a NodeMaterial (TSL) is built into GLSL and drawn by it. With a
- * handler, three's `compile` draws the shadow maps first (node materials read them as they are built); a compile of
- * classic materials only (every model's warm-up, `precompile`, the asset library's levels) is held from that extra
- * shadow pass, so nothing costs more than before until node materials come.
+ * handler, three's `compile` draws the shadow maps first (node materials read them as they are built); a compile is
+ * held from that extra shadow pass. The kit's node materials are compiled with the rest (`precompile`), so their programs
+ * link while a level loads, not mid-walk (ed6694c3): each build meets its own program through the handler
+ * (./nodes/index.js `install`), whether a frame or a warm-up made it.
  * @param {THREE.WebGLRenderer} renderer
  */
-function nodes(renderer) {
-	const r = /** @type {THREE.WebGLRenderer & { setNodesHandler?: (h: unknown) => void }} */ (renderer);
+export function nodes(renderer) {
+	const r = /** @type {any} */ (renderer);
 	if (typeof r.setNodesHandler !== 'function') return;
 	// three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light; ./tsl.js:
 	// on the screen, `toneMapped: false` and `raw` honoured)
@@ -135,19 +136,6 @@ function nodes(renderer) {
 	const compile = r.compile;
 	if (typeof compile !== 'function') return;
 	r.compile = function (scene, camera, target = null) {
-		// three's compile gathers every material under `scene`, hidden ones too (it walks `traverse`), and builds a
-		// node material's program without the handler's onUpdateProgram: met again later, the handler pairs that
-		// program with another build's uniforms (cb16b7a5: the sky's PMREM handed to a vec3 on the levels `precompile`
-		// warmed). Node materials are taken out while three gathers, and built at their first frame, as every draw is.
-		/** @type {[THREE.Object3D & { material?: unknown }, unknown][]} */
-		const away = [];
-		scene.traverse((o) => {
-			const m = /** @type {THREE.Mesh} */ (o).material;
-			if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial && /** @type {any} */ (x).isKit)) {
-				away.push([o, m]);
-				/** @type {any} */ (o).material = null;
-			}
-		});
 		const sm = this.shadowMap, auto = sm.autoUpdate, need = sm.needsUpdate;
 		sm.autoUpdate = sm.needsUpdate = false;
 		try {
@@ -155,7 +143,6 @@ function nodes(renderer) {
 		} finally {
 			sm.autoUpdate = auto;
 			sm.needsUpdate = need;
-			for (const [o, m] of away) /** @type {any} */ (o).material = m;
 		}
 	};
 }
@@ -234,13 +221,16 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
 	};
 }
 
+/** how long a warm-up waits at most on the driver's links (ms): what is not linked by then is waited on at its first draw */
+const LINKED = 4000;
+
 /**
- * Compile a model's shaders before it is first drawn, off the page's thread where the browser can
- * (KHR_parallel_shader_compile), so the page never stalls on the first frame; a browser that cannot simply compiles
- * them now. Never throws: a model that fails here is still drawn the usual way. The one warm-up of the app: nothing
- * else calls `compileAsync` (./lint.test.js). Node materials (TSL) are left out, built at their first frame: the
- * renderer's own `compile` (`nodes`, above) never hands one to three, hidden or not, and they are hidden here as well
- * so a `compileAsync` waits only on the rest.
+ * Compile a model's shaders before it is first drawn, linked off the page's thread where the browser can
+ * (KHR_parallel_shader_compile), so the page never stalls on the first frame; a browser that cannot simply links them
+ * now. Never throws: a model that fails here is still drawn the usual way. The one warm-up of the app: nothing else
+ * compiles ahead (./lint.test.js). The kit's node materials too, each paired with its program as it is built (`nodes`):
+ * walking Sandbox 5, Safari linked 47 of them mid-walk when they were left to their first frame (660ad67f). Waits as
+ * three's `compileAsync` does, on each program's completion, but never past LINKED.
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Object3D} object
  * @param {THREE.Camera} camera
@@ -248,27 +238,25 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
  * @returns {Promise<void>}
  */
 export function precompile(renderer, object, camera, scene) {
-	/** @type {THREE.Object3D[]} */
-	const off = [];
-	object.traverseVisible((o) => {
-		const m = /** @type {THREE.Mesh} */ (o).material;
-		if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) off.push(o);
-	});
-	for (const o of off) o.visible = false;
-	/** @type {Promise<unknown>} */
-	let made = Promise.resolve();
+	/** @type {Set<THREE.Material>} */
+	let left;
 	try {
-		// three gathers the materials at once, as it is called: the node materials may show again straight after
-		made = renderer.compileAsync(object, camera, scene);
+		left = renderer.compile(object, camera, scene);
 	} catch {
-		/* drawn as usual */
-	} finally {
-		for (const o of off) o.visible = true;
+		return Promise.resolve(); // drawn as usual
 	}
-	return made.then(
-		() => {},
-		() => {}
-	);
+	const end = performance.now() + LINKED;
+	return new Promise((done) => {
+		const check = () => {
+			for (const m of left) {
+				const p = /** @type {any} */ (renderer.properties.get(m)).currentProgram;
+				if (!p || p.isReady()) left.delete(m);
+			}
+			if (!left.size || performance.now() > end) return done();
+			setTimeout(check, 10);
+		};
+		check();
+	});
 }
 
 /**
