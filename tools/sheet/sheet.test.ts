@@ -1,7 +1,5 @@
-/**
- * The sheet tools call fal only with --allow <n> (intent eb7024df): fal is stubbed (test/stub-fal.ts, preloaded), no
- * key and no network; every request a run makes is logged, so "before any network call" is the log being empty.
- */
+/** The sheet tools call fal only with --allow <n> (intent eb7024df): fal is stubbed (test/stub-fal.ts, preloaded), no
+ * key and no network; every request a run makes is logged, so "before any network call" is the log being empty. */
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

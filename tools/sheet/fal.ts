@@ -1,8 +1,6 @@
-/**
- * What sheet.ts and sheet-edit.ts share: a model's run on fal's queue, reference images as data URLs, the plate as a
+/** What sheet.ts and sheet-edit.ts share: a model's run on fal's queue, reference images as data URLs, the plate as a
  * JPEG play keeps (at most 4 MB), and keeping an image on play, in Maia City's Library or in the operator's personal
- * one (MCP add_story_frame, the session's PLAY_MCP_TOKEN).
- */
+ * one (MCP add_story_frame, the session's PLAY_MCP_TOKEN). */
 import { $ } from "bun";
 import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -11,10 +9,8 @@ import { tool } from "../../play/avenbox/play.ts";
 
 export type Library = "coop" | "personal";
 
-/**
- * The library an image goes to: `--library coop|personal`; a character's sheet and photos only ever the personal one.
- * Made from reference photos, the library must be named: someone's photos never fall into Maia City's by default.
- */
+/** The library an image goes to: `--library coop|personal`; a character's sheet and photos only ever the personal one.
+ * Made from reference photos, the library must be named: someone's photos never fall into Maia City's by default. */
 export function library(given: string | undefined, kind?: string, refs = 0): Library {
   if (given !== undefined && given !== "coop" && given !== "personal") throw new Error(`--library is coop or personal, not ${given}.`);
   if (kind === "character") {

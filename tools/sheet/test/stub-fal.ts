@@ -1,7 +1,5 @@
-/**
- * Preloaded by sheet.test.ts: fal and play stubbed, no network. Every request is appended to $STUB_LOG and answered
- * as fal's queue would (a submission, COMPLETED, a result of `num_images` images; each image a 1×1 PNG).
- */
+/** Preloaded by sheet.test.ts: fal and play stubbed, no network. Every request is appended to $STUB_LOG and answered
+ * as fal's queue would (a submission, COMPLETED, a result of `num_images` images; each image a 1×1 PNG). */
 import { appendFileSync } from "node:fs";
 
 const PNG = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));

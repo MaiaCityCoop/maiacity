@@ -1,8 +1,6 @@
-/**
- * The company, as facts — ONE place. Every legal document, footer line and
+/** The company, as facts — ONE place. Every legal document, footer line and
  * settings screen renders THESE values; a changed address or VAT id is a
- * one-line edit here, never a hunt across three apps.
- */
+ * one-line edit here, never a hunt across three apps. */
 export const COMPANY = {
 	legalName: 'avenCEO GmbH',
 	street: 'Aventinstr. 8',

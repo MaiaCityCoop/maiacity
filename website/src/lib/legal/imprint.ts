@@ -1,9 +1,7 @@
-/**
- * Impressum / Site Notice — the one legal document TEMPLATED from
+/** Impressum / Site Notice — the one legal document TEMPLATED from
  * [[COMPANY]] rather than transcribed: its content IS the company facts.
  * Legal texts are maintained manually — updated counsel text goes through
- * the same HTML-to-structure conversion the other documents used.
- */
+ * the same HTML-to-structure conversion the other documents used. */
 import { COMPANY } from './company'
 import type { LegalDocument } from './types'
 
