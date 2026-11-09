@@ -1,12 +1,8 @@
 /**
- * Water that looks like water: clear and sandy-green in the shallows by the
- * bank, deepening to a dark teal in the middle, catching the sky; ripples
- * drifting along it; a bed under it, wet earth and sand at the edges, mud in
- * the deep; and at the shore, reeds and rushes with their brown heads, and
- * lily pads floating in the still water by the bank. Ponds are never circles.
- *
- * Every surface carries a `depth` for each vertex, 0 at the bank and 1 in
- * the deepest part, and the material colours and clears it by that.
+ * Water that looks like water: clear and sandy-green in the shallows, dark teal in the middle, catching the sky; ripples
+ * drifting; a bed of wet earth and sand at the edges, mud in the deep; reeds and rushes at the shore, lily pads in the
+ * still water by the bank. Ponds are never circles. Each vertex carries a `depth` (0 bank … 1 deepest), by which the
+ * material colours and clears it.
  */
 import * as THREE from 'three'
 import { OwnStandard } from '$lib/content/render/tsl.js'
@@ -44,10 +40,9 @@ const ripples = shared(() => {
 const drift = uniform(new THREE.Vector2())
 
 /**
- * The water's surface, in TSL: its body coloured and cleared by its depth (sandy-green and half clear in the shallows,
- * dark teal and near opaque in the deep), shaded by the drifting ripples; it reflects the one sky and its sun (the
- * scene's environment and lights, roughness 0.06), and by a Fresnel term (Schlick's, water's 2 % head on) more of it
- * where it is seen at a grazing angle, so the far water is the sky's and the near is clear. Call `flow(t)` each frame.
+ * The water's surface in TSL, coloured and cleared by depth (sandy-green, half clear in the shallows; dark teal, near
+ * opaque in the deep), shaded by drifting ripples; it reflects the sky and sun (environment and lights, roughness 0.06),
+ * more at grazing angles by Schlick's Fresnel (2 % head on), so far water is the sky's, near water clear. `flow(t)` each frame.
  */
 export const waterMaterial = shared(() => {
 	const mat = new OwnStandard({ roughness: 0.06, metalness: 0, transparent: true, side: THREE.DoubleSide, depthWrite: false })
@@ -78,10 +73,7 @@ function surface(pos: number[], depth: number[], uv: number[], idx: number[], ma
 	return mesh
 }
 
-/**
- * A stream along a line of points: its surface five vertices across (shallow at
- * both banks, deepest in the middle), and a bed a little wider than it.
- */
+/** A stream along a line of points: a surface five vertices across (shallow at both banks, deepest in the middle) and a slightly wider bed. */
 export function stream(line: THREE.Vector3[], width: number, y: number, closed = false): THREE.Group {
 	const g = new THREE.Group()
 	const across = [-1, -0.55, 0, 0.55, 1]
@@ -111,11 +103,7 @@ export function stream(line: THREE.Vector3[], width: number, y: number, closed =
 	return g
 }
 
-/**
- * A pond: an irregular, rounded shape, never a circle, shallow round its rim
- * and deep in its middle, with a bed under it. Returns its outline too, for
- * planting the shore.
- */
+/** A pond: irregular and rounded, never a circle, shallow at the rim and deep in the middle, with a bed; returns its outline for planting the shore. */
 export function pond(cx: number, cz: number, radius: number, seed: number, y: number): { group: THREE.Group; outline: THREE.Vector3[] } {
 	const r = seeded(seed)
 	const [a2, a3, a5] = [r() * 6.28, r() * 6.28, r() * 6.28]
@@ -191,10 +179,9 @@ function reeds(g: THREE.Group, x: number, z: number, r: () => number, size: numb
 }
 
 /**
- * Plants the shore of a line of water (a stream's centre, or a pond's outline):
- * reeds at the water's edge now and then, and lily pads on the water near the
- * bank, a flower among them here and there. `inside` says which side is water
- * for an outline (+1: toward the middle); for a stream both banks are planted.
+ * Plants the shore of a line of water (a stream's centre or a pond's outline): reeds at the edge now and then, lily pads
+ * near the bank, a flower here and there. `inside` says which side of an outline is water (+1 toward the middle); a
+ * stream's both banks are planted.
  */
 export function shore(line: THREE.Vector3[], halfWidth: number, seed: number, outlineCentre?: { x: number; z: number }): THREE.Group {
 	const r = seeded(seed)
