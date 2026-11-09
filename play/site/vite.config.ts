@@ -7,5 +7,6 @@ export default defineConfig({
 	tsconfig: './tsconfig.json',
 	plugins: [sveltekit()],
 	server: { proxy: { '/api': process.env.PLAY_API || 'http://localhost:3911' } },
-	test: { include: ['src/**/*.test.{ts,js}'], environment: 'node' }
+	// (the census's own checks are bun's, `bun test scripts/census`, but for cards.ts's, which are vitest's: intent 0c095468)
+	test: { include: ['src/**/*.test.{ts,js}', 'scripts/census/cards.test.ts'], environment: 'node' }
 });
