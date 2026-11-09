@@ -20,9 +20,8 @@
 	 * @typedef {{ move: (x: number, y: number, hurry: boolean) => void, look: (dx: number, dy: number) => void, dispose: () => void }} Walked
 	 *   a world you walk, as `mount` answers it
 	 * @typedef {{ image: string, eyebrow: string, title: string, size: string, steps: number, first?: string, counts?: (label: string) => boolean }} Cover
-	 *   the cover while the world comes up: its photo, its name over a line on what it is, and the bar, full after `steps`
-	 *   steps; `first`, the step it says before the world has said any; `counts`, whether a step the world reports moves the
-	 *   bar (a step that only tells how far on it is in its own words does not)
+	 *   the cover while the world comes up: its photo, its name over a line on it, the bar full after `steps`; `first`, the
+	 *   step said before the world says any; `counts`, whether a reported step moves the bar (one telling progress in its words does not)
 	 */
 	/**
 	 * @type {{

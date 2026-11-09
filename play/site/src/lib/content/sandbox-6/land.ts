@@ -95,10 +95,7 @@ const onRoad = (roads: Road[], x: number, z: number) =>
 		return false;
 	});
 
-/**
- * A hex's land, cell by cell: each cell's use (an index into USE_IDS, 255 outside the hex), and the area of each
- * use, m², every cell counted.
- */
+/** A hex's land cell by cell: each cell's use (an index into USE_IDS, 255 outside) and each use's area (m², every cell counted). */
 export function landOf(v: Village, key: string) {
 	const plan = v.plans[key], H = hexOf(v.hex.flats), C = v.cell;
 	const nx = Math.ceil(H.w / C), nz = Math.ceil((2 * H.s) / C);

@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /*
- * A MAC JOB'S DRY RUN — the job run in avenBOX on the CPU before it goes to the Mac (intent cb52fbd9; ./README.md), so a
- * step that throws, a global the world lacks, a call that never settles or a run.sh that blocks shows in minutes, not
- * after the Mac's queue. No browser, no WebGL, no GPU (Samuel's rule: GPU work only on his Mac).
+ * A MAC JOB'S DRY RUN — the job run in avenBOX on the CPU before the Mac (intent cb52fbd9; ./README.md), so a throwing step,
+ * a missing global, a call that never settles or a blocking run.sh shows in minutes. No browser, WebGL or GPU (Samuel's
+ * rule: GPU work only on his Mac).
  *
  *   bun play/site/scripts/macjob/dry.ts <job dir> [--at <commit>] [--timeout <s>]
  *

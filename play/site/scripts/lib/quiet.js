@@ -1,13 +1,11 @@
 /*
- * WHEN A WORLD HAS SETTLED — the one rule every check that waits on a world uses (intent 7af6e162): the census on the
- * CPU (../census/run.ts), the Mac's jobs (../mac-page.mjs, ../selector-shots.mjs) and the render box's. A world is
- * settled when its asset renderers (`__assets.stats()`: Sandbox 1's out, in and library) build nothing and keep
- * nothing (no picture being read back, no file waiting to be written), no dome's inside is building (`__domeStream`,
- * where the page shows it), and their copies, the pictures they took and the domes are as they were at the last look.
+ * WHEN A WORLD HAS SETTLED — the one rule every check waiting on a world uses (intent 7af6e162): the census
+ * (../census/run.ts), the Mac's jobs (../mac-page.mjs, ../selector-shots.mjs) and the render box's. Settled: its asset
+ * renderers (`__assets.stats()`) build and keep nothing (no picture read back, no file waiting), no dome's inside builds
+ * (`__domeStream`), and copies, pictures and domes are as at the last look.
  *
- * `quietness(w)` is self-contained (Playwright sends its source to the page): the window to look at, its answer how
- * much is still moving — 0 when nothing is; null before the world has its renderers. Each look remembers what it saw
- * on `w.__quiet`, so the caller decides how long 0 must hold: the census 60 frames on end, a Mac job two looks 2 s apart.
+ * `quietness(w)` is self-contained (Playwright sends its source): how much of window `w` still moves, 0 when nothing,
+ * null before its renderers; each look kept on `w.__quiet`, the caller deciding how long 0 holds (the census 60 frames, a Mac job two looks 2 s apart).
  *
  * @param {any} [w] the page's window (globalThis: the census's, or the page's where Playwright runs it)
  * @returns {number | null}

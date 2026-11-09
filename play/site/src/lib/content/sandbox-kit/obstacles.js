@@ -1,7 +1,5 @@
-/**
- * WHAT STANDS IN THE WAY of the walker (./walker.js): circles on the ground (y their floor), filed in 8 m cells.
- * Standing in one never traps you (a world may put you inside a bush): only a step into one, or deeper, is refused.
- */
+/** WHAT STANDS IN THE WAY of the walker (./walker.js): circles on the ground (y their floor) in 8 m cells; standing in one
+ * never traps you (a world may put you in a bush): only a step into one, or deeper, is refused. */
 
 /** @typedef {{ x: number, z: number, r: number, y?: number }} Obstacle */
 

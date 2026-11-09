@@ -1,8 +1,7 @@
 // @ts-nocheck — plain JS, kept loose on purpose
 /**
- * THE ONE HASH — every name we give bytes that never change (a frozen engine, a recipe file, a piece, a build, a file
- * of play's) is the BLAKE3 hash of those bytes, in lower-case hex, made here alone, so the page, the API, the scripts
- * and the tests can never name the same bytes two ways. A text is hashed as its UTF-8 bytes.
+ * THE ONE HASH — every name of bytes that never change (an engine, a recipe, a piece, a build, a file of play's) is their
+ * BLAKE3 in lower-case hex, made here alone so nothing names the same bytes two ways; a text is hashed as its UTF-8.
  */
 import { blake3 } from '@noble/hashes/blake3.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';

@@ -33,9 +33,8 @@ async function readMaps(planet: Planet): Promise<PlanetMaps> {
 export type PlanetHandle = {
 	move: (x: number, y: number, hurry: boolean) => void;
 	look: (dx: number, dy: number) => void;
-	/** fly the camera to a point, coming down over it */
 	flyTo: (lat: number, lon: number) => void;
-	/** the pin under a point of the page, by its index, or null */
+	/** the pin under a point of the page (its index), or null */
 	pick: (x: number, y: number) => number | null;
 	dispose: () => void;
 };

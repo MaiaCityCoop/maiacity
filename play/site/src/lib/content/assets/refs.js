@@ -15,23 +15,18 @@ export function parseRef(ref) {
 	return { group: m[1], id: m[2], v: m[3] ? Number(m[3]) : undefined, variant: m[4], ...(params && { params }) };
 }
 
-/**
- * The ref of an asset at a version (and a variant, and its parameters' values, sorted).
- * @param {string} group @param {string} id @param {number} [v] @param {string} [variant] @param {Record<string, unknown>} [values]
- */
+/** An asset's ref at a version (with a variant and its values, sorted). @param {string} group @param {string} id @param {number} [v] @param {string} [variant] @param {Record<string, unknown>} [values] */
 export function refOf(group, id, v, variant, values) {
 	const q = queryOf(values);
 	return `${group}/${id}${v ? `@${v}` : ''}${variant ? `:${variant}` : ''}${q ? `?${q}` : ''}`;
 }
 
 /**
- * Builds an object with a builder and what it declares it takes (./params.js): the values `given` (a ref's, as text),
- * else `args` in their order, else its own; a builder that declares none takes `args` as they are. A builder may make
- * its object or a rig that carries it, at once or in time. The object comes with its ref (`userData.ref`): `ref`, the
- * name of the version it was built from, and every value it was built with.
+ * Builds an object with a builder and what it declares it takes (./params.js): `given` (a ref's, as text), else `args`
+ * in order, else its own (declaring none, `args` as they are); it may make the object or a rig carrying it, at once or
+ * in time. The object carries its ref (`userData.ref`): the version's name and every value it was built with.
  * @param {{ build: (...args: any[]) => any, params?: import('./params.js').Param[], ref: string }} recipe
- * @param {Record<string, string>} [given] @param {unknown[]} [args]
- * @returns {Promise<import('three').Object3D>}
+ * @param {Record<string, string>} [given] @param {unknown[]} [args] @returns {Promise<import('three').Object3D>}
  */
 export async function buildWith({ build, params = [], ref }, given, args = []) {
 	if (given && !params.length) throw new Error(`${ref} takes no parameters`);

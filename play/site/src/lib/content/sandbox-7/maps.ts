@@ -12,9 +12,7 @@ export type Grid = {
 	height: number;
 	/** the value at a cell: x wraps round the planet, y wraps as the old maps did */
 	at: (x: number, y: number) => Value;
-	/** the cell a point falls in */
 	cellOf: (p: Vec3) => [number, number];
-	/** the value at a point */
 	sample: (p: Vec3) => Value;
 	/**
 	 * The value at a point, or where it is not one `want`s, the first nearby that is out to `radius` cells, on a `ring`
