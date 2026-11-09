@@ -1742,15 +1742,19 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 				return false
 			}
 			const r0b = rIn + commonsW + 0.6
-			const open = (x: number, z: number) => {
+			// (a kind of the floor that keeps clear of the stone and the water, `margin` metres further off them)
+			const open = (x: number, z: number, margin = 0) => {
 				const rr = Math.hypot(x, z), a = Math.atan2(x, z)
-				if (rr > R - 0.9) return false
+				if (rr > R - 0.9 - margin) return false
 				// under the gallery: only the small dome's planted band, off its paved stretches and its doors
-				if (rr > rIn - 0.6) return lush && rr > r0b - 0.3 && !paved(a) && !doors.some((d) => Math.abs(adiff(a, d)) * rr < 1.7)
-				return !onStone(rr, a, 0.1) && !nearStream(x, z, width / 2 + 0.3) && !inTrunk(x, z)
+				if (rr > rIn - 0.6) return lush && rr > r0b - 0.3 + margin && !paved(a) && !doors.some((d) => Math.abs(adiff(a, d)) * rr < 1.7 + margin)
+				return !onStone(rr, a, 0.1 + margin) && !nearStream(x, z, width / 2 + 0.3 + margin) && !inTrunk(x, z)
 			}
+			// the garden's trees over the floor, for where its cover gathers (under the crowns, at their edge, round the
+			// trunks): each crown as wide as the trees' spacing lets them meet (a tree every 9 m², 11 where it is a house too)
+			const trunks = floraTrees.map((t) => ({ x: t.c.x, z: t.c.z, r: 0.62 * Math.sqrt(lush ? 9 : 11) * t.s }))
 			// in the dome's own ground, which lies where the dome stands (a hair above the host's ground); hidden until it joins
-			if (warmBiome) floorCover = coverStream({ drawn: flora.drawn, recipe: warmBiome, open, tile: 8, reach: 24, near: 9, thin: 0.25, density: 3.8, seed: 707 + kind.length, origin: host ? [host.x, host.z] : [0, 0], at: host ? [host.x, 0.03, host.z] : [0, 0, 0], hidden: !!host })
+			if (warmBiome) floorCover = coverStream({ drawn: flora.drawn, recipe: warmBiome, open, trunks, tile: 8, reach: 24, near: 9, thin: 0.25, density: warmBiome.density, seed: 707 + kind.length, origin: host ? [host.x, host.z] : [0, 0], at: host ? [host.x, 0.03, host.z] : [0, 0, 0], hidden: !!host })
 			drop.push(() => floorCover?.dispose())
 		}
 		await pause('Planting the forest inside')

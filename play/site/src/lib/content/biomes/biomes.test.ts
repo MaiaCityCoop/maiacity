@@ -4,7 +4,7 @@
 // df4faee); and the new surfaces and rows are checked on their own.
 import { describe, expect, it } from 'vitest';
 // @ts-ignore — plain JS
-import { BIOMES, SURFACES, surfacesAt } from './index.js';
+import { BIOMES, SURFACES, layTile, surfacesAt } from './index.js';
 // @ts-ignore — plain JS
 import { coverTile } from './stream.js';
 
@@ -20,7 +20,7 @@ function fingerprint(arrays: Float32Array[]) {
 }
 
 /** a biome as it is laid: its surfaces at 400 points over 60 m, and its cover in nine tiles, as fingerprints */
-function laid(recipe: any) {
+function laid(recipe: any, tileOf: (r: any, ix: number, iz: number, o: any) => { m: Float32Array; rank: Float32Array }[] = coverTile) {
 	const s: number[] = [];
 	for (let i = 0; i < 20; i++)
 		for (let j = 0; j < 20; j++) {
@@ -29,7 +29,7 @@ function laid(recipe: any) {
 		}
 	const tiles: Float32Array[] = [];
 	for (let ix = -1; ix <= 1; ix++)
-		for (let iz = -1; iz <= 1; iz++) for (const t of coverTile(recipe, ix, iz, { tile: 8, seed: 707 })) tiles.push(t.m, t.rank);
+		for (let iz = -1; iz <= 1; iz++) for (const t of tileOf(recipe, ix, iz, { tile: 8, seed: 707 })) tiles.push(t.m, t.rank);
 	return { surfaces: fingerprint([new Float32Array(s)]), cover: fingerprint(tiles) };
 }
 
@@ -48,8 +48,10 @@ describe('the biomes that were', () => {
 		expect(BIOMES.map((b: any) => b.id).sort()).toEqual(Object.keys(BEFORE).sort());
 	});
 	for (const b of BIOMES as any[])
-		it(`${b.id}: surfaces and cover laid exactly as before`, () => {
+		it(`${b.id}: surfaces and cover laid exactly as before (its fingerprint)`, () => {
 			expect(laid(b)).toEqual(BEFORE[b.id]);
+			// and by the one pass (./index.js layTile), a biome without masks as it was (intent 24454c2d)
+			expect(laid(b, layTile)).toEqual(BEFORE[b.id]);
 		});
 	it('the six surfaces keep their places', () => {
 		expect(SURFACES.slice(0, 6)).toEqual(['litter', 'humus', 'needles', 'moss', 'green', 'soil']);
@@ -111,7 +113,7 @@ describe('the tired land: surfaces in rows, cover in rows, tramlines', () => {
 			let n = 0;
 			for (let ix = -2; ix <= 1; ix++)
 				for (let iz = -2; iz <= 1; iz++) {
-					const t = coverTile(FIELD, ix, iz, { tile: 8, seed: 707, rows: a })[0];
+					const t = coverTile(FIELD, ix, iz, { tile: 8, seed: 707, sown: a })[0];
 					for (let i = 0; i < t.rank.length; i++) {
 						const x = t.m[i * 16 + 12], z = t.m[i * 16 + 14];
 						// within its tile, give or take its jitter

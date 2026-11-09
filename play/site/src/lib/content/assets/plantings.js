@@ -193,7 +193,8 @@ export function createPlantings(o) {
 			coverStream({
 				drawn,
 				recipe,
-				open: (x, z) => !Number.isNaN(grid.at(x, z)),
+				// on the floor's own mesh; a kind that keeps clear (a biome's masks) as far inside its outline as it asks
+				open: (x, z, m = 0) => !Number.isNaN(grid.at(x, z)) && (m <= 0 || ![[m, 0], [-m, 0], [0, m], [0, -m]].some(([dx, dz]) => Number.isNaN(grid.at(x + dx, z + dz)))),
 				heightAt: (x, z) => grid.at(x, z) || 0,
 				tile: 8,
 				reach: 24,
@@ -202,7 +203,7 @@ export function createPlantings(o) {
 				// as dense as the biome is near the eye: a viewer shows one floor, not a village of them
 				density: recipe.density,
 				seed: 707,
-				rows,
+				sown: rows,
 				// its grass blade by blade, beside it (below)
 				blades: growsGrass(recipe)
 			})

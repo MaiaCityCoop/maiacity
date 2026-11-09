@@ -17,18 +17,16 @@
  * where the eye is (in the floor's own ground) every frame.
  */
 import * as THREE from 'three';
-import { colonyAt, coverAt } from './index.js';
-import { inTrack } from './surfaces.js';
-import { rng } from './noise.js';
+import { layTile } from './index.js';
 
 /**
  * @param {{
  *   drawn: { use: (ref: string, shadows?: boolean, picture?: boolean) => any, take: (k: any, at: THREE.Matrix4, cover?: any) => any, give: (c: any) => void },
  *   recipe: import('./index.js').Recipe,
- *   open?: (x: number, z: number) => boolean,
+ *   open?: (x: number, z: number, margin?: number) => boolean,
  *   tile?: number, reach?: number, near?: number, thin?: number, perFrame?: number, seed?: number, density?: number,
  *   origin?: [number, number], at?: [number, number, number], hidden?: boolean, heightAt?: (x: number, z: number) => number,
- *   rows?: number, blades?: boolean
+ *   sown?: number, trunks?: import('./masks.js').Trunk[], blades?: boolean
  * }} o
  *   drawn: the renderer it is drawn by (its kinds used, copies taken and given back); recipe: the biome, each kind of
  *   its cover naming its build (`ref`); open: whether cover may stand at x, z (not on a path, in the water, in a
@@ -37,10 +35,12 @@ import { rng } from './noise.js';
  *   built a frame; density: the biome's, if it should be other (fewer on a slow device); origin: where this ground's
  *   0, 0 lies in the world (a dome's floor laid in its own ground), so its colonies stand on the surfaces its ground
  *   is painted with; at: where the floor's own ground lies in the world it is drawn in; hidden: none of it drawn until
- *   it is shown; heightAt: the floor's height at x, z of its own ground where it is not flat; rows: the way the floor's
- *   rows run (radians from +x towards +z; ./surfaces.js `rowsOf`), for the kinds sown in rows; blades: its grass drawn
- *   blade by blade by a grass field beside it (./grass.js, intent 090168c8), so its grass kinds (not sown in rows) are
- *   laid as before, the other kinds where they were, but none of their copies drawn here
+ *   it is shown; heightAt: the floor's height at x, z of its own ground where it is not flat (and its relief, for a biome's wet and
+ *   slope masks); sown: the way a field's lines run (radians from +x towards +z; ./surfaces.js `rowsOf`), for the
+ *   kinds a machine sowed; trunks: the trees standing on it, each its place and crown's radius in its own ground, for
+ *   a biome's canopy masks (./masks.js). `open` may take a third argument, a margin: how far a kind keeps clear;
+ *   blades: its grass drawn blade by blade by a grass field beside it (./grass.js, intent 090168c8), so its grass
+ *   kinds (not sown) are laid as before, the other kinds where they were, but none of their copies drawn here
  */
 export function coverStream(o) {
 	const tile = o.tile ?? 12, reach = o.reach ?? 30, perFrame = o.perFrame ?? 1, seed = o.seed ?? 1;
@@ -61,7 +61,7 @@ export function coverStream(o) {
 	/** a tile's plants put down, each whole with its rank: the graphics card grows them */
 	const lay = (/** @type {number} */ ix, /** @type {number} */ iz) => {
 		const copies = [];
-		coverTile(recipe, ix, iz, { tile, seed, density: o.density, open: o.open, origin: [ox, oz], rows: o.rows }).forEach(({ m: M, rank }, k) => {
+		layTile(recipe, ix, iz, { tile, seed, density: o.density, open: o.open, origin: [ox, oz], sown: o.sown, trunks: o.trunks, heightAt: o.heightAt }).forEach(({ m: M, rank, tint }, k) => {
 			if (!kinds[k]) return;
 			for (let i = 0; i < rank.length; i++) {
 				m.fromArray(M, i * 16);
@@ -69,7 +69,8 @@ export function coverStream(o) {
 				e[13] += ay + (o.heightAt ? o.heightAt(/** @type {number} */ (e[12]), /** @type {number} */ (e[14])) : 0);
 				e[12] += ax;
 				e[14] += az;
-				copies.push(drawn.take(kinds[k], m, { rank: /** @type {number} */ (rank[i]), near, reach, thin }));
+				// a biome with masks: each plant's colour where it stands (its region's drift)
+				copies.push(drawn.take(kinds[k], m, { rank: /** @type {number} */ (rank[i]), near, reach, thin, ...(tint ? { tint: tint.subarray(i * 3, i * 3 + 3) } : {}) }));
 			}
 		});
 		return copies;
@@ -113,71 +114,8 @@ export function coverStream(o) {
 }
 /** @typedef {ReturnType<typeof coverStream>} Cover */
 
-/** @typedef {{ m: Float32Array, rank: Float32Array }[]} TileKinds each kind's plants in a tile, by rank, least first */
-
 /**
- * One tile of a biome's cover, worked out from its place alone (the same tile, the same plants, every time): each kind's
- * plants in it (by its index in `recipe.cover`), their places and their ranks, least first.
- * @param {import('./index.js').Recipe} recipe @param {number} ix @param {number} iz
- * @param {{ tile?: number, seed?: number, density?: number, open?: (x: number, z: number) => boolean, origin?: [number, number], hidden?: Set<number>, rows?: number }} [o]
- *   rows: the way the floor's rows run (radians from +x towards +z; ./surfaces.js `rowsOf`), for the kinds in rows
- * @returns {TileKinds}
+ * One tile of a biome's cover, worked out from its place alone, in one pass (./index.js `layTile`: a biome with masks
+ * by its masks, one without exactly as before). @type {typeof layTile}
  */
-export function coverTile(recipe, ix, iz, o = {}) {
-	const tile = o.tile ?? 12, seed = o.seed ?? 1, hidden = o.hidden ?? new Set();
-	const [ox, oz] = o.origin ?? [0, 0];
-	const r = rng((ix * 73856093) ^ (iz * 19349663) ^ (seed * 83492791));
-	/** @type {{ rank: number, m: THREE.Matrix4 }[][]} */
-	const at = recipe.cover.map(() => []);
-	const s = 1 / Math.sqrt(o.density ?? recipe.density), x0 = ix * tile, z0 = iz * tile;
-	const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), p = new THREE.Vector3(), sc = new THREE.Vector3();
-	for (let x = x0; x < x0 + tile; x += s)
-		for (let z = z0; z < z0 + tile; z += s) {
-			const px = x + r() * s, pz = z + r() * s;
-			const k = coverAt(recipe, r, px + ox, pz + oz, hidden);
-			const turn = r() * Math.PI * 2, size = 0.75 + r() * 0.6, rank = r();
-			if (k < 0 || (o.open && !o.open(px, pz))) continue;
-			at[k]?.push({ rank, m: new THREE.Matrix4().compose(p.set(px, 0, pz), q.setFromAxisAngle(up, turn), sc.setScalar(size)) });
-		}
-	// the kinds a machine sowed, on their rows: each row a line across the world (so the tiles join), the rows running
-	// the way `o.rows` says, none in the field's tramlines; by a chance of their own, so a biome without rows lays its
-	// cover exactly as it did before rows were
-	recipe.cover.forEach((c, k) => {
-		if (!c.rows || hidden.has(k)) return;
-		const rr = rng((ix * 2654435761) ^ (iz * 40503) ^ (seed * 83492791) ^ ((k + 1) * 97531));
-		const a = o.rows ?? 0, dx = Math.cos(a), dz = Math.sin(a);
-		const { spacing, along } = c.rows, jitter = c.rows.jitter ?? 0;
-		// the tile's corners in the world, across and along the rows
-		const xs = [x0 + ox, x0 + tile + ox], zs = [z0 + oz, z0 + tile + oz];
-		let c0 = Infinity, c1 = -Infinity, s0 = Infinity, s1 = -Infinity;
-		for (const wx of xs)
-			for (const wz of zs) {
-				const across = -dz * wx + dx * wz, on = dx * wx + dz * wz;
-				c0 = Math.min(c0, across), c1 = Math.max(c1, across), s0 = Math.min(s0, on), s1 = Math.max(s1, on);
-			}
-		for (let j = Math.ceil(c0 / spacing); j * spacing <= c1; j++) {
-			const across = j * spacing;
-			if (inTrack(recipe.tramlines, across) > 0.2) continue;
-			for (let n = Math.ceil(s0 / along); n * along <= s1; n++) {
-				const on = n * along;
-				const wx = dx * on - dz * across, wz = dz * on + dx * across;
-				// the tile its place on the row lies in lays it (nudged off the line by its jitter after)
-				const lx = wx - ox, lz = wz - oz;
-				const px = lx + (rr() - 0.5) * jitter, pz = lz + (rr() - 0.5) * jitter;
-				const turn = rr() * Math.PI * 2, size = 0.85 + rr() * 0.3, rank = rr(), keep = rr();
-				if (lx < x0 || lx >= x0 + tile || lz < z0 || lz >= z0 + tile) continue;
-				if (keep >= (c.fill ?? 0.85) * colonyAt(recipe, k, px + ox, pz + oz) || (o.open && !o.open(px, pz))) continue;
-				at[k]?.push({ rank, m: new THREE.Matrix4().compose(p.set(px, 0, pz), q.setFromAxisAngle(up, turn), sc.setScalar(size)) });
-			}
-		}
-	});
-	return at.map((list) => {
-		list.sort((a, b) => a.rank - b.rank);
-		const m = new Float32Array(list.length * 16), rank = new Float32Array(list.length);
-		list.forEach((e, i) => {
-			e.m.toArray(m, i * 16);
-			rank[i] = e.rank;
-		});
-		return { m, rank };
-	});
-}
+export const coverTile = layTile;

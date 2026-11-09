@@ -269,6 +269,10 @@ export function createAssets(o) {
 			C: new Float32Array(0),
 			/** whether any copy of it ever was cover (its drawings then carry where each copy grows) */
 			cover: false,
+			/** each copy's colour, three a copy, multiplying its drawing's own (a biome's colour drift: `tint`) */
+			K: new Float32Array(0),
+			/** whether any copy of it ever was tinted (its drawings then carry a colour per copy) */
+			tinted: false,
 			/** its copies put away (`give`), for the next `takeOut` */
 			free: [],
 			/** the copies moved by their controls, by their number: each its values and its own tree */
@@ -544,7 +548,7 @@ export function createAssets(o) {
 		// a material that says what it is (a leaf, grass, bark …: ../look.js) is bent by the world's wind: each copy its foot
 		// and height (aWind, ../../render/wind.js `windOfCopy`)
 		if (looked(d.material)) g.setAttribute('aWind', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage));
-		if (d.colors) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+		if (d.colors || k.tinted) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
 		mesh.count = 0;
 		mesh.visible = false;
 		// which copies are drawn is chosen here, never by three's culling, which would see only the first
@@ -613,6 +617,7 @@ export function createAssets(o) {
 			k.S = grow(k.S, 1);
 			k.alive = grow(k.alive, 1);
 			k.C = grow(k.C, 4);
+			k.K = grow(k.K, 3);
 			k.was = grow(k.was, 1);
 			k.cap = cap;
 		}
@@ -626,12 +631,15 @@ export function createAssets(o) {
 	}
 
 	/**
-	 * copy i of kind k grown as a biome's cover (`{ rank, near, reach, thin }`), or whole (null)
-	 * @param {any} k @param {number} i @param {{ rank: number, near: number, reach: number, thin: number } | null} c
+	 * copy i of kind k grown as a biome's cover (`{ rank, near, reach, thin, tint? }`), or whole (null); `tint`, its
+	 * colour where it stands (r, g, b, each multiplying its drawing's own: a biome's colour drift, ../../biomes/masks.js)
+	 * @param {any} k @param {number} i @param {{ rank: number, near: number, reach: number, thin: number, tint?: ArrayLike<number> } | null} c
 	 */
 	function grows(k, i, c) {
 		if (c) k.cover = true;
 		k.C.set(c ? [c.rank + 1, c.near, c.reach, c.thin] : [0, 0, 0, 0], i * 4);
+		if (c?.tint) k.tinted = true;
+		k.K.set(c?.tint ?? [1, 1, 1], i * 3);
 	}
 
 	/** copy i of kind k put at `at`, or put away (null): drawn nowhere, its level forgotten, until it is put somewhere */
@@ -862,6 +870,12 @@ export function createAssets(o) {
 			const at = d.mesh.geometry.attributes;
 			if (k.cover && !at.aCover) for (const [name, w] of COVER) d.mesh.geometry.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(d.cap * w), w).setUsage(THREE.DynamicDrawUsage));
 			const A = d.mesh.instanceMatrix.array, F = at.aFade.array, G = at.aCover?.array, H = at.aReach?.array, W = at.aWind?.array;
+			// a kind tinted after its drawing was made (its copies' colours came later): a colour per copy from now on
+			if (k.tinted && !d.mesh.instanceColor) {
+				d.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(d.cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+				d.mesh.material.needsUpdate = true;
+			}
+			const IC = d.mesh.instanceColor?.array, DC = d.draw.colors, K = k.K;
 			for (let j = 0; j < n; j++) {
 				const s = d.used + j;
 				multiply(k.M, i * 16, d.draw.locals, j * 16, A, s * 16);
@@ -877,7 +891,7 @@ export function createAssets(o) {
 				}
 				// the copy's foot and its height in metres, for the wind (every part of it alike: it sways as one)
 				if (W) W.set(windOfCopy(k.M[i * 16 + 12], k.M[i * 16 + 13], k.M[i * 16 + 14], k.height * k.S[i]), s * 4);
-				if (d.draw.colors) d.mesh.instanceColor.array.set(d.draw.colors.subarray(j * 3, j * 3 + 3), s * 3);
+				if (IC) for (let c = 0; c < 3; c++) IC[s * 3 + c] = (DC ? DC[j * 3 + c] : 1) * (k.tinted ? K[i * 3 + c] : 1);
 			}
 			d.used += n;
 		}
