@@ -59,23 +59,18 @@ export function install(r) {
 			keying = drawing = null;
 		}
 	};
-	// three builds a node material once per program key (a mesh's shadows, a target) but keeps only the last build:
-	// a program met first takes the build that made it (8823eb7c: a car's paint drew its body with its ends' build)
+	// three builds a node material once per program (a mesh's shadows, a target) but keeps only its last build. Its
+	// n-th build made its n-th program (each build is a miss of three's `programs`, which keeps their order), and a
+	// program met first takes that build, in a frame or after a warm-up's compile (8823eb7c: a car's paint drew its body
+	// with its ends' build; ed6694c3: one rule for both)
 	const made = new WeakMap(), build = h.build.bind(h), meet = h.onUpdateProgram.bind(h);
-	/** a material's builds by program (its last: three's newest) */
-	const settle = (m, q) => {
-		const k = made.get(m);
-		if (k?.last && q?.programs) k.by.set([...q.programs.values()].at(-1), k.last), (k.last = null);
-		return k;
-	};
 	h.build = (m, o, q) => {
-		settle(m, r.properties.get(m));
 		build(m, o, q);
-		if (!made.has(m)) made.set(m, { by: new WeakMap() });
-		made.get(m).last = { uniforms: q.uniforms, builder: m._latestBuilder };
+		if (!made.has(m)) made.set(m, []), m.addEventListener('dispose', () => made.delete(m));
+		made.get(m).push({ uniforms: q.uniforms, builder: m._latestBuilder });
 	};
 	h.onUpdateProgram = (m, p, q) => {
-		const own = !h.programCache.get(m)?.has(p) && settle(m, q)?.by.get(p);
+		const own = !h.programCache.get(m)?.has(p) && made.get(m)?.[[...(q.programs?.values() ?? [])].indexOf(p)];
 		if (own) (q.uniforms = own.uniforms), (m._latestBuilder = own.builder);
 		meet(m, p, q);
 	};
