@@ -1,12 +1,12 @@
 // Light through leaves (intent 6fd5e63f): a look drawn by the page's own TSL on WebGLRenderer through three's
-// WebGLNodesHandler, on a context that only answers (./fakegl.js): instanced, shadowed, as a world draws a plant's
+// WebGLNodesHandler, on a context that only answers (./nodes/fakegl.js, intent cb16b7a5's): instanced, shadowed, as a world draws a plant's
 // copies. Each shader it hands the graphics card is read: the wind's uniforms and aWind in the vertex stage, the
 // backlight in the fragment stage, nothing of it in a look that has none.
 import { describe, expect, test } from 'vitest';
 import * as THREE from 'three';
 import * as tsl from 'three/tsl';
 import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
-import { fakeGL } from './fakegl.js';
+import { fakeGL } from './nodes/fakegl.js';
 import { foliageOf } from './foliage.js';
 import { windNodes } from './wind.js';
 
@@ -84,5 +84,61 @@ describe('a leaf drawn by its look', () => {
 		const a = foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }), b = foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }), c = foliageOf(leafMaterial(), { kind: 'grass' }, { wind });
 		expect(a.customProgramCacheKey()).toBe(b.customProgramCacheKey());
 		expect(a.customProgramCacheKey()).not.toBe(c.customProgramCacheKey());
+	});
+});
+
+describe("on the render kit's own materials (intent cb16b7a5)", () => {
+	test("a level's leaf material: the kit's node material with its fade and cut, the look on top, compiled whole", async () => {
+		const { nodeOf, cutBy, cutOf, aFade, install } = await import('./nodes/index.js');
+		const { lookedOf } = await import('./foliage.js');
+		const { fakeGL: kitGL } = await import('./nodes/fakegl.js');
+		const wind = windNodes(tsl);
+		const leaf = leafMaterial();
+		leaf.userData.look = { kind: 'leaf' };
+		const n = cutBy(lookedOf(nodeOf(leaf), leaf.userData.look, wind), cutOf());
+		n.fade = aFade;
+		expect(n.look?.kind).toBe('leaf');
+		expect(n.cut).toBeTruthy();
+		const { gl, shaders } = kitGL();
+		const r = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl });
+		install(r);
+		const scene = new THREE.Scene();
+		scene.add(new THREE.DirectionalLight('#fff', 2));
+		const g = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
+		g.setAttribute('aFade', new THREE.InstancedBufferAttribute(new Float32Array(2), 1));
+		g.setAttribute('aWind', new THREE.InstancedBufferAttribute(new Float32Array(8), 4));
+		scene.add(new THREE.InstancedMesh(g, n, 2));
+		r.render(scene, new THREE.PerspectiveCamera());
+		const vertex = shaders.filter((s) => /gl_Position/.test(s)).join('\n');
+		expect(vertex).toMatch(/aWind/);
+		expect(vertex).toMatch(/aFade/);
+		expect(vertex).toMatch(/instanceMatrix/);
+		// the wind after the kit's own instancing
+		expect(vertex.indexOf('instanceMatrix')).toBeLessThan(vertex.lastIndexOf('aWind'));
+	});
+
+	test('a material with no look is the kit\'s own, untouched', async () => {
+		const { nodeOf } = await import('./nodes/index.js');
+		const { lookedOf } = await import('./foliage.js');
+		const n = nodeOf(new THREE.MeshStandardMaterial());
+		expect(lookedOf(n, null, windNodes(tsl))).toBe(n);
+		expect(lookedOf(n, { kind: 'leaf' }, null)).toBe(n);
+	});
+});
+
+describe('one copy bends as one', () => {
+	test('every look of a copy takes the same main bend (stiffness 1): its leaves stay on its branches', () => {
+		const wind = windNodes(tsl);
+		const asked = [];
+		const positionOf = wind.positionOf;
+		wind.positionOf = (o) => (asked.push(o), positionOf(o));
+		for (const kind of ['leaf', 'bark', 'stem', 'fruit']) {
+			const m = new THREE.MeshStandardMaterial();
+			draw(foliageOf(m, { kind }, { wind }));
+		}
+		expect(asked.length).toBe(4);
+		for (const o of asked) expect(o.stiffness).toBe(1);
+		// the tips' own flutter differs by the look
+		expect(asked[0].flutter).toBeGreaterThan(asked[1].flutter);
 	});
 });

@@ -24,7 +24,7 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { flagstone, grass, groundCover, leaves, limestone, oak, soil, water } from './textures'
+import { flagstone, groundCover, leaves, limestone, oak, soil, water } from './textures'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
 import { antHills, apiary, fishes, herd, TANK_FISH } from './animals'
 import { settled as actorsSettled, wantNear as actorsNear } from '$lib/content/assets/render/crowd.js'
@@ -43,7 +43,7 @@ import { connectFilm, filmDraws, filmHoldsSize, worldTime } from '$lib/content/s
 import { createForest, type FloraDrawn, type Forest } from './flora.js'
 import { groundMaterial } from '$lib/content/biomes'
 import { biomeOr } from '$lib/content/assets/sources/biome.js'
-import { createCover, type Cover } from './cover.js'
+import { coverStream, type Cover } from '$lib/content/biomes/stream.js'
 import type { Drawn } from './drawn.js'
 import { FLOORS, standThings, workshopsOf } from './things.js'
 import { swapLegacy } from './legacy.js'
@@ -165,27 +165,11 @@ function surface<T extends THREE.Material>(key: string, make: () => T): T {
 const k2 = (v: number) => Math.round(v * 20) / 20
 
 /**
- * The lawn: the grass texture laid down in world space, about three metres to a
- * tile, so it never stretches whatever shape the ground is; and a slow drift
- * of lighter and darker patches over tens of metres, so no two stretches of
- * meadow look the same.
+ * The lawn: the biomes' ground (its scanned living mat, a little bare soil), laid in world metres as every floor is
+ * ($content/biomes `groundMaterial`), so the meadow beyond the cell is the same ground as the cell's.
  */
-let meadowCache: THREE.MeshStandardMaterial | null = null
-function meadow(): THREE.MeshStandardMaterial {
-	if (meadowCache) return meadowCache
-	const mat = new THREE.MeshStandardMaterial({ map: grass(), roughness: 1 })
-	mat.onBeforeCompile = (sh) => {
-		sh.vertexShader = sh.vertexShader
-			.replace('#include <common>', '#include <common>\nvarying vec2 vGround;')
-			.replace('#include <uv_vertex>', '#include <uv_vertex>\nvec4 gp = modelMatrix * vec4(position, 1.0);\nvGround = gp.xz;\nvMapUv = gp.xz / 3.2;')
-		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', '#include <common>\nvarying vec2 vGround;')
-			.replace('#include <map_fragment>', '#include <map_fragment>\nfloat drift = texture2D(map, vGround / 61.0).g * 0.6 + texture2D(map, vGround / 23.0 + 0.3).r * 0.4;\ndiffuseColor.rgb *= mix(0.78, 1.18, drift);')
-	}
-	mat.customProgramCacheKey = () => 'meadow'
-	return (meadowCache = mat)
-}
-
+let lawnCache: ReturnType<typeof groundMaterial> | null = null
+const lawn = () => (lawnCache ??= groundMaterial({ green: 10, soil: 0.5, moss: 0.6 }))
 /**
  * The surfaces a dome is made of. The painted ones are painted when first asked for (the flagstone, the solar glass,
  * the meadow): a sofa or a lantern on its own then paints only what it is made of, not the whole dome's, which made
@@ -215,7 +199,7 @@ export const mats = () => {
 		pebble: new THREE.MeshStandardMaterial({ color: '#8d8a83', roughness: 0.9 }),
 		tank: new THREE.MeshStandardMaterial({ color: '#56666b', roughness: 0.5, metalness: 0.3 }),
 		get grass() {
-			return meadow()
+			return lawn()
 		}
 	}
 }
@@ -589,7 +573,7 @@ export type InteriorOptions = {
 	/** Sandbox 5: the food forest inside grown from our plants ($content/plants, ./flora.js), from this garden (./sandbox5.js),
 	 *  drawn by the host's renderer of plants (`flora`, ./drawn.js `createFlora`), and its floor's cover by the host's
 	 *  renderer of the library (`drawn`, ./drawn.js `createDrawn`), both of which the host updates every frame */
-	flora?: { garden: Garden; seed: string; flora: FloraDrawn; drawn: Parameters<typeof createCover>[0]['drawn'] }
+	flora?: { garden: Garden; seed: string; flora: FloraDrawn; drawn: Parameters<typeof coverStream>[0]['drawn'] }
 	/** the host's renderer of the library's Things (./drawn.js `createDrawn`), which the host
 	 *  updates every frame: what of the dome is a Thing of the library (the master dome's workshops, ./things.js) is put
 	 *  down in it. Without one (standing alone) the dome draws them with a renderer of its own. */
@@ -1765,7 +1749,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 				return !onStone(rr, a, 0.1) && !nearStream(x, z, width / 2 + 0.3) && !inTrunk(x, z)
 			}
 			// in the dome's own ground, which lies where the dome stands (a hair above the host's ground); hidden until it joins
-			if (warmBiome) floorCover = createCover({ drawn: flora.drawn, recipe: warmBiome, open, tile: 8, reach: 24, near: 9, thin: 0.25, density: 3.8, seed: 707 + kind.length, origin: host ? [host.x, host.z] : [0, 0], at: host ? [host.x, 0.03, host.z] : [0, 0, 0], hidden: !!host })
+			if (warmBiome) floorCover = coverStream({ drawn: flora.drawn, recipe: warmBiome, open, tile: 8, reach: 24, near: 9, thin: 0.25, density: 3.8, seed: 707 + kind.length, origin: host ? [host.x, host.z] : [0, 0], at: host ? [host.x, 0.03, host.z] : [0, 0, 0], hidden: !!host })
 			drop.push(() => floorCover?.dispose())
 		}
 		await pause('Planting the forest inside')

@@ -81,7 +81,8 @@ export const foliage = (Base) =>
 				normalLocal.assign(select(lit, normalize(mix(normalLocal, vec3(0, 1, 0), 0.6)), normalLocal));
 			}
 			const w = windLook(look);
-			if (w) positionLocal.assign(this.wind.positionOf(w));
+			// the whole copy bends alike (stiffness 1: its leaves stay on their branches); the look's own numbers shake its tips
+			if (w) positionLocal.assign(this.wind.positionOf({ stiffness: 1, flutter: w.flutter }));
 			return out;
 		}
 
@@ -110,8 +111,40 @@ export const foliage = (Base) =>
 		}
 	};
 
-/** the foliage material on three's standard node material (the render kit's own once intent cb16b7a5 lands) */
+/** the foliage material on three's standard node material */
 export const FoliageMaterial = foliage(MeshStandardNodeMaterial);
+
+/** each node material class with a look on top, made once */
+const classes = new WeakMap();
+
+/**
+ * A node material of the page's (the render kit's, ./nodes `nodeOf`) with a look on top: the same kind and settings,
+ * drawn as its look says (`foliage`), thin looks two-sided and cut out; itself where there is no look or no wind.
+ * @param {any} n a node material, before its cut and fade are given @param {unknown} look @param {any} wind
+ */
+export function lookedOf(n, look, wind) {
+	const l = lookOf(look, n.name || 'material');
+	if (!l || !wind || !n?.isNodeMaterial) return n;
+	let F = classes.get(n.constructor);
+	if (!F) classes.set(n.constructor, (F = foliage(n.constructor)));
+	const m = new F();
+	m.copy(n);
+	m.userData = { ...n.userData };
+	m.look = l;
+	m.wind = wind;
+	thin(m, l);
+	return m;
+}
+
+/** a leaf, a blade or a petal: both sides, cut out, never blended */
+function thin(m, l) {
+	if (!THIN.includes(l.kind)) return;
+	m.side = THREE.DoubleSide;
+	if (m.transparent) {
+		m.transparent = false;
+		m.alphaTest = Math.max(m.alphaTest, 0.5);
+	}
+}
 
 /**
  * A material the page has, drawn with a look: its settings carried over onto a FoliageMaterial; thin looks two-sided
@@ -132,13 +165,6 @@ export function foliageOf(material, look, { wind = null } = {}) {
 	m.transparent = material.transparent;
 	m.look = l;
 	m.wind = wind;
-	if (l && THIN.includes(l.kind)) {
-		m.side = THREE.DoubleSide;
-		// cut, not blended: a see-through leaf is a cut-out
-		if (m.transparent) {
-			m.transparent = false;
-			m.alphaTest = Math.max(m.alphaTest, 0.5);
-		}
-	}
+	if (l) thin(m, l);
 	return m;
 }

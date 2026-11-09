@@ -116,10 +116,11 @@ describe('the bend', () => {
 		expect(at(3)).toBeLessThan(at(6));
 	});
 
-	test('a stiff trunk hardly moves where grass bends', () => {
-		const bark = windLook({ kind: 'bark', stiffness: 6, flutter: 0 }), grass = windLook({ kind: 'grass', stiffness: 0.6, flutter: 0.3 });
-		const lean = (k) => len(bendAt(w, copy, 6, k.stiffness, 2));
-		expect(lean(bark)).toBeLessThan(lean(grass) / 5);
+	test("a stiffer kind leans less; a material's stiffness damps only its own flutter", () => {
+		expect(len(bendAt(w, copy, 6, 6, 2))).toBeLessThan(len(bendAt(w, copy, 6, 0.6, 2)) / 5);
+		const leaf = windLook({ kind: 'leaf', stiffness: 1, flutter: 0.6 }), twig = windLook({ kind: 'stem', stiffness: 4, flutter: 0.6 });
+		expect(leaf.flutter).toBeCloseTo(0.6, 9);
+		expect(twig.flutter).toBeCloseTo(0.15, 9);
 		expect(windLook({ kind: 'stone', stiffness: 10, flutter: 0 })).toBeNull();
 	});
 

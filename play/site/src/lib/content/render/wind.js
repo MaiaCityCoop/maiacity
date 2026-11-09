@@ -11,7 +11,8 @@
  *   by the gust there (`strengthAt`).
  * - **Each plant its own phase** (`phaseOf`): a hash of where it stands, so neighbours sway apart and the same plant
  *   always sways alike. The gust is read at the plant's foot, so a whole plant leans together as a front passes.
- * - **The main bend** (`bendAt`): grows as the square of the height on the plant, divided by the material's stiffness
+ * - **The main bend** (`bendAt`): grows as the square of the height on the plant, the whole copy alike (its leaves never
+ *   leave their branches; a stiffer kind may lean less, `stiffness` 1 for every plant drawn today), divided by its stiffness
  *   (trunks hardly move, crowns and grass do), and keeps the length from the foot: what leans over comes down
  *   (`keepLength`).
  * - **Tip flutter** (`flutterAt`): smoothed triangle waves at four frequencies (GPU Gems 3 ch. 16), scaled by the
@@ -152,7 +153,8 @@ export const windOfCopy = (x, y, z, height) => [x, y, z, Math.max(0, height)];
 export function windLook(look) {
 	if (!look || look.kind === 'stone') return null;
 	const k = KINDS[look.kind] ?? KINDS.leaf;
-	return { stiffness: look.stiffness ?? k.stiffness, flutter: look.flutter ?? k.flutter };
+	// a material's stiffness damps its own flutter: the main bend is the copy's, the same for all its materials
+	return { stiffness: look.stiffness ?? k.stiffness, flutter: (look.flutter ?? k.flutter) / Math.max(1, look.stiffness ?? k.stiffness) };
 }
 
 // ---------------------------------------------------------------- the clock
