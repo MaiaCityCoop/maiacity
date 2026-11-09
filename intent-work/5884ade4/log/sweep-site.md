@@ -105,3 +105,7 @@ name and body, `// the next thing` lines.
 18. **`content/assets/box`** (45): the headers of `bake.js`, `clips.js`, `host.js` and `pieces.js` each to what the
     module guarantees and why (no function leaves the box; the box loads nothing; a recipe dies alone; pieces held to
     their hash, SPEC §4.5), not how each step goes. The numerical docs of `clips.js`'s functions stay.
+19. **`content/assets/cache`** (36): the headers of `cache.worker.js`, `builds.js` and `store.js` (kept: OPFS's
+    synchronous files only in workers, WebKit's workers without OPFS, a GPU read-back taking seconds, the key's
+    formula, Samuel's 2026-10-20 IndexedDB decision) and `store.js`'s docs naming a constant or a function again.
+    `packed.js`'s header is the entries' file format, kept whole.

@@ -1,21 +1,10 @@
 // @ts-nocheck — plain JS, trusted: the device cache's own worker (./store.js)
 /*
- * THE CACHE'S WORKER — what the device cache writes, done beside the page. Its jobs, each asked by a message `{id, op}`
- * and answered `{id, ...}` or `{id, error}`:
- *
- * - `png`: a build's picture written as a PNG file. It comes in as an ImageBitmap of its own (a copy, handed over), is
- *   drawn on a canvas here and goes back as the PNG file's bytes, handed over, not copied. Reading a picture back off
- *   the graphics card and encoding it takes the thread that does it a while (seconds, on a busy software GPU), so it is
- *   never the page's: a world loading its assets keeps its frames.
- * - `write`: a file of the cache's folder in the origin private file system (OPFS) written whole, `bytes` (handed
- *   over) as the file `name` of the folder `dir`, flushed. A worker, because only a worker has OPFS's synchronous
- *   files; one file after another, so the same file is never open twice.
- * - `can`: whether it can write them (`can`): the file `name` of the folder `dir` written as `write` writes, then taken
- *   away again. Not every browser's workers have OPFS (Playwright's WebKit has none): the page then writes the cache's
- *   files itself, where it can.
- *
- * Nothing of an asset runs here: only the browser's own encoder, on a picture the page already holds, and the
- * browser's own files.
+ * The device cache's writes, beside the page (asked `{id, op}`, answered `{id, ...}` or `{id, error}`): `png`, a build's
+ * picture as a PNG file (reading a picture back off the graphics card and encoding it takes seconds on a busy software
+ * GPU, so never on the page's thread); `write`, a file of the cache's OPFS folder, whole and flushed (only a worker has
+ * OPFS's synchronous files); `can`, whether it can (Playwright's WebKit has no OPFS in workers: the page then writes the
+ * files itself). Nothing of an asset runs here.
  */
 
 /** a file's name in the cache's folder */
