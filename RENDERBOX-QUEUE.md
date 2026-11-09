@@ -1,5 +1,12 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 11:02 Berlin
+- **#6 run 2 recorded: c7 FAIL** (on b5d2fbf69 vs main 54c17d998). Same t twice identical (pass), film 20 s (pass), near
+  +0.8 ms and far 0 (pass), but **mid 31.9 → 34.2 ms (+2.3 against +0.5; p95 49.9; gpu-bound +2.3 ms GPU)**, as run 1
+  (+2.0); and in the 8° backlit still the foreground leaves come out darker (deep green), not glowing (golden SSIM 0.78).
+  #6's PR head is e5ac544be now; its next job runs when pushed.
+- **660ad67f run 2 is running** (render fe23c07f0, started 10:58).
+
 ## 11:00 Berlin
 - **#13 run 2 recorded: c6 FAIL again** (on ff3cc57a1; out/ 1942b4871). SSIM base vs head is the same as run 1 to the third
   decimal (0.967/0.983/0.997/0.962/0.995/0.973): "gather instead of cut off" changes nothing visible in these views. Still
