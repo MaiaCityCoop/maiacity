@@ -1,8 +1,7 @@
 # Mac job: intent c1bee1f8's c8, the smoke: every page on WebGPU in Chrome and in Safari
 
-MAC JOB READY: intent-work/c1bee1f8-render@c8c9422 (this commit's parent 34b86e8 is the dry-run job; only this line changed) intent-work/c1bee1f8-render/README.md, on the pull request's head
-`b798efcfda9f82a9edb41856b9034026e7ca7f2a` (`HEAD_COMMIT=b798efcfda9f82a9edb41856b9034026e7ca7f2a`). Dry run: DRY RUN
-PASSED at 34b86e8 (25.7 s, 2026-11-09 22:05 UTC).
+Run 1 (5f829ca, head a1c2823) found WebGPU's own shader errors (fixed in the pull request, 817fe84); this job then
+names the URL of every failed request and keeps the job's own errors apart. The next READY line follows its dry run.
 
 Intent c1bee1f8-e738-4ff3-aace-4aea1d7e74ae (GPU 9/14), pull request #2186, branch `intent/c1bee1f8-webgpu-switch`.
 Every page draws with `WebGPURenderer`: WebGPU where the browser has it, its own WebGL 2 backend where not. The
@@ -29,8 +28,11 @@ For each page it waits for the renderer's backend (`window.__rendererBackend`) o
 - a 1440×900 screenshot;
 - every console error and page error.
 
-**Pass (c8):** every page in both browsers opened with no console error and no page error (`c8: PASS` on the last
-line), and Chrome's drawing pages say `webgpu`. Look at the screenshots: every world shows its ground, sky and things
+**Pass (c8):** every page in both browsers opened with no console error and no page error of its own (`c8: PASS` on
+the last line), and Chrome's drawing pages say `webgpu`. Two kinds are the job's, not the page's, and are kept apart
+(`aside`) and shown: play's member routes answer 401, because the job signs no one in; and Safari refuses the dev
+server's inline styles under play's CSP (a build hashes them). Every failed request is listed by its address
+(`failed`). Look at the screenshots: every world shows its ground, sky and things
 (no black or empty frame), the goat is whole and the machine shows its parts.
 
 **Dry run (in avenBOX, before this is sent):**

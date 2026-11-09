@@ -64,9 +64,11 @@ for (const [bname, launch] of BROWSERS) {
 	for (const [name, path] of PAGES) {
 		const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 		const page = await ctx.newPage();
-		const errors = [];
+		const errors = [], failed = [];
 		page.on('console', (m) => m.type() === 'error' && errors.push(m.text().slice(0, 400)));
 		page.on('pageerror', (e) => errors.push(`pageerror ${String(e).slice(0, 400)}`));
+		// every request that failed, by its address (a console's "Failed to load resource" names none)
+		page.on('response', (r) => r.status() >= 400 && failed.push(`${r.status()} ${r.request().method()} ${r.url().replace(site, '')}`));
 		await page.addInitScript({ content: SEEDED_RANDOM });
 		await page.addInitScript(clock);
 		const from = Date.now();
@@ -78,14 +80,23 @@ for (const [bname, launch] of BROWSERS) {
 		const backend = await page.evaluate(() => window.__rendererBackend ?? 'none').catch(() => 'unknown');
 		const png = `${out}/${bname}-${name}.png`;
 		await page.screenshot({ path: png }).catch((e) => errors.push(`screenshot ${e.message.split('\n')[0]}`));
-		results.push({ browser: bname, page: name, ok: errors.length === 0, backend, ...m, seconds: +((Date.now() - from) / 1000).toFixed(1), errors, png });
-		console.log(`${bname} ${name}: ${backend}, ${m.frameMs ?? '–'} ms, ${errors.length} errors${errors.length ? `: ${errors[0]}` : ''}`);
+		// what is the job's and not the page's: play's member routes answer 401 to a page with no session (the job signs
+		// no one in), and Safari refuses the dev server's inline styles under play's CSP (a build hashes them); each is
+		// kept and shown, apart, and fails nothing
+		const known = (e) => /status of 401/.test(e) || /Refused to apply a stylesheet .*Content Security Policy/.test(e);
+		const own = errors.filter((e) => !known(e)), aside = errors.filter(known);
+		results.push({ browser: bname, page: name, ok: own.length === 0, backend, ...m, seconds: +((Date.now() - from) / 1000).toFixed(1), errors: own, aside, failed, png });
+		console.log(`${bname} ${name}: ${backend}, ${m.frameMs ?? '–'} ms, ${own.length} errors${own.length ? `: ${own[0]}` : ''}${aside.length ? ` (${aside.length} the job's: no session, dev styles)` : ''}${failed.length ? `; failed: ${[...new Set(failed)].slice(0, 4).join(', ')}` : ''}`);
 		await ctx.close();
 	}
 	await browser.close();
 }
 proxy.close?.();
 writeFileSync(`${out}/results.json`, JSON.stringify(results, null, 1));
-console.table(results.map(({ browser, page, ok, backend, frameMs, frameP95, errors }) => ({ browser, page, ok, backend, frameMs, frameP95, errors: errors.length })));
+console.table(results.map(({ browser, page, ok, backend, frameMs, frameP95, errors, aside }) => ({ browser, page, ok, backend, frameMs, frameP95, errors: errors.length, aside: aside?.length ?? 0 })));
+// every distinct error, with the pages it was on
+const seen = new Map();
+for (const r of results) for (const e of r.errors ?? []) { const k = e.replace(/\d+/g, 'N').slice(0, 200); seen.set(k, [...(seen.get(k) ?? []), `${r.browser[0]}/${r.page}`]); }
+for (const [k, w] of seen) console.log(`${w.length}× ${k} | ${[...new Set(w)].join(' ')}`);
 const bad = results.filter((r) => !r.ok);
-console.log(`c8: ${bad.length ? `FAIL, ${bad.length} page(s) with errors: ${bad.map((r) => `${r.browser}/${r.page}`).join(', ')}` : 'PASS, every page opened with no console error'}; backends: ${[...new Set(results.map((r) => `${r.browser} ${r.backend}`))].join(', ')}`);
+console.log(`c8: ${bad.length ? `FAIL, ${bad.length} page(s) with errors of their own: ${bad.map((r) => `${r.browser}/${r.page}`).join(', ')}` : 'PASS, every page opened with no console error'}; backends: ${[...new Set(results.map((r) => `${r.browser} ${r.backend}`))].join(', ')}`);
