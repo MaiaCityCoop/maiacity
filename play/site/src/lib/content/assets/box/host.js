@@ -1,5 +1,5 @@
 // @ts-nocheck — plain JS
-import { LATEST, engineAt } from '../engines.js';
+import { LATEST, engineAt } from './engines.js';
 import { Shell, TIMEOUT, engineCode as frozenCode } from '$lib/kernel/sandbox/frame.js';
 import { budget, buildTurn } from '$lib/content/render/budget.js';
 import { resolved } from './pieces.js';

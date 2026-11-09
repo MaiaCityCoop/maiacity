@@ -3,7 +3,7 @@
 // v5: `self.defineRecipe` set, the script run, the function it was handed called with the engine's `require`).
 import { afterEach, describe, expect, it } from 'vitest'
 import { hashText } from '../../../kernel/hash.js'
-import { RECIPE_HEAD, recipeTail } from '../engines.js'
+import { RECIPE_HEAD, recipeTail } from './engines.js'
 import { MOST_DEEP, piecesFor, resolved } from './pieces.js'
 
 const g = globalThis as any

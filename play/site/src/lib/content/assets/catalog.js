@@ -12,7 +12,7 @@ import { holds } from '../../kernel/hash.js';
 import { configAt } from '../game/code/index.js';
 import { buildOf, hashText, parseBuild } from './builds.js';
 import * as cache from './cache.js';
-import { LATEST } from './engines.js';
+import { LATEST } from './box/engines.js';
 import { queryOf } from './params.js';
 import { handedPieces } from './box/pieces.js';
 import { lodOf } from './lodcard.js';

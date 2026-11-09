@@ -37,7 +37,7 @@
 		if (!dev) return;
 		const [{ default: S }, eng, builds, cat, host, pieces, { installMeter, drawingsOf }] = await Promise.all([
 			import('$lib/content/worlds/WorldStage.svelte'),
-			import('$lib/content/assets/engines.js'),
+			import('$lib/content/assets/box/engines.js'),
 			import('$lib/content/assets/builds.js'),
 			import('$lib/content/assets/catalog.js'),
 			import('$lib/content/assets/box/host.js'),

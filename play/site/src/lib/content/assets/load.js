@@ -17,7 +17,7 @@
 import { AssetBox, TIMEOUT } from './box/host.js';
 import { rebuild } from './box/rebuild.js';
 import * as cache from './cache.js';
-import { engineAt } from './engines.js';
+import { engineAt } from './box/engines.js';
 import { valuesOf } from './params.js';
 import { INDEX, buildOf, cardOf, declaredOf, heldAt, loadRecipes, parseBuild, recipeAt } from './catalog.js';
 

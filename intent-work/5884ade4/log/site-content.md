@@ -17,3 +17,8 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
    pass-through and the dead floor/worker mechanism) is gone: `frame.js` and `content/assets/engines.js` read
    `kernel/engines.js`; its dead `isFrozen` is gone. The kernel no longer imports content. Pinned by `box/pieces.test.ts`,
    `cache.test.ts` and the census (same ×3).
+3. **The box's engines live in `box/`** (site-assets#7, #15 host → engines; site-assets F3). `content/assets/engines.js`
+   → `content/assets/box/engines.js` (importers: RenderBench, catalog, load, sources/viewer, routes/worlds/bench, the
+   box's host and tests; none held); its dead `enginePath` and `RECIPE_END` go. The census's Sandbox 3 count flips
+   between two totals on its own (296/303 draws, the merge base's run too): a DIFF there is rerun, and this one came
+   back `same`.

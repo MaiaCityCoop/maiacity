@@ -9,7 +9,7 @@
  */
 import { rebuild } from '../box/rebuild.js';
 import * as cache from '../cache.js';
-import { engineAt } from '../engines.js';
+import { engineAt } from '../box/engines.js';
 import { queryOf, valuesOf } from '../params.js';
 import { checkCard } from '../schemas/index.js';
 import { NotInCatalog } from '../catalog.js';

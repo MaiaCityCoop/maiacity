@@ -10,7 +10,7 @@ const { vaultBuild } = await import('./viewer.js')
 // @ts-ignore — plain JS
 const cache = await import('../cache.js')
 // @ts-ignore — plain JS
-const { LATEST } = await import('../engines.js')
+const { LATEST } = await import('../box/engines.js')
 
 const R = 'c'.repeat(64)
 const params = [{ id: 'seed', label: 'Seed', type: 'string', value: 'maia' }, { id: 'stage', label: 'Stage', type: 'integer', min: 0, max: 9, value: 3 }]
