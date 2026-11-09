@@ -46,7 +46,7 @@ QUIET), then runs `wind.mjs`, one site after the other:
 **Pass (c7):** in the film, trunks still, branches bending, tips fluttering near, and gust fronts visibly travelling
 across the stand; backlit leaves glowing (against `main-golden.png`, compare Poly Haven's CC0 evening_field for the
 look). `sameT.identical` true and `movedHalfASecondLater` true. Head's mean frame time at near at most main's + 8 ms and never above
-33.4 ms, at mid and far at most main's + 0.5 ms (`within_budget`; the interim while TSL runs on WebGLNodesHandler, until intent 9), each with its bound and cpu_ms.
+33.4 ms, at mid at most main's + 3 ms and at far + 0.5 ms (`within_budget`; c7 respecified by Samuel 2026-11-09; the interim while TSL runs on WebGLNodesHandler, until intent 9), each with its bound and cpu_ms.
 
 **Out:** `out/summary.json` (the table, same-t, pose), `out/film-head.mp4`, `out/*-{near,mid,far}.png`,
 `out/*-golden.png`, `out/same-t-*.png`, `out/ssim.txt`, `out/results.json`, `out/wind.txt`. Commit `out/` and push to

@@ -47,8 +47,8 @@ const r = JSON.parse(fs.readFileSync(`${out}/results.json`, 'utf8'));
 const at = (s, v) => r.views.find((x) => x.site === s && x.view === v)?.meter ?? {};
 const rows = ['near', 'mid', 'far'].map((v) => {
   const m = at('main', v), h = at('head', v);
-  // c7's budget: near at most main's + 8 ms and never above 33.4 ms; mid and far at most main's + 0.5 ms
-  const within = v === 'near' ? h.frame_ms <= m.frame_ms + 8 && h.frame_ms <= 33.4 : h.frame_ms <= m.frame_ms + 0.5;
+  // c7's budget (Samuel 2026-11-09, until intent 9): near at most main's + 8 ms and never above 33.4 ms; mid main's + 3 ms; far main's + 0.5 ms
+  const within = v === 'near' ? h.frame_ms <= m.frame_ms + 8 && h.frame_ms <= 33.4 : h.frame_ms <= m.frame_ms + (v === 'mid' ? 3 : 0.5);
   return { view: v, main_ms: m.frame_ms, head_ms: h.frame_ms, head_minus_main: h.frame_ms - m.frame_ms, main_p95: m.frame_p95, head_p95: h.frame_p95, main_gpu: m.gpu_ms, head_gpu: h.gpu_ms, main_cpu: m.cpu_ms, head_cpu: h.cpu_ms, main_bound: m.bound, head_bound: h.bound, within_budget: within };
 });
 const summary = { rows, sameT: r.sameT, pose: r.pose, advance: r.advance ?? 'film.advance everywhere', film: r.film && { ...r.film, mp4: 'film-head.mp4' } };
