@@ -481,7 +481,8 @@ export function cardMaterials(map, normals, cells, views, cut) {
 	});
 	// each view's colour weighed by its own cover too: a see-through pixel's colour (the clear) never tints the blend
 	const cover = taken.reduce((a, t) => a.add(t.wk.mul(t.col.a)), float(1e-4));
-	const look = vec4(taken.reduce((a, t) => a.add(t.col.rgb.mul(t.wk.mul(t.col.a))), vec3(0)).div(cover), cover);
+	// (its cover lifted: a view's leaves averaged down with the sky between them never fall through the cut-out)
+	const look = vec4(taken.reduce((a, t) => a.add(t.col.rgb.mul(t.wk.mul(t.col.a))), vec3(0)).div(cover), cover.mul(1.6).min(1));
 	const nd = taken.reduce((a, t) => a.add(t.nd.mul(t.wk.mul(t.col.a))), vec4(0)).div(cover);
 	// each pixel at its baked depth, its shadow cut out (WebGPU: by the material's nodes; WebGL: `depth`)
 	const z = positionView.z.add(nd.w.sub(0.5).mul(size));

@@ -13,7 +13,7 @@ import { isWebGPU, maxTextureSize } from '../../render/core.js';
 export const FRAMES = 2;
 
 /** in every kept picture's key (./levels.js): raised whenever a picture changes */
-export const VERSION = 3;
+export const VERSION = 4;
 
 /** a direction (y up; below the horizon as on it) as u, v (−1…1) on the hemi-octahedral square */
 export function encode(x, y, z) {
@@ -140,9 +140,22 @@ export function createImpostors(renderer, o = {}) {
 			p = pages.length - 1;
 		}
 		const b = pages[p].kinds++;
-		const lo = Math.min(0, level.bottom), mid = (lo + level.height) / 2;
-		const size = Math.max(0.05, Math.hypot(level.reach * 2, level.height - lo) * 1.02);
-		return { page: p, cell: Math.floor(b / per) * N * cols + (b % per) * N, size, mid };
+		const mid = (Math.min(0, level.bottom) + level.height) / 2;
+		return { page: p, cell: Math.floor(b / per) * N * cols + (b % per) * N, size: ballOf(level, mid), mid };
+	}
+
+	/** the diameter of the ball round (0, mid, 0) its points reach (a box's corners frame a tree 2–3 times too wide) */
+	function ballOf(level, mid) {
+		let r = 0.025;
+		const v = new THREE.Vector3(), m = new THREE.Matrix4();
+		for (const d of level.draws) {
+			const P = d.geometry.attributes.position, step = Math.max(1, Math.floor((P.count * d.n) / 4e5));
+			for (let k = 0; k < d.n; k++) {
+				m.fromArray(d.locals, k * 16);
+				for (let i = (k * 7) % step; i < P.count; i += step) r = Math.max(r, v.fromBufferAttribute(P, i).applyMatrix4(m).setY(v.y - mid).length());
+			}
+		}
+		return r * 2.04;
 	}
 
 	const at = (slot) => ({ x: (slot.cell % cols) * px, y: Math.floor(slot.cell / cols) * px });
