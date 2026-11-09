@@ -136,7 +136,6 @@ function build(cars = 18) {
 		m.node.position.set(x, 0, L.z);
 		m.node.rotation.y = (L.dir * Math.PI) / 2;
 	};
-	/** one step of the traffic */
 	function step(dt) {
 		t += dt;
 		const span = ROAD.to - ROAD.from;
