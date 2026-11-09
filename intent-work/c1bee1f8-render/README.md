@@ -1,5 +1,9 @@
 # Mac job: intent c1bee1f8's c8, the smoke: every page on WebGPU in Chrome and in Safari
 
+MAC JOB READY: intent-work/c1bee1f8-render@{JOB} intent-work/c1bee1f8-render/README.md, on the pull request's head
+`b798efcfda9f82a9edb41856b9034026e7ca7f2a` (`HEAD_COMMIT=b798efcfda9f82a9edb41856b9034026e7ca7f2a`). Dry run: DRY RUN
+PASSED at 34b86e8 (25.7 s, 2026-11-09 22:05 UTC).
+
 Intent c1bee1f8-e738-4ff3-aace-4aea1d7e74ae (GPU 9/14), pull request #2186, branch `intent/c1bee1f8-webgpu-switch`.
 Every page draws with `WebGPURenderer`: WebGPU where the browser has it, its own WebGL 2 backend where not. The
 census counts the same main pass in avenBOX (c5, c6), and its smoke (`census.ts --smoke`) runs each world on
@@ -7,7 +11,7 @@ WebGPURenderer's own code without an error. This job checks what only a GPU show
 real browser's WebGPU with no console error. It takes about 5 minutes (Samuel 2026-11-09: frame times logged, not
 bounded; films are c9's, after the deploy).
 
-**Run:** `PLAY_MCP_TOKEN=play_… HEAD_COMMIT=<the commit below> bash intent-work/c1bee1f8-render/run.sh` (bun, node
+**Run:** `PLAY_MCP_TOKEN=play_… HEAD_COMMIT=b798efcfda9f82a9edb41856b9034026e7ca7f2a bash intent-work/c1bee1f8-render/run.sh` (bun, node
 with Playwright's Chromium and WebKit: `npx playwright install chromium webkit` once). It checks out the head in a
 worktree beside the repository (`../c1bee-head`), serves it on 5183 through play's read-only proxy, and runs
 `smoke.mjs` (this folder):
