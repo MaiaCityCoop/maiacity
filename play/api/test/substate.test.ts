@@ -15,6 +15,7 @@ import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/pg";
 import { Rate } from "../src/limits";
 import { watchTick, type Pull } from "../src/ship";
+import { carrySeen } from "../src/mainmerge";
 import { checksSeen, sub, subStateOf, type PrSeen } from "../src/substate";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
 
@@ -111,10 +112,12 @@ describe("subStateOf", () => {
     const OLD = sha(9), NEW = sha(2);
     const checks = ["c1", "c2", "c3", "c4", "c5"].map((id) => ({ id, check: `The statement of ${id}, long and whole`, must: true, run: "true" }));
     const results = { c1: { pass: true, commit: OLD }, c2: { pass: true, commit: OLD }, c3: { pass: true, commit: OLD }, c5: { pass: true, commit: NEW } };
-    const stale = row({ spec: { checks, nothing_to_reduce: "x" }, results, pr_seen: seen({ head: NEW, main_merged: { from: OLD, main: sha(5), at: "2026-11-07T11:50:00Z", to: NEW } }) });
+    // play merged main in: c1–c3 kept across it while the required checks run on the new head, c4 lacks a result
+    const merged_in = [{ from: OLD, main: sha(5), at: "2026-11-07T11:50:00Z", to: NEW }];
+    const stale = row({ spec: { checks, nothing_to_reduce: "x" }, results, pr_seen: seen({ head: NEW, merged_in, checks: { "play / API and site": "running", "website / build": "success" } }) });
     const s = of(stale)!;
     expect(s).toMatchObject({ state: "working", tag: "main merged in" });
-    expect(s.why).toBe(`main merged in: its checks run on ${NEW.slice(0, 7)} (c1, c2, c3 passed on ${OLD.slice(0, 7)}, not yet on the head ${NEW.slice(0, 7)}; c4 no result yet)`);
+    expect(s.why).toBe(`main merged in: its checks run on ${NEW.slice(0, 7)} (c1, c2, c3 passed on ${OLD.slice(0, 7)}, kept across main's merge once the required checks are green on ${NEW.slice(0, 7)}; c4 no result yet)`);
     expect(s.why).not.toContain("statement");
     const moved = of(row({ spec: { checks, nothing_to_reduce: "x" }, results, pr_seen: seen({ head: NEW }) }))!;
     expect(moved).toMatchObject({ state: "working", tag: "head moved" });
@@ -124,6 +127,85 @@ describe("subStateOf", () => {
     expect(failed).toEqual({ state: "failed", tag: "c2 failed", why: "c2 failed" });
     const conflict = of(row({ stage: "build", pr_seen: seen({ mergeable: false, conflicts: { head: HEAD, main: sha(5), files: ["a.ts"] } }) }))!;
     expect(conflict).toEqual({ state: "failed", tag: "conflicts with main", why: "conflicts with main: a.ts" });
+  });
+});
+
+// intent b17a4980-ade4-4df9-96ad-9d85df34eabe: a pass counts on its own commit and on every head play's own clean main
+// merges made from it, while the required checks are green there; nothing else carries it
+describe("results across play's main merges", () => {
+  const now = Date.parse("2026-11-09T16:00:00Z");
+  const A = sha(21), B = sha(22), C = sha(23), M1 = sha(31), M2 = sha(32);
+  const GREEN = { "play / API and site": "success", "website / build": "success" } as const;
+  const checks = ["c1", "c2", "c3"].map((id) => ({ id, check: `statement ${id}`, must: true, run: "true" }));
+  const on = (commit: string) => Object.fromEntries(checks.map((c) => [c.id, { pass: true, at: "2026-11-09T15:00:00Z", commit }]));
+  const merge = (from: string, main: string, to?: string) => ({ from, main, at: "2026-11-09T15:30:00Z", ...(to ? { to } : {}) });
+  const seen = (more: Partial<PrSeen> = {}): PrSeen => ({
+    pr: 9, head: B, draft: false, mergeable: true, state: "open", merged: false, base: "main", checks: { ...GREEN }, at: new Date(now - 5_000).toISOString(), ...more,
+  });
+  const row = (pr_seen: PrSeen, results: Record<string, unknown> = on(A)) => ({ stage: "proposal", spec: { checks, nothing_to_reduce: "x" }, results, work: null, pull_request: 9, ship: null, held_by: [], pr_seen }) as any;
+  const of = (r: any) => subStateOf(r, r.pr_seen, now);
+
+  test("kept across a clean main merge: waiting, the board saying so", () => {
+    // play merged main M1 into A; GitHub made B of them, its required checks green
+    const was = seen({ head: A, merged_in: [merge(A, M1)] });
+    const s1 = carrySeen(was, seen({ head: B }), [A, M1]);
+    expect(s1.merged_in).toEqual([merge(A, M1, B)]);
+    expect(of(row(s1))).toEqual({ state: "waiting", tag: "Accept and ship", why: `Accept and ship: c1, c2, c3 passed on ${A.slice(0, 7)}, kept across main's merge` });
+    // while GitHub makes the new head: working, never waiting
+    expect(of(row(was))).toMatchObject({ state: "working", tag: "main merged in" });
+    // its required checks still running: working, kept once they are green
+    const running = of(row({ ...s1, checks: { ...GREEN, "website / build": "running" } }))!;
+    expect(running).toMatchObject({ state: "working", tag: "main merged in" });
+    expect(running.why).toContain(`c1, c2, c3 passed on ${A.slice(0, 7)}, kept across main's merge once the required checks are green on ${B.slice(0, 7)}`);
+    // the box records again on B: counted on the head itself, nothing said kept
+    expect(of(row(s1, on(B)))).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
+  });
+
+  test("kept across two main merges in a row", () => {
+    let s = carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B }), [A, M1]);
+    // main moves again: play merges M2 into B (./mainmerge.ts goes on with the row), GitHub makes C
+    s = { ...s, merged_in: [...s.merged_in!, merge(B, M2)] };
+    s = carrySeen(s, seen({ head: B }));
+    expect(s.merged_in).toHaveLength(2);
+    s = carrySeen(s, seen({ head: C }), [B, M2]);
+    expect(s.merged_in).toEqual([merge(A, M1, B), merge(B, M2, C)]);
+    expect(of(row(s))).toEqual({ state: "waiting", tag: "Accept and ship", why: `Accept and ship: c1, c2, c3 passed on ${A.slice(0, 7)}, kept across main's merge` });
+    // results on the middle head count too, grouped by commit
+    const mixed = { ...on(A), c3: { pass: true, at: "2026-11-09T15:40:00Z", commit: B } };
+    expect(of(row(s, mixed))!.why).toBe(`Accept and ship: c1, c2 passed on ${A.slice(0, 7)}; c3 passed on ${B.slice(0, 7)}, kept across main's merge`);
+  });
+
+  test("not kept: a builder's push, a conflict, a red or missing required check, a merge play did not make", () => {
+    const made = carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B }), [A, M1]);
+    // a builder's push after play's merge ends the row: the head moved
+    const pushed = carrySeen(made, seen({ head: C }));
+    expect(pushed.merged_in).toBeUndefined();
+    expect(of(row(pushed))).toMatchObject({ state: "working", tag: "head moved" });
+    // a builder's push while GitHub was making play's merge: its parents are not [A, M1], nothing carried
+    const raced = carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: C }), [A]);
+    expect(raced.merged_in).toBeUndefined();
+    expect(of(row(raced))).toMatchObject({ state: "working", tag: "head moved" });
+    // a merge of main play did not make (the builder's own, or of another main): no row, nothing carried
+    expect(carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: C }), [A, M2]).merged_in).toBeUndefined();
+    expect(of(row(seen({ head: B })))).toMatchObject({ state: "working", tag: "head moved" });
+    // parents not read (GitHub refused): nothing carried
+    expect(carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B })).merged_in).toBeUndefined();
+    // a conflict with main: failed
+    expect(of(row({ ...made, mergeable: false }))).toMatchObject({ state: "failed", tag: "conflicts with main" });
+    // a red required check on the merged head: failed, nothing kept
+    expect(of(row({ ...made, checks: { ...GREEN, "play / API and site": "failure" } }))).toMatchObject({ state: "failed", tag: "check red" });
+    // a missing required check: working, nothing kept
+    const missing = of(row({ ...made, checks: { "play / API and site": "success" } }))!;
+    expect(missing.state).toBe("working");
+    expect(missing.why).toContain("kept across main's merge once the required checks are green");
+    // a result on a commit before the row's start counts nothing
+    expect(of(row(made, on(C)))).toMatchObject({ state: "working", tag: "main merged in" });
+  });
+
+  test("red on the merged head replaces the kept pass: failed", () => {
+    const made = carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B }), [A, M1]);
+    const red = { ...on(A), c2: { pass: false, at: "2026-11-09T15:50:00Z", commit: B } };
+    expect(of(row(made, red))).toEqual({ state: "failed", tag: "c2 failed", why: "c2 failed" });
   });
 });
 
