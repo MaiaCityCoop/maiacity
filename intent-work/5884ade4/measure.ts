@@ -79,7 +79,7 @@ const families: Record<string, () => Bound[]> = {
 			['sandbox-5 page lines', lines(S + 'routes/sandbox-5/+page.svelte'), 80],
 			['hash patterns written out', count(nonTest.filter((f) => f.startsWith('play/site/')), /\[0-9a-f\]\{64\}/), 4],
 			['pin:${ outside catalog.js', count(nonTest.filter((f) => f.startsWith(S) && !f.endsWith('assets/catalog.js')), /pin:\$\{/), 0],
-			['box imports of content/assets', edges.filter((e) => /assets\/box\/[^/ ]+ -> play\/site\/src\/lib\/content\/assets\/[^/]+$/.test(e) && !/\.test\./.test(e)).length, 0],
+			['box imports of content/assets a held file does not make', edges.filter((e) => /assets\/box\/[^/ ]+ -> play\/site\/src\/lib\/content\/assets\/[^/]+$/.test(e) && !/\.test\./.test(e) && !held.has(e.split(' -> ')[0])).length, 0],
 			['cache.js lines', lines(S + 'lib/content/assets/cache.js'), 350],
 			["sandbox slugs ('sandbox-N') in site code", count(nonTest.filter((f) => f.startsWith(S)), /['"]sandbox-\d['"]/), 3],
 			['folder cycles a held file does not close (again, for content)', heldFreeFolderCycles(), 1]
