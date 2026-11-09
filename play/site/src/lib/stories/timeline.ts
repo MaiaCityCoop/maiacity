@@ -222,6 +222,24 @@ export const linkedOf = (c: { [field: string]: unknown }, links: Links | null | 
 	return l && l.id === c.story ? l : null;
 };
 
+/** a link in its place: the story it plays (null title: it can't be read), its version's number, its newest */
+export type Slot = { clip: string; at: number; duration: number; story: string; title: string | null; number: number | null; newest: number | null };
+export const slotsOf = (story: StoryBody & { links?: Links | null }): Slot[] =>
+	story.tracks.filter((x) => x.kind === LINK).flatMap((x) => x.clips.map((c) => {
+		const l = linkedOf(c, story.links);
+		return { clip: `${x.id}/${c.id}`, at: c.at, duration: c.duration, story: l?.id ?? String(c.story ?? ''), title: l?.title ?? null, number: l?.number ?? null, newest: l?.newest ?? null };
+	}));
+/** a link as people read it: the story's title and the version it plays, "Trailer · v3" */
+export const linkName = (s: Slot) => (s.title ? `${s.title} · v${s.number}` : 'A story that can no longer be read');
+/** a newer accepted version of the linked story, if there is one: only shown (moving to it is a proposal on this story) */
+export const newerOf = (s: Slot) => (s.newest != null && s.number != null && s.newest > s.number ? s.newest : null);
+/** the Stories page at the linked story (by its UUID), at the version this link plays */
+export const linkHref = (s: Slot) => `/stories/#${s.story}${s.number ? `@${s.number}` : ''}`;
+
+const PALETTE = ['#8fae8b', '#d9a441', '#c96f53', '#7c9cb8', '#a98bb5', '#6f9e95', '#c4a27a', '#9aa35c'];
+/** a calm colour for each section, the same every time */
+export const colourOf = (s: string) => PALETTE[[...(s ?? '')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % PALETTE.length];
+
 export const clock = (s: number) => {
 	const m = Math.floor(s / 60), r = s - m * 60;
 	return `${m}:${r < 10 ? '0' : ''}${r.toFixed(1)}`;

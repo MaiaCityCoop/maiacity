@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clipAt, CUE_CHARS, cuesOf, linkedOf, sectionsOf, setCuesOf, shotEdge, type Links, type StoryBody } from './timeline';
+import { clipAt, colourOf, CUE_CHARS, cuesOf, linkedOf, linkHref, linkName, newerOf, sectionsOf, setCuesOf, shotEdge, slotsOf, type Links, type StoryBody } from './timeline';
 
 const LEAVES = 'Every few days, a new leaf unfolds at its crown, each turned a little further round than the last, so that every leaf finds the light. The old ones, it lets fall. Each leaves a scar, and in time its trunk becomes a diary of every leaf it ever wore.';
 const TRAILER = 'This is the story of how one million humans build a hundred times better way of living: their own solarpunk city, from the ground up. First in a game, then for real.';
@@ -64,6 +64,20 @@ describe('the lanes', () => {
 		expect(linkedOf({ story: T, version: V1 }, links)?.number).toBe(1);
 		expect(linkedOf({ story: F, version: V1 }, links)).toBeNull();
 		expect(linkedOf({ story: T, version: '2'.repeat(64) }, links)).toBeNull();
+	});
+	it('lays each link in its place: the story it plays, its version, a newer one, or a story that can no longer be read', () => {
+		const links: Links = { [V1]: { id: T, title: 'The trailer', number: 2, version: V1, duration: 5, newest: 3, body: { ...story, duration: 5 } } };
+		const linked = { ...story, links, tracks: [...story.tracks, { id: 'links', kind: 'story', clips: [{ id: 'in', at: 0, duration: 5, story: T, version: V1 }, { id: 'gone', at: 6, duration: 2, story: F, version: V1 }] }] } as StoryBody & { links: Links };
+		const [inSlot, gone] = slotsOf(linked);
+		expect(inSlot).toEqual({ clip: 'links/in', at: 0, duration: 5, story: T, title: 'The trailer', number: 2, newest: 3 });
+		expect(gone).toEqual({ clip: 'links/gone', at: 6, duration: 2, story: F, title: null, number: null, newest: null });
+		expect([linkName(inSlot), linkName(gone)]).toEqual(['The trailer · v2', 'A story that can no longer be read']);
+		expect([newerOf(inSlot), newerOf({ ...inSlot, newest: 2 }), newerOf(gone)]).toEqual([3, null, null]);
+		expect([linkHref(inSlot), linkHref(gone)]).toEqual([`/stories/#${T}@2`, `/stories/#${F}`]);
+		expect(slotsOf(story)).toEqual([]);
+	});
+	it('gives each section one calm colour, the same every time', () => {
+		expect(['', 'Hook', 'Turn', 'Payoff', 'Hook'].map(colourOf)).toEqual(['#9aa35c', '#c96f53', '#a98bb5', '#c4a27a', '#c96f53']);
 	});
 });
 

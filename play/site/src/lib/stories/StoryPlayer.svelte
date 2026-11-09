@@ -19,7 +19,7 @@
 -->
 <script lang="ts">
 	import { onMount, untrack, type Snippet } from 'svelte';
-	import { clipAt, clipsOf, clock, cueOf, LINK, linkedOf, moodLevel, sectionsOf, shotEdge, spansOf, type Links, type Notes, type Shot, type StoryBody, type Track, type Voice } from './timeline';
+	import { clipAt, clipsOf, clock, colourOf, cueOf, LINK, linkHref, linkName, moodLevel, newerOf, sectionsOf, shotEdge, slotsOf, spansOf, type Links, type Slot, type Notes, type Shot, type StoryBody, type Track, type Voice } from './timeline';
 	import { compose, feed, FRAME, seal } from './compose';
 	import { fileOf, inputsOf } from './inputs';
 	import { fileUrl } from '$lib/api';
@@ -47,22 +47,9 @@
 	const shot = $derived(shots[index] ?? null);
 	const voice = $derived(clipAt<Voice>(story, 'voice', t));
 	const note = $derived(clipAt<Notes>(story, 'notes', t));
-	/** the links, each in its place: the story it plays (null: it can't be read), its version's number, its newest */
-	type Slot = { clip: string; at: number; duration: number; story: string; title: string | null; number: number | null; newest: number | null };
-	const slots = $derived<Slot[]>(
-		story.tracks.filter((x) => x.kind === LINK).flatMap((x) => x.clips.map((c) => {
-			const l = linkedOf(c, story.links);
-			return { clip: `${x.id}/${c.id}`, at: c.at, duration: c.duration, story: l?.id ?? String(c.story ?? ''), title: l?.title ?? null, number: l?.number ?? null, newest: l?.newest ?? null };
-		}))
-	);
+	const slots = $derived(slotsOf(story));
 	/** the link playing at t, if any */
 	const inLink = $derived(slots.find((s) => t >= s.at - 1e-6 && t < s.at + s.duration));
-	/** a link as people read it: the story's title and the version it plays, "Trailer · v3" */
-	const linkName = (s: Slot) => (s.title ? `${s.title} · v${s.number}` : 'A story that can no longer be read');
-	/** a newer accepted version of the linked story, if there is one: only shown (moving to it is a proposal on this story) */
-	const newer = (s: Slot) => (s.newest != null && s.number != null && s.newest > s.number ? s.newest : null);
-	/** the Stories page at the linked story (by its UUID), at the version this link plays */
-	const linkHref = (s: Slot) => `/stories/#${s.story}${s.number ? `@${s.number}` : ''}`;
 	const laneName = (tr: Track) => tr.name ?? tr.id;
 	/** the tracks that sound besides the voice (music, sfx, ambience, a mix), each its own lane: their recordings, and the
 	 *  cues still to be made, written as notes (a preview's music, effects and beds, read before anything is recorded) */
@@ -319,9 +306,6 @@
 		return () => ro.disconnect();
 	});
 
-	// a calm colour for each section, the same every time
-	const PALETTE = ['#8fae8b', '#d9a441', '#c96f53', '#7c9cb8', '#a98bb5', '#6f9e95', '#c4a27a', '#9aa35c'];
-	const colourOf = (s: string) => PALETTE[[...(s ?? '')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % PALETTE.length];
 	const sectionOf = (time: number) => clipAt<Notes>(story, 'notes', time)?.section ?? '';
 
 	// the mood: a line through each note's mood, rising and falling with the story (a linked story's inside its link)
@@ -372,7 +356,7 @@
 			{#if note?.mood}<span class="mood">{note.mood}</span>{/if}
 		</p>
 		{#if inLink}
-			<div class="field"><b>Linked story</b><p><a class="in-link" href={linkHref(inLink)}>{linkName(inLink)}</a>{#if newer(inLink)}<span class="muted">{` · v${newer(inLink)} available`}</span>{/if}</p></div>
+			<div class="field"><b>Linked story</b><p><a class="in-link" href={linkHref(inLink)}>{linkName(inLink)}</a>{#if newerOf(inLink)}<span class="muted">{` · v${newerOf(inLink)} available`}</span>{/if}</p></div>
 		{/if}
 		{#if note?.emotion}<div class="field"><b>Emotion</b><p class="emotion">{note.emotion}</p></div>{/if}
 		{#if note?.camera}<div class="field"><b>Camera</b><p>{note.camera}</p></div>{/if}
@@ -423,7 +407,7 @@
 				<!-- the stories it links, each a block in its place; a press opens that story (never a scrub) -->
 				<div class="lane link-lane" title="Links" aria-label="Links">
 					{#each slots as s (s.clip)}
-						{@const later = newer(s)}
+						{@const later = newerOf(s)}
 						<a class="link" class:on={s === inLink} class:lost={!s.title} href={linkHref(s)} style:left={pct(s.at)} style:width={pct(s.duration)} onpointerdown={(e) => e.stopPropagation()}
 							title="{linkName(s)}{later ? ` (v${later} available: a proposal on this story moves it there)` : ''}. Open it on the Stories page.">
 							<b>{s.title ?? 'missing story'}</b>{#if s.number}<span>· v{s.number}</span>{/if}{#if later}<em>v{later} available</em>{/if}

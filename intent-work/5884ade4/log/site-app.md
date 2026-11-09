@@ -27,3 +27,6 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
    site-app#24 (loading), #28, StoryPlayer's part of #11 and #35. Pinned by the new `inputs.test.ts` (fetch mocked:
    compositions held to their hash, a version's own or default variant's recipe, pieces, a failure named) and
    `world-build.test.ts` (the player's failure and progress texts).
+6. **A story's links and section colours read in `timeline.ts`.** `slotsOf`, `linkName`, `newerOf`, `linkHref` and
+   `colourOf` moved verbatim out of StoryPlayer.svelte (the player and the timeline split next both draw them), with
+   tests first in `timeline.test.ts` (a link in its place, a lost one, a newer version, the colours as they were).
