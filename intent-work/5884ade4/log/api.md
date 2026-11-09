@@ -53,3 +53,8 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
    versioned.ts 1,295 → 822 lines. Pinned: versioned.test (register/unregister), schemas.test (prefix, failing
    documents, syncKinds), sandboxdocs.test (a layout's Accept and rows), allwork.test (several documents, one
    Accept), intentpieces.test, the whole suite.
+6. **A story's types and its schema's name in storydocs.ts.** `Clip`, `Track`, `StoryBody` move to storydocs.ts (which
+   builds the documents), so it no longer imports stories.ts back (the 2-file cycle goes); the name a story document
+   gives its schema is read from the seed schema (`STORY_SCHEMA = docs.seedType(SCHEMA.story).name`) instead of the
+   literal `"story/1"` written in stories.ts and storydocs.ts (api-docs#11, F5 for stories). Pinned: api.test
+   (stories proposed and read), docs.test, migrate.test (stories as documents), the whole suite.

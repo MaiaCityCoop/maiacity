@@ -11,7 +11,8 @@ import type { Queryable } from "./kit/pg";
 import { admin, type Me } from "./access";
 import { HASH } from "./kit/hash";
 import { storyListed } from "./listed";
-import { fileLabel, type StoryBody } from "./stories";
+import { fileLabel } from "./stories";
+import type { StoryBody } from "./storydocs";
 import { assetSeen, libraryOf, libraryPage, relabel } from "./owners";
 import { HttpError } from "./kit/errors";
 

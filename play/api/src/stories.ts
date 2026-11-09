@@ -2,7 +2,7 @@
 // whether it works, and later (motion design, three.js scenes, a frame-by-frame export into a real video) build it
 // there. A story is tracks of clips (play/SPEC.md §12, format `story/1`):
 //
-//   { schema: "story/1", format: "9:16", fps: 30, duration, tracks: [{ id, kind, clips: [{ id, at, duration, … }] }] }
+//   { schema: <its schema's name>, format: "9:16", fps: 30, duration, tracks: [{ id, kind, clips: [{ id, at, duration, … }] }] }
 //
 // Every clip has its place in time (`at`, `duration`, in seconds); what else it holds is its track's kind:
 //   shots  { frame: <an image's file hash>, transition }   — the storyboard; a `scene` will replace the still later
@@ -36,7 +36,7 @@ import { storyVersionId } from "./versions";
 import { UUID } from "./kit/uuid";
 import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
-import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, storyDocAt, versionAtFrontiers } from "./storydocs";
+import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, STORY_SCHEMA, storyDocAt, versionAtFrontiers, type Clip, type StoryBody, type Track } from "./storydocs";
 import { overlap } from "./kinds";
 import { storyListed } from "./listed";
 import { fileTypes, keepFile as keepOwned } from "./owners";
@@ -44,12 +44,8 @@ import { unreadable } from "./assetdocs";
 import { closeWork, dropDoc, putAtProposal, settle, stageAfter, WORK_OF, workOf } from "./work";
 import { HttpError } from "./kit/errors";
 
-export const SCHEMA = "story/1";
 /** the work a story's version is */
 const STORY_WORK = "story_version";
-export type Clip = { id: string; at: number; duration: number; [field: string]: unknown };
-export type Track = { id: string; kind: string; gain?: number; mute?: boolean; clips: Clip[] };
-export type StoryBody = { schema: typeof SCHEMA; format: string; fps: number; duration: number; tracks: Track[] };
 export type VersionInfo = { number: number; id: string; note: string; created: string; author: string | null; approved_by: string | null };
 /** a linked version as it is read: its story (a UUID), title, number and id, its duration and timeline, and its story's
  *  newest accepted number (shown as "v5 available" where it is newer; a link plays only its own version) */
@@ -422,7 +418,7 @@ function keysOf(v: unknown, what: string) {
  */
 export async function checkBody(db: Queryable, given: any, self?: string): Promise<StoryBody> {
   if (!given || typeof given !== "object" || Array.isArray(given)) throw new HttpError("A story's timeline is a JSON object: { format, fps, tracks }.");
-  if (given.schema != null && given.schema !== SCHEMA) throw new HttpError(`A story's schema is ${SCHEMA}.`);
+  if (given.schema != null && given.schema !== STORY_SCHEMA) throw new HttpError(`A story's schema is ${STORY_SCHEMA}.`);
   const format = given.format == null ? "9:16" : text(given.format, "The format", 8);
   if (!FORMATS.includes(format)) throw new HttpError(`The format is one of ${FORMATS.join(", ")}.`);
   const fps = given.fps == null ? 30 : Number(given.fps);
@@ -509,7 +505,7 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
   await checkWorld(db, tracks);
   const duration = round(Math.max(0, ...tracks.flatMap((t) => t.clips.map((c) => c.at + c.duration))));
   if (!(duration > 0)) throw new HttpError("A story has at least one clip.");
-  const body: StoryBody = { schema: SCHEMA, format, fps, duration, tracks };
+  const body: StoryBody = { schema: STORY_SCHEMA, format, fps, duration, tracks };
   if (JSON.stringify(body).length > MOST_BODY) throw new HttpError(`A story is at most ${MOST_BODY / 1e6} MB as JSON.`, 413);
   if (linked.size) await linker.nesting(body, self);
   return body;

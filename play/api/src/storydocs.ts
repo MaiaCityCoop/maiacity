@@ -8,19 +8,24 @@
 import type { Me } from "./access";
 import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
-import type { StoryBody } from "./stories";
 import { versionAt } from "./kinds";
 import { holdVariant } from "./work";
 import { SCHEMA } from "./kit/ids";
 
+export type Clip = { id: string; at: number; duration: number; [field: string]: unknown };
+export type Track = { id: string; kind: string; gain?: number; mute?: boolean; clips: Clip[] };
+export type StoryBody = { schema: string; format: string; fps: number; duration: number; tracks: Track[] };
+/** the name a story's document gives its schema (only shown: the schema is named by its UUID, SCHEMA.story) */
+export const STORY_SCHEMA = docs.seedType(SCHEMA.story).name;
+
 export const docIdOf = (story: string) => `story:${story}`;
-export const asDoc = (title: string, body: StoryBody) => ({ ...body, schema: "story/1", title });
+export const asDoc = (title: string, body: StoryBody) => ({ ...body, schema: STORY_SCHEMA, title });
 export function asStory(json: any): { title: string; body: StoryBody } {
   const { title, ...body } = json ?? {};
   return { title, body: body as StoryBody };
 }
 /** a story not accepted yet stands on an empty timeline: its intent's variant fills it */
-const BLANK = (title: string) => ({ schema: "story/1", title, format: "9:16", fps: 30, duration: 0, tracks: [] });
+const BLANK = (title: string) => ({ schema: STORY_SCHEMA, title, format: "9:16", fps: 30, duration: 0, tracks: [] });
 export const authorOf = (me: Pick<Me, "id"> | null, via: string | null | undefined): docs.Author => ({ human: me?.id ?? null, via: via === "mcp" ? "mcp" : via === "import" ? "import" : "site" });
 
 type VersionRow = { id: string; number: number; title: string; body: StoryBody; note: string; author: string | null; approved_by: string | null; created: Date };
