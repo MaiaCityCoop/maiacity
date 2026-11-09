@@ -8,7 +8,8 @@
 // @ts-nocheck
 import { T } from './three.js'
 import { budget } from '../render/budget.js'
-import { createRenderer } from '../render/core.js'
+import { createRenderer, environmentFrom, isWebGPU } from '../render/core.js'
+import { createPost } from '../render/post.js'
 import { Fn, If, Loop, abs, clamp, dot, exp, float, fract, int, length, max, mix, pow, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl'
 /*
  * Factory Skill: the miniature look.
@@ -78,8 +79,12 @@ import { Fn, If, Loop, abs, clamp, dot, exp, float, fract, int, length, max, mix
       scene.background = this.bg
       scene.fog = new T.Fog(this.bg, 260, 900)
 
-      const pm = new T.PMREMGenerator(r)
-      scene.environment = pm.fromScene(new T.RoomEnvironment(), 0.04).texture
+      // maiaCITY: on WebGPU (intent c1bee1f8) the room's light is baked once the renderer may draw (../render/core.js)
+      if (isWebGPU(r)) void environmentFrom(r, new T.RoomEnvironment(), 0.04, (t) => (scene.environment = t))
+      else {
+        const pm = new T.PMREMGenerator(r)
+        scene.environment = pm.fromScene(new T.RoomEnvironment(), 0.04).texture
+      }
       scene.environmentIntensity = opts.envIntensity != null ? opts.envIntensity : 0.42
 
       this.camera = new T.PerspectiveCamera(opts.fov || 22, 1, 1, 2000)
@@ -100,6 +105,29 @@ import { Fn, If, Loop, abs, clamp, dot, exp, float, fract, int, length, max, mix
 
       // post: AO, bloom, tone map, tilt shift (two passes), grade
       const size = new T.Vector2(1, 1)
+      this.tiltH = TILT()
+      this.tiltV = TILT()
+      this.tiltV.uniforms.dir.value.set(0, 1)
+      this.grade = GRADE()
+      this.time = 0
+      // maiaCITY: on WebGPU (intent c1bee1f8) the same stack on a RenderPipeline (../render/post.js createPost): the AO
+      // as set below, the bloom, the output, then the tilt shift and the grade (their NodePasses); a composer's face kept
+      if (isWebGPU(r)) {
+        const post = (this.post = createPost(r, scene, this.camera, {
+          samples: opts.samples != null ? opts.samples : 4,
+          ao: opts.ao !== false && ((ao) => {
+            this.ao = ao
+            ao.updateGtaoMaterial({ radius: 1.1, distanceExponent: 1.6, thickness: 1.2, scale: 1.15, samples: 16, distanceFallOff: 1 })
+            ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 })
+            ao.blendIntensity = 1.0
+          }),
+          bloom: { strength: 0.3, radius: 0.45, threshold: 2.6, on: opts.bloom !== false },
+          after: [...(opts.tilt !== false ? [this.tiltH, this.tiltV] : []), ...(opts.grade !== false ? [this.grade] : [])]
+        }))
+        this.bloom = post.bloom
+        this.composer = { setPixelRatio() {}, setSize() {}, render: () => post.render(), dispose: () => post.dispose() }
+        return
+      }
       const rt = new T.WebGLRenderTarget(1, 1, { type: T.HalfFloatType, samples: opts.samples != null ? opts.samples : 4 })
       const comp = (this.composer = new T.EffectComposer(r, rt))
       comp.addPass(new T.RenderPass(scene, this.camera))
@@ -113,13 +141,8 @@ import { Fn, If, Loop, abs, clamp, dot, exp, float, fract, int, length, max, mix
       this.bloom = new T.UnrealBloomPass(size, 0.3, 0.45, 2.6)
       if (opts.bloom !== false) comp.addPass(this.bloom)
       comp.addPass(new T.OutputPass())
-      this.tiltH = TILT()
-      this.tiltV = TILT()
-      this.tiltV.uniforms.dir.value.set(0, 1)
       if (opts.tilt !== false) { comp.addPass(this.tiltH); comp.addPass(this.tiltV) }
-      this.grade = GRADE()
       if (opts.grade !== false) comp.addPass(this.grade)
-      this.time = 0
     }
     /** focus band in screen space: y of the sharp line (0 bottom, 1 top), half width, blur in px at 1080p */
     setTilt({ focusY, band, amount, tilt } = {}) {

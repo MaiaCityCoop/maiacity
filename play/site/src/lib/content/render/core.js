@@ -84,7 +84,7 @@ export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, basic: T
 export const BACKENDS = /** @type {const} */ (['webgl', 'webgpu', 'webgl2']);
 /** @typedef {typeof BACKENDS[number]} Backend */
 /** @type {Backend} */
-export const DEFAULT_BACKEND = 'webgl';
+export const DEFAULT_BACKEND = 'webgpu';
 
 /**
  * The backend a renderer is made with: the page's, else the address's, else the browser's choice kept, else the default.
