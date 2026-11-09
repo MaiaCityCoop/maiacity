@@ -109,3 +109,27 @@ export function costOf(p, at = /** @type {[number, number]} */ ([...LIMITS.at]))
 	const ms = Object.values(passes).reduce((a, b) => a + b, 0);
 	return { passes, ms };
 }
+
+/** the passes `?finish=` may leave out, to see what each does: `?finish=off` draws the scene unfinished, `?finish=-bloom,-ao` drops those */
+export const DROPS = /** @type {const} */ (['ao', 'bloom', 'contact', 'grade', 'fog', 'aa']);
+
+/**
+ * A plan with the passes `spec` names left out (`off`, or `-ao,-bloom,…`), as the address's `?finish=` asks; null for
+ * `off`. Unknown words are ignored.
+ * @param {Plan} p @param {string | null | undefined} spec
+ * @returns {Plan | null}
+ */
+export function withDrops(p, spec) {
+	if (!spec) return p;
+	const words = spec.split(',').map((w) => w.trim().replace(/^-/, ''));
+	if (words.includes('off')) return null;
+	const q = { ...p };
+	if (words.includes('ao')) q.ao = null;
+	if (words.includes('bloom')) q.bloom = null;
+	if (words.includes('contact')) q.contact = null;
+	if (words.includes('grade')) q.grade = { vig: 0, grain: 0, sat: 1, lut: 0 };
+	if (words.includes('fog')) q.fog = { reach: 0 };
+	if (words.includes('aa')) (q.aa = 'msaa'), (q.samples = 0), (q.jitter = false), (q.scale = 1), (q.upscale = null);
+	return q;
+}
+

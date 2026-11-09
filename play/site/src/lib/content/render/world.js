@@ -10,7 +10,7 @@
  */
 import * as THREE from 'three';
 import { createRenderer, disposeObject, disposeRenderer, fitTo, isWebGPU, placeSeenOnly, ready } from './core.js';
-import { finishing, thisDevice } from './finish.js';
+import { finishing, thisDevice, withDrops } from './finish.js';
 import { createAtmosphere } from './atmosphere.js';
 import { createFinish } from './post.js';
 
@@ -102,9 +102,13 @@ export function createWorldRenderer(container, options = {}) {
  * @returns {WorldFinish}
  */
 export function worldFinish(renderer, scene, camera, o = {}) {
-	if (!isWebGPU(renderer)) return { plan: null, atmosphere: null, render: () => renderer.render(scene, camera), dispose() {} };
-	const plan = finishing({ device: o.device ?? thisDevice(), film: o.film, ghosts: o.ghosts });
-	const atmosphere = o.sky ? createAtmosphere(scene, o.sky) : null;
+	const plain = { plan: null, atmosphere: null, render: () => renderer.render(scene, camera), dispose() {} };
+	if (!isWebGPU(renderer)) return plain;
+	// `?finish=off` or `?finish=-bloom,-ao`: passes left out by the address, to see what each does
+	const asked = typeof window !== 'undefined' ? new URLSearchParams(window.location?.search ?? '').get('finish') : null;
+	const plan = withDrops(finishing({ device: o.device ?? thisDevice(), film: o.film, ghosts: o.ghosts }), asked);
+	if (!plan) return plain;
+	const atmosphere = o.sky && plan.fog.reach > 0 ? createAtmosphere(scene, o.sky) : null;
 	const finish = createFinish(renderer, scene, camera, plan, { sun: o.sky?.sun });
 	// what the page draws by, for the Mac job's record (selector-shots.mjs `finish`)
 	if (typeof window !== 'undefined') /** @type {any} */ (window).__finish = { plan, backend: renderer.backend?.isWebGPUBackend ? 'webgpu' : 'webgl2' };

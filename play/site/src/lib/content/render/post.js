@@ -281,6 +281,8 @@ export function createFinish(renderer, scene, camera, plan, o = {}) {
 	if (plan.aa === 'traa') color = aa = traa(color, scenePass.getTextureNode('depth'), scenePass.getTextureNode('velocity'), camera);
 	else if (plan.aa === 'taau') color = aa = taau(color, scenePass.getTextureNode('depth'), scenePass.getTextureNode('velocity'), camera);
 	if (plan.bloom) {
+		// its threshold in the picture's own units: the scene's light before the lens is many times that (a world's
+		// exposure brings it down), so the threshold is divided by the exposure each frame (`render`)
 		bloom = bloomNode(color, plan.bloom.strength, plan.bloom.radius, plan.bloom.threshold);
 		bloom.setResolutionScale?.(plan.bloom.scale);
 		color = vec4(color.rgb.add(bloom.rgb), color.a);
@@ -301,6 +303,7 @@ export function createFinish(renderer, scene, camera, plan, o = {}) {
 				key.updateMatrixWorld();
 				key.target.updateMatrixWorld();
 			}
+			if (bloom && plan.bloom) bloom.threshold.value = plan.bloom.threshold / Math.max(1e-4, renderer.toneMappingExposure ?? 1);
 			renderer.getDrawingBufferSize(size);
 			grade.uniforms.uRes.value.copy(size);
 			// the grain moves with the clock: a film's own t, else the page's
