@@ -820,6 +820,21 @@ export type StoryProposal = {
   intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts): no work without an intent
 };
 
+/**
+ * A story's version kept in play.story_versions (its frozen, content-addressed row: what pins, links and the player
+ * read), the one writer of it. Kept once by its id: a version proposed again, or made again by a fold or a merge, is
+ * the row already there; `accept` numbers a proposed one as it is accepted (its number and approver), the document's
+ * version of the same number.
+ */
+async function keepVersion(q: Queryable, v: { id: string; story: string; parents: string[]; title: string; body: StoryBody; note: string; author?: string | null; number?: number | null; approvedBy?: string | null }, accept = false) {
+  await q.query(
+    `INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, author, approved_by) VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, $7, $8, $9)
+     ON CONFLICT (id) DO UPDATE SET number = CASE WHEN $10 THEN EXCLUDED.number ELSE play.story_versions.number END,
+       approved_by = CASE WHEN $10 THEN EXCLUDED.approved_by ELSE play.story_versions.approved_by END`,
+    [v.id, v.story, v.number ?? null, v.parents, v.title, JSON.stringify(v.body), v.note, v.author ?? null, v.approvedBy ?? null, accept],
+  );
+}
+
 // a story version's id is content-addressed as an asset version's is (./versions.ts, play/SPEC.md §4.3): the same story,
 // parents, title and timeline give the same id; any change to any of them, or to the history it stands on, another
 const versionIdOf = (story: string, parents: string[], title: string, body: StoryBody) => storyVersionId({ story, parents, title, body });
@@ -923,10 +938,7 @@ export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fres
       const { rows: b } = await tx.query<{ title: string; body: StoryBody }>(`SELECT title, body FROM play.story_versions WHERE id = $1`, [base]);
       if (b[0] && version === versionIdOf(id, parents, b[0].title, b[0].body)) throw new HttpError("That is the head as it is: nothing changed.");
     }
-    await tx.query(
-      `INSERT INTO play.story_versions (id, story_id, parents, title, body, note, author) VALUES ($1, $2, $3, $4, ($5::text)::jsonb, $6, $7) ON CONFLICT (id) DO NOTHING`,
-      [version, id, parents, title, JSON.stringify(body), note, who.id],
-    );
+    await keepVersion(tx, { id: version, story: id, parents, title, body, note, author: who.id });
     await docs.propose(tx, docIdOf(id), variantId, { note, author });
     const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: STORY_WORK, doc_id: docIdOf(id), doc_variant: variantId, story_id: id, story_base: base, story_version: version }, note, via });
     const edits = (await docs.history(tx, docIdOf(id), { variant: variantId })).length;
@@ -956,10 +968,7 @@ async function foldVersion(tx: Queryable, id: string, v: { title: string; body: 
   await docs.propose(tx, docId, variant, { note: v.note, author });
   const parents = head ? [head] : [];
   const version = versionIdOf(id, parents, v.title, body);
-  await tx.query(
-    `INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, author, approved_by) VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, $7, $8, $9) ON CONFLICT (id) DO NOTHING`,
-    [version, id, n, parents, v.title, JSON.stringify(body), v.note, by, approver],
-  );
+  await keepVersion(tx, { id: version, story: id, number: n, parents, title: v.title, body, note: v.note, author: by, approvedBy: approver });
   const d = await docs.accept(tx, docId, variant, { author, note: v.note });
   if (d.number !== n) throw new Error(`story ${id} and its document disagree: version ${n} against ${d.number}`);
   await tx.query(`UPDATE play.stories SET head = $2, title = $3, updated = now() WHERE id = $1`, [id, version, v.title]);
@@ -1090,7 +1099,8 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
     await settle(tx, p.id, "accepted", byOf(me));
   };
   if (head === (p.story_base ?? null)) {
-    await tx.query(`UPDATE play.story_versions SET number = $2, approved_by = $3 WHERE id = $1`, [p.story_version, n, me.id]);
+    const { rows: [was] } = await tx.query<{ parents: string[]; title: string; body: StoryBody; note: string; author: string | null }>(`SELECT parents, title, body, note, author FROM play.story_versions WHERE id = $1`, [p.story_version]);
+    if (was) await keepVersion(tx, { id: p.story_version, story: p.story_id, ...was, number: n, approvedBy: me.id }, true);
     await accepted(p.story_version);
     return { id: p.id, status: "accepted", number: n, version: p.story_version };
   }
@@ -1119,13 +1129,9 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
     return { id: p.id, status: "archived", message: `This story has a newer version than the one this was made on.${where}${why} Propose the change again on its head.` };
   }
   const version = versionIdOf(p.story_id, [head!, p.story_version], merged.title, merged.body);
-  await tx.query(
-    `INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, author, approved_by) VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, $7, $8, $9) ON CONFLICT (id) DO NOTHING`,
-    [version, p.story_id, n, [head, p.story_version], merged.title, JSON.stringify(merged.body), `${p.note} (merged with v${n - 1})`.slice(0, 2000), p.author ?? null, me.id],
-  );
+  await keepVersion(tx, { id: version, story: p.story_id, number: n, parents: [head!, p.story_version], title: merged.title, body: merged.body, note: `${p.note} (merged with v${n - 1})`.slice(0, 2000), author: p.author ?? null, approvedBy: me.id });
   await accepted(version);
   return { id: p.id, status: "accepted", number: n, version, merged: true };
-
 }
 
 // ---- a story at an edit, or as an intent's variant would make it
@@ -1146,7 +1152,6 @@ export async function storyAt(db: Db, me: Me | null, id: string, at: { edit?: nu
   }
   const { title, body } = asStory(json);
   return { id, title, ...(at.intent !== undefined ? { intent: `${at.intent}`.toLowerCase() } : { edit: at.edit }), ...body, links: await linksOf(db, body, id) };
-
 }
 
 /** A story kept in the repo, written as its accepted v1 where play holds no story of its id (import/stories.ts). */
@@ -1158,10 +1163,7 @@ export async function seedStory(db: Db, id: string, title: string, note: string,
   return db.transaction(async (tx) => {
     const { rows } = await tx.query(`INSERT INTO play.stories (id, coop_id, title) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id`, [id, COOP, t]);
     if (!rows.length) return false;
-    await tx.query(
-      `INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note) VALUES ($1, $2, 1, '{}', $3, ($4::text)::jsonb, $5)`,
-      [version, id, t, JSON.stringify(body), text(note, "The note", 2000)],
-    );
+    await keepVersion(tx, { id: version, story: id, number: 1, parents: [], title: t, body, note: text(note, "The note", 2000) });
     await tx.query(`UPDATE play.stories SET head = $2 WHERE id = $1`, [id, version]);
     // and its document, its first edit that version
     await ensureStoryDoc(tx, id);

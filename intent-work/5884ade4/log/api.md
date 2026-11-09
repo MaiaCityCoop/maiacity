@@ -136,3 +136,10 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
     `INTENT_STAGES` its comment owned up to, goes; `promptOf` reads the intent itself instead of taking `intentRow` as
     a parameter (possible now that intents.ts no longer imports skills.ts: the brief is review.ts'). Tests import the
     list from intents.ts. Pinned: skills.test (prompts), build.test, the whole suite.
+17. **One writer of play.story_versions** (api-docs#29 in part, F7's bound): stories.ts `keepVersion` is the one
+    INSERT … ON CONFLICT of a story's frozen version, for a proposal, a fold, an Accept on the head (`accept`: the
+    proposed row numbered and its approver set, what the UPDATE did), a merged Accept and the seed (5 writers → 1).
+    Not done of F7: retiring play.story_versions as a second store (story versions as the document's versions, its
+    content-hash ids kept): HIGH risk by the audit's own word (pins, links and the player read those ids) and a
+    data-model change past this move; next untangles. Pinned: api.test (stories proposed, accepted, merged, linked),
+    migrate.test (folds), the whole suite.
