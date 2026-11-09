@@ -139,3 +139,15 @@ scratchpad, `infra2/`).
   every box script reaches the same URLs as before (checked: `https://play.maia.city`, `…/api/mcp`); PLAY_URL set now
   moves the MCP endpoint of every box script with it, as it did live-audit's alone.
 - Pinned: tsc (play/api's covers play/avenbox); live-audit without a token stops as before (exit 2).
+
+## 14d. up.sh waits for Postgres one way (re-infra#14)
+
+- `wait_ready` beside `ready` (up to 40 × 0.25 s), called after starting the cluster and after raising
+  max_connections, instead of the same loop written twice. `bash -n`, shellcheck clean; up.sh on the ready box as
+  before. (Not run against a stopped cluster here: other builders' tests share this machine's Postgres.)
+
+## Not done, and why
+
+- re-infra#5 (the `Intent:` trailer) and #12 (the stage list): the api fixer's (`intent/5884ade4-u-api2`).
+- re-infra#13 (compose files and deploy/Caddyfile never deployed): Samuel's decision, with F4.
+- `.claude/settings.json`'s inline hook: a person's file.
