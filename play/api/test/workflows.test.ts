@@ -285,11 +285,17 @@ describe("the whole suite on every pull request and on main", () => {
   const bunTests = (path: string) =>
     Object.values(yaml(path).jobs ?? {}).flatMap((j: any) => (j.steps ?? []).flatMap((s: any) => String(s.run ?? "").split("\n")))
       .map((l: string) => l.trim()).filter((l: string) => /\bbun test\b/.test(l));
-  test("play-checks.yml runs `bun test --parallel`, every file, nothing narrowed, Postgres with room for it", () => {
+  test("CI runs avenBOX's gate, each part whole: every file, nothing narrowed, Postgres with room for it", () => {
     const p = yaml(".github/workflows/play-checks.yml");
     const api = p.jobs.checks.steps.find((s: any) => s.name === "The API");
     expect(api["working-directory"]).toBe("play/api");
-    expect(bunTests(".github/workflows/play-checks.yml")).toEqual(["bun test --parallel"]);
+    const gates = (path: string) => text(path).match(/\bbash \S*gate\.sh .*$/gm);
+    expect(gates(".github/workflows/play-checks.yml")).toEqual(["bash ../avenbox/gate.sh api --no-up", "bash ../avenbox/gate.sh site --no-up"]);
+    expect(gates(".github/workflows/website-checks.yml")).toEqual(["bash ../play/avenbox/gate.sh website --no-up"]);
+    // a part named runs it whole: the API's types and every test file
+    const plan = Bun.spawnSync(["bash", resolve(ROOT, "play/avenbox/gate.sh"), "api", "--no-up", "--plan"], { cwd: ROOT, stdout: "pipe" }).stdout.toString();
+    expect(plan).toContain("step api-types\n  step api-tests: every file");
+    expect(bunTests(".github/workflows/play-checks.yml")).toEqual([]);
     expect(api.run).not.toMatch(/--changed|\s-t\s|--test-name-pattern|GATE_CHANGED|\.test\.ts/);
     expect(JSON.stringify(api.env ?? {})).not.toContain("GATE_CHANGED");
     const pg = p.jobs.checks.steps.find((s: any) => s.name === "Postgres");

@@ -238,7 +238,7 @@ describe("the workflows", () => {
     const pgStep = play.steps.find((s: any) => s.name === "Postgres");
     expect(pgStep.run).toContain('"postgres:$PG_VERSION-alpine"');
     expect(text("play/avenbox/box.env")).toContain("\nPG_VERSION=17\n");
-    expect(play.steps.find((s: any) => s.name === "The API").run).toContain("bun test");
+    expect(play.steps.find((s: any) => s.name === "The API").run).toContain("gate.sh api --no-up");
   });
 
   test("every gate kept", () => {

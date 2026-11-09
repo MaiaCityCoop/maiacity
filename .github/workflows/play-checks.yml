@@ -1,5 +1,5 @@
-# play's checks, called by main.yml: the API's tests against a real Postgres (play/api/test), its types, and the site's
-# build (play/site), which also holds the copied modules to resolving.
+# play's checks, called by main.yml: avenBOX's gate (play/avenbox/gate.sh) for the API, its types and its tests against a
+# real Postgres (play/api/test), and for the site's build (play/site), which also holds the copied modules to resolving.
 #
 # On a pull request they always run in full, and end by noting the tree they tested ("Tested tree"). On a push to main
 # (intent 5ab64b8e) they pass without running again only when the pushed tree is that very tree, for the pull request
@@ -51,18 +51,17 @@ jobs:
         working-directory: play/api
         run: |
           bun install --frozen-lockfile
-          bunx tsc --noEmit -p .
           # over TCP: the image's first start (initdb) answers only on its socket until it is ready
           for i in $(seq 1 60); do docker exec postgres pg_isready -h 127.0.0.1 -U postgres > /dev/null && break; sleep 1; done
           docker exec postgres pg_isready -h 127.0.0.1 -U postgres
-          # the whole suite, every file, one worker per core (each file its own database; intent aa59f248)
-          bun test --parallel
+          # avenBOX's gate, the part whole: its types, then every test file in parallel, red if one is skipped
+          bash ../avenbox/gate.sh api --no-up
       - name: The site
         if: steps.tested.outputs.skip != 'true'
         working-directory: play/site
         run: |
           bun install --frozen-lockfile
-          bun run build
+          bash ../avenbox/gate.sh site --no-up
       - name: Tested tree
         if: steps.tested.outputs.skip != 'true'
         run: echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"
