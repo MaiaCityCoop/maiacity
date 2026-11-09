@@ -20,4 +20,6 @@ M=$!
 H=$!
 trap 'kill $M $H 2>/dev/null || true; git -C "$REPO" worktree remove --force "$MAIN" 2>/dev/null || true' EXIT
 until curl -sf http://localhost:5191/ >/dev/null && curl -sf http://localhost:5192/ >/dev/null; do sleep 1; done
+# each server's Sandbox 1 asked for once and left a minute to optimise its dependencies, so the page loads whole
+curl -sf -o /dev/null http://localhost:5191/sandbox-1/ || true; curl -sf -o /dev/null http://localhost:5192/sandbox-1/ || true; sleep 60
 node "$REPO/intent-work/e85a5860-shots/shots.mjs" --main http://localhost:5191 --head http://localhost:5192 --out "$OUT"

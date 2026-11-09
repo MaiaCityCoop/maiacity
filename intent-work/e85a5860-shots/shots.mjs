@@ -67,10 +67,26 @@ const frames = async (n, dt = 0) => {
 			requestAnimationFrame(() => requestAnimationFrame(ok));
 		}), dt);
 };
+/** a dev server's first load can fail while vite optimises its dependencies ("Failed to fetch dynamically imported
+ *  module"): such a page is loaded again, up to three times */
+let broken = false;
+page.on('pageerror', (e) => /Failed to fetch dynamically imported module|Importing a module script failed/.test(String(e)) && (broken = true));
+page.on('console', (m) => m.type() === 'error' && /Failed to fetch dynamically imported module/.test(m.text()) && (broken = true));
 const open = async (url) => {
-	await page.goto(url, { waitUntil: 'domcontentloaded' });
-	// the world is up once its cover is gone (sandbox-kit/WorldPage.svelte: its bar shown while it loads)
-	await page.waitForFunction(() => window.__walker && window.__assets && !document.querySelector('.progress'), null, { timeout: 20 * 60e3, polling: 2000 });
+	for (let attempt = 1; ; attempt++) {
+		broken = false;
+		log(`open ${url} (attempt ${attempt})`);
+		await page.goto(url, { waitUntil: 'domcontentloaded' });
+		// the world is up once its cover is gone (sandbox-kit/WorldPage.svelte: its bar shown while it loads)
+		const up = await page
+			.waitForFunction(() => window.__walker && window.__assets && !document.querySelector('.progress'), null, { timeout: 25 * 60e3, polling: 2000 })
+			.then(() => true)
+			.catch(() => false);
+		if (up && !broken) break;
+		const step = await page.evaluate(() => document.querySelector('.step')?.textContent ?? null).catch(() => null);
+		log(`not up (${broken ? 'a module failed to load' : 'timed out'}; at "${step}")`);
+		if (attempt >= 3) throw new Error(`${url} never came up: ${step}`);
+	}
 	return page.evaluate(() => ({ backend: window.__rendererBackend ?? null, grass: window.__grass ? (window.__grass.mode ?? 'tiles') : 'none' }));
 };
 /** the walker at the meadow, the view settled, its picture */
