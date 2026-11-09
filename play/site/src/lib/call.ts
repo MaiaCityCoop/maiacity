@@ -5,6 +5,8 @@
  * audio is unlocked on the first touch or key anywhere in the page (`unlock`), and an iPad then plays a call picked after
  * an answer from the API, which a plain <audio> started that late would not.
  */
+import { fileBytes } from '$lib/api';
+
 const LENGTH = 7; // seconds of a call
 const FADE = 1.2;
 const LEVEL = 0.5; // a call at gain 1
@@ -24,12 +26,7 @@ export function unlock() {
 const bufferOf = (hash: string) => {
 	let b = decoded.get(hash);
 	if (!b) {
-		b = fetch(`/api/files/${hash}`)
-			.then((r) => {
-				if (!r.ok) throw new Error(`its recording answered ${r.status}`);
-				return r.arrayBuffer();
-			})
-			.then((bytes) => audio().decodeAudioData(bytes));
+		b = fileBytes(hash).then((bytes) => audio().decodeAudioData(bytes));
 		b.catch(() => decoded.delete(hash));
 		decoded.set(hash, b);
 	}

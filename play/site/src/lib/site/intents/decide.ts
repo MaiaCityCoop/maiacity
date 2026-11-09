@@ -4,14 +4,14 @@
 // button is. Where play gives no answer (its proxy's 502/503/504 while the API restarts or works long, or the network
 // gone), the decision may still be going through on the server: the intent is read again until it is decided, and only
 // then, or once it plainly isn't, does the board say what happened.
-import { ApiError } from '$lib/api';
+import { ApiError, NO_ANSWER } from '$lib/api';
 
 export type Verdict = 'approve' | 'accept' | 'reject' | 'reopen';
 /** what the board needs of an intent to tell whether a decision went through */
 export type Decidable = { id: string; stage: string; decided_at?: string | null; approved_at?: string | null; ship?: unknown };
 
 /** an answer that isn't play's: its proxy's while the API restarts or is busy, or no network at all */
-export const noAnswer = (e: unknown) => (e instanceof ApiError && [502, 503, 504].includes(e.status)) || e instanceof TypeError;
+export const noAnswer = (e: unknown) => (e instanceof ApiError && NO_ANSWER.has(e.status)) || e instanceof TypeError;
 
 /** the waits between reading the intent again after no answer, in ms: about a minute and a half in all */
 export const REREAD = [2000, 3000, 5000, 10_000, 15_000, 20_000, 30_000];
