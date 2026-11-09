@@ -19,6 +19,7 @@
 		<button class="back" onclick={() => onselect(null)}>← All sites</button>
 		<h2>{site.name}</h2>
 		<p class="where">{site.country} · {site.lat.toFixed(2)}°, {site.lon.toFixed(2)}° · {n(site.area_km2)} km²</p>
+		{#if site.notes.area}<p class="note">{site.notes.area}</p>{/if}
 		<ul class="scores" aria-label="Scores, 1 to 5">
 			{#each SCORES as k (k)}<li><span>{k}</span><b>{site.scores[k]}</b></li>{/each}
 		</ul>
@@ -32,7 +33,7 @@
 			<dt>Water</dt>
 			<dd>{site.water}</dd>
 			<dt>Land</dt>
-			<dd>{price(site.land_price_eur_ha)}</dd>
+			<dd>{price(site.land_price_eur_ha)}{#if site.notes.land_price}<span class="note">{site.notes.land_price}</span>{/if}</dd>
 			<dt>Legal route</dt>
 			<dd>{site.legal_route}</dd>
 			<dt>Access</dt>
@@ -60,7 +61,7 @@
 				<button onclick={() => onselect(r.index)}>
 					<span class="rank">{i + 1}</span>
 					<span class="name"><b>{r.site.name}</b><small>{r.site.country} · {n(r.site.area_km2)} km² · {r.site.density_per_km2}/km²</small></span>
-					<span class="total" title="the sum of its five scores, of 25">{r.total}</span>
+					<span class="total" title="the sum of its seven scores, of 35">{r.total}</span>
 				</button>
 			</li>
 		{/each}
@@ -81,10 +82,11 @@
 	.total { font-family: var(--font-display, serif); font-size: 1.1rem; }
 	.back { border: 0; background: none; padding: 0; margin: 0 0 0.5rem; color: #c8553d; font: inherit; font-size: 0.85rem; cursor: pointer; }
 	.where { margin: 0 0 0.5rem; font-size: 0.82rem; color: #5b6660; }
-	.scores { list-style: none; display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.3rem; margin: 0 0 0.6rem; padding: 0; }
+	.scores { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(4.4rem, 1fr)); gap: 0.3rem; margin: 0 0 0.6rem; padding: 0; }
 	.scores li { display: grid; justify-items: center; padding: 0.3rem 0; border-radius: 0.5rem; background: #f3ecdc; }
 	.scores span { font-size: 0.68rem; color: #5b6660; }
 	.scores b { font-family: var(--font-display, serif); font-size: 1.05rem; }
+	.note { display: block; margin: 0.2rem 0 0.4rem; font-size: 0.75rem; color: #7b857a; line-height: 1.35; }
 	dl { margin: 0; font-size: 0.82rem; line-height: 1.4; }
 	dt { margin-top: 0.5rem; font-weight: 600; }
 	dd { margin: 0.1rem 0 0; color: #33403a; }

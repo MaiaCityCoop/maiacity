@@ -3,7 +3,9 @@
  * or more, only villages of under 10,000 people, barren or degraded land that can be brought back), as the planet's
  * `sites` config holds them: each with its numbers, its scores and its sources, every source an artifact play keeps.
  */
-export type Score = { water: number; land: number; legal: number; access: number; climate: number };
+/** each 1 to 5: water, land to be had, the legal path, access and the climate for a food forest; and how well building
+ * there restores (degraded land, nobody displaced, no intact habitat cleared) and what restoration nearby already shows */
+export type Score = { water: number; land: number; legal: number; access: number; climate: number; restoration: number; precedent: number };
 export type Source = { artifact: string; title: string; url: string };
 export type Site = {
 	name: string;
@@ -30,11 +32,13 @@ export type Site = {
 	risks: string;
 	precedents: string;
 	scores: Score;
+	/** how a number is known where it is not plain: an estimate, a range, a part of a whole */
+	notes: Partial<Record<'area' | 'density' | 'rain' | 'temp' | 'land_price', string>>;
 	sources: Source[];
 };
 export type Sites = { note: string; criteria: string[]; regions: Site[] };
 
-export const SCORES: (keyof Score)[] = ['water', 'land', 'legal', 'access', 'climate'];
+export const SCORES: (keyof Score)[] = ['water', 'land', 'legal', 'access', 'climate', 'restoration', 'precedent'];
 export const total = (s: Site) => SCORES.reduce((a, k) => a + s.scores[k], 0);
 
 /** the regions best first (the sum of their scores), each with its place in the config */
