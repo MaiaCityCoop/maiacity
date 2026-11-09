@@ -30,6 +30,11 @@ export const edges = new Map<string, Set<string>>();
 for (const f of files) {
 	const out = new Set<string>();
 	const src = readFileSync(f, 'utf8');
+	// the census loads the site's modules by `lib('<path under play/site/src/lib>')` (play/site/scripts/census)
+	for (const m of src.matchAll(/\blib\(\s*['"]([\w./-]+)['"]\s*\)/g)) {
+		const r = resolve('play/site/src/lib/x', './' + m[1]);
+		if (r && r !== f) out.add(r);
+	}
 	for (const m of src.matchAll(SPEC)) {
 		const r = resolve(f, m[1]);
 		if (r && r !== f) out.add(r);
