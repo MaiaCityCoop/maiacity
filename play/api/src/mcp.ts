@@ -19,13 +19,13 @@
 // prompts are the skills', kept once in play's Postgres and changed only by proposal (./skills.ts, play/SPEC.md §4.14,
 // Samuel 2026-11-06); a tool's description says only what it takes, gives back and refuses.
 import type { BlobStore } from "./blobs";
-import type { Db } from "./kit/pg";
+import type { Db, Queryable } from "./kit/pg";
 import { admin, type Me } from "./access";
 import type { GitHub } from "./github";
 import { assetOf, listAssets } from "./assets";
 import { docAt, docEdit, docHistory, listDocs, proposeDocVersion } from "./versioned";
 import { intentOf } from "./review";
-import { kinds, syncKinds, workKinds } from "./kinds";
+import { formatOf, kinds, syncKinds, workKinds } from "./kinds";
 import { NO_INTENT } from "./held";
 import { addIntent, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES, archiveOwn, noSuchIntent } from "./intents";
 import { autoMove } from "./decide";
@@ -55,75 +55,22 @@ import { statusOf } from "./fault";
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
 
+/** what each kind's documents hold, as their schemas say it (./kinds.ts formatOf), read for every tools/list */
+type Formats = { recipe: string; story: string; all: string };
+const FORMAT_KINDS = ["asset", "story", "factory", "game_config", "skill", "sandbox", "artifact"];
+const formatsOf = async (q: Queryable): Promise<Formats> => ({
+  recipe: await formatOf(q, "asset", "source"),
+  story: await formatOf(q, "story"),
+  all: (await Promise.all(FORMAT_KINDS.map((k) => formatOf(q, k)))).join(" "),
+});
+
 type Tool = {
   name: string;
-  description: string;
+  /** its description, or one written with the kinds' formats */
+  description: string | ((f: Formats) => string);
   inputSchema: Record<string, unknown>;
   run: (args: any, me: Me) => Promise<unknown>;
 };
-
-const RECIPE_RULE =
-  "Send the version's readable source, as people write it (not bundled or minified: lines under 1000 characters), because " +
-  "the admins read it before they decide. It is a CommonJS module that sets `module.exports.recipe = function (id, v, variant) { … return { meta, build } }`, " +
-  "requires only 'three', three's addons ('three/addons/…') and shared pieces by hash, and names every other asset by its BLAKE3 hash. " +
-  "A piece is readable source shared by recipes (a car kit, a battery pack), a document of kind 'piece' (list_docs, doc_at; made or changed " +
-  "with propose_doc_version, kind 'piece', whole { schema: 'piece/1', label, note, source }, a CommonJS module): a recipe names an accepted " +
-  "version of one by the BLAKE3 hash of its source, `require('<64 hex>')` (list_docs gives each piece's versions and their hashes), and " +
-  "the box reads it from play's files; a piece may require three.js and other pieces, at most 4 deep. A version keeps the pieces it was " +
-  "accepted with: a newer piece is a new version of the asset. Pieces may be proposed in the same intent as what uses them: a recipe or " +
-  "piece may require the hash of a piece version proposed in that intent, and one intent may carry several versions of one piece (each " +
-  "proposed in order, the next growing from the last); Accept keeps them first, in the order they require each other. play wraps it into the " +
-  "recipe file itself (the asset box's header, then the source, then the line naming this asset and its new version). The code runs only " +
-  "in the asset box, the sandboxed frame in the page, never on play's server. Start from the head's source (get_asset gives its hash, " +
-  "get_file its text). Every version has one: an imported version's is legacy's own code its recipe file was bundled from (the asset's " +
-  "library, each module marked by the file it came from), made again and checked against that file byte for byte. " +
-  "Every new version names its levels of detail on its card, `lod: { levels: 'declared' | 'derived' }` (propose_asset's `lod`; doc_edit's card " +
-  "field `card.lod`, carried on from the head where it has one): 'declared' where its source exports its own L1 and L2 as a plain literal, " +
-  "`module.exports.levels = [{ values: { … } }, …]`, each the same recipe built with those values (its params), else 'derived'; L0 is its build, L3 its picture.";
-
-const STORY_FORMAT =
-  "A story is a film as one timeline (format story/1): { schema: 'story/1', format: '9:16' | '16:9' | '1:1' | '4:5', fps: 24 | 25 | 30 | 48 | 50 | 60, duration, tracks }. " +
-  "Each track is { id, kind, clips } and each clip { id, at, duration } in seconds (at may be left out to follow the clip before it), plus its kind's fields: " +
-  "kind 'shots' { frame: an image's hash from add_story_frame (the shot's still), video?: a video's hash from add_story_video (its moving picture, played muted, the story's own sound under it), video_in?: where in the video the shot starts (s), composition?: a composition's hash from add_story_composition (its motion design, one HyperFrames composition played in the shot's place from its 0 at the shot's at, for its length; the frame stays its still), transition: how it goes into the next shot, as code where it starts with one: 'cut', 'dissolve 0.5', 'from black 0.7', 'to black 1', 'dip to black 0.4', several joined by commas ('from black 0.7, cut'), else prose }; " +
-  "kind 'voice' { who, line, cues? } (the narration, shown as the subtitle, cut evenly; or its own subtitles cues: [{ at: seconds into the clip, text, em?: true }], each until the next, em setting one apart, alone and large, such as '100x' while 'a hundred times' is said); " +
-  "kind 'notes' { section, emotion (the one primary emotion the section should leave the viewer with, shown under its name on the timeline), camera, retention, mood } (mood as arrows: ↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕). " +
-  "Any clip of any track may sound: { audio: a recording's hash from add_story_audio, audio_in: where in the recording it starts (s), gain (dB), fade_in, fade_out (s) }, played from the clip's at for its duration; " +
-  "a voice clip's audio is its take, and tracks of kind music, sfx or ambience hold the score, the spot sounds and the beds, their clips overlapping as they like; a track may carry gain (dB) and mute. " +
-  "A clip may carry more fields, and a track may be of another kind (callout, scene): they are kept as given. " +
-  "kind 'story' links other stories in, one clip each: { id, at, story: the linked story's id (a UUID from list_stories, never its title), version: the id of the accepted version of it that plays (get_story's versions) }, that version's whole timeline played in the clip's place from at (its shots, voice, notes and sounds). " +
-  "A link always names its version, so two films may link two versions of one trailer, and a film never changes because the trailer got a new version: moving a film to a newer trailer is a proposal on the film, { op: 'set_clip', track, clip, fields: { version: <the newer version's id> } } (the clip then takes that version's length; shift what follows by the difference if it is longer or shorter). " +
-  "A link's duration is its version's: leave it out and it is given that. " +
-  `A story track's clips never overlap each other, but a linked story may overlap this story's own clips (its music ringing out under the next line). A link is refused without a version, to a story that does not exist, to the story itself, to a version not that story's or never accepted, with a duration other than its version's, and where links would loop (A links B links A) or nest more than ${MOST_LINK_DEPTH} stories deep. ` +
-  "duration is worked out from the clips. Clip ids are unique within their track; track ids within the story.";
-
-const FACTORY_FORMAT =
-  "A factory is { schema: 'factory/1', label, note, from, builds: the pin of what it makes, line, stock, assemblies, parts, handling }. " +
-  "line is the spec AirSup's factory runtime reads: { product: { name, unit, perToken }, demand: { perDay }, calendar: { shifts, hoursPerShift, startHour }, sizing: { targetUtil }, release, seed, " +
-  "stations: [{ id, name, machine (the kit's machine it is drawn as), variant?, cv (cycle time's variation), buffer (in front of it), reserve (spare floor for more machines), operators, mtbf and mttr (s: breakdowns), kind (laser, cnc, robot, line, oven, press, tester), yield?, input? (a stage it is fed), after? (the stations it joins), stage (what leaves it), what and rate (its description and where its rate comes from), ct? }], stages: { stage: its look }, layout, look }. " +
-  "A station's cycle time is the sum of every operation at it (the parts' ops and its handling), worked out where the line is drawn, unless it gives its own ct; the line is sized from the demand and run as a discrete event simulation. " +
-  "parts: [{ id, label, assembly, qty, raw: { stock?, also?, size?, kg?, bought? }, ops: [{ at: a station's id, s: seconds for one unit's worth, what }] }]; stock: { id: { label, form, … } }; assemblies: [{ id, label }]; handling: { station: [{ at: that station, s, what }] }.";
-
-const LEVELS_FORMAT =
-  "The levelling config is { schema: 'levels/1', label, note, villager: { euros, hearts } (what each new villager brings), minds: { heartsPerMind, step, heartsPerEuro } (a mind costs heartsPerMind + step × (level − 1) hearts, or that over heartsPerEuro in euros), " +
-  "levels: [{ id, villagers (the count that reaches it: Fibonacci 1, 2, 3, 5, 8 …), phase, investor (the investor's ticket as a multiple of the euros the level's new villagers bring), unlocks: [{ label, cost (euros), kind? }], note? }] }. " +
-  "The Game editor works out the rest: each level's new villagers, their euros and hearts and the minds they get, the investor's euros and minds and share, the minds minted, and the treasury in euros (raised and left after building), hearts and minds.";
-
-const SKILL_FORMAT =
-  "A skill is { schema: 'skill/1', label, group (both only shown: a skill is named by its id), note, system (Markdown: its part of the system prompt every agent connected here gets, initialize's instructions), " +
-  "stages? (the Intents skill's: { idea, specify, build, proposal, ship, accepted, archived }, each Markdown: what an agent sent to an intent at that stage does, {intent} and {title} filled with the intent's id and title where it is served as the intent's brief) }.";
-
-const ASSET_FORMAT =
-  "An asset is { schema: 'asset/1', label, note, source (its readable source, as text), engine, card (its version's record), defaultVariant?, variants?: [{ name, source? (where it differs from the asset's own), card }] }; " +
-  "its reference sheet, data sheet and brief are its card's sheet, datasheet and brief (each a file's hash: add_story_frame, add_document).";
-
-const ARTIFACT_FORMAT =
-  "An artifact is { schema: 'artifact/1', url, title, description, summary, kind, tags, published, text_hash, origin, agent, operator, token, authors: its authors' ids in order }: change it with update_artifact, which holds every field to its form.";
-const SANDBOX_FORMAT =
-  "A sandbox's layout is { schema: 'sandbox/1', title (only shown), pins: { <slot>: { version (an accepted asset version's hash), variant (a variant's name, null for the version's default), params ({ stage: '9' }, or null) } }, configs: { <name>: {…} } } " +
-  "(Sandbox 1's `garden`: its layers of plantings, each { id, slot, stages, weight, … }, its spacing, drift and fields): anything in a config with a `slot` is drawn as that slot's pin, and every slot a config names is pinned. Its UUID is the sandbox's (list_sandboxes).";
-
-/** what each kind's document holds, for doc_at */
-const FORMATS = `${ASSET_FORMAT} ${STORY_FORMAT} ${FACTORY_FORMAT} ${LEVELS_FORMAT} ${SKILL_FORMAT} ${SANDBOX_FORMAT} ${ARTIFACT_FORMAT}`;
 
 /** the edits doc_edit and propose_doc_version take */
 const EDITS =
@@ -229,7 +176,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     },
     {
       name: "propose_asset",
-      description: `Propose a new asset, its first version. It puts an intent at Proposal with it (the intent you name, or a new one; via MCP), for Maia City's admins to decide. ${RECIPE_RULE}`,
+      description: (f) => `Propose a new asset, its first version. It puts an intent at Proposal with it (the intent you name, or a new one; via MCP), for Maia City's admins to decide. ${f.recipe}`,
       inputSchema: {
         type: "object",
         properties: {
@@ -318,7 +265,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     },
     {
       name: "doc_at",
-      description: `One document whole (its \`json\`), at Main's newest version, at an accepted version, at an edit of its history (doc_history's \`seq\`), or as an intent's variant would make it; with its versions. ${FORMATS}`,
+      description: (f) => `One document whole (its \`json\`), at Main's newest version, at an accepted version, at an edit of its history (doc_history's \`seq\`), or as an intent's variant would make it; with its versions. ${f.all}`,
       inputSchema: {
         type: "object",
         properties: {
@@ -371,7 +318,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     {
       name: "propose_doc_version",
       description:
-        `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${RECIPE_RULE} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). With \`kind\` and \`whole\` and no \`doc\`, a new document: a schema (every schema is a document of the meta-schema: \`label\`, \`type\` its documents' prefix, \`name\`, \`node\` the JSON Schema it holds them to; once accepted, its documents are a kind of their own, listed, read, edited and proposed with these same tools), or a document of a kind that is a schema alone. A schema's new version is accepted only while every document on Main still validates against it: the Accept names those that would not. An asset's breeds (doc_history) live beside Main and take every change accepted on Main except on the fields they override: change one with \`breed\` (an intent variant seeded from it), make one with \`new_breed\`; either Accept makes the asset's next version, every breed built as its variant.`,
+        (f) => `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${f.recipe} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). With \`kind\` and \`whole\` and no \`doc\`, a new document: a schema (every schema is a document of the meta-schema: \`label\`, \`type\` its documents' prefix, \`name\`, \`node\` the JSON Schema it holds them to; once accepted, its documents are a kind of their own, listed, read, edited and proposed with these same tools), or a document of a kind that is a schema alone. A schema's new version is accepted only while every document on Main still validates against it: the Accept names those that would not. An asset's breeds (doc_history) live beside Main and take every change accepted on Main except on the fields they override: change one with \`breed\` (an intent variant seeded from it), make one with \`new_breed\`; either Accept makes the asset's next version, every breed built as its variant.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -414,7 +361,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     },
     {
       name: "get_story",
-      description: `One story's whole timeline, at its head, at an accepted version, at any edit of its history (doc_history lists them), or as an intent's variant would make it: ${STORY_FORMAT} At its head or a version it also lists the story's versions (number, id, note, author, who accepted it). Use its \`version\` as \`base\` when you propose a change. ` +
+      description: (f) => `One story's whole timeline, at its head, at an accepted version, at any edit of its history (doc_history lists them), or as an intent's variant would make it: ${f.story} At its head or a version it also lists the story's versions (number, id, note, author, who accepted it). Use its \`version\` as \`base\` when you propose a change. ` +
         "Its `links` are the versions it links, to any depth, each under the version's id: { id (the linked story's), title, number, version, duration, newest (that story's newest accepted number: where it is higher, a newer version is there to move to by set_clip) }; with `links: true` each also with its whole timeline (body). Its `linked_by` are the stories whose newest version links this one, each with the number of this one's version it plays.",
       inputSchema: {
         type: "object",
@@ -436,7 +383,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     },
     {
       name: "propose_story",
-      description: `Propose a new story, its first version, as its whole timeline. It gets a UUID of its own (the answer's story), which names it from then on; its title is only shown. It puts an intent at Proposal with it (via MCP), for Maia City's admins, who play it in the Stories player on the intents' board and accept or archive it. ${STORY_FORMAT} Add each storyboard image first with add_story_frame and use the hashes it gives as the shots' frames.`,
+      description: (f) => `Propose a new story, its first version, as its whole timeline. It gets a UUID of its own (the answer's story), which names it from then on; its title is only shown. It puts an intent at Proposal with it (via MCP), for Maia City's admins, who play it in the Stories player on the intents' board and accept or archive it. ${f.story} Add each storyboard image first with add_story_frame and use the hashes it gives as the shots' frames.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -913,7 +860,8 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         }
       case "tools/list":
         await syncKinds(db);
-        return reply(msg.id, { tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) });
+        const f = await formatsOf(db);
+        return reply(msg.id, { tools: tools.map(({ name, description, inputSchema }) => ({ name, description: typeof description === "string" ? description : description(f), inputSchema })) });
       case "tools/call": {
         const tool = tools.find((t) => t.name === msg.params?.name);
         if (!tool) return fail(msg.id, -32602, `There is no tool ${msg.params?.name}.`);

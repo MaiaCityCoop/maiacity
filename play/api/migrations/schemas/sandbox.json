@@ -4,6 +4,7 @@
   "name": "sandbox/1",
   "note": "A sandbox's layout (play/SPEC.md §4.6): what it draws, its pins (each slot an accepted asset version by its hash, with its variant, null for the version's default, and its values), and how it lays them out, its configs by name; its title only shown. A pin's variant and params, a slot's and a config's names, a config's size and every slot a config names being pinned are checked by its hook (play/api/src/sandboxes.ts sandboxCheck).",
   "node": {
+    "description": "A sandbox's layout is { schema: 'sandbox/1', title (only shown), pins: { <slot>: { version (an accepted asset version's hash), variant (a variant's name, null for the version's default), params ({ stage: '9' }, or null) } }, configs: { <name>: {…} } } (Sandbox 1's `garden`: its layers of plantings, each { id, slot, stages, weight, … }, its spacing, drift and fields): anything in a config with a `slot` is drawn as that slot's pin, and every slot a config names is pinned. Its UUID is the sandbox's (list_sandboxes).",
     "type": "object",
     "required": [
       "schema",

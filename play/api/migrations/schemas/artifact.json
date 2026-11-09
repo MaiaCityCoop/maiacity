@@ -4,6 +4,7 @@
   "name": "artifact/1",
   "note": "A link from the net Maia City keeps (play/SPEC.md \u00a74.13): its three texts, its kind, tags and date, who brought it and how, and its authors' ids in order. Their forms (a summary's sections and words) are held by play/api/src/artifacts.ts when it is proposed; a new artifact's Main is only its schema until it is accepted (intent 847c5d38).",
   "node": {
+    "description": "An artifact is { schema: 'artifact/1', url, title, description, summary, kind, tags, published, text_hash, origin, agent, operator, token, authors: its authors' ids in order }: change it with update_artifact, which holds every field to its form.",
     "type": "object",
     "required": [
       "schema"

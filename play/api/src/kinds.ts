@@ -229,6 +229,17 @@ export function resolveEdits(json: any, edits: unknown): docs.Edit[] {
   });
 }
 
+/**
+ * What a kind's documents hold, as its schema says it, for the agents over MCP (the tools' descriptions): its node's
+ * description, or a field's; from its accepted schema, else from its seed (a schema accepted before it said one).
+ */
+export async function formatOf(q: Queryable, kind: string, field?: string): Promise<string> {
+  const k = kindNamed(kind);
+  if (!k) return "";
+  const of = (j: docs.SchemaJson | null | undefined) => ((field ? j?.node?.properties?.[field] : j?.node) as { description?: string } | undefined)?.description;
+  return of((await docs.schemasOf(q)).find((s) => s.id === k.schema)?.json) ?? of(docs.schemaSeedOf(k.schema)) ?? "";
+}
+
 // ---- the board's SQL, from the registry: a document's label and group by its kind
 
 /** the SQL of a work's label and group, by its document's kind (`i` the intent) */

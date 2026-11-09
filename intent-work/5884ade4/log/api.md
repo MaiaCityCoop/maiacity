@@ -114,3 +114,13 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
     error body was caught twice (the second catch goes); a failed "not merged" status after a failed merge is logged;
     tobucket.ts logs a file the folder can't hand back. Only logging is added. (tobucket.ts itself is dead after its
     one run, api-flow #28, but its step is production.yml's: infra's, left.)
+14. **Each kind's format read from its schema document** (api-flow F, #14; api-docs F5 for mcp.ts): the eight prose
+    constants of mcp.ts (`*_FORMAT`, `RECIPE_RULE`, 12.4 KB, the only place `"story/1"`-style names stood in it) are
+    the seed schemas' own `description` (migrations/schemas/{asset,story,factory,levels,skill,sandbox,artifact}.json:
+    the node's, and the asset's `source` field's for the recipe rule), byte for byte (STORY_FORMAT's
+    `${MOST_LINK_DEPTH}` written as its value, 4). `kinds.ts formatOf(q, kind, field?)` reads it from the kind's
+    accepted schema, else from its seed, so on production, whose schemas were accepted before they said one, the
+    tools/list descriptions are what they were, and a schema version that says one (an intent's, as any schema
+    change) is served from then on, with no deploy. A tool's description may be a function of the formats, resolved
+    at each tools/list. mcp.ts 84.4 → 75.3 KB. Pinned: toolschemas.test, needsintent.test (descriptions),
+    schemas.test (the seed schemas still validate as meta-schema documents), the whole suite.

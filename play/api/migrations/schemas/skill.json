@@ -4,6 +4,7 @@
   "name": "skill/1",
   "note": "What play teaches its agents (play/SPEC.md §4.14). Its v1 still takes a stage's part under `prototype`, the Build stage's old name (2026-11-06), as production's Intents skill holds it until its own proposal moves it to `build`; a later version drops it once no skill holds it.",
   "node": {
+    "description": "A skill is { schema: 'skill/1', label, group (both only shown: a skill is named by its id), note, system (Markdown: its part of the system prompt every agent connected here gets, initialize's instructions), stages? (the Intents skill's: { idea, specify, build, proposal, ship, accepted, archived }, each Markdown: what an agent sent to an intent at that stage does, {intent} and {title} filled with the intent's id and title where it is served as the intent's brief) }.",
     "type": "object",
     "required": [
       "schema",

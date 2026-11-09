@@ -3,7 +3,7 @@
 // Postgres (./store.ts).
 export * from "./validate";
 export { ensureSchemas, schemasOf } from "./schemas";
-export { hook, hooksOf, seedType, type SchemaJson } from "./seed";
+export { hook, hooksOf, seedOf as schemaSeedOf, seedType, type SchemaJson } from "./seed";
 export { applyEdits, contentHash, diff, DocError, EditError, frontiersKey, jsonAt, jsonOf, patchTo, type Change, type Edit, type Frontiers, type Path } from "./core";
 export * from "./store";
 export { BREED_FIELDS, breedOn, changedFields, outsideBreed } from "./breeds";
