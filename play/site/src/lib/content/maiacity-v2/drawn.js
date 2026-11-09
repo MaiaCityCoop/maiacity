@@ -1,29 +1,12 @@
 // @ts-nocheck — plain JS, kept loose on purpose
 /*
- * WHAT MAIACITY V1 DRAWS OF THE LIBRARY — every asset by its ref (./things.js), built in the asset box (or read from
- * this device's cache) and never by calling a builder, put in the world one of two ways:
- *
- * - `follow`: drawn by the universal renderer ($content/assets/render), one copy standing wherever an anchor of the world's
- *   stands (a plain group the story moves, parents and hides as it moved the builder's object), at the level the one
- *   selector picks (render/lod.js; no picture: its coarsest shape far off), casting its shadow. A box the size of the copy in the anchor, unseen,
- *   carries the name a tap finds it by.
- *   What the story moves part by part (a tailgate let down, a door opened) is moved by its controls (`pose`): the
- *   renderer draws that copy as its own tree, its parts where the numbers the box wrote down put them
- *   ($content/assets/controls.js), and with the others again once every control is back at rest.
- * - `load`: the build itself, as the box made it (its nodes, its materials, its controls as numbers), put into an
- *   anchor; `cast`: that, kept running in the box ($content/assets/hero.js) for what moves by
- *   itself (a machine's clip: the ElectroCube humming), each frame's step asked of the box and followed here, from the
- *   first frame it is seen (what never comes into view runs nothing in the box: a second visit to the opening runs no
- *   recipe at all).
- *
- * Every build goes through the renderer's few boxes, in one line (the people, the tent and the pickup alike), the most
- * wanted first: what stands in the camera's view, then what is shown elsewhere, then what is hidden; asked again each
- * time a box is free, so a cut to another place moves its builds up. The same build asked for twice (each player's
- * backpack) is built once.
- *
- * `update` before each frame is drawn; `ready` waits for everything asked for so far, `inView` for what stands in the
- * camera's view as it is drawn next. The renderer and the box come in with the first world made (the page's own
- * modules, not the world's: the world's measures are read without them).
+ * What MaiaCity V1 draws of the library: every asset by its ref (./things.js), built in the asset box (or read from this
+ * device's cache), never by calling a builder. `follow`: drawn by the universal renderer ($content/assets/render), one
+ * copy wherever an anchor of the world's stands, moved part by part by its controls (`pose`); `load`: the build itself
+ * put into an anchor; `cast`: that, kept running in the box ($content/assets/hero.js) from the first frame it is seen
+ * (what never comes into view runs nothing in the box). Every build goes through the renderer's few boxes, the most
+ * wanted first (what the camera sees, then what is shown elsewhere, then what is hidden), and the same build asked for
+ * twice is built once.
  */
 import * as THREE from 'three';
 

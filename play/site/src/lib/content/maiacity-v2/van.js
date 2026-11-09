@@ -1,20 +1,10 @@
 // @ts-nocheck — plain JS, kept loose on purpose
 /**
  * The travel van as MaiaCity V2's story rides in it (Samuel 2026-10-13: far more detail, real people, no ball heads):
- * the old minibus of $content/models/wayside.js (things/travel-van@1, built in the asset box and put in by the world:
- * seeThrough) with see-through glass, and inside it all that a packed van on a long road holds. A ribbed rubber floor; three rows of worn striped moquette seats with their headrests (two buckets in front,
- * two benches behind) on steel frames; door cards with a handle and window winders; window sills; curtains tied back at
- * every side window; a roof lining with its ribs, grab handles and a dome light; sun visors; a dashboard with two
- * gauges in their binnacle, a radio, vents and a glovebox; the steering wheel on its column, the engine cover between
- * the front seats and the gear stick on it; soft bags, a backpack, boxes tied with string, a suitcase and a rolled
- * mattress at the back.
- *
- * And its people, seated stand-ins of every look (actors/stand-in@11, built in the box with their height and look and
- * posed by our own code: ./drawn.js `actor`): the driver with his hands on the wheel, an
- * older woman beside him looking out, in the middle row the woman beside you who turns to you to talk, and in the back a young
- * man asleep against the window, a child, and an old man watching the steppe go by. They sway with the road.
- *
- * In the van's own frame: +z ahead, +x the sliding door's side, the floor at FLOOR.
+ * the old minibus of $content/models/wayside.js (things/travel-van@1, built in the asset box) with see-through glass,
+ * fitted inside as a packed van on a long road, and its people, seated stand-ins (actors/stand-in@11, posed by our own
+ * code: ./drawn.js `actor`) who sway with the road. In the van's own frame: +z ahead, +x the sliding door's side, the
+ * floor at FLOOR.
  */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';

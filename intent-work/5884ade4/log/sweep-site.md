@@ -113,3 +113,5 @@ name and body, `// the next thing` lines.
     the one truth, H4's held contract, one name for every build); `catalog.js`'s docs that named its maps and helpers
     again. `soils.js` (a soil scientist's horizons) and `lodcard.js` (the LOD contract, intent 6295a650's measured
     48 %) are about what is outside the code, kept.
+21. **`content/maiacity-v2`** (27): `drawn.js`'s header retold its three ways of drawing step by step; `van.js`'s
+    listed every seat, curtain and gauge the code below builds (Samuel's 2026-10-13 words and the van's frame kept).
