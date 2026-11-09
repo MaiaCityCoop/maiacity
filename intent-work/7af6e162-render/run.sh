@@ -33,9 +33,9 @@ cd "$TREE/play/site"
 # a fresh place for this job's profiles: both runs start with nothing kept
 export MAC_PROFILES="$OUT/profiles"
 # 1. cold: the first load in a fresh profile, measured as it is
-node scripts/selector-shots.mjs --cold --site cold=http://localhost:5197 --meter src/lib/content/render/meter.js --out "$OUT/cold" 2>&1 | tee "$OUT/cold.txt"
+node scripts/selector-shots.mjs --cold --site cold=http://localhost:5197 --out "$OUT/cold" 2>&1 | tee "$OUT/cold.txt"
 # 2. warm: another fresh profile, opened once (its first load, cold again) and measured on the next load
-node scripts/selector-shots.mjs --site warm=http://localhost:5197 --meter src/lib/content/render/meter.js --out "$OUT/warm" 2>&1 | tee "$OUT/warm.txt"
+node scripts/selector-shots.mjs --site warm=http://localhost:5197 --out "$OUT/warm" 2>&1 | tee "$OUT/warm.txt"
 rm -rf "$MAC_PROFILES"
 {
   echo "== settle (quiet by play/site/scripts/quiet.js)"

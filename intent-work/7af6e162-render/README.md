@@ -29,12 +29,14 @@ with pictures taken, not "still building" at 600 s. If it is still building, rer
 (`SERVE=dev bash run.sh`) and say so: the build path then needs its own fix. The cloud checked what it can without WebGL:
 the page and the five box engines are served from the build, each engine's bytes matching its hash.
 
+**Dry run** (intent cb52fbd9's rule): `bun play/site/scripts/macjob/dry.ts intent-work/7af6e162-render --at <this job's commit>`.
+
 ## What to send back
 
 `out/SUMMARY.txt` holds:
 - the settle lines: "first load up and quiet after N s (P pictures taken)" for both runs, and the warm run's "measured
   load …";
-- each view's frame time and triangles, cold and warm;
+- each view's triangles, cold and warm (no frame meter: c7 judges settling and the picture, not frame time);
 - with ImageMagick, the pixels that differ between cold and warm at near, mid and far.
 
 Also send `out/cold/*.png`, `out/warm/*.png` and `results.json`.
