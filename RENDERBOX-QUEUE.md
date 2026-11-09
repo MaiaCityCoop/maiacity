@@ -1,6 +1,14 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+**00:24 Berlin, #9 (c1bee1f8) c8: PASS, recorded on the head `d9628c7`.** Run 3 of the job (production build, head
+`d79ec166d`; out/ `573a993c7`): 32 pages in Chrome 153 (Metal) and in WebKit 26.6, 0 console and page errors, every
+drawing page on `webgpu`; Sandbox 3's building, the biome cover, the goat, the worlds all drawn. Safari's machine and
+Sandbox 1 weren't ready at the job's 12 s, so a longer probe on `5ec8e4e` (same play/site): the BatteryPack, the elder
+woman and the goat built in 6–8 s, Sandbox 3 and Sandbox 1 drawn, no error. `d9628c7` changes only a test's type.
+Run 1's four faults were fixed in `817fe84`. (Run 3 first broke at 23:57 on the render box's own probe holding port
+3911; stopped before it pushed and re-run by hand. Run 2's out/ was lost to a refused push; runjob now rebases.)
+
 **23:31 Berlin, #9 (c1bee1f8) c8: FAIL, recorded on the head `b798efc`** (job 23:15–23:28 on render 1b5c305,
 out/ pushed as `5f829ca64`). Chrome 153 (Metal) and WebKit 26.6 both drew on `webgpu`, but:
 1. **Every kit material on an InstancedMesh fails on WebGPU**: WGSL `cannot apply '@location' to declaration of type
