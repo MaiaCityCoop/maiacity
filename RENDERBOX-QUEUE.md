@@ -1,5 +1,18 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 10:55 Berlin — 660ad67f c6 recorded: FAIL, but close (evidence on the intent; out/ 46306577f)
+- **Passes:** Sandbox 5 draws again in Chromium and WebKit (plants, path), no uniform3fv error, no plant fails to load,
+  Sandbox 1's film advances 0…5 s in both.
+- **Fails:** 14 "uniform buffer that is too small" GL errors per engine in Sandbox 5 (glDrawElementsInstanced). They come
+  from the guard's mismatch frame (uniformsGroups = [] leaves the program's block on another material's smaller buffer,
+  GL drops the draw): 14 clashes shapeOf still misses. Fix: key what still differs (compare the full program cacheKey
+  against the built source to find it), or skip the draw on the mismatch frame instead of drawing with no groups.
+- **The spec's program bound can't be met as written:** "≤ bd087014's count + 10 %" — that count (1) came from the blank
+  world. WebKit linked 35 while walking (Chromium 42); main before bd087014 linked 88 in 8 frames. Restate it (needs
+  Samuel's approval of the spec change).
+- Its next job goes first in the loop again, the moment it's pushed.
+- Now running: #13 run 2 (since 10:43).
+
 ## 10:50 Berlin
 - **#8 recorded on a6f20d941: c7 FAIL, c8 FAIL** (evidence on the intent; out/ d1eee495a). c7: parity never ran (the
   `import.meta` in live-runtime.js). c8: the job's SSIM step gave NaN; with ffmpeg on its PNGs every view is ≥ 0.989
