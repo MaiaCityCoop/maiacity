@@ -16,9 +16,10 @@ import { prepare } from "../src/seed";
 import { importSources, type SourcesReport } from "./sources";
 import { seedStories, type StoriesReport } from "./stories";
 import { ensureAssetDocs, type AssetDocsReport } from "../src/assetdocs";
-import { seedFactories, type FactoriesReport } from "./factories";
-import { seedGameConfigs, type GameConfigsReport } from "./gameconfigs";
-import { seedSkills, type SkillsReport } from "./skills";
+import { seedFactories } from "./factories";
+import { seedGameConfigs } from "./gameconfigs";
+import { seedSkills } from "./skills";
+import type { SeedReport } from "./seeddocs";
 import "../src/allkinds";
 
 // the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
@@ -35,11 +36,11 @@ export type Report = {
   /** the stories kept in the repo, each written once into play's Postgres (./stories.ts) */
   stories: StoriesReport;
   /** the factories kept in the repo, each written once into play's Postgres as its document's v1 (./factories.ts) */
-  factories: FactoriesReport;
+  factories: SeedReport;
   /** the game's configs kept in the repo, each written once into play's Postgres as its document's v1 (./gameconfigs.ts) */
-  gameConfigs: GameConfigsReport;
+  gameConfigs: SeedReport;
   /** the skills kept in the repo (what play teaches its agents), each written once into play's Postgres as its document's v1 (./skills.ts) */
-  skills: SkillsReport;
+  skills: SeedReport;
   /** every asset's Loro document, made from its history where it has none (../src/assetdocs.ts) */
   assetDocs: AssetDocsReport;
   /** when the legacy import ran (play.imports), or null where it never did (a database not restored from play's) */

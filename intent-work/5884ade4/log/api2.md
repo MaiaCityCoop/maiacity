@@ -100,3 +100,11 @@ left for Samuel.
 - initSessions and syncKinds stay where each entry point needs them (play-api, the tests, the shot scripts): not every
   entry point wants them (migrate.ts, the import).
 - Pinned by the suite (every test database is made by prepare now); the shot scripts bundle.
+
+## 10. One seed loop for the repo's documents (re-api#13)
+
+- import/seeddocs.ts: `seedDocs(db, kind, list)`, `SeedReport`, `Seed` (the loop, its 300-character cut, the
+  allkinds import). factories.ts, gameconfigs.ts and skills.ts keep their lists and a one-line `seedX = (db) =>
+  seedDocs(...)` (the tests and run.ts call them by name); their three Report types are run.ts' `SeedReport`.
+- Their header comments named src/factories.ts, gameconfigs.ts, skills.ts (gone): they name ./seeddocs.ts now.
+- Pinned by factories.test, gameconfigs.test and skills.test (each asserts the report, seeded then present).
