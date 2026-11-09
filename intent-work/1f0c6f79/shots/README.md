@@ -18,3 +18,11 @@ Not this intent's: the workshop container and, at times, the walker are not draw
 - `sandbox4-head.jpg`: head through the finishing (fallback plan); `sandbox4-head-finish-off.jpg`: head with
   `?finish=off`, the same moment. The pale glass close up is the scene's own (it is so with the finishing off); bloom adds
   a mild glow on the glass. The canvas's own transparency is kept (the grade keeps the picture's alpha, premultiplied).
+
+## Sandbox 1, near (0, 95), at 12:00 and with a sun of 8° (19.44)
+
+- `s1-<noon|sun8>-main.jpg`, `s1-<noon|sun8>-head.jpg`: main and head (head `?finish=desktop`, on WebGPURenderer's WebGL 2
+  fallback: no AO, MSAA), each after 240 s at the view.
+- At 8° the warm low key on the colonnade and the cool fill hold as on main; head's grade a little richer, the grass's
+  feet shadowed. Open: the pond shows horizontal streaks on head, not on main (the water's screen read under the pipeline,
+  or the grade's grain over it): to fix before Proposal.
