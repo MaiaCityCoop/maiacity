@@ -7,6 +7,7 @@
 //   the reconcile seeing its merge commit live marks it Accepted and accepts its work in that step; a red step brings it
 //   back to Proposal with its work still waiting.
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import type { BlobStore } from "../src/blobs";
 import { type Db } from "../src/kit/pg";
 import { reconcile } from "../src/ship";
 import { watchShips } from "../src/watcher";
@@ -14,13 +15,14 @@ import { type Pull } from "../src/github";
 import type { Rule } from "../src/rules";
 import { seedDoc } from "../src/versioned";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
-import { agentToken, type Api, appOn, type Fresh, freshDb, human, quiet, request, suite, tool as mcpTool } from "./kit";
+import { agentToken, type Api, appOn, type Fresh, freshDb, human, quiet, request, suite, tempStore, tool as mcpTool } from "./kit";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 
 suite("one intent holds all its work", () => {
   let f: Fresh, db: Db;
   let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
@@ -31,7 +33,8 @@ suite("one intent holds all its work", () => {
     f = await freshDb();
     db = f.db;
     gh = fakeGitHub();
-    api = appOn(db, { github: gh.gh });
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
     who.ada = await human(db, "ada");
     // the GitHub runs' token: a code intent's checks are recorded with it alone
     token = (await agentToken(api, who.ada.cookie, { avenbox: true })).token;
@@ -201,12 +204,12 @@ suite("one intent holds all its work", () => {
     gh.runs["release.yml"].push(run(31002, c.merge, { display_title: `release ${c.merge}`, event: "workflow_run", status: "completed", conclusion: "success" }));
     gh.runs["production.yml"].push(run(31003, c.merge, { event: "workflow_dispatch", status: "completed", conclusion: "success" }));
     gh.jobs.set(31003, [job(311, "The image", "completed", "success"), job(312, "The backup", "completed", "success"), job(313, "The server", "completed", "success"), job(314, "The website", "completed", "success")]);
-    await watchShips(db, gh.gh, Date.now(), null);
+    await watchShips(db, gh.gh, store, Date.now(), null);
     expect(await intent(c.id)).toMatchObject({ stage: "ship", ship: { outcome: "green" }, work: { status: "proposal" } });
-    await reconcile(db, gh.gh, old);
+    await reconcile(db, gh.gh, store, old);
     for (const a of c.assets) expect(await headOf(a.asset)).toBeNull();
     // play runs its merge: Accepted, and its work accepted in that same step
-    const done = await reconcile(db, gh.gh, c.merge);
+    const done = await reconcile(db, gh.gh, store, c.merge);
     expect(done.accepted).toContain(c.id);
     const after = await intent(c.id);
     expect(after).toMatchObject({ stage: "accepted", decided_by: "ada", ship: { live: true, commit: c.merge }, work: { status: "accepted" } });
@@ -228,7 +231,7 @@ suite("one intent holds all its work", () => {
       job(324, "The website", "completed", "success"),
     ]);
     gh.logs.set(322, "line 1\n");
-    await watchShips(db, gh.gh, Date.now(), null);
+    await watchShips(db, gh.gh, store, Date.now(), null);
     const red = await intent(c.id);
     expect(red).toMatchObject({ stage: "proposal", ship: { outcome: "red", report: { step: "Backup" } }, work: { status: "proposal" } });
     for (const a of c.assets) expect(await headOf(a.asset)).toBeNull();

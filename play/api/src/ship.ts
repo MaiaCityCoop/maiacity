@@ -26,9 +26,6 @@ import { closeWork, workOf } from "./held";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
 
-/** the store play's work is accepted with when the reconcile sees its code live (set by ./app.ts) */
-export const shipWork: { store?: BlobStore } = {};
-
 /** how long a step may wait for its run to appear before the ship is red */
 const START_WITHIN_MS = 15 * 60_000;
 /** how long a ship first in line waits for its pull request's checks or for GitHub before it is red */
@@ -451,7 +448,7 @@ type Reconciled = { commit: string; accepted: string[]; flagged: string[]; clear
  *   `ship.live` false with the running commit, its stage left alone; once play runs it again the flag clears.
  * A ship still on its way (waiting or running) is the watcher's, and asks the reconcile as it ends.
  */
-export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Reconciled> {
+export async function reconcile(db: Db, gh: GitHub, store: BlobStore, commit: string): Promise<Reconciled> {
   const live = await history(gh, commit);
   const trailers = trailersOf(await history(gh, "main"));
   const { rows } = await db.query<{ id: string; stage: string; pull_request: number | null; ship: Ship | null }>(
@@ -488,7 +485,7 @@ export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Rec
             WHERE id = $1 AND stage = $2 RETURNING id`,
           [i.id, i.stage, patch({ live: true, commit, note })],
         );
-        if (done.length) await acceptWorkLive(tx, i.id);
+        if (done.length) await acceptWorkLive(tx, store, i.id);
         return done;
       });
       if (done.length) {
@@ -515,10 +512,10 @@ export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Rec
  * The work of play's intent `id` holds, accepted in the reconcile's transaction as its code is seen live (intent
  * 7c8986c5): every document in one step (./versioned.ts decideWork), by whoever Accepted it (its decided_by, else the
  * rule kept in its auto, as its author). Where it does not go in (a document's Main moved on and clashes, no admin to
- * decide it, no store), its code stays Accepted, live as it is, and its work is closed, kept in the history, the ship's
+ * decide it), its code stays Accepted, live as it is, and its work is closed, kept in the history, the ship's
  * note saying why: a new intent proposes it again.
  */
-async function acceptWorkLive(tx: Queryable, id: string) {
+async function acceptWorkLive(tx: Queryable, store: BlobStore, id: string) {
   const p = await workOf(tx, id, true);
   if (!p?.kind || !p.variants?.some((v: any) => v.doc_variant != null)) return;
   const { rows: open } = await tx.query(`SELECT 1 FROM play.intent_variants iv JOIN play.doc_variants v ON v.id = iv.variant_id WHERE iv.intent_id = $1 AND v.status IN ('open', 'proposed')`, [id]);
@@ -535,9 +532,8 @@ async function acceptWorkLive(tx: Queryable, id: string) {
     console.warn(`reconcile: intent ${id}'s work of play's not accepted: ${text}`);
   };
   if (me?.level !== "admin") return why("no admin to accept its work of play's: its code is live, propose its work again in an intent of its own");
-  if (!shipWork.store) return why("play holds no store to accept its work with");
   await tx.query(`SAVEPOINT work_live`);
-  const out: any = await decideWork(tx, { db: tx as any, store: shipWork.store }, me, p, "accept").catch((e) => ({ status: "failed", message: (e as Error).message }));
+  const out: any = await decideWork(tx, { db: tx as any, store }, me, p, "accept").catch((e) => ({ status: "failed", message: (e as Error).message }));
   if (out?.status === "accepted") {
     // its decision left it Accepted by whoever decided it; the reconcile's own note stands on its ship
     await tx.query(`RELEASE SAVEPOINT work_live`);
@@ -553,7 +549,7 @@ async function acceptWorkLive(tx: Queryable, id: string) {
  * else refused with why; null where it names no code (./intents.ts decideIntent accepts it as before). Without GitHub
  * (no SHIP_TOKEN) play cannot tell code from a decision: null too.
  */
-export async function acceptCode(db: Db, gh: GitHub | null, who: Me | null, id: string, commit: string | null = runningCommit()) {
+export async function acceptCode(db: Db, gh: GitHub | null, store: BlobStore, who: Me | null, id: string, commit: string | null = runningCommit()) {
   const me = admin(who, INTENT_ADMINS);
   const intent = await getIntent(db, id);
   if (intent.work || intent.pull_request || !gh) return null;
@@ -561,7 +557,7 @@ export async function acceptCode(db: Db, gh: GitHub | null, who: Me | null, id: 
   const on = trailersOf(await history(gh, "main")).get(intent.id);
   if (!on?.length) return null;
   if (!commit) refuse("Its code is on main, and play knows no commit of its own (PLAY_COMMIT) to find it in: it is Accepted once play runs it.");
-  await reconcile(db, gh, commit!);
+  await reconcile(db, gh, store, commit!);
   const now = await getIntent(db, intent.id);
   if (now.stage !== "accepted")
     refuse(`Its code is on main (${on.map((s) => s.slice(0, 7)).join(", ")}), not yet in what play runs (${commit!.slice(0, 7)}): it is Accepted by itself once production runs it.`);

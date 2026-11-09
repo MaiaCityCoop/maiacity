@@ -3,6 +3,7 @@
 // (./fixtures/github.ts): the time at each stage (an agent's, a person's, CI's) and each ship step's, each day's
 // numbers, CI minutes and each run's slowest steps, play's main merges counted, the budgets, and who may read it.
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
 import { COOP, type Me } from "../src/access";
 import { createHuman } from "../src/auth";
@@ -12,7 +13,7 @@ import { type Db } from "../src/kit/pg";
 import { watchTick } from "../src/watcher";
 import { newId } from "../src/kit/uuid";
 import { fakeGitHub, job, REPO, run, sha } from "./fixtures/github";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite } from "./kit";
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tempStore } from "./kit";
 
 const MIN = 60_000;
 const NOW = Date.parse("2026-11-07T18:00:00Z");
@@ -25,6 +26,7 @@ const step = (key: string, a: string, b?: string, state = "green") => ({ key, na
 suite("delivery", () => {
   let f: Fresh, db: Db;
   let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   let ada = "", cookie = "", travelerCookie = "", token = "";
 
@@ -33,7 +35,8 @@ suite("delivery", () => {
     db = f.db;
     await seedSkills(db);
     gh = fakeGitHub();
-    api = appOn(db, { github: gh.gh });
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
     const h = await createHuman(db, "ada");
     ada = h.id;
     cookie = cookieFor(h.id);
@@ -196,15 +199,15 @@ suite("delivery", () => {
     const id = await intent({ stage: "build", created: at("17:00"), specified_at: at("17:05"), approved_at: at("17:10"), pull_request: pr });
     gh.pulls.set(pr, { number: pr, state: "open", merged: false, merge_commit_sha: null, mergeable: true, draft: true, base: { ref: "main" }, head: { sha: head, ref: "intent/x" }, html_url: `https://github.test/${REPO}/pull/${pr}`, title: "x" });
     const state = mainMergeState();
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(of(await read(), id).main_merges).toBe(0);
     gh.commit(sha(9002), "main moves", [gh.main.head], true);
-    await watchTick(db, gh.gh, Date.now(), null, state);
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(of(await read(), id).main_merges).toBe(1);
     gh.commit(sha(9003), "main moves again", [gh.main.head], true);
-    await watchTick(db, gh.gh, Date.now(), null, state);
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(of(await read(), id).main_merges).toBe(2);
     // carried to a new head (a builder's push), dropped for another pull request
     const was = { pr, head: "a", draft: false, mergeable: true, state: "open", merged: false, base: "main", checks: {}, at: at("17:00"), main_merges: 2 };

@@ -18,7 +18,7 @@ import { layoutAt, proposedState } from "./sandboxes";
 import { docAt, docChanges, docHistory, listDocs } from "./versioned";
 import { intentDocOf, intentOf } from "./review";
 import { decideAny } from "./decide";
-import { runningCommit, shipWork } from "./ship";
+import { runningCommit } from "./ship";
 import type { GitHub } from "./github";
 import { NO_INTENT } from "./held";
 import { withdrawDoc } from "./withdraw";
@@ -56,8 +56,6 @@ async function body(req: Request): Promise<any> {
 }
 
 export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)), github = null, commit = runningCommit() }: { db: Db; store: BlobStore; rate?: Rate; github?: GitHub | null; commit?: string | null }) {
-  // play's work held beside a pull request is accepted by the reconcile once its code is live (./ship.ts)
-  shipWork.store = store;
   const routes: Route[] = [];
   const on = (method: string, path: string, handler: Handler) => {
     const keys: string[] = [];

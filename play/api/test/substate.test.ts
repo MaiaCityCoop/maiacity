@@ -4,13 +4,14 @@
 // is approved or accepted. Ship's watcher reads the open intents' pull requests (pr_seen); the board asks GitHub nothing.
 // Approve spec is never held: a held intent waits in Build, idle, its checks and proposals refused, its brief null.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
 import { type Db } from "../src/kit/pg";
 import { watchTick } from "../src/watcher";
 import { type Pull } from "../src/github";
 import { checksSeen, sub, subStateOf, type PrSeen } from "../src/substate";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
-import { type Api, appOn, type Fresh, freshDb, human, request, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 const SPEC = {
@@ -121,6 +122,7 @@ describe("subStateOf", () => {
 suite("sub-states on the board", () => {
   let f: Fresh, db: Db;
   let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
@@ -130,7 +132,8 @@ suite("sub-states on the board", () => {
     db = f.db;
     await seedSkills(db); // the Intents skill: an intent's brief
     gh = fakeGitHub();
-    api = appOn(db, { github: gh.gh });
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
     who.ada = await human(db, "ada");
     const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
     token = made.token;
@@ -235,7 +238,7 @@ suite("sub-states on the board", () => {
     expect((await intent(c.id)).sub.state).toBe("failed");
     expect(gh.calls.filter((x) => x.method !== "GET")).toEqual([]);
     pr.mergeable = true;
-    await watchTick(db, gh.gh, Date.now(), null);
+    await watchTick(db, gh.gh, store, Date.now(), null);
     expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
     expect((await decide(c.id, "accept")).data).toMatchObject({ stage: "ship", ship: { pending: null } });
     await clearShips();
@@ -247,7 +250,7 @@ suite("sub-states on the board", () => {
     gh.checks.set(c.head, [green("play / API and site"), { ...green("website / build"), status: "queued", conclusion: null }]);
     expect((await intent(c.id)).sub).toEqual({ state: "working", tag: "reading GitHub", why: `reading #${c.pr} on GitHub` });
     const before = Date.now();
-    await watchTick(db, gh.gh, Date.now(), null);
+    await watchTick(db, gh.gh, store, Date.now(), null);
     const { rows: [r] } = await db.query<any>(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id]);
     expect(r.pr_seen).toMatchObject({ pr: c.pr, head: c.head, draft: false, mergeable: null, state: "open", checks: { "play / API and site": "success", "website / build": "queued" } });
     expect(Date.parse(r.pr_seen.at)).toBeGreaterThanOrEqual(before - 1000);

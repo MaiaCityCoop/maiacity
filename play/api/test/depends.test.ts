@@ -4,13 +4,14 @@
 // at every forward gate: approve, Proposal on its checks, work proposed for it, accept, Accept and ship, Ship's turn.
 // Every forward gate is one function, mayMove: a stub of it refusing everything makes every forward path refuse.
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import type { BlobStore } from "../src/blobs";
 import { createHuman } from "../src/auth";
 import { gate } from "../src/intents";
 import { type Db } from "../src/kit/pg";
 import { watchShips } from "../src/watcher";
 import { type Pull } from "../src/github";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tempStore, tool as mcpTool } from "./kit";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 const SPEC = {
@@ -26,6 +27,7 @@ const SPEC = {
 suite("intents depend on intents", () => {
   let f: Fresh, db: Db;
   let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   const tokens: Record<string, string> = {};
@@ -34,7 +36,8 @@ suite("intents depend on intents", () => {
     f = await freshDb();
     db = f.db;
     gh = fakeGitHub();
-    api = appOn(db, { github: gh.gh });
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
     for (const n of ["ada", "bea"]) {
       const h = await createHuman(db, n);
       who[n] = { id: h.id, cookie: cookieFor(h.id) };
@@ -176,7 +179,7 @@ suite("intents depend on intents", () => {
       expect(await decide(toAccept.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
       expect(await decide(toShip.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
       expect(await decide(withWork.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
-      await watchShips(db, gh.gh);
+      await watchShips(db, gh.gh, store);
       expect(await intent(waiting.id)).toMatchObject({ stage: "proposal", ship: { report: { why: "The stub refuses every move." } } });
       // going back asks it nothing
       const before = asked.length;
@@ -298,11 +301,11 @@ suite("intents depend on intents", () => {
     expect((await decide(a.id, "accept")).data.stage).toBe("ship");
     const ready = async (id: string) => (await intent(id)).ship.steps[0];
     expect(await ready(a.id)).toMatchObject({ state: "running", note: `Waits for ${b.id} (${b.title}, at ship) to ship first` });
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     expect(merged(from)).toEqual([`/pulls/${b.pr}/merge`]);
     // B all green: Accepted, and in that same look A merges
     allGreen(b.merge, 9000);
-    await watchShips(db, gh.gh, Date.now(), b.merge);
+    await watchShips(db, gh.gh, store, Date.now(), b.merge);
     expect((await intent(b.id)).stage).toBe("accepted");
     expect(merged(from)).toEqual([`/pulls/${b.pr}/merge`, `/pulls/${a.pr}/merge`]);
     expect((await intent(a.id)).ship).toMatchObject({ merge: a.merge, pending: null });
@@ -315,7 +318,7 @@ suite("intents depend on intents", () => {
     await decide(b2.id, "accept");
     expect((await decide(a2.id, "accept")).data.stage).toBe("ship");
     gh.runs["main.yml"].push(run(9101, b2.merge, { status: "completed", conclusion: "failure" }));
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     expect((await intent(b2.id)).stage).toBe("proposal");
     const back = await intent(a2.id);
     expect(back.stage).toBe("proposal");

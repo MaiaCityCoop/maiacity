@@ -3,6 +3,7 @@
 // every ship to production (./ship.ts), reads every open intent's pull request (so the board asks GitHub nothing) and
 // lets an auto-accept rule take one GitHub now finds ready (./decide.ts autoMove), then merges main into those behind it
 // (./mainmerge.ts).
+import type { BlobStore } from "./blobs";
 import type { Db } from "./kit/pg";
 import { canonical } from "./kit/hash";
 import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
@@ -16,7 +17,7 @@ import { autoMove } from "./decide";
  * As one ends, the reconcile (against `commit`, the commit play runs) decides at once what is Accepted, so the ships
  * after it in this look see it.
  */
-export async function watchShips(db: Db, gh: GitHub, at = Date.now(), commit: string | null = runningCommit()) {
+export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date.now(), commit: string | null = runningCommit()) {
   const { rows } = await db.query<{ id: string; ship: Ship }>(`SELECT id, ship FROM play.intents WHERE stage = 'ship' AND ship IS NOT NULL ORDER BY decided_at, id`);
   for (const { id, ship } of rows) {
     try {
@@ -32,7 +33,7 @@ export async function watchShips(db: Db, gh: GitHub, at = Date.now(), commit: st
       if (next.outcome) {
         console.log(`ship: intent ${id} ${next.outcome === "green" ? "is green all the way: the reconcile decides once play runs it" : `is red at ${next.report?.step}: back to Proposal`}`);
         if (!commit) console.warn("ship: play knows no commit of its own (PLAY_COMMIT): nothing is reconciled");
-        else await reconcile(db, gh, commit).catch((e) => console.warn(`ship: the reconcile missed a look: ${(e as Error).message}`));
+        else await reconcile(db, gh, store, commit).catch((e) => console.warn(`ship: the reconcile missed a look: ${(e as Error).message}`));
       }
     } catch (e) {
       console.warn(`ship: intent ${id} not looked at: ${(e as Error).message}`);
@@ -64,20 +65,20 @@ const MAIN_MERGE = mainMergeState();
  * One tick of the watcher: the ships, then the open intents' pull requests read, then main merged into those behind it
  * and conflicts shown (./mainmerge.ts).
  */
-export async function watchTick(db: Db, gh: GitHub, at = Date.now(), commit: string | null = runningCommit(), merging: MainMergeState = MAIN_MERGE) {
-  await watchShips(db, gh, at, commit);
+export async function watchTick(db: Db, gh: GitHub, store: BlobStore, at = Date.now(), commit: string | null = runningCommit(), merging: MainMergeState = MAIN_MERGE) {
+  await watchShips(db, gh, store, at, commit);
   await watchPulls(db, gh, at);
   await mergeMain(db, gh, merging, at).catch((e) => console.warn(`ship: main not merged into the open pull requests: ${(e as Error).message}`));
 }
 
 /** The ship watcher, every `every` ms while play-api runs (one look at a time), against the commit play runs. */
-export function startShipWatcher(db: Db, gh: GitHub, every = 10_000, commit: string | null = runningCommit()) {
+export function startShipWatcher(db: Db, gh: GitHub, store: BlobStore, every = 10_000, commit: string | null = runningCommit()) {
   let busy = false;
   const timer = setInterval(async () => {
     if (busy) return;
     busy = true;
     try {
-      await watchTick(db, gh, Date.now(), commit);
+      await watchTick(db, gh, store, Date.now(), commit);
     } catch (e) {
       console.warn(`ship: the watcher missed a look: ${(e as Error).message}`);
     } finally {

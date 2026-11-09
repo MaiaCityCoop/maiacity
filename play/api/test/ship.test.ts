@@ -5,24 +5,20 @@
 // deploy's jobs, each a step on the intent; all green, Accepted; a red one, back to Proposal with the report, from
 // where Accept ships it again. SHIP_TOKEN is sent to GitHub only.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
 import { createHuman } from "../src/auth";
-import { folderStore } from "../src/blobs";
+import type { BlobStore } from "../src/blobs";
 import { type Db } from "../src/kit/pg";
 import { reconcile, runningCommit, tailOf } from "../src/ship";
 import { startShipWatcher, watchShips } from "../src/watcher";
 import { ACCEPTED_CONTEXT, gitHub, shipGitHub, type Pull } from "../src/github";
 import { fakeGitHub, green, job, REPO, run, sha, TOKEN } from "./fixtures/github";
-import { agentToken, appOn, cookieFor, type Fresh, freshDb, request, suite, tool as mcpTool, until } from "./kit";
+import { agentToken, type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tempStore, tool as mcpTool, until } from "./kit";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 
 suite("accept ships it", () => {
   let f: Fresh, db: Db;
-  let api: ReturnType<typeof app>, bare: ReturnType<typeof app>;
+  let api: Api, bare: Api, store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
@@ -35,7 +31,7 @@ suite("accept ships it", () => {
     f = await freshDb();
     db = f.db;
     gh = fakeGitHub();
-    const store = folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
+    store = tempStore();
     api = appOn(db, { store, github: gh.gh });
     bare = appOn(db, { store });
     for (const n of ["ada", "cit"]) {
@@ -208,20 +204,20 @@ suite("accept ships it", () => {
     expect(await readyOf(b.id)).toMatchObject({ note: "Queued · behind First accepted" });
     expect(await readyOf(c.id)).toMatchObject({ note: "Queued · behind Second accepted" });
     // a merged; b and c wait while it ships
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     expect(writesSince(from).filter((w) => w.method === "PUT").map((w) => w.path)).toEqual([`/pulls/${a.pr}/merge`]);
     expect(await readyOf(b.id)).toMatchObject({ state: "running", note: "Queued · behind First accepted" });
     expect(await readyOf(c.id)).toMatchObject({ note: "Queued · behind Second accepted" });
     // a goes all the way: Accepted, and in that same look b, next in line, merges; c waits behind it
     allGreen(a.merge, 7000);
-    await watchShips(db, gh.gh, Date.now(), a.merge);
+    await watchShips(db, gh.gh, store, Date.now(), a.merge);
     expect((await intent(a.id)).stage).toBe("accepted");
     expect(writesSince(from).filter((w) => w.method === "PUT").map((w) => w.path)).toEqual([`/pulls/${a.pr}/merge`, `/pulls/${b.pr}/merge`]);
     expect(await shipOf(b.id)).toMatchObject({ merge: b.merge, pending: null });
     expect(await readyOf(c.id)).toMatchObject({ note: "Queued · behind Second accepted" });
     // b goes red on main: back to Proposal, and c merges next
     gh.runs["main.yml"].push(run(7101, b.merge, { status: "completed", conclusion: "failure" }));
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     expect((await intent(b.id)).stage).toBe("proposal");
     expect(writesSince(from).filter((w) => w.method === "PUT").map((w) => w.path)).toEqual([`/pulls/${a.pr}/merge`, `/pulls/${b.pr}/merge`, `/pulls/${c.pr}/merge`]);
     expect(await shipOf(c.id)).toMatchObject({ merge: c.merge, pending: null });
@@ -282,7 +278,7 @@ suite("accept ships it", () => {
       expect((await call("ada", "POST", `/api/intents/${w.id}/accept`)).data.stage).toBe("ship");
       await db.query(`UPDATE play.intents SET stage = 'archived' WHERE id = $1`, [ahead.id]);
       gh.checks.set(w.head, [green("play / API and site")]);
-      await watchShips(db, gh.gh);
+      await watchShips(db, gh.gh, store);
       expect(await readyOf(w.id)).toMatchObject({ note: `Waiting for #${w.pr}'s checks (website / build)` });
       return { ...w, from: gh.calls.length };
     };
@@ -298,7 +294,7 @@ suite("accept ships it", () => {
     // a required check turns red
     const r = await waiting("Its check turns red");
     gh.checks.set(r.head, [green("play / API and site"), { ...green("website / build"), conclusion: "failure", html_url: "https://github.test/checks/red" }]);
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     await back(r, `'website / build' is failure on #${r.pr}'s head`, "https://github.test/checks/red");
     // Accept there again: still red, refused at once
     expect((await call("ada", "POST", `/api/intents/${r.id}/accept`)).status).toBe(409);
@@ -306,22 +302,22 @@ suite("accept ships it", () => {
     const h = await waiting("Its head moves");
     const moved = sha(++commits);
     gh.pulls.get(h.pr)!.head.sha = moved;
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     await back(h, `#${h.pr}'s head moved from ${h.head.slice(0, 7)} to ${moved.slice(0, 7)}`, `https://github.test/${REPO}/pull/${h.pr}`);
     // a conflict
     const m = await waiting("It no longer merges");
     gh.pulls.get(m.pr)!.mergeable = false;
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     await back(m, `#${m.pr} no longer merges into main`);
     // 30 minutes first in line, its checks not done
     const t = await waiting("Its checks take too long");
-    await watchShips(db, gh.gh, Date.now() + 31 * 60_000);
+    await watchShips(db, gh.gh, store, Date.now() + 31 * 60_000);
     await back(t, `Waiting for #${t.pr}'s checks (website / build), for more than 30 minutes`);
     // GitHub refuses the merge: the status is taken back
     const g = await waiting("GitHub refuses the merge");
     gh.checks.set(g.head, [green("play / API and site"), green("website / build")]);
     gh.refuseMerge("Repository rule violations found");
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     gh.refuseMerge(null);
     await back(g, "GitHub did not merge", undefined, true);
     expect((await intent(g.id)).ship.report.why).toContain("Repository rule violations found");
@@ -334,7 +330,7 @@ suite("accept ships it", () => {
     gh.runs["main.yml"].push(run(8101, first.merge, { status: "in_progress" }));
     const later = await codeAtProposal("Waits behind it");
     await call("ada", "POST", `/api/intents/${later.id}/accept`);
-    await watchShips(db, gh.gh, Date.now() + 2 * 60 * 60_000);
+    await watchShips(db, gh.gh, store, Date.now() + 2 * 60 * 60_000);
     expect((await intent(later.id)).stage).toBe("ship");
     expect(await readyOf(later.id)).toMatchObject({ note: "Queued · behind Ships for a long time" });
   });
@@ -345,12 +341,12 @@ suite("accept ships it", () => {
     expect((await call("ada", "POST", `/api/intents/${c.id}/accept`)).data.stage).toBe("ship");
     const steps = () => stateOf(c.id);
     // nothing on GitHub yet: all waits
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     expect(await steps()).toMatchObject({ ready: "green", merged: "green", main: "queued", release: "queued" });
     // main's checks run, then pass
     const main = run(1101, c.merge, { status: "in_progress" });
     gh.runs["main.yml"].push(main);
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     expect(await steps()).toMatchObject({ main: "running", release: "queued" });
     expect((await shipOf(c.id)).steps[2].link).toBe(main.html_url);
     Object.assign(main, { status: "completed", conclusion: "success" });
@@ -358,7 +354,7 @@ suite("accept ships it", () => {
     const again = gitHub({ token: TOKEN, repo: REPO, fetch: gh.fetch, api: "https://api.github.test" });
     const release = run(1201, sha(999), { display_title: `release ${c.merge}`, event: "workflow_run", status: "in_progress" });
     gh.runs["release.yml"].push(run(1200, sha(998), { display_title: `release ${sha(5)}`, status: "completed", conclusion: "failure" }), release);
-    await watchShips(db, again);
+    await watchShips(db, again, store);
     expect(await steps()).toMatchObject({ main: "green", release: "running", image: "queued" });
     Object.assign(release, { status: "completed", conclusion: "success" });
     // the deploy: production.yml dispatched on production at the merge commit, its jobs
@@ -371,7 +367,7 @@ suite("accept ships it", () => {
       job(3, "The server", "queued", null),
       job(4, "The website", "completed", "success"),
     ]);
-    await watchShips(db, again);
+    await watchShips(db, again, store);
     expect(await steps()).toEqual({ ready: "green", merged: "green", main: "green", release: "green", image: "running", backup: "queued", server: "queued", website: "green" });
     expect((await intent(c.id)).stage).toBe("ship");
     // the image is built while play is backed up; then the server starts play
@@ -381,7 +377,7 @@ suite("accept ships it", () => {
       job(3, "The server", "queued", null),
       job(4, "The website", "completed", "success"),
     ]);
-    await watchShips(db, again);
+    await watchShips(db, again, store);
     expect(await steps()).toMatchObject({ image: "green", backup: "running", server: "queued" });
     gh.jobs.set(1301, [
       job(2, "The image", "completed", "success"),
@@ -389,7 +385,7 @@ suite("accept ships it", () => {
       job(3, "The server", "in_progress", null),
       job(4, "The website", "completed", "success"),
     ]);
-    await watchShips(db, again);
+    await watchShips(db, again, store);
     expect(await steps()).toMatchObject({ image: "green", backup: "green", server: "running" });
     // the background watcher takes the last look itself
     gh.jobs.set(1301, [
@@ -399,7 +395,7 @@ suite("accept ships it", () => {
       job(4, "The website", "completed", "success"),
     ]);
     Object.assign(deploy, { status: "completed", conclusion: "success" });
-    const stop = startShipWatcher(db, again, 20, c.merge);
+    const stop = startShipWatcher(db, again, store, 20, c.merge);
     await until("the background watcher takes it out of Ship", async () => (await intent(c.id)).stage !== "ship", { withinMs: 2_000 });
     stop();
     const done = await intent(c.id);
@@ -422,7 +418,7 @@ suite("accept ships it", () => {
       job(24, "The website", "completed", "success"),
     ]);
     gh.logs.set(23, Array.from({ length: 100 }, (_, i) => `2026-11-06T12:00:${String(i % 60).padStart(2, "0")}.1234567Z line ${i + 1}`).join("\n") + "\n");
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     const red = await intent(c.id);
     expect(red).toMatchObject({ stage: "proposal", decided_by: null, decided_at: null, ship: { outcome: "red", again: "release", report: { step: "Backup", link: `https://github.test/${REPO}/actions/runs/1/job/23` } } });
     expect(red.ship.report.why).toContain("Backup");
@@ -442,7 +438,7 @@ suite("accept ships it", () => {
     expect(again.ship.steps[0]).toMatchObject({ name: "Ready to release again", state: "green" });
     expect(again.ship.steps.map((s: any) => s.state)).toEqual(["green", "green", "green", "queued", "queued", "queued", "queued", "queued"]);
     // the earlier round's runs are not this one's: nothing moves until a new release runs
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     expect((await shipOf(c.id)).steps[3].state).toBe("queued");
     await clearShips();
 
@@ -452,7 +448,7 @@ suite("accept ships it", () => {
     gh.runs["main.yml"].push(run(3101, m.merge, { status: "completed", conclusion: "failure" }));
     gh.jobs.set(3101, [job(31, "play / API and site", "completed", "failure"), job(32, "website / build", "completed", "success")]);
     gh.logs.set(31, "2026-11-06T12:00:00.0000000Z error: 1 fail\n");
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     expect(await shipOf(m.id)).toMatchObject({ outcome: "red", again: "main", main_run: 3101, report: { step: "main's checks", log: "error: 1 fail" } });
     from = gh.calls.length;
     const rerun = (await call("ada", "POST", `/api/intents/${m.id}/accept`)).data;
@@ -461,7 +457,7 @@ suite("accept ships it", () => {
     expect(writesSince(from).map((w) => `${w.method} ${w.path}`)).toEqual(["POST /actions/runs/3101/rerun-failed-jobs"]);
 
     // a newer pull request of it, checked on its head: Accept merges that one
-    await watchShips(db, gh.gh, Date.now() + 20 * 60_000);
+    await watchShips(db, gh.gh, store, Date.now() + 20 * 60_000);
     const late = await intent(m.id);
     expect(late).toMatchObject({ stage: "proposal", ship: { outcome: "red", report: { step: "main's checks" } } });
     expect(late.ship.report.why).toContain("within 15 minutes");
@@ -500,7 +496,7 @@ suite("accept ships it", () => {
     const c = await codeAtProposal(title);
     expect((await call("ada", "POST", `/api/intents/${c.id}/accept`)).data.ship.merge).toBe(c.merge);
     allGreen(c.merge, base);
-    await watchShips(db, gh.gh, Date.now(), commit(c.merge));
+    await watchShips(db, gh.gh, store, Date.now(), commit(c.merge));
     return c;
   };
 
@@ -513,11 +509,11 @@ suite("accept ships it", () => {
     const next = await codeAtProposal("Ships behind a green one");
     expect((await call("ada", "POST", `/api/intents/${next.id}/accept`)).data.ship.pending).toBeNull();
     // play runs a commit before its merge: still in Ship, flagged not live
-    const was = await reconcile(db, gh.gh, before);
+    const was = await reconcile(db, gh.gh, store, before);
     expect(was.flagged).toContain(c.id);
     expect(await intent(c.id)).toMatchObject({ stage: "ship", ship: { live: false, commit: before } });
     // play runs its merge: Accepted, by the reconcile, decided by the admin who accepted it
-    const r = await reconcile(db, gh.gh, c.merge);
+    const r = await reconcile(db, gh.gh, store, c.merge);
     expect(r.accepted).toContain(c.id);
     const done = await intent(c.id);
     expect(done).toMatchObject({ stage: "accepted", decided_by: "ada", ship: { live: true, commit: c.merge, outcome: "green" } });
@@ -554,7 +550,7 @@ suite("accept ships it", () => {
     gh.runs["production.yml"].push(run(9103, red.merge, { event: "workflow_dispatch", status: "completed", conclusion: "failure" }));
     gh.jobs.set(9103, [job(91, "The image", "completed", "success"), job(92, "The backup", "completed", "success"), job(93, "The server", "completed", "success"), job(94, "The website", "completed", "failure")]);
     // the watcher's look against a play that does not run it yet: back to Proposal with the report
-    await watchShips(db, gh.gh, Date.now(), sha(1));
+    await watchShips(db, gh.gh, store, Date.now(), sha(1));
     expect(await intent(red.id)).toMatchObject({ stage: "proposal", ship: { outcome: "red", report: { step: "The website" } } });
 
     // Build: its pull request merged by hand on GitHub, its checks gone red since
@@ -574,7 +570,7 @@ suite("accept ships it", () => {
     // not merged: left as it is
     const open = await codeAtProposal("Open still");
 
-    const r = await reconcile(db, gh.gh, gh.main.head);
+    const r = await reconcile(db, gh.gh, store, gh.main.head);
     expect(r.accepted).toEqual(expect.arrayContaining([red.id, hand.id, arch.id]));
     expect(r.accepted).not.toContain(open.id);
     for (const [id, merge] of [[red.id, red.merge], [hand.id, handMerge], [arch.id, archMerge]]) {
@@ -587,7 +583,7 @@ suite("accept ships it", () => {
     expect((await intent(arch.id)).decided_by).toBeNull();
     expect((await intent(open.id)).stage).toBe("proposal");
     // once more: nothing to do
-    const again = await reconcile(db, gh.gh, gh.main.head);
+    const again = await reconcile(db, gh.gh, store, gh.main.head);
     expect(again.accepted).toEqual([]);
   });
 
@@ -604,18 +600,18 @@ suite("accept ships it", () => {
     await db.query(`UPDATE play.intents SET pull_request = $2 WHERE id = $1`, [closed, pr]);
     expect((await intent(closed)).stage).toBe("accepted");
 
-    const back = await reconcile(db, gh.gh, before);
+    const back = await reconcile(db, gh.gh, store, before);
     expect(back.flagged).toEqual(expect.arrayContaining([c.id, closed]));
     expect(await intent(c.id)).toMatchObject({ stage: "accepted", decided_by: "ada", ship: { live: false, commit: before, merge: c.merge } });
     expect(await intent(closed)).toMatchObject({ stage: "accepted", ship: { live: false, commit: before, pr, steps: [] } });
     // flagged once for that commit: not again
-    expect((await reconcile(db, gh.gh, before)).flagged).not.toContain(c.id);
+    expect((await reconcile(db, gh.gh, store, before)).flagged).not.toContain(c.id);
     // the board's card says so
     const listed = (await call("ada", "GET", "/api/intents?stage=accepted")).data.find((x: any) => x.id === c.id);
     expect(listed.ship).toMatchObject({ live: false, commit: before });
 
     // production includes it again: the flag clears; the closed one stays flagged
-    const fwd = await reconcile(db, gh.gh, gh.main.head);
+    const fwd = await reconcile(db, gh.gh, store, gh.main.head);
     expect(fwd.cleared).toContain(c.id);
     expect(await intent(c.id)).toMatchObject({ stage: "accepted", ship: { live: true, commit: gh.main.head } });
     expect(fwd.flagged).toContain(closed);

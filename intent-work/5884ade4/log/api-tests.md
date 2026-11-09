@@ -81,3 +81,11 @@ behaviour is pinned, and for every test removed why it could not fail or only re
    already typed (tool results, `console[k]`, the gate ids); deploy-speed's YAML is data of any shape, said once in
    `yaml`'s return type. Five comments that said "as any" in prose say "like any other". No test changed what it
    asserts. Pinned: the whole suite, unchanged.
+7. **The store passed in, not a global (log/api.md *Next untangles*: `shipWork`, api-flow#6).** `app()` set
+   `shipWork.store` and the reconcile read it to accept a shipped intent's work of play's: whichever app was made last
+   in a process won. Now `reconcile(db, gh, store, commit)`, `watchShips`/`watchTick`/`startShipWatcher(db, gh,
+   store, …)` and `acceptCode(db, gh, store, …)` take it; play-api makes one `blobStore()` and hands it to the app,
+   the watcher and the reconcile at start (src/index.ts); decide.ts passes its `ctx.store`. The "play holds no store"
+   branch goes (there always is one). The tests that reconcile give the app and the reconcile one store (`tempStore`)
+   instead of trusting the last app made. Pinned: allwork.test (work accepted live by the reconcile), ship.test,
+   depends.test, mainmerge.test, substate.test, delivery.test: the whole suite, unchanged.

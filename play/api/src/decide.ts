@@ -39,7 +39,7 @@ async function decideOne(ctx: Ctx, me: Me | null, w: any, verdict: IntentVerdict
   const db = ctx.db;
   // code ships, with the work of play's it holds beside it accepted once it is live (intent 7c8986c5)
   if (verdict === "accept" && (!w.kind || w.pull_request)) {
-    const shipped = (await acceptAndShip(db, gh, me, w.id)) ?? (await acceptCode(db, gh, me, w.id, commit));
+    const shipped = (await acceptAndShip(db, gh, me, w.id)) ?? (await acceptCode(db, gh, ctx.store, me, w.id, commit));
     if (shipped) return shipped;
   }
   let decision: { status: string; number?: number; version?: string; merged?: boolean; message?: string } | undefined;
