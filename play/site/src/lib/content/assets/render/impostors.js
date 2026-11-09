@@ -13,7 +13,7 @@
  */
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { cardMaterials, castsAsNode, cutOf } from '../../render/nodes/index.js';
+import { cardMaterials, cutOf } from '../../render/nodes/index.js';
 import { budget } from '../../render/budget.js';
 import { isWebGPU, maxTextureSize, pmremFor, precompile } from '../../render/core.js';
 
@@ -35,7 +35,7 @@ export const VERSION = 1;
 
 /**
  * The pictures of a renderer's kinds, page by page.
- * @param {THREE.WebGLRenderer} renderer
+ * @param {import('three/webgpu').WebGPURenderer} renderer
  * @param {{ px?: number, page?: number }} [o] each picture `px` pixels a side, on pages of `page` pixels a side
  */
 export function createImpostors(renderer, o = {}) {
@@ -89,7 +89,6 @@ export function createImpostors(renderer, o = {}) {
 		mesh.castShadow = true;
 		mesh.receiveShadow = true;
 		mesh.customDepthMaterial = depth;
-		castsAsNode(mesh, renderer);
 		group.add(mesh);
 		const page = { target, quad, geo, material, depth, mesh, kinds: 0, n: 0, cap: 0, attrs: null, stale: false };
 		grow(page, 64);

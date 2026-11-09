@@ -93,7 +93,7 @@ function resolve(ref) {
 /**
  * A renderer of assets for one scene.
  * @param {{
- *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, boxes?: number,
+ *   renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, boxes?: number,
  *   px?: number, cache?: boolean, onShadows?: () => void, wind?: any
  * }} o `boxes` how many build side by side; `px` each picture's pixels a side; `wind` the world's (../../render/wind.js
  *   `windNodes`; a calm breeze where not given, none where null), which every material with a look sways in. No world chooses a kind's levels: each

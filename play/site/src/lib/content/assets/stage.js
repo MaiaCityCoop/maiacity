@@ -61,7 +61,7 @@ const touchFirst = () => typeof matchMedia === 'function' && matchMedia('(pointe
 
 export class Stage {
 	/**
-	 * @param {THREE.WebGLRenderer} renderer the page's renderer (its tone mapping is set while the stage draws)
+	 * @param {import('three/webgpu').WebGPURenderer} renderer the page's renderer (its tone mapping is set while the stage draws)
 	 * @param {THREE.PerspectiveCamera} camera
 	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean, hour?: number }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
 	 *   a smaller, softer-sampled shadow), so it draws smoothly and fits in a phone's memory ($content/render/core.js);

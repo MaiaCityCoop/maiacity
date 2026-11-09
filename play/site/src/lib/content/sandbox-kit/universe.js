@@ -136,9 +136,9 @@ function catalogue() {
 
 /**
  * Drawn into a render target (the environment's cube, a post stack's buffer) a node material would still be tone mapped
- * and encoded for the screen (three's WebGLNodesHandler takes the renderer's settings as they are): as three does for
- * its own materials, not there.
- * @param {THREE.Object3D} o @param {(r: THREE.WebGLRenderer, cam: THREE.Camera) => void} place
+ * and encoded for the screen (its builder takes the renderer's settings as they are): as three does for its own
+ * materials, not there.
+ * @param {THREE.Object3D} o @param {(r: import('three/webgpu').WebGPURenderer, cam: THREE.Camera) => void} place
  */
 function atFarPlane(o, place) {
 	/** @type {[() => void, string] | null} */

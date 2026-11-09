@@ -60,7 +60,7 @@ const modules = () =>
 if (typeof window !== 'undefined' && window.document?.createElement) modules().catch(() => {});
 
 /**
- * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Scene }} o
+ * @param {{ renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, scene: THREE.Scene }} o
  */
 export function createDrawn({ renderer, camera, scene }) {
 	let assets = null;

@@ -63,7 +63,7 @@ const glowMaterial = (pxScale) => {
 /**
  * The lights of a world's guests, in `scene`. `update(guests, mood, t)` each frame (guests as ../assets/plantings.js
  * `guests()` lists them), `dispose()`.
- * @param {{ scene: THREE.Object3D, assets: () => any, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer }} o
+ * @param {{ scene: THREE.Object3D, assets: () => any, camera: THREE.PerspectiveCamera, renderer: import('three/webgpu').WebGPURenderer }} o
  */
 export function createLights(o) {
 	const group = new THREE.Group();

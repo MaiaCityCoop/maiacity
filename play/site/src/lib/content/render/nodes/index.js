@@ -13,12 +13,11 @@
  *   distance from the eye (`aCover`, `aReach` per copy; `coverEye`), so it thins out with distance and has no edge.
  * - the far pictures' card, the x-ray ghost, the contact shadow's blur and the stage floor's fade into the horizon.
  *
- * Drawn on WebGLRenderer through three's WebGLNodesHandler (`install`), what it lacks in r186 made good here: each
- * instanced mesh's own matrices, our clipping, a target drawn linear and untoned, a node material's shadow.
+ * Drawn by the WebGPURenderer (../core.js, intent c1bee1f8), on WebGPU or its WebGL 2 backend: each instanced mesh's
+ * own matrices and our clipping made good here, the sun's cascades by SunLightNode.
  */
 import * as THREE from 'three';
 import { AttributeNode, MeshBasicNodeMaterial, MeshLambertNodeMaterial, MeshPhongNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
-import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import { SunLight } from 'three/addons/lights/SunLight.js';
 import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
 
@@ -29,80 +28,6 @@ import {
 	materialOpacity, materialRoughness, max, mix, mod, nodeObject, normalLocal, normalView, normalize, output, positionLocal, positionView, positionViewDirection, positionWorld, pow,
 	screenCoordinate, select, sin, smoothstep, texture, uniform, uv, varying, vec2, vec3, vec4
 } from 'three/tsl';
-
-// ---------------------------------------------------------------- the handler
-
-const handlers = new WeakMap();
-
-/**
- * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: every node material drawn
- * into a target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for the
- * screen), the sky's and the environment three bakes from it too.
- * @param {THREE.WebGLRenderer} r
- */
-export function install(r) {
-	if (handlers.has(r) || !r.setNodesHandler) return handlers.get(r);
-	const h = new WebGLNodesHandler();
-	r.setNodesHandler(h);
-	const screen = h.getOutputCallback;
-	const onScreen = () => r.getRenderTarget() === null;
-	// the object being keyed, for the kit's shapes (shapeOf)
-	const keyOf = h.customProgramCacheKeyCallback;
-	h.customProgramCacheKeyCallback = function () {
-		drawing = h.nodeFrame.object;
-		try {
-			return keyOf.call(this);
-		} finally {
-			drawing = null;
-		}
-	};
-	// three builds a node material once per program (a mesh's shadows, a target) but keeps only its last build. Its
-	// n-th build made its n-th program (each build is a miss of three's `programs`, which keeps their order), and a
-	// program met first takes that build, in a frame or after a warm-up's compile (8823eb7c: a car's paint drew its body
-	// with its ends' build; ed6694c3: one rule for both)
-	const made = new WeakMap(), build = h.build.bind(h), meet = h.onUpdateProgram.bind(h);
-	h.build = (m, o, q) => {
-		build(m, o, q);
-		if (!made.has(m)) made.set(m, []), m.addEventListener('dispose', () => made.delete(m));
-		made.get(m).push({ uniforms: q.uniforms, builder: m._latestBuilder });
-	};
-	h.onUpdateProgram = (m, p, q) => {
-		const own = !h.programCache.get(m)?.has(p) && made.get(m)?.[[...(q.programs?.values() ?? [])].indexOf(p)];
-		if (own) (q.uniforms = own.uniforms), (m._latestBuilder = own.builder);
-		meet(m, p, q);
-	};
-	// in a target three's own materials come out linear and untoned, the screen alone tone mapped and encoded: so do
-	// ours, every node material, the sky's too (544485e2: the viewers' sky, toned in its own shader and again at the
-	// post stack's output, came out a dark olive under AgX, a washed cream under Neutral). Keyed apart, the screen's
-	// program by the renderer's tone and colour space, a target's as one.
-	h.getOutputCallback = (node, builder) => (onScreen() ? screen(node, builder) : node);
-	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
-	handlers.set(r, h);
-	return h;
-}
-
-/**
- * A mesh whose shadow is drawn by a node material (its `customDepthMaterial`): drawn from the light (the handler keeps
- * the eye's camera through the shadow pass and updates nothing there).
- * @param {THREE.Mesh} mesh @param {THREE.WebGLRenderer} r
- */
-export function castsAsNode(mesh, r) {
-	let was = null;
-	mesh.onBeforeShadow = (_r, o, _c, light, g, depth) => {
-		const h = handlers.get(r);
-		// (only a real renderer: the census's counting one keeps no programs)
-		if (!h || !depth.isNodeMaterial || typeof r.properties?.has !== 'function') return;
-		was = h.nodeFrame.camera;
-		h.nodeFrame.camera = light;
-		h.setObject(o, depth);
-		depth.onBeforeRender(r, null, light, g, o);
-	};
-	mesh.onAfterShadow = () => {
-		const h = handlers.get(r);
-		if (h && was) h.nodeFrame.camera = was;
-		was = null;
-	};
-}
 
 // ---------------------------------------------------------------- the pieces
 
@@ -208,7 +133,7 @@ const ours = (Base) =>
 		/** @type {any} */ cap = null;
 		gloss = 1;
 		setup(builder) {
-			// a matrix takes four attribute places: the handler's builder counts one
+			// a matrix takes four attribute places: a GLSL builder counts one
 			if (!builder.ours) {
 				builder.ours = true;
 				const list = builder.getAttributes.bind(builder);
@@ -270,7 +195,7 @@ const ours = (Base) =>
 		}
 		// a program for each shape, not each material (by id, Safari linked 88 in 8 frames in Sandbox 5: bd087014)
 		customProgramCacheKey() {
-			return `${super.customProgramCacheKey()}#${shapeOf(this, drawing)}`;
+			return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
 		}
 		copy(source) {
 			super.copy(source);
@@ -280,12 +205,10 @@ const ours = (Base) =>
 	};
 
 const I3 = new THREE.Matrix3();
-/** the object being keyed (install) */
-let drawing = null;
 /** What makes two of our shaders differ beside three's node hash: the kit's settings, each texture slot's kind and
- * the drawn geometry (a map reads `uv`, vertex colours `color`: 660ad67f); the object being keyed unless one is named
- * (./tsl.js keys ours by it too). @param {any} m @param {any} [o] */
-export function shapeOf(m, o = drawing) {
+ * the drawn geometry where one is named (a map reads `uv`, vertex colours `color`: 660ad67f; a render object keys its
+ * geometry itself); ./tsl.js keys ours by it too. @param {any} m @param {any} [o] */
+export function shapeOf(m, o) {
 	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}|${o?.type}${o?.instanceColor ? 'ic' : ''}`;
 	const g = o?.geometry;
 	for (const [k, a] of Object.entries(g?.attributes ?? {}).sort()) s += `|${k}${a.itemSize}${a.array?.constructor.name}${a.normalized ? 'n' : ''}${a.isInstancedBufferAttribute ? 'i' : ''}`;
