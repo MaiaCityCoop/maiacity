@@ -8,7 +8,8 @@
  * `--intent` builds each as that intent's variant would make it where it holds one (8823eb7c), `--root` runs another
  * tree's play/site (main's, to see a regression), this script's census the same.
  *
- * play's routes are read as pinned in ./inputs, as the census reads them; `--record` pins what is not (PLAY_MCP_TOKEN).
+ * play's routes are read as pinned in ./inputs, as the census reads them; `--record` reads every route live and pins it anew
+ * (PLAY_MCP_TOKEN), so a chain pinned before an Accept is never built stale again (e5ddf0b2).
  *
  *   bun play/site/scripts/census/viewer.ts [<asset uuid>…] [--group <group>] [--intent <uuid>] [--root <tree>/play/site] [--record]
  */
@@ -22,7 +23,7 @@ const root = flag('--root') && resolve(flag('--root')!);
 const [group, intent] = [flag('--group'), flag('--intent')];
 const ids = argv.filter((a, i) => /^[0-9a-f-]{36}$/.test(a) && argv[i - 1] !== '--intent');
 // play's routes as pinned in ./inputs (no token: a check sees none), `--record` pinning what it reads live (PLAY_MCP_TOKEN)
-setup({ root, inputs: join(import.meta.dir, 'inputs'), record: argv.includes('--record') });
+setup({ root, inputs: join(import.meta.dir, 'inputs'), record: argv.includes('--record'), fresh: true });
 const g = globalThis as any;
 const THREE = await import(join(import.meta.dir, '../../node_modules/three/build/three.module.js'));
 const { fakeGL } = await import(lib('content/render/nodes/fakegl.js'));

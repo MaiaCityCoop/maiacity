@@ -6,6 +6,8 @@
 #   bash play/avenbox/gate.sh --all                 # everything, as CI and main run it
 #   bash play/avenbox/gate.sh --plan                # what it would run, and why; runs nothing
 #   bash play/avenbox/gate.sh api|site|website|lint # one part, whole (as before: other intents' checks run these)
+#   bash play/avenbox/gate.sh physics               # Sandbox 2's physics alone (about ten minutes; site and --all run
+#                                                   # them only when this change touches play/site/src/lib/sandbox-2/)
 #   bash play/avenbox/gate.sh lint <file>…          # the lint on these workflow files
 #
 # What a change touched: since the merge base with origin/main, plus the working tree (GATE_CHANGED="<paths>" names
@@ -23,9 +25,9 @@ for a in "$@"; do
   case "$a" in
     --all) ALL=1 ;;
     --plan) PLAN=1 ;;
-    all | api | site | website | lint) PART=$a ;;
-    -*) echo "gate.sh [all|api|site|website|lint] [--all] [--plan]"; exit 2 ;;
-    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|lint] [--all] [--plan]"; exit 2; } ;;
+    all | api | site | website | lint | physics) PART=$a ;;
+    -*) echo "gate.sh [all|api|site|website|lint|physics] [--all] [--plan]"; exit 2 ;;
+    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|lint|physics] [--all] [--plan]"; exit 2; } ;;
   esac
 done
 export PATH="$HOME/.bun/bin:$PATH"
@@ -33,6 +35,8 @@ export PATH="$HOME/.bun/bin:$PATH"
 # the plan: every step with --all, else select.ts's for what changed; one part keeps only its own steps
 if [ ${#FILES[@]} -gt 0 ]; then
   PLANNED="step lint"
+elif [ "$PART" = physics ]; then
+  PLANNED="step site-physics"
 elif [ $ALL = 1 ] || [ "$PART" != all ]; then
   PLANNED=$(bun "$ROOT/play/avenbox/select.ts" --all)
 else
@@ -43,6 +47,7 @@ case "$PART" in
   site) KEEP='^step site-' ;;
   website) KEEP='^step website-' ;;
   lint) KEEP='^step lint' ;;
+  physics) KEEP='^step site-physics' ;;
   *) KEEP='^step |^test ' ;;
 esac
 STEPS=$(echo "$PLANNED" | grep -E "$KEEP" | grep '^step ' | cut -c6-)
@@ -62,7 +67,7 @@ if [ $PLAN = 1 ]; then
 fi
 
 has() { echo "$STEPS" | grep -qx "$1"; }
-if has api-types || has api-tests || has site-build || has website-check; then
+if has api-types || has api-tests || has site-build || has site-tests || has site-physics || has website-check; then
   bash "$ROOT/play/avenbox/up.sh" || exit 1
 fi
 export TEST_DATABASE_URL="${TEST_DATABASE_URL:-postgres://postgres:play@127.0.0.1:5432/postgres}"
@@ -104,6 +109,10 @@ if has api-tests; then
   fi
 fi
 has site-build && step "play/site build" play/site bun run build
+# the site's fast suite (every file but Sandbox 2's physics), after its build, as CI runs it (intent 417af727)
+has site-tests && step "play/site tests" play/site bun run test
+# Sandbox 2's physics, only for a change to their code (select.ts) or by name (gate.sh physics)
+has site-physics && step "play/site Sandbox 2's physics" play/site bun run test:physics
 has website-check && step "website check" website bun run check
 has website-build && step "website build" website bun run build
 has lint && step "workflows' lint (actionlint)" . bash play/avenbox/actionlint.sh "${FILES[@]}"

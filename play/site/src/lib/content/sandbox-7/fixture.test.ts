@@ -2,6 +2,7 @@
 // the tests: built once, shared.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import planetJson from '../../../../../api/import/sandboxes/sandbox-7/planet.json';
 import biomesJson from '../../../../../api/import/sandboxes/sandbox-7/biomes.json';
 import sitesJson from '../../../../../api/import/sandboxes/sandbox-7/sites.json';
@@ -13,7 +14,7 @@ import type { Sites } from './sites';
 export const planet = planetJson as unknown as Planet;
 export const biomes = biomesJson as unknown as Biomes;
 export const sites = sitesJson as unknown as Sites;
-const MEDIA = join(import.meta.dir, '../../../../../media');
+const MEDIA = fileURLToPath(new URL('../../../../../media', import.meta.url));
 export const mapFile = (file: string) => JSON.parse(readFileSync(join(MEDIA, file), 'utf8')) as GridFile;
 
 let built: Tile[] | null = null;
