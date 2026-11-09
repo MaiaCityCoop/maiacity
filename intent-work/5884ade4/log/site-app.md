@@ -42,3 +42,15 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
    base rules the inline layout overrode stay, so what is drawn is the same. Removes site-app#30 and Turntable's part of
    #34. Pinned by the build and svelte-check (VaultAsset compiles unchanged). Next untangle: once VaultAsset is free, drop
    `inline` and fold the base rules into the inline ones.
+9. **The intents' board split: board, work review, build view.** `WorkReview.svelte` takes the review overlay (its
+   state, the document list, the asset build, the source diff, the story and document reviews, their CSS moved line for
+   line); `BuildView.svelte` is the one "a world in WorldStage, else VaultAsset" for the review and the detail;
+   `names.ts` the kind and work-type names (the copied `GROUP_TYPE`/`KIND_NAME`/`titleOf`), `lib/format.ts` the dates
+   and initials; `board.ts` gains `columnOf`, `bySub`, `EMPTY` (tests first in `board.test.ts`). The intent itself is
+   read once per stage through `opened.ts`'s `intent()` for the review and the detail alike (test in
+   `detail-loads.test.ts`); a withdraw forgets it. The board's three `.catch(() => null)` reads of an intent now say why
+   they failed (a decision on an intent that could not be read did nothing), and the schemas' names' failure is shown.
+   IntentsBoard 716 → 398 lines. The detail sheet (IntentDetail.svelte's sizing CSS and footer, which intent 96206162
+   changes) is untouched: only its script and its build markup line changed. Removes site-app#7 (board/detail part),
+   #9, #12 and #13 (board/detail part), #18, #23, #35 (board), #39 (board/detail). Pinned by the intents' vitest
+   suites (56 tests), the build and svelte-check.

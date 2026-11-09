@@ -49,3 +49,24 @@ export async function loadPage<T extends Card>(get: Get, cards: T[], stage: Clos
 	}
 	return { cards: [...cards, ...added], paged: { loaded: true, next: a.next } };
 }
+
+/** a column's cards: the intents at its stage as play lists them; Ship is a queue, the one shipping, then the rest in
+ *  the order accepted, first in line on top */
+export const columnOf = <T extends Card & { decided_at?: string | null; created: string }>(cards: T[], stage: string): T[] => {
+	const at = cards.filter((i) => i.stage === stage);
+	return stage === 'ship' ? [...at].sort((a, b) => Date.parse(a.decided_at ?? a.created) - Date.parse(b.decided_at ?? b.created)) : at;
+};
+
+/** the sub-states a column's cards are grouped under (play/api/src/substate.ts), in this order */
+const SUBS = [['failed', 'Failed'], ['waiting', 'Waiting'], ['working', 'Working'], ['idle', 'Idle']] as const;
+/** a column's cards under their dividers, Failed, Waiting, Working, Idle, then those with none; empty ones left out */
+export const bySub = <T extends { sub?: { state: string } | null }>(cards: T[]) =>
+	[...SUBS.map(([k, name]) => ({ k, name, cards: cards.filter((i) => i.sub?.state === k) })), { k: '', name: '', cards: cards.filter((i) => !i.sub) }].filter((g) => g.cards.length);
+
+/** what an empty column says */
+export const EMPTY: Record<string, string> = {
+	idea: 'None. Agents add intents over MCP.',
+	specify: 'None. Agents specify an intent over MCP.',
+	build: 'None. An approved spec is built here.',
+	ship: 'None. Accepted code is shipped here.'
+};
