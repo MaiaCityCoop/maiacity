@@ -13,8 +13,8 @@
  *   ring     a ring round every trunk, `ring: [from, to, gain]` metres from its centre: a food forest's guilds round
  *            their tree (comfrey, clover, strawberries), the leaf litter at a trunk's foot
  *
- * Where a world says nothing of its canopy (no `trunks`) or its relief (no `heightAt`), those masks are 1: the kind
- * stands as its colonies say. Every sum is in the ground's own metres and depends on the place alone.
+ * Without `trunks` or `heightAt` those masks are 1, the kind standing as its colonies say. Every sum is in the ground's
+ * own metres and depends on the place alone.
  */
 import { fbm2 } from './noise.js';
 
@@ -48,18 +48,14 @@ const smooth = (/** @type {number} */ a, /** @type {number} */ b, /** @type {num
 	return t * t * (3 - 2 * t);
 };
 
-/**
- * The trunks that matter to a tile: those whose crown, ring or edge band reaches it.
- * @param {Trunk[]} trunks @param {number} x0 @param {number} z0 @param {number} x1 @param {number} z1 @param {number} pad
- */
+/** The trunks whose crown, ring or edge band reaches a tile. @param {Trunk[]} trunks @param {number} x0 @param {number} z0 @param {number} x1 @param {number} z1 @param {number} pad */
 export function trunksNear(trunks, x0, z0, x1, z1, pad) {
 	return trunks.filter((t) => t.x + t.r + pad >= x0 && t.x - t.r - pad <= x1 && t.z + t.r + pad >= z0 && t.z - t.r - pad <= z1);
 }
 
 /**
- * What the canopy is at x, z: how far inside the crowns (`edge`, signed metres: + inside, − outside the nearest drip
- * line), how far the nearest trunk is (`trunk`, m), how shaded it is (`shade`, 0 sun … 1 deep under) and how near the
- * edge (`band`, 1 on the drip line, falling off over `band` metres). Null where no canopy is known.
+ * The canopy at x, z: `edge` (signed m: + inside the nearest drip line), `trunk` (m to the nearest), `shade` (0 sun … 1
+ * deep under), `band` (1 on the drip line, falling off over `band` m); null where none is known.
  * @param {Trunk[] | undefined} trunks @param {number} x @param {number} z @param {number} band
  */
 function canopyAt(trunks, x, z, band) {
@@ -67,9 +63,8 @@ function canopyAt(trunks, x, z, band) {
 }
 
 /**
- * The canopy's sums as a lookup over many points (`canopyAt`'s): the trunks kept on a grid, each point looking only
- * at those whose crown, edge band or ring (out to `ring` metres) could reach it; further off it lies in the open sun.
- * @param {Trunk[]} trunks @param {number} band @param {number} ring
+ * `canopyAt` as a lookup over many points: trunks on a grid, each point looking only at those whose crown, band or ring
+ * (to `ring` m) could reach it; further off, open sun. @param {Trunk[]} trunks @param {number} band @param {number} ring
  * @returns {(x: number, z: number) => { edge: number, trunk: number, shade: number, band: number }}
  */
 export function canopyOf(trunks, band, ring) {
@@ -103,8 +98,7 @@ export function canopyOf(trunks, band, ring) {
 }
 
 /**
- * The relief at x, z: how much of a hollow it is (`wet`, −1 on a rise … 1 in a hollow) and how steep (`slope`, °).
- * Null where the world gives no heights.
+ * The relief at x, z: `wet` (−1 a rise … 1 a hollow) and `slope` (°); null where the world gives no heights.
  * @param {((x: number, z: number) => number) | undefined} heightAt @param {number} x @param {number} z
  */
 export function reliefAt(heightAt, x, z) {
@@ -116,11 +110,9 @@ export function reliefAt(heightAt, x, z) {
 }
 
 /**
- * How much of a kind stands at a point against its colonies alone (0…, 1 where its masks say nothing): the product of
- * its masks there. `open`, the world's own: whether a plant may stand there, `margin` metres clear of its paths,
- * buildings and water.
- * @param {KindMasks} k
- * @param {ReturnType<typeof canopyAt>} canopy @param {ReturnType<typeof reliefAt>} relief
+ * How much of a kind stands at a point against its colonies alone (1 where its masks say nothing): their product there.
+ * `open`, the world's: whether a plant may stand there, `margin` m clear of paths, buildings and water.
+ * @param {KindMasks} k @param {ReturnType<typeof canopyAt>} canopy @param {ReturnType<typeof reliefAt>} relief
  * @param {((x: number, z: number, margin?: number) => boolean) | undefined} open @param {number} x @param {number} z
  */
 export function maskAt(k, canopy, relief, open, x, z) {
@@ -138,10 +130,7 @@ export function maskAt(k, canopy, relief, open, x, z) {
 	return m;
 }
 
-/**
- * How far into its ring round the nearest trunk a point lies (0 outside it, 1 well inside), for a kind with a `ring`.
- * @param {KindMasks} k @param {ReturnType<typeof canopyAt>} canopy
- */
+/** How far into its ring round the nearest trunk a point lies (0 outside, 1 well in). @param {KindMasks} k @param {ReturnType<typeof canopyAt>} canopy */
 export function ringAt(k, canopy) {
 	if (!k.ring || !canopy) return 0;
 	const [from, to] = k.ring, w = Math.max(0.05, (to - from) * 0.15);
@@ -149,9 +138,8 @@ export function ringAt(k, canopy) {
 }
 
 /**
- * A plant's colour where it stands: each channel a little off, by regions `across` metres big, the same for every
- * kind there (a drier patch yellower, a damper one bluer-green). @param {Masks} masks @param {number} x @param {number} z
- * @returns {[number, number, number]}
+ * A plant's colour where it stands, each channel a little off by regions `across` m big, alike for every kind there (a
+ * drier patch yellower, a damper bluer-green). @param {Masks} masks @param {number} x @param {number} z @returns {[number, number, number]}
  */
 export function tintAt(masks, x, z) {
 	const a = (fbm2(x / masks.across + 41.7, z / masks.across - 13.9) - 0.5) * 2, b = (fbm2(x / masks.across - 27.3, z / masks.across + 8.1) - 0.5) * 2;

@@ -1,8 +1,7 @@
 /*
- * An asset's parameters, declared by its recipe (a plant's stage and seed), so any build of it has one name
- * (../../kernel/builds.js): `<recipe hash>?seed=maia&stage=9`. A ref's values are checked against the declaration (a
- * number in its range, a string no longer than it may be, nothing undeclared) before the recipe runs, in the page and
- * in the box alike.
+ * An asset's parameters, declared by its recipe (a plant's stage and seed), so any build has one name (../../kernel/builds.js,
+ * `<recipe hash>?seed=maia&stage=9`); a ref's values are checked against the declaration (range, length, nothing
+ * undeclared) before the recipe runs, in the page and the box alike.
  */
 
 /**
@@ -17,11 +16,7 @@
 /** how long a string parameter may be when its recipe does not say */
 const MAX_LENGTH = 80;
 
-/**
- * One parameter's value, checked: from the text of a ref or from a recipe's argument.
- * @param {Param} p @param {unknown} raw
- * @returns {number | string}
- */
+/** One parameter's value checked, from a ref's text or a recipe's argument. @param {Param} p @param {unknown} raw @returns {number | string} */
 function valueOf(p, raw) {
 	if (p.type === 'string') {
 		const s = String(raw);
@@ -36,10 +31,9 @@ function valueOf(p, raw) {
 }
 
 /**
- * Every declared parameter's value: from a ref's (`given`, its text), else from the recipe's arguments in their order
- * (`args`, as a page passes them), else its `value`. Throws for a parameter not declared and for a value out of shape.
- * @param {Param[]} params @param {Record<string, string>} [given] @param {unknown[]} [args]
- * @returns {Values}
+ * Every declared parameter's value: a ref's (`given`, text), else the recipe's arguments in order (`args`), else its
+ * `value`; throws for one undeclared or out of shape.
+ * @param {Param[]} params @param {Record<string, string>} [given] @param {unknown[]} [args] @returns {Values}
  */
 export function valuesOf(params, given = {}, args = []) {
 	const known = new Set(params.map((p) => p.id));
@@ -60,11 +54,7 @@ const KEY = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/;
 /** A recipe's arguments, its parameters' values in their order. @param {Param[]} params @param {Values} values */
 export const argsOf = (params, values) => params.map((p) => values[p.id]);
 
-/**
- * The query of a ref: its parameters, sorted by id, as text (`seed=maia&stage=9`), so the same values always read the
- * same; empty for none.
- * @param {Record<string, unknown> | undefined} values
- */
+/** A ref's query: its values sorted by id as text (`seed=maia&stage=9`), the same values always alike; empty for none. @param {Record<string, unknown> | undefined} values */
 export function queryOf(values) {
 	if (!values) return '';
 	const q = new URLSearchParams();
@@ -73,9 +63,8 @@ export function queryOf(values) {
 }
 
 /**
- * The parameters a ref's query names, as text; undefined for none. Throws for an id out of shape or one named twice.
- * @param {string | undefined} query
- * @returns {Record<string, string> | undefined}
+ * The values a ref's query names, as text; undefined for none; throws for an id out of shape or named twice.
+ * @param {string | undefined} query @returns {Record<string, string> | undefined}
  */
 export function paramsIn(query) {
 	if (!query) return undefined;
