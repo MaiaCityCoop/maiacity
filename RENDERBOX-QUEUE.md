@@ -1,5 +1,12 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 15:20 Berlin — 7af6e162 (head 8f0f6a5ae; out/ 88e2ac4c3) not recorded yet: also under the indexing load
+- Warm measured load quiet after **34 s with 0 pictures taken** (bound: under 30 s); cold 97 s with 106 taken. Warm vs
+  cold stills SSIM near 0.997, mid 0.989, far 0.952 (far: which trees draw far off depends on the moment). Served by the
+  dev server (the spec names the production build, which doesn't build the asset box on the Mac yet).
+- Settle time is what CPU contention stretches most, so it re-runs once the load is under 5, then I record.
+- Order now: #8 run 3 (after a load wait) → 544485e2 contact-shadow test → #6 re-run → 7af6e162 re-run.
+
 ## 15:12 Berlin — #6 run 3 (head dbccfa97f) not recorded: measured under Spotlight indexing
 - The Mac's load was 13–18 (Spotlight's mdworkers and FSEvents at 30–50 % each, indexing the jobs' new worktrees and
   node_modules): main's own frames doubled (near 34.6 ms against 25.3 in run 2), and head's "same t twice" came out
