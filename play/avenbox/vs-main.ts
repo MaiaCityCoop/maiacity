@@ -2,9 +2,11 @@
 /*
  * MEASURED AGAINST MAIN, IN THE SAME RUN (intent f63774a3): a check's bound is main's own value, measured in the run
  * that checks it, never a number taken from one main commit. Main is the merge base of HEAD and origin/main (fetched,
- * deepened in a shallow clone), else origin/main's tip; `--main <commit>` names it. Main's measures are cached by main's
- * commit, so main is measured once per main commit:
+ * deepened in a shallow clone), else origin/main's tip; `--main <commit>` names it. Main's measures are cached by what
+ * they read (intent 006eb26a): the git objects, at main, of the paths the measure reads (`readsOf`), so a main that
+ * leaves them as they are is not measured again.
  *
+ * One step, as a builder runs it in avenBOX (main measured or read from the cache, then the head, then compared):
  *   bun play/avenbox/vs-main.ts census --world sandbox-1|sandbox-3|worlds [--view near,mid|all] [--of tris,draws] (--within N% | --down N%)
  *   bun play/avenbox/vs-main.ts bytes <files…> (--within N% | --down N%)
  *   bun play/avenbox/vs-main.ts lines <files…> (--within N% | --down N%)
@@ -14,19 +16,31 @@
  *                  either as near:7%,mid:5%,far:11%: a tolerance per value, by the start of its key
  *   --of           census values: tris, draws (every pass, the default), mainTris, mainDraws (the main pass)
  *   --main <sha>   main is this commit                       --main-only measure main (or read its cache) and stop
- *   bun play/avenbox/vs-main.ts --main-of <spec.json>       main's measures of every vs-main call in an intent's spec
- *                                                           (intents-pr.yml's job "main's measures", main's code only)
+ *   --repo <dir>   the repository measured (this one by default)
  *
- * census: play/site/scripts/census.ts --json, main by its --at; per view, triangles and draws a frame. bytes and lines:
- * the files' sum, main's read with git show (a file missing counts 0). count: the command run by bash in main's tree
- * (play/site/scripts/census/tree.ts) and in the head, its last number. Cache: $VS_MAIN_CACHE (~/.cache/maiacity-vs-main)
- * /<main sha>/<sha256 of the measure and its arguments>.json. Exits 0 only when every value is in its bound.
+ * Apart, each side measured on its own and compared after (intent 006eb26a; the same result as the one step):
+ *   bun play/avenbox/vs-main.ts <measure…> --side main|head --out <side.json>      one side's values
+ *   bun play/avenbox/vs-main.ts compare <main side.json> <head side.json> (--within N% | --down N%)
+ *   bun play/avenbox/vs-main.ts --main-of <spec.json> [--out <side.json>]   main's values of every vs-main call in an
+ *                                                     intent's spec (intents-pr.yml's job "main's measures")
+ *   bun play/avenbox/vs-main.ts --key-of <spec.json>  one key for all of them, for GitHub's cache
+ *   bun play/avenbox/vs-main.ts --fold <results.json> --main-values <side.json> --heads <dir> --out <results.json>
+ *                                                     the head's deferred calls compared with main, each into its
+ *                                                     check's result and evidence (intents-pr.yml's job "compare")
+ * In intents-pr.yml's run job VS_MAIN_HEAD_OUT names a directory and intent.ts names each check (INTENT_CHECK): a call
+ * with a bound then measures only the head, writes it there with its check and its arguments, and exits 0; its bound is
+ * decided by --fold once main is measured beside it.
+ *
+ * census: play/site/scripts/census.ts --json, main by its --at (in place when the repository is main's checkout); per
+ * view, triangles and draws a frame. bytes and lines: the files' sum, main's read with git show (a file missing counts
+ * 0). count: the command run by bash in main's tree (play/site/scripts/census/tree.ts) and in the head, its last number.
+ * Cache: $VS_MAIN_CACHE (~/.cache/maiacity-vs-main)/<key>.json. Exits 0 only when every value is in its bound.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { REPO, treeAt } from '../site/scripts/census/tree';
 
 export type Values = Record<string, number>;
@@ -128,7 +142,7 @@ export function parse(argv: string[]) {
 		const i = argv.indexOf(k);
 		return i >= 0 ? argv[i + 1] : undefined;
 	};
-	const VALUED = ['--within', '--down', '--main', '--main-of', '--world', '--view', '--of'];
+	const VALUED = ['--within', '--down', '--main', '--main-of', '--key-of', '--world', '--view', '--of', '--side', '--out', '--repo', '--fold', '--main-values', '--heads'];
 	const within = opt('--within'), down = opt('--down');
 	if (within !== undefined && down !== undefined) throw new Error('one bound: --within or --down');
 	const bound: Bound | null = within !== undefined ? parseBound('within', within) : down !== undefined ? parseBound('down', down) : null;
@@ -142,7 +156,22 @@ export function parse(argv: string[]) {
 	else if (what === 'count') args = rest.slice(1, 2);
 	else if (what !== undefined) throw new Error(`no measure ${what} (census, bytes, lines, count)`);
 	if (what && !args.length) throw new Error(`${what}: what to measure is missing`);
-	return { measure: what ? ({ what, args } as Measure) : null, bound, main: opt('--main'), mainOnly: argv.includes('--main-only'), mainOf: opt('--main-of') };
+	const side = opt('--side');
+	if (side !== undefined && side !== 'main' && side !== 'head') throw new Error(`--side is main or head, not ${side}`);
+	return {
+		measure: what ? ({ what, args } as Measure) : null,
+		bound,
+		main: opt('--main'),
+		mainOnly: argv.includes('--main-only'),
+		mainOf: opt('--main-of'),
+		keyOf: opt('--key-of'),
+		side: side as 'main' | 'head' | undefined,
+		out: opt('--out'),
+		repo: opt('--repo'),
+		fold: opt('--fold'),
+		mainValues: opt('--main-values'),
+		heads: opt('--heads')
+	};
 }
 
 /** main: the merge base of HEAD and origin/main, deepening a shallow clone until it has one; else origin/main's tip */
@@ -164,8 +193,43 @@ export function mainOf(repo = REPO): string {
 	return tip;
 }
 
+/** what a census reads of a commit: the site, and the id table it imports from play's API (cache key test) */
+export const CENSUS_READS = ['play/site', 'play/api/src/ids.ts'];
+/** the paths a measure reads at main: '' is the whole tree (a count may read anything) */
+export const readsOf = (m: Measure): string[] => (m.what === 'census' ? CENSUS_READS : m.what === 'count' ? [''] : m.args);
+/** raised when a key's meaning changes, so no older cache entry is read for it */
+const KEY_VERSION = 2;
+
+/** a measure's own id, whatever the commit: the measure and its arguments */
+export const measureId = (m: Measure) => createHash('sha256').update(JSON.stringify([m.what, ...m.args])).digest('hex').slice(0, 24);
+
+/** a commit's whole hash in `repo`, fetched by its whole hash if this clone hasn't it (a shallow one) */
+function commitIn(sha: string, repo: string) {
+	let got = tryGit(repo, 'rev-parse', '--verify', '--quiet', `${sha}^{commit}`);
+	if (!got && /^[0-9a-f]{40}$/.test(sha)) {
+		tryGit(repo, 'fetch', '--quiet', '--depth=1', 'origin', sha);
+		got = tryGit(repo, 'rev-parse', '--verify', '--quiet', `${sha}^{commit}`);
+	}
+	if (!got) throw new Error(`vs-main: no commit ${sha} here`);
+	return got;
+}
+
+/** main's cache key for a measure: the measure, and the git object at main of every path it reads (a path missing is
+ *  '-'), so main is measured again exactly when what it reads changed */
+export function keyOf(m: Measure, sha: string, repo = REPO) {
+	const c = commitIn(sha, repo);
+	const objects = readsOf(m).map((p) => [p, tryGit(repo, 'rev-parse', '--verify', '--quiet', p ? `${c}:${p}` : `${c}^{tree}`) || '-']);
+	return createHash('sha256').update(JSON.stringify([KEY_VERSION, m.what, ...m.args, objects])).digest('hex').slice(0, 32);
+}
+
 /** the cache's file for a measure of main at a commit */
-export const cacheFile = (sha: string, m: Measure) => join(cacheDir(), sha, `${createHash('sha256').update(JSON.stringify([m.what, ...m.args])).digest('hex').slice(0, 24)}.json`);
+export const cacheFile = (sha: string, m: Measure, repo = REPO) => join(cacheDir(), `${keyOf(m, sha, repo)}.json`);
+
+/** whether `repo`'s work tree is the commit itself, its tracked files as committed: main is then measured in place */
+function isCheckoutOf(sha: string, repo: string) {
+	const c = tryGit(repo, 'rev-parse', '--verify', '--quiet', `${sha}^{commit}`);
+	return !!c && tryGit(repo, 'rev-parse', 'HEAD') === c && tryGit(repo, 'status', '--porcelain', '--untracked-files=no') === '';
+}
 
 const lastNumber = (s: string) => {
 	const all = s.match(/-?\d+(?:\.\d+)?/g);
@@ -173,8 +237,9 @@ const lastNumber = (s: string) => {
 	return Number(all[all.length - 1]);
 };
 
-/** measures `m` at `sha` (main) or in the working tree (sha null) of `repo` */
-export function measure(m: Measure, sha: string | null, repo = REPO): Values {
+/** measures `m` at `sha` (main) or in the working tree (sha null) of `repo`; in place when the tree is `sha` itself */
+export function measure(m: Measure, at: string | null, repo = REPO): Values {
+	const sha = at && (m.what === 'bytes' || m.what === 'lines' || !isCheckoutOf(at, repo)) ? at : null;
 	if (m.what === 'bytes' || m.what === 'lines') {
 		let total = 0;
 		for (const f of m.args) {
@@ -191,17 +256,17 @@ export function measure(m: Measure, sha: string | null, repo = REPO): Values {
 	if (m.what === 'count') {
 		const cwd = sha ? treeAt(sha, repo).dir : repo;
 		const r = spawnSync('bash', ['-c', m.args[0]], { cwd, encoding: 'utf8', maxBuffer: 1 << 28 });
-		if (r.status !== 0) throw new Error(`count: \`${m.args[0]}\` exited ${r.status} ${sha ? `at ${sha.slice(0, 9)}` : 'at the head'}: ${r.stderr.slice(-400)}`);
+		if (r.status !== 0) throw new Error(`count: \`${m.args[0]}\` exited ${r.status} ${at ? `at ${at.slice(0, 9)}` : 'at the head'}: ${r.stderr.slice(-400)}`);
 		return { count: lastNumber(r.stdout) };
 	}
 	const [world, view, of] = m.args;
 	const json = join(mkdtempSync(join(tmpdir(), 'vs-main-')), 'census.json');
 	const r = spawnSync('bun', [join(repo, 'play/site/scripts/census.ts'), '--world', world, '--view', view, ...(sha ? ['--at', sha] : []), '--json', json], { cwd: repo, stdio: ['ignore', 'ignore', 'inherit'] });
-	if (r.status !== 0) throw new Error(`census ${sha ? `at ${sha.slice(0, 9)}` : 'of the head'} failed (${r.status})`);
+	if (r.status !== 0) throw new Error(`census ${at ? `at ${at.slice(0, 9)}` : 'of the head'} failed (${r.status})`);
 	const out: Values = {};
 	const want = of.split(',');
 	for (const v of JSON.parse(readFileSync(json, 'utf8')).views) {
-		if (!v.settled) throw new Error(`census ${sha ? `at ${sha.slice(0, 9)}` : 'of the head'}: ${v.view} did not settle`);
+		if (!v.settled) throw new Error(`census ${at ? `at ${at.slice(0, 9)}` : 'of the head'}: ${v.view} did not settle`);
 		if (want.includes('tris')) out[`${v.view} tris`] = v.totals.tris;
 		if (want.includes('draws')) out[`${v.view} draws`] = v.totals.calls;
 		if (want.includes('mainTris')) out[`${v.view} mainTris`] = v.totals.mainTris;
@@ -212,14 +277,14 @@ export function measure(m: Measure, sha: string | null, repo = REPO): Values {
 
 /** main's values for a measure: from the cache, else measured and kept; says which */
 export function mainValues(m: Measure, sha: string, repo = REPO, log = (s: string) => console.log(s)): Values {
-	const file = cacheFile(sha, m);
+	const file = cacheFile(sha, m, repo);
 	if (existsSync(file)) {
 		log(`main ${sha.slice(0, 9)} ${m.what} ${m.args.join(' ')}: from cache`);
 		return JSON.parse(readFileSync(file, 'utf8')).values;
 	}
 	const t0 = performance.now();
 	const values = measure(m, sha, repo);
-	mkdirSync(join(cacheDir(), sha), { recursive: true });
+	mkdirSync(dirname(file), { recursive: true });
 	writeFileSync(file, JSON.stringify({ sha, measure: m, values, at: new Date().toISOString() }));
 	log(`main ${sha.slice(0, 9)} ${m.what} ${m.args.join(' ')}: measured in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
 	return values;
@@ -228,31 +293,143 @@ export function mainValues(m: Measure, sha: string, repo = REPO, log = (s: strin
 const boundText = (b: Bound) => (b.by ? Object.entries(b.by).map(([k, p]) => `${k} ${p}%`).join(', ') : `${b.pct}%`);
 const n = (x: number) => (Number.isInteger(x) ? x.toLocaleString('en') : x.toFixed(2));
 
+/** one side's values, measure by measure (by measureId): what `--side`, `--main-of` and `compare` read and write */
+export type Side = { side: 'main' | 'head'; sha: string | null; measures: Record<string, { measure: Measure; values: Values }> };
+/** a head's call measured in intents-pr.yml's run job, its bound decided by --fold once main is measured */
+export type HeadCall = { check: string; call: string[]; values: Values };
+
+/** the comparison as it prints, and whether every value is in its bound */
+export function report(m: Measure, main: Values, head: Values, b: Bound, mainSha: string | null) {
+	const rows = compare(main, head, b);
+	const ok = rows.every((r) => r.ok);
+	const lines = [`${m.what} ${m.args.join(' ')}: bound ${b.kind === 'within' ? 'main +' : 'main −'} ${boundText(b)}`];
+	for (const r of rows) lines.push(`  ${r.ok ? 'ok ' : 'OFF'}  ${r.key.padEnd(12)} main ${n(r.main)} → head ${n(r.head)} (${r.main ? `${r.head >= r.main ? '+' : ''}${(((r.head - r.main) / r.main) * 100).toFixed(2)}%` : 'new'}), at most ${n(Number.isInteger(r.main) ? Math.floor(r.max + 1e-9) : r.max)}`);
+	const of = mainSha ? ` ${mainSha.slice(0, 9)}` : '';
+	lines.push(ok ? `vs-main: within the bound of main${of}` : `vs-main: out of the bound of main${of}`);
+	return { ok, rows, text: lines.join('\n') };
+}
+
+/** a side file with one measure */
+export const sideOf = (side: Side['side'], sha: string | null, m: Measure, values: Values): Side => ({ side, sha, measures: { [measureId(m)]: { measure: m, values } } });
+
+/** every measure of the head side compared with main's same measure; a measure main hasn't is out of the bound */
+export function compareSides(main: Side, head: Side, b: Bound) {
+	const out = Object.entries(head.measures).map(([id, h]) => {
+		const mv = main.measures[id]?.values;
+		if (!mv) return { ok: false, text: `${h.measure.what} ${h.measure.args.join(' ')}: main has no such measure in its side file` };
+		return report(h.measure, mv, h.values, b, main.sha);
+	});
+	return { ok: out.length > 0 && out.every((o) => o.ok), text: out.map((o) => o.text).join('\n') || 'vs-main: the head side has no measure' };
+}
+
+const EVIDENCE_MOST = 4000;
+/** the evidence with the comparison added at its end, its own text cut to keep it within intent.ts's length */
+const withComparison = (evidence: string, text: string) => {
+	const room = EVIDENCE_MOST - text.length - 3;
+	const kept = evidence.length > room ? `${evidence.slice(0, Math.max(0, room - 1))}…` : evidence;
+	return `${kept}\n\n${text}`.slice(0, EVIDENCE_MOST);
+};
+
+/** the head's deferred calls compared with main by main's code, each into its check's result: a check passes only if
+ *  its run passed and every call of it is in its bound; main's measure missing fails the check, saying so */
+export function fold<R extends { results: { check: string; pass: boolean; code: number; evidence: string }[] }>(results: R, main: Side | null, heads: HeadCall[]): R {
+	for (const h of heads) {
+		const r = results.results.find((x) => x.check === h.check);
+		if (!r) continue;
+		let ok = false, text: string;
+		try {
+			const p = parse(h.call);
+			if (!p.measure || !p.bound) throw new Error(`vs-main ${h.call.join(' ')}: not a call with a measure and a bound`);
+			const mv = main?.measures[measureId(p.measure)]?.values;
+			if (!mv) text = `vs-main ${h.call.join(' ')}: main was not measured for it (intents-pr.yml's job "main's measures" measures the calls written in the spec's runs${main ? '' : ', and it did not finish'}): its bound is not shown`;
+			else ({ ok, text } = report(p.measure, mv, h.values, p.bound, main!.sha));
+		} catch (e) {
+			text = e instanceof Error ? e.message : String(e);
+		}
+		r.evidence = withComparison(r.evidence, text);
+		if (!ok) {
+			r.pass = false;
+			if (r.code === 0) r.code = 1;
+		}
+	}
+	return results;
+}
+
+const readJson = (f: string) => JSON.parse(readFileSync(f, 'utf8'));
+const writeJson = (f: string, v: unknown) => {
+	mkdirSync(dirname(resolve(f)), { recursive: true });
+	writeFileSync(f, JSON.stringify(v, null, 2));
+};
+/** every vs-main call of an intent's spec, parsed */
+const callsOfSpec = (file: string) => (readJson(file).checks ?? []).flatMap((c: { run?: string }) => callsIn(c.run ?? '').map((call) => parse(call).measure)).filter(Boolean) as Measure[];
+
 if (import.meta.main) {
 	try {
-		const o = parse(Bun.argv.slice(2));
-		if (o.mainOf) {
-			const spec = JSON.parse(readFileSync(o.mainOf, 'utf8'));
-			const sha = o.main ?? process.env.VS_MAIN ?? mainOf();
-			for (const c of spec.checks ?? []) for (const call of callsIn(c.run ?? '')) {
-				const p = parse(call);
-				if (p.measure) mainValues(p.measure, sha);
+		const argv = Bun.argv.slice(2);
+		if (argv[0] === 'compare') {
+			const [mainFile, headFile] = argv.slice(1, 3);
+			const { bound } = parse(argv.slice(3));
+			if (!mainFile || !headFile || !bound) throw new Error('vs-main compare <main side.json> <head side.json> (--within N% | --down N%)');
+			const c = compareSides(readJson(mainFile), readJson(headFile), bound);
+			console.log(c.text);
+			process.exit(c.ok ? 0 : 1);
+		}
+		const o = parse(argv);
+		const repo = o.repo ? resolve(o.repo) : REPO;
+		if (o.fold) {
+			if (!o.out || !o.heads) throw new Error('vs-main --fold <results.json> --main-values <side.json> --heads <dir> --out <results.json>');
+			const main = o.mainValues && existsSync(o.mainValues) ? (readJson(o.mainValues) as Side) : null;
+			const heads = existsSync(o.heads) ? readdirSync(o.heads).filter((f) => f.endsWith('.json')).sort().map((f) => readJson(join(o.heads!, f)) as HeadCall) : [];
+			const results = fold(readJson(o.fold), main, heads);
+			writeJson(o.out, results);
+			console.log(`${heads.length} of the head's calls compared with main${main ? ` ${main.sha?.slice(0, 9)}` : ' (main not measured)'}: ${results.results.filter((r: { pass: boolean }) => !r.pass).length} checks failed`);
+			for (const h of heads) console.log(`  ${h.check}: vs-main ${h.call.join(' ')}`);
+			process.exit(0);
+		}
+		if (o.mainOf || o.keyOf) {
+			const measures = callsOfSpec((o.mainOf ?? o.keyOf)!);
+			const sha = commitIn(o.main ?? process.env.VS_MAIN ?? mainOf(repo), repo);
+			if (o.keyOf) {
+				const keys = measures.map((m) => keyOf(m, sha, repo)).sort();
+				console.log(createHash('sha256').update(keys.join('\n')).digest('hex').slice(0, 24));
+				process.exit(0);
 			}
+			const side: Side = { side: 'main', sha, measures: {} };
+			for (const m of measures) side.measures[measureId(m)] = { measure: m, values: mainValues(m, sha, repo) };
+			if (o.out) writeJson(o.out, side);
 			process.exit(0);
 		}
 		if (!o.measure) throw new Error('vs-main: census, bytes, lines or count, with --within N% or --down N% (see its head)');
-		const sha = o.main ?? process.env.VS_MAIN ?? mainOf();
-		const main = mainValues(o.measure, sha);
+		if (o.side) {
+			if (!o.out) throw new Error('vs-main: --side writes its values: give --out <file>');
+			const sha = o.side === 'main' ? commitIn(o.main ?? process.env.VS_MAIN ?? mainOf(repo), repo) : null;
+			const values = sha ? mainValues(o.measure, sha, repo) : measure(o.measure, null, repo);
+			writeJson(o.out, sideOf(o.side, sha, o.measure, values));
+			console.log(`${o.side}${sha ? ` ${sha.slice(0, 9)}` : ''} ${o.measure.what} ${o.measure.args.join(' ')}: ${JSON.stringify(values)} → ${o.out}`);
+			process.exit(0);
+		}
+		// intents-pr.yml's run job: the head alone, main measured beside it and compared by --fold
+		const deferTo = process.env.VS_MAIN_HEAD_OUT, check = process.env.INTENT_CHECK;
+		if (deferTo && check && /^[\w-]+$/.test(check) && o.bound && !o.mainOnly && !o.main) {
+			const t0 = performance.now();
+			const values = measure(o.measure, null, repo);
+			mkdirSync(deferTo, { recursive: true });
+			const file = join(deferTo, `${check}-${Date.now()}-${process.pid}.json`);
+			writeFileSync(file, JSON.stringify({ check, call: argv, values } satisfies HeadCall));
+			console.log(`head ${o.measure.what}: measured in ${((performance.now() - t0) / 1000).toFixed(1)} s: ${JSON.stringify(values)}`);
+			console.log(`vs-main: compared with main once main is measured beside it (intents-pr.yml's job "compare"), into ${check}'s result`);
+			process.exit(0);
+		}
+		const sha = o.main ?? process.env.VS_MAIN ?? mainOf(repo);
+		const main = mainValues(o.measure, sha, repo);
 		if (o.mainOnly) process.exit(0);
 		if (!o.bound) throw new Error('vs-main: a bound, --within N% or --down N%');
 		const t0 = performance.now();
-		const head = measure(o.measure, null);
-		const rows = compare(main, head, o.bound);
-		console.log(`head ${o.measure.what}: measured in ${((performance.now() - t0) / 1000).toFixed(1)} s; bound ${o.bound.kind === 'within' ? 'main +' : 'main −'} ${boundText(o.bound)}`);
-		for (const r of rows) console.log(`  ${r.ok ? 'ok ' : 'OFF'}  ${r.key.padEnd(12)} main ${n(r.main)} → head ${n(r.head)} (${r.main ? `${r.head >= r.main ? '+' : ''}${(((r.head - r.main) / r.main) * 100).toFixed(2)}%` : 'new'}), at most ${n(Number.isInteger(r.main) ? Math.floor(r.max + 1e-9) : r.max)}`);
-		const ok = rows.every((r) => r.ok);
-		console.log(ok ? `vs-main: within the bound of main ${sha.slice(0, 9)}` : `vs-main: out of the bound of main ${sha.slice(0, 9)}`);
-		process.exit(ok ? 0 : 1);
+		const head = measure(o.measure, null, repo);
+		console.log(`head ${o.measure.what}: measured in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+		const r = report(o.measure, main, head, o.bound, sha);
+		console.log(r.text);
+		process.exit(r.ok ? 0 : 1);
 	} catch (e) {
 		console.error(e instanceof Error ? e.message : e);
 		process.exit(2);
