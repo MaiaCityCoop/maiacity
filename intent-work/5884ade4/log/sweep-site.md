@@ -22,3 +22,7 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
    test imported Sandbox 1's page, which made `routes/sandbox-1` a folder something leans on (I=0.80, below the
    interior's 0.83). Each page's served-HTML snapshot now sits in its own route's `page.test.ts`; the two snapshots are
    byte-identical to the one file's before.
+4. **Playwright looked for, no other error swallowed** (special: swallowed, scripts 2 → 0). `scripts/render.mjs` and
+   `scripts/flyover/flyover.mjs` tried each place Playwright may be installed with an empty `catch`: a broken install
+   was taken for none. Now only `MODULE_NOT_FOUND` (Node's and Bun's code for it, checked) moves to the next place;
+   anything else is thrown. Pinned: `node --check`; both are run by hand (`bench-smoke.sh`, the flyover's lists).

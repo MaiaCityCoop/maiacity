@@ -101,7 +101,10 @@ async function playwright() {
 	for (const from of [site, process.cwd(), '/usr/lib/node_modules/', '/usr/local/lib/node_modules/']) {
 		try {
 			return createRequire(resolve(from, 'x.js'))('playwright');
-		} catch {}
+		} catch (e) {
+			// not installed there: the next place
+			if (e?.code !== 'MODULE_NOT_FOUND') throw e;
+		}
 	}
 	try {
 		return await import('playwright');
