@@ -9,8 +9,8 @@
  * Nothing is looked up by a readable name: a version's number, an asset's id and a label are only shown.
  */
 import { hashText, holds } from '../../kernel/hash.js';
-import { configAt } from '../game/code/index.js';
-import { BUILD_START, buildOf, parseBuild, queryOf } from '../../kernel/builds.js';
+import { configAt, configKey, loadConfig } from '../game/code/index.js';
+import { BUILD_START, buildOf, parseBuild } from '../../kernel/builds.js';
 import { playFile } from './cache/files.js';
 import { LATEST } from './box/engines.js';
 import { handedPieces } from './box/pieces.js';
@@ -98,14 +98,29 @@ export function loadRecipes() {
 	return (loading ??= load());
 }
 
+/**
+ * What a world waits for before its first build: play's catalog and its sandbox's config (by the sandbox's UUID). A
+ * failure says why, on the world's loading screen.
+ * @param {string} [sandbox]
+ */
+export async function catalogReady(sandbox) {
+	const [r] = await Promise.all([loadRecipes(), sandbox ? loadConfig(sandbox) : null]);
+	if (r.phase !== 'ready') throw new Error(r.error || 'The asset catalog could not be loaded.');
+	return r;
+}
+
 /** a slot of a sandbox's pins, `pin:<sandbox>/<slot>[?values]` */
 export const SLOT = /^pin:([a-z0-9][a-z0-9-]*)\/([a-zA-Z0-9][a-zA-Z0-9/-]*)(?:\?([^#\s]*))?$/;
 
-/** a sandbox's slot, with the values it is built with @param {string} sandbox @param {string} slot @param {Record<string, unknown>} [values] */
-export const assetIn = (sandbox, slot, values = {}) => {
-	const q = queryOf(values);
-	return `pin:${sandbox}/${slot}${q ? `?${q}` : ''}`;
-};
+/** a name with more values after its own (`query`, as text) @param {string} name @param {string} query */
+export const withQuery = (name, query) => `${name}${name.includes('?') ? '&' : '?'}${query}`;
+
+/**
+ * A slot of a sandbox's pins, by the sandbox's UUID (./sandboxes.js), with the values it is built with (`query`, as
+ * text, in the order given)
+ * @param {string} sandbox @param {string} slot @param {string} [query]
+ */
+export const slotRef = (sandbox, slot, query = '') => `pin:${sandbox}/${slot}${query ? `?${query}` : ''}`;
 
 /**
  * A name as the build it is: a build as it is; a slot as the build its sandbox pins there, the slot's own values
@@ -120,10 +135,10 @@ export function resolve(name) {
 		return parseBuild(name);
 	}
 	const [, sandbox, key, query = ''] = slot;
-	const pins = configAt(`configs/${sandbox}/assets`);
+	const pins = configAt(configKey(sandbox, 'assets'));
 	const pinned = pins && Object.hasOwn(pins, key) ? pins[key] : undefined;
 	if (typeof pinned !== 'string') throw new NotInCatalog(`${name}: ${sandbox} pins no asset in slot ${key}`);
-	return parseBuild(query ? `${pinned}${pinned.includes('?') ? '&' : '?'}${query}` : pinned);
+	return parseBuild(query ? withQuery(pinned, query) : pinned);
 }
 
 /** the hash a build or a slot names, held by the catalog @param {string} name */

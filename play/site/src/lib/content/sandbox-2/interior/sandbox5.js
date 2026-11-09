@@ -14,7 +14,7 @@
  */
 import { SANDBOX } from '$lib/content/assets/sandboxes.js';
 
-import { configAt, loadConfig } from '../../game/code/index.js';
+import { configAt, configKey, loadConfig } from '../../game/code/index.js';
 
 /**
  * @typedef {{ id: string, v: number, asset?: string, stages: number[], weight?: number }} Planting a plant of the library at its
@@ -44,7 +44,7 @@ export const TIERS = {
 };
 
 /** where Sandbox 4's garden is kept: the Maia City COOP's vault (A3), else the repo's seed (maia/content/code/configs/sandbox-4/garden) */
-export const GARDEN = `configs/${SANDBOX.one}/garden`;
+export const GARDEN = configKey(SANDBOX.one, 'garden');
 
 /**
  * The garden a config holds as Sandbox 4 grows it. Outside: a temperate forest garden planted for the most it can give,

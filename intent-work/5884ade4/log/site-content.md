@@ -56,3 +56,11 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
    were. `sources/viewer.test.ts` now builds from the page's catalog (recipes handed in as the benches hand theirs) and
    pins the box's timeout. Census: Worlds (the viewer's build) and Sandbox 1 same, Sandbox 3 its noise (297 draws, a
    total the merge base gave too).
+7. **One pin ref, one config key, one catalogReady** (site-worlds#3, #4 part, #5 part; site-assets#13; site-worlds F2,
+   site-assets F12). `catalog.js` writes every slot ref (`slotRef`, the dead `assetIn` gone) and joins a query
+   (`withQuery`, also for the garden's `refOf`); the pallet, Sandbox 3's things and plants and the legacy swap write
+   theirs through it, each the same string as before (`catalog.test.ts`). `game/code/index.js` `configKey` names a
+   sandbox's config (the loader, the catalog, Sandbox 1's `GARDEN`). `catalogReady` moves into `catalog.js` (content
+   importing `lib/recipes.ts` would close a folder cycle); `lib/recipes.ts` re-exports it for the census (held), and the
+   Factories wait on it instead of a copy without its check. Held, left: `interior/things.js`'s ref,
+   `sandbox-4/scene.ts`'s raw config read and its copy of the wait, the catalog walks of `village.ts` and `scene.ts`.

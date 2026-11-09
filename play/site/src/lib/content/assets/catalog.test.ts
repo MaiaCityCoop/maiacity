@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest'
 
 const R = 'f'.repeat(64)
 vi.mock('../game/code/index.js', () => ({
+	configKey: (id: string, name: string) => `configs/${id}/${name}`,
+	loadConfig: async () => ({}),
 	configAt: (ref: string) => {
 		if (ref === 'configs/9862777e-04c2-8362-b028-27ff7e0591b8/assets') return { pallet: R, plant: `${R}?seed=a` }
 		throw new Error(`${ref} is not loaded`)

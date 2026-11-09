@@ -6,6 +6,7 @@
  * the asset box and drawn by the renderer by its ref (`plantRef`), never grown here. ./plants.test.js holds every
  * number to the Plants ($content/plants).
  */
+import { slotRef } from '$lib/content/assets/catalog.js';
 import { SANDBOX } from '$lib/content/assets/sandboxes.js';
 
 /** @type {Record<string, { label: string, versions: number[], stages: [number, string][] }>} */
@@ -38,7 +39,7 @@ export function plantOf(id, v) {
 
 /** a plant at a stage (0 … 9, between two on the way) grown from a seed, as the asset box builds it @param {{ id: string, version: number }} p @param {number} stage @param {string} seed */
 /** a tree's plant by its slot of Sandbox 3's pins (`plant-<id>`), at its stage and seed: play's Sandbox 3 plants none for now */
-export const plantRef = (p, stage, seed) => `pin:${SANDBOX.three}/plant-${p.id}?stage=${stage}&seed=${encodeURIComponent(seed)}`;
+export const plantRef = (p, stage, seed) => slotRef(SANDBOX.three, `plant-${p.id}`, `stage=${stage}&seed=${encodeURIComponent(seed)}`);
 
 /** every plant here, by id */
 export const PLANT_IDS = Object.keys(PLANTS);

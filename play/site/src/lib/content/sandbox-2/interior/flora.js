@@ -22,7 +22,7 @@
  * Nothing here loads the renderer: a dome's inside (./interior.ts) is handed the flora it plants in by whoever builds it.
  */
 import * as THREE from 'three';
-import { NotInCatalog } from '../../assets/catalog.js';
+import { NotInCatalog, withQuery } from '../../assets/catalog.js';
 
 /** @typedef {import('./sandbox5.js').Kind} Kind */
 /**
@@ -61,7 +61,7 @@ export const keyOf = (k) => `${k.id}@${k.v}:${k.stage}:${k.seed}`;
 export const refOf = (k) => {
 	// play: the garden names each plant by the build of its slot (Sandbox 1's garden config), a hash
 	if (!k.asset) throw new NotInCatalog(`the garden names no asset for ${k.id} (Sandbox 1's garden config)`);
-	return `${k.asset}${k.asset.includes('?') ? '&' : '?'}stage=${k.stage}&seed=${encodeURIComponent(k.seed)}`;
+	return withQuery(k.asset, `stage=${k.stage}&seed=${encodeURIComponent(k.seed)}`);
 };
 
 /** the side of a cell of the ground the small plants are filed in, metres */

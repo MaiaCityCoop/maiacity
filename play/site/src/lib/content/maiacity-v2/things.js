@@ -9,11 +9,12 @@
  * up the ramp or where the newcomer kneels to pitch the tent. So they are written down here, and ./things.test.js holds
  * each to what its builder hands back (and to the build's own nodes), as Sandbox 2's walk is held (#790).
  */
+import { slotRef } from '$lib/content/assets/catalog.js';
 import { SANDBOX } from '$lib/content/assets/sandboxes.js';
 
 /** the library's assets the world puts in, each by its slot of Sandbox 3's pins: play's database pins each slot to
  *  the build of the version V2 drew (its hash), ../assets/catalog.js `resolve` */
-const slot = (key) => `pin:${SANDBOX.three}/${key}`;
+const slot = (key) => slotRef(SANDBOX.three, key);
 export const THINGS = {
 	water: slot('water'),
 	busStop: slot('busStop'),
