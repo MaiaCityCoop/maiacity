@@ -92,13 +92,28 @@ describe('the render kit in TSL', () => {
 		});
 		cut.a.value.set(1, 0, 0, 0.2);
 		r.render(scene, camera);
-		const vert = shaders.find((s) => s.includes('Node System') && s.includes('instanceMatrix'))!;
+		const vert = shaders.find((s) => s.includes('Node System') && /aFade/.test(s) && /gl_Position\s*=/.test(s))!;
 		expect(vert).toBeTruthy();
-		// the renderer's own per-mesh attribute, four places wide; no matrices kept in the program
-		expect(vert).toMatch(/in mat4 instanceMatrix/);
-		expect(vert).not.toMatch(/NodeBuffer/);
+		// three's own instancing: each mesh's matrices as four vec4 attributes (WGSL takes no matrix as a vertex
+		// input: intent c1bee1f8's smoke on the Mac), never a mat4 one
+		expect(vert).not.toMatch(/in mat4/);
+		expect(vert).toMatch(/mat4\( nodeAttribute\d+, nodeAttribute\d+, nodeAttribute\d+, nodeAttribute\d+ \)/);
 		expect(meshes.length).toBe(2);
 		valid(shaders);
+	});
+
+	// WebGPU binds a vertex buffer only for an attribute the geometry has: one declared without it fails the pipeline,
+	// or moves the attributes after it to the wrong places (intent c1bee1f8)
+	test('an attribute the geometry lacks is read as 0, never declared', async () => {
+		const { r, shaders } = await renderer();
+		const { scene, camera } = lit();
+		const m: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x406020 }));
+		m.fade = aFade;
+		scene.add(new THREE.InstancedMesh(new THREE.BoxGeometry(), m, 3));
+		r.render(scene, camera);
+		const vert = shaders.filter((x) => x.includes('Node System') && /gl_Position\s*=/.test(x)).join('\n');
+		expect(vert).toBeTruthy();
+		expect(vert).not.toMatch(/in float aFade|in vec4 aCover|in vec3 aReach/);
 	});
 
 	test('a level with its fade, as the renderer draws it', async () => {
@@ -259,9 +274,11 @@ describe('the render kit in TSL', () => {
 		const { scene, camera } = lit();
 		const m: any = Object.assign(nodeOf(new THREE.MeshStandardMaterial({ map: new THREE.Texture() })), { fade: aFade });
 		const n: any = Object.assign(nodeOf(new THREE.MeshStandardMaterial({ color: 0x406080 })), { fade: aFade });
-		const bare = new THREE.BoxGeometry();
+		// each with its copies' fade, so the kit's programs are told by it
+		const faded = (g: THREE.BufferGeometry) => (g.setAttribute('aFade', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count), 1)), g);
+		const bare = faded(new THREE.BoxGeometry());
 		bare.deleteAttribute('uv');
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), m), new THREE.Mesh(bare, m), new THREE.Mesh(new THREE.BoxGeometry(), n));
+		scene.add(new THREE.Mesh(faded(new THREE.BoxGeometry()), m), new THREE.Mesh(bare, m), new THREE.Mesh(faded(new THREE.BoxGeometry()), n));
 		await precompile(r, scene, camera);
 		const built = shaders.length;
 		expect(shaders.some((x) => /aFade/.test(x))).toBe(true);

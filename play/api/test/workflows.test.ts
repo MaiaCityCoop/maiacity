@@ -3,8 +3,9 @@
 // only, with GITHUB_TOKEN, and starts production.yml on it; production.yml writes SHIP_TOKEN into play's environment on
 // the server; the compose file hands it to play-api. Read as YAML, so a change that breaks the way is seen here.
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "../../..");
 const text = (path: string) => readFileSync(resolve(ROOT, path), "utf8");
@@ -367,12 +368,12 @@ describe("the whole suite on every pull request and on main", () => {
       .map((l: string) => l.trim()).filter((l: string) => /\bbun test\b/.test(l));
   test("play-checks.yml runs `bun test --parallel`, every file, nothing narrowed, Postgres with room for it", () => {
     const p = yaml(".github/workflows/play-checks.yml");
-    const api = p.jobs.checks.steps.find((s: any) => s.name === "The API");
+    const api = p.jobs.api.steps.find((s: any) => s.name === "The API");
     expect(api["working-directory"]).toBe("play/api");
     expect(bunTests(".github/workflows/play-checks.yml")).toEqual(["bun test --parallel"]);
     expect(api.run).not.toMatch(/--changed|\s-t\s|--test-name-pattern|GATE_CHANGED|\.test\.ts/);
     expect(JSON.stringify(api.env ?? {})).not.toContain("GATE_CHANGED");
-    const pg = p.jobs.checks.steps.find((s: any) => s.name === "Postgres");
+    const pg = p.jobs.api.steps.find((s: any) => s.name === "Postgres");
     expect(pg.run).toContain("-c max_connections=500");
   });
   test("intents.yml and intents-pr.yml run no narrowed suite", () => {
@@ -388,5 +389,139 @@ describe("the whole suite on every pull request and on main", () => {
     // every file: select.ts names none, so api_tests is called with no file list
     expect(plan).toContain("step api-tests: every file");
     expect(plan).not.toMatch(/^ {4}test\//m);
+  });
+});
+
+// intent 417af727: the site's own tests gate every merge as play/api's do; 8823eb7c reached main with one of them red
+// because CI only built the site. Each on a runner of its own (beside the API's on one they starved its 5 s timeouts):
+// the API's tests alone, the site's build and fast suite, Sandbox 2's physics apart (when their code changes and on
+// main); the required check "API and site" needs the first two.
+describe("the site's tests on every pull request and on main", () => {
+  const p = yaml(".github/workflows/play-checks.yml");
+  const lines = (s: any) => String(s.run).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  const site = JSON.parse(text("play/site/package.json")).scripts;
+  test("the site's tests: the fast suite is vitest without Sandbox 2's physics, then the *.bun.test.ts with Bun; the physics apart", () => {
+    expect(site.test).toBe("bun run test:vitest && bun run test:bun");
+    expect(site["test:vitest"]).toBe("vitest run --exclude 'src/lib/sandbox-2/tests/**'");
+    expect(site["test:bun"]).toBe("bun test .bun.test.ts");
+    expect(site["test:physics"]).toBe("vitest run src/lib/sandbox-2/tests");
+    expect(text("play/site/vite.config.ts")).toContain("'src/**/*.bun.test.ts'");
+  });
+  test("the site's tests: the API's tests and the site each a job of their own; the required check needs the API and the site", () => {
+    const { tested, api, site: web, checks } = p.jobs;
+    expect(Object.keys(p.jobs).sort()).toEqual(["api", "checks", "site", "tested"]);
+    for (const j of [tested, api, web, checks]) expect(j["runs-on"]).toBe("ubuntu-24.04");
+    // the API's tests run alone on their runner: nothing of the site's there
+    expect(api.name).toBe("API");
+    expect(api.steps.map((s: any) => s.name ?? s.uses)).toEqual(["actions/checkout@v4", "Postgres", "oven-sh/setup-bun@v2", "The API"]);
+    expect(JSON.stringify(api)).not.toMatch(/play\/site|bun run test|vitest/);
+    // the site: its build, then its fast suite, never the physics
+    expect(web.name).toBe("Site");
+    expect(web.steps.map((s: any) => s.name ?? s.uses)).toEqual(["actions/checkout@v4", "oven-sh/setup-bun@v2", "The site", "The site's tests"]);
+    expect(lines(web.steps[2])).toEqual(["bun install --frozen-lockfile", "bun run build"]);
+    expect(web.steps[3]["working-directory"]).toBe("play/site");
+    expect(web.steps[3].run).toBe("bun run test");
+    expect(JSON.stringify(web)).not.toContain("test:physics");
+    for (const j of [api, web]) expect([j.needs, j.if, j["timeout-minutes"]]).toEqual(["tested", "needs.tested.outputs.skip != 'true'", 20]);
+    // the required check keeps its name, needs both, runs whatever they did, and is green only when both are
+    expect(checks.name).toBe("API and site");
+    expect(checks.needs).toEqual(["tested", "api", "site"]);
+    expect(checks.if).toBe("always()");
+    const gate = checks.steps[0];
+    expect(gate.env).toEqual({ TESTED: "${{ needs.tested.result }}", SKIP: "${{ needs.tested.outputs.skip }}", API: "${{ needs.api.result }}", SITE: "${{ needs.site.result }}" });
+    expect(lines(gate).slice(1)).toEqual([
+      '[ "$TESTED" = success ] || exit 1',
+      'if [ "$SKIP" = true ]; then [ "$API" = skipped ] && [ "$SITE" = skipped ] && exit 0; exit 1; fi',
+      '[ "$API" = success ] && [ "$SITE" = success ]',
+    ]);
+    // the physics are not in it: on main they'd hold it past the 13 minutes production's Main is green waits
+    expect(checks.needs).not.toContain("physics");
+  });
+  test("the site's tests: the required check's gate, run as a step: green only when the API and the site are, or both skipped for a tested tree", () => {
+    const gate = lines(p.jobs.checks.steps[0]).slice(1).join("\n");
+    const run = (TESTED: string, SKIP: string, API: string, SITE: string) =>
+      Bun.spawnSync(["bash", "-c", gate], { env: { TESTED, SKIP, API, SITE } }).exitCode === 0;
+    expect(run("success", "", "success", "success")).toBe(true);
+    expect(run("success", "false", "success", "success")).toBe(true);
+    expect(run("success", "true", "skipped", "skipped")).toBe(true);
+    for (const [a, b] of [["failure", "success"], ["success", "failure"], ["cancelled", "success"], ["success", "skipped"], ["skipped", "skipped"]])
+      expect([a, b, run("success", "", a, b)]).toEqual([a, b, false]);
+    expect(run("failure", "", "skipped", "skipped")).toBe(false);
+    expect(run("success", "true", "success", "failure")).toBe(false);
+  });
+  // intent 14dc8d5f: in main's run the physics held release.yml (it starts once main's whole run is done) for ten minutes
+  test("main's run holds no physics: Sandbox 2's physics run in physics.yml, on every push to main and on a pull request that changes them", () => {
+    // main's run: the called workflows hold no job of the physics, and nothing of them is named there
+    const main = yaml(".github/workflows/main.yml");
+    expect(Object.keys(main.jobs).sort()).toEqual(["play", "website"]);
+    for (const f of [".github/workflows/main.yml", ".github/workflows/play-checks.yml", ".github/workflows/website-checks.yml"]) {
+      expect([f, text(f).includes("test:physics")]).toEqual([f, false]);
+      for (const j of Object.values(yaml(f).jobs) as any[]) expect(j.name).not.toBe("Sandbox 2's physics");
+    }
+    // release.yml waits only for main's run
+    expect(yaml(".github/workflows/release.yml").on.workflow_run.workflows).toEqual(["main"]);
+    // physics.yml: a workflow of its own, not main
+    const ph = yaml(".github/workflows/physics.yml");
+    expect(ph.name).toBe("physics");
+    expect(ph.on.push).toEqual({ branches: ["main"] });
+    expect(ph.on.pull_request.branches).toEqual(["main"]);
+    expect(ph.on.pull_request.paths).toEqual(["play/site/src/lib/sandbox-2/**"]);
+    expect(ph.on.pull_request.types).toEqual(main.on.pull_request.types);
+    expect(Object.keys(ph.on).sort()).toEqual(["pull_request", "push"]);
+    expect(ph.permissions).toEqual({ contents: "read" });
+    const j = ph.jobs.physics;
+    expect(Object.keys(ph.jobs)).toEqual(["physics"]);
+    expect(j.name).toBe("Sandbox 2's physics");
+    expect(j["runs-on"]).toBe("ubuntu-24.04");
+    // a draft runs nothing, as in main's run
+    expect(j.if).toBe("github.event_name == 'push' || !github.event.pull_request.draft");
+    const run = j.steps.find((s: any) => s.name === "The physics");
+    expect(run["working-directory"]).toBe("play/site");
+    expect(lines(run)).toEqual(["bun install --frozen-lockfile", "bun run test:physics"]);
+    // not one of the checks main must pass for a deploy
+    expect(text(".github/actions/main-green/action.yml")).not.toContain("physics");
+    expect(text(".github/workflows/physics.yml")).not.toContain("secrets.");
+  });
+  test("the site's tests: gate.sh site runs the fast suite after the build, and the physics only for a change to them (select.ts)", () => {
+    const gate = text("play/avenbox/gate.sh");
+    const build = gate.indexOf('has site-build && step "play/site build" play/site bun run build');
+    const tests = gate.indexOf('has site-tests && step "play/site tests" play/site bun run test\n');
+    const physics = gate.indexOf(`has site-physics && step "play/site Sandbox 2's physics" play/site bun run test:physics`);
+    expect(build).toBeGreaterThan(-1);
+    expect(tests).toBeGreaterThan(build);
+    expect(physics).toBeGreaterThan(tests);
+    const plan = (part: string, changed: string) =>
+      Bun.spawnSync(["bash", resolve(ROOT, "play/avenbox/gate.sh"), part, "--plan"], { cwd: ROOT, stdout: "pipe", env: { ...process.env, GATE_CHANGED: changed } }).stdout.toString();
+    const fast = plan("site", "play/site/src/lib/stories/live.ts");
+    expect(fast).toContain("step site-build");
+    expect(fast).toContain("step site-tests");
+    expect(fast).not.toContain("step site-physics");
+    expect(fast).not.toMatch(/step (api|website)-/);
+    expect(plan("site", "play/site/src/lib/sandbox-2/wind.ts")).toContain("step site-physics");
+    expect(plan("all", "play/site/src/lib/sandbox-2/wind.ts")).toContain("step site-physics");
+    expect(plan("all", "play/site/src/lib/stories/live.ts")).not.toContain("step site-physics");
+    expect(plan("physics", "").trim().split("\n").slice(1)).toEqual(["  step site-physics"]);
+  });
+});
+
+// intent 14dc8d5f: ghcr.io refused one push of e5ddf0b2's image (permission_denied, nothing changed) and the deploy died
+describe("the image's push", () => {
+  const step = () => yaml(".github/workflows/production.yml").jobs.image.steps.find((s: any) => s.name === "Build and push");
+  /** the step's script run by bash -e (as GitHub runs it), with a docker that fails its first `fails` pushes */
+  function run(fails: number) {
+    const dir = mkdtempSync(join(tmpdir(), "push-"));
+    const log = join(dir, "log");
+    writeFileSync(join(dir, "docker"), `#!/usr/bin/env bash\necho "$*" >> "${log}"\nif [ "$1" = push ]; then n=$(grep -c '^push' "${log}"); [ "$n" -gt ${fails} ] || exit 1; fi\n`, { mode: 0o755 });
+    writeFileSync(join(dir, "sleep"), "#!/usr/bin/env bash\n", { mode: 0o755 });
+    const r = Bun.spawnSync(["bash", "-e", "-c", step().run], { env: { PATH: `${dir}:${process.env.PATH}`, IMAGE: "ghcr.io/x/y-play:abc", GITHUB_SHA: "abc" } });
+    const calls = readFileSync(log, "utf8").trim().split("\n").map((l) => l.split(" ")[0]);
+    return { code: r.exitCode, calls };
+  }
+  test("the image push is tried again: up to three times, the build once", () => {
+    expect(step().env).toEqual({ IMAGE: "${{ steps.tag.outputs.image }}" });
+    expect(run(0)).toEqual({ code: 0, calls: ["build", "push"] });
+    expect(run(1)).toEqual({ code: 0, calls: ["build", "push", "push"] });
+    expect(run(2)).toEqual({ code: 0, calls: ["build", "push", "push", "push"] });
+    expect(run(3)).toEqual({ code: 1, calls: ["build", "push", "push", "push"] });
   });
 });

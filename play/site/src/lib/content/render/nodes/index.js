@@ -26,16 +26,17 @@ SunLight.registerNode(SunLightNode);
 import {
 	If, abs, atan, int, uniformArray, cameraPosition, cameraViewMatrix, clamp, diffuseColor, dot, float, floor, fract, frontFacing, instanceColor, length, mat3, materialMetalness, materialNormal,
 	materialOpacity, materialRoughness, max, mix, mod, nodeObject, normalLocal, normalView, normalize, output, positionLocal, positionView, positionViewDirection, positionWorld, pow,
-	screenCoordinate, select, sin, smoothstep, texture, uniform, uv, varying, vec2, vec3, vec4
+	screenCoordinate, depth, select, sin, smoothstep, texture, uniform, uv, varying, vec2, vec3, vec4
 } from 'three/tsl';
 
 // ---------------------------------------------------------------- the pieces
 
-/** an attribute declared whether the geometry has it or not (unbound it reads 0, as three's own `aFade` did) */
+/** an attribute the geometry may not have: read where it has it, else 0, as three's own `aFade` read (three's
+ *  AttributeNode, without its warning). Never declared without its buffer: WebGPU would refuse the pipeline, or read
+ *  the attributes after it from the wrong places (intent c1bee1f8) */
 class Always extends AttributeNode {
 	generate(b) {
-		const type = this.getNodeType(b);
-		return b.shaderStage === 'vertex' ? b.getAttribute(this.getAttributeName(b), type).name : varying(this).build(b, type);
+		return b.hasGeometryAttribute(this.getAttributeName(b)) ? super.generate(b) : b.generateConst(this.getNodeType(b));
 	}
 }
 export const always = (name, type) => nodeObject(new Always(name, type));
@@ -132,33 +133,14 @@ export const ours = (Base) =>
 		/** @type {any} */ cut = null;
 		/** @type {any} */ cap = null;
 		gloss = 1;
-		setup(builder) {
-			// a matrix takes four attribute places: a GLSL builder counts one
-			if (!builder.ours) {
-				builder.ours = true;
-				const list = builder.getAttributes.bind(builder);
-				builder.getAttributes = (stage) => {
-					let at = 0;
-					return list(stage).replace(/layout\( location = \d+ \) in (\w+)/g, (_, t) => `layout( location = ${(at += t === 'mat4' ? 4 : 1) - (t === 'mat4' ? 4 : 1)} ) in ${t}`);
-				};
-			}
-			return super.setup(builder);
-		}
 		setupPosition(builder) {
 			const o = builder.object;
 			if (!o.isInstancedMesh) return super.setupPosition(builder);
-			// each mesh's own `instanceMatrix` and `instanceColor`, bound by the renderer as three's own materials take them
-			o.isInstancedMesh = false;
-			try {
-				super.setupPosition(builder);
-			} finally {
-				o.isInstancedMesh = true;
-			}
-			const m = always('instanceMatrix', 'mat4');
-			const c0 = m.element(0).xyz, c1 = m.element(1).xyz, c2 = m.element(2).xyz;
-			positionLocal.assign(grown(m.mul(vec4(positionLocal, 1)).xyz));
-			normalLocal.assign(mat3(c0, c1, c2).mul(normalLocal.div(vec3(dot(c0, c0), dot(c1, c1), dot(c2, c2)))));
-			if (o.instanceColor) instanceColor.assign(always('instanceColor', 'vec3'));
+			// three's own instancing (each mesh's `instanceMatrix` and `instanceColor`, its own render object on the
+			// WebGPURenderer), then a cover's growth on the placed position (intent c1bee1f8: the WebGL handler needed the
+			// matrix as a mat4 attribute, which WGSL refuses)
+			super.setupPosition(builder);
+			positionLocal.assign(grown(positionLocal));
 			return positionLocal;
 		}
 		/**
@@ -317,6 +299,22 @@ export function blurMaterial(map) {
 export function poolMaterial(map, color, opacity) {
 	const m = new MeshBasicNodeMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false });
 	m.opacityNode = drawn(map).a.mul(materialOpacity);
+	m.isKit = true;
+	return m;
+}
+
+/**
+ * The contact shadow's depth picture (as three's MeshDepthMaterial drew it: white near the camera, 1 - depth), a node
+ * material WebGPU draws (intent c1bee1f8: it takes no classic depth material). Given a cut-out part's material, its
+ * picture's alpha cuts what that cuts.
+ * @param {THREE.Material & { map?: THREE.Texture | null, alphaMap?: THREE.Texture | null }} [of]
+ */
+export function depthMaterial(of) {
+	const m = new MeshBasicNodeMaterial({ depthTest: false, depthWrite: false, toneMapped: false });
+	m.colorNode = vec3(float(1).sub(depth));
+	if (of?.map) m.opacityNode = texture(of.map).a;
+	else if (of?.alphaMap) m.opacityNode = texture(of.alphaMap).g;
+	if (of) (m.alphaTest = of.alphaTest), (m.side = of.side);
 	m.isKit = true;
 	return m;
 }
