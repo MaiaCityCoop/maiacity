@@ -1,7 +1,12 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
-- smoke 53f3bada9 (7af6e162 live): running since 15:58.
+- **smoke 53f3bada9: OK** (7af6e162 live; 15:49–15:54, 332 s; Chromium on ANGLE Metal, warm profile `smoke-main`).
+  Every page up and drawn (none blank): Sandbox 1–5; viewers grass, goat, forklift, banana, potted olive, shops, elder
+  woman, Old City world; factories; game map. Sandbox 1 settled quiet in 71 s (108 pictures, a fresh profile's first
+  load). Frames: near 29.1 ms (gpu-bound), mid 41.8 (p95 66.7, cpu-bound), far 18.0. Errors: one 401 per page (the
+  read-only proxy, the harness's), and Sandbox 1/5's ambience `currentTime` page error (old, not this deploy's) → filed
+  as fix intent **fb220a9c**. Old City's viewer never reported ready (a world sets no hero), but drew (60 fps).
 
 ## THE ROLE NOW (Samuel 2026-11-09: the Mac watches GPU work, it doesn't gate it)
 1. A smoke run on main after every GPU deploy (`GET /api/version` moves and the merged commit names a GPU intent): every
