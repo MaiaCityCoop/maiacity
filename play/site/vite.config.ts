@@ -7,5 +7,6 @@ export default defineConfig({
 	tsconfig: './tsconfig.json',
 	plugins: [sveltekit()],
 	server: { proxy: { '/api': process.env.PLAY_API || 'http://localhost:3911' } },
-	test: { include: ['src/**/*.test.{ts,js}'], environment: 'node' }
+	// the sandboxes' own tests are bun's (`bun test` in src/lib/content/sandbox-6, sandbox-7), not vitest's
+	test: { include: ['src/**/*.test.{ts,js}'], exclude: ['src/lib/content/sandbox-6/**', 'src/lib/content/sandbox-7/**', 'node_modules/**'], environment: 'node' }
 });
