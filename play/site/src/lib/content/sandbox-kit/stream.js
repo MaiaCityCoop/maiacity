@@ -1,22 +1,9 @@
-// THE STREAM — what a world builds, decided by what is seen. One scheduler for every world, game and sandbox: a world
-// hands it the heavy things it can build (a dome's inside, a district, a building's rooms), each with where it stands
-// and how big it is, and says each frame what is looking — the player's camera, or the studio's shot as the camera
-// moves through it. The stream builds what those views see, the biggest on screen first, one build at a time, within
-// the world's budget, and lets go of what no view wants any more, the longest unseen first.
-//
-// - Seen, not near: a thing is wanted when it is inside a view's frustum (within `far`), or within the view's `near`
-//   (a player who turns round finds what stands round them built; a shot's exact camera path needs no such margin).
-// - On screen first: among the wanted, the one that covers most of the picture (its radius over its distance).
-// - A budget, never exceeded: the cost of all that is built and building stays within it; what is let go first is
-//   what was wanted longest ago, never something pinned (the shots ahead) or wanted now.
-// - One build at a time (`concurrency`): a build is a burst of work on the page's thread; two at once halve each
-//   other's speed and double the peak memory. A build nobody wants any more finishes, unless something wanted waits
-//   for its turn; while nothing wanted waits, the nearest is built ahead into spare room (`ahead`) — unless shots are
-//   pinned: a film knows every view it will need, and a build none of them wants is only work and garbage while it plays.
-// - `ready(views)`: a film shot waits for exactly what its camera path sees, and nothing else.
-//
-// Plain JavaScript and no THREE of its own: a view's frustum is anything with `intersectsSphere` (THREE.Frustum),
-// so the stream runs in a test as it runs in a world.
+// What a world builds, decided by what is seen: one scheduler for every world. A world hands it the heavy things it can
+// build, each with where it stands and how big it is, and says each frame what is looking (the player's camera, or a
+// shot's); the stream builds what those views see, the biggest on screen first, within the world's budget, and lets go
+// of what no view wants, the longest unseen first. One build at a time (`concurrency`): a build is a burst of work on
+// the page's thread, and two at once halve each other's speed and double the peak memory. No THREE of its own (a
+// frustum is anything with `intersectsSphere`), so it runs in a test as in a world.
 
 /**
  * @typedef {{ x: number, y: number, z: number, frustum?: { intersectsSphere(s: { center: { x: number, y: number, z: number }, radius: number }): boolean, containsPoint(p: { x: number, y: number, z: number }): boolean } | null, near?: number }} View

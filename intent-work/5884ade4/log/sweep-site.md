@@ -96,3 +96,6 @@ name and body, `// the next thing` lines.
     step-by-step `//` lines; `crowd.js`'s header and the docs of its sets and helpers (the stale
     `maia/content/film/warm.js` gone with it); `prepare.js`'s and `lower.js`'s headers (the LifeTrac's measured
     437,713 corners kept). Its one "as any other" went with the header.
+16. **`content/sandbox-kit`** (52): the headers of `film.js` (the film contract's three rules kept), `walker.js`,
+    `stream.js` (why one build at a time kept) and `universe.js` (WebGPU's one-pixel points kept), each retelling its
+    module; the legacy `maia/content/film` names went with them.

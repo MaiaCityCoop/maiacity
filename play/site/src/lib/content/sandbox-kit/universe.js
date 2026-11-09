@@ -1,18 +1,7 @@
 /**
- * THE UNIVERSE — the one sky primitive every world, sandbox and the asset viewer is under (./sky.js puts it up).
- *
- * The air by day is the Preetham scattering model (Rayleigh and Mie, turbidity, the sun's disc), our own TSL fork of
- * three's SkyMesh; at dusk the blue hour and the glow where the sun went down; at night the dark blue air, the full
- * moon and the stars, which come out only once the sun is far enough below the horizon. A world's mood (a smog, an
- * overcast) is laid over it as a look.
- *
- *   createUniverse()   the dome and the stars (instanced sprites: WebGPU draws points a pixel wide), drawn at the far
- *                      plane round the camera; `set` them for an hour
- *   horizonRing(sun)   the colour of the air at the horizon all round, for the haze: what is far melts into the sky
- *   celestial(hour)    how far the stars have turned; groundStars(hour) their sphere over the ground
- *
- * Everything is set from the hour and the camera alone (a fixed star catalogue from a fixed seed, clouds that drift
- * with the hour), so a film renders the same pixels every time.
+ * The one sky every world, sandbox and the asset viewer is under (./sky.js puts it up): by day the Preetham scattering
+ * model (our TSL fork of three's SkyMesh), at dusk the blue hour, at night the moon and the stars (instanced sprites:
+ * WebGPU draws points a pixel wide). Set from the hour and the camera alone, so a film renders the same pixels every time.
  */
 import * as THREE from 'three';
 import { NodeMaterial } from 'three/webgpu';

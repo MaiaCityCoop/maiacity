@@ -1,30 +1,13 @@
 /**
- * THE FILM CAMERA'S HOLD ON A WORLD — what makes any sandbox a set the studio can shoot.
- *
- * The film camera (maia/content/film: the studio's world viewer, the Mac app's plate renderer, the shoot CLI) renders a
- * shot frame by frame, every frame set from the shot alone — the camera, the hour, the world's clock, the lights —
- * never from the frame before it, so the same shot renders the same pixels every time. It does that through one
- * contract, the same for every world: `window.__world`, made here by `connectFilm`.
- *
- * A world built on the kit hands over its stage (renderer, scene, camera), its sky, its camera controller (the
- * walker, the orbit rig, or a bare `createCameraHold`) and whatever else it animates, and keeps three rules in its
- * own frame loop while a film holds it:
- *   · draw nothing itself while `filmDraws()` (the film draws the canvas, only when asked);
- *   · run its animations on `worldTime()` when the film sets it (the shot's clock), else on its own;
- *   · keep its resolution while `filmHoldsSize()` (`stage.adapt(now, filmHoldsSize())`).
- *
- * A shot names its world (../game/film/worlds.js): `world.sandbox`, and `world.area` where a sandbox has more than one.
- * Each sandbox's film page (/games/<sandbox>/?film) mounts the world for the area and calls `connectFilm`.
- *
- * A shot's camera may ride in one of the world's own frames (maia/content/game/film/camera.js `frame`: the van, the pickup): the
- * world names them (`frames`, each where it stands now), and the pose is put in it once the world has come to the
- * shot's moment. A shot of the world's own camera (camera kind `world`) lets go of the camera: the world's controls
- * (its coded moves) have it. A game playing a film of its own (MaiaCity V1's intro) aims its camera with the same
- * `aim` and `poseIn`, so a shot looks the same in the game, the studio and the plates.
- *
- * A shot may move the world's moving parts (../game/film/worlds.js `parts`: the van along its road, the tent pitched):
- * their values at the shot's moment go to the world through one hook (`parts`), once the world has come to it and
- * before the camera is put in a frame, so a camera riding in the van rides where the shot put the van.
+ * The film camera's hold on a world, what makes any sandbox a set the studio can shoot: one contract for every world,
+ * `window.__world`, made by `connectFilm`. A shot is rendered frame by frame, each frame set from the shot alone (the
+ * camera, the hour, the world's clock, the lights), so the same shot renders the same pixels every time. While a film
+ * holds it, a world on the kit
+ *   · draws nothing itself while `filmDraws()` (the film draws the canvas, only when asked);
+ *   · runs its animations on `worldTime()` when the film sets it (the shot's clock), else on its own;
+ *   · keeps its resolution while `filmHoldsSize()` (`stage.adapt(now, filmHoldsSize())`).
+ * A shot names its world (../game/film/worlds.js); its camera may ride in one of the world's own frames (the van),
+ * put there once the world's moving parts (`parts`) have come to the shot's moment.
  */
 import * as THREE from 'three';
 
