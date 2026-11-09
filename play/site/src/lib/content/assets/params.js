@@ -53,3 +53,38 @@ export function valuesOf(params, given = {}, args = []) {
 	});
 	return out;
 }
+
+/** the shape of a parameter's id, the same as the card's keys */
+const KEY = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/;
+
+/** A recipe's arguments, its parameters' values in their order. @param {Param[]} params @param {Values} values */
+export const argsOf = (params, values) => params.map((p) => values[p.id]);
+
+/**
+ * The query of a ref: its parameters, sorted by id, as text (`seed=maia&stage=9`), so the same values always read the
+ * same; empty for none.
+ * @param {Record<string, unknown> | undefined} values
+ */
+export function queryOf(values) {
+	if (!values) return '';
+	const q = new URLSearchParams();
+	for (const k of Object.keys(values).sort()) q.append(k, String(values[k]));
+	return q.toString();
+}
+
+/**
+ * The parameters a ref's query names, as text; undefined for none. Throws for an id out of shape or one named twice.
+ * @param {string | undefined} query
+ * @returns {Record<string, string> | undefined}
+ */
+export function paramsIn(query) {
+	if (!query) return undefined;
+	/** @type {Record<string, string>} */
+	const out = {};
+	for (const [k, v] of new URLSearchParams(query)) {
+		if (!KEY.test(k)) throw new Error(`not a parameter: ${k.slice(0, 40)}`);
+		if (Object.hasOwn(out, k)) throw new Error(`parameter ${k} named twice`);
+		out[k] = v;
+	}
+	return Object.keys(out).length ? out : undefined;
+}

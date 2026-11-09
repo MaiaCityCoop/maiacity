@@ -16,7 +16,7 @@ const TIME = 4000;
 const MOST = 4_000_000;
 const EPS = 1e-5;
 /** the most material slots of one mesh whose looks are written down */
-const SLOTS = 16;
+export const SLOTS = 16;
 
 /** the controls an object offers: each an id, the function that sets it (0 … 1), how many samples, whether a choice */
 export function offered(u) {
@@ -84,7 +84,7 @@ export function putLight(l, v, at) {
 }
 
 /** a node's materials, one for each slot */
-const materialsOf = (o) => (!o.isMesh && !o.isLine && !o.isPoints ? [] : Array.isArray(o.material) ? o.material : o.material ? [o.material] : []);
+export const materialsOf = (o) => (!o.isMesh && !o.isLine && !o.isPoints ? [] : Array.isArray(o.material) ? o.material : o.material ? [o.material] : []);
 
 /** an attribute's numbers, three to a vertex */
 export const flat = (a) => {
