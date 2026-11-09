@@ -3,8 +3,8 @@
  * A RECIPE'S OWN LOOK, BUILT (intent a5faafad, GPU 14/14): a node graph a recipe gave its material, as plain data the
  * page has checked (../../assets/box/graph.js `checkGraph`, the one allowlist), built into TSL nodes here from that
  * list alone: each operation by its name from `BUILD`, nothing else, no code of the asset's ever run. A graph is
- * built once, its outputs sharing its nodes, so a value used many times is worked out once per shader stage and the
- * shader grows with the graph's nodes, never with its paths or its outputs.
+ * built once, each node a variable of its own (`toVar`), its outputs sharing them, so a value used many times is
+ * worked out once per shader stage and the shader grows with the graph's nodes, never with its paths or its outputs.
  *
  * `applyGraph(n, graph)` gives a node material of ours (./index.js `nodeOf`) the graph's outputs: its colour, glow,
  * opacity, roughness, metalness and its vertices' place. Everything else it draws as before (its lights, its shadow,
@@ -66,9 +66,9 @@ export const BUILD_OPS = Object.keys(BUILD);
 const wide = ([, ins, types, t], f) => f(...ins.map((v, k) => as(v, types[k], t)));
 
 /**
- * A checked list's nodes built once, with their types: each value one TSL node shared by every node and output that
- * reads it, so three works it out once per shader stage (a value read twice or more is given a variable of its own:
- * TSL's temporaries), never once per path or per output. A loop is a function of its own, its value carried in a
+ * A checked list's nodes built once, with their types: each value a variable of its own (`toVar`; TSL writes a join or
+ * a swizzle out again at every use otherwise), shared by every node and output that reads it, so it is worked out once
+ * per shader stage, never once per path or per output. A loop is a function of its own, its value carried in a
  * variable, its body built inside it.
  */
 function built(nodes, m, carried) {
@@ -82,7 +82,7 @@ function built(nodes, m, carried) {
 			continue;
 		}
 		const t = typeOf(x, ts);
-		values.push(x.op === 'loop' ? looped(x, ins[0], ts[0], m) : BUILD[x.op](x, ins, ts, t, m));
+		values.push(x.op === 'loop' ? looped(x, ins[0], ts[0], m) : BUILD[x.op](x, ins, ts, t, m).toVar());
 		types.push(t);
 	}
 	return { values, types };

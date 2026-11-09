@@ -8,10 +8,16 @@ describe("a recipe's graphs at propose time", () => {
     expect(uncommented('a /* x */ b // c\nd "http://x" /* open')).toBe('a  b \nd "http://x" ');
     expect(() => heldGraphs("module.exports.recipe = 1; // onBeforeCompile\n/* ShaderMaterial */")).not.toThrow();
   });
-  test("a source of many unclosed comments is read in linear time", () => {
-    const big = "module.exports.recipe = function(){};\n" + ("/* ".repeat(30) + "\n").repeat(60_000);
-    const t = performance.now();
-    heldGraphs(big);
-    expect(performance.now() - t).toBeLessThan(1000);
-  });
+  for (const [what, line] of [
+    ["unclosed block comments", "/* ".repeat(30)],
+    ["line comments and no block", "// x"],
+    ["closed block comments and no line", "/* a */ x"],
+    ["URLs", "a://b a://b a://b"],
+  ])
+    test(`a source of many ${what} is read in linear time`, () => {
+      const big = "module.exports.recipe = function(){};\n" + `${line}\n`.repeat(Math.ceil(2_000_000 / (line.length + 1)));
+      const t = performance.now();
+      heldGraphs(big);
+      expect(performance.now() - t).toBeLessThan(1000);
+    });
 });

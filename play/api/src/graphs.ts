@@ -41,8 +41,11 @@ const OWN = [
  */
 export function uncommented(s: string): string {
   let out = "";
+  // the next /* and // at or after i, each searched for again only once i has passed it: one pass over the text
+  let block = -2, line = -2;
   for (let i = 0; i < s.length; ) {
-    const block = s.indexOf("/*", i), line = s.indexOf("//", i);
+    if (block !== -1 && block < i) block = s.indexOf("/*", i);
+    if (line !== -1 && line < i) line = s.indexOf("//", i);
     const next = block < 0 ? line : line < 0 ? block : Math.min(block, line);
     if (next < 0) return out + s.slice(i);
     // a // after a : is a URL's, kept
@@ -52,15 +55,9 @@ export function uncommented(s: string): string {
       continue;
     }
     out += s.slice(i, next);
-    if (next === block) {
-      const end = s.indexOf("*/", next + 2);
-      if (end < 0) return out;
-      i = end + 2;
-    } else {
-      const end = s.indexOf("\n", next + 2);
-      if (end < 0) return out;
-      i = end;
-    }
+    const end = next === block ? s.indexOf("*/", next + 2) : s.indexOf("\n", next + 2);
+    if (end < 0) return out;
+    i = next === block ? end + 2 : end;
   }
   return out;
 }

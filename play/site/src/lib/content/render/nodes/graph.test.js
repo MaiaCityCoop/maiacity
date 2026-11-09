@@ -158,4 +158,17 @@ describe('a graph built', () => {
 		const five = glslOf(built({ format: 1, nodes, out: { roughness: last, metalness: last, opacity: last, color: last, emissive: last } })).fragmentShader.length;
 		expect(five).toBeLessThan(one * 1.2);
 	});
+	it('a vector made again and again from the one before is worked out once (join and swizzle too)', () => {
+		const nodes = [{ op: 'positionLocal' }];
+		for (let k = 0; k < 30; k++) {
+			nodes.push({ op: 'swizzle', in: [nodes.length - 1], mask: 'x' });
+			const s = nodes.length - 1;
+			nodes.push({ op: 'join', in: [s, s, s] });
+		}
+		const last = nodes.length - 1;
+		const p = glslOf(built({ format: 1, nodes, out: { color: last, emissive: last, position: last } }));
+		valid('joins', p);
+		expect(p.fragmentShader.length).toBeLessThan(60_000);
+		expect(p.vertexShader.length).toBeLessThan(60_000);
+	});
 });
