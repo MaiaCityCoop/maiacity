@@ -95,7 +95,7 @@ async function open(site) {
 	const t0 = Date.now();
 	await page.goto(`${site.url}/sandbox-1/`, { waitUntil: 'domcontentloaded' });
 	await page.waitForFunction(() => window.__walker && window.__assets && window.__world, null, { timeout: 10 * 60e3 });
-	const ok = await quiet(page, 10 * 60e3);
+	const ok = await quiet(page, 4 * 60e3); // capped: since intent 2 Sandbox 1 keeps taking pictures for minutes
 	console.log(`${site.name}: Sandbox 1 up and ${ok ? 'quiet' : 'still building'} after ${Math.round((Date.now() - t0) / 1000)} s`);
 	return { ctx, page };
 }
@@ -151,7 +151,7 @@ for (const site of sites) {
 	for (const v of VIEWS) {
 		await page.evaluate((v) => window.__walker.place(v.x, v.z, v.yaw, v.pitch), v);
 		await page.waitForTimeout(1500);
-		const ok = await quiet(page, 3 * 60e3);
+		const ok = await quiet(page, 3 * 60e3); // capped likewise
 		await page.waitForTimeout(3000);
 		const meter = await page.evaluate(() => window.__meter.sample(4));
 		const png = `${out}/${site.name}-${v.name}.png`;
@@ -167,7 +167,7 @@ for (const site of sites) {
 		results.pose = pose;
 		await page.evaluate((p) => window.__walker.place(p.x, p.z, p.yaw, p.pitch), pose);
 		await page.waitForTimeout(1500);
-		await quiet(page, 3 * 60e3);
+		await quiet(page, 3 * 60e3); // capped likewise
 		await page.waitForTimeout(2000);
 		const still = async (t, path) => {
 			await page.evaluate((t) => { window.__worldTime = t; window.__world.film.advance(t); }, t);

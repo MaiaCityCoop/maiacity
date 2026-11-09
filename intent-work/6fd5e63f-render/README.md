@@ -6,12 +6,12 @@ Intent 6fd5e63f-e195-4123-8604-c4f87c33869c (GPU 6/14), pull request #2180. Ever
 the page's own TSL (`render/foliage.js`, `render/wind.js`). One wind per world, with gust fronts that travel, each plant
 on its own phase, trunks still, crowns bending with their length kept, and tips fluttering near the eye. Leaves and grass
 are two-sided, darker toward the root, and glow with the sun behind them. The census (avenBOX) counts the same draws and
-triangles as intent 5's head (the steady census: near 10,400,324/5,665; mid 13,718,176/4,244; far 2,639,411/1,782). This job checks what the census can't:
+triangles as main, a little fewer (the steady census: near 10,523,087/5,665; mid 13,840,939/4,244; far 2,762,180/1,782). This job checks what the census can't:
 frame time, the film, and that a frame repeats.
 
-**The head is the change stacked on intent 5** (`intent/6fd5e63f-on-5b` @ 3e5b148f8; 11ead007's cover stream e40488c, itself on
-cb16b7a5's TSL render kit 90ef0ae). The looks are drawn on the kit's TSL materials, and the kit is on main now, the cover stream not yet. So three trees are measured: **main** 3a60bb3 (base, with cb16b7a5's kit),
-**kit** e40488c (intent 5's head, what the change sits on) and **head** 3e5b148. head − kit is this intent's own cost;
+**The head is the change stacked on intent 5** (PR #2180's head, `intent/6fd5e63f-living-plants` @ bf0529e83, the stack on intent 5's 5332a67 merged in). The looks are
+drawn on the kit's TSL materials (on main since cb16b7a5), the cover stream (11ead007) not on main yet. So three trees are measured: **main** 6a01d98 (base),
+**kit** 5332a67 (intent 5's head, what the change sits on) and **head** bf0529e. head − kit is this intent's own cost;
 head − main is what c7 bounds.
 
 **Run:** `PLAY_MCP_TOKEN=play_… bash intent-work/6fd5e63f-render/run.sh` (bun, node with Playwright's Chromium, ffmpeg).
@@ -28,6 +28,8 @@ QUIET), then runs `wind.mjs`, one site after the other:
    `film.advance(t)`), in `out/film-head.mp4`.
 4. On head: t = 7.25 s drawn, then 3.0 s and 15.5 s, then 7.25 s again. The two PNGs' SHA-256 must be equal, and
    7.75 s must differ (the wind moves).
+
+**Settling** is capped (4 min at open, 3 min a view): since intent 2 Sandbox 1 keeps taking pictures and is never quiet.
 
 **Pass (c7):** in the film, trunks still, branches bending, tips fluttering near, and gust fronts visibly travelling
 across the stand; backlit leaves glowing (against `main-golden.png`, compare Poly Haven's CC0 evening_field for the

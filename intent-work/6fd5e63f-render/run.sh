@@ -10,10 +10,10 @@ set -euo pipefail
 ROOT=$(git rev-parse --show-toplevel)
 JOB="$ROOT/intent-work/6fd5e63f-render"
 OUT="$JOB/out"
-MAIN=3a60bb3b19003d772ad53b16b648d6aba23a3d8b   # main (r187, one sky, the steady census, cb16b7a5's render kit in TSL)
-KIT=e40488ce8a5ca1ff0909c42368ac39a72c9cdab0    # intent 11ead007's head (one cover stream, on cb16b7a5's render kit in TSL)
-HEAD=3e5b148f8cb4dc1dc3e1ee38dbcf6232b8fd797e   # intent/6fd5e63f-on-5b: this intent's change on intent 5
-git -C "$ROOT" fetch -q origin main intent/11ead007-cover-stream intent/6fd5e63f-on-5b intent-work/main-baseline-render
+MAIN=6a01d98c8781ecd2adec156105489b672a386405   # main (r187, one sky, steady census, cb16b7a5's kit, db87a28f's ground)
+KIT=5332a67e096363a576c808f9b5844bb73b8d80d9    # intent 11ead007's head (one cover stream, on cb16b7a5's render kit in TSL)
+HEAD=bf0529e83d52ad902cce040b430f454177b43179   # intent/6fd5e63f-living-plants: PR #2180's head (the stack on intent 5 merged in)
+git -C "$ROOT" fetch -q origin main intent/11ead007-cover-stream intent/6fd5e63f-living-plants intent-work/main-baseline-render
 mkdir -p "$OUT"
 git -C "$ROOT" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$JOB/determinism.mjs"
 tree() { # tree <dir> <commit>
