@@ -1,5 +1,10 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 10:40 Berlin
+Loop (chain13): #8 ends (its last head views now) → **660ad67f** (render ceb22e982, its PR head e716813cf with the
+source-compare fix) → #13 run 2 → #6 run 2 → #8's c7 re-run when relayed → 0b4c007b's calibration → 544485e2's. I record
+#8's c8 from this run as it ends.
+
 ## 10:20 Berlin
 - The loop now checks for 660ad67f's job before each next job and runs it first once its run.sh no longer uses
   `vite preview` (chain12; generic runner: fetch intent-work/660ad67f-render, `bash …/run.sh`, push out/).
