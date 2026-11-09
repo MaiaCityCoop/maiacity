@@ -6,7 +6,7 @@
  *
  *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-3|worlds] [--view near|mid|far|open|all] [--at <commit>]
  *                                   [--asset <uuid>] [--inputs <dir> | --live] [--record] [--json <file>] [--copies]
- *                                   [--renderer webgl|webgpu|webgl2]
+ *                                   [--renderer webgl|webgpu|webgl2] [--smoke]
  *
  * --world         Sandbox 1 (the village: near, mid, far), Sandbox 3 (the old city) or the worlds view (a world asset:
  *                 --asset names it by its UUID, else the first world play lists), the last two as they open (`open`)
@@ -19,6 +19,8 @@
  * --live          read play live (play.maia.city with PLAY_MCP_TOKEN, the header to play only), nothing pinned
  * --json <file>   every view's census as JSON (each copy, each frame, the totals)
  * --copies        a table of each kind's copies drawn as shapes, the costliest first
+ * --smoke         no count: the world on three's own WebGPURenderer (its WebGL 2 backend over a context that only
+ *                 answers), its views walked, and every error its code logged or threw printed; exit 1 if any (c1bee1f8)
  * --renderer      the switch's backend asked of the page (`?renderer=`, intent c1bee1f8): `webgpu` and `webgl2` counted
  *                 as WebGPURenderer draws (./census/counting.js CountingWebGPURenderer), `webgl` as WebGLRenderer; left
  *                 out, the page's own default. A commit from before the switch (--at) draws with WebGLRenderer whatever
@@ -80,9 +82,20 @@ const { setup } = await import('./census/setup');
 // the world's inputs pinned (./census/inputs/) unless asked to read play live: a census needs no token, and counts the
 // same world today as when it was pinned
 const live = argv.includes('--live');
-setup({ renderer: arg('--renderer'), root: tree?.root, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record'), cache: CACHE });
-const { censusOf, VIEWS_OF } = await import('./census/run');
+const smoke = argv.includes('--smoke');
+setup({ real: smoke, renderer: arg('--renderer'), root: tree?.root, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record'), cache: CACHE });
+const { censusOf, smokeOf, VIEWS_OF } = await import('./census/run');
 const views = view === 'all' ? VIEWS_OF[world] : (view.split(',') as typeof VIEWS_OF[typeof world]);
+if (smoke) {
+	const s = await smokeOf({ world, views, asset: arg('--asset'), log: (x) => console.error(x) });
+	for (const v of s.views) console.log(`${world} ${v.view}: ${v.frames} frames on WebGPURenderer (WebGL 2 backend), ${v.draws} draws a frame`);
+	console.log(`${s.shaders} shaders compiled`);
+	for (const e of s.errors) console.log(`\n✗ ${e.times}× ${e.message}`);
+	console.log(`\nsmoke: ${s.errors.length ? `${s.errors.length} distinct error${s.errors.length > 1 ? 's' : ''}` : 'no error'}`);
+	const json = arg('--json');
+	if (json) writeFileSync(json, JSON.stringify({ world, smoke: true, ...s }));
+	process.exit(s.errors.length ? 1 : 0);
+}
 const t0 = performance.now();
 const got = await censusOf({ world, views, asset: arg('--asset'), log: (s) => console.error(s) });
 const { CountingRenderer } = await import('./census/counting.js');
