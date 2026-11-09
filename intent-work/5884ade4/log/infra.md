@@ -175,3 +175,9 @@ committed before and as now, every call they make logged and diffed):
 - Pinned: `gate.sh --all --plan` unchanged (workflows.test.ts's gate test green), `gate.sh site-tests --plan` names
   the one step. A full vitest run did not finish here within 25 minutes while other builders' vitest runs shared the
   machine; the known 5 failures (old-city.test.ts, decisions.md) showed in the first minute. Fixing those is fix 8's.
+
+## 13. tools/ground-sets on bun (infra F6; infra#49)
+
+- package-lock.json → bun.lock (`bun install`, the same three pinned versions: @noble/hashes 2.4.0, ktx2-encoder
+  0.6.0, sharp 0.34.5); make.mjs's usage line says `bun install`. It still runs under node: sharp and ktx2-encoder
+  import there and under bun.
