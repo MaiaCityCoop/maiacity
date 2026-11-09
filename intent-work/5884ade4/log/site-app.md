@@ -18,3 +18,12 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
    the Stories list's covers and the Library's links use `fileUrl`; the Library's document view and the board's source
    diff use `fileText`, so both are now held to the hash (the board's read was not; the Library's showed an error
    page's body as the document). Removes site-app#11 outside StoryPlayer. Pinned by the build and svelte-check.
+5. **The Stories player's inputs load in `lib/stories/inputs.ts`.** The compositions, the live shots' asset versions,
+   the world shots' worlds and guests, and the files the sealed frame asks for (`fileOf`) moved out of
+   StoryPlayer.svelte, read through `api`, `fileText`, `fileBlob` and `siteBlob` (lib/api.ts); the vendor files by
+   package specifier where the package exports them (gsap, the font), and `@hyperframes/core` declared in package.json
+   (its runtime is not in its exports, so it is still read from its folder). An input play cannot give is still left
+   out (its shot shows its still, as compose.ts designs), now with a warning naming it instead of nothing. Removes
+   site-app#24 (loading), #28, StoryPlayer's part of #11 and #35. Pinned by the new `inputs.test.ts` (fetch mocked:
+   compositions held to their hash, a version's own or default variant's recipe, pieces, a failure named) and
+   `world-build.test.ts` (the player's failure and progress texts).

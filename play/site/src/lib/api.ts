@@ -48,6 +48,13 @@ async function file(hash: string, init?: RequestInit) {
 	return r;
 }
 
+/** a file the site itself serves (a frozen engine, a font), as a blob */
+export async function siteBlob(url: string) {
+	const r = await fetch(url, { credentials: 'same-origin' });
+	if (!r.ok) throw new ApiError(`${url}: HTTP ${r.status}`, r.status);
+	return r.blob();
+}
+
 export const fileBlob = (hash: string, init?: RequestInit) => file(hash, init).then((r) => r.blob());
 export const fileBytes = (hash: string, init?: RequestInit) => file(hash, init).then((r) => r.arrayBuffer());
 

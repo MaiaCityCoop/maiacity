@@ -20,11 +20,9 @@
 <script lang="ts">
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { clipAt, clipsOf, clock, cueOf, LINK, linkedOf, moodLevel, sectionsOf, shotEdge, spansOf, type Links, type Notes, type Shot, type StoryBody, type Track, type Voice } from './timeline';
-	import { compose, feed, FRAME, LIVE_BEFORE, seal, VENDOR } from './compose';
-	import { hashText } from '$lib/content/game/hash.js';
-	import { enginesOf, pathOf } from '$lib/kernel/engines.js';
-	import type { Live, LiveAsset, World, WorldAsset } from './live';
-	import fontUrl from '../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
+	import { compose, feed, FRAME, seal } from './compose';
+	import { fileOf, inputsOf } from './inputs';
+	import { fileUrl } from '$lib/api';
 
 	let { story, compact = false, keys = true, list, head, side }: { story: StoryBody & { id?: string; title?: string; number?: number | null; version?: string; links?: Links | null }; compact?: boolean; keys?: boolean; list?: Snippet; head?: Snippet; side?: Snippet } = $props();
 
@@ -85,76 +83,11 @@
 		const [w, h] = (story?.format ?? '9:16').split(':').map(Number);
 		return w > 0 && h > 0 ? w / h : 9 / 16;
 	});
-	const frameUrl = (h: string | null | undefined) => (h ? `/api/files/${h}` : '');
+	const frameUrl = (h: string | null | undefined) => (h ? fileUrl(h) : '');
 
 	// ---- the one engine: HyperFrames' player, its frame play's
 	let hf = $state<any>();
 	let upgraded = $state(false);
-	/** where the frame's files come from: HyperFrames' runtime and GSAP (their text, fetched when a film first plays) and
-	 *  the font come with the site, the rest are play's files */
-	const CODE: Record<string, () => Promise<{ default: string }>> = {
-		[VENDOR.runtime.hash]: () => import('../../../node_modules/@hyperframes/core/dist/hyperframe.runtime.iife.js?raw'),
-		[VENDOR.gsap.hash]: () => import('../../../node_modules/gsap/dist/gsap.min.js?raw')
-	};
-	/** a live shot's code the site serves (intent f270269e), held to its hash by feed: the frozen box engines, as every
-	 *  asset viewer loads them, and the live runtime, frozen beside them (scripts/live-runtime.ts --check rebuilds it) */
-	const ENGINES: Record<string, string> = { ...Object.fromEntries(enginesOf('box').map((e: { v: number; blake3: string }) => [e.blake3, pathOf('box', e.v)])), [VENDOR.live.hash]: '/live/live-runtime.js', ...Object.fromEntries(LIVE_BEFORE.map((h) => [h, `/live/${h}.js`])) };
-	const fileOf = (h: string): Promise<Blob> =>
-		CODE[h] ? CODE[h]().then((m) => new Blob([m.default])) : fetch(h === VENDOR.font.hash ? fontUrl : ENGINES[h] ?? frameUrl(h), { credentials: 'same-origin' }).then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`file ${h.slice(0, 10)}…: ${r.status}`))));
-	/** what play knows of each asset version a live shot draws (GET /api/assets/<its UUID>): its recipe, pieces and engine */
-	async function liveAssets(bodies: StoryBody[]): Promise<Record<string, LiveAsset>> {
-		const lives = bodies.flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.live as Live | undefined).filter((l): l is Live => !!l && typeof l.asset === 'string');
-		const out: Record<string, LiveAsset> = {};
-		await Promise.all([...new Set(lives.map((l) => l.asset))].map(async (id) => {
-			const r = await fetch(`/api/assets/${encodeURIComponent(id)}`, { credentials: 'same-origin' }).catch(() => null);
-			if (!r?.ok) return;
-			const a = await r.json();
-			const pieces = (v: any) => (Array.isArray(v?.pieces) ? v.pieces.map((p: any) => (typeof p === 'string' ? p : p?.hash)).filter((p: unknown) => typeof p === 'string') : []);
-			for (const v of a.versions ?? [])
-				if (v.recipe || v.variants?.length)
-					out[v.id] = { asset: id, version: v.id, recipe: v.recipe ?? v.variants.find((x: any) => x.name === v.defaultVariant)?.recipe, pieces: pieces(v), engine: v.engine ?? 1, variants: Object.fromEntries((v.variants ?? []).map((x: any) => [x.name, { recipe: x.recipe, pieces: pieces(v) }])) };
-		}));
-		return out;
-	}
-	/** a file of play's as text, held to its hash */
-	const fileText = (h: string) => fetch(frameUrl(h), { credentials: 'same-origin' }).then((r) => (r.ok ? r.text() : Promise.reject(new Error(`file ${h.slice(0, 10)}…: ${r.status}`)))).then((text) => (hashText(text) === h ? text : Promise.reject(new Error(`file ${h.slice(0, 10)}… does not hash to its name`))));
-	/** every piece a recipe's code requires, to any depth (../content/assets/box/pieces.js MOST_DEEP) */
-	async function piecesDeep(code: string, depth = 0, seen = new Set<string>()): Promise<string[]> {
-		const { piecesOf, MOST_DEEP } = await import('$lib/content/assets/box/pieces.js');
-		if (depth >= MOST_DEEP) return [...seen];
-		for (const h of piecesOf(code) as string[]) if (!seen.has(h)) seen.add(h), await piecesDeep(await fileText(h), depth + 1, seen);
-		return [...seen];
-	}
-	/** what play knows of each world version a world shot plays (intent 65d04790; GET /api/assets/<its UUID>): its recipe,
-	 *  pieces and engine, and the guests it plants, read off its build made once here in the page's own box */
-	async function worldAssets(bodies: StoryBody[]): Promise<Record<string, WorldAsset>> {
-		const worlds = bodies.flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.world as World | undefined).filter((w): w is World => !!w && typeof w.asset === 'string' && typeof w.version === 'string');
-		const out: Record<string, WorldAsset> = {};
-		const once = new Map(worlds.map((w) => [w.version, w]));
-		await Promise.all([...once.values()].map(async (w) => {
-			try {
-				loading = 'Reading the world';
-				const r = await fetch(`/api/assets/${encodeURIComponent(w.asset)}`, { credentials: 'same-origin' });
-				if (!r.ok) return;
-				const v = ((await r.json()).versions ?? []).find((x: any) => x.id === w.version);
-				if (!v?.recipe) return;
-				const code = await fileText(v.recipe), pieces = await piecesDeep(code), engine = v.engine ?? 1;
-				const [{ boxOf }, { rebuild }, { plantingsOf }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/box/rebuild.js'), import('$lib/content/assets/uses.js')]);
-				const m = await boxOf(engine).build({ hash: v.recipe, code, pieces }, {});
-				const guests: Record<string, string[]> = {};
-				const kinds = [...new Set(plantingsOf(rebuild(m.data)).map((u: { ref: string }) => u.ref.slice(0, 64)))] as string[];
-				let read = 0;
-				await Promise.all(kinds.map(async (g) => {
-					guests[g] = await piecesDeep(await fileText(g)).catch(() => []);
-					loading = `Reading its guests: ${++read} of ${kinds.length}`;
-				}));
-				out[w.version] = { asset: w.asset, version: w.version, recipe: v.recipe, pieces, engine, guests };
-			} catch (e) {
-				console.warn(`world ${w.asset.slice(0, 8)}: ${(e as Error)?.message ?? e}`);
-			}
-		}));
-		return out;
-	}
 	/** the playhead's last word from the player, and when it came: between two, t runs on by the clock; a word older than
 	 *  the last seek is not taken (the player answers a seek a moment later) */
 	let base = { t: 0, at: 0 };
@@ -196,14 +129,11 @@
 		});
 	});
 	async function make(s: typeof story, links: Links, key: string) {
-		const want = [...new Set([s, ...Object.values(links).map((l) => l.body)].filter(Boolean).flatMap((b) => clipsOf<Shot>(b, 'shots')).map((x) => x.composition).filter((h): h is string => typeof h === 'string' && /^[0-9a-f]{64}$/.test(h)))];
-		const got = await Promise.all(want.map((h) => fetch(frameUrl(h)).then((r) => (r.ok ? r.text() : '')).then((text) => (hashText(text) === h ? [[h, text]] : [])).catch(() => [])));
-		const bodies = [s, ...Object.values(links).map((l) => l.body)].filter(Boolean) as StoryBody[];
-		const [assets, worlds] = await Promise.all([liveAssets(bodies), worldAssets(bodies)]);
+		const got = await inputsOf(s, links, (text) => (loading = text));
 		if (made !== key) return;
 		film = 'loading';
 		try {
-			hf.setAttribute('srcdoc', seal(compose(s, links, Object.fromEntries(got.flat()), assets, worlds)));
+			hf.setAttribute('srcdoc', seal(compose(s, links, got.compositions, got.assets, got.worlds)));
 		} catch (e) {
 			film = 'failed';
 			failure = String((e as Error)?.message ?? e);
