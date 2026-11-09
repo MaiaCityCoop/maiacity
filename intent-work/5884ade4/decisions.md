@@ -181,3 +181,13 @@ b9e6ad45), F4 (Samuel's).
   touched two of them after they became held, and one (play/SPEC.md, held by a5faafad) by my mistake: both restored
   to main's. Pending their landing: SPEC names the required checks by `.github/required-checks.json` (infra's last
   bound, 2 → 1 files), setup.sh reads `play/avenbox/box.env`.
+
+### Merged: site-app (fix 2), 09:40Z
+
+16 moves (`log/site-app.md`), gate green on the merge (all, 90 s). `measure.ts site` 6 of 7: the board 716 → 398
+lines, the player 655 → 418, the turntable 660 → 408, `fetch(` outside the client 7 → 0, admin checks 25 → 1, the
+Skills page's `'prototype'` gone (Skills shows Build again; the Rules tile draws its icon). `/api/files/` 13 → 6: the
+rest are the content builder's (pieces.js, catalog.js, biomes/sets.js, render/arrays.js, worlds/sound.js), to import
+`fileUrl` from `lib/api.ts`. `play/api/src/wire.ts` holds the API's answer types, imported as `$wire`. IntentDetail.svelte
+left as the merge base has it (96206162 held it then); its untangle is in the log's Next untangles, with DocPage for
+the seven document pages, the layout's route regexes and one icon set (no bound).
