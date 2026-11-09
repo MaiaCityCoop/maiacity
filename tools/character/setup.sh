@@ -6,7 +6,9 @@ W="${1:?give a work folder outside the repository}"; mkdir -p "$W"; cd "$W"
 [ -d venv ] || python3 -m venv venv
 ./venv/bin/pip install -q mediapipe numpy scipy pillow
 # MediaPipe's tasks need libEGL (not used: CPU only)
-[ "$(uname)" = Darwin ] || python3 -c "import ctypes; ctypes.CDLL('libEGL.so.1')" 2>/dev/null || apt-get install -y -q libegl1 libgles2 >/dev/null
+# (as root here, with sudo on a runner)
+SUDO=; [ "$(id -u)" = 0 ] || SUDO="sudo -n"
+[ "$(uname)" = Darwin ] || python3 -c "import ctypes; ctypes.CDLL('libEGL.so.1')" 2>/dev/null || { $SUDO apt-get update -q >/dev/null; $SUDO apt-get install -y -q libegl1 libgles2 >/dev/null; }
 [ -f face_landmarker.task ] || curl -sSfo face_landmarker.task https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
 # MakeHuman's CC0 data: the base mesh, the modifiers and the targets only (a sparse, blob-less clone)
 if [ ! -d mh ]; then

@@ -5,6 +5,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 O="$(mktemp -d)"; F=scripts/fixtures/walker.js
+# a fresh runner has Playwright's package but not its browser: fetched once, with what it needs (the version play/site pins)
+node -e "require('playwright').chromium.launch().then((b) => b.close())" 2>/dev/null || bunx playwright install --with-deps chromium-headless-shell
 echo '{"plan":[{"clip":"walk","seconds":2,"speed":1.4},{"clip":"idle","seconds":1}],"fps":10}' > "$O/motion.json"
 echo '{"n":20,"clip":"walk","speed":1.4,"seconds":2,"near":10,"max":5}' > "$O/crowd.json"
 echo '{"plan":[{"clip":"walk","seconds":0.5,"speed":1.4}],"fps":6}' > "$O/film.json"
