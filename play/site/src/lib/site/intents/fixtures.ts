@@ -1,8 +1,6 @@
-/**
- * Intents at every stage, as play's API serves them, for detail.test.ts and the detail's screenshots
+/** Intents at every stage, as play's API serves them, for detail.test.ts and the detail's screenshots
  * (scripts/intent-shots.ts): each with the run commands, hashes, evidence and brief an agent needs, none of which may
- * be on top of its detail. Their UUIDs are made up; nothing here is play's.
- */
+ * be on top of its detail. Their UUIDs are made up; nothing here is play's. */
 import type { Check, Intent, Results } from './detail';
 
 export const RUN = 'cd play/site && bunx vitest run src/lib/site/intents/detail.test.ts';

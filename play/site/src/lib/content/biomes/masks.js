@@ -97,10 +97,8 @@ export function canopyOf(trunks, band, ring) {
 	};
 }
 
-/**
- * The relief at x, z: `wet` (−1 a rise … 1 a hollow) and `slope` (°); null where the world gives no heights.
- * @param {((x: number, z: number) => number) | undefined} heightAt @param {number} x @param {number} z
- */
+/** The relief at x, z: `wet` (−1 a rise … 1 a hollow) and `slope` (°); null where the world gives no heights.
+ * @param {((x: number, z: number) => number) | undefined} heightAt @param {number} x @param {number} z */
 export function reliefAt(heightAt, x, z) {
 	if (!heightAt) return null;
 	const h = heightAt(x, z), e = 0.5, R = 3;

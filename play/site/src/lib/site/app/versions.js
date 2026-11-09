@@ -12,11 +12,9 @@
 
 const FIRST = /** @type {Change} */ ({ v: 1, date: '2026-10-05', note: 'First version' });
 
-/**
- * An item's versions, oldest first, the latest built by `current`; earlier ones bring their own frozen builders; no
+/** An item's versions, oldest first, the latest built by `current`; earlier ones bring their own frozen builders; no
  * history: v1. @template B @param {B} current the item's builder today
- * @param {(Change & { build?: B })[]} [history] @returns {Version<B>[]}
- */
+ * @param {(Change & { build?: B })[]} [history] @returns {Version<B>[]} */
 function versionsOf(current, history = [FIRST]) {
 	const sorted = [...history].sort((a, b) => a.v - b.v);
 	return sorted.map((c, i) => {

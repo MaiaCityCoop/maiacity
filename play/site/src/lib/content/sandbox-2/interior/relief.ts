@@ -13,10 +13,8 @@ const reliefOf = (x: number, z: number) => {
 	return amp * (fbm2(x / 6.5 + 11.1, z / 6.5 + 4.2) * 2 - 1.1 + (vn(x / 2.4 + 5, z / 2.4 + 9) - 0.5) * 0.5)
 }
 
-/**
- * The ground over the square of `half` m round 0, 0 where `inside` says, a vertex every `step` m; `shape(free)` its
- * heights, the relief where `free` says it is open (softened over a few metres at its edges).
- */
+/** The ground over the square of `half` m round 0, 0 where `inside` says, a vertex every `step` m; `shape(free)` its
+ * heights, the relief where `free` says it is open (softened over a few metres at its edges). */
 export function reliefGround(half: number, step: number, inside: (x: number, z: number) => boolean) {
 	const n = Math.ceil((2 * half) / step) + 1
 	const X = (i: number) => -half + i * step

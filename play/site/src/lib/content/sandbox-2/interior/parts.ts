@@ -1,7 +1,5 @@
-/**
- * What rides the belts of the solar factory dome: each station's own part at every stage (quartz to cells, copper to
- * a junction box, sand to a glass triangle), each stage one merged, vertex-coloured geometry on a 1.5 m tray.
- */
+/** What rides the belts of the solar factory dome: each station's own part at every stage (quartz to cells, copper to
+ * a junction box, sand to a glass triangle), each stage one merged, vertex-coloured geometry on a 1.5 m tray. */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 

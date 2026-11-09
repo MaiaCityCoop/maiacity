@@ -90,10 +90,8 @@ export async function read(d, name) {
 /** the file written, and taken away again, to learn how this page writes the cache's files */
 const CAN = 'can';
 let writer;
-/**
- * How this page writes the cache's files, learnt once by writing one: 'worker' (OPFS's synchronous files there), else
- * 'page', else null (no folder, or a WebKit with OPFS in neither): it keeps nothing and every asset builds.
- */
+/** How this page writes the cache's files, learnt once by writing one: 'worker' (OPFS's synchronous files there), else
+ * 'page', else null (no folder, or a WebKit with OPFS in neither): it keeps nothing and every asset builds. */
 function writerOf() {
 	return (writer ??= (async () => {
 		const d = await folder();

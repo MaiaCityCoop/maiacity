@@ -8,10 +8,8 @@ import { HEX } from '../../kernel/hash.js';
 /** a node's name that plants a build: `use:` and the build */
 export const USE = new RegExp(`^use:(${HEX}(?:\\?[A-Za-z0-9=&._%-]*)?)$`);
 
-/**
- * Every build a build plants: its `use:<build>` nodes, each the build's name and its world matrix (as it stands).
- * @param {THREE.Object3D} root @returns {{ ref: string, matrix: THREE.Matrix4, node: THREE.Object3D }[]}
- */
+/** Every build a build plants: its `use:<build>` nodes, each the build's name and its world matrix (as it stands).
+ * @param {THREE.Object3D} root @returns {{ ref: string, matrix: THREE.Matrix4, node: THREE.Object3D }[]} */
 export function plantingsOf(root) {
 	const out = [];
 	root.updateMatrixWorld(true);

@@ -227,11 +227,9 @@ const intact = (root, nodes) => {
 	return now.length === nodes.length && now.every((o, i) => o === nodes[i]);
 };
 
-/**
- * Plays an object's controls and writes them down. @param {import('three').Object3D} root as its builder made it
+/** Plays an object's controls and writes them down. @param {import('three').Object3D} root as its builder made it
  * @returns {{ controls: object[], intact: boolean }} its controls as data, and whether the object is still the one
- *   built (false: a control changed its tree or reshaped a mesh; build it again before it leaves)
- */
+ *   built (false: a control changed its tree or reshaped a mesh; build it again before it leaves) */
 export function bake(root) {
 	const list = offered(root.userData ?? {});
 	if (!list.length) return { controls: [], intact: true };

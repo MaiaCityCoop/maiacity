@@ -256,10 +256,8 @@ export function apiary(spots: { x: number; z: number; rot: number }[], seed: num
 const POND_FISH = ['fish-koi', 'fish-kohaku', 'fish-ogon', 'fish-carp']
 export const TANK_FISH = ['fish-nile', 'fish-redtilapia']
 
-/**
- * Fish: koi and carp in the ponds, tilapia in the tanks, circling just under the surface, a few up and down a stream;
- * rigged near the eye, their bodies waving them on, a tail beat for every length swum.
- */
+/** Fish: koi and carp in the ponds, tilapia in the tanks, circling just under the surface, a few up and down a stream;
+ * rigged near the eye, their bodies waving them on, a tail beat for every length swum. */
 export function fishes(pools: { x: number; z: number; r: number; y: number; n: number }[], streams: { line: { x: number; z: number }[]; y: number; n: number }[], seed: number, eye?: Eye, kinds = POND_FISH): { object: THREE.Group; update: (t: number) => void } {
 	const r = seeded(seed)
 	const COATS = kinds.length

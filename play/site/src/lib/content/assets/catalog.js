@@ -101,10 +101,8 @@ export const withQuery = (name, query) => `${name}${name.includes('?') ? '&' : '
 /** A pin by sandbox UUID (./sandboxes.js) and slot, with its values (`query`, as given). @param {string} sandbox @param {string} slot @param {string} [query] */
 export const slotRef = (sandbox, slot, query = '') => `pin:${sandbox}/${slot}${query ? `?${query}` : ''}`;
 
-/**
- * A name as its build: a build as it is; a pin as the build its sandbox pins, its own values after the pin's; anything
- * else refused. @param {string} name @returns {{ hash: string, params?: Record<string, string> }}
- */
+/** A name as its build: a build as it is; a pin as the build its sandbox pins, its own values after the pin's; anything
+ * else refused. @param {string} name @returns {{ hash: string, params?: Record<string, string> }} */
 export function resolve(name) {
 	if (typeof name !== 'string') throw new NotInCatalog(`not a build: ${JSON.stringify(name)}`);
 	const slot = SLOT.exec(name);

@@ -26,10 +26,8 @@ export function levelKeyOf({ build, level, plan, deriver }) {
 	return bytesToHex(blake3(utf8ToBytes(JSON.stringify([build, level, plan ?? null, deriver])), { context: utf8ToBytes(LEVELS_CONTEXT) }));
 }
 
-/**
- * What was made from a build and kept under `key` (`levelKeyOf`), plain data as kept; undefined if none or unreadable
- * (then dropped). Its maker's caller checks it. @param {string} key @returns {Promise<any>}
- */
+/** What was made from a build and kept under `key` (`levelKeyOf`), plain data as kept; undefined if none or unreadable
+ * (then dropped). Its maker's caller checks it. @param {string} key @returns {Promise<any>} */
 export async function getLevel(key) {
 	if (!isHash(key)) return undefined;
 	const d = await folder();

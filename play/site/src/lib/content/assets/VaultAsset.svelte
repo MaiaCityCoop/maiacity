@@ -115,10 +115,8 @@
 			tabs.push({ id: 'roots', label: 'Roots', on: below && !fruitOn, go: () => (fruitOn ? ((wantRoots = true), fruit(0)) : below || toRoots?.()) });
 		return tabs;
 	});
-	/**
-	 * A plant's Latin name from its recipe's label as the plant skill writes it ("Banana 'Dwarf Cavendish' · Musa
-	 * acuminata": Musa acuminata 'Dwarf Cavendish'); else play's record of it (before any " · "); else none
-	 */
+	/** A plant's Latin name from its recipe's label as the plant skill writes it ("Banana 'Dwarf Cavendish' · Musa
+	 * acuminata": Musa acuminata 'Dwarf Cavendish'); else play's record of it (before any " · "); else none */
 	function latinOf(label, hash) {
 		const m = typeof label === 'string' && label.match(/^(.*?)(?:\s+'([^']+)')?\s+·\s+([A-Z][a-z]+(?:\s+[×x])?\s+[a-z][a-z-]+.*)$/);
 		if (m) return { name: m[3].trim(), cultivar: m[2] ?? '' };

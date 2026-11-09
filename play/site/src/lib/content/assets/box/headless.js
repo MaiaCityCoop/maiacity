@@ -11,12 +11,10 @@ import { hashBytes, hashText, isHash } from '../../../kernel/hash.js';
 /** a source's (or a file's bytes') BLAKE3 hash, as play names files and pieces */
 export const hashOf = (data) => (typeof data === 'string' ? hashText(data) : hashBytes(data));
 
-/**
- * A runner of readable sources: `run(code, name, more)` gives its module's exports; `more`, pieces beside the runner's
+/** A runner of readable sources: `run(code, name, more)` gives its module's exports; `more`, pieces beside the runner's
  * own by their hash (a baseline, a piece read from play's files), each held to its hash too.
  * @param {{ three: object, addons?: Record<string, object>, piece?: (hash: string) => string | undefined }} o three.js,
- *   three's addons by their `three/addons/…` name, and the source of a piece by its hash (none where it has none)
- */
+ *   three's addons by their `three/addons/…` name, and the source of a piece by its hash (none where it has none) */
 export function runner({ three, addons = {}, piece = () => undefined }) {
 	const loaded = new Map();
 	function run(code, name = 'source', more = {}) {

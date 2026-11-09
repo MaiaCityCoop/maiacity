@@ -95,10 +95,8 @@ async function revive(data) {
 	return out;
 }
 
-/**
- * A build kept under `key`, its pictures ImageBitmaps again; undefined if none. Unchecked: ../load.js checks it as a
- * box's. @param {string} key @returns {Promise<{ data: any, card: any } | undefined>}
- */
+/** A build kept under `key`, its pictures ImageBitmaps again; undefined if none. Unchecked: ../load.js checks it as a
+ * box's. @param {string} key @returns {Promise<{ data: any, card: any } | undefined>} */
 export async function get(key) {
 	if (!isHash(key)) return undefined;
 	const d = await folder();
@@ -127,11 +125,9 @@ export async function get(key) {
 	}
 }
 
-/**
- * Keeps a build under `key`, the entries used longest ago going until it fits; false if not kept (no cache, an
+/** Keeps a build under `key`, the entries used longest ago going until it fits; false if not kept (no cache, an
  * unreadable picture, larger than the cache). Pictures written once builds stop coming (`quiet`), one build at a time
- * in order handed in. @param {string} key @param {{ data: any, card: any }} build
- */
+ * in order handed in. @param {string} key @param {{ data: any, card: any }} build */
 export function put(key, { data, card }) {
 	const plain = quiet()
 		.then(() => keeps())

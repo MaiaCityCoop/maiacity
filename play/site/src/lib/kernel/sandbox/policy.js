@@ -44,11 +44,9 @@ export function frameCsp({ script, children = false, open = {} }) {
 	return ["default-src 'none'", `script-src ${script}`, 'worker-src blob:', ...(children ? ['child-src blob:'] : []), ...SHUT.map((d) => `${d} ${open[d] ?? "'none'"}`)].join('; ');
 }
 
-/**
- * The script of every shell's frame (./frame.js): a worker of the engine it is handed for each room the page names,
+/** The script of every shell's frame (./frame.js): a worker of the engine it is handed for each room the page names,
  * never two rooms in one; messages passed both ways (arrays moved), each named by its worker's room, which nothing in
- * the worker can set. A worker made ahead with nothing run (the spare) is the next new room's.
- */
+ * the worker can set. A worker made ahead with nothing run (the spare) is the next new room's. */
 export const SHELL_SCRIPT = `let url, warm, spare;
 const rooms = new Map(), roomOf = new WeakMap();
 const fresh = () => {

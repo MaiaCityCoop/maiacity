@@ -74,11 +74,9 @@ export function heldTo(code, declared, engine) {
 	return Number.isInteger(b.ms) ? Math.min(TIMEOUT, Math.max(0, b.ms)) : TIMEOUT;
 }
 
-/**
- * A build named as it is kept: its hash and every value it takes (its own where not given, so two names of one build
+/** A build named as it is kept: its hash and every value it takes (its own where not given, so two names of one build
  * are one), and its engine. Throws for a value it does not take, and NotInCatalog for a hash the catalog doesn't hold
- * (or not yet: ./catalog.js `loadRecipes`). @param {string} name `<hash>?its=values`
- */
+ * (or not yet: ./catalog.js `loadRecipes`). @param {string} name `<hash>?its=values` */
 export function canonical(name) {
 	const { hash, params } = parseBuild(name);
 	const at = heldAt(hash);

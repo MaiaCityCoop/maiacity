@@ -30,11 +30,9 @@ function valueOf(p, raw) {
 	return x;
 }
 
-/**
- * Every declared parameter's value: a ref's (`given`, text), else the recipe's arguments in order (`args`), else its
+/** Every declared parameter's value: a ref's (`given`, text), else the recipe's arguments in order (`args`), else its
  * `value`; throws for one undeclared or out of shape.
- * @param {Param[]} params @param {Record<string, string>} [given] @param {unknown[]} [args] @returns {Values}
- */
+ * @param {Param[]} params @param {Record<string, string>} [given] @param {unknown[]} [args] @returns {Values} */
 export function valuesOf(params, given = {}, args = []) {
 	const known = new Set(params.map((p) => p.id));
 	for (const k of Object.keys(given)) if (!known.has(k)) throw new Error(`no parameter ${k}${known.size ? ` (${[...known].join(', ')})` : ''}`);
@@ -62,10 +60,8 @@ export function queryOf(values) {
 	return q.toString();
 }
 
-/**
- * The values a ref's query names, as text; undefined for none; throws for an id out of shape or named twice.
- * @param {string | undefined} query @returns {Record<string, string> | undefined}
- */
+/** The values a ref's query names, as text; undefined for none; throws for an id out of shape or named twice.
+ * @param {string | undefined} query @returns {Record<string, string> | undefined} */
 export function paramsIn(query) {
 	if (!query) return undefined;
 	/** @type {Record<string, string>} */

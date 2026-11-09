@@ -18,11 +18,9 @@ export const back = {
 	}
 };
 
-/**
- * Something open over the page, closed first by the way back (untracked: called from an effect, it must not make that
+/** Something open over the page, closed first by the way back (untracked: called from an effect, it must not make that
  * effect depend on the list it changes). @param {string} label what it says, e.g. 'Back to the planet'
- * @param {() => void} go closes it @returns {() => void} it has closed
- */
+ * @param {() => void} go closes it @returns {() => void} it has closed */
 export function wayBack(label, go) {
 	const way = { label, go };
 	untrack(() => (ways = [...ways, way]));

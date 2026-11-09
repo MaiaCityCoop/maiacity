@@ -49,10 +49,8 @@ export function check(schema, value) {
 	return errors.length ? { ok: false, errors: errors.slice(0, 20) } : { ok: true, value };
 }
 
-/**
- * Whether `v` is plain JSON within the depth, no forbidden key; what is wrong goes to `errors`.
- * @param {unknown} v @param {string} at @param {number} depth @param {string[]} errors @returns {boolean}
- */
+/** Whether `v` is plain JSON within the depth, no forbidden key; what is wrong goes to `errors`.
+ * @param {unknown} v @param {string} at @param {number} depth @param {string[]} errors @returns {boolean} */
 function plainJson(v, at, depth, errors) {
 	const no = (/** @type {string} */ why) => (errors.push(`${at || 'it'} ${why}`), false);
 	if (depth > LIMITS.depth) return no(`is more than ${LIMITS.depth} deep`);

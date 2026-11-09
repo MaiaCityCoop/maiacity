@@ -27,11 +27,9 @@ async function built(ref) {
 	return obj;
 }
 
-/**
- * An asset as a token: every visible mesh in its rest pose merged into one geometry with vertex colours (skin weights
+/** An asset as a token: every visible mesh in its rest pose merged into one geometry with vertex colours (skin weights
  * dropped: a token never moves a part), and its first material; throws when there is none or its build was refused.
- * @param {string} ref @returns {Promise<Token>}
- */
+ * @param {string} ref @returns {Promise<Token>} */
 async function tokenOf(ref, { face } = {}) {
 	const object = await built(ref);
 	/** @type {THREE.BufferGeometry[]} */

@@ -29,12 +29,10 @@ const CROPS = /** @type {Record<string, { id: string, gap: number, rows: number[
 	beans: { id: 'beans', gap: 0.5, rows: [0], reach: 'shrub' }
 });
 
-/**
- * Trades every stand-in under `root` for library plants in `forest`, in `space`'s ground (the village's, or a dome's):
+/** Trades every stand-in under `root` for library plants in `forest`, in `space`'s ground (the village's, or a dome's):
  * under glass (`warm`) a shrub becomes coffee, outside a currant; all at their first version, as Sandbox 5 was planted.
  * @param {THREE.Object3D} root @param {THREE.Object3D} space @param {Forest} forest
- * @param {{ warm: boolean, seed: string, r: () => number }} o @returns {number} how many stand-ins were traded
- */
+ * @param {{ warm: boolean, seed: string, r: () => number }} o @returns {number} how many stand-ins were traded */
 export function swapLegacy(root, space, forest, { warm, seed, r }) {
 	root.updateMatrixWorld(true);
 	// the stand-ins' places in the space's own ground: the space's own place taken off when root stands in it

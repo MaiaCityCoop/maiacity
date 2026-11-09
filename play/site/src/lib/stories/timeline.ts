@@ -143,10 +143,8 @@ export const clipsOf = <C extends Clip = Clip>(s: StoryBody | null | undefined, 
 	return clips as C[];
 };
 
-/**
- * The clip of a lane at t: of those covering t, the one started last (two tracks of a kind may overlap), the first of
- * two started together; none covering t, the last started holds the index (the first, before any).
- */
+/** The clip of a lane at t: of those covering t, the one started last (two tracks of a kind may overlap), the first of
+ * two started together; none covering t, the last started holds the index (the first, before any). */
 function at<C extends Clip>(clips: C[], t: number): { clip: C | null; index: number } {
 	let found = -1, last = -1;
 	for (let i = 0; i < clips.length; i++) {

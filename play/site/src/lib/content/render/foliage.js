@@ -22,10 +22,8 @@ export const FOOT = 0.7;
 const WRAP = 0.35;
 /** the backlight lobe: how the light's way is bent by the normal, how tight the lobe is, how bright */
 export const BACK = Object.freeze({ distortion: 0.3, power: 4, scale: 1.6 });
-/**
- * How much sun reaches a backlit leaf through its crown's own shadow (0 none, 1 unshadowed): the light passes leaf
- * through leaf; without it the shadow cancels the glow and a backlit crown goes dark.
- */
+/** How much sun reaches a backlit leaf through its crown's own shadow (0 none, 1 unshadowed): the light passes leaf
+ * through leaf; without it the shadow cancels the glow and a backlit crown goes dark. */
 export const LEAK = 0.5;
 /**
  * What a coarser level (../assets/render/lod.js) leaves out, unread that far, so mid-range copies cost little more than
@@ -154,11 +152,9 @@ function thin(m, l) {
 	}
 }
 
-/**
- * A page's material drawn with a look, its settings carried onto a FoliageMaterial; thin looks two-sided, cut out
+/** A page's material drawn with a look, its settings carried onto a FoliageMaterial; thin looks two-sided, cut out
  * (alphaTest). `look` checked (an unknown kind throws), `wind` the world's (./wind.js `windNodes`) or none.
- * @param {THREE.MeshStandardMaterial} material @param {unknown} look @param {{ wind?: any }} [o]
- */
+ * @param {THREE.MeshStandardMaterial} material @param {unknown} look @param {{ wind?: any }} [o] */
 export function foliageOf(material, look, { wind = null } = {}) {
 	const l = lookOf(look, material.name || 'material');
 	const m = new FoliageMaterial();

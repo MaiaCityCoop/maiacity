@@ -37,11 +37,9 @@ const GLOWS = 16384;
 /** how near (m) a light is drawn as its lit face too, beyond it its glow alone (one drawing for all); windows at any distance (a lit tower is its windows) */
 const FACES_NEAR = 150;
 
-/**
- * The glows in TSL: each an instanced sprite at `glowAt`, `size` m across seen as 1.5–256 px at its distance, its tint
+/** The glows in TSL: each an instanced sprite at `glowAt`, `size` m across seen as 1.5–256 px at its distance, its tint
  * fading to the rim, added onto the picture as it is (../render/tsl.js `raw`), as the old point cloud drew it.
- * `pxScale`: the screen's pixels per metre at a metre's distance.
- */
+ * `pxScale`: the screen's pixels per metre at a metre's distance. */
 const glowMaterial = (pxScale) => {
 	const m = new OwnBasic({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
 	m.userData.raw = true;

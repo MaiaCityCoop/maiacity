@@ -102,11 +102,9 @@ export type WorldBuildSpec = { engine: { v: number; hash: string }; recipe: stri
 /** where its code and its workers come from: a file by hash (held to it by the caller), a worker of the engine */
 export type Host = { code: (hash: string) => string; worker: () => WorkerLike; progress?: (p: Progress) => void; timeout?: number; few?: number };
 
-/**
- * A world made whole once for every shot of it in a composition: its own copy (run in its own worker where it moves),
+/** A world made whole once for every shot of it in a composition: its own copy (run in its own worker where it moves),
  * its guests' copies, and every frame's places (16 numbers each, scale 0 where not shown), brought to each frame's
- * moment by its own seeded steps. Throws why it can't.
- */
+ * moment by its own seeded steps. Throws why it can't. */
 export async function buildWorld(spec: WorldBuildSpec, host: Host) {
 	const say = host.progress ?? (() => {});
 	const recipeOf = (hash: string, pieces: string[]) => ({ hash, code: withPieces(host.code(hash), pieces.map((p) => ({ hash: p, code: host.code(p) }))) });

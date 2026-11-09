@@ -21,10 +21,8 @@ export function queryOf(values) {
 	return q.toString();
 }
 
-/**
- * The values a ref's query names, as text; undefined for none; throws for an id out of shape or named twice.
- * @param {string | undefined} query @returns {Record<string, string> | undefined}
- */
+/** The values a ref's query names, as text; undefined for none; throws for an id out of shape or named twice.
+ * @param {string | undefined} query @returns {Record<string, string> | undefined} */
 function paramsIn(query) {
 	if (!query) return undefined;
 	/** @type {Record<string, string>} */

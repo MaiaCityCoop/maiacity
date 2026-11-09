@@ -38,10 +38,8 @@ const fract = (x) => x - Math.floor(x);
 const smooth = (x) => x * x * (3 - 2 * x);
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 
-/**
- * The gust at (x, z) at t, 0 a lull … 1 a front: two octaves of waves along the wind, crests bent a little across it.
- * @param {ReturnType<typeof windOf>} w @param {number} x @param {number} z @param {number} t seconds
- */
+/** The gust at (x, z) at t, 0 a lull … 1 a front: two octaves of waves along the wind, crests bent a little across it.
+ * @param {ReturnType<typeof windOf>} w @param {number} x @param {number} z @param {number} t seconds */
 export function gustAt(w, x, z, t) {
 	const [dx, dz] = along(w);
 	const u = x * dx + z * dz - w.speed * t;
@@ -61,12 +59,10 @@ export const phaseOf = (x, z) => TAU * fract(Math.sin(x * 12.9898 + z * 78.233) 
 /** how fast a plant sways back and forth about its lean, radians a second */
 const SWAY = 1.4;
 
-/**
- * How far a plant leans at its top (m) at t: the strength at its foot over its stiffness, swaying ±25 % on its phase;
+/** How far a plant leans at its top (m) at t: the strength at its foot over its stiffness, swaying ±25 % on its phase;
  * at most 15 % of its height at strength 1 and stiffness 1.
  * @param {ReturnType<typeof windOf>} w @param {{ x: number, z: number, phase: number, height: number }} copy
- * @param {number} stiffness @param {number} t
- */
+ * @param {number} stiffness @param {number} t */
 export function leanAt(w, copy, stiffness, t) {
 	const s = strengthAt(w, copy.x, copy.z, t);
 	return (0.15 * copy.height * s * (0.75 + 0.25 * Math.sin(t * SWAY + copy.phase))) / Math.max(0.1, stiffness);
@@ -78,11 +74,9 @@ export function keepLength(h, d) {
 	return Math.max(0, h) - Math.sqrt(Math.max(0, h * h - dd * dd));
 }
 
-/**
- * The main bend of a point `h` up a plant, [dx, dy, dz] m along the wind, as (h / height)², its length kept.
+/** The main bend of a point `h` up a plant, [dx, dy, dz] m along the wind, as (h / height)², its length kept.
  * @param {ReturnType<typeof windOf>} w @param {{ x: number, z: number, phase: number, height: number }} copy
- * @param {number} h @param {number} stiffness @param {number} t
- */
+ * @param {number} h @param {number} stiffness @param {number} t */
 export function bendAt(w, copy, h, stiffness, t) {
 	if (!(copy.height > 0)) return [0, 0, 0];
 	const f = clamp01(h / copy.height);
@@ -140,11 +134,9 @@ export function worldSeconds(now = typeof performance !== 'undefined' ? performa
 
 // ---------------------------------------------------------------- the same, in TSL
 
-/**
- * The wind's uniforms and position nodes for node materials, one per world: `set(w)` its field, `tick(t)` its clock
+/** The wind's uniforms and position nodes for node materials, one per world: `set(w)` its field, `tick(t)` its clock
  * (once a frame with `worldSeconds()`). @param {typeof import('three/tsl')} tsl passed in so the page alone loads it
- * @param {Parameters<typeof windOf>[0]} [o]
- */
+ * @param {Parameters<typeof windOf>[0]} [o] */
 export function windNodes(tsl, o) {
 	const { Fn, If, abs, attribute, cameraPosition, clamp, cos, float, fract: frac, max, min, mix, modelWorldMatrix, modelWorldMatrixInverse, positionLocal, positionWorld, sin, smoothstep, sqrt, uniform, vec3, vec4 } = tsl;
 	const w = windOf(o);
@@ -170,10 +162,8 @@ export function windNodes(tsl, o) {
 	const tri = (x) => abs(frac(x.add(0.5)).mul(2).sub(1));
 	const smoothTri = (x) => sm(tri(x)).mul(2).sub(1);
 
-	/**
-	 * A copy's wind as nodes after instancing: its foot and height (`aWind`; unbound it reads 0, no wind), its phase
-	 * (the same hash as `phaseOf`), and how far up it the point is (`f`, 0 foot … 1 top).
-	 */
+	/** A copy's wind as nodes after instancing: its foot and height (`aWind`; unbound it reads 0, no wind), its phase
+	 * (the same hash as `phaseOf`), and how far up it the point is (`f`, 0 foot … 1 top). */
 	const copyOf = () => {
 		const a = attribute('aWind', 'vec4');
 		const foot = vec3(a.x, a.y, a.z), height = a.w;

@@ -116,11 +116,9 @@ function catalogue() {
 	return { pos: new Float32Array(pos), col: new Float32Array(col), bright: new Float32Array(bright) };
 }
 
-/**
- * Into a render target (an environment cube, a post buffer) a node material would still be tone mapped and encoded
+/** Into a render target (an environment cube, a post buffer) a node material would still be tone mapped and encoded
  * (WebGLNodesHandler takes the renderer's settings), so, as three does for its own, not there.
- * @param {THREE.Object3D} o @param {(r: THREE.WebGLRenderer, cam: THREE.Camera) => void} place
- */
+ * @param {THREE.Object3D} o @param {(r: THREE.WebGLRenderer, cam: THREE.Camera) => void} place */
 function atFarPlane(o, place) {
 	/** @type {[() => void, string] | null} */
 	let was = null;

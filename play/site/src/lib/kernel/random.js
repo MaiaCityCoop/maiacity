@@ -23,10 +23,8 @@ export function seededRandom(seed) {
 	};
 }
 
-/**
- * The linear congruential numbers a few worlds and models were first laid out with (Numerical Recipes' constants); a
- * seed of 0 is taken as 1. @param {number} seed @returns {() => number}
- */
+/** The linear congruential numbers a few worlds and models were first laid out with (Numerical Recipes' constants); a
+ * seed of 0 is taken as 1. @param {number} seed @returns {() => number} */
 export function seededLcg(seed) {
 	let s = seed >>> 0 || 1;
 	return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;

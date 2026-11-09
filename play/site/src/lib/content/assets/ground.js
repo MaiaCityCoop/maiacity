@@ -37,12 +37,10 @@ const greenness = (recipe) => {
 	return all > 0 ? ((w.green ?? 0) + 0.8 * (w.moss ?? 0)) / all : 0;
 };
 
-/**
- * The library's biomes a plant can stand on, each one's newest accepted version (none whose card is no floor's), the
+/** The library's biomes a plant can stand on, each one's newest accepted version (none whose card is no floor's), the
  * greenest first (Samuel 2026-11-04: every plant is shown on one green floor, the first), then by name; `key` its UUID.
  * @param {{ index: { recipes: Record<string, any> }, cardOf: (hash: string) => any }} source
- * @returns {{ key: string, id: string, label: string, hash: string, recipe: any }[]}
- */
+ * @returns {{ key: string, id: string, label: string, hash: string, recipe: any }[]} */
 export function groundsIn(source) {
 	const newest = new Map();
 	for (const [hash, r] of Object.entries(source.index.recipes)) {
@@ -419,11 +417,9 @@ function floorMaterial(g, bg, fade, sky) {
 	return m;
 }
 
-/**
- * A plant's ground on the stage. @param {import('./stage.js').Stage} stage
+/** A plant's ground on the stage. @param {import('./stage.js').Stage} stage
  * @param {{ cover?: boolean, drawn?: any }} [o] `cover`: its biome's cover streamed round the plant (not on a phone's
- *   budget); `drawn`: the renderer it is drawn by (./plantings.js `drawn`: play's builds of its kinds), none without
- */
+ *   budget); `drawn`: the renderer it is drawn by (./plantings.js `drawn`: play's builds of its kinds), none without */
 export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 	const g = groundUniforms();
 	const fade = new THREE.Vector2(8, 30);

@@ -5,11 +5,9 @@
  * widens there until it is as wide as it would be on a square canvas.
  */
 
-/**
- * Size the camera to a canvas of `w` × `h`: its aspect, and its field of view widened from its turntable's own
+/** Size the camera to a canvas of `w` × `h`: its aspect, and its field of view widened from its turntable's own
  * (`camera.userData.fov`, set by the page; without one, as it is — a walk keeps its own) on an upright canvas.
- * @param {import('three').PerspectiveCamera} camera @param {number} w @param {number} h
- */
+ * @param {import('three').PerspectiveCamera} camera @param {number} w @param {number} h */
 export function fit(camera, w, h) {
 	camera.aspect = w / Math.max(1, h);
 	const fov = camera.userData.fov;

@@ -54,10 +54,8 @@ const SAFE = /^(https?:\/\/|mailto:|\/(?![/\\])|#|\?|[^:/?#\\]*(?:[/?#]|$))/i;
 const safeHref = (href) => SAFE.test(decoded(href));
 /** An address from a record or a vault, as a link's href: itself when a link may lead there, else none (no link). */
 export const linkHref = (href) => (href && safeHref(href) ? href : undefined);
-/**
- * Where a picture may be shown from: https, this site, a page-made blob or an inline picture, SVG among them (in an
- * image a browser runs none of its scripts, and a data URL never opens as a page of this site).
- */
+/** Where a picture may be shown from: https, this site, a page-made blob or an inline picture, SVG among them (in an
+ * image a browser runs none of its scripts, and a data URL never opens as a page of this site). */
 const PICTURE_SRC = /^(https:\/\/|\/(?![/\\])|blob:|data:image\/(png|jpe?g|gif|webp|avif|svg\+xml);)/i;
 const away = (href) => /^https?:/i.test(decoded(href));
 

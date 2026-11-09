@@ -1,7 +1,5 @@
-/**
- * SANDBOX 6 · THE GEOMETRY — the village's shapes as maths, every size from the village config (play/SPEC.md §4.6).
- * x runs east, z south (north is −z), in metres.
- */
+/** SANDBOX 6 · THE GEOMETRY — the village's shapes as maths, every size from the village config (play/SPEC.md §4.6).
+ * x runs east, z south (north is −z), in metres. */
 
 export type Kind = { D: number; freq?: number; home?: HomeShape; pond?: { in: number; band: number; half: number }; H?: number; top?: number; storey?: number; core?: number; facade?: number };
 type HomeShape = { front: number; depth: number; storey: number; clear: number; balcony: number };

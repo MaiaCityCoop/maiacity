@@ -1,9 +1,7 @@
 // @ts-nocheck — plain JS, kept loose on purpose
-/**
- * THE FROZEN ENGINES, READ — the one list of every engine a host of ours runs untrusted code on, by kind
+/** THE FROZEN ENGINES, READ — the one list of every engine a host of ours runs untrusted code on, by kind
  * (./sandbox/engines.json, which the API's image copies), read here so the page and the API (play/api/src/engines.ts)
- * hold code to the same engines the same way.
- */
+ * hold code to the same engines the same way. */
 import MANIFEST from './sandbox/engines.json' with { type: 'json' };
 
 /** every frozen engine of `kind`, oldest first @param {string} kind */

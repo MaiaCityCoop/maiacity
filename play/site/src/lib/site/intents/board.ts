@@ -31,10 +31,8 @@ export async function loadOpen<T extends Card>(get: Get, cards: T[]): Promise<{ 
 	return { cards: [...a.intents, ...cards.filter((i) => isClosed(i.stage) && !fresh.has(i.id))], counts: a.counts ?? {} };
 }
 
-/**
- * A closed column's next page (its first where `from` is null) added under its cards, none held twice; with `fresh`
- * its first page again, those not yet held (decided elsewhere since) on top.
- */
+/** A closed column's next page (its first where `from` is null) added under its cards, none held twice; with `fresh`
+ * its first page again, those not yet held (decided elsewhere since) on top. */
 export async function loadPage<T extends Card>(get: Get, cards: T[], stage: ClosedStage, from: Paged | null, fresh = false): Promise<{ cards: T[]; paged: Paged }> {
 	const a = await get<Answer<T>>(pagePath(stage, fresh ? null : from?.next));
 	const held = new Set(cards.map((i) => i.id));

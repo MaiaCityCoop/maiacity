@@ -135,10 +135,8 @@ const TALK = { spine: [0.06, 0.1, 0], chest: [0.04, 0.16, 0], neck: [0.02, 0.26,
 const LOWER_BODY = { y: 0.85, size: [1.9, 0.9, 4.9] };
 const _size = new THREE.Vector3();
 
-/**
- * The minibus's body as the box built it, made the story's van: its glass see-through and its lower body's lid (which
- * from inside hides the seats, laps and floor) cut away under the upper body. @param {THREE.Object3D} body
- */
+/** The minibus's body as the box built it, made the story's van: its glass see-through and its lower body's lid (which
+ * from inside hides the seats, laps and floor) cut away under the upper body. @param {THREE.Object3D} body */
 export function seeThrough(body) {
 	body.traverse((o) => {
 		if (!o.isMesh) return;

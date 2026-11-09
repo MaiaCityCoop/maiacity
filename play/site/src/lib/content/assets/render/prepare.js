@@ -28,10 +28,8 @@ const indexOf = (g) => (g.index ? g.index.array : Uint32Array.from({ length: g.a
 /** each corner's new number in the group being cut out, -1 for none: kept between groups, and only as big as needed */
 let renumber = new Int32Array(0);
 
-/**
- * The part of a shape one group draws, as a shape with only its corners: a machine of half a million corners in two
- * hundred materials becomes two hundred small shapes, not two hundred copies (a hundred million corners welded).
- */
+/** The part of a shape one group draws, as a shape with only its corners: a machine of half a million corners in two
+ * hundred materials becomes two hundred small shapes, not two hundred copies (a hundred million corners welded). */
 function groupOf(g, group) {
 	const idx = indexOf(g);
 	const end = Math.min(idx.length, group.start + group.count);
@@ -135,11 +133,9 @@ function weld(list) {
 	return out;
 }
 
-/**
- * One level of an asset from its built object, its materials the renderer's (`presets.of`).
+/** One level of an asset from its built object, its materials the renderer's (`presets.of`).
  * @param {THREE.Object3D} root a build as ../box/rebuild.js made it, real size, foot at y = 0
- * @param {{ of: (m: THREE.Material) => THREE.Material }} presets @returns {Level}
- */
+ * @param {{ of: (m: THREE.Material) => THREE.Material }} presets @returns {Level} */
 export function prepare(root, presets) {
 	root.updateMatrixWorld(true);
 	const by = new Map();

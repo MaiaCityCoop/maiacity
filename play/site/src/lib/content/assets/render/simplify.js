@@ -271,11 +271,9 @@ function hardPlaces(normal, place, places) {
 	return hard;
 }
 
-/**
- * A simplified shape shaded again where a hard edge was folded across (its old normal would light the other side
+/** A simplified shape shaded again where a hard edge was folded across (its old normal would light the other side
  * wrongly: a dark crease, a pale band). A corner whose normal is within CREASE of its triangle's, or at no hard edge,
- * keeps it; any other takes the area-weighed normals of the faces meeting its own within CREASE.
- */
+ * keeps it; any other takes the area-weighed normals of the faces meeting its own within CREASE. */
 function reshade(welded, index) {
 	const P = floats(welded.attributes.position);
 	const n = welded.count, faces = index.length / 3;
@@ -473,10 +471,8 @@ function together(rs) {
 	return { offset, count, positions, packed, width, weights, shaded, shared, small };
 }
 
-/**
- * A drawing's triangles at one level before simplifying: pieces too small or never seen left out (none for `every`);
- * `lock`, the outer corners of pieces at least KEEP pixels across; `scale`; and `keep`, the size put back (m).
- */
+/** A drawing's triangles at one level before simplifying: pieces too small or never seen left out (none for `every`);
+ * `lock`, the outer corners of pieces at least KEEP pixels across; `scale`; and `keep`, the size put back (m). */
 function levelAt(r, d, plan, seen) {
 	const { pieces, welded } = r;
 	let scale = d.scale;
@@ -620,12 +616,10 @@ function survived(r, at, index, error) {
 	return { index: out, error: worst };
 }
 
-/**
- * Which pieces of a kind are ever seen from outside, from SEEN.sides directions (below too: a lamp hung high), nearest
+/** Which pieces of a kind are ever seen from outside, from SEEN.sides directions (below too: a lamp hung high), nearest
  * faces per pixel; a one-sided face hides nothing behind it, a see-through drawing (glass, a net) hides nothing.
  * @returns {Promise<false | { pieces: Uint8Array, copies: Uint8Array }[]>} for each drawing, whether each of its pieces
- *   is seen in any of its copies, and whether each copy is seen at all; false when every piece is
- */
+ *   is seen in any of its copies, and whether each copy is seen at all; false when every piece is */
 async function seenOf(draws, rs, pause) {
 	let verts = 0, faces = 0, ids = 0;
 	const at = draws.map((d, i) => {
@@ -753,11 +747,9 @@ async function seenOf(draws, rs, pause) {
  */
 export const LOOK = { sides: 10, px: 512, more: 0.01, most: 0.03 };
 
-/**
- * How far lighter levels (`sets`) stray from the first's outline: pixels not shared over pixels either covers.
+/** How far lighter levels (`sets`) stray from the first's outline: pixels not shared over pixels either covers.
  * @param {number} smallest a pixel where the level is drawn biggest (m, ./lod.js `smallestOf`)
- * @returns {Promise<number[]>}
- */
+ * @returns {Promise<number[]>} */
 async function outlinesOf(draws, rs, sets, smallest, pause) {
 	let verts = 0;
 	const base = draws.map((d, i) => {
@@ -923,10 +915,8 @@ export async function lowerDraws(draws, plans, pause) {
 				const [, a, b] = await outlinesOf(draws, made, [all, setOf(got, g), setOf(got2, g2)], plan.smallest, pause);
 				return [a, b];
 			};
-			/**
-			 * Every drawing simplified to the level, `less` under its cost and ceiling (room for pieces put back).
-			 * @returns {Promise<Map<number, { index: Uint32Array, error: number, pass: number }>>}
-			 */
+			/** Every drawing simplified to the level, `less` under its cost and ceiling (room for pieces put back).
+			 * @returns {Promise<Map<number, { index: Uint32Array, error: number, pass: number }>>} */
 			const fitted = async (less) => {
 				const budget = Math.max(1, plan.budget - less), top = most - less;
 				const share = Math.max(0, budget - fixed) / whole;

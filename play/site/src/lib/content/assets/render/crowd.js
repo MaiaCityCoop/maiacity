@@ -316,10 +316,8 @@ export function crowd(refs, counts, o) {
 	return self;
 }
 
-/**
- * One rigged actor's builds for a world placing its copies itself (an ant hill): its far shape (coarse, at rest) and,
- * once here, copies of its near build to pose, with its clips. @param {string} ref @param {number} [detail]
- */
+/** One rigged actor's builds for a world placing its copies itself (an ant hill): its far shape (coarse, at rest) and,
+ * once here, copies of its near build to pose, with its clips. @param {string} ref @param {number} [detail] */
 export function actor(ref, detail = FAR) {
 	/** @type {{ far: Shape | null, model: THREE.Object3D | null, clips: Record<string, Clip> | undefined, ready: Promise<void>, copy: () => { object: THREE.Object3D, pose: (p: Pose) => void } }} */
 	const out = { far: null, model: null, clips: undefined, ready: Promise.resolve(), copy: () => ({ object: new THREE.Group(), pose: () => {} }) };

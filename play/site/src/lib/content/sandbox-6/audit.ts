@@ -1,7 +1,5 @@
-/**
- * SANDBOX 6 · THE AUDIT — every number the page shows, from the village config and the audit config (each input
- * sourced, a dated decision or an estimate with its reason); an input not yet audited gives `null`, shown unaudited.
- */
+/** SANDBOX 6 · THE AUDIT — every number the page shows, from the village config and the audit config (each input
+ * sourced, a dated decision or an estimate with its reason); an input not yet audited gives `null`, shown unaudited. */
 import { capOf, homeBlock, towerStoreys, type Kind, type Village } from './geometry';
 import { landOf, paths, USE_IDS, type Use as LandUse } from './land';
 

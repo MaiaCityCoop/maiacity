@@ -8,11 +8,9 @@ class CodeError extends Error {}
 const CONFIGS = new Map();
 const loading = new Map();
 
-/**
- * the layout sandbox `id` is opened with, as its config's query: an intent's (`?layout=<id>/<intent>`, from the
+/** the layout sandbox `id` is opened with, as its config's query: an intent's (`?layout=<id>/<intent>`, from the
  * intents' board), to walk the sandbox as its change would make it before an admin decides; a version or an edit of
- * its layout's history (`?layout=<id>/v3`, `?layout=<id>/e12`, from its History on /sandboxes/<id>/); else ''
- */
+ * its layout's history (`?layout=<id>/v3`, `?layout=<id>/e12`, from its History on /sandboxes/<id>/); else '' */
 function layoutOf(id) {
 	if (typeof location === 'undefined') return '';
 	const l = new URLSearchParams(location.search).get('layout') ?? '';

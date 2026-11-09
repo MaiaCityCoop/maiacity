@@ -19,11 +19,9 @@ const SONGBIRDS = /** @type {const} */ (['robin', 'blackbird', 'greattit', 'spar
 /** how often each kind is met */
 const OFTEN = { robin: 3, blackbird: 3, greattit: 3, sparrow: 4, chaffinch: 3 };
 
-/**
- * The birds round `trees`, `count` of them, never coming down where `open(x, z)` says no (a path, the water, a dome).
+/** The birds round `trees`, `count` of them, never coming down where `open(x, z)` says no (a path, the water, a dome).
  * @param {Tree[]} trees @param {number} count @param {number} seed
- * @param {(x: number, z: number) => boolean} open @param {() => { x: number, z: number }} [eye]
- */
+ * @param {(x: number, z: number) => boolean} open @param {() => { x: number, z: number }} [eye] */
 export function songbirds(trees, count, seed, open, eye) {
 	const r = seeded(seed);
 	const refs = SONGBIRDS.map((k) => villageAsset(`bird-${k}`));

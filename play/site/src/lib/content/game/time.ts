@@ -20,11 +20,9 @@ export function calendar(now = new Date()): { year: number; month: number; day: 
 	return { year, month, day, dayIndex }
 }
 
-/**
- * The in-game clock, as a date. Game time starts at the founding
+/** The in-game clock, as a date. Game time starts at the founding
  * (03.09.2026 00:00) and runs thirty times faster than real time, so the
- * label is a real-looking date-time that counts up from that day.
- */
+ * label is a real-looking date-time that counts up from that day. */
 export function gameClock(now = new Date()): { date: Date; label: string } {
 	const elapsed = Math.max(0, now.getTime() - EPOCH) * SPEED
 	const date = new Date(EPOCH + elapsed)

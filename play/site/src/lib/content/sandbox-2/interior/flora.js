@@ -29,10 +29,8 @@ export const STREAMS = /** @type {{ village: Streams, inside: Streams }} */ ({ v
 
 /** @param {Kind} k */
 export const keyOf = (k) => `${k.id}@${k.v}:${k.stage}:${k.seed}`;
-/**
- * A kind as the asset it is built from and its values, by its pin alone (Samuel 2026-10-20, 2026-10-22: no old ref
- * stands behind it). Throws NotInVault for a kind the garden pins no version of. @param {Kind} k
- */
+/** A kind as the asset it is built from and its values, by its pin alone (Samuel 2026-10-20, 2026-10-22: no old ref
+ * stands behind it). Throws NotInVault for a kind the garden pins no version of. @param {Kind} k */
 export const refOf = (k) => {
 	// play: the garden names each plant by the build of its slot (Sandbox 1's garden config), a hash
 	if (!k.asset) throw new NotInCatalog(`the garden names no asset for ${k.id} (Sandbox 1's garden config)`);
@@ -44,10 +42,8 @@ const CELL = 8;
 /** @param {number} ix @param {number} iz */
 const cellKey = (ix, iz) => (ix + 4096) * 8192 + (iz + 4096);
 
-/**
- * A kind's measure off its built shape: everything over the soil, its wood (one-sided) at its foot, its leaves and
- * petals (two-sided). @param {any} level the renderer's level (its drawings, each at its places) @returns {Shape}
- */
+/** A kind's measure off its built shape: everything over the soil, its wood (one-sided) at its foot, its leaves and
+ * petals (two-sided). @param {any} level the renderer's level (its drawings, each at its places) @returns {Shape} */
 function measure(level) {
 	let height = 0, reach = 0, foot = 0, leaves = 0;
 	const leaf = [0, 0, 0];
@@ -232,10 +228,8 @@ export function createForest(o) {
 		}
 	}
 
-	/**
-	 * Leaves out every plant in these circles until the next mask: the trees at once, the small ones when next chosen.
-	 * @param {{ x: number, z: number, r: number }[]} list
-	 */
+	/** Leaves out every plant in these circles until the next mask: the trees at once, the small ones when next chosen.
+	 * @param {{ x: number, z: number, r: number }[]} list */
 	function mask(list) {
 		masked = list.slice();
 		if (!hidden)

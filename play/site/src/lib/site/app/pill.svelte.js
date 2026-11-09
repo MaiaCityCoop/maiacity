@@ -1,8 +1,6 @@
-/**
- * What the app adds to the nav pill (./NavPill.svelte), as back.svelte.js its way back. The You item is the vault
+/** What the app adds to the nav pill (./NavPill.svelte), as back.svelte.js its way back. The You item is the vault
  * switcher too (Samuel 2026-10-18): a context (`pillContext`) lists their vaults, their own first, the item showing the
- * one picked; the app lists them as its `base` once known, a page its own (with what waits in each) while it shows.
- */
+ * one picked; the app lists them as its `base` once known, a page its own (with what waits in each) while it shows. */
 import { untrack } from 'svelte';
 
 /** @typedef {{ id: string, label: string, sub?: string, text: string, colour: string, shape?: 'human' | 'coop' | 'aven' | 'device', badge?: number }} Account */

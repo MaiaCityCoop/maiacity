@@ -23,12 +23,10 @@ const WORD: Record<Verdict, string> = { approve: 'approval', accept: 'Accept', r
 
 type Decided<T> = { intent: T; message: string; reread: boolean };
 
-/**
- * Makes the board's decider: `post` sends a decision and gives back the intent (with the decision's message, if any);
+/** Makes the board's decider: `post` sends a decision and gives back the intent (with the decision's message, if any);
  * `read` reads an intent again. `decide` takes one decision at a time (a second press while one runs is ignored:
  * null) and calls `onchange` as it starts and ends, so the button shows it. A refusal throws its reason; no answer is
- * followed by reading the intent again until it is decided (its answer then the intent as read), else it throws why.
- */
+ * followed by reading the intent again until it is decided (its answer then the intent as read), else it throws why. */
 export function createDecider<T extends Decidable>(o: {
 	post: (id: string, verdict: Verdict) => Promise<T & { message?: string }>;
 	read: (id: string) => Promise<T>;

@@ -19,10 +19,8 @@ export function createDrawn(o) {
 	o.scene.add(assets.group);
 	return {
 		assets,
-		/**
-		 * A kind: shadows at every level (true), none (false) or as the renderer casts them; its picture taken for far
-		 * off unless `picture` is false. @param {string} ref @param {boolean} [shadows] @param {boolean} [picture]
-		 */
+		/** A kind: shadows at every level (true), none (false) or as the renderer casts them; its picture taken for far
+		 * off unless `picture` is false. @param {string} ref @param {boolean} [shadows] @param {boolean} [picture] */
 		use: (ref, shadows, picture) => assets.use(ref, { shadows, picture }),
 		/**
 		 * a copy of kind k at `at` (place or matrix), a put-away one where there is; `cover`: grown as a biome's cover

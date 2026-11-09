@@ -186,10 +186,8 @@ export function createStream(o = {}) {
 		handle: (id) => entries.get(id)?.handle ?? null,
 		/** @param {string | number} id */
 		building: (id) => entries.get(id)?.state === 'building',
-		/**
-		 * Resolves once all views `vs` want is built (or failed: an unbuildable thing holds no shot back), the views
-		 * pinned meanwhile. @param {View[]} vs
-		 */
+		/** Resolves once all views `vs` want is built (or failed: an unbuildable thing holds no shot back), the views
+		 * pinned meanwhile. @param {View[]} vs */
 		ready(vs) {
 			const ids = wanted(vs).map((i) => i.id);
 			const done = () => ids.every((id) => {

@@ -191,11 +191,9 @@ const valueAt = (/** @type {Curve} */ c, /** @type {number} */ t) => {
 	return c[c.length - 1][1];
 };
 
-/**
- * The vertical fov for a shape: every shape sees at least the `aspect` it was composed for (wider keeps the height,
+/** The vertical fov for a shape: every shape sees at least the `aspect` it was composed for (wider keeps the height,
  * taller the width), never a centre crop; a shape's `framing.fov` overrides.
- * @param {number} fov  the composed vertical fov, degrees @param {Shape} from @param {Shape} to
- */
+ * @param {number} fov  the composed vertical fov, degrees @param {Shape} from @param {Shape} to */
 function fovFor(fov, from, to) {
 	const a = SHAPES[from], b = SHAPES[to];
 	if (b >= a) return fov;

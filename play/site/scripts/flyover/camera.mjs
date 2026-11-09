@@ -28,10 +28,8 @@ export const above = ({ over, h, heading = 270, lean = 0.1, fov = 38 }) => (u) =
 	return { eye: [x - back * Math.cos(a), y, z - back * Math.sin(a)], at: [x, 0, z], fov: num(fov, u) };
 };
 
-/**
- * along a line of [x, z] (the river) from share `from` to `to` of its length (to < from: upstream), at height `h`,
- * `side` to its right, looking `ahead`; the line smoothed so the camera does not take every bend
- */
+/** along a line of [x, z] (the river) from share `from` to `to` of its length (to < from: upstream), at height `h`,
+ * `side` to its right, looking `ahead`; the line smoothed so the camera does not take every bend */
 export const along = ({ path, from, to, h, ahead, side = 0, y = 0, fov = 38 }) => {
 	const len = [0];
 	for (let i = 1; i < path.length; i++) len.push(len[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));

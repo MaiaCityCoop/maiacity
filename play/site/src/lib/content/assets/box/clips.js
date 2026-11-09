@@ -20,10 +20,8 @@ export const WIDTH = 7;
 const STRIDE = 64;
 /** the rates a clip in time may be written down at (samples a second) */
 const RATES = [15, 30, 60, 120];
-/**
- * how close the tables keep to the clip: a turn (rad), a size, an offset (of the actor's size); or, for a channel that
- * moves further, that share of its move (a tail beating six times a second, at a tenth of its swing)
- */
+/** how close the tables keep to the clip: a turn (rad), a size, an offset (of the actor's size); or, for a channel that
+ * moves further, that share of its move (a tail beating six times a second, at a tenth of its swing) */
 const TOL = { turn: 0.01, size: 0.004, offset: 0.002, of: 0.03 };
 /** the most numbers one build's clips may come to, and the most clips */
 export const MOST = 6_000_000;
@@ -204,10 +202,8 @@ function tolerances(S, n, L) {
 	return tol;
 }
 
-/**
- * How coarsely each channel of an axis can be kept: every 2nd, 4th or 8th sample while the line between them stays
- * within tolerance (all but a few of those left out), no coarser than the slowest rate.
- */
+/** How coarsely each channel of an axis can be kept: every 2nd, 4th or 8th sample while the line between them stays
+ * within tolerance (all but a few of those left out), no coarser than the slowest rate. */
 function coarsest(rows, L, slowest) {
 	const w = L.width, { n, rate } = rows[0];
 	const f = new Uint8Array(w).fill(1);
@@ -311,10 +307,8 @@ function stillOf(play, L) {
 	return { rows: [{ base, T, D: null }], gait: null };
 }
 
-/**
- * A gait's paces: `PACES`, and halfway between two wherever their line strays from the clip (a leg that stops reaching
- * further), down to a sixteenth of its pace apart, `MOST_PACES` at most; tried at time 0 along a few strides.
- */
+/** A gait's paces: `PACES`, and halfway between two wherever their line strays from the clip (a leg that stops reaching
+ * further), down to a sixteenth of its pace apart, `MOST_PACES` at most; tried at time 0 along a few strides. */
 function pacesOf(play, gear, L) {
 	const w = L.width, r = seeded(0x51ed), K = 24;
 	const probes = Array.from({ length: K }, () => r() * 4 * gear);
@@ -472,11 +466,9 @@ function gaitOf(play, gear, L) {
 	return { rows, gait: { gear, paces, stride: P, kind, k, dFlips }, turnAt: (x, turn, out) => play(0, mo(x, 1, turn), out, 0) };
 }
 
-/**
- * Every clip of a rig written down for the page, undefined when none; `radius` the actor's size (m), for its offsets.
+/** Every clip of a rig written down for the page, undefined when none; `radius` the actor's size (m), for its offsets.
  * @param {{ rig: { names: string[] }, clips: Record<string, Function>, gears?: Record<string, number> }} cast
- * @param {number} radius
- */
+ * @param {number} radius */
 export function motionOf(cast, radius) {
 	const names = cast?.rig?.names;
 	if (!Array.isArray(names) || !names.length || names.length > 512 || !cast.clips || typeof cast.clips !== 'object') return undefined;

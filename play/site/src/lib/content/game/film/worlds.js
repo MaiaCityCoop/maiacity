@@ -50,10 +50,8 @@ export function filmPath(world) {
 	return `${at?.route ?? '/'}?film${area ? `&area=${encodeURIComponent(area)}` : ''}`;
 }
 
-/**
- * Which world a film page is, from its address (what `filmPath` made). @param {string} href
- * @returns {{ sandbox: string, area?: string, asset?: string, recipe?: string } | null}
- */
+/** Which world a film page is, from its address (what `filmPath` made). @param {string} href
+ * @returns {{ sandbox: string, area?: string, asset?: string, recipe?: string } | null} */
 export function worldOfPath(href) {
 	const u = new URL(href, 'http://x');
 	if (!u.searchParams.has('film')) return null;

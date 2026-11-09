@@ -31,12 +31,10 @@ const read = (file) => {
 	return p;
 };
 
-/**
- * An array texture of one layer a file, a one-pixel grey placeholder a layer until all are read (then `onReady`, to
+/** An array texture of one layer a file, a one-pixel grey placeholder a layer until all are read (then `onReady`, to
  * rebuild what samples it); files of one size and encoding. @param {string[]} list `<hash>.ktx2`, in layer order
  * @param {{ srgb?: boolean, onReady?: (t: THREE.Texture) => void }} [o]
- * @returns {THREE.DataArrayTexture} the placeholder, its `userData.ready` a promise of the array
- */
+ * @returns {THREE.DataArrayTexture} the placeholder, its `userData.ready` a promise of the array */
 export function arrayOf(list, o = {}) {
 	const n = Math.max(1, list.length);
 	const place = new THREE.DataArrayTexture(new Uint8Array(4 * n).fill(128), 1, 1, n);

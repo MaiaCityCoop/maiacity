@@ -1,9 +1,7 @@
-/**
- * THE SKY'S TIME — one state for every sandbox: automatic (the in-game clock) or set by hand (a slider), the single
+/** THE SKY'S TIME — one state for every sandbox: automatic (the in-game clock) or set by hand (a slider), the single
  * source of truth every world's sky reads (./sky.js `createSkyClock`) and the time control sets
  * (./SkyControl.svelte). It starts automatic on every visit; set by hand it starts at noon. Moving from one sandbox
- * to another keeps it. A film pins its own hour over both (window.__interiorHour).
- */
+ * to another keeps it. A film pins its own hour over both (window.__interiorHour). */
 import { gameHour } from '../game/time';
 
 const NOON = 12;
@@ -20,10 +18,8 @@ export function automatic() {
 	skyTime.auto = true;
 }
 
-/**
- * Set the hour by hand (noon when none is given: the hand-set sky starts there).
- * @param {number} [hour]
- */
+/** Set the hour by hand (noon when none is given: the hand-set sky starts there).
+ * @param {number} [hour] */
 export function manual(hour = NOON) {
 	skyTime.auto = false;
 	skyTime.hour = Math.max(0, Math.min(24, hour));

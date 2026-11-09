@@ -23,11 +23,9 @@ const RANGES = Object.freeze({ translucency: [0, 1], stiffness: [0.1, 10], flutt
 /** the kinds whose faces let light through and are lit from both sides (drawn two-sided, cut out, not blended) */
 export const THIN = Object.freeze(['leaf', 'grass', 'petal']);
 
-/**
- * A look checked, its numbers the kind's where not given; throws on an unknown kind or a number out of range or not a
+/** A look checked, its numbers the kind's where not given; throws on an unknown kind or a number out of range or not a
  * number; `null`/`undefined` is none. @param {unknown} x @param {string} [where] what it belongs to, for the error
- * @returns {{ kind: keyof typeof KINDS, translucency: number, stiffness: number, flutter: number } | null}
- */
+ * @returns {{ kind: keyof typeof KINDS, translucency: number, stiffness: number, flutter: number } | null} */
 export function lookOf(x, where = 'look') {
 	if (x == null) return null;
 	if (typeof x !== 'object' || Array.isArray(x)) throw new Error(`${where}: not a look`);
@@ -65,12 +63,10 @@ const NAMES = /** @type {[RegExp, keyof typeof KINDS][]} */ ([
 /** the biome cover kinds that lie still on the ground: litter, deadwood, stones, moss, mushrooms */
 const STILL = /deadwood|leaves and twigs|litter|twig|moss|mushroom|stone|rock|pebble/i;
 
-/**
- * A look for an accepted build's material without one (before engine 6): its name's (`lookByName`), else on a plant or
+/** A look for an accepted build's material without one (before engine 6): its name's (`lookByName`), else on a plant or
  * a biome's living cover what it shows (two-sided a leaf, grass on a grass; one-sided bark, moving only with its copy);
  * nothing on anything else, nor on cover that lies still.
- * @param {{ name?: string, side?: number, alphaTest?: number }} m @param {{ group?: string, label?: string }} kind
- */
+ * @param {{ name?: string, side?: number, alphaTest?: number }} m @param {{ group?: string, label?: string }} kind */
 export function lookOfBuilt(m, kind) {
 	const named = lookByName(m?.name);
 	if (named) return named;

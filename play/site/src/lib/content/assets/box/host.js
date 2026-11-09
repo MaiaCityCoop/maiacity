@@ -67,10 +67,8 @@ export class AssetBox extends Shell {
 		return mine;
 	}
 
-	/**
-	 * A recipe's room by its code, named when its turn comes: its own, else a new one, the oldest past ROOMS let go
-	 * (never one with a job open or a running build). @param {string} code
-	 */
+	/** A recipe's room by its code, named when its turn comes: its own, else a new one, the oldest past ROOMS let go
+	 * (never one with a job open or a running build). @param {string} code */
 	#roomOf(code) {
 		const i = this.rooms.findIndex((r) => r.code === code);
 		const r = i >= 0 ? this.rooms.splice(i, 1)[0] : { room: ++this.ids, code };

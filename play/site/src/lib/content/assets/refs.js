@@ -4,10 +4,8 @@
  */
 import { argsOf, paramsIn, queryOf, valuesOf } from './params.js';
 
-/**
- * A ref as its parts; `params` as text, undefined when it names none. @param {string} ref
- * @returns {{ group: string, id: string, v?: number, variant?: string, params?: Record<string, string> }}
- */
+/** A ref as its parts; `params` as text, undefined when it names none. @param {string} ref
+ * @returns {{ group: string, id: string, v?: number, variant?: string, params?: Record<string, string> }} */
 export function parseRef(ref) {
 	const m = /^([a-z]+)\/([^@:?]+)(?:@(\d+))?(?::([^?]+))?(?:\?(.*))?$/.exec(ref);
 	if (!m) throw new Error(`not an asset ref: ${ref} (group/id@v)`);

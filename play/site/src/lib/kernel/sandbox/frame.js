@@ -60,10 +60,8 @@ export function engineCode(kind, v = latestOf(kind)?.v) {
 	return engines.get(k);
 }
 
-/**
- * How long a job may take before the shell is torn down (ms). Only in development may the render bench on a busy
- * machine (`/render/?slack=3`, scripts/render.mjs --slack) stretch it; a built site holds every job to its budget.
- */
+/** How long a job may take before the shell is torn down (ms). Only in development may the render bench on a busy
+ * machine (`/render/?slack=3`, scripts/render.mjs --slack) stretch it; a built site holds every job to its budget. */
 const SLACK = import.meta.env?.DEV && typeof location !== 'undefined' ? Math.min(6, Math.max(1, Number(new URLSearchParams(location.search).get('slack')) || 1)) : 1;
 export const TIMEOUT = BUDGETS.job * SLACK;
 
@@ -137,12 +135,10 @@ export class Shell {
 		else job.no(new Error(String(msg.error ?? 'the box failed')));
 	}
 
-	/**
-	 * One job, { op, …args }, answered with the engine's answer in `room` (or the room a function names when its turn
+	/** One job, { op, …args }, answered with the engine's answer in `room` (or the room a function names when its turn
 	 * comes). Past `timeout` it ends its room where rooms are apart, else tears the shell down, unless `soft` (a step
 	 * waiting behind a build is late, not lost: only it fails). Jobs not soft go in one at a time, whatever their room,
-	 * so each one's time is its own.
-	 */
+	 * so each one's time is its own. */
 	ask(op, payload = {}, { timeout = this.timeout, soft = false, room = 0 } = {}) {
 		if (soft) return this.#post(op, payload, timeout, soft, room);
 		const turn = (this.queue ?? Promise.resolve()).then(() => this.#post(op, payload, timeout, soft, room));

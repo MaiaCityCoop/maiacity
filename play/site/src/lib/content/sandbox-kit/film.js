@@ -1,8 +1,6 @@
-/**
- * The film camera's hold on a world: one contract for every world, `window.__world`, made by `connectFilm`. Each frame
+/** The film camera's hold on a world: one contract for every world, `window.__world`, made by `connectFilm`. Each frame
  * is set from the shot alone, so the same shot renders the same pixels every time. While a film holds it, a world
- * draws nothing itself (`filmDraws()`), runs on `worldTime()` and keeps its resolution (`filmHoldsSize()`).
- */
+ * draws nothing itself (`filmDraws()`), runs on `worldTime()` and keeps its resolution (`filmHoldsSize()`). */
 import * as THREE from 'three';
 
 /** @typedef {[x: number, y: number, z: number, yaw: number, pitch: number]} Pose */
