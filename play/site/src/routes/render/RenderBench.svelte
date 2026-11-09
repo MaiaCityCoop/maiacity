@@ -47,7 +47,7 @@
 	import { admitHanded } from '$lib/content/assets/catalog.js';
 	import { handPiece, handedPieces } from '$lib/content/assets/box/pieces.js';
 
-	/** the recipes handed in, as the viewer reads a catalog (./catalog.js `source`) */
+	/** the recipes handed in, as the viewer reads a catalog (content/assets/catalog.js `source`) */
 	const index = { engine: LATEST.v, recipes: {} };
 	const files = new Map();
 	const cards = new Map();
@@ -149,7 +149,7 @@
 
 	/**
 	 * A rigged build moving as a world moves it: its clips as the box wrote them down, played back by the page's own
-	 * player (./clips.js, as a crowd plays them, none of the asset's code) on a copy of its skinned mesh, along a plan
+	 * player (content/assets/clips.js, as a crowd plays them, none of the asset's code) on a copy of its skinned mesh, along a plan
 	 * of clips, each blended into the next; the copy carried on by how fast each goes, turned when a quarter turn ends.
 	 */
 	let moving = null;
@@ -251,7 +251,7 @@
 			return { frames: out, clips: Object.keys(m.view.hero.view.clips.motion.clips) };
 		},
 		/**
-		 * A crowd of one build, as a world draws one (./render/crowd.js): `n` of them in a grid `spacing` m apart,
+		 * A crowd of one build, as a world draws one (content/assets/render/crowd.js): `n` of them in a grid `spacing` m apart,
 		 * walking on at `speed` (each its own time), the nearest `max` within `near` m rigged, the rest drawn from afar;
 		 * timed: how long until their builds and clips are here, what posing them costs a frame, the frames a second.
 		 */

@@ -22,3 +22,6 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    nothing) is `content/render/warmups.test.js`, beside `core.js`. Folder cycles no held file closes: 2 → 0. Layers
    stay 11: `render/nodes` turns more stable (I 0.43 → 0.33) and the held `render/nodes/ground.js → biomes/sets.js`
    is now the upward import in its place, held alone. Pinned: the same 5 tests, passing; gate site.
+3. **Comments naming a file that is gone: 3 (6 after move 1) → 0** (comments only). The bench's own `./catalog.js`,
+   `./clips.js` and `./render/crowd.js` name `content/assets/…` now; three of play/api's tests named
+   `./intents.ts` and `./select.ts` beside them, which are `../src/intents.ts` and `play/avenbox/select.ts`.
