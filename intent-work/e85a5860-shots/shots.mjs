@@ -69,7 +69,8 @@ const frames = async (n, dt = 0) => {
 };
 const open = async (url) => {
 	await page.goto(url, { waitUntil: 'domcontentloaded' });
-	await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 20 * 60e3 });
+	// the world is up once its cover is gone (sandbox-kit/WorldPage.svelte: its bar shown while it loads)
+	await page.waitForFunction(() => window.__walker && window.__assets && !document.querySelector('.progress'), null, { timeout: 20 * 60e3, polling: 2000 });
 	return page.evaluate(() => ({ backend: window.__rendererBackend ?? null, grass: window.__grass ? (window.__grass.mode ?? 'tiles') : 'none' }));
 };
 /** the walker at the meadow, the view settled, its picture */
