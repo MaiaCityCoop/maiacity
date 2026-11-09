@@ -21,6 +21,7 @@ play/site/scripts/census/film.ts
 play/site/scripts/census/run.ts
 play/site/scripts/census/settle.ts
 play/site/scripts/census/setup.ts
+play/site/scripts/census/viewer.ts
 play/site/scripts/census/webgpu.js
 play/site/scripts/engine.test.ts
 play/site/scripts/freeze-engine.ts
@@ -29,6 +30,8 @@ play/site/scripts/grass-wgsl.ts
 play/site/scripts/live-runtime.ts
 play/site/scripts/mac-page.mjs
 play/site/scripts/mac-page.test.ts
+play/site/scripts/macjob/determinism.js
+play/site/scripts/macjob/dry/playwright.ts
 play/site/scripts/quiet.js
 play/site/scripts/selector-shots.mjs
 play/site/scripts/serve-built.ts
@@ -111,7 +114,6 @@ play/site/src/lib/content/render/nodes/graph.test.js
 play/site/src/lib/content/render/nodes/grass-compute.js
 play/site/src/lib/content/render/nodes/grass.js
 play/site/src/lib/content/render/nodes/ground.js
-play/site/src/lib/content/render/nodes/impostor.js
 play/site/src/lib/content/render/nodes/index.js
 play/site/src/lib/content/render/nodes/nodes.test.ts
 play/site/src/lib/content/render/post.js
