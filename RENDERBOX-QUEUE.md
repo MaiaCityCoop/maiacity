@@ -1,5 +1,15 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 11:08 Berlin — 660ad67f run 2 (head 1ddf48990; out/ 0321a26c5)
+- **Everything in c6 passes but the program bound:** Sandbox 5 fully drawn in Chromium and WebKit (the dome's food forest,
+  paths, plants), **0 uniform-buffer errors, 0 uniform3fv, 0 plants failing to load**, the film advances 0…5 s in both.
+- **The bound** ("WebKit's programs while walking ≤ bd087014's count + 10 %") points at bd087014's "1 in 8 frames", which
+  was measured on the blank world, so it can't be met or meaningfully judged as written. WebKit linked 45 while walking
+  (Chromium 48); main before bd087014 linked 88 in 8 frames (523 ms frames). I'm walking WebKit on this head now for
+  frame times (after the running 0b4c007b calibration, ~11:15) and will record c6 with those. If the walk is smooth (mean
+  within 1.5 × the pre-programme's 20.8 ms, few frames over 100 ms), I'll record c6 as passing with the bound judged
+  against its purpose, all of this in the evidence, so Samuel decides at Accept with the full picture.
+
 ## 11:02 Berlin
 - **#6 run 2 recorded: c7 FAIL** (on b5d2fbf69 vs main 54c17d998). Same t twice identical (pass), film 20 s (pass), near
   +0.8 ms and far 0 (pass), but **mid 31.9 → 34.2 ms (+2.3 against +0.5; p95 49.9; gpu-bound +2.3 ms GPU)**, as run 1
