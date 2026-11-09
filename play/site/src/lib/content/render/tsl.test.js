@@ -1,17 +1,17 @@
 // What a node material writes and how it is keyed (./tsl.js, intent 602a8849).
 import { describe, expect, test } from 'vitest';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import * as THREE from 'three';
 import { OwnBasic, OwnNode, OwnPhysical, OwnStandard } from './tsl.js';
 
 describe('our node materials', () => {
-	test('each gets its own program: two alike are keyed apart, three’s own are not', () => {
+	test('ours are the kit’s kind, keyed by shape: copies alike share a program, a different shape does not', () => {
 		for (const Own of [OwnStandard, OwnPhysical, OwnBasic, OwnNode]) {
 			const a = new Own(), b = new Own();
-			expect(a.customProgramCacheKey()).not.toBe(b.customProgramCacheKey());
-			expect(a.customProgramCacheKey()).toBe(a.customProgramCacheKey());
 			// ours: out of three's compile, linear into a target (./core.js, cb16b7a5's isKit)
 			expect(a.isKit).toBe(true);
+			expect(a.customProgramCacheKey()).toBe(b.customProgramCacheKey());
 		}
-		expect(new MeshStandardNodeMaterial().customProgramCacheKey()).toBe(new MeshStandardNodeMaterial().customProgramCacheKey());
+		const plain = new OwnStandard(), mapped = new OwnStandard({ map: new THREE.Texture() });
+		expect(plain.customProgramCacheKey()).not.toBe(mapped.customProgramCacheKey());
 	});
 });

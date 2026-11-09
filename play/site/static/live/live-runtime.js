@@ -56846,6 +56846,20 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
   }
   var always = (name, type) => nodeObject(new Always(name, type));
   var aFade = always("aFade", "float");
+  var aCover = always("aCover", "vec4");
+  var aReach = always("aReach", "vec3");
+  var coverEye = uniform(new Vector3(1e9, 0, 1e9));
+  var coverAway = { on: uniform(0), c: uniform(new Vector2), f: uniform(new Vector2(0, 1)), b: uniform(0), band: uniform(0) };
+  function grown(p) {
+    const rank = aCover.x.sub(1), foot = aCover.yzw;
+    const { x: near, y: reach, z: thin } = aReach;
+    const d = length(foot.xz.sub(coverEye.xz));
+    const keep = float(1).sub(float(1).sub(thin).mul(clamp2(d.sub(near).div(max(reach.sub(near), 0.001)), 0, 1)));
+    const along = dot(foot.xz.sub(coverAway.c), coverAway.f);
+    const away = coverAway.on.greaterThan(0.5).and(along.greaterThan(coverAway.b.negate()).or(along.lessThan(coverAway.b.negate().sub(coverAway.band))));
+    const grow = select(away, float(0), clamp2(keep.sub(rank).div(0.08), 0, 1).mul(float(1).sub(smoothstep2(reach.sub(4), reach, d))));
+    return select(aCover.x.greaterThan(0), foot.add(p.sub(foot).mul(grow)), p);
+  }
   var drawn = (map, at = uv$1()) => texture(map, vec2(at.x, float(1).sub(at.y)));
   var dither = fract(sin(dot(floor(screenCoordinate.xy), vec2(12.9898, 78.233))).mul(43758.5453));
   var faded = (f) => f.greaterThan(0).and(f.lessThan(1)).and(dither.greaterThan(f));
@@ -56890,7 +56904,7 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
       }
       const m = always("instanceMatrix", "mat4");
       const c0 = m.element(0).xyz, c1 = m.element(1).xyz, c2 = m.element(2).xyz;
-      positionLocal.assign(m.mul(vec4(positionLocal, 1)).xyz);
+      positionLocal.assign(grown(m.mul(vec4(positionLocal, 1)).xyz));
       normalLocal.assign(mat3(c0, c1, c2).mul(normalLocal.div(vec3(dot(c0, c0), dot(c1, c1), dot(c2, c2)))));
       if (o.instanceColor)
         instanceColor.assign(always("instanceColor", "vec3"));
@@ -56917,7 +56931,7 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
       return Object.assign(new G, model);
     }
     customProgramCacheKey() {
-      return `${super.customProgramCacheKey()}#${this.id}${this.gloss === 1 ? "" : `g${this.gloss}`}`;
+      return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
     }
     copy(source) {
       super.copy(source);
@@ -56927,6 +56941,17 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
       return this;
     }
   };
+  var I3 = new Matrix3;
+  function shapeOf(m) {
+    let s = `${m.fade ? "f" : ""}${m.cut ? "c" : ""}${m.cap ? "p" : ""}${m.gloss === 1 ? "" : `g${m.gloss}`}`;
+    for (const k of Object.keys(m).sort()) {
+      const t = m[k];
+      if (!t?.isTexture)
+        continue;
+      s += `|${k}:${t.isRenderTargetTexture ? "rt" : ""}${t.isCubeTexture ? "cube" : ""}${t.isDataTexture ? "d" : ""}${t.isDataArrayTexture || t.isArrayTexture ? "a" : ""}${t.isCompressedTexture ? "z" : ""}${t.channel}${t.colorSpace}${t.flipY ? "y" : ""}${t.matrixAutoUpdate && !t.matrix.equals(I3) ? "m" : ""}`;
+    }
+    return s;
+  }
   var KINDS = {
     MeshStandardMaterial: ours(MeshStandardNodeMaterial),
     MeshPhysicalMaterial: ours(MeshPhysicalNodeMaterial),
@@ -59650,7 +59675,7 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
   var own = (Base) => class extends Base {
     isKit = true;
     customProgramCacheKey() {
-      return `${super.customProgramCacheKey()}#${this.id}`;
+      return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
     }
   };
   var OwnStandard = own(MeshStandardNodeMaterial);

@@ -10,6 +10,7 @@
  */
 import { MeshBasicNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
 import { workingToColorSpace } from 'three/tsl';
+import { shapeOf } from './nodes/index.js';
 
 /** @param {import('three').WebGLRenderer} r @param {any} h the renderer's handler (./nodes `install`) */
 export function screenOutputs(r, h) {
@@ -25,18 +26,17 @@ export function screenOutputs(r, h) {
 }
 
 /**
- * A node material class whose every material gets its own program. three keys a node material's program by its nodes
- * alone, and two whose shaders differ by what is beside them (an environment map) would share one, each uploading its
- * uniforms by name into the other's layout (cb16b7a5, on the Mac: a cube map into a vec3). The handler reads the key
- * off the class (its prototype's `customProgramCacheKey`), so it is a class, not a property.
+ * A node material class of ours (`isKit`, as the render kit's): kept out of three's compile (./core.js), drawn linear
+ * into a target, and keyed by its shape as the kit's are (./nodes `shapeOf`, bd087014): two whose shaders differ never
+ * share a program, and copies alike share one (keyed by id, Safari linked a program for every copy). The handler reads
+ * the key off the class (its prototype's `customProgramCacheKey`), so it is a class, not a property.
  * @template {new (...a: any[]) => any} B @param {B} Base @returns {B}
  */
 const own = (Base) =>
 	class extends Base {
-		/** ours, as the render kit's: kept out of three's compile (./core.js) and drawn linear into a target */
 		isKit = true;
 		customProgramCacheKey() {
-			return `${super.customProgramCacheKey()}#${this.id}`;
+			return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
 		}
 	};
 export const OwnStandard = own(MeshStandardNodeMaterial);
