@@ -135,12 +135,15 @@ function nodes(renderer) {
 		// three's compile gathers every material under `scene`, hidden ones too (it walks `traverse`), and builds a
 		// node material's program without the handler's onUpdateProgram: met again later, the handler pairs that
 		// program with another build's uniforms (cb16b7a5: the sky's PMREM handed to a vec3 on the levels `precompile`
-		// warmed). Node materials are taken out while three gathers, and built at their first frame, as every draw is.
+		// warmed; 544485e2: the viewers' sky, its program never paired at all, drawn with whatever camera another node
+		// material last set, the contact shadow's from under the floor, so black over a goat or a forklift). Every node
+		// material, the kit's and the sky's, is taken out while three gathers, and built at its first frame, as every
+		// draw is: a target draws each linear (./nodes/index.js), so an environment bake and the frame agree.
 		/** @type {[THREE.Object3D & { material?: unknown }, unknown][]} */
 		const away = [];
 		scene.traverse((o) => {
 			const m = /** @type {THREE.Mesh} */ (o).material;
-			if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial && /** @type {any} */ (x).isKit)) {
+			if (m && (Array.isArray(m) ? m : [m]).some((x) => /** @type {any} */ (x).isNodeMaterial)) {
 				away.push([o, m]);
 				/** @type {any} */ (o).material = null;
 			}

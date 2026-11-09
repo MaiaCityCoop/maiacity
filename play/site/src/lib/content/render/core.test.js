@@ -98,7 +98,7 @@ describe('the one renderer', () => {
 		expect(parameters.fragmentShader).toMatch(/DiffuseColor = vec4\( mix\(/);
 	});
 
-	test('a compile draws no extra shadow pass and is never handed a kit node material (cb16b7a5)', () => {
+	test('a compile draws no extra shadow pass and is never handed a node material, the kit\'s or the sky\'s (cb16b7a5, 544485e2)', () => {
 		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, shadows: 'pcf' }));
 		const scene = new THREE.Scene();
 		const classic = new THREE.MeshStandardMaterial(), node = /** @type {any} */ (new MeshStandardNodeMaterial());
@@ -117,14 +117,14 @@ describe('the one renderer', () => {
 		expect(r.compiled.filter((/** @type {any} */ m) => m.isNodeMaterial)).toEqual([]);
 		expect(shown.material).toBe(node);
 		expect(hidden.material).toEqual([classic, node]);
-		// any other node material (a sky) is warmed up as on main, under the tone of the moment: drawn first into an
-		// environment bake (no tone, linear), it would otherwise keep that program for the frame (cb16b7a5: the viewer's
-		// sky raw and bloomed, a haze over everything)
-		const sky = new MeshStandardNodeMaterial();
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), sky));
+		// nor the sky's (not the kit's): a program three's compile builds is never paired with the handler, so its uniforms
+		// are never updated and it draws with the camera another node material last set (544485e2: the viewers' sky
+		// drawn from the contact shadow's camera, black over a goat or a forklift)
+		const sky = Object.assign(new THREE.Mesh(new THREE.BoxGeometry(), new MeshStandardNodeMaterial()), { name: 'sky' });
+		scene.add(sky);
 		r.compile(scene, new THREE.PerspectiveCamera());
-		expect(r.compiled).toContain(sky);
-		expect(r.compiled).not.toContain(node);
+		expect(r.compiled.filter((/** @type {any} */ m) => m.isNodeMaterial)).toEqual([]);
+		expect(sky.material.isNodeMaterial).toBe(true);
 	});
 
 	test('tone mapping and exposure are set through the core', () => {
