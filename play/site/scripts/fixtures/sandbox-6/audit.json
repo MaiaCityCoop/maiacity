@@ -1,0 +1,74 @@
+{
+	"note": "Sandbox 6's audit (play/SPEC.md §4.6; intent 67f0404a): every input the page's numbers come from, each with its source (an artifact play keeps), a decision (Samuel's, dated) or an estimate and why. Nothing here is taken from the old Sandbox 6's figures; `old` lists what that page showed, for the report only.",
+	"inputs": {
+		"livingPerson": {
+			"label": "Living space a resident has in Germany (net, Wohnfläche)",
+			"unit": "m²",
+			"value": 49.2,
+			"source": "89a1fd17-5994-4f6a-bd50-0903c1fcaccd"
+		},
+		"grossFactor": {
+			"label": "Gross floor area of a multi-family building to its living space (BGF ÷ Wohnfläche)",
+			"unit": "×",
+			"value": 1.55,
+			"source": "33062cd9-f54c-45e6-ae3d-2d1eac62e540"
+		},
+		"hotelRoom": {
+			"label": "Gross floor a hotel room or short stay, its share of corridors, lifts and back of house",
+			"unit": "m²",
+			"value": 40,
+			"estimate": "A mid-range room of 22–28 m² net plus 35–45 % for corridors, stairs, lifts and back of house: to be sourced"
+		},
+		"bedsHex": {
+			"label": "Beds planned a living hex",
+			"unit": "beds",
+			"value": 290,
+			"decided": "Samuel 2026-11-09: layout B's 5 Dome80 + 9 Dome40, about 290 a hex"
+		},
+		"budget": {
+			"label": "What villagers and investors raise for the village's part",
+			"unit": "€",
+			"value": 200000000,
+			"decided": "Samuel 2026-11-09: investors capped at €112,500 a new villager, €125,000 with the villager's own €12,500; about €175–200M"
+		}
+	},
+	"split": {
+		"note": "What the village's €200M pays for and what each coop invests itself (Samuel 2026-11-09), the same lines as the levelling intent 1df683fd's.",
+		"village": [
+			"land",
+			"dome buildings (their shells, floors and glazing, the panels built into the glazing)",
+			"the homes inside the home domes",
+			"the Tower180's shell, floors, core, lifts and services",
+			"the village centre's halls",
+			"roads and paths",
+			"water works, wastewater and nutrient recycling",
+			"the microgrid and power lines",
+			"the district heat network",
+			"the tech container itself, its Starlink and server"
+		],
+		"coop": [
+			"the works' and the dome factory's lines and machines (each works coop)",
+			"the workshops' tools",
+			"the food domes' production kit (the food coops)",
+			"the tower tenants' fit-out: shops, hotel, offices",
+			"the solar fields and their batteries (a solar coop)",
+			"the tech container's 50 kWp solar and battery (an energy coop)",
+			"the biogas plant (a biogas coop)",
+			"the geothermal plant and its wells (a geothermal coop)"
+		]
+	},
+	"costs": [],
+	"costsPending": "The unit costs (dome shells, homes, land, roads, heat, water and power lines, energy plants), each sourced with low / typical / high, come from the market research under way; no cost is adopted before then.",
+	"old": {
+		"note": "What the old Sandbox 6 showed (SNAPSHOT_2611101, maia/content/sandbox-6): listed for the report, never used",
+		"gfaPerson": 62,
+		"dome40Beds": 10,
+		"dome80Beds": 40,
+		"dome40Storeys": 3,
+		"dome80Storeys": 6,
+		"hexBeds": 290,
+		"villageBeds": 1740,
+		"towerApartments": 108,
+		"villageEuros": 514000000
+	}
+}

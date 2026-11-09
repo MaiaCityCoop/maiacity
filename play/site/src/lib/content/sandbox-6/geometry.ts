@@ -60,7 +60,8 @@ export const capHeight = (c: ReturnType<typeof capOf>, r: number) => Math.max(0,
 export function homeBlock(D: number, o: HomeShape) {
 	const c = capOf(D), back = o.front + o.depth;
 	const levels: { k: number; y: number; half: number; m2: number }[] = [];
-	for (let k = 0; k < 40; k++) {
+	// up storey by storey until the shell leaves no 6 m of floor (it always does: the cap closes)
+	for (let k = 0; ; k++) {
 		const y = k * o.storey;
 		const r2 = c.R * c.R - (y + o.storey + o.clear + c.R - c.h) ** 2;
 		const half = Math.sqrt(Math.max(0, r2 - back * back));

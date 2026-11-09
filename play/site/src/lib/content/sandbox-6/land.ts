@@ -31,11 +31,12 @@ export const USE_IDS = Object.keys(USES) as Use[];
 /** a site's radius on the ground */
 export const footR = (v: Village, s: Site) => v.kinds[s.kind].D / 2;
 
-/** the footpaths: from each home dome that is not on the ring to the nearest road, its door turned to face it */
+/** the footpaths: from each of the smallest home domes (the ones out over the south, off the ring) to the nearest road */
 export function paths(v: Village, plan: Plan): Road[] {
 	const out: Road[] = [];
-	for (const s of plan.sites) {
-		if (s.use !== 'home' || v.kinds[s.kind].D > 40) continue;
+	const homes = plan.sites.filter((s) => s.use === 'home'), small = Math.min(...homes.map((s) => v.kinds[s.kind].D));
+	for (const s of homes) {
+		if (v.kinds[s.kind].D > small) continue;
 		let best = { d: Infinity, x: 0, z: 0 };
 		for (const w of plan.roads)
 			for (let k = 1; k < w.pts.length; k++) {
