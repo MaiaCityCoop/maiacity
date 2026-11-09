@@ -27,7 +27,7 @@
  */
 
 import * as THREE from 'three'
-import { blurMaterial, cutBy, cutOf, ghostMaterial, nodeOf, poolMaterial } from '../render/nodes/index.js'
+import { blurMaterial, cutBy, cutOf, depthMaterial, ghostMaterial, nodeOf, poolMaterial } from '../render/nodes/index.js'
 import { pmremFor } from '../render/core.js'
 
 export { THREE, ghostMaterial }
@@ -123,10 +123,9 @@ export class ContactShadow {
     plane.position.y = lab.groundY + 0.002 * scale; plane.scale.y = -1; plane.renderOrder = 1; plane.layers.set(LAYER_FX)
     lab.scene.add(plane, this.cam)
     this.plane = plane
-    // three's own depth (white near the floor): the first blur turns it into the pool's darkness (`DARK`)
-    this.depthMat = new THREE.MeshDepthMaterial()
-    this.depthMat.depthTest = false; this.depthMat.depthWrite = false
-    this.depthMat.clippingPlanes = LAB_PLANES; this.depthMat.clipIntersection = true
+    // the depth (white near the floor): the first blur turns it into the pool's darkness (`DARK`); cut by the stage's
+    // ClippingGroup as what it draws is (intent c1bee1f8)
+    this.depthMat = depthMaterial()
     this.hb = blurMaterial(this.rt.texture); this.vb = blurMaterial(this.rtB.texture)
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(W, W).rotateX(Math.PI / 2), this.hb); this.quad.frustumCulled = false; this.quad.position.y = lab.groundY + 0.01 * scale
   }
@@ -145,8 +144,7 @@ export class ContactShadow {
     this.cuts ??= new Map()
     let d = this.cuts.get(m)
     if (!d) {
-      d = this.depthMat.clone()
-      d.map = m.map; d.alphaMap = m.alphaMap; d.alphaTest = m.alphaTest; d.side = m.side
+      d = depthMaterial(m)
       this.cuts.set(m, d)
     }
     return d

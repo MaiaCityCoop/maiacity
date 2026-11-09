@@ -11,7 +11,7 @@
  * line for line) draw through it; the film has no darkroom of its own (deleted with its GLSL, intent 602a8849).
  */
 import * as THREE from 'three';
-import { RenderPipeline } from 'three/webgpu';
+import { MRTNode, RenderPipeline } from 'three/webgpu';
 import { abs, all, texture, uv, vec3, pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample, screenUV, velocity, builtinAOContext, convertToTexture, int } from 'three/tsl';
 import { ssao } from 'three/addons/tsl/display/SSAONode.js';
 import { traa } from 'three/addons/tsl/display/TRAANode.js';
@@ -61,8 +61,23 @@ export function finite(c) {
 
 /** the occlusion mask's channel, 1 where a surface takes ambient occlusion */
 const MASK = 'solid';
-/** the mask's 0, kept on a material `exclude`d */
-const OFF = mrt({ [MASK]: float(0) });
+/**
+ * The mask's 0, kept on a material `exclude`d (its `mrtNode`). Merged into the scene pass's MRT it writes 0 there; drawn
+ * into a target with no MRT (the sky into its environment's cube) it is that target's colour alone, as the material
+ * would draw it without one (an MRT of the mask alone there has no output at all, and WGSL refuses the shader).
+ */
+class MaskOff extends MRTNode {
+	constructor() {
+		super({ [MASK]: float(0) });
+	}
+	/** @param {any} builder */
+	setup(builder) {
+		const target = builder.renderer.getRenderTarget();
+		this.outputNodes = builder.renderer.getMRT() === null && target ? { [target.textures[0].name]: output } : { [MASK]: float(0) };
+		return super.setup(builder);
+	}
+}
+const OFF = new MaskOff();
 
 /**
  * The post stack: its passes TSL nodes on one RenderPipeline. `o.ao` is handed the occlusion (`blendIntensity`,
