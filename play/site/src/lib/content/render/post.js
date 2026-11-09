@@ -189,7 +189,6 @@ export function createPost(renderer, scene, camera, o = {}) {
  * @returns {FinishHandle}
  */
 export function createFinish(renderer, scene, camera, plan, o = {}) {
-	if (!isWebGPU(renderer)) throw new Error('createFinish: a WebGPURenderer only (the switch, intent c1bee1f8)');
 	const temporal = plan.aa === 'traa' || plan.aa === 'taau';
 	const scenePass = pass(scene, camera, { samples: plan.samples, type: THREE.HalfFloatType });
 	if (plan.upscale === 'taau') scenePass.setResolutionScale(plan.scale);
