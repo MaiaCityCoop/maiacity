@@ -1,19 +1,14 @@
 #!/usr/bin/env bun
 // The skills mirror (play/SPEC.md §4.14; intent a90151df): play's database is the one source of every skill, and Claude
-// Code's Skill tool reads only `.claude/skills`, so each avenBOX session's start writes it from play
-// (.claude/settings.json, after up.sh). Never committed (.gitignore): no second source to drift.
+// Code's Skill tool reads only `.claude/skills`, so each avenBOX session's start writes it from play (never committed).
 //
 //   bun play/avenbox/skills.ts [--out <dir>]      (.claude/skills at the repository's root by default)
 //
-// It reads every skill over play's MCP (list_docs kind skill, doc_at; PLAY_MCP_URL, play.maia.city's by default,
-// PLAY_MCP_TOKEN its Bearer) and writes one folder a skill, named by its label's slug (only shown: a skill is named by
-// its UUID): SKILL.md, its frontmatter `name`, `description` and the skill's `frontmatter` as it came (allowed-tools
-// space-separated), then its `body` (avenMAIA's and Intents' `system` and `stages`, which have none); and each
-// reference at its path, a text as it is, a file fetched by its hash from play's files and held to it. A reference
-// holding both a text and a file, or neither, or a path leaving its folder, is refused, and that skill is not written.
-// Everything is read before anything is written; then the folder is replaced whole. Without PLAY_MCP_TOKEN it writes
-// nothing and exits 0 (such a session hands its work over: CLAUDE.md). It exits 1 when play can't be read or a skill
-// was refused.
+// Over play's MCP (PLAY_MCP_URL, PLAY_MCP_TOKEN): one folder a skill (named by its label's slug, only shown), its
+// SKILL.md and its references, files held to their hashes. A reference with both or neither of a text and a file, or a
+// path leaving its folder, refuses that skill. All is read before the folder is replaced whole. Without a token it
+// writes nothing and exits 0 (such a session hands its work over: CLAUDE.md); exits 1 when play can't be read or a
+// skill was refused.
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { hashBytes, HASH } from "../api/src/kit/hash";

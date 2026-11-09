@@ -1,17 +1,13 @@
 #!/usr/bin/env bun
-// Intent named (play/SPEC.md §4.12, "Every pull request names its one intent"; Samuel 2026-11-06): every pull request
-// into main is the work of exactly one intent. Its body and its commits carry the intent's full UUID on a line
-// `Intent: <uuid>` (that is what is read); its title shows the first 8 characters, `[c9113886] …`, only shown. An
-// intent has one active pull request, the one named on it (check_intent's `pr`, recorded by its run in avenBOX):
+// Intent named (play/SPEC.md §4.12; Samuel 2026-11-06): every pull request into main is one intent's, its body and
+// commits carrying `Intent: <uuid>`, and the intent's one active pull request (check_intent's `pr`).
 //
 //   bun play/avenbox/pr-intent.ts <pull request number>          the check: green, or red saying why (exit 1)
 //   bun play/avenbox/pr-intent.ts <pull request number> --id     prints the one intent's UUID, or fails as the check
 //
-// It is red when the pull request names no intent or more than one; names one that is not at Build, Proposal or
-// Ship (or none play knows); or is not the intent's active pull request while that one is open, saying which to
-// consolidate into, or to close this one. It reads GitHub (GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_TOKEN: read only)
-// and play (get_intent over its MCP: PLAY_MCP_URL, PLAY_MCP_TOKEN). It runs from main, in
-// .github/workflows/intent-named.yml and intents-pr.yml: it reads the pull request, never checks it out.
+// Red when it names no intent or several, one not at Build, Proposal or Ship, or isn't the active one while that is
+// open. Reads GitHub (read only) and play (get_intent); runs from main in intent-named.yml and intents-pr.yml, never
+// checking the pull request out.
 import { intentsIn as trailers } from "../api/src/kit/ids";
 import { call, PLAY_MCP } from "./play";
 
