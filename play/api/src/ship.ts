@@ -30,14 +30,14 @@ import { LOCK, lockSql } from "./kit/locks";
 export const shipWork: { store?: BlobStore } = {};
 
 /** how long a step may wait for its run to appear before the ship is red */
-export const START_WITHIN_MS = 15 * 60_000;
+const START_WITHIN_MS = 15 * 60_000;
 /** how long a ship first in line waits for its pull request's checks or for GitHub before it is red */
-export const WAIT_MOST_MS = 30 * 60_000;
+const WAIT_MOST_MS = 30 * 60_000;
 /** how many of the failed job's last log lines the report keeps */
-export const LOG_LINES = 60;
+const LOG_LINES = 60;
 const LOG_MOST = 12_000;
 
-export type StepState = "queued" | "running" | "green" | "red" | "skipped";
+type StepState = "queued" | "running" | "green" | "red" | "skipped";
 export type Step = { key: string; name: string; state: StepState; started?: string; finished?: string; link?: string; note?: string };
 export type Report = { step: string; why: string; link?: string; log: string; at: string };
 export type Ship = {
@@ -437,7 +437,7 @@ function trailersOf(main: Map<string, string>) {
   return by;
 }
 
-export type Reconciled = { commit: string; accepted: string[]; flagged: string[]; cleared: string[] };
+type Reconciled = { commit: string; accepted: string[]; flagged: string[]; cleared: string[] };
 
 /**
  * The one place a code intent becomes Accepted. A code intent is one that names a pull request (with play's work beside

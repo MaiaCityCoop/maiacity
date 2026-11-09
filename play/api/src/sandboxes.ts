@@ -21,7 +21,7 @@ import { resolveEdits } from "./kinds";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
 
-export class SandboxError extends HttpError {}
+class SandboxError extends HttpError {}
 
 const SLOT = /^[A-Za-z0-9][A-Za-z0-9_.\/-]{0,199}$/;
 const CONFIG = /^[a-z][a-z0-9-]*$/;
@@ -29,16 +29,10 @@ const MOST_EDITS = 500;
 const MOST_CONFIG = 1024 * 1024;
 
 type Pin = { version: string; variant: string | null; params: Record<string, string> | null };
-export type SandboxState = { pins: Record<string, Pin>; configs: Record<string, unknown> };
+type SandboxState = { pins: Record<string, Pin>; configs: Record<string, unknown> };
 type Key = string | number;
 
-export type SandboxEdit =
-  | { op: "pin"; slot: string; asset?: string; version?: number; variant?: string | null; params?: Record<string, unknown> | null }
-  | { op: "pin_latest"; asset: string; variant?: string | null }
-  | { op: "unpin"; slot: string }
-  | { op: "set"; config: string; path?: Key[]; value: unknown }
-  | { op: "delete"; config: string; path?: Key[] };
-
+export 
 /** only Maia City's admins change a sandbox, for now */
 const SANDBOX_ADMINS = "Only Maia City's admins change a sandbox's layout, for now.";
 
@@ -62,7 +56,7 @@ export async function stateOf(q: Queryable, sandbox: string): Promise<SandboxSta
 }
 
 /** every slot a config names (`{ slot }` anywhere in it), with where */
-export function slotsNamed(configs: Record<string, unknown>): { slot: string; config: string; path: Key[] }[] {
+function slotsNamed(configs: Record<string, unknown>): { slot: string; config: string; path: Key[] }[] {
   const out: { slot: string; config: string; path: Key[] }[] = [];
   const walk = (o: unknown, config: string, path: Key[]) => {
     if (Array.isArray(o)) o.forEach((x, i) => walk(x, config, [...path, i]));
@@ -316,7 +310,7 @@ export async function listSandboxes(db: Queryable, me: Me | null) {
 // ---- the layout as a document (./versioned.ts's kind `sandbox`)
 
 /** a sandbox's layout document: sandbox:<its uuid> */
-export const layoutDoc = (sandbox: string) => `sandbox:${sandbox}`;
+const layoutDoc = (sandbox: string) => `sandbox:${sandbox}`;
 
 /** a sandbox's layout as its rows hold it, as the document's state */
 export async function layoutOf(q: Queryable, sandbox: string) {
@@ -335,7 +329,7 @@ export async function ensureLayoutDoc(q: Queryable, sandbox: string): Promise<bo
 }
 
 /** what a layout holds that play does not (a pin of a version that is no accepted version, or a variant it lacks): each problem said */
-export async function layoutProblems(q: Queryable, json: any): Promise<string[]> {
+async function layoutProblems(q: Queryable, json: any): Promise<string[]> {
   const pins = Object.entries<Pin>(json?.pins ?? {});
   const info = await versionInfo(q, pins.map(([, p]) => p.version));
   const out: string[] = [];

@@ -95,7 +95,7 @@ export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
   return out;
 }
 
-export type DocAt = { version?: number; edit?: number; intent?: string; breed?: number };
+type DocAt = { version?: number; edit?: number; intent?: string; breed?: number };
 
 /** One document, whole: at Main's newest version, at version `version`, at edit `edit`, or as intent `intent`'s variant would make it. With its versions. */
 export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}) {
@@ -311,7 +311,7 @@ async function newDocument(q: Queryable, who: Me, kindName: unknown, whole: unkn
   return uuid;
 }
 
-export type DocEditBody = { doc?: unknown; kind?: unknown; intent?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; message?: unknown };
+type DocEditBody = { doc?: unknown; kind?: unknown; intent?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; message?: unknown };
 
 /**
  * One edit of an intent variant, as the admin `me`, for intent `intent` (no edit without one: Main is written only by an
@@ -336,7 +336,7 @@ export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web
   });
 }
 
-export type ProposeBody = { doc?: unknown; kind?: unknown; note?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; intent?: string };
+type ProposeBody = { doc?: unknown; kind?: unknown; note?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; intent?: string };
 
 /** a variant made edit by edit is proposed for the intent it was made for, and only for it */
 async function proposedFor(q: Queryable, docId: string, uuid: string, v: number, intent: string | undefined) {

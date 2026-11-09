@@ -16,7 +16,7 @@ import { kindOfWork } from "./kinds";
 import { LOCK, lockSql } from "./kit/locks";
 
 export const GATES = ["approve", "accept"] as const;
-export type Gate = (typeof GATES)[number];
+type Gate = (typeof GATES)[number];
 
 /** what a rule names, each field a condition that holds or doesn't (a list: any of its values); the accept fields are not looked at at approve */
 export type Match = {
@@ -29,7 +29,7 @@ export type RuleSet = { rules: Rule[]; hash: string; number: number };
 
 /** the rule set's document, and its schema's */
 export const RULES_DOC = `rules:${RULES}`;
-export const RULES_SCHEMA_DOC = `schema:${SCHEMA.rules}`;
+const RULES_SCHEMA_DOC = `schema:${SCHEMA.rules}`;
 
 /** the first rule (Samuel 2026-11-07): an artifact added or corrected over MCP needs no tap */
 export const FIRST_RULE: Rule = {
@@ -69,7 +69,7 @@ export async function ruleSetOf(q: Queryable): Promise<RuleSet | null> {
 }
 
 /** what a rule is matched against: the intent, its declared work, and (at accept) the work it holds */
-export type Facts = {
+type Facts = {
   kind: string; via: string; author: string | null; work_kind: string[] | null;
   proposed_by: string | null; proposed_via: string | null;
   /** its work is a pull request (no work of play's) */
@@ -113,7 +113,7 @@ export async function factsOf(q: Queryable, id: string): Promise<Facts> {
 }
 
 /** whether the intent's work changes the rules, or it declares it will: then no rule decides it */
-export function touchesRules(f: Pick<Facts, "docs" | "work_kind">): boolean {
+function touchesRules(f: Pick<Facts, "docs" | "work_kind">): boolean {
   return f.docs.includes(RULES_DOC) || f.docs.includes(RULES_SCHEMA_DOC) || !!f.work_kind?.some((k) => k === SCHEMA.rules || k === SCHEMA.meta);
 }
 

@@ -1,7 +1,7 @@
 // Recipes and refs (maia/content/assets/engines.js, refs.js): a recipe file names its asset, version and variant in its
 // last line; a ref names an asset at a version, `group/id@v[:variant][?params]`.
 
-export class RefError extends Error {}
+class RefError extends Error {}
 
 /** the start every recipe file has (maia/content/assets/engines.js RECIPE_HEAD) */
 export const RECIPE_HEAD = 'defineRecipe(function (require) {\n"use strict";\nvar module = { exports: {} }, exports = module.exports;\n';

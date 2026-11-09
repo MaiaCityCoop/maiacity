@@ -6,7 +6,7 @@ export { COOP } from "./kit/ids";
 import { COOP } from "./kit/ids";
 export type Level = "admin" | "citizen" | "traveler";
 export type Rule = { read?: string[]; propose?: string[]; decide?: string[]; manage?: string[] };
-export type Action = keyof Rule;
+type Action = keyof Rule;
 /** who decided, where a rule did: the rule (its UUID, its label only shown), the rule set's version and the rule's reason */
 export type AutoBy = { rule: string; label: string; rules: string; reason: string };
 import { HttpError } from "./kit/errors";

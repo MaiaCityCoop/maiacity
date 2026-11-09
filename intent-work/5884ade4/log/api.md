@@ -143,3 +143,9 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
     content-hash ids kept): HIGH risk by the audit's own word (pins, links and the player read those ids) and a
     data-model change past this move; next untangles. Pinned: api.test (stories proposed, accepted, merged, linked),
     migrate.test (folds), the whole suite.
+18. **Exports nothing else uses** (api-flow #26, decision 4 for play/api/src): 90 lose their `export` (used only in
+    their own file: types, limits, helpers); `BOX_ENGINES`, pg.ts' `db`/`useDb`, uuid.ts' `uuidv5` (its namespace and
+    byte helper), sandboxes' `SandboxEdit` go with their code. Five stay exported, used only by
+    `play/api/import/stories.ts`, which measure.ts' corpus skips (`STORY_ID`, `FoldReport`, `seedStory`, `putFrame`,
+    `ensureStoryDocs`): the import runs them on every deploy. Dead in play/api/src: 102 → those 5. Pinned: tsc, the
+    whole suite.

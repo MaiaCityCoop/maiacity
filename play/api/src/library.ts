@@ -17,7 +17,7 @@ import { assetSeen, libraryOf, libraryPage, relabel } from "./owners";
 import { HttpError } from "./kit/errors";
 
 /** who opens the Library: its admins, for now (characters are admins' alone); "member" opens it to every member, each their own library */
-export const LIBRARY_OPEN_TO: "admin" | "member" = "admin";
+const LIBRARY_OPEN_TO: "admin" | "member" = "admin";
 
 // a document is Markdown (text/markdown: a plant's data sheet, its sheet's brief); recipe sources (text/javascript) are not shown
 export const LIBRARY_KINDS = ["image", "video", "audio", "document"] as const;
@@ -27,7 +27,7 @@ export type StoryUse = { story: string; title: string; number: number | null; tr
 /** an asset version whose record names the file as its reference sheet: accepted (a version of the asset) or proposed */
 export type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: "sheet" | "datasheet" | "brief"; accepted: boolean };
 export type Use = StoryUse | SheetUse;
-export type LibraryFile = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
+type LibraryFile = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
 
 const LIBRARY_ADMINS = "Only Maia City's admins open the Library.";
 /** `me`, if they may open the Library: the coop's library is its admins' always; their own is theirs where it is open to them */

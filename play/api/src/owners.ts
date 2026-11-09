@@ -35,7 +35,7 @@ export function libraryOf(me: Pick<Me, "id">, library: unknown): { library: Libr
 /** an asset row `a` that `p` sees: the coop's, or their own */
 export const assetSeen = (a: string, p: string) => `(${a}.owner = '${COOP}' OR ${a}.owner = ${p}::uuid)`;
 /** a file by its hash `h` that `p` sees: in the coop's library, in theirs, or in none */
-export const fileSeen = (h: string, p: string) =>
+const fileSeen = (h: string, p: string) =>
   `(EXISTS (SELECT 1 FROM play.file_owners fo WHERE fo.hash = ${h} AND (fo.owner = '${COOP}' OR fo.owner = ${p}::uuid)) OR NOT EXISTS (SELECT 1 FROM play.file_owners fo WHERE fo.hash = ${h}))`;
 /**
  * an intent row `i` that `p` sees: none of its work is another's private asset (its frozen version's, or an intent
@@ -81,7 +81,7 @@ export async function seesIntent(q: Queryable, me: Pick<Me, "id"> | null, id: st
 
 // ---- files: the one place play.files is read for people
 
-export type FileRow = { hash: string; size: string; media_type: string };
+type FileRow = { hash: string; size: string; media_type: string };
 
 /** file `hash` as `me` may have it served (its size and type), or null: none kept, or another's alone */
 export async function fileFor(q: Queryable, me: Pick<Me, "id"> | null, hash: string): Promise<FileRow | null> {
@@ -184,7 +184,7 @@ export const ROWS_SEEN: Record<string, (t: string, p: string) => string> = {
 // ---- the board's edges: an intent another can't see is shown on theirs as "a private intent", no id, no title
 
 /** what an edge to an intent `me` can't see shows */
-export const PRIVATE_INTENT = "a private intent";
+const PRIVATE_INTENT = "a private intent";
 const EDGE_KEYS = ["depends_on", "needed_by", "held_by"] as const;
 
 /**

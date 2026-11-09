@@ -35,8 +35,8 @@ export const WORK_STATUS = `CASE WHEN i.stage IN ('proposal', 'ship') OR (i.stag
   WHERE wv.intent_id = i.id AND dv.status = 'proposed')) THEN 'proposal' WHEN i.stage = 'accepted' THEN 'accepted' ELSE 'archived' END`;
 
 /** the SQL of an intent's (`i`) first document and its variant: its work's own */
-export const DOC_OF = `(SELECT iv.doc_id FROM play.intent_variants iv WHERE iv.intent_id = i.id ORDER BY iv.position LIMIT 1)`;
-export const VARIANT_OF = `(SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.intent_id = i.id ORDER BY iv.position LIMIT 1)`;
+const DOC_OF = `(SELECT iv.doc_id FROM play.intent_variants iv WHERE iv.intent_id = i.id ORDER BY iv.position LIMIT 1)`;
+const VARIANT_OF = `(SELECT iv.variant_id FROM play.intent_variants iv WHERE iv.intent_id = i.id ORDER BY iv.position LIMIT 1)`;
 
 /**
  * An intent's work as what decides it reads it: its refs (its first document and variant, and every one it holds), and

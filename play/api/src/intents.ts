@@ -17,7 +17,7 @@ import { LOCK, lockSql } from "./kit/locks";
 export { unmetOn };
 
 export const INTENT_KINDS = ["idea", "fix", "improve"] as const;
-export type IntentKind = (typeof INTENT_KINDS)[number];
+type IntentKind = (typeof INTENT_KINDS)[number];
 export const INTENT_STAGES = ["idea", "specify", "build", "proposal", "ship", "accepted", "archived"] as const;
 export type IntentStage = (typeof INTENT_STAGES)[number];
 /** the intents still to be taken further: not yet done (Ship: accepted, on its way to production) */
@@ -38,7 +38,7 @@ export type Where = (typeof WHERES)[number];
 /** box: recorded by avenBOX's token (the GitHub run of the intent's checks: play/avenbox/intent.ts); link: that run */
 export type Result = { pass: boolean; evidence: string; by: string | null; at: string; where?: Where; commit?: string; box?: true; link?: string };
 /** what play says to a token that is not avenBOX's when it records what only the box's run may (play/SPEC.md §4.12) */
-export const BOX_ONLY =
+const BOX_ONLY =
   "the pull request's run records them: a code intent's test and measure checks are recorded only by its run in avenBOX on GitHub (.github/workflows/intents-pr.yml, as the pull request is marked ready, and again on each push to it), with avenBOX's token";
 export const TITLE_MOST = 200;
 export const CHECKS_MOST = 12;
@@ -236,7 +236,7 @@ async function workKindOf(q: Queryable, v: unknown): Promise<string[] | null | u
   return out.length ? out : null;
 }
 /** the kinds of work an intent declares, as people read them */
-export const declaredText = (kinds: string[]) => kinds.join(", ");
+const declaredText = (kinds: string[]) => kinds.join(", ");
 
 /** depends_on as given: UUIDs, or undefined (left as it is) */
 const depsOf = (v: unknown) => {
@@ -255,9 +255,9 @@ const WHEN = `COALESCE(i.decided_at, i.proposed_at, i.created)`;
 /** an intent's place in that order, a page's cursor: its time in microseconds since the epoch and its id */
 const CURSOR = `floor(extract(epoch FROM ${WHEN}) * 1000000)::bigint::text || '_' || i.id`;
 /** the most intents a page holds */
-export const PAGE_MOST = 200;
+const PAGE_MOST = 200;
 /** A page asked for: how many (1–200) and after which card (a cursor, `next` of the page before). */
-export type IntentPage = { limit?: unknown; before?: unknown };
+type IntentPage = { limit?: unknown; before?: unknown };
 const pageOf = (p: IntentPage | undefined) => {
   let limit: number | undefined;
   if (p?.limit !== undefined && p.limit !== null && p.limit !== "") {
@@ -464,7 +464,7 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
 }
 
 /** the must checks of an intent that have not passed, as people read them, or none: the gate to Proposal and to accepting */
-export function unmet(intent: { spec: Spec | null; results: Record<string, Result> | null }) {
+function unmet(intent: { spec: Spec | null; results: Record<string, Result> | null }) {
   return (intent.spec?.checks ?? [])
     .filter((c) => c.must && intent.results?.[c.id]?.pass !== true)
     .map((c) => `${c.id} (${c.check}): ${intent.results?.[c.id] ? "failed" : "no result yet"}`);
@@ -473,16 +473,16 @@ export function unmet(intent: { spec: Spec | null; results: Record<string, Resul
 /** every forward move: approve (to Build), to Proposal on its checks, work proposed, accept, its work accepted, Accept into Ship, Ship's turn */
 export type Move = "build" | "proposal" | "work" | "accept" | "accept_work" | "ship" | "merge";
 /** why a move is refused; `wait` where only a dependency still in Ship refuses it (Ship's turn waits for it) */
-export type Refusal = { why: string; wait?: boolean };
+type Refusal = { why: string; wait?: boolean };
 type GateRow = { id: string; stage: string; spec: Spec | null; results: Record<string, Result> | null; work?: unknown; pull_request?: number | null; approved_at?: unknown; held_by?: Dep[]; work_kind?: string[] | null };
 /** the kind of work a move brings (mayMove's work): a document's schema (its UUID), or code */
-export type WorkWhat = { schema?: string | null; code?: boolean };
+type WorkWhat = { schema?: string | null; code?: boolean };
 
 /**
  * Why work of kind `what` is not the intent's to take, or "" where it is: an intent that declares its kinds of work
  * (work_kind) takes only those; one that declares nothing takes any.
  */
-export function notDeclared(i: { id: string; work_kind?: string[] | null }, what: WorkWhat): string {
+function notDeclared(i: { id: string; work_kind?: string[] | null }, what: WorkWhat): string {
   const kinds = i.work_kind ?? [];
   if (!kinds.length) return "";
   const k = what.code ? CODE : what.schema ?? null;

@@ -360,7 +360,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
 
 /** the one byte range a Range header asks of a file of `size` bytes (inclusive), null for the whole file (no header, or
  * one asking several ranges or another unit), "unsatisfiable" for one that starts past its end */
-export function rangeOf(header: string | null, size: number): [number, number] | null | "unsatisfiable" {
+function rangeOf(header: string | null, size: number): [number, number] | null | "unsatisfiable" {
   const m = /^bytes=(\d*)-(\d*)$/.exec(header?.trim() ?? "");
   if (!m || (m[1] === "" && m[2] === "")) return null;
   if (m[1] === "") {

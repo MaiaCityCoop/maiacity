@@ -14,7 +14,7 @@ import { intentRow, INTENT_STAGES, type IntentStage } from "./intents";
 
 export const docIdOf = (skill: string) => `skill:${skill}`;
 /** the skills whose `system` makes the system prompt, in this order: who the agent is, then the intents */
-export const SYSTEM_SKILLS = [SKILL.avenmaia, SKILL.intents];
+const SYSTEM_SKILLS = [SKILL.avenmaia, SKILL.intents];
 // ---- what it teaches: the system prompt, an intent's brief, the prompts
 
 /** a skill as accepted (its document's main line), or null where play holds none of that id */
@@ -48,7 +48,7 @@ const SKILL_PROMPT = /^skill:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 
 /** a skill's whole text as one prompt: its description, its body (or its system part and stages, avenMAIA's and the
  *  Intents skill's), and the index of its references, each read whole with doc_at (a file by its hash from play's files) */
-export function skillText(id: string, s: any): string {
+function skillText(id: string, s: any): string {
   const body = `${s.body ?? ""}`.trim() || [`${s.system ?? ""}`.trim(), ...INTENT_STAGES.filter((st) => `${s.stages?.[st] ?? ""}`.trim()).map((st) => `## At ${st}\n\n${`${s.stages[st]}`.trim()}`)].filter(Boolean).join("\n\n");
   const refs = (s.references ?? []).map((r: any) => `- ${r.path}: ${typeof r.text === "string" ? `text, ${r.text.length} characters` : `file ${r.file}${r.type ? ` (${r.type})` : ""}`}`);
   const parts = [`# ${s.label}`, `${s.description ?? s.note ?? ""}`.trim(), body];

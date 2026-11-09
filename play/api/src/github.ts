@@ -55,7 +55,7 @@ export type Job = {
 
 export type Compare = { status: string; ahead_by: number; behind_by: number; merge_base_commit: { sha: string }; files?: { filename: string; previous_filename?: string }[] };
 
-export type Commit = { sha: string; commit: { message: string }; parents: { sha: string }[] };
+type Commit = { sha: string; commit: { message: string }; parents: { sha: string }[] };
 
 export class GitHubError extends Error {
   constructor(message: string, public status: number) {

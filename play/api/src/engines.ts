@@ -7,8 +7,6 @@ type Engine = { v: number; blake3: string };
 const at = resolve(process.env.PLAY_REPO ?? resolve(import.meta.dir, "../../.."), "play/site/src/lib/kernel/sandbox/engines.json");
 const list = (JSON.parse(readFileSync(at, "utf8")).box ?? []) as Engine[];
 
-/** every frozen box engine, oldest first */
-export const BOX_ENGINES: readonly Engine[] = list;
 /** the latest: the one new recipes are made for */
 export const LATEST_BOX = list[list.length - 1];
 /** box engine `v`, if frozen */

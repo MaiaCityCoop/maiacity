@@ -19,7 +19,7 @@ import { closeVariant, dropDoc, variantsOf, workOf } from "./held";
 import { HttpError } from "./kit/errors";
 
 /** a withdrawal, as it is kept on the intent beside its steps back */
-export type Withdrawal = { at: string; by: string | null; human: string; via: "mcp" | "site"; from: string; to: string; reason: string; doc: string };
+type Withdrawal = { at: string; by: string | null; human: string; via: "mcp" | "site"; from: string; to: string; reason: string; doc: string };
 
 /** Document `doc` (its UUID, or `<kind>:<uuid>`) taken out of intent `id`'s work, with its reason. Gives back the intent. */
 export async function withdrawDoc(db: Db, me: Me | null, id: string, doc: unknown, reason: unknown, via: "mcp" | "site") {

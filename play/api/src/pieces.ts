@@ -49,10 +49,10 @@ export function pieceProblems(source: string, unreadable: (s: string) => string 
 /** what the resolver knows of one piece version: what it requires, and how deep it goes where that is kept (an accepted one's) */
 export type Known = { requires: string[]; depth?: number };
 /** looks up piece versions by their hashes: those it knows, by hash */
-export type Lookup = (hashes: string[]) => Promise<Map<string, Known>>;
+type Lookup = (hashes: string[]) => Promise<Map<string, Known>>;
 
 /** the accepted piece versions among `hashes` (play.piece_versions) */
-export const acceptedPieces = (q: Queryable): Lookup => async (hashes) => {
+const acceptedPieces = (q: Queryable): Lookup => async (hashes) => {
   const { rows } = await q.query<{ hash: string; requires: string[]; depth: number }>(
     `SELECT DISTINCT ON (hash) hash, requires, depth FROM play.piece_versions WHERE hash = ANY($1::text[]) ORDER BY hash, created`,
     [hashes],

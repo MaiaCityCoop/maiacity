@@ -9,7 +9,7 @@ import type { Queryable } from "./kit/pg";
 import { piecesOf } from "./pieces";
 
 /** a variant in brief: its label and group, how many fields it changes against its seed and which (at most FIELDS), its source's hash and the pieces its sources require */
-export type Gist = { seq: string; label: string | null; group: string | null; changes: number; fields: string[]; hash: string | null; requires: string[] };
+type Gist = { seq: string; label: string | null; group: string | null; changes: number; fields: string[]; hash: string | null; requires: string[] };
 
 const FIELDS = 8;
 

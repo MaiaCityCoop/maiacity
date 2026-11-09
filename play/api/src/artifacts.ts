@@ -18,7 +18,7 @@ import { docAt, proposeDocVersion, proposeNewDoc } from "./versioned";
 import { HttpError } from "./kit/errors";
 
 export const ARTIFACT_KINDS = ["page", "article", "paper", "video", "post", "book", "podcast", "code", "other"] as const;
-export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
+type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 export const AUTHOR_KINDS = ["person", "organization"] as const;
 export const ORIGINS = ["human", "agent"] as const;
 export type Origin = (typeof ORIGINS)[number];
@@ -27,12 +27,12 @@ export const TITLE_MOST = 70;
 export const DESCRIPTION_MOST = 280;
 export const SUMMARY_WORDS = { least: 500, most: 1500 } as const;
 /** a summary's sections, in this order; ## For Maia City may follow them */
-export const SECTIONS = ["What it is", "Key points", "The topic"] as const;
-export const OPTIONAL_SECTION = "For Maia City";
-export const AUTHORS_MOST = 20;
-export const TAGS_MOST = 12;
+const SECTIONS = ["What it is", "Key points", "The topic"] as const;
+const OPTIONAL_SECTION = "For Maia City";
+const AUTHORS_MOST = 20;
+const TAGS_MOST = 12;
 /** the page's text as it was fetched, kept among play's files: at most this many bytes */
-export const TEXT_MOST = 2_000_000;
+const TEXT_MOST = 2_000_000;
 const SUMMARY_CHARS_MOST = 20_000;
 const URL_MOST = 2000;
 
@@ -118,7 +118,7 @@ const oneLine = (v: unknown, what: string, most: number) => {
 
 export const titleOf = (v: unknown) => oneLine(v, "title (very compact: what it is about, in plain words)", TITLE_MOST);
 
-export function descriptionOf(v: unknown) {
+function descriptionOf(v: unknown) {
   const d = oneLine(v, "description (the mini summary: one or two sentences)", DESCRIPTION_MOST);
   if (/\*\*|__|`|\[[^\]]*\]\([^)]*\)|^#{1,6}\s|^[-*+>]\s|(^|\s)\*[^*\s][^*]*\*(?=$|[\s.,;:!?])/.test(d))
     throw new HttpError("An artifact's description is plain text: no Markdown (no **, _, `, links, headings or bullets).");
@@ -291,7 +291,7 @@ export async function artifactOf(db: Queryable, me: Me | null, id: unknown) {
   return artifactRow(db, idOf(id, "artifact"));
 }
 
-export type ArtifactQuery = { q?: string | null; author?: string | null; tag?: string | null; kind?: string | null; origin?: string | null; offset?: number; limit?: number };
+type ArtifactQuery = { q?: string | null; author?: string | null; tag?: string | null; kind?: string | null; origin?: string | null; offset?: number; limit?: number };
 
 /**
  * The artifacts, newest first, a page at a time, with how many match: `q` in a title, description, summary, link or an
@@ -396,7 +396,7 @@ async function linkHeld(db: Queryable, url: string): Promise<{ kept?: string; wa
   return {};
 }
 
-export type ArtifactGiven = {
+type ArtifactGiven = {
   url?: unknown; title?: unknown; description?: unknown; summary?: unknown; authors?: unknown;
   kind?: unknown; tags?: unknown; published?: unknown; origin?: unknown; text?: unknown;
 };

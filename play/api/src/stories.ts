@@ -46,7 +46,7 @@ import { HttpError } from "./kit/errors";
 
 /** the work a story's version is */
 const STORY_WORK = "story_version";
-export type VersionInfo = { number: number; id: string; note: string; created: string; author: string | null; approved_by: string | null };
+type VersionInfo = { number: number; id: string; note: string; created: string; author: string | null; approved_by: string | null };
 /** a linked version as it is read: its story (a UUID), title, number and id, its duration and timeline, and its story's
  *  newest accepted number (shown as "v5 available" where it is newer; a link plays only its own version) */
 export type Linked = { id: string; title: string; number: number; version: string; duration: number; newest: number | null; body: StoryBody };
@@ -55,14 +55,14 @@ export type Links = Record<string, Linked>;
 /** a story linking this one, at its newest version, and the number of this one's version it plays */
 export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
 export type Story = { id: string; title: string; version: string; number: number | null; note: string; created: string; author: string | null; versions: VersionInfo[]; links: Links; linked_by: LinkedBy[] } & StoryBody;
-export type StoryItem = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
+type StoryItem = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
 
 /** a story is named by its UUID (Samuel 2026-11-04); its title is only shown */
 export const STORY_ID = UUID;
 const TRACK_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const CLIP_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/;
 export const FORMATS = ["9:16", "16:9", "1:1", "4:5"];
-export const FPS = [24, 25, 30, 48, 50, 60];
+const FPS = [24, 25, 30, 48, 50, 60];
 /** a track of this kind links other stories in, a clip each (play/SPEC.md §12, linked stories) */
 export const LINK = "story";
 /** how deep links may nest: a story's links, their links, … at most this many stories down */
@@ -177,7 +177,7 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
 // it) and its camera's keyframes (`camera`: eye and target in metres, fov in degrees); `steps`, how many builds a keyed
 // change is drawn in. The shot's frame stays its poster.
 const LIVE_KEYS = new Set(["asset", "version", "variant", "values", "keys", "camera", "steps"]);
-export const MOST_LIVE_STEPS = 24;
+const MOST_LIVE_STEPS = 24;
 const PARAM = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/;
 function liveValues(v: unknown, what: string): Record<string, number | string | boolean> {
   if (!v || typeof v !== "object" || Array.isArray(v)) throw new HttpError(`${what} must be { parameter: a number, text or true/false }.`);
@@ -259,7 +259,7 @@ function liveOf(v: unknown, what: string, duration: number) {
 // its camera's keyframes, its hour (the sun's place), its exposure (stops) and its lights (multipliers over its mood),
 // each a number held over the shot or [[t, value], …] keys in time order (t in s into the shot).
 const WORLD_KEYS = new Set(["asset", "version", "camera", "hour", "exposure", "lights"]);
-export const WORLD_LIGHTS = ["sun", "sky", "lamps"];
+const WORLD_LIGHTS = ["sun", "sky", "lamps"];
 /** a value over a shot: a number held, or [[t, value], …] keys in time order, each value within [lo, hi] */
 function curveOf(v: unknown, what: string, lo: number, hi: number, inShot: InShot): number | [number, number][] {
   const val = (x: unknown, w: string) => {
@@ -384,7 +384,7 @@ function sound(c: Record<string, unknown>, what: string): Record<string, unknown
 }
 
 /** the biquad types an EQ band may be (the Audio EQ Cookbook's, as Web Audio's BiquadFilterNode plays them) */
-export const EQ_TYPES = ["highpass", "lowshelf", "peaking", "notch", "highshelf", "lowpass"];
+const EQ_TYPES = ["highpass", "lowshelf", "peaking", "notch", "highshelf", "lowpass"];
 const MOST_BANDS = 8;
 const MOST_KEYS = 64;
 /** a clip's EQ: bands in order, each { type, f (Hz, 20–20000), gain (dB, ±24), q (0.1–18) } (the old studio's, checked the same) */
@@ -416,7 +416,7 @@ function keysOf(v: unknown, what: string) {
  * (Linker: `self` is the story the timeline is of, so it never plays inside itself), the link clip as long as that
  * version (left out, it is given that length).
  */
-export async function checkBody(db: Queryable, given: any, self?: string): Promise<StoryBody> {
+async function checkBody(db: Queryable, given: any, self?: string): Promise<StoryBody> {
   if (!given || typeof given !== "object" || Array.isArray(given)) throw new HttpError("A story's timeline is a JSON object: { format, fps, tracks }.");
   if (given.schema != null && given.schema !== STORY_SCHEMA) throw new HttpError(`A story's schema is ${STORY_SCHEMA}.`);
   const format = given.format == null ? "9:16" : text(given.format, "The format", 8);
@@ -606,7 +606,7 @@ export const linksOf = (q: Queryable, body: StoryBody, self?: string): Promise<L
 export const slimLinks = (links: Links) => Object.fromEntries(Object.entries(links).map(([k, { body: _b, ...l }]) => [k, l]));
 
 /** the stories whose newest version links story `id`, and the version of it each plays */
-export async function linkedBy(q: Queryable, id: string): Promise<{ id: string; title: string; number: number; version: string; plays: number | null }[]> {
+async function linkedBy(q: Queryable, id: string): Promise<{ id: string; title: string; number: number; version: string; plays: number | null }[]> {
   const { rows } = await q.query<{ id: string; title: string; number: number; version: string; plays: number | null }>(
     `SELECT DISTINCT s.id, s.title, v.number, c->>'version' AS version, lv.number AS plays
        FROM play.stories s JOIN play.story_versions v ON v.id = s.head
@@ -809,7 +809,7 @@ export async function storyOf(db: Queryable, me: Me | null, id: string, number?:
 // ---- proposing (play/SPEC.md §4.4, "Version control"): every story is also a Loro document (./storydocs.ts), each
 // intent's work an intent variant of it, each change an edit on one
 
-export type StoryProposal = {
+type StoryProposal = {
   story?: string; // the story a version is of (its UUID); a new story gets one of its own
   title?: string;
   note?: string;
@@ -1174,10 +1174,10 @@ export async function seedStory(db: Db, id: string, title: string, note: string,
 // ---- recordings
 
 /** The audio type of `bytes`, by how they start, or null */
-export const audioType = (bytes: Uint8Array): string | null => AUDIO.find((a) => a.is(bytes))?.type ?? null;
+const audioType = (bytes: Uint8Array): string | null => AUDIO.find((a) => a.is(bytes))?.type ?? null;
 
 /** Keep one recording (MP3, WAV, Ogg, FLAC, M4A or WebM audio, at most MOST_AUDIO bytes) among play's files; its hash. */
-export async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
+async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (!bytes.length) throw new HttpError("The recording is empty.");
   if (bytes.length > MOST_AUDIO) throw new HttpError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
   const type = audioType(bytes);
@@ -1218,7 +1218,7 @@ const keepFile = (db: Queryable, hash: string, size: number, type: string, key: 
 /** a document is Markdown text of at most this many bytes */
 export const MOST_DOCUMENT = 2_000_000;
 /** the one media type play keeps a document as (recipe sources are text/javascript, never shown in the Library) */
-export const DOCUMENT_TYPE = "text/markdown";
+const DOCUMENT_TYPE = "text/markdown";
 
 /** Keep one document (Markdown text, at most MOST_DOCUMENT bytes) among play's files; its hash. */
 export async function putDocument(db: Queryable, store: BlobStore, text: unknown, label?: unknown, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
@@ -1237,7 +1237,7 @@ export async function putDocument(db: Queryable, store: BlobStore, text: unknown
 /** a composition is readable HTML of at most this many bytes */
 export const MOST_COMPOSITION = 2_000_000;
 /** the media type play keeps a composition as (served as plain text, like every code file) */
-export const COMPOSITION_TYPE = "text/html";
+const COMPOSITION_TYPE = "text/html";
 
 /**
  * Keep one composition among play's files; its hash. It is one HyperFrames composition as written: readable (not bundled
@@ -1264,10 +1264,10 @@ export async function putComposition(db: Queryable, store: BlobStore, html: unkn
 // ---- videos
 
 /** The video type of `bytes`, by how they start, or null */
-export const videoType = (bytes: Uint8Array): string | null => VIDEOS.find((v) => v.is(bytes))?.type ?? null;
+const videoType = (bytes: Uint8Array): string | null => VIDEOS.find((v) => v.is(bytes))?.type ?? null;
 
 /** Keep one video (MP4 or WebM, at most MOST_VIDEO bytes) among play's files; its hash. */
-export async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
+async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (!bytes.length) throw new HttpError("The video is empty.");
   if (bytes.length > MOST_VIDEO) throw new HttpError(`A video is at most ${MOST_VIDEO / 1e6} MB.`, 413);
   const type = videoType(bytes);
@@ -1291,7 +1291,7 @@ export async function putVideoBase64(db: Queryable, store: BlobStore, data: unkn
 // ---- frames
 
 /** The image type of `bytes`, by how they start, or null */
-export const imageType = (bytes: Uint8Array): string | null => IMAGES.find((i) => i.is(bytes))?.type ?? null;
+const imageType = (bytes: Uint8Array): string | null => IMAGES.find((i) => i.is(bytes))?.type ?? null;
 
 /** Keep one frame (an image, at most MOST_FRAME bytes) among play's files; its hash. */
 export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {

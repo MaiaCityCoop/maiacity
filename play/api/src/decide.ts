@@ -55,7 +55,7 @@ async function decideOne(ctx: Ctx, me: Me | null, w: any, verdict: IntentVerdict
 // ---- auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules", ./rules.ts): a rule takes the move a person would
 
 /** what autoMove did: the gate a rule decided at and the rule, or why the move it matched was refused */
-export type AutoMoved = { gate: "approve" | "accept"; rule: string; refused?: string };
+type AutoMoved = { gate: "approve" | "accept"; rule: string; refused?: string };
 
 /**
  * Intent `id` decided by a rule where one matches: at Specify its spec approved (Approve spec), at Proposal accepted
@@ -90,7 +90,7 @@ export async function autoMove(ctx: { db: Db; store?: BlobStore }, id: string, o
 }
 
 /** once intent `id` is Accepted, every intent it held is asked again (autoMove): a rule may move it now */
-export async function autoAfter(ctx: { db: Db; store?: BlobStore }, id: string, o: { me?: Me | null; gh?: GitHub | null; commit?: string | null } = {}) {
+async function autoAfter(ctx: { db: Db; store?: BlobStore }, id: string, o: { me?: Me | null; gh?: GitHub | null; commit?: string | null } = {}) {
   const { rows } = await ctx.db.query<{ intent_id: string }>(`SELECT intent_id FROM play.intent_depends WHERE depends_on = $1 ORDER BY at, intent_id`, [id]);
   for (const r of rows) await autoMove(ctx, r.intent_id, o).catch((e) => console.warn(`auto: intent ${r.intent_id} not looked at: ${(e as Error).message}`));
 }
