@@ -1,11 +1,11 @@
 # Mac job: intent c1bee1f8's c8, the smoke: every page on WebGPU in Chrome and in Safari
 
 Run 1 (5f829ca, head a1c2823) found WebGPU's own shader errors (fixed in the pull request, 817fe84); this job then
-names the URL of every failed request and keeps the job's own errors apart.
+names the URL of every failed request, keeps the job's own errors apart, and smokes a production build (run 2).
 
-MAC JOB READY: intent-work/c1bee1f8-render@bf095754 intent-work/c1bee1f8-render/README.md, run 2, on the pull request's head
-`817fe847abcd2ff12099fced07f99dda54ab5645` (`HEAD_COMMIT=817fe847abcd2ff12099fced07f99dda54ab5645`). Dry run: DRY RUN
-PASSED at 47909f9 (25.7 s, 2026-11-09 22:50 UTC; only this line changed since).
+MAC JOB READY: intent-work/c1bee1f8-render@{JOB} intent-work/c1bee1f8-render/README.md, run 2, on the pull request's head
+`817fe847abcd2ff12099fced07f99dda54ab5645` (`HEAD_COMMIT=817fe847abcd2ff12099fced07f99dda54ab5645`), a production build.
+Dry run: DRY RUN PASSED at {DRY} (only this line changed since).
 
 Intent c1bee1f8-e738-4ff3-aace-4aea1d7e74ae (GPU 9/14), pull request #2186, branch `intent/c1bee1f8-webgpu-switch`.
 Every page draws with `WebGPURenderer`: WebGPU where the browser has it, its own WebGL 2 backend where not. The
@@ -16,7 +16,8 @@ bounded; films are c9's, after the deploy).
 
 **Run:** `PLAY_MCP_TOKEN=play_… HEAD_COMMIT=b798efcfda9f82a9edb41856b9034026e7ca7f2a bash intent-work/c1bee1f8-render/run.sh` (bun, node
 with Playwright's Chromium and WebKit: `npx playwright install chromium webkit` once). It checks out the head in a
-worktree beside the repository (`../c1bee-head`), serves it on 5183 through play's read-only proxy, and runs
+worktree beside the repository (`../c1bee-head`), builds it as production does (`bun run build`) and serves it with
+`vite preview` on 5183 through play's read-only proxy, and runs
 `smoke.mjs` (this folder):
 
 1. **Chrome:** Chromium on Metal with WebGPU on (`--enable-unsafe-webgpu`). It prints the WebGPU adapter it found.
@@ -34,8 +35,10 @@ For each page it waits for the renderer's backend (`window.__rendererBackend`) o
 
 **Pass (c8):** every page in both browsers opened with no console error and no page error of its own (`c8: PASS` on
 the last line), and Chrome's drawing pages say `webgpu`. Two kinds are the job's, not the page's, and are kept apart
-(`aside`) and shown: play's member routes answer 401, because the job signs no one in; and Safari refuses the dev
-server's inline styles under play's CSP (a build hashes them). Every failed request is listed by its address
+(`aside`) and shown: play's member routes answer 401, because the job signs no one in; and, should Safari still
+refuse an inline style under a CSP on the production build, that line is kept apart too: play's pages carry no
+`style-src`, the asset box's sandboxed frame has `style-src 'none'` (src/lib/kernel/sandbox/policy.js), and this pull
+request touches neither. Every failed request is listed by its address
 (`failed`). Look at the screenshots: every world shows its ground, sky and things
 (no black or empty frame), the goat is whole and the machine shows its parts.
 

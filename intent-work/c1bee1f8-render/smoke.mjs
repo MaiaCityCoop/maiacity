@@ -81,12 +81,12 @@ for (const [bname, launch] of BROWSERS) {
 		const png = `${out}/${bname}-${name}.png`;
 		await page.screenshot({ path: png }).catch((e) => errors.push(`screenshot ${e.message.split('\n')[0]}`));
 		// what is the job's and not the page's: play's member routes answer 401 to a page with no session (the job signs
-		// no one in), and Safari refuses the dev server's inline styles under play's CSP (a build hashes them); each is
+		// no one in), and Safari's refusal of an inline style under the asset box frame's CSP (not this pull request's); each is
 		// kept and shown, apart, and fails nothing
 		const known = (e) => /status of 401/.test(e) || /Refused to apply a stylesheet .*Content Security Policy/.test(e);
 		const own = errors.filter((e) => !known(e)), aside = errors.filter(known);
 		results.push({ browser: bname, page: name, ok: own.length === 0, backend, ...m, seconds: +((Date.now() - from) / 1000).toFixed(1), errors: own, aside, failed, png });
-		console.log(`${bname} ${name}: ${backend}, ${m.frameMs ?? '–'} ms, ${own.length} errors${own.length ? `: ${own[0]}` : ''}${aside.length ? ` (${aside.length} the job's: no session, dev styles)` : ''}${failed.length ? `; failed: ${[...new Set(failed)].slice(0, 4).join(', ')}` : ''}`);
+		console.log(`${bname} ${name}: ${backend}, ${m.frameMs ?? '–'} ms, ${own.length} errors${own.length ? `: ${own[0]}` : ''}${aside.length ? ` (${aside.length} the job's: no session, the box frame's CSP)` : ''}${failed.length ? `; failed: ${[...new Set(failed)].slice(0, 4).join(', ')}` : ''}`);
 		await ctx.close();
 	}
 	await browser.close();
