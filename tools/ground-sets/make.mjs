@@ -62,7 +62,6 @@ async function source(where, id) {
 			size: +(Math.max(...(info.dimensions ?? [2000])) / 1000).toFixed(2)
 		};
 	}
-	// ambientCG: a zip of its maps
 	await get(`https://ambientcg.com/get?file=${id}_2K-PNG.zip`, join(dir, 'set.zip'));
 	const un = join(dir, 'un');
 	if (!existsSync(un)) execFileSync('python3', ['-I', '-c', `import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])`, join(dir, 'set.zip'), un]);
@@ -92,7 +91,6 @@ const decoder = async (buffer) => {
 	return { data: new Uint8Array(data), width: info.width, height: info.height };
 };
 
-/** a map at px a side as a KTX2 file, kept in play/media by its hash */
 async function ktx2(png, px, kind) {
 	const sized = await sharp(png).resize(px, px, { kernel: 'lanczos3' }).png().toBuffer();
 	const opts =
