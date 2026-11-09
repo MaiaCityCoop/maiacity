@@ -1,11 +1,8 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * THE LOWER LEVELS, MADE BESIDE THE PAGE — a renderer's (./index.js) levels of detail made from a finer level it has
- * (./simplify.js), in a worker of its own where the browser has one, so even the biggest machine (the LifeTrac, one
- * shape of 437,713 corners) never holds the page's frames: a second or two of simplifying happens off them. Without a
- * worker, in the page, a step at a time between frames. One kind at a time, in the order they were asked for (a
- * recipe's level made lighter, which is drawn as it came meanwhile, after all the others). What it makes is kept on
- * the device by ./levels.js, so a build's levels are made once a device.
+ * The renderer's (./index.js) lower levels made by ./simplify.js in a worker of its own where there is one, so even the
+ * LifeTrac (one shape of 437,713 corners: a second or two) never holds the page's frames; else in the page, a step at a
+ * time between frames. Kept on the device by ./levels.js.
  */
 import * as THREE from 'three';
 import { LEFT, lowerDraws } from './simplify.js';
@@ -19,11 +16,10 @@ const _m = new THREE.Matrix4(), _s = new THREE.Vector3(), _p = new THREE.Vector3
 const through = (m) => !!(m.transparent || m.opacity < 1 || m.transmission > 0 || m.alphaTest > 0 || m.alphaMap || m.alphaHash);
 
 /**
- * A level's drawing as plain arrays, with how big it is drawn at the most (its ball's diameter, m) and how much bigger
- * that is than it is made (`scale`), where it is drawn (`locals`), on which side, whether it is seen through, and
- * whether a picture is painted on it (`painted`, its colour map).
+ * A level's drawing as plain arrays, with its biggest drawn size (ball diameter, m) and how much bigger than made
+ * (`scale`), where drawn (`locals`), its side, whether seen through, and whether painted (`painted`, its colour map).
  */
-export function plainOf(d) {
+function plainOf(d) {
 	const g = d.geometry;
 	const attributes = {};
 	for (const [k, a] of Object.entries(g.attributes)) {
@@ -41,17 +37,13 @@ export function plainOf(d) {
 	return { attributes, index, tris: d.tris, n: d.n, size: 2 * g.boundingSphere.radius * scale, scale, locals: d.locals.slice(0, d.n * 16), side: d.material.side, see: through(d.material), painted: !!d.material.map };
 }
 
-/** the items of an array of `size` numbers each that `pick` names, in its order */
 const picked = (A, pick, size) => {
 	const out = new A.constructor(pick.length * size);
 	pick.forEach((c, i) => out.set(A.subarray(c * size, c * size + size), i * size));
 	return out;
 };
 
-/**
- * A level made from `source` and what the simplifier made of its drawings (each its shape, or the copies of it ever
- * seen, or both): its measure the source's.
- */
+/** A level made from `source` and what the simplifier made of its drawings (shape, seen copies, or both), its measure the source's. */
 export function levelOf(source, made) {
 	const draws = [];
 	made.draws.forEach((r, i) => {
@@ -77,14 +69,12 @@ export function levelOf(source, made) {
 }
 
 /**
- * The renderer's maker of lower levels.
- * @param {{ worker?: boolean }} [o] `worker: false` makes them in the page
+ * The renderer's maker of lower levels. @param {{ worker?: boolean }} [o] `worker: false` makes them in the page
  * @returns {{ lower: (source: import('./prepare.js').Level, plans: { budget: number, most?: number, error: number, smallest: number, every?: boolean }[], later?: boolean) => Promise<import('./prepare.js').Level[]>, readonly busy: number, dispose: () => void }}
  */
 export function createLowering(o = {}) {
 	/** @type {Worker | null} */
 	let worker = null;
-	/** no worker to be had (none here, or it stopped): the page makes them */
 	let gone = o.worker === false;
 	let disposed = false;
 	let next = 1, busy = 0;
@@ -123,7 +113,6 @@ export function createLowering(o = {}) {
 
 	const frame = () => new Promise((ok) => setTimeout(ok, 0));
 
-	/** the drawings lowered, in the worker or else in the page */
 	async function run(draws, plans) {
 		if (disposed) throw new Error('the renderer was disposed');
 		const w = start();
@@ -141,7 +130,6 @@ export function createLowering(o = {}) {
 		return lowerDraws(draws, plans, frame);
 	}
 
-	/** the next job begun, when none is running */
 	function pump() {
 		if (running || !jobs.length) return;
 		const i = jobs.findIndex((j) => !j.later);
@@ -159,9 +147,8 @@ export function createLowering(o = {}) {
 
 	return {
 		/**
-		 * The levels of `source` each plan asks for. `later`: one that can wait (a recipe's level made lighter, drawn as
-		 * it came meanwhile) waits for every other asked for. `raw`: what the simplifier made of each, as plain data (to be
-		 * kept: ./levels.js), not yet a level (`levelOf`).
+		 * The levels of `source` each plan asks for; `later` (a recipe's level made lighter, drawn as it came meanwhile)
+		 * waits for every other; `raw` gives the simplifier's plain data (to keep: ./levels.js), not yet a level (`levelOf`).
 		 */
 		lower(source, plans, later = false, raw = false) {
 			busy++;
@@ -170,7 +157,6 @@ export function createLowering(o = {}) {
 				pump();
 			});
 		},
-		/** how many kinds are waiting for their levels, or being lowered */
 		get busy() {
 			return busy;
 		},

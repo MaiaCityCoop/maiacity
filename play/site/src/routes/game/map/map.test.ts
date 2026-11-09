@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BIOMES, M2_PER_PERSON, PEOPLE, PLOTS, SEED, UNBUILDABLE, generateMap, mulberry32, nearLine, type Biome } from './map';
+import { BIOMES, M2_PER_PERSON, PEOPLE, PLOTS, SEED, UNBUILDABLE, generateMap, nearLine, type Biome } from './map';
+import { seededRandom } from '$lib/kernel/random.js';
 
 describe('the world map', () => {
 	it('grows the same map from the same seed', () => {
@@ -28,7 +29,7 @@ describe('the world map', () => {
 	});
 
 	it('measures how far a point is from the river as the whole river would, up to its reach', () => {
-		const { river } = generateMap(SEED), reach = 282, near = nearLine(river, reach), rand = mulberry32(7);
+		const { river } = generateMap(SEED), reach = 282, near = nearLine(river, reach), rand = seededRandom(7);
 		for (let k = 0; k < 4000; k++) {
 			const x = -400 + rand() * 7500, y = -400 + rand() * 5300;
 			let d = Infinity;

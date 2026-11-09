@@ -1,26 +1,16 @@
-// Migration 0033-build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c, Samuel 2026-11-06): the intents' third stage,
-// Prototype, is Build. A database as production has it (migrated below 0033-build, intents at 'prototype' in each kind
-// of state, the Intents skill's v1 still speaking to `stages.prototype`) is migrated and read back: every intent that
-// was at Prototype is at Build with nothing else changed, the stage 'prototype' is refused, and the skill's text moves
-// to `stages.build` by proposal (doc_edit, propose_doc_version, accepted), after which an intent at Build has it
-// as its brief. Checks c2 and c4.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+// Migration 0033-build (intent 60f4f75c-666a-4eca-9bb2-4a29311afa6c, Samuel 2026-11-06): the third stage, Prototype, is
+// Build. A database below it (intents at 'prototype' in each state, the Intents skill's v1 at `stages.prototype`) is
+// migrated: each such intent at Build with nothing else changed, 'prototype' refused, and the skill's text moved to
+// `stages.build` by proposal, then an intent's brief at Build. Checks c2 and c4.
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { initSessions } from "../src/auth";
 import { MIGRATIONS, migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
-import { Rate } from "../src/limits";
-import { SKILL_STAGES } from "../src/skills";
-import { SKILL } from "../src/ids";
+import type { Db } from "../src/kit/pg";
+import { SKILL } from "../src/kit/ids";
+import { INTENT_STAGES as SKILL_STAGES } from "../src/kit/stages";
 import { seedDoc } from "../src/versioned";
 import { avenmaia, intents } from "../import/skills";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { agentToken, type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 /** the Intents skill as production holds it, its v1: the Build part under the stage's old name */
 const productionV1 = () => {
@@ -30,33 +20,22 @@ const productionV1 = () => {
 };
 
 suite("the stage Build (migration 0033-build)", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
   const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
 
   beforeAll(async () => {
-    name = `play_build_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
+    f = await freshDb({ prefix: "play_build", migrate: false });
+    db = f.db;
     // production's database: every migration but 0033-build (those after it too, so today's store writes its documents
     // and the token column 4ea6b2ed-avenbox-token adds is there to read)
-    await db.exec(`CREATE SCHEMA IF NOT EXISTS play; CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now());`);
-    for (const m of MIGRATIONS.filter((m) => m.id !== "0033-build"))
-      await db.transaction(async (tx) => (await tx.query(m.sql), await tx.query(`INSERT INTO play.migrations (id) VALUES ($1)`, [m.id])));
+    await migrate(db, { migrations: MIGRATIONS.filter((m) => m.id !== "0033-build") });
     await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
-    for (const n of ["ada"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
-    token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
+    api = appOn(db);
+    who.ada = await human(db, "ada");
+    token = (await agentToken(api, who.ada.cookie)).token;
     // the skills as production holds them: the Intents skill's v1 written when a stage was named prototype (the skill
     // schema's v1 still takes that part, migrations/schemas/skill.json)
     await seedDoc(db, "skill", { id: SKILL.avenmaia, json: avenmaia(), note: "First version" });
@@ -64,35 +43,15 @@ suite("the stage Build (migration 0033-build)", () => {
   });
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string | null, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = {};
-    if (as) headers.cookie = who[as].cookie;
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
+  const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
   const rpc = async (method: string, params?: unknown) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }),
-      }),
-    );
-    const out = await r.json();
+    const out = (await kitRpc(api, token, method, params)).json;
     return out.error ? { error: out.error } : out.result;
   };
-  const tool = async (name: string, args: Record<string, unknown>) => {
-    const res = await rpc("tools/call", { name, arguments: args });
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
 
   const SPEC = {
     goal: "A fern grows taller.",
@@ -119,7 +78,7 @@ suite("the stage Build (migration 0033-build)", () => {
     // each kind of state an intent in Prototype is in
     const approved = await inPrototype("Just approved");
     const partly = await inPrototype("Partly checked, its pull request named", { results: { c1: result(true), c2: result(false) }, pull_request: 2107 });
-    // back in Prototype with its work archived, as a moved base leaves it (./work.ts settle): its work proposed for it
+    // back in Prototype with its work archived, as a moved base leaves it (../src/intents.ts settle): its work proposed for it
     // (no work without an intent, 706ed873) while it waited at Proposal, every must passed
     const worked = await inPrototype("Its work proposed, then back in Prototype", { results: { c1: result(true), c2: result(true) } });
     await db.query(`UPDATE play.intents SET stage = 'proposal' WHERE id = $1`, [worked]);
@@ -161,7 +120,6 @@ suite("the stage Build (migration 0033-build)", () => {
     expect(await tool("get_intent", { intent: partly })).toMatchObject({ stage: "build", pull_request: 2107 });
     expect((await tool("list_intents", { stage: "build" })).map((i: any) => i.id).sort()).toEqual([...prototyped].sort());
     expect((await tool("list_intents", { stage: "prototype" })).error).toBeTruthy();
-    // the board's REST too
     expect((await call("ada", "GET", "/api/intents?stage=build")).data.map((i: any) => i.id).sort()).toEqual([...prototyped].sort());
 
     // and on from Build as the flow goes: every must passing, to Proposal

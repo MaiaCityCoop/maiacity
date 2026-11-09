@@ -1,65 +1,37 @@
-// Auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules"; intent de24f1c5, Samuel 2026-11-07) against a real
-// Postgres: set TEST_DATABASE_URL, as for ./api.test.ts. The rule set is a document, rules:<RULES> of its own schema,
-// changed only by a person's Accept; matchRule says which rule meets an intent at Approve spec or Accept, and
-// autoMove takes the move a person would, through the one decision path (./intents.ts decided), the rule written as
-// who decided. Each test is one check of the intent's spec (c1–c9), named as its run names it.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+// Auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules"; intent de24f1c5, Samuel 2026-11-07) against a real Postgres
+// (as ./api.test.ts). Each test is one check of the intent's spec (c1–c9), named as its run names it.
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import type { BlobStore } from "../src/blobs";
 import * as docs from "../src/docs";
-import { RULE, RULES, SCHEMA } from "../src/ids";
-import { autoMove, decisions } from "../src/intents";
-import { Rate } from "../src/limits";
+import { RULE, RULES, SCHEMA } from "../src/kit/ids";
+import { decisions } from "../src/intents";
+import type { Pull } from "../src/github";
+import { autoMove } from "../src/decide";
+import { watchPulls } from "../src/watcher";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { type Db } from "../src/kit/pg";
 import { FIRST_RULE, RULES_DOC, RULES_V1, matchRule, type Rule } from "../src/rules";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const words = (k: number, w: string) => Array.from({ length: k }, () => w).join(" ");
 const SUMMARY = `## What it is\n\n${words(200, "artifact")}\n\n## Key points\n\n${Array.from({ length: 20 }, () => `- ${words(10, "point")}`).join("\n")}\n\n## The topic\n\n${words(193, "topic")}`;
 const ARTIFACT = (url: string, title = "A page kept with no tap", origin = "human") => ({ url, title, description: "A page Maia City keeps, added over MCP.", summary: SUMMARY, authors: [{ name: "Ann Author", kind: "person" }], kind: "page", origin });
-const SPEC = {
-  goal: "It is done.",
-  nothing_to_reduce: "A test fixture: nothing to reduce.",
-  scope: "A test.",
-  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
-};
+const SPEC = fx.spec("It is done.", "A test.");
 const BODY = { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] };
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
 
 suite("auto-accept rules", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
-  let n = 0;
 
-  const call = async (as: string, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie: who[as].cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (as: string, method: string, path: string, body?: unknown) => request(api, { cookie: who[as].cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   const intent = async (id: string) => (await call("ada", "GET", `/api/intents/${id}`)).data;
   const stageOf = async (id: string) => (await intent(id)).stage as string;
   /** an intent specified (declaring `work_kind` where given), approved by ada where it waits at Specify, its check passed */
@@ -88,7 +60,7 @@ suite("auto-accept rules", () => {
   const openPull = (title: string, more: Record<string, unknown> = {}, checks = [green("play / API and site"), green("website / build")]) => {
     const pr = ++prs;
     const head = sha(++commits);
-    gh.pulls.set(pr, { number: pr, state: "open", merged: false, merge_commit_sha: null, mergeable: true, base: { ref: "main" }, head: { sha: head, ref: `claude/${pr}` }, html_url: `https://github.test/${REPO}/pull/${pr}`, title, ...more } as any);
+    gh.pulls.set(pr, { number: pr, state: "open", merged: false, merge_commit_sha: null, mergeable: true, base: { ref: "main" }, head: { sha: head, ref: `claude/${pr}` }, html_url: `https://github.test/${REPO}/pull/${pr}`, title, ...more } as Pull);
     gh.checks.set(head, checks);
     gh.merges.set(pr, sha(++commits));
     return { pr, head };
@@ -101,32 +73,22 @@ suite("auto-accept rules", () => {
     const r = await tool("check_intent", { intent: i.id, pr: pull.pr, results: [{ check: "c1", pass: true, evidence: "exit 0", commit: checked }] });
     return { id: i.id as string, r };
   };
-  const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
+  const clearShips = () => fx.clearShips(db);
 
   beforeAll(async () => {
-    name = `play_rules_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
-    const made = await createHuman(db, "ada");
-    who.ada = { id: made.id, cookie: `play_session=${tokenFor(made.id)}` };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
+    who.ada = await human(db, "ada");
     const t = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data;
     token = t.token;
     // the box's token: what decides a code intent is recorded with it alone
     await call("ada", "POST", `/api/tokens/${t.id}/avenbox`, { avenbox: true });
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   // ---- c1
@@ -179,7 +141,6 @@ suite("auto-accept rules", () => {
     expect((await tool("doc_at", { doc: RULES, version: 1 })).json.rules).toEqual([{ id: RULE.artifacts, label: "Artifacts need no tap", gates: ["approve", "accept"], match: { via: ["mcp"], work_kind: [SCHEMA.artifact], schemas: [SCHEMA.artifact] }, reason: FIRST_RULE.reason }]);
     expect((await tool("list_docs", { kind: "rules" })).map((d: any) => d.id)).toEqual([RULES]);
     const before = (await docs.readDoc(db, RULES_DOC)).json;
-    // no edit without an intent
     const none = await tool("doc_edit", { doc: RULES, message: "no intent", edits: [{ op: "set", path: ["note"], value: "x" }] });
     expect(none.error).toContain("intent");
     // on an intent variant: Main as it was until an admin's Accept
@@ -257,7 +218,6 @@ suite("auto-accept rules", () => {
         expect((await tool("doc_history", { doc: r.id })).versions.map((v: any) => v.number)).toEqual([1, 2]);
       }
     }
-    // nothing waits on the board
     expect(await waiting()).toBe(0);
     // named with an intent, held to that intent's gate as before
     const idea = await tool("add_intent", { title: "Named, at Idea" });
@@ -275,7 +235,6 @@ suite("auto-accept rules", () => {
       const i = await tool("add_intent", { title: "Declares more", ...(declared ? { work_kind: declared } : {}) });
       expect([declared, (await tool("specify_intent", { intent: i.id, ...SPEC })).stage]).toEqual([declared, "specify"]);
     }
-    // a kind no schema is: refused
     expect((await tool("add_intent", { title: "Declares a colour", work_kind: ["red"] })).error).toMatch(/schema's UUID or code/);
     // its checks passed: at Proposal, no work yet (no rule accepts it: its work is no artifact yet)
     await tool("check_intent", { intent: only.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
@@ -331,19 +290,19 @@ suite("auto-accept rules", () => {
     for (const id of [back.id, schema.id]) {
       expect(await intent(id)).toMatchObject({ stage: "proposal", decided_by: null });
       expect((await intent(id)).auto.accept).toBeUndefined();
-      expect(await autoMove({ db }, id)).toBeNull();
+      expect(await autoMove({ db, store }, id)).toBeNull();
     }
     expect((await call("ada", "POST", `/api/intents/${schema.id}/accept`)).data.decision.status).toBe("accepted");
     expect((await call("ada", "POST", `/api/intents/${back.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
-    // one declaring nothing whose work is the rules, under a rule that names the rules' own schema at accept: its spec
-    // passes by the rule (nothing says yet what it changes), its work waits for ada
+    // one declaring nothing whose work is the rules, under a rule naming their schema at accept: its spec passes by the
+    // rule (nothing says yet what it changes), its work waits for ada
     await setRules([rule("Every spec", ["approve"], {}), rule("The rules pass", ["accept"], { schemas: [SCHEMA.rules, SCHEMA.meta] })]);
     const sly = await readyIntent("Declares nothing, changes the rules");
     expect(await intent(sly)).toMatchObject({ stage: "proposal", approved_by: null, auto: { approve: { label: "Every spec" } } });
     expect((await tool("propose_doc_version", { doc: RULES, whole: { ...RULES_V1, rules: [] }, note: "no rules at all", intent: sly })).error).toBeUndefined();
     expect(await intent(sly)).toMatchObject({ stage: "proposal", decided_by: null });
     expect((await intent(sly)).auto.accept).toBeUndefined();
-    expect(await autoMove({ db }, sly)).toBeNull();
+    expect(await autoMove({ db, store }, sly)).toBeNull();
     expect((await call("ada", "POST", `/api/intents/${sly}/archive`)).data.decision.status).toBe("archived");
     const back2 = await readyIntent("The first rule back again", { work_kind: [SCHEMA.rules] });
     expect((await tool("propose_doc_version", { doc: RULES, whole: { ...RULES_V1, rules: [FIRST_RULE] }, note: "the first rule back", intent: back2 })).error).toBeUndefined();
@@ -361,7 +320,6 @@ suite("auto-accept rules", () => {
   // ---- c7
 
   test("held is held: a matching intent held by a dependency is moved only once that one is Accepted; failing must checks move nothing", async () => {
-    // the dependency, in Build
     const dep = (await tool("add_intent", { title: "The dependency" })).id;
     await tool("specify_intent", { intent: dep, ...SPEC });
     await call("ada", "POST", `/api/intents/${dep}/approve`);
@@ -372,7 +330,7 @@ suite("auto-accept rules", () => {
     expect((await tool("depend_intent", { intent: held, on: dep })).held_by.map((d: any) => d.id)).toEqual([dep]);
     await setRules([FIRST_RULE]);
     // the rule matches it, but it is held: not moved
-    expect(await autoMove({ db }, held)).toBeNull();
+    expect(await autoMove({ db, store }, held)).toBeNull();
     expect(await intent(held)).toMatchObject({ stage: "proposal", sub: { state: "idle" }, auto: {} });
     // the dependency Accepted (by ada): the rule moves it then
     await tool("check_intent", { intent: dep, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
@@ -384,7 +342,7 @@ suite("auto-accept rules", () => {
     expect(await stageOf(failing)).toBe("build");
     await tool("check_intent", { intent: failing, results: [{ check: "c1", pass: false, evidence: "exit 1" }] });
     expect(await stageOf(failing)).toBe("build");
-    expect(await autoMove({ db }, failing)).toBeNull();
+    expect(await autoMove({ db, store }, failing)).toBeNull();
   });
 
   // ---- c8
@@ -423,20 +381,35 @@ suite("auto-accept rules", () => {
     await setRules([FIRST_RULE]);
   });
 
+  test("code only goes to Ship: the watcher's look takes one a rule matches into Ship once GitHub finds it ready", async () => {
+    await clearShips();
+    await setRules([rule("Code passes", ["accept"], { code: true, work_kind: ["code"] })]);
+    const pull = openPull("Ready later", { draft: true });
+    const c = await codeIntent("Ready later", pull);
+    expect([c.r.stage, c.r.auto_refused]).toEqual(["proposal", expect.stringMatching(/draft/)]);
+    // still a draft: the watcher's look leaves it
+    await watchPulls(db, gh.gh, store);
+    expect(await intent(c.id)).toMatchObject({ stage: "proposal", auto: {} });
+    // ready for review: the next look's rule takes it into Ship
+    gh.pulls.set(pull.pr, { ...gh.pulls.get(pull.pr)!, draft: false } as Pull);
+    await watchPulls(db, gh.gh, store);
+    expect(await intent(c.id)).toMatchObject({ stage: "ship", decided_by: null, auto: { accept: { label: "Code passes" } }, ship: { pr: pull.pr, by: "rule Code passes" } });
+    await clearShips();
+    await setRules([FIRST_RULE]);
+  });
+
   // ---- c9
 
-  test("an admin still decides after a rule: stepped back or rejected as any, its auto.approve cleared; accepted work applied", async () => {
+  test("an admin still decides after a rule: stepped back or rejected like any other, its auto.approve cleared; accepted work applied", async () => {
     const declare = async (title: string) => {
       const i = (await tool("add_intent", { title, work_kind: [SCHEMA.artifact] })).id;
       await tool("specify_intent", { intent: i, ...SPEC });
       expect(await intent(i)).toMatchObject({ stage: "build", approved_by: null, auto: { approve: { rule: RULE.artifacts } } });
       return i as string;
     };
-    // stepped back, by its agent
     const back = await declare("Stepped back after a rule");
     const s = await tool("step_back_intent", { intent: back, reason: "its spec is wrong" });
     expect(s).toMatchObject({ stage: "specify", approved_at: null, auto: {} });
-    // rejected, by ada
     const no = await declare("Rejected after a rule");
     expect((await call("ada", "POST", `/api/intents/${no}/reject`)).data).toMatchObject({ stage: "archived", auto: {} });
     // accepted by the rule: what a person's Accept leaves, its work applied

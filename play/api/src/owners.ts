@@ -1,18 +1,10 @@
-// Owners (play/SPEC.md "Owners"; intent 732d8a38, the first slice of Ownership 8fc46819; Samuel 2026-11-07): every
-// asset and every file belongs to an account, a person's own (their human's UUID) or the Maia City coop's (./ids.ts
-// COOP). What a person owns is private to its owner: to anyone else, another admin included, it answers exactly as
-// what never was (404 with the same words, left out of every list). This is the one place that says so: whose library
-// a file is in and who may see it (the only module that reads play.files for people), which assets a person sees, and
-// which intents (one whose work is another's private asset is not shown to them).
-//
-// A file is named by its hash, so the same bytes may be in several libraries at once: each library holding it is a row
-// of play.file_owners, with that library's own label (the coop's label stays play.files.label). A file is everyone's
-// (every member reads it, as every file was) while the coop's library holds it or no library row names it; one only in
-// personal libraries is seen by those persons alone. An asset has one owner (play.assets.owner); only one in group
+// Owners (play/SPEC.md "Owners"; intent 732d8a38; Samuel 2026-11-07): what a person owns answers to anyone else exactly
+// as what never was. This is the one place that says so (the only module reading play.files for people); only group
 // `characters` may be a person's for now.
-import { COOP } from "./ids";
+import { COOP } from "./kit/ids";
 import type { Me } from "./access";
-import type { Queryable } from "./pg";
+import type { Queryable } from "./kit/pg";
+import { HttpError } from "./kit/errors";
 
 /** the libraries a person reads: the coop's (Maia City's, its admins'), or their own personal one */
 export const LIBRARIES = ["coop", "personal"] as const;
@@ -20,11 +12,7 @@ export type Library = (typeof LIBRARIES)[number];
 /** the only group whose assets may be private, for now (Samuel 2026-11-07: your own character) */
 export const PRIVATE_GROUPS = ["characters"] as const;
 
-export class OwnerError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
+export class OwnerError extends HttpError {}
 
 /** the account library `library` is for `me`: the coop's, or their own; undefined or "" is the coop's */
 export function libraryOf(me: Pick<Me, "id">, library: unknown): { library: Library; owner: string } {
@@ -38,30 +26,24 @@ export function libraryOf(me: Pick<Me, "id">, library: unknown): { library: Libr
 /** an asset row `a` that `p` sees: the coop's, or their own */
 export const assetSeen = (a: string, p: string) => `(${a}.owner = '${COOP}' OR ${a}.owner = ${p}::uuid)`;
 /** a file by its hash `h` that `p` sees: in the coop's library, in theirs, or in none */
-export const fileSeen = (h: string, p: string) =>
+const fileSeen = (h: string, p: string) =>
   `(EXISTS (SELECT 1 FROM play.file_owners fo WHERE fo.hash = ${h} AND (fo.owner = '${COOP}' OR fo.owner = ${p}::uuid)) OR NOT EXISTS (SELECT 1 FROM play.file_owners fo WHERE fo.hash = ${h}))`;
-/**
- * an intent row `i` that `p` sees: none of its work is another's private asset (its frozen version's, or an intent
- * variant of its document). Only the intent's own assets are read, their owner by to_jsonb, so a database migrated short
- * of the owners (a migration's test) reads the board too.
- */
+/** an intent row `i` that `p` sees: none of its work is another's private asset (its frozen version, or a variant's document) */
 export const intentSeen = (i: string, p: string) =>
   `NOT EXISTS (SELECT 1 FROM play.assets pa WHERE pa.id IN (SELECT ${i}.asset_id
        UNION ALL SELECT split_part(px.doc_id, ':', 2)::uuid FROM play.intent_variants px WHERE px.intent_id = ${i}.id AND px.doc_id LIKE 'asset:%'
        UNION ALL SELECT split_part(px.doc_id, ':', 2)::uuid FROM play.doc_variants px WHERE px.intent_id = ${i}.id AND px.doc_id LIKE 'asset:%')
-     AND COALESCE(to_jsonb(pa)->>'owner', '${COOP}') <> '${COOP}' AND (to_jsonb(pa)->>'owner') IS DISTINCT FROM ${p}::text)`;
+     AND pa.owner <> '${COOP}' AND pa.owner IS DISTINCT FROM ${p}::uuid)`;
 
 const who = (me: Pick<Me, "id"> | null | undefined) => me?.id ?? null;
 
 // ---- assets
 
-/** whether `me` sees asset `id` (false too where there is none) */
 export async function seesAsset(q: Queryable, me: Pick<Me, "id"> | null, id: string): Promise<boolean> {
   const { rows } = await q.query(`SELECT 1 FROM play.assets a WHERE a.id::text = $1 AND ${assetSeen("a", "$2")}`, [id, who(me)]);
   return rows.length > 0;
 }
 
-/** asset `id`'s owner and group, or null where there is none */
 export async function assetOwner(q: Queryable, id: string): Promise<{ owner: string; grp: string; private: boolean } | null> {
   const { rows } = await q.query<{ owner: string; grp: string }>(`SELECT owner::text, grp FROM play.assets WHERE id::text = $1`, [id]);
   return rows[0] ? { ...rows[0], private: rows[0].owner !== COOP } : null;
@@ -85,7 +67,7 @@ export async function seesIntent(q: Queryable, me: Pick<Me, "id"> | null, id: st
 
 // ---- files: the one place play.files is read for people
 
-export type FileRow = { hash: string; size: string; media_type: string };
+type FileRow = { hash: string; size: string; media_type: string };
 
 /** file `hash` as `me` may have it served (its size and type), or null: none kept, or another's alone */
 export async function fileFor(q: Queryable, me: Pick<Me, "id"> | null, hash: string): Promise<FileRow | null> {
@@ -99,10 +81,7 @@ export async function fileHidden(q: Queryable, me: Pick<Me, "id"> | null, hash: 
   return rows.length > 0;
 }
 
-/**
- * The media types of the files of `hashes` that `me` sees (`me` null: everyone's files alone, what a coop's story or
- * a public asset may name, so that no one is shown a file they can't open).
- */
+/** The media types of `hashes`' files `me` sees (null: everyone's only, what a coop story may name, so no one sees a file they can't open). */
 export async function fileTypes(q: Queryable, hashes: string[], me: Pick<Me, "id"> | null = null): Promise<Map<string, string>> {
   if (!hashes.length) return new Map();
   const { rows } = await q.query<{ hash: string; media_type: string }>(`SELECT f.hash, f.media_type FROM play.files f WHERE f.hash = ANY($1) AND ${fileSeen("f.hash", "$2")}`, [hashes, who(me)]);
@@ -110,9 +89,8 @@ export async function fileTypes(q: Queryable, hashes: string[], me: Pick<Me, "id
 }
 
 /**
- * A file kept among play's files (its bytes already in the store) and in `owner`'s library (the coop's where none is
- * named). The coop's label is play.files.label (a new one replacing the old where `relabel`, none keeping it); a
- * person's is their library row's. Bytes that were everyone's before stay everyone's.
+ * A file kept among play's files and in `owner`'s library (the coop's when none): the coop's label is play.files.label
+ * (replaced where `relabel`), a person's their row's. Bytes that were everyone's stay everyone's.
  */
 export async function keepFile(q: Queryable, f: { hash: string; size: number; media_type: string; bucket_key: string; label?: string | null }, o: { owner?: string; relabel?: boolean } = {}) {
   const owner = o.owner ?? COOP;
@@ -188,13 +166,12 @@ export const ROWS_SEEN: Record<string, (t: string, p: string) => string> = {
 // ---- the board's edges: an intent another can't see is shown on theirs as "a private intent", no id, no title
 
 /** what an edge to an intent `me` can't see shows */
-export const PRIVATE_INTENT = "a private intent";
+const PRIVATE_INTENT = "a private intent";
 const EDGE_KEYS = ["depends_on", "needed_by", "held_by"] as const;
 
 /**
- * `out` (an intent, a list of them, or any answer holding them) as `me` may read it: every dependency edge to an
- * intent whose work is another's private asset shows "a private intent" with no id, its title gone from the sub-state's
- * reason too. Nothing else changes (how many hold it, their stages).
+ * `out` (intents, or any answer holding them) as `me` may read it: an edge to an intent whose work is another's private
+ * asset shows "a private intent", no id, its title gone from the sub-state's reason too; nothing else changes.
  */
 export async function maskEdges<T>(q: Queryable, me: Pick<Me, "id"> | null, out: T): Promise<T> {
   const ids = new Set<string>();

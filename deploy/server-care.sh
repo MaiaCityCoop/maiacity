@@ -6,14 +6,14 @@
 #   clean   frees what nothing uses: Docker's unused images (older than a day; a rollback pulls its image again),
 #           stopped containers, its build cache and dangling volumes are NOT touched (no volume is removed); the
 #           journal past 200 MB; apt's cache; the leftovers of backups and restores. Then mends play's broken files:
-#           each one's good bytes from the backups in the bucket (streamed, never stored whole), checked against its
-#           hash and put back; one no backup holds is moved aside (kept beside the files), so play writes it anew the
-#           next time it is made; first from the folders kept when play's files moved into the bucket. A file whose
+#           each one's good bytes, first from the folders kept when play's files moved into the bucket, then from the
+#           backups in the bucket (streamed, never stored whole), checked against its hash and put back. A file whose
 #           bytes are lost everywhere and that nothing in play's data names but its own row is forgotten (its row in
 #           play.files removed); one that anything names is kept and reported. Then reports again.
-# Access to the bucket for the mending comes from ../backup.env, as for deploy/backup.sh.
+# Access to the bucket for the mending comes from ../backup.env (deploy/bucket-keys.sh), as for deploy/backup.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. deploy/lib.sh
 MODE="${1:-report}"
 set -a
 [ -f backup.env ] && . ./backup.env
@@ -24,14 +24,12 @@ DATA="${PLAY_DATA_PATH:-}"
 # play's store, whatever play.env already says
 if [ -n "$DATA" ] && [ -d "$DATA/blobs" ]; then PLAY_BUCKET=""; fi
 
-C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml"
-
 broken() {
   # every file play's database names that its store (the folder or the bucket, as play.env sets it) cannot hand back
   # whole: missing, or its bytes not hashing to its name (a write cut short by a full disk); asked of play's own code,
   # in a one-off container of its image on the compose network, so it works while play itself is down
-  $C run --rm -T --no-deps -e PLAY_BUCKET="${PLAY_BUCKET:-}" play-api bun -e '
-    import { connect } from "/app/api/src/pg.ts";
+  compose run --rm -T --no-deps -e PLAY_BUCKET="${PLAY_BUCKET:-}" play-api bun -e '
+    import { connect } from "/app/api/src/kit/pg.ts";
     import { blobStore } from "/app/api/src/blobs.ts";
     const db = connect(), store = blobStore();
     const { rows } = await db.query("SELECT hash FROM play.files ORDER BY hash");
@@ -53,7 +51,7 @@ report() {
   echo "## Disks"; df -h / "${DATA:-/}" | sed 's/^/    /'
   echo "## Docker"; docker system df | sed 's/^/    /'
   echo "## Largest under the app, the volume and Docker"
-  sudo du -xsh /opt/maia-city/* /var/lib/docker /var/log 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
+  sudo du -xsh "$APP_DIR"/* /var/lib/docker /var/log 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
   if [ -n "$DATA" ]; then
     sudo du -xsh "$(dirname "$DATA")"/* 2>/dev/null | sort -h | tail -12 | sed 's/^/    /'
     echo "## The largest folders on the data volume"
@@ -66,7 +64,7 @@ report() {
   if [ -n "$B" ]; then
     echo "## Files play's database names that its store cannot hand back whole, and what they are"
     for h in $B; do
-      docker exec maia-city-db psql -U maiacity -d maiacity -Atc \
+      docker exec "$DB_CONTAINER" psql -U maiacity -d maiacity -Atc \
         "SELECT hash, size, media_type, coalesce(label, ''), created FROM play.files WHERE hash = '$h'" </dev/null | sed 's/^/    /' || true
     done
   else
@@ -74,25 +72,19 @@ report() {
   fi
 }
 
-aws() {
-  docker run --rm -i -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION="$BACKUP_REGION" \
-    -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
-    amazon/aws-cli --endpoint-url "$BACKUP_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 300 "$@"
-}
+# the backups' bucket, a large file streamed: no bound on the whole call
+aws() { S3_TIMEOUT=0 S3_READ_TIMEOUT=300 s3 backup -- "$@"; }
 
 # whether a file's bytes hash to its name (by play's own hash, in a container of its image)
 whole_file() {
-  [ -s "$1" ] && [ "$(docker run --rm -i -v "$1:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$2" ]
+  [ -s "$1" ] && [ "$(docker run --rm -i -v "$1:/f:ro" --entrypoint bun "${PLAY_IMAGE}" -e 'import { hashBytes } from "/app/api/src/kit/hash.ts"; console.log(hashBytes(new Uint8Array(await Bun.file("/f").arrayBuffer())))' </dev/null)" = "$2" ]
 }
 
 # a file's good bytes put back into play's store (the bucket or the folder)
 put_back() {
   local h=$1 f=$2
   if [ -n "${PLAY_BUCKET:-}" ]; then
-    docker run --rm -v "$f:/f:ro" -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
-      -e AWS_DEFAULT_REGION="${PLAY_BUCKET_REGION:-$BACKUP_REGION}" \
-      -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
-      amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" s3 cp /f "s3://$PLAY_BUCKET/blobs/${h:0:2}/$h" --only-show-errors </dev/null
+    S3_TIMEOUT=0 s3 play -v "$f:/f:ro" -- s3 cp /f "s3://$PLAY_BUCKET/blobs/${h:0:2}/$h" --only-show-errors
   else
     sudo install -D -o 1000 -g 1000 -m 0644 "$f" "$DATA/blobs/blobs/${h:0:2}/$h.mended" && sudo mv "$DATA/blobs/blobs/${h:0:2}/$h.mended" "$DATA/blobs/blobs/${h:0:2}/$h"
   fi
@@ -107,9 +99,9 @@ mend() {
   local left=""
   for h in $want; do
     local found=""
-    for k in $(ls -d /opt/maia-city/play-folder-blobs-* 2>/dev/null | sort -r); do
+    for k in $(ls -d "$APP_DIR"/play-folder-blobs-* 2>/dev/null | sort -r); do
       if sudo test -s "$k/blobs/${h:0:2}/$h"; then
-        local t; t=$(mktemp /opt/maia-city/backups-tmp/kept-XXXX); sudo cat "$k/blobs/${h:0:2}/$h" > "$t"
+        local t; t=$(mktemp "$APP_DIR/backups-tmp/kept-XXXX"); sudo cat "$k/blobs/${h:0:2}/$h" > "$t"
         if whole_file "$t" "$h"; then put_back "$h" "$t"; echo "mend: $h put back from $k"; found=1; fi
         rm -f "$t"; [ -n "$found" ] && break
       fi
@@ -119,12 +111,12 @@ mend() {
   want=$(echo $left)
   [ -n "$want" ] || return 0
   echo "mend: looking for $(echo $want | wc -w) in the backups …"
-  local tmp; tmp=$(mktemp -d /opt/maia-city/backups-tmp/mend-XXXX)
-  # first the store every snapshot shares (BACKUPS/play-files/blobs/<xx>/<hash>, deploy/backup.sh)
+  local tmp; tmp=$(mktemp -d "$APP_DIR/backups-tmp/mend-XXXX")
+  # first the store every snapshot shares (<xx>/<hash> under lib.sh's STORE_PREFIX, deploy/backup.sh)
   left=""
   for h in $want; do
     local f="$tmp/store-$h"
-    aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play-files/blobs/${h:0:2}/$h" - </dev/null >"$f" 2>/dev/null || true
+    aws s3 cp "s3://$BACKUP_BUCKET/$STORE_PREFIX/${h:0:2}/$h" - </dev/null >"$f" 2>/dev/null || true
     if whole_file "$f" "$h"; then put_back "$h" "$f"; echo "mend: $h put back from the backups' store"; else left="$left $h"; fi
     rm -f "$f"
   done
@@ -132,10 +124,10 @@ mend() {
   # then the older backups, each with its own full copy
   # the newest backups first: each one's blobs.tar streamed through tar, which takes out only the files wanted (a
   # backup of the folder holds blobs/blobs/<xx>/<hash>)
-  for b in $(aws s3 ls "s3://$BACKUP_BUCKET/BACKUPS/play/" </dev/null | awk '{print $2}' | tr -d / | grep -E '^[0-9]{8}T[0-9]{6}Z-' | sort -r | head -8); do
+  for b in $(S3_TIMEOUT=0 S3_READ_TIMEOUT=300 snapshots | sort -r | head -8); do
     [ -n "$want" ] || break
     local names=""; for h in $want; do names="$names blobs/blobs/${h:0:2}/$h"; done
-    aws s3 cp "s3://$BACKUP_BUCKET/BACKUPS/play/$b/blobs.tar" - </dev/null 2>/dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
+    aws s3 cp "s3://$BACKUP_BUCKET/$SNAPSHOTS_PREFIX/$b/blobs.tar" - </dev/null 2>/dev/null | tar -x -C "$tmp" $names 2>/dev/null || true
     left=""
     for h in $want; do
       f="$tmp/blobs/blobs/${h:0:2}/$h"
@@ -155,14 +147,14 @@ mend() {
 forget_lost() {
   local lost; lost=$(broken || true)
   [ -n "$lost" ] || { echo "forget-lost: every file is whole"; return 0; }
-  local dump; dump=$(mktemp /opt/maia-city/backups-tmp/play-data-XXXX.sql)
-  docker exec maia-city-db pg_dump -U maiacity -d maiacity -n play --data-only --inserts </dev/null > "$dump"
+  local dump; dump=$(mktemp "$APP_DIR/backups-tmp/play-data-XXXX.sql")
+  docker exec "$DB_CONTAINER" pg_dump -U maiacity -d maiacity -n play --data-only --inserts </dev/null > "$dump"
   for h in $lost; do
     local n; n=$(grep -o "$h" "$dump" | wc -l)
     # its own row names it twice (its hash and its bucket key); a foreign key from any other row also stops the delete
     local own; own=$(grep "^INSERT INTO play.files " "$dump" | grep -o "$h" | wc -l)
     if [ "$n" -le "$own" ]; then
-      docker exec maia-city-db psql -U maiacity -d maiacity -v ON_ERROR_STOP=1 -Atc "DELETE FROM play.files WHERE hash = '$h'" </dev/null >/dev/null
+      docker exec "$DB_CONTAINER" psql -U maiacity -d maiacity -v ON_ERROR_STOP=1 -Atc "DELETE FROM play.files WHERE hash = '$h'" </dev/null >/dev/null
       echo "forget-lost: $h: its bytes are lost and nothing names it; its row in play.files is removed"
     else
       echo "forget-lost: $h: its bytes are lost, and $((n - own)) other places in play's data name it: kept, to be put again"
@@ -180,8 +172,8 @@ clean() {
   sudo journalctl --vacuum-size=200M 2>&1 | tail -1 || true
   sudo apt-get clean || true
   echo "clean: the leftovers of backups and restores"
-  sudo find /opt/maia-city/backups-tmp -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null || true
-  mkdir -p /opt/maia-city/backups-tmp
+  sudo find "$APP_DIR/backups-tmp" -mindepth 1 -maxdepth 1 -mmin +60 -exec rm -rf {} + 2>/dev/null || true
+  mkdir -p "$APP_DIR/backups-tmp"
   mend
   forget_lost
 }

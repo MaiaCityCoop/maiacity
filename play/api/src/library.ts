@@ -1,21 +1,20 @@
-// The Library (Samuel 2026-11-04): every image, video and recording play keeps among its files (play.files, the bytes in
-// the bucket), newest first, each with its label and where the newest version of every story uses it (a shot's still or
-// video, a clip's recording), and which asset versions name it as their reference sheet (a plant's plate, Samuel
-// 2026-11-05). A file is named by its BLAKE3 hash; its label is only shown, and its library's owner may rename it here.
-//
-// One Library for every account (intent 732d8a38, Samuel 2026-11-07): the library of whoever the person acts as, the
-// coop's (Maia City's, as before) or their own personal one, private to them (./owners.ts decides who sees what, and
-// reads play.files). Admins only for now: opening it to every member is LIBRARY_OPEN_TO.
+// The Library (Samuel 2026-11-04): every image, video and recording among play's files, newest first, each with its
+// label, where the newest version of every story uses it, and which asset versions name it as their sheet (Samuel
+// 2026-11-05). A file is named by its BLAKE3 hash; its label only shown, renamed here by its library's owner. One
+// Library for every account (intent 732d8a38, Samuel 2026-11-07): the coop's or the person's own, private
+// (./owners.ts decides who sees what). Admins only for now: LIBRARY_OPEN_TO opens it to every member.
 
-import type { Queryable } from "./pg";
-import { admin, Denied, type Me } from "./access";
-import { HASH } from "./hash";
+import type { Queryable } from "./kit/pg";
+import { admin, type Me } from "./access";
+import { HASH } from "./kit/hash";
 import { storyListed } from "./listed";
-import { fileLabel, StoryError, type StoryBody } from "./stories";
+import { fileLabel } from "./stories";
+import type { StoryBody } from "./storydocs";
 import { assetSeen, libraryOf, libraryPage, relabel } from "./owners";
+import { HttpError } from "./kit/errors";
 
 /** who opens the Library: its admins, for now (characters are admins' alone); "member" opens it to every member, each their own library */
-export const LIBRARY_OPEN_TO: "admin" | "member" = "admin";
+const LIBRARY_OPEN_TO: "admin" | "member" = "admin";
 
 // a document is Markdown (text/markdown: a plant's data sheet, its sheet's brief); recipe sources (text/javascript) are not shown
 export const LIBRARY_KINDS = ["image", "video", "audio", "document"] as const;
@@ -30,7 +29,7 @@ export type LibraryFile = { hash: string; size: number; media_type: string; crea
 const LIBRARY_ADMINS = "Only Maia City's admins open the Library.";
 /** `me`, if they may open the Library: the coop's library is its admins' always; their own is theirs where it is open to them */
 function opener(me: Me | null, library: "coop" | "personal"): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
+  if (!me) throw new HttpError("Please sign in first.", 401);
   if (LIBRARY_OPEN_TO === "admin" || library === "coop") return admin(me, LIBRARY_ADMINS);
   return me;
 }
@@ -76,15 +75,12 @@ async function usesOf(db: Queryable, me: Me): Promise<Map<string, Use[]>> {
   return out;
 }
 
-/**
- * A library's files, newest first: the coop's (`library` "coop", as before) or `me`'s own ("personal"), of one kind or
- * every kind, those whose label or hash holds `q`, a page at a time; with its owner named.
- */
+/** A library's files, newest first: the coop's (`library` "coop") or `me`'s ("personal"), of a kind or all, label or hash holding `q`, a page at a time. */
 export async function listLibrary(db: Queryable, me: Me | null, o: { kind?: string | null; q?: string | null; offset?: number; limit?: number; library?: unknown } = {}) {
   const lib = libraryOf(me ?? { id: "" }, o.library);
   const who = opener(me, lib.library);
   const kinds: Kind[] = o.kind ? [o.kind as Kind] : [...LIBRARY_KINDS];
-  if (!kinds.every((k) => (LIBRARY_KINDS as readonly string[]).includes(k))) throw new StoryError(`A kind is one of ${LIBRARY_KINDS.join(", ")}.`);
+  if (!kinds.every((k) => (LIBRARY_KINDS as readonly string[]).includes(k))) throw new HttpError(`A kind is one of ${LIBRARY_KINDS.join(", ")}.`);
   const limit = Math.max(1, Math.min(200, Math.floor(o.limit ?? 60)));
   const offset = Math.max(0, Math.floor(o.offset ?? 0));
   const q = (o.q ?? "").trim().toLowerCase();
@@ -106,9 +102,9 @@ export async function listLibrary(db: Queryable, me: Me | null, o: { kind?: stri
 export async function labelFile(db: Queryable, me: Me | null, hash: string, label: unknown, library?: unknown) {
   const lib = libraryOf(me ?? { id: "" }, library);
   opener(me, lib.library);
-  if (!HASH.test(hash)) throw new StoryError("A file is named by its hash.");
+  if (!HASH.test(hash)) throw new HttpError("A file is named by its hash.");
   const l = fileLabel(label) ?? null;
   const r = await relabel(db, lib.owner, hash, l);
-  if (!r) throw new StoryError("No file is kept by that hash.", 404);
+  if (!r) throw new HttpError("No file is kept by that hash.", 404);
   return r;
 }

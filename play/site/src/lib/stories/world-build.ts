@@ -1,15 +1,11 @@
 // A WORLD SHOT'S BUILD (intent 90de96fb; ./live-runtime.ts draws it, scripts/world-shot.ts checks it on the CPU): the
 // world, its guests and every frame's places, made once for all of a world's shots before they are ready (intent
-// 4f7a2178), by the frozen box engine started as workers. No DOM, no WebGL: the same code runs in the composition's frame and in Bun in avenBOX, only the worker it is
-// handed differs. Drawn by time, never by a clock: no step here reads a clock, chance or the environment.
-//
-// - A build asks its engine with no `given` where its ref holds no values (an engine refuses values for a recipe that
-//   takes none).
-// - The guests are built by recipe, FEW at a time, each recipe in its own worker (one recipe a worker, as the asset box
-//   keeps them), ended as soon as its builds are made.
-// - Every ask fails, never hangs: on its worker's crash, and after the box's job time (BUDGETS.job). A moving world whose
-//   run won't start, or whose steps stop, fails saying so.
-// - What it does is told as it goes (`progress`), for the player's caption.
+// 4f7a2178) by the frozen box engine as workers. No DOM, no WebGL: the same code runs in the composition's frame and in
+// Bun in avenBOX, only the worker differs; no step reads a clock, chance or the environment.
+// - A build asks with no `given` where its ref holds no values (an engine refuses values for a recipe taking none).
+// - Guests are built by recipe, FEW at a time, one recipe a worker (as the asset box keeps them), ended once built.
+// - Every ask fails, never hangs: on its worker's crash and after BUDGETS.job; a moving world whose run won't start or
+//   whose steps stop fails saying so. What it does is told as it goes (`progress`), for the player's caption.
 import * as THREE from 'three';
 import { withPieces } from '../content/assets/box/pieces.js';
 import { rebuild } from '../content/assets/box/rebuild.js';
@@ -19,7 +15,6 @@ import { worldOf as worldInfo } from '../content/worlds/contract.js';
 import { plantingsOf, shownIn } from '../content/assets/uses.js';
 import { BUDGETS } from '../kernel/sandbox/policy.js';
 
-/** a worker as the build uses it: the browser's, or Bun's */
 export type WorkerLike = { postMessage(m: unknown): void; terminate(): void; onmessage: ((e: { data: any }) => void) | null; onerror: ((e: { message?: string; preventDefault?: () => void }) => void) | null };
 /** a worker of the code named `hash`, its blob: URL made once and kept: WebKit fails a worker's importScripts(blob:),
  *  how the engine runs each recipe, once the worker's own URL is revoked ("Load failed", intent 4f7a2178) */
@@ -28,8 +23,7 @@ export const blobWorker = (hash: string, code: () => string) => (): WorkerLike =
 	if (!urls.has(hash)) urls.set(hash, URL.createObjectURL(new Blob([code()], { type: 'text/javascript' })));
 	return new Worker(urls.get(hash)!) as unknown as WorkerLike;
 };
-/** how many recipes' workers build guests at once */
-export const FEW = 4;
+const FEW = 4;
 /** a step of the build, for the player: what it is doing, and how far along */
 export type Progress = { step: 'world' | 'guests' | 'frames' | 'ready'; done: number; of: number; text: string };
 export type Engine = ReturnType<typeof engineOf>;
@@ -81,6 +75,7 @@ export function engineOf(recipe: { hash: string; code: string }, engine: number,
 		/** kept running, as ../content/assets/hero.js `runner` starts it in the page's box */
 		start: async (given: Record<string, string> | undefined, nodes: number) => {
 			const { session } = await ask('live', { recipe, given, nodes });
+			// ending a session on a worker that already went has nothing to end (as the page's box, host.js `end`)
 			return { tick: (a: unknown) => ask('tick', { session, ask: a }), breakIt: async () => {}, end: () => ask('end', { session }).catch(() => {}) };
 		},
 		end: () => die(new Error('ended'))
@@ -108,9 +103,9 @@ export type WorldBuildSpec = { engine: { v: number; hash: string }; recipe: stri
 export type Host = { code: (hash: string) => string; worker: () => WorkerLike; progress?: (p: Progress) => void; timeout?: number; few?: number };
 
 /**
- * A world made whole, once for every shot of it in a composition: its world (its own copy, run in its own worker where
- * it moves), its guests' copies where each stands, and every frame's places for them (16 numbers each, a scale of 0
- * where one is not shown), the world brought to each frame's moment in turn by its own seeded steps. Throws why it can't.
+ * A world made whole once for every shot of it in a composition: its own copy (run in its own worker where it moves),
+ * its guests' copies, and every frame's places (16 numbers each, scale 0 where not shown), brought to each frame's
+ * moment by its own seeded steps. Throws why it can't.
  */
 export async function buildWorld(spec: WorldBuildSpec, host: Host) {
 	const say = host.progress ?? (() => {});
@@ -204,5 +199,4 @@ export async function buildWorld(spec: WorldBuildSpec, host: Host) {
 	}
 }
 
-/** where a guest not shown is put: nowhere */
 const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);

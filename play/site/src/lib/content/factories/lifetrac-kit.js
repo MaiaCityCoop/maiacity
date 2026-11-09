@@ -1,36 +1,13 @@
 // @ts-nocheck — plain JS, in the kit's own style (./kit.js)
 /*
- * THE LIFETRAC LINE'S MACHINES AND WHAT IT CARRIES — our additions to the factory kit (./kit.js), at their real size in
- * metres, for the line that builds the LifeTrac (./lifetrac-line.js). AirSup's kit machines are readable stand-ins
- * of two to three metres; the machines a tractor line needs are bigger, and the line is fully automated, so these
- * have robots where theirs have people:
- *
- *   fiberlaser   a 3 × 1.5 m fibre laser with its shuttle table and its load-and-sort tower (variant combo: a rotary
- *                tube axis beside it, the Power Cube cell's)
- *   tubelaser    a tube laser with its bundle loader and robot unloading, inline
- *   angleline    a CNC angle line: punch heads, marking, shear and a stacking robot, inline
- *   weldcell     two welding robots on a two-station positioner with a handling robot, in a fence (variant small)
- *   asmcell      a robotic assembly cell the tractor stands in on its skillet: two robots with nutrunners and, for
- *                heavy parts, an overhead gantry (variants bolt, gantry, cube, fill, audit)
- *   booth        a powder booth with two painting robots behind glass, inline (variant small)
- *   asrs         an automated store with its stacker crane, a pick port and a kitting robot
- *   testcage     the end-of-line test: a rolling road in a cage, a test weight, screens
- *   saw          a CNC cold saw with its roller tables, inline
- *
- * And the shapes the line carries between its stations (`K.shapes`, through the kit's `add`): sheets, kit carts,
- * stillages, totes, the wheel kit, the Power Cube, the valve block, hose reels and hoses, the cylinder rack, wire
- * spools, the controller, and the LifeTrac itself as it grows down the line (`lifetrac`, `upto` the step it has
- * reached: frame, wheels, cube, hydraulics, arms, cylinders, platform, electronics). The finished machine is the
- * LifeTrac asset itself where the page could build it (./assets.js); `lifetrac` is our own simpler model of it,
- * drawn from the same CAD numbers (OSE's v25, the asset's lifetrac.js), for the stages before and as its fallback.
+ * The LifeTrac line's machines (play/api/import/factories/lifetrac-line/line.js), our additions to ./kit.js at real size:
+ * bigger than AirSup's 2–3 m stand-ins and fully automated; `lifetrac` our simpler tractor from OSE's v25 CAD numbers.
  */
 import { T } from './three.js'
 import { K } from './kit.js'
 
 const V = (x, y, z) => new T.Vector3(x, y, z)
 const ease = (x) => 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, Math.min(1, x)))
-
-/* ── machines ─────────────────────────────────────────────────────────────── */
 
 /** robot arms turning busily about a pose while a machine works; the kit's arm (K.arm) */
 function swing(arm, s, k = 0, rest = [0, 0.2, 1.9, 0, 1.2, 0]) {
@@ -387,8 +364,6 @@ K.def('saw', (o) => {
   }, o, [0.9, 1.25, -0.5])
 })
 
-/* ── what the line carries ─────────────────────────────────────────────────── */
-
 const GREEN = '#1f5e50', TEAL = '#45b58f', STEEL = '#8d9396', DARK = '#2b2d2f', ORANGE = '#ef9a1c', CHROME = '#dcdcd8', YELLOW = '#e9c21b', TYRE = '#1b1c1e', RIM = '#c9cbc6', BLUE = '#2f6fb5', GREY = '#9aa0a6'
 
 /** a box between two points' extents (x0..x1, y0..y1, z0..z1), into `add` */
@@ -535,10 +510,7 @@ K.shapes.controller = (add, def, { B, C }) => {
 
 /** the LifeTrac's steps, in the order the line adds them (the asset's STEPS) */
 const UPTO = ['frame', 'wheels', 'cube', 'hydraulics', 'arms', 'cylinders', 'platform', 'electronics']
-/**
- * The LifeTrac as it grows down the line, at its real size, facing +x (forward along the line), from OSE's v25 CAD
- * numbers as the asset draws them: x = (Y − 760) mm, y = Z mm, z = X mm (lifetrac.js `P`, turned to face +x).
- */
+/** The LifeTrac growing down the line, real size, facing +x, from OSE's v25 CAD as the asset draws it: x = (Y − 760) mm, y = Z mm, z = X mm. */
 K.shapes.lifetrac = (add, def, { B, C }) => {
   const n = UPTO.indexOf(def.upto || 'electronics') + 1
   const has = (s) => UPTO.indexOf(s) < n

@@ -1,25 +1,16 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * LOADING AN ASSET — the one way a page gets a build, by its name, `<recipe hash>?its=values` (./builds.js), as
- * anyone's would be got: from this device's cache (./cache.js) when it was built here before, else from the asset box
- * (./box/host.js), which runs the recipe on the frozen engine it was made for. Either way it is checked (its card
- * against the card's schema, its data by ./box/rebuild.js) and built into three.js objects by our own code. The recipe
- * is the only truth, and it is the Maia City vault's (./vault.js): its index names the hash, Maia City's own signed edits
- * prove it (./vault.js `provenAt`), and its entry's file, read from play's files and held to that hash, is what the box
- * runs. A build waits for that proof, from the box or the cache alike. What it made stays on this device, so a page
- * that finds it in the cache reads no recipe's file and starts no box.
- *
- * What a recipe's entry declares is held (H4, `heldTo`): it runs on the box engine its card names (`engineOf`), in a
- * box of that engine's; it requires of the engine only the modules its manifest names; its contract names only checks
- * the page runs on every build anyway; and its file and its build stay within the bytes and the time its contract
- * gives, where those are less than the box's own.
+ * The one way a page gets a build by its name (`<recipe hash>?its=values`, ../../kernel/builds.js): from this device's
+ * cache (./cache/builds.js), else the asset box (./box/host.js) on its frozen engine; either way checked (card against
+ * its schema, data by ./box/rebuild.js) and built into three.js objects by our own code. The recipe (./catalog.js) is the
+ * only truth; what its entry declares is held (H4, `heldTo`): its engine, its modules, its bytes and time where less.
  */
 import { AssetBox, TIMEOUT } from './box/host.js';
 import { rebuild } from './box/rebuild.js';
-import * as cache from './cache.js';
-import { engineAt } from './engines.js';
+import * as cache from './cache/builds.js';
+import { engineAt } from './box/engines.js';
 import { valuesOf } from './params.js';
-import { INDEX, buildOf, cardOf, declaredOf, heldAt, loadRecipes, parseBuild, recipeAt } from './catalog.js';
+import { INDEX, NotInCatalog, buildOf, cardOf, declaredOf, heldAt, loadRecipes, parseBuild, recipeAt } from './catalog.js';
 
 import { PIECE, piecesOf, requiresOf } from './box/pieces.js';
 
@@ -34,19 +25,13 @@ export const boxOf = (v = INDEX.engine) => {
 	return boxes.get(v);
 };
 const running = new Map();
-/**
- * The page's box for builds kept running (./box/live.js), an engine's second worker: building the next asset never
- * holds up the steps of the one running, nor the reverse. @param {number} [v]
- */
+/** The page's box for builds kept running, an engine's second worker, so new builds and running steps never wait on each other. @param {number} [v] */
 export const liveBoxOf = (v = INDEX.engine) => {
 	if (!running.has(v)) running.set(v, new AssetBox({ engine: v }));
 	return running.get(v);
 };
 
-/**
- * The frozen box engine a recipe runs on: the one its card names (the card its entry keeps), the index's where it
- * names none. Throws for one that is not frozen. @param {string} hash
- */
+/** The frozen box engine a recipe runs on: its card's, else the index's; throws for one not frozen. @param {string} hash */
 export function engineOf(hash) {
 	const v = cardOf(hash)?.engine ?? INDEX.engine;
 	const e = engineAt(v);
@@ -62,13 +47,8 @@ export const CHECKS = {
 };
 
 /**
- * A recipe's file held to what its entry declares (`declared`: its manifest and contract), on box engine `engine`: the
- * time its build has (ms), or throws why it is refused. Its manifest's `libs` are the modules it requires: every one
- * its file names (a name it computes reaches only the engine's own modules), and each a module of the engine; its
- * `pieces` every piece it requires by hash (play/SPEC.md §4.5, ./box/pieces.js). Its
- * contract's `invariants` are checks the page runs on every build anyway (`CHECKS`), never one it doesn't; its
- * `budgets.bytes` bounds its file and `budgets.ms` its build, where less than the box's own 20 s. Its `memory` and
- * `ops` no box can hold: they are not read. An entry that declares nothing is held to the engine alone.
+ * A recipe's file held to what its entry declares on box engine `engine` (its `libs` and `pieces`, the contract's
+ * `budgets` where under the box's 20 s; `memory` and `ops` unread): its build's time (ms), or throws why refused.
  * @param {string} code @param {{ manifest?: any, contract?: any } | undefined} declared @param {{ v: number, modules: string[] }} engine
  */
 export function heldTo(code, declared, engine) {
@@ -92,12 +72,8 @@ export function heldTo(code, declared, engine) {
 }
 
 /**
- * A build of one of the vault's recipes, named as it is kept: its hash and every value it takes, its own where not
- * given, so two names of one build are one; and the engine it runs on. Throws for a value its recipe does not take,
- * and NotInVault for a hash the vault doesn't hold (or while its recipes aren't in: ./vault.js `loadRecipes`). A build
- * named is one the page is about to make: its recipe's proof is asked for, with the others named meanwhile (./vault.js
- * `wants`).
- * @param {string} name `<hash>?its=values`
+ * A build named as kept (hash and every value, its own where not given) and its engine; throws for a value it does not
+ * take, NotInCatalog for a hash the catalog doesn't hold (yet). @param {string} name `<hash>?its=values`
  */
 export function canonical(name) {
 	const { hash, params } = parseBuild(name);
@@ -118,10 +94,7 @@ const now = () => performance.now();
 /** the builds the box is making now, by their cache key: one asked for again meanwhile waits for it */
 const building = new Map();
 
-/**
- * A build's data copied for another copy of it: its arrays its own (a control may reshape them), its pictures shared
- * (each texture is drawn from its own canvas, and a picture copied would be read back off the graphics card).
- */
+/** A build's data copied: arrays its own (a control may reshape them), pictures shared (a copy would be read back off the GPU). */
 function copyOf(v) {
 	if (ArrayBuffer.isView(v)) return v instanceof DataView ? new DataView(v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength)) : v.slice();
 	if (v instanceof ArrayBuffer) return v.slice(0);
@@ -131,18 +104,36 @@ function copyOf(v) {
 	return v;
 }
 
-/** a box's or the cache's build, checked and built into objects; throws with the reason it was refused */
-function open({ data, card }, hash) {
+/** A box's or the cache's build, checked and built into objects; throws with why it was refused (after `label`, where given). */
+export function open({ data, card }, hash, label) {
+	const refused = (why) => new Error(label ? `${label}: refused, ${why}` : `refused: ${why}`);
 	const verdict = checkCard(card);
-	if (!verdict.ok) throw new Error(`refused: its card does not fit: ${verdict.errors.slice(0, 3).join('; ')}`);
-	if (card.recipe !== hash) throw new Error('refused: its card names another recipe');
+	if (!verdict.ok) throw refused(`its card does not fit: ${verdict.errors.slice(0, 3).join('; ')}`);
+	if (card.recipe !== hash) throw refused('its card names another recipe');
 	return { obj: rebuild(data), card, data };
 }
 
+/** The cache's build under `key`, checked, and its read time; undefined if none, dropped if bad. @param {Pick<typeof cache, 'get' | 'drop'>} store @param {string} key @param {string} hash @param {string} [label] */
+export async function cached(store, key, hash, label) {
+	const t0 = now();
+	const hit = await store.get(key);
+	const read = now() - t0;
+	if (!hit) return undefined;
+	try {
+		return { ...open(hit, hash, label), read };
+	} catch {
+		// spoiled, or kept by an older page: gone, and built anew
+		await store.drop(key);
+		return undefined;
+	}
+}
+
+/** a box's build kept in this device's cache: settles true once kept, false if it was not @param {Pick<typeof cache, 'put'>} store */
+export const kept = (store, key, built) => store.put(key, built).catch(() => false);
+
 /**
- * A build, ready to put into a scene: `obj`, its `card`, its plain `data`, where it came `from` ('cache' or 'box'),
- * its `name` and `key`, its times in ms, and `stored`, which settles once a box's build is kept in the cache (true) or
- * was not (false).
+ * A build ready for a scene: `obj`, `card`, plain `data`, `from` ('cache' or 'box'), `name`, `key`, its times (ms), and
+ * `stored`, settling once a box's build is kept in the cache (true) or not (false).
  * @param {string} name `<recipe hash>?its=values`
  * @param {{ box?: AssetBox, cache?: boolean, store?: Pick<typeof cache, 'get' | 'put' | 'drop'> }} [o] `cache: false`
  *   builds in the box and keeps nothing; `store` the cache it reads and keeps to (this device's; a test's stand-in)
@@ -156,16 +147,12 @@ export async function loadAsset(name, { box, cache: useCache = true, store = cac
 	const key = cache.keyOf({ engine: c.engine.blake3, recipe: c.hash, params: c.values });
 	const said = { name: c.name, key, label: c.at.label };
 	if (useCache) {
-		const hit = await store.get(key);
-		const t1 = now();
+		const asked = now();
+		const hit = await cached(store, key, c.hash);
 		if (hit) {
-			try {
-				const got = open(hit, c.hash);
-				return { ...got, ...said, from: 'cache', stored: Promise.resolve(true), ms: { read: Math.round(t1 - t0), rebuild: Math.round(now() - t1), total: Math.round(now() - t0) } };
-			} catch {
-				// spoiled, or kept by an older page: gone, and built anew
-				await store.drop(key);
-			}
+			const { read, ...got } = hit;
+			const t1 = asked + read;
+			return { ...got, ...said, from: 'cache', stored: Promise.resolve(true), ms: { read: Math.round(t1 - t0), rebuild: Math.round(now() - t1), total: Math.round(now() - t0) } };
 		}
 	}
 	const t1 = now();
@@ -185,7 +172,7 @@ export async function loadAsset(name, { box, cache: useCache = true, store = cac
 		const given = c.values && Object.fromEntries(Object.entries(c.values).map(([k, v]) => [k, String(v)]));
 		// a box handed in builds only what its engine runs: a recipe made for another builds in a box of its own engine
 		const built = await (box?.engine === c.engine.v ? box : boxOf(c.engine.v)).build(recipe, given, { timeout });
-		const stored = useCache ? store.put(key, built).catch(() => false) : Promise.resolve(false);
+		const stored = useCache ? kept(store, key, built) : Promise.resolve(false);
 		return { built, stored, t2 };
 	})();
 	if (useCache) {
@@ -200,4 +187,64 @@ export async function loadAsset(name, { box, cache: useCache = true, store = cac
 	const got = open(built, c.hash);
 	const t4 = now();
 	return { ...got, ...said, from: 'box', stored, ms: { read: Math.round(t1 - t0), recipe: Math.round(t2 - t1), start: built.ms.start, build: built.ms.build, bake: built.ms.bake, serialize: built.ms.serialize, box: Math.round(t3 - t2), rebuild: Math.round(t4 - t3), total: Math.round(t4 - t0) } };
+}
+
+/** a value an object holds of its own, never one it inherits @param {Record<string, any>} o @param {string} k */
+const own = (o, k) => (Object.hasOwn(o, k) ? o[k] : undefined);
+
+/** the reason in an error, after the recipe's name */
+const labelled = (label, e) => new Error(`${label}: ${e instanceof Error ? e.message : String(e)}`);
+
+/**
+ * A build of one of play's recipes (`hash`, `given` as text): its file, then this device's cache, else the box of the
+ * engine its card names; checked either way.
+ * @param {typeof import('./catalog.js').source} source play's recipes
+ * @param {string} hash @param {Record<string, string>} [given]
+ * @param {{ box: import('./box/host.js').AssetBox, store?: Pick<typeof cache, 'get' | 'put' | 'drop'>, keep?: boolean, phase?: (step: 'file' | 'cache' | 'build') => void }} o
+ *   the box it builds in, the cache (this device's), and whether the cache is read and kept to
+ * @returns {Promise<{ obj: any, card: any, data: any, from: 'cache' | 'box', name: string, label: string,
+ *   recipe: { hash: string, code: string }, values: Record<string, number | string> | undefined,
+ *   given: Record<string, string> | undefined, stored: Promise<boolean> }>}
+ */
+export async function vaultBuild(source, hash, given = {}, { box, store = cache, keep = true, phase = () => {} }) {
+	const at = typeof hash === 'string' ? own(source.index.recipes, hash) : undefined;
+	if (!at) throw new NotInCatalog(`no recipe ${String(hash).slice(0, 12)}… is in the Maia City vault`);
+	const asked = Object.keys(given).length ? given : undefined;
+	if (asked && !at.params?.length) throw new Error(`${at.label} takes no parameters`);
+	let values;
+	try {
+		values = at.params?.length ? valuesOf(at.params, given) : undefined;
+	} catch (e) {
+		throw labelled(at.label, e);
+	}
+	phase('file');
+	const recipe = await source.recipeAt(hash);
+	const name = buildOf(hash, values);
+	let engine, timeout, key;
+	try {
+		engine = engineOf(hash);
+		timeout = heldTo(recipe.code, declaredOf(hash), engine);
+		key = keyOf(name);
+	} catch (e) {
+		throw labelled(at.label, e);
+	}
+	const text = values && Object.fromEntries(Object.entries(values).map(([k, v]) => [k, String(v)]));
+	const said = { name, label: at.label, recipe, values, given: text };
+	if (keep) {
+		phase('cache');
+		const hit = await cached(store, key, hash, at.label);
+		if (hit) {
+			const { read, ...got } = hit;
+			return { ...got, ...said, from: 'cache', stored: Promise.resolve(true) };
+		}
+	}
+	let built;
+	phase('build');
+	try {
+		built = await (box.engine === engine.v ? box : boxOf(engine.v)).build(recipe, text, { timeout });
+	} catch (e) {
+		throw new Error(`${at.label}: the box could not build it (${e instanceof Error ? e.message : String(e)})`);
+	}
+	const got = open(built, hash, at.label);
+	return { ...got, ...said, from: 'box', stored: keep ? kept(store, key, built) : Promise.resolve(false) };
 }

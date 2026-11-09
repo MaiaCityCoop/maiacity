@@ -3,8 +3,8 @@
 // sandbox has no layout document yet (play/SPEC.md §4.6: the import writes a sandbox's configs only then). From then on
 // play's Postgres is the source of truth: a layout changes only by proposal (over MCP), and nothing here writes over it.
 // Run with every deploy, by ./run.ts.
-import type { Db } from "../src/pg";
-import { SANDBOX } from "../src/ids";
+import type { Db } from "../src/kit/pg";
+import { SANDBOX } from "../src/kit/ids";
 import { ensureLayoutDoc } from "../src/sandboxes";
 import audit from "./sandboxes/sandbox-6/audit.json";
 import village from "./sandboxes/sandbox-6/village.json";

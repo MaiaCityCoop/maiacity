@@ -2,7 +2,7 @@ import { transform, rotationOf, inverseRotation, multiplyRotations, type Box, ty
 import type { Command, Reply, Snapshot, WireConnection } from './worker-runtime';
 import type { BuildDefinition, BuildPart } from './shed';
 
-export class BodyView {
+class BodyView {
   constructor(private data: Float64Array) {}
   private vector(offset:number):V3 { return {x:this.data[offset],y:this.data[offset+1],z:this.data[offset+2]}; }
   translation(){return this.vector(0);}

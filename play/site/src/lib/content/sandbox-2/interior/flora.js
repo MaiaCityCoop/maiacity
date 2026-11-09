@@ -1,39 +1,13 @@
 /*
- * FLORA — a world's forest of our own plants ($content/plants), as many thousands of them as a dome cell holds, drawn by the
- * universal renderer ($content/assets/render, through ./drawn.js `createFlora`): every kind of plant (a plant at its
- * version, stage and seed: an apple tree in flower, a ripe pumpkin) built in the asset box,
- * `plants/<id>@<v>?stage=<s>&seed=<seed>`, at the levels its card names, and far off as a picture of itself; every
- * plant of a kind one more copy of it, all of them drawn in a handful of draw calls. Nothing of a plant runs here: what the box made is
- * data, checked, and the renderer draws it.
- *
- * What the world decides, here: where every plant stands, and that a tree is drawn however far off (as its picture)
- * while a small plant is put down only as far off as the forest streams it (`STREAMS`, as stream.js streams the biomes'
- * cover: how many copies stand, not how finely each is drawn) and never past where the selector would draw its picture
- * (`FloraDrawn.far`), the ones within it put down as copies as the eye walks. What the renderer decides, by its one selector (assets/render/lod.js):
- * the level each copy is drawn at, frame by frame, the coarser fading in under the finer, and that nothing behind the
- * eye is drawn.
- *
- * A forest is a list of plants put somewhere (`add`); `grown` waits for their kinds (each its coarsest shape first) and
- * puts the trees down; `update` keeps the small plants round the eye; the renderer's own update (`Flora.update`, the
- * world's, before every frame) draws them. Its plants are measured off their builds (how tall, how far they reach, how
- * thick at the foot: for the walker, the birds and the picked plant's ring) and found by a ray (`pick`) against their
- * own shapes.
- *
- * Nothing here loads the renderer: a dome's inside (./interior.ts) is handed the flora it plants in by whoever builds it.
+ * A world's forest of our own plants, drawn by ./drawn.js `createFlora`: each kind built once in the asset box, each
+ * plant a copy; trees drawn however far off, small plants as far as the forest streams them (`STREAMS`).
  */
 import * as THREE from 'three';
-import { NotInCatalog } from '../../assets/catalog.js';
+import { NotInCatalog, withQuery } from '../../assets/catalog.js';
 
 /** @typedef {import('./sandbox5.js').Kind} Kind */
-/**
- * @typedef {'tree' | 'shrub' | 'cover'} Reach how far off a plant is still drawn: a tree always (far off as its picture),
- *   a shrub or the cover (herbs, vegetables, the ground layer) until it would be a picture
- */
-/**
- * @typedef {{ height: number, reach: number, foot: number, leaf: [number, number, number] }} Shape a kind's measure, off
- *   its build: how tall it stands, how far it reaches out over the ground, how thick it is at its foot (its trunk or its
- *   clump), and the colour of its leaves
- */
+/** @typedef {'tree' | 'shrub' | 'cover'} Reach how far off a plant is drawn: a tree always, the others until a picture */
+/** @typedef {{ height: number, reach: number, foot: number, leaf: [number, number, number] }} Shape a kind's measure off its build */
 /**
  * @typedef {{
  *   use: (ref: string, shadows?: boolean, picture?: boolean) => any,
@@ -45,34 +19,29 @@ import { NotInCatalog } from '../../assets/catalog.js';
  */
 
 /** @typedef {{ shrub: number, cover: number }} Streams how far off (m) a forest puts its small plants down */
-/**
- * How far the village has always put its small plants down (Sandbox 4's: shrubs to 26 m, the cover to 13 m; under a
- * dome's glass, nearer the eye, 40 m and 22 m). A stream's reach, not a level: how finely each is drawn is the selector's.
- */
+/** Sandbox 4's reach for small plants (shrubs 26 m, cover 13 m; 40 and 22 under a dome); how finely is the selector's. */
 export const STREAMS = /** @type {{ village: Streams, inside: Streams }} */ ({ village: { shrub: 26, cover: 13 }, inside: { shrub: 40, cover: 22 } });
 
-/** A plant's key, for a forest to know it by. @param {Kind} k */
+/** @param {Kind} k */
 export const keyOf = (k) => `${k.id}@${k.v}:${k.stage}:${k.seed}`;
 /**
- * A kind as the asset it is built from and its values: by its pin alone, the plant's entry in the Maia City vault and
- * the heads of its version (Samuel 2026-10-20, 2026-10-22: no old ref stands behind it). Throws NotInVault for a kind
- * the garden pins no version of. @param {Kind} k
+ * A kind as the asset it is built from and its values, by its pin alone (Samuel 2026-10-20, 2026-10-22: no old ref
+ * stands behind it). Throws NotInVault for a kind the garden pins no version of. @param {Kind} k
  */
 export const refOf = (k) => {
 	// play: the garden names each plant by the build of its slot (Sandbox 1's garden config), a hash
 	if (!k.asset) throw new NotInCatalog(`the garden names no asset for ${k.id} (Sandbox 1's garden config)`);
-	return `${k.asset}${k.asset.includes('?') ? '&' : '?'}stage=${k.stage}&seed=${encodeURIComponent(k.seed)}`;
+	return withQuery(k.asset, `stage=${k.stage}&seed=${encodeURIComponent(k.seed)}`);
 };
 
 /** the side of a cell of the ground the small plants are filed in, metres */
 const CELL = 8;
-/** a cell's key @param {number} ix @param {number} iz */
+/** @param {number} ix @param {number} iz */
 const cellKey = (ix, iz) => (ix + 4096) * 8192 + (iz + 4096);
 
 /**
- * A kind's measure, off the shape it was built at: everything over the soil (what is under it no one walking a forest
- * sees), its wood (the body, drawn on one side) at its foot, its leaves and petals (drawn on both).
- * @param {any} level the renderer's level (its drawings, each at its places) @returns {Shape}
+ * A kind's measure off its built shape: everything over the soil, its wood (one-sided) at its foot, its leaves and
+ * petals (two-sided). @param {any} level the renderer's level (its drawings, each at its places) @returns {Shape}
  */
 function measure(level) {
 	let height = 0, reach = 0, foot = 0, leaves = 0;
@@ -107,15 +76,12 @@ function measure(level) {
  *   kind: Kind, reach: Reach, n: number, add: number[], k?: any, shape?: Shape,
  *   x?: Float32Array, y?: Float32Array, z?: Float32Array, turn?: Float32Array, scale?: Float32Array,
  *   copies?: (any | null)[], cells?: Map<number, number[]>, placed?: number[]
- * }} Stand all the plants of one kind in a forest: where each stands, its turn and its size; the copy drawing each one
- *   (none while it is left out); the small ones filed by their cell of the ground
+ * }} Stand all the plants of one kind in a forest, the small ones filed by their cell of the ground
  */
 
 /**
- * A forest: plants put down in it, drawn as you see them. Its plants stand in its own ground, which lies at `origin` in
- * the world the renderer draws (a dome's inside, in its own ground, stands off the village's middle); `hidden`, none of
- * them drawn until it is shown (a dome's inside, until it joins the world).
- * @param {{ flora: FloraDrawn, origin?: [number, number, number], hidden?: boolean }} o
+ * A forest: plants in its own ground, which lies at `origin` in the renderer's world (a dome's inside stands off the
+ * village's middle); `hidden`, none drawn until shown. @param {{ flora: FloraDrawn, origin?: [number, number, number], hidden?: boolean }} o
  */
 export function createForest(o) {
 	const { flora } = o;
@@ -129,10 +95,7 @@ export function createForest(o) {
 	const last = { x: Infinity, z: Infinity };
 	const at = { x: 0, y: 0, z: 0, turn: 0, scale: 1 };
 
-	/**
-	 * A plant put down at x, z (on the ground at y), turned by `turn`, at `scale` of its kind's size.
-	 * @param {Kind} kind @param {Reach} reach @param {number} x @param {number} y @param {number} z @param {number} turn @param {number} scale
-	 */
+	/** @param {Kind} kind @param {Reach} reach @param {number} x @param {number} y @param {number} z @param {number} turn @param {number} scale */
 	function add(kind, reach, x, y, z, turn, scale) {
 		const key = keyOf(kind);
 		let st = stands.get(key);
@@ -142,7 +105,6 @@ export function createForest(o) {
 		dirty = true;
 	}
 
-	/** the kinds this forest has */
 	const kinds = () => [...stands.values()].map((st) => st.kind);
 
 	const isMasked = (/** @type {number} */ x, /** @type {number} */ z) => masked.some((m) => (x - m.x) ** 2 + (z - m.z) ** 2 < m.r * m.r);
@@ -165,11 +127,7 @@ export function createForest(o) {
 		}
 	};
 
-	/**
-	 * Builds every kind of the forest (in the asset box, its coarsest shape first, side by side) and puts its trees down;
-	 * `onKind` hears each kind as it is ready.
-	 * @param {(done: number, of: number) => void} [onKind]
-	 */
+	/** Builds every kind (coarsest shape first, side by side) and puts its trees down. @param {(done: number, of: number) => void} [onKind] */
 	async function grown(onKind) {
 		const list = [...stands.values()];
 		let done = 0;
@@ -177,8 +135,7 @@ export function createForest(o) {
 			list.map(async (st) => {
 				let k = null;
 				try {
-					// a tree casts its shadow at every level and far off as its picture; the small plants cast none, and are
-					// left out before they would ever be a picture
+					// a tree casts its shadow at every level, also as a picture; small plants cast none and are left out first
 					const tree = st.reach === 'tree';
 					k = flora.use(refOf(st.kind), tree, tree);
 					await k.ready;
@@ -237,11 +194,7 @@ export function createForest(o) {
 
 	/** marks: which plants of a small stand stand within reach now */
 	let mark = new Uint32Array(0), epoch = 0;
-	/**
-	 * Puts down the small plants within their reach of the eye at x, z (in the forest's own ground), and takes away the
-	 * ones that fell out of it. Cheap when nothing has changed: chosen again only once the eye has moved a little.
-	 * @param {number} x @param {number} z
-	 */
+	/** Puts down the small plants within reach of x, z and takes away the rest, once the eye has moved a little. @param {number} x @param {number} z */
 	function update(x, z) {
 		if (hidden || gone || (!dirty && Math.hypot(x - last.x, z - last.z) < 2)) return;
 		dirty = false;
@@ -270,11 +223,7 @@ export function createForest(o) {
 		}
 	}
 
-	/**
-	 * Leaves out every plant standing in these circles of ground (in the forest's own), until the next mask: the trees
-	 * at once, the small plants when they are next chosen.
-	 * @param {{ x: number, z: number, r: number }[]} list
-	 */
+	/** Leaves out every plant in these circles until the next mask. @param {{ x: number, z: number, r: number }[]} list */
 	function mask(list) {
 		masked = list.slice();
 		if (!hidden)
@@ -314,9 +263,7 @@ export function createForest(o) {
 	const caster = new THREE.Raycaster();
 	const M = new THREE.Matrix4(), L = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
 	/**
-	 * The plant a ray from o along d (in the forest's own ground) meets first, within `far` metres: found by its leaves,
-	 * its wood and its fruit, as drawn near you. The plants the ray passes close to (each taken as an upright cylinder as
-	 * tall as it is and as wide as it reaches) are tried, nearest first, against their own shapes. Null when it meets none.
+	 * The plant a ray from o along d meets first within `far` (nearest cylinders tried against their shapes), else null.
 	 * @param {THREE.Vector3} o @param {THREE.Vector3} d @param {number} [far]
 	 * @returns {{ kind: Kind, x: number, y: number, z: number, height: number, reach: number, t: number } | null}
 	 */
@@ -360,8 +307,7 @@ export function createForest(o) {
 			if (best && t > best.t) break;
 			const k = st.k, X = /** @type {Float32Array} */ (st.x), Y = /** @type {Float32Array} */ (st.y), Z = /** @type {Float32Array} */ (st.z);
 			const sc = /** @type {Float32Array} */ (st.scale)[i];
-			// its finest shape here, as it is drawn near you (its coarsest built where the finest let go of its corners: a
-			// phone's budget, ../../../render/budget.js)
+			// its finest shape here, as drawn near you (its coarsest where a phone's budget let go, ../../render/budget.js)
 			const level = (k.levels[0].state === 'ready' && !k.levels[0].released ? k.levels[0] : k.levels[k.base]).level;
 			M.compose(_p.set(X[i], Y[i], Z[i]), _q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, /** @type {Float32Array} */ (st.turn)[i]), _s.setScalar(sc));
 			for (const dr of level.draws) {

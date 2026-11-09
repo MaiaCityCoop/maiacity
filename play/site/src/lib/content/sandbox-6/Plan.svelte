@@ -84,7 +84,7 @@
 				<dt>Usable floor</dt><dd>{n(A.tower.net, ' m²')}</dd>
 				<dt>Gross floor</dt><dd>{n(A.tower.gfa, ' m²')} <small>(the old 180 m shape: {n(A.tower.full, ' m²')})</small></dd>
 				{#if A.tower.shape}
-					<dt>Its size</dt><dd>{n(A.tower.shape.D, ' m')} at its foot, {n(A.tower.shape.H, ' m')} high, {A.tower.storeys?.length} storeys</dd>
+					<dt>Its size</dt><dd>{n(A.tower.shape.D, ' m')} at its foot, {n(A.tower.shape.H!, ' m')} high, {A.tower.storeys?.length} storeys</dd>
 				{/if}
 			</dl>
 			<h3>What it costs</h3>

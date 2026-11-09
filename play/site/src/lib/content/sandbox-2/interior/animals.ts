@@ -1,16 +1,7 @@
 /**
- * The animals of the land outside: hens scratching in their runs and out
- * under the trees, rabbits in theirs, goats and sheep browsing the forest,
- * geese along the stream, frogs by the ponds, bees round their hives, fish in
- * the ponds and the tanks. Every one is a rigged actor of its breed, built in
- * the asset box as every asset is (the Actors' Saanen goat, by the pin of it the village keeps): near
- * the eye it moves every bone as its kind does — walks with its feet set down
- * and kept there, pecks, scratches, grazes, hops, flies, swims — from the clips
- * the box wrote down, and further off a coarser build of it stands in for
- * itself, a hundred of them a draw call ($content/assets/render/crowd.js). Every
- * animal wanders on its own: it walks,
- * turns, slows, stops to peck or graze, and walks on, always inside its own
- * patch of ground; no two quite the same size.
+ * The animals of the land outside (hens, rabbits, goats, sheep, geese, frogs, bees, fish), each a rigged actor of its
+ * breed built in the asset box, moving every bone near the eye from the clips the box wrote down and a coarser build
+ * further off, a hundred a draw call ($content/assets/render/crowd.js). Each wanders its own patch, no two alike in size.
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
@@ -19,16 +10,15 @@ import { seeded } from './plants'
 import { villageAsset } from './things.js'
 
 /** where the eye stands (in the crowd's own frame) */
-export type Eye = () => { x: number; z: number }
+type Eye = () => { x: number; z: number }
 /** how an animal moves, for a gait: how far it has come, how fast, how fast it turns */
 type Motion = { dist: number; speed: number; turn?: number }
 /** a pose: each bone's turn (and size, offset), the root's place */
 type Pose = Record<string, number[]>
 type Clip = (t: number, m?: Motion) => Pose
 
-/** an actor of the Actors by its cast's name (`goat-saanen`, `bird-robin`): the version of it the village's config pins
- * under that name (maia/content/code/configs/sandbox-4/assets, ./things.js `villageAsset`) */
-export const actorRef = (id: string) => villageAsset(id)
+/** an actor by its cast's name (`goat-saanen`): the version the village's config pins (./things.js `villageAsset`) */
+const actorRef = (id: string) => villageAsset(id)
 
 type Part = { geo: THREE.BufferGeometry; color: string; at: [number, number, number]; rot?: [number, number, number]; scale?: [number, number, number] }
 
@@ -48,7 +38,7 @@ function model(parts: Part[]): THREE.BufferGeometry {
 
 const block = new THREE.BoxGeometry(1, 1, 1)
 
-export type Patch = { x: number; z: number; r: number; n: number }
+type Patch = { x: number; z: number; r: number; n: number }
 
 /** the clips of a crowd's coats, once each is built */
 const clipsOf = (c: { clips: (Record<string, Clip> | undefined)[] }) => c.clips
@@ -93,10 +83,7 @@ const KINDS: Record<Kind, Spec> = {
 
 type Animal = { x: number; z: number; yaw: number; home: Patch; walking: boolean; until: number; coat: number; phase: number; v: number; dist: number; turn: number; size: number }
 
-/**
- * A kind of animal spread over its patches of ground. `update(t)` moves every
- * one of them; those near `eye` move every bone.
- */
+/** A kind of animal over its patches: `update(t)` moves every one, those near `eye` every bone. */
 export function herd(kind: Kind, patches: Patch[], seed: number, eye?: Eye): { object: THREE.Group; update: (t: number) => void; where: () => { x: number; z: number }[] } {
 	const spec = KINDS[kind]
 	const total = spec.breeds.reduce((a, b) => a + b.often, 0)
@@ -181,8 +168,7 @@ export function herd(kind: Kind, patches: Patch[], seed: number, eye?: Eye): { o
 			const k = Math.min(1, an.v / own)
 			const going = k * k * (3 - 2 * k)
 			const still = spec.still[Math.floor(an.phase * 3) % spec.still.length]!
-			// its bones posed only near the eye, where it can be rigged (a pose for each of hundreds every frame was only
-			// garbage to collect)
+			// bones posed only near the eye (a pose for each of hundreds every frame was only garbage to collect)
 			const posed = d2 < near2 ? (): Pose => {
 				const clips = actors.clips[an.coat]
 				if (!clips) return {}
@@ -205,11 +191,7 @@ export function herd(kind: Kind, patches: Patch[], seed: number, eye?: Eye): { o
 	return { object: flock.object, update, where: () => animals }
 }
 
-/**
- * Bee hives: painted wooden boxes stacked on a stand under a tin roof, and
- * their bees, a dozen and a half each, looping round the hive and out to the
- * flowers and back — rigged near the eye, striped specks further off.
- */
+/** Bee hives: painted boxes on a stand under a tin roof, a dozen and a half bees each looping out to the flowers and back. */
 export function apiary(spots: { x: number; z: number; rot: number }[], seed: number, eye?: Eye): { object: THREE.Group; update: (t: number) => void; where: () => { x: number; z: number }[] } {
 	const r = seeded(seed)
 	const object = new THREE.Group()
@@ -270,19 +252,10 @@ export function apiary(spots: { x: number; z: number; rot: number }[], seed: num
 }
 
 /** the fish of the ponds: koi of three colours and a plain carp; of the aquaponics tanks: tilapia */
-export const POND_FISH = ['fish-koi', 'fish-kohaku', 'fish-ogon', 'fish-carp']
+const POND_FISH = ['fish-koi', 'fish-kohaku', 'fish-ogon', 'fish-carp']
 export const TANK_FISH = ['fish-nile', 'fish-redtilapia']
 
-/** every cast the village draws, each by the name its config pins it under (./things.js `villageAsset`): the herds'
- * breeds, the bees, the ant hills and the fish of the ponds and the tanks */
-export const CASTS = [...Object.values(KINDS).flatMap((k) => k.breeds.map((b) => b.id)), 'bee', 'ant-hill', ...POND_FISH, ...TANK_FISH]
-
-/**
- * Fish: koi and carp in the ponds, tilapia in the aquaponics tanks, circling
- * and turning, and a few working their way up and down a stream, just under
- * the surface — rigged near the eye, their bodies waving them on, a beat of the
- * tail for every length swum.
- */
+/** Fish: koi and carp in the ponds, tilapia in the tanks, a few up and down a stream; a tail beat for every length swum. */
 export function fishes(pools: { x: number; z: number; r: number; y: number; n: number }[], streams: { line: { x: number; z: number }[]; y: number; n: number }[], seed: number, eye?: Eye, kinds = POND_FISH): { object: THREE.Group; update: (t: number) => void } {
 	const r = seeded(seed)
 	const COATS = kinds.length
@@ -329,8 +302,7 @@ export function fishes(pools: { x: number; z: number; r: number; y: number; n: n
 				speed = along * Math.abs(f.speed * Math.cos(t * f.speed + f.phase))
 			}
 			const d2 = at ? (x - at.x) ** 2 + (z - at.z) ** 2 : Infinity
-			// from afar the whole fish wags; near, its body waves
-			// (its pose, and how it swims, made only for one near enough to be rigged)
+			// from afar the whole fish wags; near, its body waves (its pose made only for one near enough to be rigged)
 			const near = d2 < 18 * 18
 			school.put(f.coat, x, y, z, yaw + (near ? 0 : Math.sin(t * 8 + f.phase) * 0.15), d2, near ? () => swimmers.clips[f.coat]?.swim?.(t + f.phase, { dist, speed, turn }) ?? {} : undefined)
 		}
@@ -341,11 +313,8 @@ export function fishes(pools: { x: number; z: number; r: number; y: number; n: n
 }
 
 /**
- * Ant hills on the forest floor, the wood ants busy on them: from afar a still mound (the ants too small to see),
- * near the eye the rigged hill with its colony going round it — built the first time the eye comes near, and posed
- * only while it is near. From every hill run its ant roads (Ameisenstraßen), three to five, each winding off four to
- * ten metres over the floor to where the colony forages — a worn track on the ground, and near the eye a stream of
- * ants along it, going out and coming home, side by side. `blocked` keeps the roads off paths and water.
+ * Ant hills: a still mound from afar, the rigged hill near the eye (built when first near); from each three to five ant
+ * roads (Ameisenstraßen) four to ten metres long, ants streaming out and home. `blocked` keeps roads off paths and water.
  */
 export function antHills(
 	spots: { x: number; z: number; rot: number; size: number }[],
@@ -354,13 +323,11 @@ export function antHills(
 ): { object: THREE.Group; update: (t: number) => void; where: () => { x: number; z: number }[] } {
 	const object = new THREE.Group()
 	const NEAR = 22
-	// the mound from afar: the hill built coarse, its ants (each far smaller than the mound) left off — every far hill
-	// one instance of it, all in one draw call, and none at all past FAR (a mound a metre across is lost in the floor)
+	// the mound from afar: built coarse without its ants, one instance per hill in one draw call, none past FAR
 	const FAR_HILLS = 70
 	const hill = actor(actorRef('ant-hill'), 0.22)
 	let far: THREE.InstancedMesh | null = null
-	/** a rigged hill in a holder of its own: the rig's pose sets its own root where the clip says, so it stands in a
-	 * holder placed at its spot (posed bare, the hill would end up at the middle of the world: the master dome's stage) */
+	/** a rigged hill in a holder of its own: the rig's pose sets its root where the clip says (bare, at the world's middle) */
 	const rig = () => {
 		const near = hill.copy()
 		const holder = new THREE.Group()
@@ -368,8 +335,7 @@ export function antHills(
 		object.add(holder)
 		return { near, holder }
 	}
-	/** the first one, made hidden once the build is here, so that a world's warming (maia/content/film/warm.js) draws it out
-	 * of sight before a shot comes near a hill, as a crowd's first copy ($content/assets/render/crowd.js) */
+	/** the first one, made hidden once built, so a world's warming draws it before a shot comes near (as crowd.js's first copy) */
 	let spare: ReturnType<typeof rig> | null = null
 	void hill.ready.then(() => {
 		if (hill.model) {
@@ -388,8 +354,7 @@ export function antHills(
 	type Road = { pts: THREE.Vector2[]; at: number[]; len: number }
 	type Hill = { s: (typeof spots)[number]; near?: { object: THREE.Object3D; pose: (p: Pose) => void }; holder?: THREE.Group; roads: Road[] }
 	const hills: Hill[] = spots.map((s) => {
-		// its roads: off the mound's foot, each its own way, wandering as an ant road does, until it is long enough or meets
-		// a path or the water
+		// its roads: off the mound's foot, each its own way, until long enough or meeting a path or the water
 		const r = seeded(Math.round(s.x * 131 + s.z * 17) + 5)
 		const n = 3 + Math.floor(r() * 3)
 		const roads: Road[] = []
@@ -430,16 +395,13 @@ export function antHills(
 		g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
 		g.setIndex(idx)
 		g.computeVertexNormals()
-		// bare earth, paler than the green round it, as a trodden road is; seen from either side (its strips wind
-		// whichever way the road turns)
+		// bare earth, paler than the green round it; two-sided (its strips wind whichever way the road turns)
 		const track = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: '#8a6c4a', roughness: 1, alphaHash: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }))
 		track.receiveShadow = true
 		track.renderOrder = 1
 		object.add(track)
 	}
-	// the ants on the roads, near the eye: a red wood ant each (head, thorax and the black gaster), drawn 1.4 cm long
-	// (a little larger than the largest workers, to be seen from standing height), all together; a crowded stream, twenty to a metre
-	// of road, half going out, half coming home
+	// the ants on the roads near the eye: red wood ants drawn 1.4 cm (a little over the largest workers), twenty a metre
 	const antGeo = model([
 		{ geo: new THREE.SphereGeometry(1, 6, 4), color: '#7a2e14', at: [0, 0.0018, 0.0034], scale: [0.0012, 0.0011, 0.0013] },
 		{ geo: new THREE.SphereGeometry(1, 6, 4), color: '#8a3a18', at: [0, 0.002, 0.0012], scale: [0.0009, 0.0009, 0.0017] },
@@ -482,8 +444,7 @@ export function antHills(
 				if (near) h.near.pose(hill.clips?.busy?.(t + h.s.x) ?? {})
 			}
 			if (!near) continue
-			// the streams of ants: each at its own place in the stream, moving at about 3 cm a second, out on one side of
-			// the road and home on the other
+			// the streams: each ant at its own place, ~3 cm a second, out on one side of the road, home on the other
 			for (const [ri, rd] of h.roads.entries()) {
 				const count = Math.floor(rd.len * 22)
 				for (let k = 0; k < count && n < MAX; k++) {

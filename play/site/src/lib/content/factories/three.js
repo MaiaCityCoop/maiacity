@@ -1,13 +1,11 @@
 /*
- * THREE FOR THE FACTORIES — the app's own three.js (package.json: three ^0.186) with the addons AirSup's factory
- * runtime uses, gathered behind one name `T`, as their vendored bundle (three.js r185 plus the same addons on
- * `globalThis.THREE`) gave them. The ported runtime (des.js, kit.js, world.js, look.js, app.js) reads `T.…` exactly as
- * AirSup wrote it, so a newer AirSup version can be diffed against ours line by line.
- *
- * Its renderer, its orbit controls and its composer are the render core's ($content/render, plan C5): T's WebGLRenderer
- * (`new` with three's params), `new T.OrbitControls(camera, dom)` and `new T.EffectComposer(renderer, target)` give back
- * what createRenderer, createControls and createComposer make, set the way three.js's own constructors leave them (one
- * pixel per CSS pixel, no damping), so the runtime sets the rest itself, as it always did.
+ * THREE FOR THE FACTORIES — the app's three.js (^0.186) with the addons AirSup's runtime uses, behind one name `T` as
+ * their vendored bundle (r185 on `globalThis.THREE`) gave them, so the ported runtime (des.js, kit.js, world.js, look.js,
+ * app.js) reads `T.…` as AirSup wrote it and a newer AirSup version diffs line by line. Its renderer, orbit controls and
+ * composer are the render core's ($content/render, plan C5): T's WebGLRenderer (`new` with three's params),
+ * `new T.OrbitControls(camera, dom)` and `new T.EffectComposer(renderer, target)` give createRenderer's, createControls'
+ * and createComposer's, set as
+ * three's constructors leave them (one pixel per CSS pixel, no damping), the runtime setting the rest as it always did.
  */
 import * as THREE from 'three';
 import { createControls, createRenderer } from '$lib/content/render/core.js';
@@ -22,26 +20,15 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
-/**
- * three.js's WebGLRenderer, as the core makes it
- * @param {THREE.WebGLRendererParameters} [p]
- */
+/** three.js's WebGLRenderer, as the core makes it @param {THREE.WebGLRendererParameters} [p] */
 function Renderer(p = {}) {
 	return createRenderer({ canvas: /** @type {HTMLCanvasElement | undefined} */ (p.canvas), antialias: p.antialias ?? false, alpha: p.alpha, power: p.powerPreference, preserve: p.preserveDrawingBuffer, pixelRatio: 1 });
 }
-/**
- * OrbitControls, as the core makes them
- * @param {THREE.Camera} camera
- * @param {HTMLElement} dom
- */
+/** OrbitControls, as the core makes them @param {THREE.Camera} camera @param {HTMLElement} dom */
 function Controls(camera, dom) {
 	return createControls(camera, dom, { enableDamping: false });
 }
-/**
- * EffectComposer, as the core makes it
- * @param {THREE.WebGLRenderer} renderer
- * @param {THREE.WebGLRenderTarget} [target]
- */
+/** EffectComposer, as the core makes it @param {THREE.WebGLRenderer} renderer @param {THREE.WebGLRenderTarget} [target] */
 function Composer(renderer, target) {
 	return createComposer(renderer, target);
 }

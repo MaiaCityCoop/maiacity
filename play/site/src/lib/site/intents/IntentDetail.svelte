@@ -20,7 +20,7 @@
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { detailOf, isCode, notLive, shipsAgain, STAGE_NAME, TABS, type Check, type Intent, type Kind, type Results, type ShipStep, type Stage, type TabId, type Work } from './detail';
-	import { took } from './took';
+	import { took, when } from '$lib/format';
 
 	let {
 		intent: i,
@@ -35,7 +35,6 @@
 		onopenintent
 	}: {
 		intent: Intent;
-		/** the title of the intent it was proposed for, if any */
 		cameWith?: string | null;
 		/** the schemas' labels by their UUIDs, to name its declared work (only shown) */
 		schemaNames?: Map<string, string>;
@@ -54,7 +53,6 @@
 	const REPO_URL = 'https://github.com/MyAvenCEO/maiacity';
 	const KIND_NAME: Record<Kind, string> = { idea: 'Make', fix: 'Fix', improve: 'Improve' };
 	const TAB_NAME = Object.fromEntries(TABS) as Record<TabId, string>;
-	const when = (s: string) => new Date(s).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 	const shortWhen = (s: string) => new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 	const md = (s: string | null | undefined) => markdown(s ?? '');
 	const workKindName = (k: string) => (k === 'code' ? 'code' : (schemaNames.get(k) ?? k));
@@ -69,15 +67,12 @@
 		el.scrollTop = el.scrollHeight;
 	};
 
-	/** what to tell an agent sent to it: play's (GET /api/intents/<id>'s brief, the Intents skill's part for its stage,
-	 *  play/api/src/skills.ts), never written here; null where there is nothing for an agent to do */
-	/** an asset upgrade's builds (the review's, play/api/src/versioned.ts reviewDoc), drawn inline in the Changes tab
-	 *  (Samuel 2026-11-07: "draw the asset right in the Changes tab"), only once that tab is opened; a story's version
-	 *  (the same review's `story`, play/api/src/stories.ts) played there in the Stories player (intent 668e9ffd) */
+	/** what to tell an agent sent to it: play's brief (play/api/src/skills.ts), never written here; null when nothing */
+	/** an asset upgrade's builds (play/api/src/versioned.ts reviewDoc), drawn in the Changes tab once opened (Samuel
+	 *  2026-11-07: "draw the asset right in the Changes tab"); a story's version played there (intent 668e9ffd) */
 	let review = $state<{ id: string; builds: { hash: string; variant: string | null; label: string; first: boolean }[] | null; story: ComponentProps<typeof StoryPlayer>['story'] | null; docs: ReviewedDoc[] } | null>(null);
 	/** each document its work changes (the review's docs, play/api/src/versioned.ts reviewDoc; intent 7c8986c5: any number) */
 	type ReviewedDoc = Listed;
-	/** the documents its work changes, as the detail lists them, once read for this intent */
 	const docs = $derived(review?.id === i.id ? review.docs : []);
 	let drawn = $state<{ id: string; hash: string } | null>(null);
 	let viewer: Promise<any> | null = null;
@@ -95,8 +90,7 @@
 			})
 			.catch((e) => (briefError = (e as Error).message));
 	});
-	/** one document taken out of its work, with its reason, before it is decided (intent ee0a7455; play/api/src/withdraw.ts):
-	 *  in Build or at Proposal only; at Proposal the intent goes back to Build, its results kept */
+	/** one document taken out of its work with its reason (intent ee0a7455; play/api/src/withdraw.ts), in Build or at Proposal */
 	const withdrawable = $derived(i.stage === 'build' || i.stage === 'proposal');
 	let withdrawError = $state('');
 	async function withdraw(doc: { id: string; label?: string }) {
