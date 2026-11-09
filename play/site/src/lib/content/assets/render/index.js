@@ -53,11 +53,13 @@ import { windNodes, windOfCopy, worldSeconds } from '../../render/wind.js';
  * A material of a kind's build with the look it is drawn by: its own (box format 5), else the one its build gives it
  * (../look.js `lookOfBuilt`: its name's, or a plant's or living cover's by the material itself), kept on it.
  */
-function withLook(m, k) {
+function withLook(m, k, L = 0) {
 	if (m && !m.userData.look) {
 		const look = lookOfBuilt(m, k);
 		if (look) m.userData.look = look;
 	}
+	// the level it is drawn at: a coarser one leaves out the flutter and the glow (../../render/foliage.js `LEVELS`)
+	if (m) m.userData.lookLevel = L;
 	return m;
 }
 
@@ -344,7 +346,7 @@ export function createAssets(o) {
 			async (got) => {
 				// the materials it was handed (given back when it is let go of: `evict`)
 				const mats = [];
-				lv.level = prepare(got.obj, { of: (m) => (mats.push(presets.of(withLook(m, k))), mats[mats.length - 1]) });
+				lv.level = prepare(got.obj, { of: (m) => (mats.push(presets.of(withLook(m, k, L))), mats[mats.length - 1]) });
 				lv.mats = mats;
 				lv.from = got.from;
 				// whether this device's cache holds it, to be read again rather than built again once it was let go of

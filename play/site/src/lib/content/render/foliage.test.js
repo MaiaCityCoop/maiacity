@@ -68,6 +68,32 @@ describe('a leaf drawn by its look', () => {
 		expect(fragment).toMatch(/pow\(/);
 	});
 
+	test('what is not read far off is left out: no flutter where a look has none or a level is coarse, no glow from level 2', () => {
+		const wind = windNodes(tsl, { strength: 0.7 });
+		const count = (src, re) => (src.match(re) ?? []).length;
+		const at = (level, look = { kind: 'leaf' }) => {
+			const m = foliageOf(leafMaterial(), look, { wind });
+			m.level = level;
+			return draw(m);
+		};
+		const near = at(0), mid = at(1), far = at(2);
+		// the flutter's four smoothed triangle waves (fract) are in the finest level only, behind a per-copy branch
+		expect(count(near.vertex, /fract\(/g)).toBeGreaterThan(count(mid.vertex, /fract\(/g));
+		expect(count(mid.vertex, /fract\(/g)).toBe(count(far.vertex, /fract\(/g));
+		// a look with no flutter (a stem's own is damped, a fruit's none) compiles none even at level 0
+		const fruit = at(0, { kind: 'fruit' });
+		expect(count(fruit.vertex, /fract\(/g)).toBe(count(mid.vertex, /fract\(/g));
+		// the glow (the backlight's pow) is gone from level 2; the bend and the darker foot stay at every level
+		expect(count(far.fragment, /pow\(/g)).toBeLessThan(count(mid.fragment, /pow\(/g));
+		for (const d of [near, mid, far]) {
+			expect(d.vertex).toMatch(/aWind/);
+			expect(d.fragment).toMatch(/vFoliageHeight/);
+		}
+		// three programs, one a tier, however many levels
+		const key = (level) => Object.assign(foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }), { level }).customProgramCacheKey();
+		expect(new Set([0, 1, 2, 3].map(key)).size).toBe(3);
+	});
+
 	test('a look the wind does not move (stone) and a material with no look compile without it', () => {
 		const wind = windNodes(tsl);
 		const stone = new THREE.MeshStandardMaterial({ color: 0x888888 });
