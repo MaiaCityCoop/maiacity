@@ -37,7 +37,7 @@ import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { createSky } from '$lib/content/sandbox-kit/sky.js';
 import { isWebGPU, precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
-import { Fn, dot, float, fract, mix, screenUV, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl';
+import { gradeNode } from '$lib/content/render/grade.js';
 import { budget } from '$lib/content/render/budget.js';
 import { floorMaterial } from '../render/nodes/index.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment } from './kit.js';
@@ -774,26 +774,5 @@ export class Stage {
 	}
 }
 
-/**
- * The stage's grade in TSL (WebGPU, intent c1bee1f8): the GLSL pass's saturation, vignette and grain, line for line,
- * after the output; its uniforms under the GLSL pass's names, so the stage sets them alike.
- * @param {{ vig: number, grain: number, sat: number, res: THREE.Vector2 }} o
- */
-export function gradeNode(o) {
-	const uniforms = { uTime: uniform(0), uVig: uniform(o.vig), uGrain: uniform(o.grain), uSat: uniform(o.sat), uRes: uniform(new THREE.Vector2(o.res.x, o.res.y)) };
-	const h = Fn(([p]) => fract(sin(dot(p, vec2(12.9898, 78.233))).mul(43758.5453)));
-	/** @param {any} input the picture after the output */
-	const node = (input) =>
-		Fn(() => {
-			const { uTime, uVig, uGrain, uSat, uRes } = uniforms;
-			let c = vec3(input.rgb);
-			const l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-			c = mix(vec3(l), c, uSat);
-			const q = screenUV.sub(0.5).toVar();
-			q.x.mulAssign(uRes.x.div(uRes.y));
-			c = c.mul(float(1).sub(uVig.mul(smoothstep(0.35, 1.25, q.length()))));
-			c = c.add(h(screenUV.mul(uRes).add(fract(uTime).mul(91.7))).sub(0.5).mul(uGrain));
-			return vec4(c, 1);
-		})();
-	return { uniforms, node };
-}
+/** the stage's grade in TSL: the one grade of every page (../render/grade.js, intent 1f0c6f79) */
+export { gradeNode };
