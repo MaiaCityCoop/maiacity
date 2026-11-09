@@ -35,7 +35,8 @@ const CUT_CANDIDATES = [
 ];
 /** play's first world, its newest version's recipe (the worlds view is opened at `#<recipe hash>`) */
 async function firstWorld() {
-	const get = async (r) => (await fetch(`http://127.0.0.1:3911/api${r}`)).json();
+	// through the proxy, at the port it took (a dry run gives it a free one)
+	const get = async (r) => (await fetch(`http://127.0.0.1:${proxy.address().port}/api${r}`)).json();
 	const id = (await get('/assets')).filter((a) => a.grp === 'worlds')[0]?.id;
 	if (!id) return null;
 	const v = (await get(`/assets/${id}`)).versions[0];
@@ -54,7 +55,7 @@ const backendOf = (page) => page.evaluate(() => window.__rendererBackend ?? 'web
 const built = (page, ms) => page.waitForFunction(() => { const v = window.__vaultAsset; return v && (v.error || (v.hero && !v.building)); }, null, { timeout: ms }).then(async () => !(await page.evaluate(() => window.__vaultAsset?.error)), () => false);
 const capsOf = () => { let n = 0; window.__vaultAsset?.stage?.root?.traverse((o) => { for (const m of [o.material].flat()) if (m?.userData?.cap || m?.cap) n++; }); return n; };
 
-const world = await firstWorld();
+const world = await firstWorld().catch((e) => (console.log(`world: play's list not read (${e.message}); no world shot`), null));
 console.log(`world: ${world ?? 'none listed'}`);
 const results = [];
 let cut = null;
