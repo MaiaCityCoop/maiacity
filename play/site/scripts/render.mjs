@@ -2,7 +2,7 @@
 /*
  * RENDER A RECIPE AS PLAY SHOWS IT — pictures of an asset you are making, before you propose it, from the same asset
  * box, frozen engine, checks and studio play itself shows assets in (the render bench, /render, in the dev server:
- * src/lib/content/assets/RenderBench.svelte). For looking at your work stage by stage, for before-and-after pictures
+ * src/routes/render/RenderBench.svelte). For looking at your work stage by stage, for before-and-after pictures
  * against the version you started from, and for comparing them with photographs of the real thing.
  *
  *   node scripts/render.mjs --file apricot-v2.js --id apricot --v 2 [--file apricot-v1.js --id apricot --v 1]

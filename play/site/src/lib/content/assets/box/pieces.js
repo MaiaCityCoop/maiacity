@@ -22,7 +22,7 @@ export const piecesOf = (code) => requiresOf(code).filter((n) => PIECE.test(n));
 
 const short = (h) => `${h.slice(0, 12)}…`;
 
-/** pieces handed to the page by hand, by their hashes (the render bench's, in development: ../RenderBench.svelte) */
+/** pieces handed to the page by hand, by their hashes (the render bench's, in development: routes/render/RenderBench.svelte) */
 const handed = new Map();
 /** a piece's readable source handed to the page (the render bench): gives the hash a recipe requires it by @param {string} code */
 export function handPiece(code) {
