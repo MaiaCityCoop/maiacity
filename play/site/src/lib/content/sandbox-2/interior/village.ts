@@ -19,7 +19,8 @@ import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, ty
 import { water } from './textures'
 import { groundMaterial } from '$lib/content/biomes'
 import { biomeOr } from '$lib/content/assets/sources/biome.js'
-import { grassField, grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js'
+import { grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js'
+import { grassFieldOn } from '$lib/content/render/nodes/grass-compute.js'
 import { smallDevice } from '$lib/content/render/budget.js'
 import { songbirds } from './birds.js'
 import { appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm, comfrey, fruitTree, ginger, herb, papaya, passionVine, seeded, smallFruitTree, squash, strawberries, tropicalShrub, forestFloor, FLOOR_KINDS, floorPick, type Plant } from './plants'
@@ -1018,7 +1019,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	const grassOf = grassBiome && growsGrass(grassBiome) ? grassOfRecipe(grassBiome) : flora ? null : () => ({ grass: 0.9, tall: 0.3 })
 	let grassOpen = false
 	const grass = grassOf
-		? grassField({
+		? grassFieldOn(renderer, {
 				params: grassBiome?.grass,
 				device: smallDevice() ? 'small' : 'desktop',
 				// on the ground's relief (groundY), as every plant and the cover stand

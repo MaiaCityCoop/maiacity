@@ -467,6 +467,12 @@ export function tilesAround(x, z, dev, n, over) {
 }
 
 /**
+ * The mask a field reads round the eye: 256 texels across, wide enough for its last band and its biggest tiles.
+ * @param {{ bands: number[] }} dev @param {GrassMask['at']} at
+ */
+export const fieldMask = (dev, at) => new GrassMask({ at, size: 256, texel: Math.max(0.6, (/** @type {number} */ (dev.bands[2]) * 2 + CELL * 8) / 256) });
+
+/**
  * A biome's grass, drawn round the eye.
  * @param {{
  *   params?: Partial<GrassParams>, at: (x: number, z: number) => { grass: number, tall: number, y?: number },
@@ -482,7 +488,7 @@ export function grassField(o) {
 	const dev = DEVICES[o.device ?? 'desktop'], P = { ...GRASS, ...(o.params ?? {}) };
 	const wind = o.wind === null ? null : (o.wind ?? windNodes(TSL));
 	const n = perCell(dev.density);
-	const mask = new GrassMask({ at: o.at, size: 256, texel: Math.max(0.6, (dev.bands[2] * 2 + CELL * 8) / 256) });
+	const mask = fieldMask(dev, o.at);
 	const U = grassUniforms(mask.texture);
 	U.maskWidth.value = mask.size * mask.texel;
 	U.perCell.value = n;

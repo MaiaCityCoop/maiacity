@@ -3,8 +3,9 @@
 import { describe, expect, test } from 'vitest';
 import {
 	CELL, DEVICES, VERTS, bladeLevel, bladeOf, clumpAt, clumpCentre, endOf, fieldAt, macroAt, growAt, keep, levelGeometry, morphAt, morphed,
-	pcg, perCell, seedOf, shapeAt, tileBlade, tilesAround, bladeHeight, GRASS, TILE_CELLS
+	pcg, perCell, seedOf, shapeAt, tileBlade, tilesAround, bladeHeight, GRASS, TILE_CELLS, draw
 } from './grass.js';
+import { packCell } from './grass-gpu.js';
 
 const B = { height: 0.3, lean: 0.4, width: 0.006, bend: /** @type {[number, number]} */ ([0.02, -0.01]) };
 const close = (/** @type {number[]} */ a, /** @type {number[]} */ b) => a.every((v, i) => Math.abs(v - /** @type {number} */ (b[i])) < 1e-9);
@@ -244,7 +245,202 @@ describe('the grass is never warmed by a direct compile', () => {
 		const { readFileSync } = await import('node:fs');
 		const { fileURLToPath } = await import('node:url');
 		const at = (/** @type {string} */ p) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'utf8');
-		for (const p of ['./grass.js', '../render/nodes/grass.js', '../sandbox-2/interior/village.ts', '../assets/plantings.js', './stream.js'])
+		for (const p of ['./grass.js', './grass-gpu.js', '../render/nodes/grass.js', '../render/nodes/grass-compute.js', '../sandbox-2/interior/village.ts', '../assets/plantings.js', './stream.js'])
 			expect(at(p), p).not.toMatch(/\.compile(Async)?\(/);
+	});
+});
+
+// Grass by the million (intent e85a5860): on WebGPU the blades are chosen one by one on the graphics card into three
+// indirect draws (c1, the `indirect` cases), by the same sums the CPU's twin runs (c2, the `compute` cases).
+describe('on WebGPU: chosen on the graphics card', async () => {
+	const THREE = await import('three');
+	const G = await import('./grass-gpu.js');
+	const { grassFieldOn, computes } = await import('../render/nodes/grass-compute.js');
+	const { CountingWebGPURenderer } = await import('../../../../scripts/census/counting.js');
+	const canvas = () => ({ width: 1440, height: 900, style: {}, addEventListener() {}, removeEventListener() {} });
+	const at = (/** @type {number} */ x, /** @type {number} */ z) => ({ grass: 0.6 + 0.4 * Math.sin(x * 0.05) * Math.cos(z * 0.04), tall: 0.3, y: 0.2 * Math.sin(x * 0.1) });
+	const cameraAt = (/** @type {number} */ x, /** @type {number} */ z, /** @type {number} */ yaw, y = 1.7) => {
+		const c = new THREE.PerspectiveCamera(60, 1440 / 900, 0.1, 500);
+		c.position.set(x, y, z);
+		c.lookAt(x + Math.sin(yaw) * 10, y - 1, z + Math.cos(yaw) * 10);
+		c.updateMatrixWorld();
+		return c;
+	};
+	/** a frame of the field on a counting renderer: the grass's own draws, and the compute passes */
+	const frame = (/** @type {any} */ renderer, /** @type {any} */ field, /** @type {THREE.Scene} */ scene, /** @type {THREE.PerspectiveCamera} */ camera, t = 0) => {
+		renderer.tally.reset();
+		field.update(camera, t, { budget: Infinity, pushers: [[camera.position.x, camera.position.z, 0.6, 1]] });
+		renderer.render(scene, camera);
+		const mine = renderer.tally.draws.filter(([o]) => o.parent === field.object);
+		return { draws: mine.length, calls: renderer.tally.calls, indirect: renderer.tally.indirect, computes: renderer.tally.computes };
+	};
+
+	test('indirect: on WebGPU the whole field is at most 3 indirect draws (one a level), wherever the eye is and however many tiles the fallback lays', () => {
+		const renderer = new CountingWebGPURenderer({ canvas: canvas() });
+		expect(computes(renderer)).toBe(true);
+		const field = grassFieldOn(renderer, { at, device: 'desktop' });
+		expect(field.mode).toBe('indirect');
+		const scene = new THREE.Scene();
+		scene.add(field.object);
+		// the fallback's tiles for the same views: tens to hundreds of draws
+		const fallback = new CountingWebGPURenderer({ canvas: canvas(), forceWebGL: true });
+		expect(computes(fallback)).toBe(false);
+		const tiles = grassFieldOn(fallback, { at, device: 'desktop' });
+		expect(tiles.mode).toBeUndefined();
+		const s2 = new THREE.Scene();
+		s2.add(tiles.object);
+		for (const [x, z, yaw, y] of [[0, 0, 0, 1.7], [130, -40, 2, 1.7], [-500, 900, 4, 1.7], [10, 10, 1, 40]]) {
+			const cam = cameraAt(x, z, yaw, y);
+			const f = frame(renderer, field, scene, cam);
+			expect(f.draws, `${x},${z}`).toBeLessThanOrEqual(3);
+			expect(f.draws).toBe(f.indirect);
+			// the counts cleared, the trample map stepped, the blades chosen: three passes a frame
+			expect(f.computes).toBe(3);
+			expect(field.cells().cells).toBeGreaterThan(20);
+			const b = frame(fallback, tiles, s2, cam);
+			expect(b.draws).toBeGreaterThan(3);
+		}
+		for (const m of field.object.children) expect(/** @type {any} */ (m).geometry.indirect).toBeTruthy();
+		field.dispose();
+		tiles.dispose();
+	});
+
+	test('indirect: the three draws’ arguments: each level’s index count, its blades from 0, firstIndex, baseVertex and firstInstance 0; 20 bytes apart', () => {
+		const a = G.indirectArgs([39, 15, 6]);
+		expect(Array.from(a)).toEqual([39, 0, 0, 0, 0, 15, 0, 0, 0, 0, 6, 0, 0, 0, 0]);
+		expect(G.OFFSETS).toEqual([0, 20, 40]);
+		const field = grassFieldOn(new CountingWebGPURenderer({ canvas: canvas() }), { at });
+		expect(field.object.children.map((m) => /** @type {any} */ (m).geometry.indirectOffset)).toEqual([0, 20, 40]);
+		// nearest first
+		expect(field.object.children.map((m) => m.renderOrder)).toEqual([0, 1, 2]);
+		field.dispose();
+	});
+
+	test('denser than intent 7’s: 160–200 blades a square metre near on a desktop', () => {
+		expect(G.GPU_DENSITY.desktop).toBeGreaterThanOrEqual(160);
+		expect(G.GPU_DENSITY.desktop).toBeLessThanOrEqual(200);
+		expect(G.GPU_DENSITY.desktop).toBeGreaterThan(DEVICES.desktop.density);
+	});
+
+	/* the CPU's twin: a frame's field, its mask filled, its view as the compute read it */
+	const renderer = new CountingWebGPURenderer({ canvas: canvas() });
+	const field = grassFieldOn(renderer, { at, device: 'desktop' });
+	const scene = new THREE.Scene();
+	scene.add(field.object);
+	const cam = cameraAt(3.3, -2.1, 0.7);
+	frame(renderer, field, scene, cam);
+	const view = field.view();
+	/** a reference written apart from `choose`, on grass.js's own sums in 64 bits */
+	const reference = (/** @type {number} */ cx, /** @type {number} */ cz, /** @type {number} */ j) => {
+		const b = bladeOf(cx, cz, j, view.n), dev = view.dev, [b0, b1, b2] = dev.bands;
+		const m = G.maskAt(view.mask, b.x, b.z);
+		const d = Math.hypot(b.x - view.eye[0], m.y - view.eye[1], b.z - view.eye[2]);
+		if (growAt(d, b.rank, b.end, dev, m.grass) <= 0) return { level: -1, d };
+		const hr = view.hmax / 2;
+		const sphere = new THREE.Sphere(new THREE.Vector3(b.x, m.y + hr, b.z), hr + G.TOLERANCE);
+		if (view.planes.some(([x, y, z, w]) => x * sphere.center.x + y * sphere.center.y + z * sphere.center.z + w < -sphere.radius)) return { level: -1, d };
+		const c = clumpAt(b.x, b.z, view.clump);
+		// the nearer centre: grass.js's clumpAt gives its way out (`away`) and how far (`out`)
+		const own = [Math.cos(b.facing) * (1 - 0.6 * c.out), Math.sin(b.facing) * (1 - 0.6 * c.out)];
+		const near = G.clumpNear(b.x, b.z, view.clump);
+		const aw = [b.x - near.ax + 1e-4, b.z - near.az + 1e-4], al = Math.hypot(aw[0], aw[1]);
+		const lw = [own[0] + (aw[0] / al) * 0.9 * c.out, own[1] + (aw[1] / al) * 0.9 * c.out], ll = Math.hypot(lw[0], lw[1]);
+		const along = ((b.x - view.eye[0]) * lw[1] - (b.z - view.eye[2]) * lw[0]) / (d * ll);
+		if (d > b0 && Math.abs(along) > G.EDGE_ON) return { level: -1, d };
+		const jit = G.JITTER + (1 - G.JITTER) * draw(seedOf(cx, cz, j), 12);
+		return { level: d < jit * b0 ? 0 : d < jit * b1 ? 1 : 2, d };
+	};
+	/** sample tiles: every candidate of a cell near, one mid, one far, and every 7th of the rest */
+	const samples = () => {
+		/** @type {[number, number, number][]} */
+		const out = [];
+		view.cells.forEach((p, k) => {
+			const [cx, cz] = G.unpackCell(p);
+			const step = k < 3 || k === Math.floor(view.cells.length / 2) || k === view.cells.length - 1 ? 1 : 97;
+			for (let j = k % step; j < view.n; j += step) out.push([cx, cz, j]);
+		});
+		return out;
+	};
+
+	test('compute: the CPU’s twin (the compute’s own sums, in 32 bits) chooses as a reference on grass.js’s sums does, on sample tiles', () => {
+		const all = samples();
+		expect(all.length).toBeGreaterThan(20000);
+		let same = 0, near = 0;
+		const levels = [0, 0, 0, 0];
+		for (const [cx, cz, j] of all) {
+			const got = G.chooseOnCpu(cx, cz, j, view), want = reference(cx, cz, j);
+			levels[got + 1]++;
+			if (got === want.level) same++;
+			// 32 bits against 64: only a blade on a threshold may differ
+			else near++;
+		}
+		expect(near / all.length).toBeLessThan(0.002);
+		expect(same + near).toBe(all.length);
+		// some of every level, and most candidates never reach the vertex stage
+		expect(levels[1]).toBeGreaterThan(0);
+		expect(levels[2]).toBeGreaterThan(0);
+		expect(levels[3]).toBeGreaterThan(0);
+		expect(levels[0] / all.length).toBeGreaterThan(0.6);
+	});
+
+	test('compute: nested thinning: a blade kept at a distance is kept nearer, at the same place', () => {
+		const dev = view.dev;
+		for (let j = 0; j < view.n; j += 13) {
+			const b = bladeOf(2, 3, j, view.n);
+			let was = true;
+			for (let d = 2; d < 70; d += 1.5) {
+				const on = growAt(d, b.rank, b.end, dev, 1) > 0;
+				if (on) expect(was).toBe(true);
+				was = on;
+			}
+		}
+	});
+
+	test('compute: every level fits its room at the views it is drawn from', () => {
+		const counts = [0, 0, 0];
+		for (const p of view.cells) {
+			const [cx, cz] = G.unpackCell(p);
+			for (let j = 0; j < view.n; j++) {
+				const l = G.chooseOnCpu(cx, cz, j, view);
+				if (l >= 0) counts[l]++;
+			}
+		}
+		counts.forEach((c, l) => expect(c, `level ${l}`).toBeLessThanOrEqual(/** @type {number} */ (field.capacities[l])));
+		// tens of thousands of blades near a desktop's eye
+		expect(counts[0] + counts[1] + counts[2]).toBeGreaterThan(20000);
+	});
+
+	test('compute: the cells it runs over are those the view sees, none beyond the field’s end, nearest first', () => {
+		const ds = view.cells.map((p) => {
+			const [cx, cz] = G.unpackCell(p);
+			return Math.hypot(Math.max(cx * CELL - cam.position.x, 0, cam.position.x - (cx + 1) * CELL), Math.max(cz * CELL - cam.position.z, 0, cam.position.z - (cz + 1) * CELL));
+		});
+		expect(Math.max(...ds)).toBeLessThan(70);
+		expect(ds).toEqual([...ds].sort((a, b) => a - b));
+		// behind the eye is left out: fewer cells than the whole circle
+		expect(view.cells.length).toBeLessThan(G.maxCells(view.dev) / 2);
+		for (const p of [packCell(0, 0), packCell(-1, 5), packCell(-32768, 32767)]) expect(packCell(...G.unpackCell(p))).toBe(p);
+	});
+
+	test('compute: a trodden path springs back within about 10 s; ground the eye leaves behind is cleared', () => {
+		const T = { width: 48, size: 64, recover: 10 };
+		const t = new G.Trample(T);
+		t.step(0, 0, 0, [[1, 1, 0.6, 1]]);
+		expect(t.at(1, 1)).toBeCloseTo(1, 5);
+		expect(t.at(3, 3)).toBe(0);
+		let s = 0;
+		while (s < 10) (t.step(0, 0, 1 / 60, []), (s += 1 / 60));
+		expect(t.at(1, 1)).toBeLessThanOrEqual(G.RECOVERED + 1e-3);
+		expect(t.at(1, 1)).toBeGreaterThan(0.01);
+		// half of it still after about 2.3 s
+		const u = new G.Trample(T);
+		u.step(0, 0, 0, [[1, 1, 0.6, 1]]);
+		for (let k = 0; k < 140; k++) u.step(0, 0, 1 / 60, []);
+		expect(u.at(1, 1)).toBeGreaterThan(0.4);
+		expect(u.at(1, 1)).toBeLessThan(0.6);
+		// the eye walks off 30 m: the texels that held the old ground now hold new ground, untrodden
+		u.step(30, 0, 1 / 60, []);
+		expect(u.at(1, 1)).toBe(0);
+		expect(u.data.some((v) => v > 0)).toBe(false);
 	});
 });

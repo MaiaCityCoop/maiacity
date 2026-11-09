@@ -44,6 +44,9 @@ export type Totals = {
 	mainCalls: number;
 	meshes: number;
 	instanced: number;
+	/** indirect draws (WebGPU: their instances counted on the GPU) and compute passes (intent e85a5860) */
+	indirect: number;
+	computes: number;
 	instances: number;
 	shadowCalls: number;
 	shadowTris: number;
@@ -231,7 +234,7 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 		const sorted = [...frames].sort((a, b) => a.tris - b.tris);
 		const med = sorted[sorted.length >> 1];
 		const t = med.t;
-		const totals: Totals = { tris: med.tris, calls: med.calls, mainTris: t.tris, mainCalls: t.calls, meshes: t.meshes, instanced: t.instanced, instances: t.instances, shadowCalls: t.shadowCalls, shadowTris: t.shadowTris, targetCalls: t.targetCalls, targetTris: t.targetTris, culledObjects: t.culledObjects, culledTris: t.culledTris };
+		const totals: Totals = { tris: med.tris, calls: med.calls, mainTris: t.tris, mainCalls: t.calls, meshes: t.meshes, instanced: t.instanced, indirect: t.indirect, computes: t.computes, instances: t.instances, shadowCalls: t.shadowCalls, shadowTris: t.shadowTris, targetCalls: t.targetCalls, targetTris: t.targetTris, culledObjects: t.culledObjects, culledTris: t.culledTris };
 		// what draws the most, by where it hangs in the scene (CENSUS_DEBUG=1)
 		if (process.env.CENSUS_DEBUG) {
 			const by = new Map<string, number>();

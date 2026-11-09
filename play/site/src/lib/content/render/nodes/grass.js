@@ -134,8 +134,15 @@ export function clumpsT(foot, size) {
  *   uniforms: ReturnType<typeof grassUniforms>,
  *   params: import('../../biomes/grass.js').GrassParams,
  *   device: { bands: number[], near: number, minPx: number, falloff?: number },
- *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any }
+ *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any },
+ *   blade?: (i: any) => { cell: any, j: any },
+ *   trodden?: (foot: any) => any,
+ *   morphEnd?: number
  * }} o
+ *   blade: where the blades are chosen on the graphics card (./grass-compute.js), which blade instance i is (its cell
+ *   and its number), else the tile's own; trodden: how trodden the ground is at a foot (0…1, the trample map), the
+ *   blade flattened by it as by a pusher; morphEnd: where in its band a blade has fully become the next level's shape
+ *   (1, its end; the compute's jittered thresholds start at grass-gpu.js `JITTER`)
  */
 export function grassMaterial(o) {
 	const { level, uniforms: U, params: P, device: D } = o;
@@ -153,8 +160,8 @@ export function grassMaterial(o) {
 		const origin = modelWorldMatrix.element(3).xz;
 		const tile = floor(origin.div(CELL).add(0.5));
 		const i = uint(instanceIndex);
-		const c = i.mod(uint(k * k)), j = i.div(uint(k * k));
-		const cell = tile.add(vec2(float(c.mod(uint(k))), float(c.div(uint(k)))));
+		const c = i.mod(uint(k * k));
+		const { cell, j } = o.blade ? o.blade(i) : { cell: tile.add(vec2(float(c.mod(uint(k))), float(c.div(uint(k))))), j: i.div(uint(k * k)) };
 		const { seed, foot, rank, ownH, ownLean, facing, ownW, shade, dry, end } = bladeT(cell, j, U.perCell);
 
 		/* the mask: how much grass, how much of it tall, the ground's height */
@@ -208,7 +215,7 @@ export function grassMaterial(o) {
 			push.addAssign(vec3(normalize(v.add(1e-4)).mul(f.mul(height).mul(0.8)), f.mul(0.6)));
 		}
 		const bendW = windBend.add(push.xy);
-		const flat = min(push.z, 0.85);
+		const flat = o.trodden ? max(min(push.z, 0.85), o.trodden(foot).mul(0.85)) : min(push.z, 0.85);
 
 		/* its shape: grass.js `shapeAt` in its own frame (x across, z the way it leans), turned to `leanWay` */
 		const fwd = vec3(leanWay.x, 0, leanWay.y), across = vec3(leanWay.y, 0, leanWay.x.negate());
@@ -226,7 +233,7 @@ export function grassMaterial(o) {
 		};
 		const t = positionGeometry.y, s = positionGeometry.x;
 		const gA = attribute('gA', 'vec4'), gF = attribute('gF', 'float');
-		const morph = level === 2 ? float(0) : smoothstep(band * 0.7, band, dd);
+		const morph = level === 2 ? float(0) : smoothstep(band * 0.7, band * (o.morphEnd ?? 1), dd);
 		const pOwn = shape(t, s), pTo = mix(shape(gA.x, gA.y), shape(gA.z, gA.w), gF);
 		const local = mix(pOwn, pTo, morph);
 		const world = vec3(foot.x, groundY, foot.y).add(across.mul(local.x)).add(vec3(0, local.y, 0)).add(fwd.mul(local.z));

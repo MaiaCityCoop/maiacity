@@ -76,6 +76,17 @@ describe('the counting renderer counts as three draws', () => {
 		expect(t.instances).toBe(7);
 	});
 
+	test('an indirect draw (WebGPU) is one draw an offset, its instances the GPU’s (intent e85a5860)', () => {
+		const g = box();
+		g.setIndirect(new THREE.BufferAttribute(new Uint32Array(15), 5), [0, 20]);
+		const n = drawOf(new THREE.Mesh(g, mat()), g, mat(), null);
+		expect(n.calls).toBe(2);
+		expect(n.indirect).toBe(true);
+		expect(n.tris).toBe(0);
+		g.userData.indirectInstances = 10;
+		expect(drawOf(new THREE.Mesh(g, mat()), g, mat(), null).tris).toBe(120);
+	});
+
 	test('drawRange and groups are honoured, a material per group', () => {
 		const { scene, camera, r } = stage();
 		const g = box();
