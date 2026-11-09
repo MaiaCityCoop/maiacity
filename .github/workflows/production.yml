@@ -194,7 +194,7 @@ jobs:
       - name: maia.city answers with it
         run: |
           for i in $(seq 1 12); do
-            curl -fsS -m 10 -o /dev/null https://maia.city/ && { echo "https://maia.city answers"; exit 0; }
+            curl -fsS -m 10 -o /dev/null https://maia.city/site-notice/ && { echo "https://maia.city answers"; exit 0; }
             sleep 5
           done
           exit 1
