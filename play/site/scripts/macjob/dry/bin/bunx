@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# The dry run's `bunx` (intent cb52fbd9): `vite dev --port N` serves nothing (the dry run's page builds the world itself)
+# but notes which tree serves port N (DRY_STATE/ports/N) and idles until it is killed, as a dev server would.
+if [ "${1:-}" = vite ]; then
+  port=5173; prev=
+  for a in "$@"; do [ "$prev" = --port ] && port=$a; case $a in --port=*) port=${a#--port=};; esac; prev=$a; done
+  mkdir -p "$DRY_STATE/ports"; pwd > "$DRY_STATE/ports/$port"
+  echo "dry: vite dev on port $port: $(pwd)" >&2
+  exec sleep 86400
+fi
+PATH="$DRY_REAL_PATH" exec bunx "$@"
