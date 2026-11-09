@@ -15,7 +15,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { cardMaterials, castsAsNode, cutOf } from '../../render/nodes/index.js';
 import { budget } from '../../render/budget.js';
-import { precompile } from '../../render/core.js';
+import { isWebGPU, maxTextureSize, pmremFor, precompile } from '../../render/core.js';
 
 /** how many sides each kind is photographed from */
 export const FRAMES = 8;
@@ -40,7 +40,7 @@ export const VERSION = 1;
  */
 export function createImpostors(renderer, o = {}) {
 	// (the device's budget: a phone's pages a quarter of a desktop's, the same kinds on each)
-	const most = Math.min(o.page ?? budget().picture.page, renderer.capabilities.maxTextureSize);
+	const most = Math.min(o.page ?? budget().picture.page, maxTextureSize(renderer));
 	const px = Math.min(o.px ?? budget().picture.px, most);
 	const cols = Math.floor(most / px), rows = cols;
 	const kindsPerPage = Math.floor((cols * rows) / FRAMES);
@@ -61,7 +61,7 @@ export function createImpostors(renderer, o = {}) {
 	let env = null;
 	const lit = () => {
 		if (env) return;
-		const pmrem = new THREE.PMREMGenerator(renderer);
+		const pmrem = pmremFor(renderer); // (made at the first picture: the renderer draws by then)
 		env = pmrem.fromScene(new RoomEnvironment(), 0.04);
 		pmrem.dispose();
 		studio.environment = env.texture;
@@ -212,6 +212,11 @@ export function createImpostors(renderer, o = {}) {
 
 	return {
 		group,
+		/**
+		 * The photographer's version as this renderer's pictures are kept by (./levels.js `pictureKey`): WebGPU's apart
+		 * (intent c1bee1f8), so a picture a WebGL page read back, rows in its order, is never laid on a WebGPU page's
+		 */
+		deriver: isWebGPU(renderer) ? `${VERSION}:webgpu` : VERSION,
 		prepare,
 		add,
 		/** each picture's pixels a side, as this device takes them (part of a kept picture's key: ./levels.js) */
@@ -219,12 +224,13 @@ export function createImpostors(renderer, o = {}) {
 		/**
 		 * A kind's eight pictures as they are on its page, read back off the graphics card without holding a frame
 		 * (WebGL 2's asynchronous read): each frame's pixels, RGBA, as the page holds them. Null where this renderer
-		 * can't read a page back so.
+		 * can't read a page back so: on WebGPU (intent c1bee1f8) not yet, its pictures taken anew on each visit, until its
+		 * read in its own row order is seen right on the Mac.
 		 * @param {Slot} slot @returns {Promise<Uint8Array[] | null>}
 		 */
 		async read(slot) {
 			const page = pages[slot.page];
-			if (!page || typeof renderer.readRenderTargetPixelsAsync !== 'function' || !renderer.capabilities.isWebGL2) return null;
+			if (!page || isWebGPU(renderer) || typeof renderer.readRenderTargetPixelsAsync !== 'function' || !renderer.capabilities?.isWebGL2) return null;
 			// a kind's frames side by side in one row of its page (its first cell a multiple of FRAMES, a row a multiple
 			// of it): read back at once, one wait for the graphics card instead of eight, then cut into its frames
 			if ((slot.cell % cols) + FRAMES <= cols) {

@@ -346,6 +346,19 @@ describe('sandbox-1 on WebGPURenderer', () => {
 	}, 300_000);
 });
 
+// the smoke (intent c1bee1f8): a world on three's own WebGPURenderer, its WebGL 2 backend over a context that only answers
+describe('the smoke: the old city on WebGPURenderer’s own code', () => {
+	test('builds, draws every frame and logs or throws nothing', () => {
+		const json = join(OUT, 'smoke-s3.json');
+		const p = Bun.spawnSync(['bun', join(HERE, '..', 'census.ts'), '--world', 'sandbox-3', '--smoke', '--json', json], { stdout: 'pipe', stderr: 'pipe' });
+		const got = JSON.parse(readFileSync(json, 'utf8'));
+		expect(got.errors).toEqual([]);
+		expect(p.exitCode).toBe(0);
+		expect(got.shaders).toBeGreaterThan(10);
+		expect(got.views[0].draws).toBeGreaterThan(50);
+	}, 300_000);
+});
+
 describe('the other worlds on the CPU', () => {
 	test('Sandbox 3 builds and is counted as it opens', () => {
 		const v = census(['--world', 'sandbox-3']).views[0];

@@ -10,7 +10,7 @@
  * - `copies`: every copy each asset renderer holds, its distance, size on screen, level and triangles (the census of
  *   `__assets.kinds()`, the same as the Mac's `--census`).
  */
-import { setup, frame, lib, fetched } from './setup';
+import { setup, frame, lib, fetched, smoked } from './setup';
 import { CountingRenderer } from './counting.js';
 import { refusedContexts } from './dom';
 
@@ -256,6 +256,70 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 	}
 	if (refusedContexts.length) throw new Error(`census: a WebGL context was asked for (${refusedContexts.join(', ')})`);
 	return out;
+}
+
+/**
+ * The smoke (intent c1bee1f8, ../census.ts --smoke): the world built by its own code on three's own WebGPURenderer (its
+ * WebGL 2 backend over a context that only answers: setup's `real`), walked to each of its views and `frames` frames
+ * drawn at each; every error the page logged or threw kept, so whatever WebGPU's code refuses in a world is seen on the
+ * CPU before the Mac. Gives each view's frames and the errors, each once with how often.
+ */
+export async function smokeOf(o: { world: World; views?: ViewName[]; asset?: string; frames?: number; settleMs?: number; log?: (s: string) => void }) {
+	const log = o.log ?? ((s: string) => console.error(s));
+	const errors = new Map<string, number>();
+	const keep = (e: unknown) => {
+		const k = (e instanceof Error ? `${e.message}\n${(e.stack ?? '').split('\n').slice(1, 4).join('\n')}` : String(e)).slice(0, 600);
+		errors.set(k, (errors.get(k) ?? 0) + 1);
+	};
+	const error = console.error;
+	console.error = (...a: unknown[]) => {
+		const first = a[0];
+		if (typeof first === 'string' && (first.startsWith('census:') || first.startsWith('smoke:') || first.startsWith('  '))) return error(...a);
+		keep(a.map((x) => (x instanceof Error ? `${x.message}\n${x.stack}` : String(x))).join(' '));
+	};
+	const onError = (e: unknown) => keep(e);
+	process.on('uncaughtException', onError);
+	process.on('unhandledRejection', onError);
+	const turn = () => {
+		try {
+			frame();
+		} catch (e) {
+			keep(e);
+		}
+	};
+	const out: { view: string; frames: number; draws: number }[] = [];
+	try {
+		const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
+		const t0 = performance.now();
+		try {
+			if (o.world === 'sandbox-1') await mountSandbox1(log);
+			else if (o.world === 'sandbox-3') await mountSandbox3();
+			else await mountWorlds(o.asset);
+		} catch (e) {
+			keep(e);
+		}
+		log(`smoke: ${o.world} built in ${((performance.now() - t0) / 1000).toFixed(1)} s on WebGPURenderer (WebGL 2 backend)`);
+		for (const name of views) {
+			const v = name === 'open' ? null : VIEWS[name];
+			if (v) g.__walker?.place(v.x, v.z, v.yaw, v.pitch);
+			const end = performance.now() + (o.settleMs ?? 20_000);
+			while (performance.now() < end) {
+				turn();
+				await paced();
+			}
+			const before = smoked.draws;
+			for (let i = 0; i < (o.frames ?? 30); i++) {
+				turn();
+				await paced();
+			}
+			out.push({ view: name, frames: o.frames ?? 30, draws: Math.round((smoked.draws - before) / (o.frames ?? 30)) });
+		}
+	} finally {
+		console.error = error;
+		process.off('uncaughtException', onError);
+		process.off('unhandledRejection', onError);
+	}
+	return { views: out, shaders: smoked.shaders.reduce((a, s) => a + s.length, 0), errors: [...errors].map(([message, times]) => ({ message, times })) };
 }
 
 /** every copy the asset renderers hold at view v, as their selector drew it last (`k.was`): the Mac's census */

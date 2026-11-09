@@ -28,6 +28,7 @@
 
 import * as THREE from 'three'
 import { blurMaterial, cutBy, cutOf, ghostMaterial, nodeOf, poolMaterial } from '../render/nodes/index.js'
+import { pmremFor } from '../render/core.js'
 
 export { THREE, ghostMaterial }
 export const LAYER_FX = 1 // transparent effects: kept out of the AO and contact shadow passes
@@ -95,7 +96,7 @@ export function studioEnvironment(renderer, theme) {
   box(8, 3, 6, 1.5, 12, paper ? 1.4 : 1.6)                  // low front fill
   // black flags: long dark reflections give metal its shape on a white set
   box(5, 16, 12, 4, 7, 0.02); box(4, 16, -13, 4, -2, 0.02); box(16, 3, 0, -1, -14, 0.03)
-  const pm = new THREE.PMREMGenerator(renderer)
+  const pm = pmremFor(renderer) // three/webgpu's on WebGPU (the stage is made once its renderer may draw)
   const rt = pm.fromScene(s, 0.02)
   pm.dispose()
   return rt.texture

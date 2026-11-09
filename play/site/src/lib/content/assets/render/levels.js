@@ -149,7 +149,8 @@ export function createKept(o) {
 		 * @param {string} build @param {import('./prepare.js').Level} level @param {ReturnType<import('./impostors.js').createImpostors>} pictures
 		 */
 		async picture(build, level, pictures) {
-			const key = pictureKey(build, pictures.px);
+			// kept by the version its renderer's pictures are made by (WebGPU's apart from WebGL's: ./impostors.js `deriver`)
+			const key = pictureKey(build, pictures.px, pictures.deriver ?? DERIVER.picture);
 			const frames = await unpackFrames(await read(key));
 			if (frames !== undefined) {
 				try {

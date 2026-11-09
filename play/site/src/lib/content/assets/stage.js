@@ -34,6 +34,7 @@
  * `ground`, a plant's soil at 0 rather than under its roots).
  */
 import * as THREE from 'three';
+import { ClippingGroup } from 'three/webgpu';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { createSky } from '$lib/content/sandbox-kit/sky.js';
 import { isWebGPU, precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
@@ -72,6 +73,17 @@ export class Stage {
 		this.theme = theme;
 		this.low = low;
 		this.scene = new THREE.Scene();
+		/** what the asset stands in: the scene, or on WebGPU (intent c1bee1f8), whose materials take no clipping planes
+		 *  of their own, a ClippingGroup cut by the section planes, its shadows too (a rigged actor's plain materials) */
+		this.holder = this.scene;
+		if (isWebGPU(renderer)) {
+			const cut = new ClippingGroup();
+			cut.clippingPlanes = LAB_PLANES;
+			cut.clipIntersection = true;
+			cut.clipShadows = true;
+			this.scene.add(cut);
+			this.holder = cut;
+		}
 		this.state = { explode: 0, cut: 0, xray: 0, labels: 0, slow: 0 };
 		this.target = { explode: 0, cut: 0, xray: 0, labels: 0, slow: 0 };
 		this.paused = false;
@@ -228,7 +240,7 @@ export class Stage {
 		this.clear();
 		this.root = root;
 		this.asset = asset ?? root.userData.asset;
-		this.scene.add(root);
+		this.holder.add(root);
 		root.updateMatrixWorld(true);
 		const box = new THREE.Box3().setFromObject(root);
 		this.box = box;
@@ -316,7 +328,7 @@ export class Stage {
 			this.resetBreak();
 			this.asset?.pose(0, 1);
 			this._cutTo(0);
-			this.scene.remove(this.root);
+			this.holder.remove(this.root);
 		}
 		if (this.floor) {
 			this.scene.remove(this.floor);
