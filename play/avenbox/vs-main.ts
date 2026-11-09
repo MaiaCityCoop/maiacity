@@ -1,10 +1,9 @@
 #!/usr/bin/env bun
 /*
- * MEASURED AGAINST MAIN, IN THE SAME RUN (intent f63774a3): a check's bound is main's own value, measured in the run
- * that checks it, never a number taken from one main commit. Main is the merge base of HEAD and origin/main (fetched,
- * deepened in a shallow clone), else origin/main's tip; `--main <commit>` names it. Main's measures are cached by what
- * they read (intent 006eb26a): the git objects, at main, of the paths the measure reads (`readsOf`), so a main that
- * leaves them as they are is not measured again.
+ * MEASURED AGAINST MAIN, IN THE SAME RUN (intent f63774a3): a check's bound is main's own value, measured in the run that
+ * checks it. Main is the merge base of HEAD and origin/main (fetched, deepened if shallow), else origin/main's tip, or
+ * `--main <commit>`. Main's measures are cached by the git objects at main of the paths they read (`readsOf`, intent
+ * 006eb26a), so a main leaving them as they are is not measured again.
  *
  * One step, as a builder runs it in avenBOX (main measured or read from the cache, then the head, then compared):
  *   bun play/avenbox/vs-main.ts census --world sandbox-1|sandbox-3|worlds [--view near,mid|all] [--of tris,draws] (--within N% | --down N%)
@@ -27,14 +26,13 @@
  *   bun play/avenbox/vs-main.ts --fold <results.json> --main-values <side.json> --heads <dir> --out <results.json>
  *                                                     the head's deferred calls compared with main, each into its
  *                                                     check's result and evidence (intents-pr.yml's job "compare")
- * In intents-pr.yml's run job VS_MAIN_HEAD_OUT names a directory and intent.ts names each check (INTENT_CHECK): a call
- * with a bound then measures only the head, writes it there with its check and its arguments, and exits 0; its bound is
- * decided by --fold once main is measured beside it.
+ * In intents-pr.yml's run job VS_MAIN_HEAD_OUT names a directory and intent.ts each check (INTENT_CHECK): a bounded call
+ * then measures only the head, writes it there with its check and arguments and exits 0; --fold decides its bound later.
  *
- * census: play/site/scripts/census.ts --json, main by its --at (in place when the repository is main's checkout); per
- * view, triangles and draws a frame. bytes and lines: the files' sum, main's read with git show (a file missing counts
- * 0). count: the command run by bash in main's tree (play/site/scripts/census/tree.ts) and in the head, its last number.
- * Cache: $VS_MAIN_CACHE (~/.cache/maiacity-vs-main)/<key>.json. Exits 0 only when every value is in its bound.
+ * census: play/site/scripts/census.ts --json, main by its --at (in place in main's checkout); per view triangles and draws
+ * a frame. bytes, lines: the files' sum, main's by git show (missing: 0). count: the command by bash in main's tree
+ * (play/site/scripts/census/tree.ts) and the head, its last number. Cache: $VS_MAIN_CACHE (~/.cache/maiacity-vs-main)/<key>.json.
+ * Exits 0 only when every value is in its bound.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -204,8 +202,7 @@ function commitIn(sha: string, repo: string) {
 	return got;
 }
 
-/** main's cache key for a measure: the measure, and the git object at main of every path it reads (a path missing is
- *  '-'), so main is measured again exactly when what it reads changed */
+/** main's cache key for a measure: it and the git object at main of each path it reads ('-' if missing): remeasured exactly when those change */
 export function keyOf(m: Measure, sha: string, repo = REPO) {
 	const c = commitIn(sha, repo);
 	const objects = readsOf(m).map((p) => [p, tryGit(repo, 'rev-parse', '--verify', '--quiet', p ? `${c}:${p}` : `${c}^{tree}`) || '-']);
@@ -319,8 +316,7 @@ const withComparison = (evidence: string, text: string) => {
 	return `${kept}\n\n${text}`.slice(0, EVIDENCE_MOST);
 };
 
-/** the head's deferred calls compared with main by main's code, each into its check's result: a check passes only if
- *  its run passed and every call of it is in its bound; main's measure missing fails the check, saying so */
+/** the head's deferred calls compared with main by main's code, each into its check: passes only if its run passed and every call is in bound; main's measure missing fails it */
 export function fold<R extends { results: { check: string; pass: boolean; code: number; evidence: string }[] }>(results: R, main: Side | null, heads: HeadCall[]): R {
 	for (const h of heads) {
 		const r = results.results.find((x) => x.check === h.check);
