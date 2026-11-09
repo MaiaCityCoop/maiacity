@@ -55,3 +55,13 @@ behaviour is pinned, and for every test removed why it could not fail or only re
      (await acceptCode(`. They restated the implementation (renaming a variable broke them, a second writer by
      another spelling passed them). The test's behaviour half stays: a green ship stays in Ship until the reconcile
      sees its merge live, flagged while play runs an older commit, Accepted once.
+4. **No sleeps in play/api but the kit's bounded poll (F6, second half; `special`'s sleeps).** Ship's queue tells two
+   Accepts apart by their order: `startIfReady` compares `decided_at` to the microsecond (`turn`, read in SQL) and then
+   the id, where it compared JavaScript Dates, whose milliseconds can hold two Accepts made one after the other
+   (src/ship.ts; the watcher already ordered by the full `decided_at, id` in SQL). ship.test's two `Bun.sleep(5)`
+   between Accepts go. They covered a tie that, measured here, the test never hit (five runs pass on the old code
+   without them too): the order is now play's, not the test's timing. The polls (ship.test's background watcher,
+   deploy-speed's "play-api says it" and "the request waits on the lock", which had no bound of their own) are the
+   kit's `until(what, ok, { withinMs })`, which fails naming what it waited for; the SIGTERM test's race with a 2.5 s
+   sleep is the kit's `within(promise, ms, late)`. Removes api-tests#31. Pinned: ship.test "one ship at a time, in the
+   order accepted", deploy-speed's SIGTERM test, the whole suite. Sleeps in play/api: 6 → 1 (the kit's poll).

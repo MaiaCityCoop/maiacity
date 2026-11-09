@@ -201,7 +201,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
 export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now()) {
   return db.transaction(async (tx) => {
     await tx.query(lockSql(LOCK.shipQueue));
-    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, decided_at, spec, results FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
+    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, COALESCE((extract(epoch FROM decided_at) * 1000000)::bigint, 0)::text AS turn, spec, results FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
     const was: Ship | undefined = row?.ship;
     if (!was?.pending) return;
     const ship: Ship = { ...was, steps: was.steps.map((s) => ({ ...s })) };
@@ -230,13 +230,14 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
     if (no) return no.wait ? wait(no.why, false) : red(no.why);
 
     // its turn: no ship running, none waiting ahead of it
-    const { rows: others } = await tx.query<any>(`SELECT id, title, ship, decided_at FROM play.intents WHERE stage = 'ship' AND id <> $1 AND coop_id = $2`, [id, COOP]);
-    const time = (d: unknown) => new Date(d as any).getTime();
+    const { rows: others } = await tx.query<any>(`SELECT id, title, ship, COALESCE((extract(epoch FROM decided_at) * 1000000)::bigint, 0)::text AS turn FROM play.intents WHERE stage = 'ship' AND id <> $1 AND coop_id = $2`, [id, COOP]);
+    // the order accepted: decided_at to the microsecond (a millisecond holds two Accepts one after the other), then id
+    const turn = (o: { turn: string }) => BigInt(o.turn);
     // one ended (green, waiting for the reconcile to find it live) runs no more
     const running = others.find((o) => o.ship && !o.ship.pending && !o.ship.outcome);
     const ahead = others
-      .filter((o) => o.ship?.pending && (time(o.decided_at) < time(row.decided_at) || (time(o.decided_at) === time(row.decided_at) && o.id < id)))
-      .sort((a, b) => time(b.decided_at) - time(a.decided_at))[0];
+      .filter((o) => o.ship?.pending && (turn(o) < turn(row) || (turn(o) === turn(row) && o.id < id)))
+      .sort((a, b) => (turn(b) > turn(a) ? 1 : turn(b) < turn(a) ? -1 : 0))[0];
     // named for the one just before it: the last waiting ahead of it, else the one shipping
     const blocker = ahead ?? running;
     if (blocker) return wait(`Queued · behind ${blocker.title}`, false);

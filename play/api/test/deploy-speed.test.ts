@@ -16,7 +16,7 @@ import { fromBunSql, type Db } from "../src/kit/pg";
 import { RECIPE_HEAD } from "../src/recipes";
 import { STEPS } from "../src/ship";
 import { mediaNamed, runImport } from "../import/run";
-import { cookieFor, freshDb, suite } from "./kit";
+import { cookieFor, freshDb, suite, until, within } from "./kit";
 
 const ROOT = resolve(import.meta.dir, "../../..");
 const text = (path: string) => readFileSync(resolve(ROOT, path), "utf8");
@@ -412,14 +412,11 @@ suite("play-api", () => {
     const outDone = drain(api.stdout, out);
     void drain(api.stderr, err);
     // until `ok` holds on what it said, or it exits
-    const said = async <T,>(ok: (text: string) => T | null): Promise<T> => {
-      for (;;) {
-        const hit = ok(out.join(""));
-        if (hit !== null) return hit;
+    const said = <T,>(ok: (text: string) => T | null): Promise<T> =>
+      until("play-api says it", () => {
         if (api.exitCode !== null) throw new Error(`play-api exited (${api.exitCode}): ${err.join("")}${out.join("")}`);
-        await Bun.sleep(20);
-      }
-    };
+        return ok(out.join(""));
+      }, { withinMs: 20_000 });
     try {
       const port = await said((o) => o.match(/play-api on :(\d+)/)?.[1] ?? null);
       const base = `http://127.0.0.1:${port}`;
@@ -438,13 +435,12 @@ suite("play-api", () => {
       await isLocked;
       const slow = fetch(`${base}/api/me`, { headers: { cookie } });
       // in flight: its query waits on the lock in Postgres
-      for (;;) {
+      await until("the request waits on the lock", async () => {
         const { rows } = await db.query<{ n: number }>(
           `SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
         );
-        if (rows[0].n > 0) break;
-        await Bun.sleep(20);
-      }
+        return rows[0].n > 0;
+      });
       const t0 = performance.now();
       api.kill("SIGTERM");
       // stopping: its listener closed as it says so
@@ -459,7 +455,7 @@ suite("play-api", () => {
       const r = await slow;
       expect(r.status).toBe(200);
       expect((await r.json()).name).toBe("sig");
-      const code = await Promise.race([api.exited, Bun.sleep(2500).then(() => "still running")]);
+      const code = await within(api.exited, 2500, "still running");
       expect(code).toBe(0);
       expect(performance.now() - t0).toBeLessThan(2000);
       await outDone;

@@ -137,3 +137,18 @@ export function quiet() {
   console.warn = () => {};
   return () => Object.assign(console, keep);
 }
+
+/** Waits until `ok()` gives something other than null or false, asking every `everyMs`; throws after `withinMs`. */
+export async function until<T>(what: string, ok: () => T | null | false | Promise<T | null | false>, o: { withinMs?: number; everyMs?: number } = {}): Promise<T> {
+  const end = Date.now() + (o.withinMs ?? 10_000);
+  for (;;) {
+    const got = await ok();
+    if (got !== null && got !== false) return got;
+    if (Date.now() > end) throw new Error(`${what}: not within ${o.withinMs ?? 10_000} ms`);
+    await Bun.sleep(o.everyMs ?? 20);
+  }
+}
+
+/** `p`'s value, or `late` once `ms` have passed first */
+export const within = <T, L>(p: Promise<T>, ms: number, late: L): Promise<T | L> =>
+  Promise.race([p, new Promise<L>((done) => setTimeout(() => done(late), ms))]);

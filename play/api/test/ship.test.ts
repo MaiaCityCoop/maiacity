@@ -16,7 +16,7 @@ import { reconcile, runningCommit, tailOf } from "../src/ship";
 import { startShipWatcher, watchShips } from "../src/watcher";
 import { ACCEPTED_CONTEXT, gitHub, shipGitHub, type Pull } from "../src/github";
 import { fakeGitHub, green, job, REPO, run, sha, TOKEN } from "./fixtures/github";
-import { agentToken, appOn, cookieFor, type Fresh, freshDb, request, suite, tool as mcpTool } from "./kit";
+import { agentToken, appOn, cookieFor, type Fresh, freshDb, request, suite, tool as mcpTool, until } from "./kit";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 
@@ -203,9 +203,7 @@ suite("accept ships it", () => {
     // a first in line merges at once; b and c are ready, but behind it
     const from = gh.calls.length;
     await call("ada", "POST", `/api/intents/${a.id}/accept`);
-    await Bun.sleep(5);
     await call("ada", "POST", `/api/intents/${b.id}/accept`);
-    await Bun.sleep(5);
     await call("ada", "POST", `/api/intents/${c.id}/accept`);
     expect(await readyOf(b.id)).toMatchObject({ note: "Queued · behind First accepted" });
     expect(await readyOf(c.id)).toMatchObject({ note: "Queued · behind Second accepted" });
@@ -402,7 +400,7 @@ suite("accept ships it", () => {
     ]);
     Object.assign(deploy, { status: "completed", conclusion: "success" });
     const stop = startShipWatcher(db, again, 20, c.merge);
-    for (let t = 0; t < 100 && (await intent(c.id)).stage === "ship"; t++) await Bun.sleep(20);
+    await until("the background watcher takes it out of Ship", async () => (await intent(c.id)).stage !== "ship", { withinMs: 2_000 });
     stop();
     const done = await intent(c.id);
     expect(done).toMatchObject({ stage: "accepted", decided_by: "ada", ship: { outcome: "green", deploy_run: 1301, release_run: 1201, main_run: 1101 } });
