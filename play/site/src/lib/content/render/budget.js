@@ -56,8 +56,8 @@ export function smallDevice() {
 /** @returns {Budget} the budget for a device, small or not */
 export function budgetFor(small, cores = 8) {
 	return small
-		? { small: true, builds: 2, boxes: 1, rooms: 1, spare: false, idle: 4000, reads: 4, shadowMap: 2048, picture: { px: 40, page: 1280, views: 6 }, texture: 1024, evict: 15000, release: true }
-		: { small: false, builds: Math.max(2, Math.min(8, cores - 1)), boxes: 6, rooms: 4, spare: true, idle: 0, reads: 16, shadowMap: 4096, picture: { px: 64, page: 2048, views: 8 }, texture: 4096, evict: 0, release: false };
+		? { small: true, builds: 2, boxes: 1, rooms: 1, spare: false, idle: 4000, reads: 4, shadowMap: 2048, picture: { px: 48, page: 1152, views: 6 }, texture: 1024, evict: 15000, release: true }
+		: { small: false, builds: Math.max(2, Math.min(8, cores - 1)), boxes: 6, rooms: 4, spare: true, idle: 0, reads: 16, shadowMap: 4096, picture: { px: 96, page: 2304, views: 6 }, texture: 4096, evict: 0, release: false };
 }
 
 /** @type {Budget | null} */
