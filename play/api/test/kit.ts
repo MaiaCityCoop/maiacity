@@ -64,8 +64,8 @@ function templateDb(admin: Bun.SQL): Promise<string> {
     try {
       await admin.unsafe(`ALTER DATABASE ${making} RENAME TO ${name}`);
     } catch (e) {
-      // 42P04: another file named its template first
-      if ((e as { errno?: string }).errno !== "42P04") throw e;
+      // another file named its template first: 42P04, or 23505 when both renames meet in pg_database's unique index
+      if (!["42P04", "23505"].includes((e as { errno?: string }).errno ?? "")) throw e;
       await admin.unsafe(`DROP DATABASE ${making} WITH (FORCE)`);
     }
     return name;
