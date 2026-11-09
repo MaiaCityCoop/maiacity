@@ -1613,7 +1613,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			// the glass's sun sheen: off unless the shot turns it up, always towards where the sun is now
 			glassSheen.uGlassSheen.value = 0
 			glassSheen.uGlassSheenColor.value.set('#ffb070')
-			glassSheen.uGlassSun.value.copy(sky.sun.position).sub(sky.sun.target.position).normalize()
+			glassSheen.uGlassSun.value.copy(sky.sunDir) // (three's SunLight has no target: its direction is the sky's sunDir)
 		},
 		lights: {
 			// the low sun glowing on the domes' glass: k is how strongly (0 none; about 1–4 reads as a warm sheen)

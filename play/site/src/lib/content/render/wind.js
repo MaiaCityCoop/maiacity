@@ -177,7 +177,7 @@ export function worldSeconds(now = typeof performance !== 'undefined' ? performa
  * @param {Parameters<typeof windOf>[0]} [o]
  */
 export function windNodes(tsl, o) {
-	const { Fn, abs, attribute, cameraPosition, clamp, cos, float, fract: frac, max, min, mix, modelWorldMatrixInverse, positionLocal, positionWorld, sin, smoothstep, sqrt, uniform, vec3, vec4 } = tsl;
+	const { Fn, If, abs, attribute, cameraPosition, clamp, cos, float, fract: frac, max, min, mix, modelWorldMatrix, modelWorldMatrixInverse, positionLocal, positionWorld, sin, smoothstep, sqrt, uniform, vec3, vec4 } = tsl;
 	const w = windOf(o);
 	const u = {
 		direction: uniform(w.direction),
@@ -226,11 +226,19 @@ export function windNodes(tsl, o) {
 			const lean = height.mul(0.15).mul(s).mul(sin(u.time.mul(SWAY).add(phase)).mul(0.25).add(0.75)).div(max(float(stiffness), 0.1));
 			const d = min(lean.mul(f).mul(f), h.mul(0.9));
 			const down = h.sub(sqrt(max(h.mul(h).sub(d.mul(d)), 0)));
-			// flutter, faded by the distance from the eye
-			const near = float(1).sub(smoothstep(FLUTTER_NEAR, FLUTTER_FAR, positionWorld.sub(cameraPosition).length()));
-			const p = u.time.mul(2.2).add(phase).add(positionLocal.x.add(positionLocal.z).mul(3.1));
-			const wave = smoothTri(p.mul(FREQ[0])).mul(0.4).add(smoothTri(p.mul(FREQ[1])).mul(0.3)).add(smoothTri(p.mul(FREQ[2])).mul(0.2)).add(smoothTri(p.mul(FREQ[3])).mul(0.1));
-			const up = s.mul(0.03).mul(float(flutter)).mul(f).mul(wave).mul(near);
+			// flutter, faded by the distance from the eye: none compiled where the look has none (x × 0 is not folded
+			// away under IEEE, so a stem's or bark's every vertex would still pay for it), and skipped per copy beyond
+			// FLUTTER_FAR (the branch is the same for every vertex of a copy, so it costs nothing to take)
+			const up = float(0).toVar();
+			if (flutter > 0) {
+				const eye = modelWorldMatrix.mul(vec4(foot, 1)).xyz.sub(cameraPosition).length();
+				If(eye.lessThan(height.mul(0.5).add(FLUTTER_FAR)), () => {
+					const near = float(1).sub(smoothstep(FLUTTER_NEAR, FLUTTER_FAR, positionWorld.sub(cameraPosition).length()));
+					const p = u.time.mul(2.2).add(phase).add(positionLocal.x.add(positionLocal.z).mul(3.1));
+					const wave = smoothTri(p.mul(FREQ[0])).mul(0.4).add(smoothTri(p.mul(FREQ[1])).mul(0.3)).add(smoothTri(p.mul(FREQ[2])).mul(0.2)).add(smoothTri(p.mul(FREQ[3])).mul(0.1));
+					up.assign(s.mul(0.03).mul(float(flutter)).mul(f).mul(wave).mul(near));
+				});
+			}
 			// the bend in world metres along the wind, turned into the mesh's own frame
 			const world = vec3(cos(u.direction).mul(d), down.negate().add(up), sin(u.direction).mul(d));
 			const into = modelWorldMatrixInverse.mul(vec4(world, 0)).xyz;
