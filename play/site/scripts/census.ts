@@ -6,6 +6,7 @@
  *
  *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-3|worlds] [--view near|mid|far|open|all] [--at <commit>]
  *                                   [--asset <uuid>] [--inputs <dir> | --live] [--record] [--json <file>] [--copies]
+ *                                   [--renderer webgl|webgpu|webgl2]
  *
  * --world         Sandbox 1 (the village: near, mid, far), Sandbox 3 (the old city) or the worlds view (a world asset:
  *                 --asset names it by its UUID, else the first world play lists), the last two as they open (`open`)
@@ -18,6 +19,10 @@
  * --live          read play live (play.maia.city with PLAY_MCP_TOKEN, the header to play only), nothing pinned
  * --json <file>   every view's census as JSON (each copy, each frame, the totals)
  * --copies        a table of each kind's copies drawn as shapes, the costliest first
+ * --renderer      the switch's backend asked of the page (`?renderer=`, intent c1bee1f8): `webgpu` and `webgl2` counted
+ *                 as WebGPURenderer draws (./census/counting.js CountingWebGPURenderer), `webgl` as WebGLRenderer; left
+ *                 out, the page's own default. A commit from before the switch (--at) draws with WebGLRenderer whatever
+ *                 is asked, and is counted as before
  *
  * Prints per view: triangles a frame (main pass and shadows), draws (meshes, instanced batches), what culling removed,
  * each asset renderer's triangles, draws, copies, pictures and ghosts (copies put away yet still drawn: ./census/run.ts
@@ -75,17 +80,20 @@ const { setup } = await import('./census/setup');
 // the world's inputs pinned (./census/inputs/) unless asked to read play live: a census needs no token, and counts the
 // same world today as when it was pinned
 const live = argv.includes('--live');
-setup({ root: tree?.root, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record'), cache: CACHE });
+setup({ renderer: arg('--renderer'), root: tree?.root, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record'), cache: CACHE });
 const { censusOf, VIEWS_OF } = await import('./census/run');
 const views = view === 'all' ? VIEWS_OF[world] : (view.split(',') as typeof VIEWS_OF[typeof world]);
 const t0 = performance.now();
 const got = await censusOf({ world, views, asset: arg('--asset'), log: (s) => console.error(s) });
+const { CountingRenderer } = await import('./census/counting.js');
+/** which renderer the world drew with: WebGPURenderer (on WebGPU or its WebGL 2 backend) or WebGLRenderer */
+const drewWith = (CountingRenderer.made[0] as any)?.isWebGPURenderer ? 'WebGPURenderer' : 'WebGLRenderer';
 const seconds = (performance.now() - t0) / 1000;
 
 const n = (x: number) => Math.round(x).toLocaleString('en');
 for (const v of got) {
 	const t = v.totals;
-	console.log(`\n${v.world} ${v.view}${tree ? ` at ${tree.sha.slice(0, 9)}` : ''}${v.settled ? '' : ' (still building)'}`);
+	console.log(`\n${v.world} ${v.view}${tree ? ` at ${tree.sha.slice(0, 9)}` : ''} on ${drewWith}${v.settled ? '' : ' (still building)'}`);
 	console.log(`  triangles a frame  ${n(t.tris)}  (main ${n(t.mainTris)}, shadow ${n(t.shadowTris)}, into targets ${n(t.targetTris)})`);
 	console.log(`  draws              ${n(t.calls)}  (meshes ${n(t.meshes)}, instanced batches ${n(t.instanced)} of ${n(t.instances)} instances, shadow ${n(t.shadowCalls)})`);
 	console.log(`  culled             ${n(t.culledObjects)} objects, ${n(t.culledTris)} triangles`);
@@ -104,5 +112,5 @@ for (const v of got) {
 }
 console.log(`\ncensus: ${views.length} view${views.length > 1 ? 's' : ''} in ${seconds.toFixed(1)} s`);
 const json = arg('--json');
-if (json) writeFileSync(json, JSON.stringify({ world, at: tree?.sha ?? null, seconds, views: got }));
+if (json) writeFileSync(json, JSON.stringify({ world, at: tree?.sha ?? null, renderer: drewWith, seconds, views: got }));
 process.exit(0);

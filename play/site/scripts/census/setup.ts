@@ -31,6 +31,7 @@ const HERE = dirname(new URL(import.meta.url).pathname);
 /** this checkout's play/site */
 export const SITE = resolve(HERE, '../..');
 const THREE_REAL = join(SITE, 'node_modules/three/build/three.module.js');
+const THREE_WEBGPU_REAL = join(SITE, 'node_modules/three/build/three.webgpu.js');
 const PLAY = 'https://play.maia.city';
 
 export type Setup = {
@@ -44,6 +45,9 @@ export type Setup = {
 	cache?: string;
 	/** log every route fetched */
 	verbose?: boolean;
+	/** the switch's backend the page is asked for (`?renderer=`, intent c1bee1f8): webgl, webgpu or webgl2; none: the
+	 *  page's default. A tree without the switch draws with WebGLRenderer whatever is asked */
+	renderer?: string;
 };
 
 let done: Required<Pick<Setup, 'root' | 'cache'>> & Setup;
@@ -73,6 +77,8 @@ export function setup(o: Setup = {}) {
 	const stub = (n: string) => join(HERE, 'stubs', n);
 	const spec = (s: string, from: string) => {
 		if (s === 'three') return /\/census\/(counting|three)\.js$/.test(from) ? THREE_REAL : join(HERE, 'three.js');
+		// three's WebGPU build, its renderer the counting one (intent c1bee1f8); ./webgpu.js itself reads the real one
+		if (s === 'three/webgpu') return /\/census\/webgpu\.js$/.test(from) ? THREE_WEBGPU_REAL : join(HERE, 'webgpu.js');
 		if (s.startsWith('$lib/') || s === '$lib') return resolveFile(join(root, 'src/lib', s.slice(5)));
 		if (s.startsWith('$app/')) return stub(`app-${s.slice(5)}.js`);
 		if (s.endsWith('.svelte')) return stub('svelte.js');
@@ -133,6 +139,7 @@ export function setup(o: Setup = {}) {
 	g.devicePixelRatio = 1;
 	g.screen = { width: VIEWPORT.width, height: VIEWPORT.height, availWidth: VIEWPORT.width, availHeight: VIEWPORT.height, orientation: { type: 'landscape-primary', angle: 0, addEventListener() {} } };
 	g.location = new URL('http://census.local/sandbox-1/');
+	if (o.renderer) g.location.searchParams.set('renderer', o.renderer);
 	g.history = { pushState() {}, replaceState() {}, back() {}, state: null };
 	g.matchMedia = (q: string) => ({ matches: /prefers-color-scheme: light|pointer: fine|hover: hover/.test(q), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} });
 	g.requestAnimationFrame = (cb: FrameRequestCallback) => (rafs.set(++rafId, cb), rafId);

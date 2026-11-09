@@ -271,7 +271,7 @@ export class CountingRenderer {
 		const bg = scene.background;
 		const bgTris = bg && (bg.isCubeTexture || bg.mapping === THREE.CubeUVReflectionMapping || bg.mapping === THREE.EquirectangularReflectionMapping || bg.mapping === THREE.EquirectangularRefractionMapping) ? 12 : bg?.isTexture ? 2 : 0;
 		if (this.info.autoReset === true) this.info.reset();
-		this.#shadows(shadows, scene, camera);
+		this._shadows(shadows, scene, camera, list);
 		if (bgTris) this.#count(bgTris, 1, toScreen, false, null);
 		for (const d of list) {
 			const { object, geometry, material, group } = d;
@@ -333,7 +333,8 @@ export class CountingRenderer {
 		for (let i = 0, l = kids.length; i < l; i++) this.#project(kids[i], camera, list, lights, shadows, toScreen);
 	}
 
-	#shadows(lights, scene, camera) {
+	/** the frame's shadow passes (the WebGPU renderer below draws its own) */
+	_shadows(lights, scene, camera) {
 		const sm = this.shadowMap;
 		if (sm.enabled === false) return;
 		if (sm.autoUpdate === false && sm.needsUpdate === false) return;
@@ -396,6 +397,160 @@ export class CountingRenderer {
 }
 /** every counting renderer made in this process */
 CountingRenderer.made = [];
+
+/** triangles of the sphere WebGPU's Background draws a texture or node background on (SphereGeometry(1, 32, 32)) */
+export const BACKGROUND_SPHERE_TRIS = 32 * 32 * 2 - 2 * 32;
+
+/**
+ * THE COUNTING WEBGPU RENDERER — three's WebGPURenderer as the census sees it (intent c1bee1f8, c4): the same walk and
+ * the same draws as the WebGL one above, where r187's common Renderer does as WebGLRenderer does (`_projectObject`,
+ * `renderObject`'s back and front of a see-through double-sided material, `Info.update`'s triangles), and its own
+ * where it does otherwise:
+ *
+ * - Initialised before its first draw (`init()`, `initialized`), as the core's `ready` waits for.
+ * - The background: a texture or a node on a sphere (Background.js: SphereGeometry(1, 32, 32), 1,984 triangles); a
+ *   colour only clears.
+ * - The output: a frame drawn to the screen with tone mapping or out of the working colour space is drawn into the
+ *   renderer's frame buffer target and then onto the canvas by one more draw of a single triangle (`_renderOutput`).
+ * - Shadows are ShadowNode's: a light's shadow map is drawn only in a frame where something lit by it that receives
+ *   shadows is drawn (AnalyticLightNode's `receiveShadow`), when the light's own `shadow.autoUpdate` or `needsUpdate`
+ *   says so and, as the core keeps it (../../src/lib/content/render/core.js `keepShadowSwitch`), the renderer's
+ *   `shadowMap.autoUpdate` or `needsUpdate`. The shadow pass walks the scene from the shadow's camera, a cascaded
+ *   shadow's once a cascade from its own (SunShadowNode), a point light's once a face (LODs chosen for it), on the main camera's layers unless the shadow's own are set, each caster drawn with the shadow material:
+ *   its side the material's `shadowSide` or the other side, a see-through double-sided one drawn twice.
+ */
+export class CountingWebGPURenderer extends CountingRenderer {
+	constructor(parameters = {}) {
+		super(parameters);
+		this.isWebGLRenderer = false;
+		this.isWebGPURenderer = true;
+		this.coordinateSystem = THREE.WebGPUCoordinateSystem;
+		this.initialized = false;
+		this.backend = { isWebGPUBackend: !parameters.forceWebGL, isWebGLBackend: !!parameters.forceWebGL, device: null };
+		this.onDeviceLost = () => {};
+		/** the keyed shadows' frame (core.js's keepShadowSwitch) */
+		this._keyedAt = -1;
+	}
+	init() {
+		this.initialized = true;
+		return Promise.resolve(this);
+	}
+	get _initialized() {
+		return this.initialized;
+	}
+	renderAsync(scene, camera) {
+		return Promise.resolve(this.render(scene, camera));
+	}
+	/** the frame's walk, as WebGPU's: the camera in its coordinate system, the background on a sphere, the output pass */
+	render(scene, camera) {
+		if (camera !== undefined && camera.isCamera !== true) return;
+		if (camera.coordinateSystem !== this.coordinateSystem) {
+			camera.coordinateSystem = this.coordinateSystem;
+			camera.updateProjectionMatrix();
+		}
+		const toScreen = this._target === null;
+		// the scene drawn with a texture or node background's sphere instead of WebGL's box or plane
+		const bg = scene.background, bgNode = scene.backgroundNode;
+		const sphere = !!(bgNode || (bg && !bg.isColor && (bg.isTexture || bg.isNode)));
+		scene.background = null;
+		scene.backgroundNode = null;
+		try {
+			super.render(scene, camera);
+		} finally {
+			scene.background = bg;
+			scene.backgroundNode = bgNode;
+		}
+		if (sphere) this._countDraw(BACKGROUND_SPHERE_TRIS, toScreen);
+		// to the canvas through the frame buffer target and its output pass (tone mapping, colour space)
+		if (toScreen && (this.toneMapping !== THREE.NoToneMapping || this.outputColorSpace !== THREE.ColorManagement.workingColorSpace)) this._countDraw(1, true);
+	}
+	/** one draw that is no object's (the background's sphere, the output's triangle) */
+	_countDraw(tris, toScreen) {
+		this.info.render.calls += 1;
+		this.info.render.triangles += tris;
+		const t = this.tally;
+		if (toScreen) (t.calls += 1), (t.tris += tris);
+		else (t.targetCalls += 1), (t.targetTris += tris);
+	}
+	/** the shadow passes of a frame, as ShadowNode draws them */
+	_shadows(lights, scene, camera, list) {
+		const sm = this.shadowMap;
+		if (sm.enabled === false || lights.length === 0) return;
+		// the renderer's own switch, as the core keeps it on WebGPU
+		const frame = this.info.render.frame;
+		if (sm.autoUpdate === false) {
+			if (sm.needsUpdate === true) (sm.needsUpdate = false), (this._keyedAt = frame);
+			if (this._keyedAt !== frame) return;
+		}
+		// a light's shadow is drawn only where something it lights that receives shadows is drawn
+		const receives = list.some((d) => d.object.isMesh && d.object.receiveShadow === true && d.material.lights !== false && !d.material.isMeshBasicMaterial);
+		if (!receives) return;
+		const was = { target: this._target, face: this._face, mip: this._mip };
+		for (const light of lights) {
+			const shadow = light.shadow;
+			if (!shadow || !(shadow.autoUpdate || shadow.needsUpdate)) continue;
+			// a cascaded shadow (three's SunLight: SunShadowNode) is drawn once a cascade, each from its own camera
+			if (light.isPointLight !== true) shadow.updateMatrices(light, camera);
+			const faces = light.isPointLight ? 6 : shadow.getViewportCount?.() ?? 1;
+			const layers = (shadow.camera.layers.mask & 0xfffffffe) === 0 ? camera.layers : shadow.camera.layers;
+			for (let face = 0; face < faces; face++) {
+				const cam = light.isPointLight ? pointFace(light, shadow, face) : faces > 1 && shadow.getCamera ? shadow.getCamera(face) : shadow.camera;
+				cam.updateMatrixWorld();
+				_proj.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+				_shadowFrustum.setFromProjectionMatrix(_proj, cam.coordinateSystem, cam.reversedDepth);
+				this.tally.shadowPasses++;
+				this._shadowWalk(scene, layers, cam);
+			}
+			shadow.needsUpdate = false;
+		}
+		this.setRenderTarget(was.target, was.face, was.mip);
+	}
+	_shadowWalk(object, layers, cam) {
+		if (object.visible === false) return;
+		if (object.layers.test(layers)) {
+			// WebGPU's shadow pass is a render from the shadow's camera: a LOD picks its level for it
+			if (object.isLOD && object.autoUpdate === true) object.update(cam);
+			else if ((object.isMesh || object.isLine || object.isPoints || object.isSprite) && object.castShadow === true && (!object.frustumCulled || object.intersectsFrustum(_shadowFrustum))) {
+				const geometry = object.geometry, material = object.material;
+				const one = (m, group) => {
+					object.onBeforeShadow(this, object, cam, cam, geometry, m, group);
+					// the shadow material takes the caster's see-through and its side (shadowSide, else the other side;
+					// a double-sided one stays double-sided), so a see-through double-sided caster is drawn twice
+					const side = m.shadowSide ?? (m.side === THREE.DoubleSide ? THREE.DoubleSide : m.side === THREE.FrontSide ? THREE.BackSide : THREE.FrontSide);
+					const passes = (m.transparent === true || m.transmission > 0) && side === THREE.DoubleSide ? 2 : 1;
+					const n = drawOf(object, geometry, m, group).tris;
+					for (let p = 0; p < passes; p++) this._countShadow(n);
+					object.onAfterShadow(this, object, cam, cam, geometry, m, group);
+				};
+				if (Array.isArray(material)) {
+					for (const group of geometry.groups) {
+						const m = material[group.materialIndex];
+						if (m && m.visible) one(m, group);
+					}
+				} else if (material.visible) one(material, null);
+			}
+		}
+		const kids = object.children;
+		for (let i = 0, l = kids.length; i < l; i++) this._shadowWalk(kids[i], layers, cam);
+	}
+	_countShadow(tris) {
+		this.info.render.calls += 1;
+		this.info.render.triangles += tris;
+		(this.tally.shadowCalls += 1), (this.tally.shadowTris += tris);
+	}
+}
+
+const _shadowFrustum = new THREE.Frustum();
+/** a point light's shadow camera turned to its cube face `face` (three's placing, as above) */
+function pointFace(light, shadow, face) {
+	const cam = shadow.camera, far = light.distance || cam.far;
+	if (far !== cam.far) (cam.far = far), cam.updateProjectionMatrix();
+	const at = new THREE.Vector3().setFromMatrixPosition(light.matrixWorld);
+	cam.position.copy(at);
+	cam.up.copy(CUBE_UPS[face]);
+	cam.lookAt(at.clone().add(CUBE_DIRS[face]));
+	return cam;
+}
 
 const CUBE_DIRS = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)];
 const CUBE_UPS = [new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 1, 0)];
