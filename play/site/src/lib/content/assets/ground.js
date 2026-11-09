@@ -1,21 +1,8 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * A PLANT'S GROUND ON THE STAGE — its biome's floor out to the horizon, its roots out of sight in the earth; tilt the
- * camera below the ground line and the frame splits there, as a split-level shot does: plant above, soil and roots below.
- *
- *   the floor   the biome's surfaces as the worlds draw them ($content/biomes `groundMaterial`), fading into the
- *               backdrop or the sky's horizon ($content/sandbox-kit/sky.js); a ring of mulch round the stem; its cover streamed round the
- *               plant (`coverStream`). It faces up only: from below, the eye sees on into the garden
- *   the earth   below the ground line: a face just beyond the farthest root, square to the eye (eased), its edges never
- *               seen, the ground line its top; drawn only while the eye is below; between eye and face earth and cover
- *               are left out, a band of turf standing on the ground line; darker and of one colour the further off
- *   the soil    on those faces in world metres (one 3D field, TSL): the biome's horizons from ./soils.js at their real
- *               depths, their boundaries waved and run together, the peds of each, stones, roots, worm burrows,
- *               mottles, lime, charcoal and fungal threads; what is under two pixels fades to its colour, not worked out
- *   the roots   the plant's own, crisp in the earth's clear middle
- *
- * `groundOf(stage, { drawn })` → { group, biome(recipe, id), fit(root), show(on), update(camera, dt), below, rootsView(camera),
- * soil, dispose }.
+ * A PLANT'S GROUND ON THE STAGE — its biome's floor to the horizon (`floorMaterial`), the earth and its soil
+ * (./soils.js) behind the roots once the camera tilts below the ground line, splitting the frame as a split-level shot
+ * does. `groundOf(stage, { drawn })` → { group, biome, fit, show, update, below, rootsView, soil, dispose }.
  */
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
@@ -128,10 +115,7 @@ const ref = (u, type) => reference('value', type, u);
 
 const Soil = struct({ c: 'vec3', hgt: 'float', rough: 'float' });
 
-/**
- * The soil's material for the earth's faces, seen from inside: its horizons as uniforms, worked out per pixel, darkening
- * with distance. @param {ReturnType<typeof groundUniforms>} g
- */
+/** The soil's material for the earth's faces, worked out per pixel. @param {ReturnType<typeof groundUniforms>} g */
 function soilMaterial(g) {
 	const arr = (make, type) => uniformArray(Array.from({ length: MOST }, make), type);
 	const u = {
@@ -391,10 +375,7 @@ function setSoil(m, soil) {
 	u.uHazeC.value.set(top.col).multiplyScalar(0.5);
 }
 
-/**
- * The floor: a biome's surfaces, a mulch ring round the stem, fading into the backdrop far off; facing up only, so the
- * eye below sees on. @param {ReturnType<typeof groundUniforms>} g @param {THREE.Color} bg @param {THREE.Vector2} fade
- */
+/** The floor, facing up only. @param {ReturnType<typeof groundUniforms>} g @param {THREE.Color} bg @param {THREE.Vector2} fade */
 function floorMaterial(g, bg, fade, sky) {
 	const m = groundMaterial(BARE);
 	const xz = positionWorld.xz, bw = vec2(xz.x, xz.y.negate()), c = ref(g.uC, 'vec3'), ring = ref(g.uRing, 'float');
@@ -466,8 +447,7 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 	const coverFor = () => {
 		stream?.dispose();
 		stream = null;
-		// the cover is drawn to be seen from standing height (round a seedling its clover would stand like trees), so a
-		// small plant stands on its floor alone
+		// the cover is drawn for standing height (round a seedling its clover would stand like trees): none for a small plant
 		if (!cover || !drawn || !tall || !recipe?.cover?.length) return;
 		const ring = ringAt, cx = g.uC.value.x, cz = g.uC.value.z;
 		// out to where the floor starts fading into the backdrop, never beyond it (no plants standing in the haze)
@@ -500,10 +480,7 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 			setSoil(soil, soilNow);
 			coverFor();
 		},
-		/**
-		 * Sized to a plant: the earth as deep as its deepest root and a little more, wide round its roots; the floor to
-		 * the horizon, its mulch ring as wide as its crown near the ground; surface at 0. @param {THREE.Object3D} root
-		 */
+		/** Sized to a plant's roots and crown; surface at 0. @param {THREE.Object3D} root */
 		fit(root) {
 			root.updateMatrixWorld(true);
 			root.getWorldPosition(at);

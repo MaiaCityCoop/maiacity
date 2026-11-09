@@ -38,10 +38,7 @@ const fract = (x) => x - Math.floor(x);
 const smooth = (x) => x * x * (3 - 2 * x);
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 
-/**
- * The gust at (x, z) at t, 0 a lull … 1 a front: two octaves of waves along the wind, crests bent a little across it.
- * @param {ReturnType<typeof windOf>} w @param {number} x @param {number} z @param {number} t seconds
- */
+/** The gust at (x, z) at t, 0 a lull … 1 a front. @param {ReturnType<typeof windOf>} w @param {number} x @param {number} z @param {number} t seconds */
 export function gustAt(w, x, z, t) {
 	const [dx, dz] = along(w);
 	const u = x * dx + z * dz - w.speed * t;
@@ -116,10 +113,7 @@ export function flutterAt(w, copy, f, flutter, vphase, t, distance) {
 	return 0.03 * strengthAt(w, copy.x, copy.z, t) * flutter * clamp01(f) * wave * near;
 }
 
-/**
- * A copy's `aWind`: its foot and height (m); its phase is `phaseOf` its foot, worked out where drawn.
- * @param {number} x @param {number} y @param {number} z @param {number} height @returns {[number, number, number, number]}
- */
+/** A copy's `aWind`: its foot and height (m). @param {number} x @param {number} y @param {number} z @param {number} height @returns {[number, number, number, number]} */
 export const windOfCopy = (x, y, z, height) => [x, y, z, Math.max(0, height)];
 
 /** a look's numbers for the wind, or none for a look that does not move (stone) */
@@ -170,10 +164,7 @@ export function windNodes(tsl, o) {
 	const tri = (x) => abs(frac(x.add(0.5)).mul(2).sub(1));
 	const smoothTri = (x) => sm(tri(x)).mul(2).sub(1);
 
-	/**
-	 * A copy's wind as nodes after instancing: its foot and height (`aWind`; unbound it reads 0, no wind), its phase
-	 * (the same hash as `phaseOf`), and how far up it the point is (`f`, 0 foot … 1 top).
-	 */
+	/** A copy's wind as nodes after instancing (`aWind` unbound reads 0: no wind). */
 	const copyOf = () => {
 		const a = attribute('aWind', 'vec4');
 		const foot = vec3(a.x, a.y, a.z), height = a.w;

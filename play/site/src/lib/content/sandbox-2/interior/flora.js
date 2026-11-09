@@ -1,18 +1,13 @@
 /*
- * A world's forest of our own plants, thousands of them, drawn by the universal renderer (./drawn.js `createFlora`):
- * every kind (a plant at its version, stage and seed) built once in the asset box, every plant one more copy. The world
- * decides where each stands, and that a tree is drawn however far off (as its picture) while a small plant only as far
- * as the forest streams it (`STREAMS`); the renderer's one selector (../../assets/render/lod.js) picks each level.
+ * A world's forest of our own plants, drawn by ./drawn.js `createFlora`: each kind built once in the asset box, each
+ * plant a copy; trees drawn however far off, small plants as far as the forest streams them (`STREAMS`).
  */
 import * as THREE from 'three';
 import { NotInCatalog, withQuery } from '../../assets/catalog.js';
 
 /** @typedef {import('./sandbox5.js').Kind} Kind */
 /** @typedef {'tree' | 'shrub' | 'cover'} Reach how far off a plant is drawn: a tree always, the others until a picture */
-/**
- * @typedef {{ height: number, reach: number, foot: number, leaf: [number, number, number] }} Shape a kind's measure off
- *   its build: height, reach over the ground, thickness at its foot, and its leaves' colour
- */
+/** @typedef {{ height: number, reach: number, foot: number, leaf: [number, number, number] }} Shape a kind's measure off its build */
 /**
  * @typedef {{
  *   use: (ref: string, shadows?: boolean, picture?: boolean) => any,
@@ -81,8 +76,7 @@ function measure(level) {
  *   kind: Kind, reach: Reach, n: number, add: number[], k?: any, shape?: Shape,
  *   x?: Float32Array, y?: Float32Array, z?: Float32Array, turn?: Float32Array, scale?: Float32Array,
  *   copies?: (any | null)[], cells?: Map<number, number[]>, placed?: number[]
- * }} Stand all the plants of one kind in a forest: where each stands, its turn and its size; the copy drawing each one
- *   (none while it is left out); the small ones filed by their cell of the ground
+ * }} Stand all the plants of one kind in a forest, the small ones filed by their cell of the ground
  */
 
 /**
@@ -200,10 +194,7 @@ export function createForest(o) {
 
 	/** marks: which plants of a small stand stand within reach now */
 	let mark = new Uint32Array(0), epoch = 0;
-	/**
-	 * Puts down the small plants within reach of the eye at x, z (forest ground), takes away those that fell out of it;
-	 * chosen again only once the eye has moved a little. @param {number} x @param {number} z
-	 */
+	/** Puts down the small plants within reach of x, z and takes away the rest, once the eye has moved a little. @param {number} x @param {number} z */
 	function update(x, z) {
 		if (hidden || gone || (!dirty && Math.hypot(x - last.x, z - last.z) < 2)) return;
 		dirty = false;
@@ -232,10 +223,7 @@ export function createForest(o) {
 		}
 	}
 
-	/**
-	 * Leaves out every plant in these circles until the next mask: the trees at once, the small ones when next chosen.
-	 * @param {{ x: number, z: number, r: number }[]} list
-	 */
+	/** Leaves out every plant in these circles until the next mask. @param {{ x: number, z: number, r: number }[]} list */
 	function mask(list) {
 		masked = list.slice();
 		if (!hidden)
@@ -275,8 +263,7 @@ export function createForest(o) {
 	const caster = new THREE.Raycaster();
 	const M = new THREE.Matrix4(), L = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
 	/**
-	 * The plant a ray from o along d (forest ground) meets first within `far`, by its leaves, wood and fruit as drawn near
-	 * you: the plants it passes close to (each an upright cylinder) tried nearest first against their shapes; else null.
+	 * The plant a ray from o along d meets first within `far` (nearest cylinders tried against their shapes), else null.
 	 * @param {THREE.Vector3} o @param {THREE.Vector3} d @param {number} [far]
 	 * @returns {{ kind: Kind, x: number, y: number, z: number, height: number, reach: number, t: number } | null}
 	 */

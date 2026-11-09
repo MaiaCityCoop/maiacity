@@ -76,10 +76,7 @@ export function wantNear(points) {
 	const labels = needed(points, true);
 	return Promise.all(labels.map((l) => loads.get(l))).then(() => undefined);
 }
-/**
- * Whether those builds are all here (or failed), asking nothing: a world holding a shot until its actors are built says
- * so with it. @param {Parameters<typeof wantNear>[0]} points
- */
+/** Whether those builds are all here (or failed), asking nothing. @param {Parameters<typeof wantNear>[0]} points */
 export function nearReady(points) {
 	return needed(points, false).every((l) => done.has(l) || !loads.has(l));
 }
@@ -205,10 +202,7 @@ export function crowd(refs, counts, o) {
 	const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ'), p = new THREE.Vector3(), s = new THREE.Vector3();
 	const self = {
 		object,
-		/**
-		 * Asks (with `ask`) for the near builds of the coats with an actor within `near` (and a margin) of these points;
-		 * answers the builds they need. @param {{ x: number, y?: number, z: number, frustum?: any }[]} points @param {boolean} [ask]
-		 */
+		/** The near builds these points need, asked for with `ask`. @param {{ x: number, y?: number, z: number, frustum?: any }[]} points @param {boolean} [ask] */
 		want(points, ask = true) {
 			const r2 = (near * 1.5) ** 2, s2 = seen * seen;
 			farOf.fill(false);
@@ -247,8 +241,7 @@ export function crowd(refs, counts, o) {
 			n = 0;
 		},
 		/**
-		 * One of them: its coat, middle, facing (and lean, from afar), squared distance, its pose if near enough to be
-		 * rigged (asked only then), and its size against the build.
+		 * One of them, its pose asked only if near enough to be rigged.
 		 * @param {number} coat @param {number} x @param {number} y @param {number} z @param {number} yaw @param {number} d2
 		 * @param {(() => Pose) | undefined} pose @param {number} [pitch] @param {number} [roll] @param {number} [size]
 		 */
@@ -316,10 +309,7 @@ export function crowd(refs, counts, o) {
 	return self;
 }
 
-/**
- * One rigged actor's builds for a world placing its copies itself (an ant hill): its far shape (coarse, at rest) and,
- * once here, copies of its near build to pose, with its clips. @param {string} ref @param {number} [detail]
- */
+/** One rigged actor's builds for a world placing its copies itself (an ant hill). @param {string} ref @param {number} [detail] */
 export function actor(ref, detail = FAR) {
 	/** @type {{ far: Shape | null, model: THREE.Object3D | null, clips: Record<string, Clip> | undefined, ready: Promise<void>, copy: () => { object: THREE.Object3D, pose: (p: Pose) => void } }} */
 	const out = { far: null, model: null, clips: undefined, ready: Promise.resolve(), copy: () => ({ object: new THREE.Group(), pose: () => {} }) };
