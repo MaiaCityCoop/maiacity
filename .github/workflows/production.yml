@@ -128,8 +128,7 @@ jobs:
           # play's files live in the bucket (blobs/<xx>/<hash>), not on the server's disk
           S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
           S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
-          # Accept ships it (play/api/src/ship.ts): play merges an accepted intent's pull request and follows it to
-          # production with this fine-grained token (deploy/README.md); without it, Accept on code says so
+          # Accept ships it: play merges an accepted intent's pull request with it (play/api/src/ship.ts, deploy/README.md)
           SHIP_TOKEN: ${{ secrets.SHIP_TOKEN }}
           SHIP_REPO: ${{ github.repository }}
         run: |

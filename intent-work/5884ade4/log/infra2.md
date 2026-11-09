@@ -41,7 +41,7 @@ scratchpad, `infra2/`).
 - Same commands: backup.sh (bucket, folder), restore.sh (check latest and by name, rollback both ways), server-care.sh
   clean (bucket, folder, and with the store missing the file, so it walks the older snapshots: a new stand-in case)
   and server-up.sh (a new stand-in run, `fake/up.sh`: its calls and the play.env it writes): identical. (The stand-in's
-  log orders `openssl` and `sudo tee` of one pipe as they happen to run; normalised.)
+  log may order `openssl` and `sudo tee` of one pipe either way, as they happen to run.)
 - Left: play/api (`blobs.ts`' comments, `bucket.test.ts`) and restore.yml's header name the prefix in words; the image
   takes it from play.env.
 
@@ -107,7 +107,8 @@ scratchpad, `infra2/`).
   use it instead of spelling `maia-city-caddy` three times in a quoted one-liner.
 - Same: the step, old and new, its wait failing (stand-in curl), with a stand-in ssh running the command in a fake app
   folder and a stand-in docker (`infra2/caddy-same.sh`): the same three docker calls, the same output, exit 1.
-  actionlint clean.
+  actionlint clean. The heredoc's four lines took production.yml to 201: the SHIP_TOKEN comment is one line now
+  (199, the measure's bound 200).
 
 ## 11. Tests no longer restate the values said once (re-infra#11)
 
