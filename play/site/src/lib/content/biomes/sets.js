@@ -1,5 +1,5 @@
 // Made by tools/ground-sets/make.mjs: do not edit by hand. Each surface's scanned set (CC0), its three maps as KTX2
-// files by their BLAKE3 hash (the colour at 2048 and 1024 px, the normal and AO/roughness at 1024) (play's files, ../../kernel/files.js; play/media/<hash>.ktx2), its real
+// files by their BLAKE3 hash (the colour at 2048 and 1024 px, the normal and AO/roughness at 1024) (play's files, $lib/kernel/files.js; play/media/<hash>.ktx2), its real
 // size (m) and its colour's mean (linear).
 /** @type {{ surface: string, id: string, source: string, by: string, licence: 'CC0', size: number, mean: number[], maps: { albedo: Record<2048 | 1024, string>, normal: Record<1024, string>, ar: Record<1024, string> } }[]} */
 export const SETS = [
