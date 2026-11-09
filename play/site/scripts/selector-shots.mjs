@@ -223,7 +223,7 @@ for (const site of sites) {
 	const png3 = `${out}/${site.name}-sandbox-3-open.png`;
 	await p3.screenshot({ path: png3 });
 	const t3 = await p3.evaluate(() => { const t = window.__tri.frames.map((x) => x[1]).filter((x) => x > 0).sort((a, b) => a - b); return Math.round(t[t.length >> 1] ?? 0); });
-	results.push({ site: site.name, world: 'sandbox-3', view: 'open', tris: t3, meter: meter3, png: png3 });
+	results.push({ site: site.name, world: 'sandbox-3', view: 'open', tris: t3, meter: meter3, backend: await p3.evaluate(() => window.__rendererBackend ?? 'webgl'), png: png3 });
 	console.log(`${site.name} sandbox-3 open: ${t3.toLocaleString('en')} tris drawn`);
 	await ctx3.close();
 }
