@@ -10,6 +10,8 @@ import { buildVillage } from './scene';
 export async function mountVillage(stage: HTMLDivElement, onProgress: (label: string) => void, village: Village) {
 	onProgress('Laying out the seven hexes');
 	const world = createStage(stage, { far: 6000 });
+	// nothing drawn before the renderer may draw (WebGPU's device asked for, intent c1bee1f8; on WebGL at once)
+	await world.ready;
 	const { renderer, scene, camera } = world;
 	const sky = createSky(renderer, scene, { shadowReach: 1600, fog: { far: 5200 }, map: true });
 	onProgress('Painting the land and raising the domes');
