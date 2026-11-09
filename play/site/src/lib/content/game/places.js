@@ -68,8 +68,8 @@ export const PLACES = [
 	},
 	{
 		id: "sandbox-2",
-		route: "/app/games/sandbox-2/",
-		label: "Sandbox 2",
+		route: "/sandbox-7/",
+		label: "Sandbox 7",
 		note: "The planet and its first cities",
 		gameOrder: 1,
 		navigation: {
@@ -82,7 +82,7 @@ export const PLACES = [
 		film: {
 			id: "sandbox-2",
 			order: 1,
-			label: "Sandbox 2 · the planet",
+			label: "Sandbox 7 · the planet",
 			areas: [
 				"planet"
 			],
