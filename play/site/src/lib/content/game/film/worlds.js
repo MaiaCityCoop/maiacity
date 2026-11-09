@@ -1,24 +1,19 @@
-// THE WORLDS A SHOT CAN BE IN — every world the film camera can shoot, and where its page is: the one registry of them
-// (Samuel 2026-10-18: every world built from one pattern), read by a shot's validation (./shot.js). A shot names its
-// world (`spec.world.sandbox`) by the sandbox's UUID (Samuel 2026-11-04: every reference is a UUID or a hash), or
-// `worlds` for a world of play's asset group worlds, named in turn by its asset's UUID and its version's recipe hash;
-// and, where a world has more than one place, which (`world.area`; its first is the default). A world's page hands it
-// to the film camera (../../sandbox-kit/film.js `connectFilm`).
-// Plain JavaScript, shared by the browser and the scripts.
+// THE WORLDS A SHOT CAN BE IN — every world the film camera can shoot and its page, the one registry (Samuel 2026-10-18:
+// every world from one pattern), read by ./shot.js. A shot names its world (`spec.world.sandbox`) by the sandbox's UUID
+// (Samuel 2026-11-04: every reference a UUID or a hash), or `worlds` for play's asset group worlds (then its asset's
+// UUID and version's recipe hash), and its place (`world.area`, the first by default). A world's page hands it to the
+// film camera (../../sandbox-kit/film.js `connectFilm`). Plain JavaScript, shared by the browser and the scripts.
 import { SANDBOX } from '../../../kernel/sandboxes.js';
 
 /**
  * @typedef {string} Sandbox  a world as a shot names it (`world.sandbox`): a sandbox's UUID, or `worlds`
  * @typedef {{ label: string, range: [number, number], unit?: string }} Channel
- *   one way a part of a world moves (a van along its road, a door open): what it is called, the values it takes (a
- *   shot's are kept to them), and what they are in
+ *   one way a world's part moves (a van along its road, a door): its name, the values it takes (a shot's kept to them), its unit
  * @typedef {{ id: string, label: string, channels: Record<string, Channel> }} Part
- *   a moving part of a world a shot can move (`spec.parts`): a vehicle, an actor, a machine, a door. Left out of a
- *   shot, a part moves as the world moves it itself
+ *   a moving part a shot can move (`spec.parts`): a vehicle, actor, machine, door; left out, it moves as the world moves it
  * @typedef {{ label: string, route: string, areas: string[] | null, areaNames?: Record<string, string>, domes?: number, sets?: string[], parts: Part[] }} World
- *   label: its name; route: its page (from the site's root); areas: the places a shot can be in (the first is the
- *   default), or null for a world that is one place, and what each is called (areaNames); domes: how many domes a
- *   shot can name (world.dome); sets: the sets a shot can build into it (world.props); parts: its moving parts
+ *   label; route: its page (from the site's root); areas: the places a shot can be in (first the default), null for one
+ *   place, named by areaNames; domes: how many a shot can name (world.dome); sets: world.props; parts: its moving parts
  */
 
 /** a dome cell's: thirteen domes, the tired land's set */
@@ -45,10 +40,7 @@ export const isWorld = (id) => typeof id === 'string' && Object.hasOwn(WORLDS, i
 /** Where a shot is when it names no world: Sandbox 1. */
 export const DEFAULT_SANDBOX = SANDBOX.one;
 
-/**
- * The film page of a shot's world, from the site's root (prefix the base path).
- * @param {{ sandbox?: string, area?: string, asset?: string, recipe?: string }} world
- */
+/** The film page of a shot's world, from the site's root (prefix the base path). @param {{ sandbox?: string, area?: string, asset?: string, recipe?: string }} world */
 export function filmPath(world) {
 	const sandbox = world.sandbox ?? DEFAULT_SANDBOX;
 	// a world of play's asset group worlds: its page in film mode, the world by its asset's UUID and recipe hash
@@ -59,8 +51,7 @@ export function filmPath(world) {
 }
 
 /**
- * Which world a film page is, from its address: what `filmPath` made.
- * @param {string} href
+ * Which world a film page is, from its address (what `filmPath` made). @param {string} href
  * @returns {{ sandbox: string, area?: string, asset?: string, recipe?: string } | null}
  */
 export function worldOfPath(href) {

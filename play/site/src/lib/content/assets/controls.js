@@ -1,10 +1,8 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * An asset's controls played (a tent pitched, a machine drawn apart) from the numbers the box wrote down
- * (./box/bake.js), alike on its own page and in the renderer (./render/index.js). Where several move one part (a
- * machine's explode and its build), those at rest are played first and the last one moved has the last word. A copy of
- * a build shares its meshes and materials (`clone`): `own` gives it its own of those its controls change, so one copy
- * pitched does not pitch them all.
+ * An asset's controls (a tent pitched, a machine drawn apart) played from the box's numbers (./box/bake.js), alike on its
+ * page and in the renderer (./render/index.js). Several moving one part: those at rest first, the last moved has the last
+ * word. A copy shares meshes and materials (`clone`): `own` gives it its own of those its controls change.
  */
 import * as THREE from 'three';
 import { LIGHT, MAT, putLight, putLook } from './box/bake.js';
@@ -29,10 +27,8 @@ export const walk = (root) => {
 };
 
 /**
- * The controls of an object as the page rebuilt it, or of a copy of that object (`clone`: the same tree, walked the
- * same), ready to play.
- * @param {THREE.Object3D} root
- * @param {object[]} [controls] its controls (`root.userData.controls`; a copy hands the original's)
+ * The controls of an object as rebuilt, or of a `clone` of it (the same tree, walked the same), ready to play.
+ * @param {THREE.Object3D} root @param {object[]} [controls] its controls (`root.userData.controls`; a copy hands the original's)
  * @param {{ own?: boolean }} [o] `own`: a copy's meshes and materials its controls change made its own first
  */
 export function poserOf(root, controls = root.userData.controls ?? [], { own = false } = {}) {

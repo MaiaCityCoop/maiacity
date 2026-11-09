@@ -1,8 +1,7 @@
 /**
- * AN INTENT'S DETAIL, BY STAGE (intent bb3b0773, Samuel 2026-11-07; play/SPEC.md §4.12 *The detail, by stage*): what a
- * person needs at the moment the intent is in, on top (what it is, where it stands, the one decision its stage asks for),
- * and everything else kept whole in tabs. One pure function, `detailOf`, decides it for every stage; ./IntentDetail.svelte
- * only draws what it says (no `{#if stage === …}` chain decides the layout). Nothing on top is a run command, a hash, a
+ * AN INTENT'S DETAIL, BY STAGE (intent bb3b0773, Samuel 2026-11-07; play/SPEC.md §4.12 *The detail, by stage*): on top
+ * what a person needs now (what it is, where it stands, the one decision its stage asks), all else whole in tabs. One
+ * pure function, `detailOf`, decides it; ./IntentDetail.svelte only draws it. Nothing on top is a run command, a hash, a
  * check's evidence or the brief: those are the agents', in the tabs.
  */
 import type { Check, Dep, IntentKind, IntentStage, PrSeen, Result, Ship, ShipStep, Spec, Sub } from '$wire';

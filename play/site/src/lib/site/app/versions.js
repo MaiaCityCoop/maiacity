@@ -1,7 +1,6 @@
 /*
- * VERSIONS of what is still versioned in code (the biomes, $lib/content/biomes): each item carries a version number and
- * its history, the latest built by its own builder, an older one by the frozen builder its history names. Everything
- * began at v1 (5 October 2026). Assets are versioned on play (play/SPEC.md §4.15), not here.
+ * VERSIONS of what is still versioned in code (the biomes): each item's history, the latest built by its own builder, an
+ * older one by the frozen builder its history names; all began at v1 (5 October 2026). Assets are on play (§4.15).
  */
 
 /** @typedef {{ v: number, date: string, note: string }} Change one version: its number, when, what changed */
@@ -14,12 +13,9 @@
 const FIRST = /** @type {Change} */ ({ v: 1, date: '2026-10-05', note: 'First version' });
 
 /**
- * An item's versions, oldest first: its history, the latest built by `current`. A history lists every version; the
- * ones before the latest bring their own (frozen) builders. With no history the item is at v1.
- * @template B
- * @param {B} current the item's builder today
- * @param {(Change & { build?: B })[]} [history]
- * @returns {Version<B>[]}
+ * An item's versions, oldest first, the latest built by `current`; earlier ones bring their own frozen builders; no
+ * history: v1. @template B @param {B} current the item's builder today
+ * @param {(Change & { build?: B })[]} [history] @returns {Version<B>[]}
  */
 function versionsOf(current, history = [FIRST]) {
 	const sorted = [...history].sort((a, b) => a.v - b.v);
@@ -30,10 +26,8 @@ function versionsOf(current, history = [FIRST]) {
 }
 
 /**
- * Every item of a list with its versions: `versions` from its `HISTORY` entry (by id) and its builder (`key`), and
- * `version` its latest number.
- * @template {{ id: string }} T
- * @param {T[]} items @param {keyof T} key @param {Record<string, (Change & { build?: any })[]>} [history]
+ * Every item with its `versions` (its `HISTORY` entry by id, its builder `key`) and `version`, its latest number.
+ * @template {{ id: string }} T @param {T[]} items @param {keyof T} key @param {Record<string, (Change & { build?: any })[]>} [history]
  * @returns {(T & { versions: Version<any>[], version: number })[]}
  */
 export function versioned(items, key, history = {}) {
