@@ -1,7 +1,7 @@
 /*
  * Our assets on the line: a product stage drawn as one of our assets by its slot of the Factories' pins (read from
  * play's database before anything is built; 2026-11-03), and the Euro pallets the raw material stacks on (./pallet.js),
- * each built as any asset is ($lib/content/assets/load.js): a stage's asset as one geometry and material, every finished
+ * each built like any asset ($lib/content/assets/load.js): a stage's asset as one geometry and material, every finished
  * machine one instance. What could not be built is said in `missing`, the stage's `fallback` shape drawn instead.
  */
 import { SANDBOX } from '$lib/kernel/sandboxes.js';
