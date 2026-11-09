@@ -12,7 +12,7 @@ import { UUID } from "./kit/uuid";
 import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
 import { asDoc, asStory, docIdOf, ensureStoryDoc, STORY_SCHEMA, storyDocAt, versionAtFrontiers, type Clip, type StoryBody, type Track } from "./storydocs";
-import { authorOf, overlap } from "./kinds";
+import { authorOf, iso, openVariant, overlap } from "./kinds";
 import { storyListed } from "./listed";
 import { fileTypes, keepFile as keepOwned } from "./owners";
 import { unreadable } from "./assetdocs";
@@ -74,7 +74,6 @@ const IMAGES: { type: string; is: (b: Uint8Array) => boolean }[] = [
   { type: "image/webp", is: (b) => String.fromCharCode(...b.slice(0, 4)) === "RIFF" && String.fromCharCode(...b.slice(8, 12)) === "WEBP" },
 ];
 
-const iso = (d: Date | string) => new Date(d).toISOString();
 const shotsOf = (b: StoryBody | undefined) => b?.tracks?.find((t) => t.kind === "shots")?.clips ?? [];
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
@@ -798,15 +797,6 @@ async function keepVersion(q: Queryable, v: { id: string; story: string; parents
 
 // content-addressed as an asset version's id is (./versions.ts, play/SPEC.md §4.3)
 const versionIdOf = (story: string, parents: string[], title: string, body: StoryBody) => storyVersionId({ story, parents, title, body });
-
-async function openVariant(tx: Queryable, docId: string, story: string, v: unknown): Promise<{ id: number; seed: docs.Frontiers }> {
-  const n = Number(v);
-  if (!Number.isInteger(n) || n < 1) throw new HttpError("An intent variant is named by its number (doc_edit gives it).");
-  const { rows } = await tx.query<{ id: string; status: string; seed: docs.Frontiers }>(`SELECT id, status, seed FROM play.doc_variants WHERE id = $1 AND doc_id = $2 AND type = 'intent'`, [n, docId]);
-  if (!rows[0]) throw new HttpError(`Story ${story} has no intent variant ${n}.`, 404);
-  if (rows[0].status !== "open") throw new HttpError(`Variant ${n} of ${story} was ${rows[0].status === "proposed" ? "proposed already: it is decided as it was proposed. Start a new variant" : rows[0].status}.`, 409);
-  return { id: n, seed: rows[0].seed };
-}
 
 /** ./versioned.ts's write hook: propose_story's ops or a whole new state, the timeline checked whole */
 export async function storyEdit(tx: Queryable, story: string, cur: any, p: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {

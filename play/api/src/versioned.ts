@@ -13,7 +13,7 @@ import { asOne, closeWork, heldOf, NO_INTENT, stageAfter, workOf } from "./held"
 import { archiveAsAuthor, byOf, getIntent, gate, mustDecide, noSuchIntent, putAtProposal, settle } from "./intents";
 import { retireAccepted, retiredOf } from "./retire";
 import { piecesOf } from "./pieces";
-import { authorOf, docRef, iso, kindNamed, kindOfDoc, kindOfWork, kinds, named, namesOf, overlap, qi, resolveEdits, seen, syncKinds, versionAt, type Ctx, type Input, type Kind, type Verdict } from "./kinds";
+import { authorOf, docRef, iso, openVariant, kindNamed, kindOfDoc, kindOfWork, kinds, named, namesOf, overlap, qi, resolveEdits, seen, syncKinds, versionAt, type Ctx, type Input, type Kind, type Verdict } from "./kinds";
 
 const DOC_ADMINS = "A document's versions, edits and variants are for Maia City's admins, for now.";
 function text(v: unknown, what: string, most: number): string {
@@ -179,15 +179,6 @@ async function writeOf(q: Queryable, k: Kind, uuid: string, cur: any, input: Inp
     return { target: { ...(input.whole as object), ...(cur && cur.schema !== undefined ? { schema: cur.schema } : {}) } };
   }
   return { edits: resolveEdits(cur, input.edits) };
-}
-
-async function openVariant(q: Queryable, docId: string, uuid: string, v: unknown): Promise<{ id: number; seed: docs.Frontiers; intent: string | null }> {
-  const n = Number(v);
-  if (!Number.isInteger(n) || n < 1) throw new HttpError("An intent variant is named by its number (doc_edit gives it).");
-  const { rows } = await q.query<{ status: string; seed: docs.Frontiers; type: string; intent_id: string | null }>(`SELECT status, seed, type, intent_id FROM play.doc_variants WHERE id = $1 AND doc_id = $2`, [n, docId]);
-  if (!rows[0] || rows[0].type !== "intent") throw new HttpError(`${uuid} has no intent variant ${n}.`, 404);
-  if (rows[0].status !== "open") throw new HttpError(`Variant ${n} of ${uuid} was ${rows[0].status === "proposed" ? "proposed already: it is decided as it was proposed. Start a new variant" : rows[0].status}.`, 409);
-  return { id: n, seed: rows[0].seed, intent: rows[0].intent_id };
 }
 
 /** no edit without an intent (intent 847c5d38) */

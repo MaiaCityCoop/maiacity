@@ -45,13 +45,13 @@ const LIBRARY_ARG = {
   description: "optional: the library it goes into: 'coop' (Maia City's, seen by every member; the default) or 'personal' (your operator's own, private to them: to anyone else it is as a file never kept), for their own character's photos and sheet",
 };
 import { HttpError } from "./kit/errors";
+import { HASH } from "./kit/hash";
 import type { Formats, Tool, ToolCtx } from "./mcptool";
 import { intentTools } from "./intenttools";
 import { artifactTools } from "./artifacttools";
 import { answerOf, statusOf } from "./fault";
 
 const PROTOCOL = "2025-06-18";
-const HASH = /^[0-9a-f]{64}$/;
 
 /** what each kind's documents hold, as their schemas say it (./kinds.ts formatOf), read for every tools/list */
 const formatsOf = async (q: Queryable): Promise<Formats> => ({

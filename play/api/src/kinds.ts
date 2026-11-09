@@ -260,3 +260,13 @@ export function workSql() {
   const what = KINDS.length ? `CASE split_part(iv0.doc_id, ':', 1) ${KINDS.map((k) => `WHEN '${k.prefix}' THEN '${k.label}'`).join(" ")} END` : "NULL";
   return { label, group, what };
 }
+
+/** an open intent variant of document `docId` by its number, its seed and its intent (doc_edit and propose name it) */
+export async function openVariant(q: Queryable, docId: string, uuid: string, v: unknown): Promise<{ id: number; seed: docs.Frontiers; intent: string | null }> {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1) throw new HttpError("An intent variant is named by its number (doc_edit gives it).");
+  const { rows } = await q.query<{ status: string; seed: docs.Frontiers; type: string; intent_id: string | null }>(`SELECT status, seed, type, intent_id FROM play.doc_variants WHERE id = $1 AND doc_id = $2`, [n, docId]);
+  if (!rows[0] || rows[0].type !== "intent") throw new HttpError(`${uuid} has no intent variant ${n}.`, 404);
+  if (rows[0].status !== "open") throw new HttpError(`Variant ${n} of ${uuid} was ${rows[0].status === "proposed" ? "proposed already: it is decided as it was proposed. Start a new variant" : rows[0].status}.`, 409);
+  return { id: n, seed: rows[0].seed, intent: rows[0].intent_id };
+}

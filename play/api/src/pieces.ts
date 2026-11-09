@@ -11,14 +11,12 @@
 import { keepFile } from "./owners";
 import type { BlobStore } from "./blobs";
 import { keyOf } from "./blobs";
-import { hashText } from "./kit/hash";
+import { HASH, hashText } from "./kit/hash";
 import type { Queryable } from "./kit/pg";
 import { readDoc } from "./docs";
 import { UUID } from "./kit/uuid";
 import { HttpError } from "./kit/errors";
 
-/** a piece's name in a require: its BLAKE3 hash */
-export const PIECE = /^[0-9a-f]{64}$/;
 /** the longest chain of pieces a recipe may require: its own piece and three more beneath it */
 export const MOST_DEEP = 4;
 /** what a piece may require besides pieces: three.js and its addons, as the frozen engines hold them */
@@ -27,9 +25,9 @@ const THREE = /^three(\/addons\/[A-Za-z0-9_./-]+\.js)?$/;
 /** everything a code requires, by name, in order */
 export const requiresOf = (code: string): string[] => [...new Set([...code.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]))];
 /** the pieces a code requires itself, by hash */
-export const piecesOf = (code: string): string[] => requiresOf(code).filter((n) => PIECE.test(n));
+export const piecesOf = (code: string): string[] => requiresOf(code).filter((n) => HASH.test(n));
 /** the modules of the engine a code requires (all but its pieces) */
-export const libsOf = (code: string): string[] => requiresOf(code).filter((n) => !PIECE.test(n));
+export const libsOf = (code: string): string[] => requiresOf(code).filter((n) => !HASH.test(n));
 
 export class PieceError extends HttpError {}
 
@@ -41,7 +39,7 @@ export function pieceProblems(source: string, unreadable: (s: string) => string 
   if (!/\bmodule\.exports\b|\bexports\.[A-Za-z_$]/.test(source)) out.push("$.source: a piece is a CommonJS module: it sets module.exports (or exports.<name>)");
   const why = unreadable(source);
   if (why) out.push(`$.source: not readable: ${why}`);
-  const other = requiresOf(source).filter((n) => !PIECE.test(n) && !THREE.test(n));
+  const other = requiresOf(source).filter((n) => !HASH.test(n) && !THREE.test(n));
   if (other.length) out.push(`$.source: a piece requires only three.js, its addons and other pieces by their hashes, not ${other.slice(0, 3).join(", ")}`);
   return out;
 }
