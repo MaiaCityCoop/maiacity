@@ -1,9 +1,8 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * Many of one kind of rigged actor in a world (a flock of hens, a hive's bees, a town's people), each built in the asset
- * box like any other asset (../load.js): those near the eye as rigged copies posed from the clips the box wrote down
- * (../clips.js), the rest as instances of a coarser build at rest. The actor's own code never runs in the page.
- * Each frame: `begin()`, `put()` every one of them, `end()`.
+ * Many of one kind of rigged actor in a world (hens, bees, people), each built in the asset box (../load.js): near the
+ * eye rigged copies posed from the box's clips (../clips.js), the rest instances of a coarser build at rest; the actor's
+ * code never runs in the page. Each frame: `begin()`, `put()` every one, `end()`.
  */
 import * as THREE from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
@@ -34,10 +33,8 @@ const loaderOf = () =>
 
 const loads = new Map();
 /**
- * After how long (ms) a build that failed only in passing (`Unread`: its recipe's proof or file wasn't handed over,
- * as the vault's server restarted) is forgotten, so the next view that needs it asks again: it comes once the server
- * is back, never missing for as long as the page is open (the village's animals, 2026-10-20). One that failed for good
- * stays failed.
+ * After how long (ms) a build that failed only in passing (`Unread`: the vault's server restarted) is forgotten, so the
+ * next view asks again (the village's animals, 2026-10-20); one that failed for good stays failed.
  */
 const AGAIN_AFTER = 60_000;
 /** a build of an actor, once: its ref at a detail (1: as it is) @param {string} ref @param {number} detail */
@@ -72,8 +69,7 @@ const done = new Set();
 /** every crowd made, held weakly (a dome's crowds go with it): what `wantNear` asks */
 const crowds = new Set();
 /**
- * The builds the actors these views will see need, asked for now (a shot asks for what its camera sees before it is
- * drawn; `settled` then waits for it).
+ * Asks now for the builds the actors these views will see need (a shot before it is drawn; `settled` then waits).
  * @param {{ x: number, y?: number, z: number, frustum?: { containsPoint(p: { x: number, y: number, z: number }): boolean } | null }[]} points
  */
 export function wantNear(points) {
@@ -81,9 +77,8 @@ export function wantNear(points) {
 	return Promise.all(labels.map((l) => loads.get(l))).then(() => undefined);
 }
 /**
- * Whether every build the actors these views will see need is here (or failed), asking nothing: a world that holds a
- * shot only once its actors are built says so with it (the cut then never waits for one).
- * @param {Parameters<typeof wantNear>[0]} points
+ * Whether those builds are all here (or failed), asking nothing: a world holding a shot until its actors are built says
+ * so with it. @param {Parameters<typeof wantNear>[0]} points
  */
 export function nearReady(points) {
 	return needed(points, false).every((l) => done.has(l) || !loads.has(l));
@@ -123,15 +118,13 @@ const meshOf = (root) => {
  * @param {{
  *   near: number, max: number, scale?: number, lift?: number, shadows?: boolean, detail?: number, seen?: number,
  *   farShape?: (coat: number) => { geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[] }
- * }} o `near`: up to how far (m) from the eye they are rigged; `max`: how many at most at once; `scale`: how big they
- *   are against the build (a bee drawn larger than life, to be seen); `lift`: how high the build's middle stands over
- *   its origin (`put` gives the middle's height); `shadows`: whether they cast them; `detail`: how coarse from afar
- *   (`FAR`); `farShape`: what stands in for them from afar instead of a coarser build (a bee: a striped speck)
+ * }} o `near`: how far (m) from the eye they are rigged; `max`: how many at once; `scale`: against the build (a bee drawn
+ *   larger, to be seen); `lift`: the build's middle over its origin; `shadows`; `detail`: how coarse from afar (`FAR`);
+ *   `farShape`: what stands in from afar instead of a coarser build (a bee: a striped speck)
  */
 export function crowd(refs, counts, o) {
 	const { near, max, scale = 1, lift = 0, shadows = true, detail = FAR, seen = SEEN } = o;
-	// the boxes and the recipes, made ready now while the world loads: the first build asked for (the first shot's)
-	// finds them warm, and a failure is said there, where a build is asked for
+	// the boxes and recipes made ready while the world loads, so the first shot's build finds them warm
 	void loaderOf().catch(() => {});
 	const object = new THREE.Group();
 	const far = counts.map(() => null);
@@ -157,9 +150,9 @@ export function crowd(refs, counts, o) {
 			const view = got.obj.userData.view;
 			models[c] = got.obj;
 			clips[c] = playerOf(view?.clips?.motion, view?.clips?.bones ?? []);
-			// its first copy made now, hidden, so that a world's warming draws it out of sight before a shot shows it: made only
-			// on the frame one was first wanted, the cut sent the GPU the coat's buffers and shaders on its own first frame (the
-			// village's sunrise: six hens and a carp, 7 MB; Samuel 2026-10-21, "small hickups between cuts")
+			// its first copy made now, hidden, so a world's warming draws it before a shot does: made on the frame first
+			// wanted, the cut sent the GPU its buffers and shaders (the village's sunrise: six hens and a carp, 7 MB;
+			// Samuel 2026-10-21, "small hickups between cuts")
 			rigged(c, 0).copy.visible = false;
 		});
 	};
@@ -201,9 +194,8 @@ export function crowd(refs, counts, o) {
 		return pool[k];
 	};
 
-	// a frame's actors, written over each frame into records kept from the one before (a crowd of thousands made a
-	// record for each of them every frame, garbage the page's collections stopped frames to sweep): `n` of them this
-	// frame, `lastN` the frame before (where its actors stood: what `want` measures from)
+	// a frame's actors, written into records kept from the frame before (a record each per frame was garbage whose
+	// collection stopped frames): `n` this frame, `lastN` the frame before (what `want` measures from)
 	/** @type {{ coat: number, x: number, y: number, z: number, yaw: number, pitch: number, roll: number, d2: number, size: number, pose: (() => Pose) | undefined, chosen: boolean }[]} */
 	const entries = [];
 	let n = 0, lastN = 0;
@@ -214,9 +206,8 @@ export function crowd(refs, counts, o) {
 	const self = {
 		object,
 		/**
-		 * The near builds of the coats with an actor within `near` (and a margin, they move) of any of these points,
-		 * asked for when `ask` (`wantNear`); answers the builds they need.
-		 * @param {{ x: number, y?: number, z: number, frustum?: any }[]} points @param {boolean} [ask]
+		 * Asks (with `ask`) for the near builds of the coats with an actor within `near` (and a margin) of these points;
+		 * answers the builds they need. @param {{ x: number, y?: number, z: number, frustum?: any }[]} points @param {boolean} [ask]
 		 */
 		want(points, ask = true) {
 			const r2 = (near * 1.5) ** 2, s2 = seen * seen;
@@ -256,9 +247,8 @@ export function crowd(refs, counts, o) {
 			n = 0;
 		},
 		/**
-		 * one of them: its coat, where its middle is, which way it faces (and leans, drawn from afar), how far from the
-		 * eye (squared), its pose if it is near enough to be rigged (asked only of those: one further off than `near`
-		 * may pass none), and its size against the build
+		 * One of them: its coat, middle, facing (and lean, from afar), squared distance, its pose if near enough to be
+		 * rigged (asked only then), and its size against the build.
 		 * @param {number} coat @param {number} x @param {number} y @param {number} z @param {number} yaw @param {number} d2
 		 * @param {(() => Pose) | undefined} pose @param {number} [pitch] @param {number} [roll] @param {number} [size]
 		 */
@@ -279,8 +269,7 @@ export function crowd(refs, counts, o) {
 		},
 		end() {
 			lastN = n;
-			// a coat with an actor in sight: its coarse build asked for; near the eye: its rigged one (drawn coarse until
-			// it is here); the nearest `max` of those whose rigged build is here, rigged
+			// a coat in sight: its coarse build asked for; near: its rigged one (coarse until here); the nearest `max` rigged
 			const near2 = near * near, seen2 = seen * seen;
 			close.length = 0;
 			for (let i = 0; i < n; i++) {
@@ -328,9 +317,8 @@ export function crowd(refs, counts, o) {
 }
 
 /**
- * One rigged actor's builds for a world that places its copies itself (an ant hill on the forest floor): its far
- * shape (the coarse build's mesh at rest) and, once here, a copy of its near build to pose, with its clips.
- * @param {string} ref @param {number} [detail]
+ * One rigged actor's builds for a world placing its copies itself (an ant hill): its far shape (coarse, at rest) and,
+ * once here, copies of its near build to pose, with its clips. @param {string} ref @param {number} [detail]
  */
 export function actor(ref, detail = FAR) {
 	/** @type {{ far: Shape | null, model: THREE.Object3D | null, clips: Record<string, Clip> | undefined, ready: Promise<void>, copy: () => { object: THREE.Object3D, pose: (p: Pose) => void } }} */
