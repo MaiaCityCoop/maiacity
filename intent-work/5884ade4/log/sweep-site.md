@@ -13,3 +13,8 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
    `content/game/hash.js`, a re-export of `kernel/hash.js`; they import the kernel now. The re-export stays for the
    held `stories/compose.ts`, `stories/live-runtime.ts`, `scripts/live-runtime.ts` and their tests. Pinned: the same
    functions (one `export *`); gate site, `stories/{inputs,world}.test.ts`.
+2. **The intents' modal state to `site/app`** (layers: `site/app → site/intents`, and with it `site/intents →
+   content/worlds`). `intents.svelte.ts` holds only whether the board's modal is open and its focus: the nav pill's
+   state, as `pill.svelte.js` and `back.svelte.js` beside it. In `site/app` the stabler folder no longer leans on the
+   board's; `site/intents` rises to I=0.73, above `content/worlds` (0.67), so BuildView's and IntentDetail's
+   WorldStage are no longer an upward import. Pinned: the same module, moved; gate site, `src/lib/site` tests (56).

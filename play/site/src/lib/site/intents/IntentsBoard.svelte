@@ -36,7 +36,7 @@
 	import { api } from '$lib/api';
 	import { isAdmin } from '$lib/session.svelte';
 	import { wayBack } from '$lib/site/app/back.svelte.js';
-	import { intentsModal } from './intents.svelte';
+	import { intentsModal } from '../app/intents.svelte';
 	import { initialsOf, shortWhen } from '$lib/format';
 	import IntentDetail from './IntentDetail.svelte';
 	import WorkReview, { type Opened } from './WorkReview.svelte';

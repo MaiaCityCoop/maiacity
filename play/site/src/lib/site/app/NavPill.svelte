@@ -26,7 +26,7 @@
 	import { back, upFrom } from './back.svelte.js';
 	import { pill } from './pill.svelte.js';
 	import { shaped } from './shapes.js';
-	import { intentsModal, toggleIntents } from '../intents/intents.svelte';
+	import { intentsModal, toggleIntents } from './intents.svelte';
 
 	/** @type {{ founder: { number: number } | null, name?: string, onsignout?: () => void, intents?: boolean }} the
 	 *  person signed in: their founder number where they came from legacy's founders, their name, how they sign out, and
