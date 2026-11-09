@@ -126,3 +126,6 @@ name and body, `// the next thing` lines.
 24. **`kernel/sandbox`** (8): `frame.js`'s rooms and failures said once (host.js says them for the box), the "logic
     host" (gone) no longer named; two docs naming `start` and `stop` again. The browser's guarantees (opaque origin,
     a blob worker inheriting its maker's CSP, Safari's sandboxed frame on the page's thread) kept.
+25. **`content/factories`** (30, our files only): the headers of `lifetrac-kit.js` (its list of the machines defined
+    below), `assets.js` and `index.js`, keeping the dates, Samuel's 2026-11-04 decision and the OSE v25 source. AirSup's
+    `world.js`, `kit.js` and `des.js` are kept "line for line theirs" (their header says so; MIT): not touched.

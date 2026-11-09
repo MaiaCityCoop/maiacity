@@ -1,28 +1,10 @@
 // @ts-nocheck — plain JS, in the kit's own style (./kit.js)
 /*
- * THE LIFETRAC LINE'S MACHINES AND WHAT IT CARRIES — our additions to the factory kit (./kit.js), at their real size in
- * metres, for the line that builds the LifeTrac (play/api/import/factories/lifetrac-line/line.js). AirSup's kit machines are readable stand-ins
- * of two to three metres; the machines a tractor line needs are bigger, and the line is fully automated, so these
- * have robots where theirs have people:
- *
- *   fiberlaser   a 3 × 1.5 m fibre laser with its shuttle table and its load-and-sort tower (variant combo: a rotary
- *                tube axis beside it, the Power Cube cell's)
- *   tubelaser    a tube laser with its bundle loader and robot unloading, inline
- *   angleline    a CNC angle line: punch heads, marking, shear and a stacking robot, inline
- *   weldcell     two welding robots on a two-station positioner with a handling robot, in a fence (variant small)
- *   asmcell      a robotic assembly cell the tractor stands in on its skillet: two robots with nutrunners and, for
- *                heavy parts, an overhead gantry (variants bolt, gantry, cube, fill, audit)
- *   booth        a powder booth with two painting robots behind glass, inline (variant small)
- *   asrs         an automated store with its stacker crane, a pick port and a kitting robot
- *   testcage     the end-of-line test: a rolling road in a cage, a test weight, screens
- *   saw          a CNC cold saw with its roller tables, inline
- *
- * And the shapes the line carries between its stations (`K.shapes`, through the kit's `add`): sheets, kit carts,
- * stillages, totes, the wheel kit, the Power Cube, the valve block, hose reels and hoses, the cylinder rack, wire
- * spools, the controller, and the LifeTrac itself as it grows down the line (`lifetrac`, `upto` the step it has
- * reached: frame, wheels, cube, hydraulics, arms, cylinders, platform, electronics). The finished machine is the
- * LifeTrac asset itself where the page could build it (./assets.js); `lifetrac` is our own simpler model of it,
- * drawn from the same CAD numbers (OSE's v25, the asset's lifetrac.js), for the stages before and as its fallback.
+ * The LifeTrac line's machines and what it carries: our additions to the factory kit (./kit.js), at their real size in
+ * metres, for the line that builds the LifeTrac (play/api/import/factories/lifetrac-line/line.js). AirSup's kit
+ * machines are readable stand-ins of two to three metres; a tractor line's are bigger, and fully automated, so these
+ * have robots where theirs have people. `lifetrac` is our own simpler model of the tractor as it grows down the line,
+ * from the same CAD numbers (OSE's v25, the asset's lifetrac.js), drawn before the last stage and as its fallback.
  */
 import { T } from './three.js'
 import { K } from './kit.js'
