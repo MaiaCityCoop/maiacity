@@ -1,18 +1,10 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * AN ASSET'S CONTROLS, PLAYED — a tent pitched, a pickup's doors opened, a machine drawn apart or built up, from the
- * numbers the box wrote down when it played its builder's own functions (./box/bake.js) and the page checked
- * (./box/rebuild.js `userData.controls`). Each control is a value from `from` to `to`; at any value its parts stand
- * where the box saw them, between the two samples nearest (their places and sizes blended, their turns turned the
- * short way), shown as at the nearer one. Its own page and the renderer (./render/index.js) play them alike.
- *
- * Several controls may move one part (a machine's explode and its build): the controls at rest are played first, in
- * their order, then the ones moved from it, so the last one moved has the last word.
- *
- * From engine 5 a control also carries the meshes it reshapes (their positions and normals at each sample), the looks
- * of the materials it changes and the lights it changes (./box/bake.js): played the same way, between the two samples
- * nearest. A copy of a build shares its meshes and materials with it (`clone`): `own` gives the copy its own of those
- * its controls change, so that one copy pitched does not pitch them all.
+ * An asset's controls played (a tent pitched, a machine drawn apart) from the numbers the box wrote down
+ * (./box/bake.js), alike on its own page and in the renderer (./render/index.js). Where several move one part (a
+ * machine's explode and its build), those at rest are played first and the last one moved has the last word. A copy of
+ * a build shares its meshes and materials (`clone`): `own` gives it its own of those its controls change, so one copy
+ * pitched does not pitch them all.
  */
 import * as THREE from 'three';
 import { LIGHT, MAT, putLight, putLook } from './box/bake.js';

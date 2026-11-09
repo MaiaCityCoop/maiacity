@@ -109,3 +109,7 @@ name and body, `// the next thing` lines.
     synchronous files only in workers, WebKit's workers without OPFS, a GPU read-back taking seconds, the key's
     formula, Samuel's 2026-10-20 IndexedDB decision) and `store.js`'s docs naming a constant or a function again.
     `packed.js`'s header is the entries' file format, kept whole.
+20. **`content/assets`** (34): the headers of `controls.js`, `load.js` and `params.js` to what each holds (the recipe
+    the one truth, H4's held contract, one name for every build); `catalog.js`'s docs that named its maps and helpers
+    again. `soils.js` (a soil scientist's horizons) and `lodcard.js` (the LOD contract, intent 6295a650's measured
+    48 %) are about what is outside the code, kept.

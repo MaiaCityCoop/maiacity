@@ -1,17 +1,10 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * LOADING AN ASSET — the one way a page gets a build, by its name, `<recipe hash>?its=values` (../../kernel/builds.js), as
- * anyone's would be got: from this device's cache (./cache/builds.js) when it was built here before, else from the asset box
- * (./box/host.js), which runs the recipe on the frozen engine it was made for. Either way it is checked (its card
- * against the card's schema, its data by ./box/rebuild.js) and built into three.js objects by our own code. The recipe
- * is the only truth, and it is play's (./catalog.js): its catalog names the hash, and its file, read from play's files
- * and held to that hash, is what the box runs. What it made stays on this device, so a page
- * that finds it in the cache reads no recipe's file and starts no box.
- *
- * What a recipe's entry declares is held (H4, `heldTo`): it runs on the box engine its card names (`engineOf`), in a
- * box of that engine's; it requires of the engine only the modules its manifest names; its contract names only checks
- * the page runs on every build anyway; and its file and its build stay within the bytes and the time its contract
- * gives, where those are less than the box's own.
+ * The one way a page gets a build, by its name (`<recipe hash>?its=values`, ../../kernel/builds.js): from this device's
+ * cache (./cache/builds.js), else from the asset box (./box/host.js) on the frozen engine it was made for; either way
+ * checked (its card against the card's schema, its data by ./box/rebuild.js) and built into three.js objects by our own
+ * code. The recipe, play's (./catalog.js), is the only truth. What a recipe's entry declares is held (H4, `heldTo`): its
+ * card's engine, only the modules its manifest names, and the bytes and time its contract gives where less than the box's.
  */
 import { AssetBox, TIMEOUT } from './box/host.js';
 import { rebuild } from './box/rebuild.js';

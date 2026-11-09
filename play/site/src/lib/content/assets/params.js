@@ -1,14 +1,8 @@
 /*
- * AN ASSET'S PARAMETERS — what its recipe is built with, declared by the recipe itself (a plant's stage and seed), so a
- * world, a viewer or the asset box can name any build of it by one name (../../kernel/builds.js):
- *
- *   <recipe hash>?seed=maia&stage=9
- *
- * A recipe's arguments are its declared parameters in the order it declares them; one it is not given takes its
- * `value`. What a ref says is checked here against the declaration (a number in its range, a string no longer than it
- * may be, no parameter the recipe does not declare) before the recipe runs, in the page and in the box alike. The
- * values in a ref are text (`stage=9`); this turns them into what the recipe takes. An asset that declares none takes
- * none in its ref.
+ * An asset's parameters, declared by its recipe (a plant's stage and seed), so any build of it has one name
+ * (../../kernel/builds.js): `<recipe hash>?seed=maia&stage=9`. A ref's values are checked against the declaration (a
+ * number in its range, a string no longer than it may be, nothing undeclared) before the recipe runs, in the page and
+ * in the box alike.
  */
 
 /**

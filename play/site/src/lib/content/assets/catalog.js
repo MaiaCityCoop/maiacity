@@ -30,9 +30,7 @@ export const MOST = 16_000_000;
  * the values it takes (for showing and for the box's details), and the engine every build runs on by default.
  */
 export const INDEX = { engine: LATEST.v, recipes: {} };
-/** each recipe's record (its card, manifest, contract and engine), by its hash */
 const records = new Map();
-/** each recipe's file's size, by its hash */
 const sizes = new Map();
 
 /** where the catalog is: `phase` (idle, loading, ready, failed), how many recipes, why none */
@@ -63,7 +61,6 @@ async function load() {
 	return catalog;
 }
 
-/** one catalog row into the index, its record and its size */
 const keep = (r) => {
 	const params = r.record?.card?.params;
 	// its levels of detail as its card names them (./lodcard.js): a version from before the contract read as it drew
@@ -92,7 +89,6 @@ export function readRecipes() {
 	return loading;
 }
 
-/** the catalog, read once a page (again after a failure) */
 export function loadRecipes() {
 	if (catalog.phase === 'failed') loading = null;
 	return (loading ??= load());
@@ -109,10 +105,8 @@ export async function catalogReady(sandbox) {
 	return r;
 }
 
-/** a slot of a sandbox's pins, `pin:<sandbox>/<slot>[?values]` */
 export const SLOT = /^pin:([a-z0-9][a-z0-9-]*)\/([a-zA-Z0-9][a-zA-Z0-9/-]*)(?:\?([^#\s]*))?$/;
 
-/** a name with more values after its own (`query`, as text) @param {string} name @param {string} query */
 export const withQuery = (name, query) => `${name}${name.includes('?') ? '&' : '?'}${query}`;
 
 /**
@@ -141,26 +135,21 @@ export function resolve(name) {
 	return parseBuild(query ? withQuery(pinned, query) : pinned);
 }
 
-/** the hash a build or a slot names, held by the catalog @param {string} name */
 export function hashOf(name) {
 	const { hash } = resolve(name);
 	heldAt(hash);
 	return hash;
 }
 
-/** the values a build or a slot names its build with @param {string} name */
 export const paramsOf = (name) => resolve(name).params;
 
-/** a build or a slot as a build's name, `<hash>?values` @param {string} name */
 export const buildAt = (name) => {
 	const { hash, params } = resolve(name);
 	return buildOf(hash, params);
 };
 
-/** what the catalog knows of a hash, or undefined */
 export const recipeInfo = (hash) => (typeof hash === 'string' && Object.hasOwn(INDEX.recipes, hash) ? INDEX.recipes[hash] : undefined);
 
-/** what the catalog knows of a hash, or NotInCatalog naming it */
 export function heldAt(hash) {
 	const at = recipeInfo(hash);
 	if (at) return at;
@@ -177,7 +166,6 @@ export const nameOf = (hash) => {
 	return at ? `${at.label} v${at.v}` : `recipe ${String(hash).slice(0, 12)}…`;
 };
 
-/** the card the catalog keeps beside a recipe; undefined if none */
 export const cardOf = (hash) => (recipeInfo(hash) ? records.get(hash)?.card : undefined);
 
 /** what a recipe's record declares (its manifest and contract), which ./load.js holds its builds to */
@@ -213,7 +201,6 @@ export const source = { index: INDEX, recipeAt, nameOf, hashOf, cardOf };
  *  stages; undefined for anything else */
 export const plantOf = (hash) => (recipeInfo(hash) ? records.get(hash)?.plant : undefined);
 
-/** recipe files handed to this page by hand (the render bench's guests, in development), by their hashes */
 const handed = new Map();
 /** and their rows, kept over play's catalog when it is read after them */
 const handedRows = new Map();
