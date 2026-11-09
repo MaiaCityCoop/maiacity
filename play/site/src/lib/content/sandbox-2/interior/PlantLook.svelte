@@ -32,6 +32,9 @@
 			// the stage renderer ($content/render/stage.js), see-through over the card; what is under the soil cut away, as it
 			// is in the forest, where no one sees it
 			const view = createStageRenderer(box, { alpha: true, clipping: true, toneMapping: 'agx', exposure: 1.6, fov: 32, near: 0.01, far: 400, style: false, controls: { enablePan: false, autoRotate: true, autoRotateSpeed: 1.6, maxPolarAngle: Math.PI * 0.55 } });
+			// drawn once the renderer is ready (WebGPU's device asked for; on WebGL at once)
+			await view.ready;
+			if (gone) return view.dispose();
 			const { renderer, camera, controls } = view;
 			const soilLine = [new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.01)];
 			const scene = new THREE.Scene();

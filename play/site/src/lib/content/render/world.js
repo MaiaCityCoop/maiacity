@@ -9,11 +9,13 @@
  * (`createWorldRenderer`'s `renderer` alone, ./core.js `createRenderer` with the world's settings).
  */
 import * as THREE from 'three';
-import { createRenderer, disposeObject, disposeRenderer, fitTo, placeSeenOnly } from './core.js';
+import { createRenderer, disposeObject, disposeRenderer, fitTo, placeSeenOnly, ready } from './core.js';
 
 /**
  * @typedef {object} StageHandle
  * @property {THREE.WebGLRenderer} renderer
+ * @property {Promise<unknown>} ready settles once the renderer may draw (WebGPU's device asked for, intent c1bee1f8;
+ *   on WebGL at once): the world's first frame waits for it
  * @property {THREE.Scene} scene
  * @property {THREE.PerspectiveCamera} camera
  * @property {(now?: number, hold?: boolean) => void} adapt call once a frame: the resolution follows the frame rate
@@ -54,6 +56,7 @@ export function createWorldRenderer(container, options = {}) {
 	let frames = 0, since = performance.now();
 	return {
 		renderer,
+		ready: ready(renderer),
 		scene,
 		camera,
 		adapt(now = performance.now(), hold = false) {

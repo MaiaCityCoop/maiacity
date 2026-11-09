@@ -2,7 +2,7 @@
 // the draw calls, triangles, CPU ms, GPU ms (null without the timer extension) and what bounds the frame, and the
 // line scripts/render.mjs prints names them. Runs under bun test and vitest alike.
 import { describe, expect, test } from 'vitest';
-import { boundOf, drawingsOf, installMeter, meterLine, trianglesOf } from './meter.js';
+import { boundOf, drawingsOf, installMeter, meterLine, trianglesOf, trianglesOfTopology } from './meter.js';
 
 /** a window whose clock and frames the test drives, with a WebGL2 context class (timed or not) */
 function fakeWindow({ timer = true, gpuNs = 6e6 } = {}) {
@@ -49,6 +49,94 @@ function fakeWindow({ timer = true, gpuNs = 6e6 } = {}) {
 			for (const cb of cbs) cb(at);
 		}
 	};
+}
+
+/**
+ * a window with WebGPU's classes as far as the meter wraps them (intent c1bee1f8): a device (with `timestamp-query` or
+ * not) whose read-back buffers hand back a pass of `gpuNs` nanoseconds, encoders, passes and a queue
+ */
+function fakeGPUWindow({ timestamps = true, gpuNs = 3e6 } = {}) {
+	const win = fakeWindow({ timer: false });
+	class GPURenderPassEncoder {
+		setPipeline() {}
+		draw() {}
+		drawIndexed() {}
+		drawIndirect() {}
+		drawIndexedIndirect() {}
+		end() {}
+	}
+	class GPUComputePassEncoder {
+		end() {}
+	}
+	class GPUCommandEncoder {
+		/** the passes begun, with what they were begun with */
+		begun = [];
+		beginRenderPass(desc) {
+			this.begun.push(desc);
+			return new GPURenderPassEncoder();
+		}
+		beginComputePass(desc) {
+			this.begun.push(desc);
+			return new GPUComputePassEncoder();
+		}
+		resolveQuerySet() {}
+		copyBufferToBuffer() {}
+		finish() {
+			return { commands: this };
+		}
+	}
+	class GPUDevice {
+		features = new Set(timestamps ? ['timestamp-query'] : []);
+		queue = new GPUQueue();
+		createRenderPipeline(desc) {
+			return { desc };
+		}
+		createCommandEncoder() {
+			return new GPUCommandEncoder();
+		}
+		createQuerySet() {
+			return { destroy() {} };
+		}
+		createBuffer() {
+			return {
+				mapAsync: () => Promise.resolve(),
+				getMappedRange: () => new BigInt64Array([1000n, 1000n + BigInt(gpuNs)]).buffer,
+				unmap() {},
+				destroy() {}
+			};
+		}
+	}
+	class GPUQueue {
+		/** the command buffers submitted */
+		submitted = [];
+		submit(cbs) {
+			this.submitted.push(...cbs);
+		}
+	}
+	return Object.assign(win, { GPUDevice, GPUQueue, GPUCommandEncoder, GPURenderPassEncoder, GPUComputePassEncoder });
+}
+
+/** a WebGPU page that, every frame, draws as `page` does (300 triangles, a strip of 10, 4 instances of 12) and one
+ *  indirect draw, in one render pass and one compute pass, in `cpu` ms; `own` its render pass timed by itself */
+function gpuPage(win, device, cpu = 2, own = false) {
+	const list = device.createRenderPipeline({ primitive: { topology: 'triangle-list' } });
+	const strip = device.createRenderPipeline({ primitive: { topology: 'triangle-strip' } });
+	const loop = () => {
+		const e = device.createCommandEncoder();
+		const pass = e.beginRenderPass(own ? { timestampWrites: { querySet: {} } } : {});
+		pass.setPipeline(list);
+		pass.drawIndexed(900);
+		pass.drawIndexed(36, 4);
+		pass.drawIndirect({}, 0);
+		pass.setPipeline(strip);
+		pass.draw(10);
+		pass.end();
+		e.beginComputePass({}).end();
+		device.queue.submit([e.finish()]);
+		win.work(cpu);
+		win.requestAnimationFrame(loop);
+	};
+	win.requestAnimationFrame(loop);
 }
 
 /** a page that, every frame, draws 300 triangles, a strip of 10 vertices and 4 instances of 12 triangles, in `cpu` ms */
@@ -122,6 +210,65 @@ describe('the frame meter', () => {
 		expect(s.gpu_ms).toBeNull();
 		expect(s.calls).toBe(3);
 		expect(meter.timed()).toBe(false);
+	});
+
+	// WebGPU (intent c1bee1f8): draws counted from the render passes, GPU ms from the meter's own timestamp queries
+	test('on WebGPU, draws come from the render passes and GPU ms from timestamp queries', async () => {
+		const win = fakeGPUWindow({ gpuNs: 3e6 });
+		const meter = installMeter(win);
+		const device = new win.GPUDevice();
+		gpuPage(win, device, 2);
+		const s = await sampled(win, meter);
+		expect(s.frames).toBeGreaterThan(50);
+		expect(s.calls).toBe(4);
+		expect(s.triangles).toBe(300 + 48 + 8);
+		expect(s.cpu_ms).toBe(2);
+		// two passes a frame, 3 ms each
+		expect(s.gpu_ms).toBe(6);
+		expect(s.bound).toBe('vsync');
+		expect(meter.timed()).toBe(true);
+		// every pass the page left untimed was given the meter's timestamps
+		const begun = device.queue.submitted.flatMap((cb) => cb.commands.begun);
+		expect(begun.length).toBeGreaterThan(100);
+		expect(begun.every((d) => d.timestampWrites?.beginningOfPassWriteIndex === 0 && d.timestampWrites?.endOfPassWriteIndex === 1)).toBe(true);
+	});
+
+	test('a WebGPU device without timestamp-query: draws counted, gpu_ms null', async () => {
+		const win = fakeGPUWindow({ timestamps: false });
+		const meter = installMeter(win);
+		gpuPage(win, new win.GPUDevice());
+		const s = await sampled(win, meter);
+		expect(s.calls).toBe(4);
+		expect(s.gpu_ms).toBeNull();
+		expect(meter.timed()).toBe(false);
+	});
+
+	test('a pass the page times itself is left to it, and its frames count untimed', async () => {
+		const win = fakeGPUWindow();
+		const meter = installMeter(win);
+		const device = new win.GPUDevice();
+		gpuPage(win, device, 2, true);
+		const s = await sampled(win, meter);
+		expect(s.gpu_ms).toBeNull();
+		const own = device.queue.submitted.map((cb) => cb.commands.begun[0]);
+		expect(own.every((d) => !('beginningOfPassWriteIndex' in d.timestampWrites))).toBe(true);
+	});
+
+	test('a WebGPU GPU slower than the display bounds the frame', async () => {
+		const win = fakeGPUWindow({ gpuNs: 15.5e6 });
+		const meter = installMeter(win);
+		gpuPage(win, new win.GPUDevice(), 2);
+		const s = await sampled(win, meter, 33.4);
+		expect(s.gpu_ms).toBe(31);
+		expect(s.bound).toBe('gpu');
+	});
+
+	test('triangles by topology', () => {
+		expect(trianglesOfTopology('triangle-list', 900)).toBe(300);
+		expect(trianglesOfTopology(undefined, 900)).toBe(300);
+		expect(trianglesOfTopology('triangle-strip', 10)).toBe(8);
+		expect(trianglesOfTopology('triangle-list', 36, 4)).toBe(48);
+		expect(trianglesOfTopology('line-list', 100)).toBe(0);
 	});
 
 	test('installed twice, it is the one meter', () => {

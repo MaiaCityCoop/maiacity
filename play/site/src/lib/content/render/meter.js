@@ -1,9 +1,12 @@
 /**
  * THE FRAME METER (intent bba9c796; the three-performance skill's "Measure first"): what a page's frames cost, from
- * WebGL2 itself, whatever drew them. Installed once on a window, before or after its renderers are made, it counts
- * every draw call and the triangles it draws, the CPU time the frame's animation callbacks take, and the GPU time of
- * the frame's commands (EXT_disjoint_timer_query_webgl2, where the browser offers it; null where not), frame by frame,
- * and says which of them bounds the frame.
+ * WebGPU or WebGL2 itself, whatever drew them. Installed once on a window, before or after its renderers are made, it
+ * counts every draw call and the triangles it draws, the CPU time the frame's animation callbacks take, and the GPU
+ * time of the frame's commands, frame by frame, and says which of them bounds the frame. On WebGPU (intent c1bee1f8)
+ * the draws are the render passes' (`draw`, `drawIndexed`, their indirect kinds counted without triangles) and the GPU
+ * time the passes' own, by timestamp queries (where the device has `timestamp-query`, which three asks for wherever
+ * the adapter offers it); on WebGL2 (WebGPURenderer's fallback, and WebGLRenderer) the draws are its draw calls and the
+ * GPU time EXT_disjoint_timer_query_webgl2's. Where neither timer is offered, the GPU time is null.
  *
  *   const m = installMeter(window);   // the bench, at its start (routes/worlds/bench)
  *   const s = await m.sample(1);      // { frames, frame_ms, frame_p95, cpu_ms, gpu_ms, calls, triangles, bound }
@@ -129,6 +132,8 @@ export function installMeter(win) {
 			};
 		}
 	}
+	webgpu(win, () => frame);
+
 	const raf = win.requestAnimationFrame.bind(win);
 	win.requestAnimationFrame = (cb) =>
 		raf((t) => {
@@ -180,11 +185,133 @@ export function installMeter(win) {
 			};
 			return { ...s, bound: boundOf({ display: Math.min(quantile(gaps, 0.1) || 1000 / 60, 1000 / 60), cpu_ms: s.cpu_ms, gpu_ms: s.gpu_ms }) };
 		},
-		/** whether any context offers GPU timing */
-		timed: () => [...contexts.values()].some((c) => c.ext)
+		/** whether any context offers GPU timing (a WebGL2 context its timer, a WebGPU device its timestamps) */
+		timed: () => [...contexts.values()].some((c) => c.ext) || !!win.__frameMeterGPU?.timed
 	};
 	win.__frameMeter = meter;
 	return meter;
+}
+
+/** the triangles a WebGPU draw of `count` vertices makes under a pipeline's `topology` (three's default triangle-list) */
+export function trianglesOfTopology(topology = 'triangle-list', count = 0, instances = 1) {
+	const n = topology === 'triangle-list' ? Math.floor(count / 3) : topology === 'triangle-strip' ? Math.max(0, count - 2) : 0;
+	return n * Math.max(1, instances);
+}
+
+/**
+ * The meter's WebGPU half: GPURenderPassEncoder's draws counted into the frame running (`now()`), each render or
+ * compute pass the page leaves untimed given timestamps of the meter's own, resolved as its encoder finishes, read
+ * back once its commands are submitted, and added to the frame they were drawn in. A pass the page times itself
+ * (three's `trackTimestamp`) is left to it, so its frame is counted untimed.
+ * @param {any} win @param {() => any} now the frame running, or null
+ */
+function webgpu(win, now) {
+	const P = win.GPURenderPassEncoder?.prototype, E = win.GPUCommandEncoder?.prototype, D = win.GPUDevice?.prototype, Q = win.GPUQueue?.prototype;
+	if (!P || !E || !D || !Q) return;
+	const state = (win.__frameMeterGPU = { timed: false });
+	// the buffer usages and map mode as numbers where a window lacks the enums
+	const QUERY_RESOLVE = win.GPUBufferUsage?.QUERY_RESOLVE ?? 0x200, COPY_SRC = win.GPUBufferUsage?.COPY_SRC ?? 4, COPY_DST = win.GPUBufferUsage?.COPY_DST ?? 8, MAP_READ = win.GPUBufferUsage?.MAP_READ ?? 1, READ = win.GPUMapMode?.READ ?? 1;
+	/** a pipeline's topology, an encoder's device, a pass's pipeline, an encoder's timed passes, a buffer's reads */
+	const topologyOf = new WeakMap(), deviceOf = new WeakMap(), pipelineOf = new WeakMap(), passes = new WeakMap(), reads = new WeakMap();
+
+	for (const name of ['createRenderPipeline', 'createRenderPipelineAsync']) {
+		const make = D[name];
+		if (typeof make !== 'function') continue;
+		D[name] = function (desc) {
+			const got = make.call(this, desc);
+			const keep = (/** @type {any} */ pl) => (pl && topologyOf.set(pl, desc?.primitive?.topology ?? 'triangle-list'), pl);
+			return got && typeof got.then === 'function' ? got.then(keep) : keep(got);
+		};
+	}
+	const encoder = D.createCommandEncoder;
+	D.createCommandEncoder = function (...a) {
+		const e = encoder.apply(this, a);
+		deviceOf.set(e, this);
+		return e;
+	};
+	const setPipeline = P.setPipeline;
+	P.setPipeline = function (pl) {
+		pipelineOf.set(this, pl);
+		return setPipeline.call(this, pl);
+	};
+	/** @param {string} name @param {number} at the vertex count's argument, -1 for none @param {number} inst the instances' */
+	const draw = (name, at, inst) => {
+		const f = P[name];
+		if (typeof f !== 'function') return;
+		P[name] = function (...a) {
+			const fr = now();
+			if (fr) {
+				fr.calls++;
+				if (at >= 0) fr.triangles += trianglesOfTopology(topologyOf.get(pipelineOf.get(this)), a[at], a[inst] ?? 1);
+			}
+			return f.apply(this, a);
+		};
+	};
+	draw('draw', 0, 1);
+	draw('drawIndexed', 0, 1);
+	draw('drawIndirect', -1, -1);
+	draw('drawIndexedIndirect', -1, -1);
+
+	// timestamps: two per pass, of a query set of the meter's own, where the page set none
+	for (const name of ['beginRenderPass', 'beginComputePass']) {
+		const begin = E[name];
+		if (typeof begin !== 'function') continue;
+		E[name] = function (desc = {}) {
+			const fr = now(), device = deviceOf.get(this);
+			if (!fr || !device?.features?.has?.('timestamp-query')) return begin.call(this, desc);
+			// a pass the page times itself: its frame never answers in full, so it counts untimed
+			if (desc.timestampWrites) return fr.timed++, begin.call(this, desc);
+			state.timed = true;
+			const querySet = device.createQuerySet({ type: 'timestamp', count: 2 });
+			fr.timed++;
+			const list = passes.get(this) ?? [];
+			list.push({ querySet, frame: fr, device });
+			passes.set(this, list);
+			return begin.call(this, { ...desc, timestampWrites: { querySet, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 } });
+		};
+	}
+	const finish = E.finish;
+	E.finish = function (...a) {
+		const list = passes.get(this);
+		if (list) {
+			for (const p of list) {
+				p.resolve = p.device.createBuffer({ size: 16, usage: QUERY_RESOLVE | COPY_SRC });
+				p.read = p.device.createBuffer({ size: 16, usage: COPY_DST | MAP_READ });
+				this.resolveQuerySet(p.querySet, 0, 2, p.resolve, 0);
+				this.copyBufferToBuffer(p.resolve, 0, p.read, 0, 16);
+			}
+			passes.delete(this);
+		}
+		const cb = finish.apply(this, a);
+		if (list) reads.set(cb, list);
+		return cb;
+	};
+	const submit = Q.submit;
+	Q.submit = function (buffers) {
+		const out = submit.call(this, buffers);
+		for (const cb of buffers ?? []) {
+			for (const p of reads.get(cb) ?? []) {
+				p.read.mapAsync(READ).then(
+					() => {
+						const [t0, t1] = new BigInt64Array(p.read.getMappedRange());
+						// a pass whose timestamps came back out of order (a disjoint clock) counts untimed
+						if (t1 >= t0) {
+							p.frame.gpu = (p.frame.gpu ?? 0) + Number(t1 - t0) / 1e6;
+							p.frame.answered++;
+						}
+						p.read.unmap();
+					},
+					() => {}
+				).finally(() => {
+					p.read.destroy();
+					p.resolve.destroy();
+					p.querySet.destroy();
+				});
+			}
+			reads.delete(cb);
+		}
+		return out;
+	};
 }
 
 /** a sample as one line: what scripts/render.mjs prints for each view */

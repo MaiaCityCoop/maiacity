@@ -6,7 +6,9 @@
  * ./post.js, and every tone mapping and exposure to this file).
  *
  *   createRenderer   the one way to make a renderer: its canvas, pixels, colour space, tone mapping, shadows, clipping,
- *                    and three's WebGLNodesHandler, so TSL node materials draw on it (intent b03f9fb4)
+ *                    and three's WebGLNodesHandler, so TSL node materials draw on it (intent b03f9fb4); or, behind the
+ *                    switch (`backend`, intent c1bee1f8), a WebGPURenderer, its WebGL 2 backend the fallback
+ *   ready, makeRenderer   a renderer initialised before its first draw (`await renderer.init()` on WebGPU)
  *   setTone, setExposure, withTone   the picture's response changed later (a sky's hour, a stage's shot): only here
  *   lowPower, topPixelRatio, adaptiveResolution, precompile   how much a device draws, and keeping it smooth
  *   fitTo            a canvas kept to its element's size (and the camera's aspect)
@@ -21,6 +23,7 @@
  * its canvas; and a phone drew at twice its pixels with the desktop's shadows, occlusion and multisampling.
  */
 import * as THREE from 'three';
+import { ShadowNode, WebGPURenderer } from 'three/webgpu';
 import { install } from './nodes/index.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { reopenOnRestore } from './budget.js';
@@ -69,30 +72,78 @@ export function untonemap(target, exposure = 1) {
 export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, basic: THREE.BasicShadowMap, vsm: THREE.VSMShadowMap });
 
 /**
+ * THE SWITCH (intent c1bee1f8, GPU 9/14). Which renderer a page draws with:
+ * - `webgl`: three's WebGLRenderer, TSL through WebGLNodesHandler (every page until the GLSL left goes, intents 4–8);
+ * - `webgpu`: three's WebGPURenderer, which falls back to its own WebGL 2 backend where the browser has no WebGPU;
+ * - `webgl2`: WebGPURenderer on its WebGL 2 backend alone (`forceWebGL`), the fallback forced, to test it.
+ * Chosen by the page (`backend` in createRenderer's options), else the address's `?renderer=`, else
+ * `localStorage['play.renderer']`, else DEFAULT_BACKEND. The default moves to `webgpu`, and `webgl` goes, once nothing
+ * hand-written in GLSL is left (check c1).
+ */
+export const BACKENDS = /** @type {const} */ (['webgl', 'webgpu', 'webgl2']);
+/** @typedef {typeof BACKENDS[number]} Backend */
+/** @type {Backend} */
+export const DEFAULT_BACKEND = 'webgl';
+
+/**
+ * The backend a renderer is made with: the page's, else the address's, else the browser's choice kept, else the default.
+ * @param {Backend} [asked]
+ * @returns {Backend}
+ */
+export function backend(asked) {
+	if (asked) return asked;
+	/** @param {unknown} v @returns {v is Backend} */
+	const ok = (v) => BACKENDS.includes(/** @type {Backend} */ (v));
+	if (typeof window !== 'undefined') {
+		try {
+			const q = new URLSearchParams(window.location?.search ?? '').get('renderer');
+			if (ok(q)) return q;
+		} catch {
+			/* no address */
+		}
+		try {
+			const kept = window.localStorage?.getItem('play.renderer');
+			if (ok(kept)) return kept;
+		} catch {
+			/* no storage (a private window) */
+		}
+	}
+	return DEFAULT_BACKEND;
+}
+
+/** a renderer of the switch's (WebGPURenderer, on WebGPU or its WebGL 2 backend) @param {unknown} r */
+export const isWebGPU = (r) => !!(/** @type {any} */ (r)?.isWebGPURenderer);
+
+/**
  * @typedef {object} RendererOptions
  * @property {HTMLCanvasElement} [canvas] draw on this canvas (else the renderer makes one)
  * @property {HTMLElement} [container] put the renderer's canvas in this element
  * @property {boolean} [antialias] multisampling (default true)
  * @property {boolean} [alpha] a see-through canvas
  * @property {WebGLPowerPreference} [power] the GPU asked for
- * @property {boolean} [preserve] keep the drawing buffer (to read it back)
+ * @property {boolean} [preserve] keep the drawing buffer (to read it back; WebGL only: WebGPU reads back by readRenderTargetPixelsAsync)
  * @property {number} [pixelRatio] pixels per CSS pixel, as given
  * @property {number} [maxPixelRatio] else the device's, at most this (default 2)
  * @property {THREE.ColorSpace} [colorSpace] the output's (three's default: sRGB)
  * @property {keyof typeof TONE} [toneMapping] none (default) or agx
  * @property {number} [exposure] the tone mapping's exposure (default 1)
  * @property {boolean | keyof typeof SHADOWS} [shadows] shadow maps on (true: three's default kind) and of which kind
- * @property {boolean} [clipping] clipping planes per material
+ * @property {boolean} [clipping] clipping planes per material (WebGL only: WebGPU clips by ClippingGroup)
  * @property {() => void} [onLost] the graphics card took the canvas back (the default reaction prevented)
+ * @property {Backend} [backend] the switch's choice for this page (see BACKENDS); else `backend()`'s
  */
 
 /**
- * The one way to make a renderer: every `new THREE.WebGLRenderer` of the app is this one. It draws TSL node materials
- * (three's WebGLNodesHandler, r184+) beside the classic ones, which it draws exactly as before.
+ * The one way to make a renderer: every renderer of the app is this one. On `webgl` a WebGLRenderer drawing TSL node
+ * materials (three's WebGLNodesHandler, r184+) beside the classic ones, which it draws exactly as before; on `webgpu`
+ * or `webgl2` a WebGPURenderer, which must be initialised before its first draw (`await ready(renderer)`, or
+ * `makeRenderer`; its `setAnimationLoop` waits by itself).
  * @param {RendererOptions} [o]
  * @returns {THREE.WebGLRenderer}
  */
 export function createRenderer(o = {}) {
+	const which = backend(o.backend);
+	if (which !== 'webgl') return /** @type {THREE.WebGLRenderer} */ (/** @type {unknown} */ (createWebGPU(o, which === 'webgl2')));
 	const renderer = new THREE.WebGLRenderer({ canvas: o.canvas, antialias: o.antialias ?? true, alpha: o.alpha, powerPreference: o.power, preserveDrawingBuffer: o.preserve });
 	useRenderer(renderer);
 	renderer.setPixelRatio(o.pixelRatio ?? Math.min(o.maxPixelRatio ?? 2, window.devicePixelRatio || 1));
@@ -117,6 +168,82 @@ export function createRenderer(o = {}) {
 	o.container?.appendChild(renderer.domElement);
 	return renderer;
 }
+
+/** the frame in which a renderer's keyed shadows (`shadowMap.needsUpdate`) were last let through, per renderer */
+const keyedAt = new WeakMap();
+let shadowsKeyed = false;
+/**
+ * The renderer's own shadow switch kept on WebGPU (intent c1bee1f8). WebGLRenderer draws its shadow maps only while
+ * `shadowMap.autoUpdate`, or in the one render after `shadowMap.needsUpdate` is set; WebGPU's ShadowNode reads only
+ * each light's `shadow.autoUpdate`/`needsUpdate`, so the sky's keyed shadows (../sandbox-kit/sky.js: drawn as the sun
+ * moves) and the stage's settled ones (../assets/stage.js) would be drawn every frame. Installed once: with
+ * `autoUpdate` off, a ShadowNode updates only in the frame `needsUpdate` was seen in (every light's in it, as
+ * WebGLShadowMap draws them all in one pass), and the flag is let go as WebGL lets it go. A light's own switch is
+ * three's, as before.
+ */
+function keepShadowSwitch() {
+	if (shadowsKeyed) return;
+	shadowsKeyed = true;
+	const proto = /** @type {any} */ (ShadowNode.prototype);
+	const update = proto.updateBefore;
+	proto.updateBefore = function (/** @type {any} */ frame) {
+		const r = frame.renderer, sm = r?.shadowMap;
+		// a precompile draws no shadow (three's own rule): the flag is kept for the frame that draws
+		if (sm && sm.autoUpdate === false && r._precompilationState == null) {
+			if (sm.needsUpdate === true) {
+				sm.needsUpdate = false;
+				keyedAt.set(r, frame.frameId);
+			}
+			if (keyedAt.get(r) !== frame.frameId) return;
+		}
+		return update.call(this, frame);
+	};
+}
+
+/**
+ * A WebGPURenderer set as createRenderer sets a WebGLRenderer. Node materials are its own (no handler); the sun lights
+ * them by SunLightNode (./nodes/index.js registers it); a lost device is `onDeviceLost`, never a context event.
+ * @param {RendererOptions} o @param {boolean} forceWebGL its WebGL 2 backend, WebGPU or not
+ * @returns {WebGPURenderer}
+ */
+function createWebGPU(o, forceWebGL) {
+	keepShadowSwitch();
+	const renderer = new WebGPURenderer({ canvas: o.canvas, antialias: o.antialias ?? true, alpha: o.alpha, powerPreference: o.power, forceWebGL });
+	renderer.setPixelRatio(o.pixelRatio ?? Math.min(o.maxPixelRatio ?? 2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
+	if (o.colorSpace) renderer.outputColorSpace = o.colorSpace;
+	setTone(/** @type {any} */ (renderer), o.toneMapping, o.exposure);
+	if (o.shadows) {
+		renderer.shadowMap.enabled = true;
+		if (o.shadows !== true) renderer.shadowMap.type = SHADOWS[o.shadows];
+	}
+	// the device taken back: the page's reaction, else three's own (it logs); a page is opened anew as on WebGL
+	renderer.onDeviceLost = (info) => {
+		if (o.onLost) o.onLost();
+		else console.error('play: the graphics device was lost', info?.message ?? '');
+	};
+	o.container?.appendChild(renderer.domElement);
+	return renderer;
+}
+
+/**
+ * A renderer ready to draw: WebGPU's device asked for (`init`) before the first frame; a WebGLRenderer is ready as made.
+ * Never throws for a WebGLRenderer; a WebGPURenderer whose init fails rejects (no WebGPU and no WebGL 2).
+ * @template {THREE.WebGLRenderer | WebGPURenderer} R
+ * @param {R} renderer
+ * @returns {Promise<R>}
+ */
+export async function ready(renderer) {
+	const r = /** @type {any} */ (renderer);
+	if (isWebGPU(r) && !r.initialized) await r.init();
+	return renderer;
+}
+
+/**
+ * createRenderer, initialised: what a page awaits before its first draw.
+ * @param {RendererOptions} [o]
+ * @returns {Promise<THREE.WebGLRenderer>}
+ */
+export const makeRenderer = (o) => ready(createRenderer(o));
 
 /**
  * three's WebGLNodesHandler installed on a renderer, so a NodeMaterial (TSL) is built into GLSL and drawn by it. With a
@@ -245,6 +372,8 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
  * @returns {Promise<void>}
  */
 export function precompile(renderer, object, camera, scene) {
+	// WebGPU builds node materials itself, and its compileAsync settles for them: nothing is left out
+	if (isWebGPU(renderer)) return Promise.resolve(/** @type {any} */ (renderer).compileAsync(object, camera, scene)).then(() => {}, () => {});
 	/** @type {THREE.Object3D[]} */
 	const off = [];
 	object.traverseVisible((o) => {
@@ -383,7 +512,12 @@ export function disposeObject(root, { materials = true, textures = true, keep } 
  */
 export function disposeRenderer(renderer) {
 	renderer.dispose();
-	renderer.forceContextLoss();
+	if (isWebGPU(renderer)) {
+		// WebGPU: its device destroyed; its WebGL 2 backend: its context lost, as below
+		const b = /** @type {any} */ (renderer).backend;
+		if (b?.device) b.device.destroy?.();
+		else b?.gl?.getExtension?.('WEBGL_lose_context')?.loseContext();
+	} else renderer.forceContextLoss();
 	renderer.domElement.remove();
 }
 

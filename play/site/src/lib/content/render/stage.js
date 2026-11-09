@@ -6,11 +6,13 @@
  * studio and its post stack, ../assets/stage.js; a viewer's own lights) is the viewer's.
  */
 import * as THREE from 'three';
-import { adaptiveResolution, createControls, createRenderer, disposeRenderer, fitTo } from './core.js';
+import { adaptiveResolution, createControls, createRenderer, disposeRenderer, fitTo, ready } from './core.js';
 
 /**
  * @typedef {object} StageRenderer
  * @property {THREE.WebGLRenderer} renderer
+ * @property {Promise<unknown>} ready settles once the renderer may draw (WebGPU's device asked for, intent c1bee1f8;
+ *   on WebGL at once): the viewer's first frame waits for it
  * @property {THREE.PerspectiveCamera} camera
  * @property {import('three/addons/controls/OrbitControls.js').OrbitControls} controls
  * @property {() => void} resize fit the canvas to its box now (the viewer calls it once it is set up; the box's
@@ -38,6 +40,7 @@ export function createStageRenderer(box, o = {}) {
 	const size = fitTo(renderer, box, { camera, fit, style, onResize, now: false });
 	return {
 		renderer,
+		ready: ready(renderer),
 		camera,
 		controls,
 		resize: size.fit,
