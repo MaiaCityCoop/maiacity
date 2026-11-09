@@ -1,5 +1,14 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 12:05 Berlin — #8 run 2 recorded (head af3b1e0db; out/ db986e460)
+- **c7 FAIL, close:** parity runs now (lowest SSIM 0.9979 ≥ 0.98, pass), but the **two seeks to the same t are not
+  pixel-identical** (MD5 differ at t = 1, 3, 5; SSIM 0.998): something in the player's frame isn't pinned to t.
+- **c8 FAIL:** **Old City changed on head** (SSIM 0.907: below the road the ground is darker/brown on head; base equals
+  run 1's base, head doesn't equal run 1's head, so af3b1e0db changed it), and mid moved a little (0.975, more neutral
+  light). The far view's ragged broadleaf cut-outs are in *base* this time (which trees draw far off depends on the
+  moment), so not head's doing. Frame times all within.
+- **660ad67f**: a new job (render 852bf10b5) is running now (12:01).
+
 ## 11:40 Berlin
 - 660ad67f split noted: I'm watching for it back in Build with the new c6 and will record c6 from run 3 (head 7e7c0aa5d,
   out/ 44913732c) at once: drawn in both engines, 0 uniform/GL errors, film 0…5 s. If the box has re-run on a newer head
