@@ -78,3 +78,13 @@ scratchpad, `infra2/`).
   from their own relative URLs (`infra2/paths.mjs`, PLAY_SITE unset); `node --check` on each.
 - Next untangles: play/site/scripts' own MCP clients (propose.mjs runs on node, world-shot.ts reads an SSE answer and
   stops by its own `fail`, flyover/play.mjs reads `structuredContent`'s `items`): each needs its own pinning, play/site's.
+
+## 8. prod-ssh exports APP_DIR only (re-infra#8)
+
+- The action put `S3_BUCKET/S3_ENDPOINT/S3_REGION` and the server's address as `HOST` into the job's environment; no
+  step reads them (bucket-keys.sh sources lib.sh itself, server-up.sh the server's copy, the DNS steps take their
+  record from inputs), and `HOST` there was an IP shadowing lib.sh's name. Now only `APP_DIR`, which the jobs' `ssh
+  prod "… $APP_DIR …"` lines use. `grep` of .github/ finds no other reader.
+- Same: the step, old and new, with a temp HOME and GITHUB_ENV and a stand-in getent (`infra2/ssh-same.sh`):
+  ~/.ssh (config, known_hosts, the key) identical; GITHUB_ENV keeps `APP_DIR=/opt/maia-city` and loses the four lines.
+  actionlint clean; deploy-speed.test.ts and workflows.test.ts green.
