@@ -1,6 +1,7 @@
 <!--
 	play's Sandbox 6 (Samuel 2026-11-09, intent 67f0404a): one village at its real size, the old Sandbox 6's seven hexes
-	back in play. The tower hex in the middle (Tower180, its eight works and the village centre; no homes), six living
+	back in play. The tower hex in the middle (the tower, sized from what the village needs, its eight works and the
+	village centre; no homes), six living
 	hexes round it in Samuel's layout B. The layout and the numbers are play's data, the sandbox's layout document
 	(`village` and `audit`, read at /api/sandboxes/<uuid>/config): drawn by $lib/content/sandbox-6, counted by its audit,
 	every number with how its input is known.
@@ -38,9 +39,11 @@
 <WorldPage
 	mount={async (stage, onProgress) => {
 		onProgress('Reading the village’s layout');
-		const { village } = await load();
+		const { village, audit } = await load();
 		const { mountVillage } = await import('$lib/content/sandbox-6/mount');
-		return mountVillage(stage, onProgress, village);
+		// the village with its tower sized from its programme (the audit's), as the plan shows it
+		const { auditOf } = await import('$lib/content/sandbox-6/audit');
+		return mountVillage(stage, onProgress, auditOf(village, audit).sized);
 	}}
 	title="Sandbox 6"
 	subtitle="One village · at its real size"

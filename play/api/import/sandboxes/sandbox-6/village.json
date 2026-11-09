@@ -336,7 +336,7 @@
 					"x": 0,
 					"z": 0,
 					"use": "tower",
-					"name": "Tower180",
+					"name": "The tower",
 					"door": 180
 				},
 				{
@@ -421,15 +421,6 @@
 					"door": 350
 				},
 				{
-					"id": "theatre",
-					"kind": "dome80",
-					"x": -49.5,
-					"z": 280.7,
-					"use": "civic",
-					"name": "Theatre and hall",
-					"door": 10
-				},
-				{
 					"id": "town-hall",
 					"kind": "dome40",
 					"x": 0,
@@ -446,15 +437,6 @@
 					"use": "civic",
 					"name": "Clinic",
 					"door": 335
-				},
-				{
-					"id": "library",
-					"kind": "dome40",
-					"x": -126.8,
-					"z": 271.9,
-					"use": "civic",
-					"name": "Library",
-					"door": 25
 				}
 			],
 			"roads": [
@@ -594,38 +576,67 @@
 					}
 				]
 			},
-			"floors": [
+			"programme": [
 				{
-					"from": 0,
-					"to": 3,
-					"use": "factory",
-					"name": "The dome factory’s assembly floors, loading and stores"
+					"id": "hall",
+					"label": "Community hall and meeting rooms",
+					"use": "communal",
+					"perResident": "hallPerResident"
 				},
 				{
-					"from": 3,
-					"to": 6,
+					"id": "theatre",
+					"label": "Theatre and assembly hall",
+					"use": "communal",
+					"perResident": "theatrePerResident"
+				},
+				{
+					"id": "sport",
+					"label": "Sports hall",
+					"use": "communal",
+					"count": "sportHalls",
+					"size": "sportHallM2"
+				},
+				{
+					"id": "library",
+					"label": "Library",
+					"use": "communal",
+					"perResident": "libraryPerResident"
+				},
+				{
+					"id": "kitchens",
+					"label": "Shared kitchens and dining",
+					"use": "communal",
+					"perResident": "commonHousePerResident"
+				},
+				{
+					"id": "workshops",
+					"label": "Workshops and studios",
+					"use": "communal",
+					"perResident": "workshopPerResident"
+				},
+				{
+					"id": "market",
+					"label": "Market hall and cafés",
 					"use": "commercial",
-					"name": "Market hall, shops and cafés"
+					"perResident": "marketPerResident"
 				},
 				{
-					"from": 6,
-					"to": 16,
+					"id": "cowork",
+					"label": "Co-working",
 					"use": "commercial",
-					"name": "Offices and studios to rent"
+					"count": "coworkDesks",
+					"size": "deskM2"
 				},
 				{
-					"from": 16,
-					"to": 40,
+					"id": "guests",
+					"label": "Guest rooms for visitors",
 					"use": "tourist",
-					"name": "Hotel rooms and short stays"
-				},
-				{
-					"from": 40,
-					"to": 47,
-					"use": "tourist",
-					"name": "Restaurant and the viewing deck"
+					"count": "guestRooms",
+					"size": "guestRoomM2"
 				}
-			]
+			],
+			"programmeNote": "No factory floor at the tower's foot: the eight works have their own domes round it.",
+			"centreNote": "The village centre (Samuel 2026-11-09, the spec's default): the school, the clinic and the town hall stay in their domes south of the tower; the theatre and the library move into the tower with the other communal halls."
 		}
 	},
 	"hexes": [

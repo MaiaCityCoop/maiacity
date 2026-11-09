@@ -1,6 +1,6 @@
 /**
  * SANDBOX 6 · THE GEOMETRY — the shapes the village is made of, as maths: the hex, a glazed cap, a home block under its
- * shell, the tower's profile and floors. Every size comes in from the village config (its layout document's `village`,
+ * shell, the tower's profile and storeys. Every size comes in from the village config (its layout document's `village`,
  * play/SPEC.md §4.6); nothing here is a number of the village's own. x runs east, z south (north is −z), in metres.
  */
 
@@ -9,8 +9,7 @@ export type HomeShape = { front: number; depth: number; storey: number; clear: n
 export type Site = { id: string; kind: string; x: number; z: number; use: string; name: string; door: number };
 export type Road = { pts: [number, number][]; w: number };
 export type Ring = { x: number; z: number; r: number; w: number };
-export type Floors = { from: number; to: number; use: 'factory' | 'commercial' | 'tourist'; name: string }[];
-export type Plan = { label: string; ring: Ring; sites: Site[]; roads: Road[]; land: Record<string, unknown>; floors?: Floors };
+export type Plan = { label: string; ring: Ring; sites: Site[]; roads: Road[]; land: Record<string, unknown>; programme?: unknown[]; programmeNote?: string };
 export type Village = {
 	hex: { flats: number; source?: string };
 	cell: number;

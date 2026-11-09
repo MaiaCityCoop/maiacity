@@ -3,7 +3,11 @@
 // Samuel's layout B, the centre hex with the tower, its ring road, its eight works and the village centre, no homes.
 import { describe, expect, test } from 'bun:test';
 import village from '../../../../../api/import/sandboxes/sandbox-6/village.json';
-import { capOf, edgeDistance, hexOf, towerStoreys, type Village } from './geometry';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import audit from '../../../../../api/import/sandboxes/sandbox-6/audit.json';
+import { auditOf, type Audit } from './audit';
+import { capOf, edgeDistance, hexOf, type Village } from './geometry';
 import { landOf } from './land';
 
 const V = village as unknown as Village;
@@ -39,8 +43,7 @@ describe('the village', () => {
 		const t = of(tower, 'tower180');
 		expect(t).toHaveLength(1);
 		expect([t[0].x, t[0].z]).toEqual([0, 0]);
-		expect(V.kinds.tower180.D).toBe(180);
-		expect(tower.ring.r).toBeGreaterThan(90);
+		expect(tower.ring.r).toBeGreaterThan(V.kinds.tower180.D / 2);
 		expect(tower.sites.filter((s) => s.use === 'works')).toHaveLength(8);
 	});
 
@@ -75,21 +78,36 @@ describe('the village', () => {
 });
 
 describe('centre hex', () => {
+	const A = auditOf(V, audit as unknown as Audit);
 	test('it holds no homes', () => {
 		expect(tower.sites.filter((s) => s.use === 'home')).toEqual([]);
-		expect(landOf(V, 'tower').m2.home).toBe(0);
+		expect(landOf(A.sized, 'tower').m2.home).toBe(0);
 	});
-	test('the village centre’s civic halls stand there, outside the tower', () => {
+	test('the village centre’s school, clinic and town hall stand there, outside the tower', () => {
 		const civic = tower.sites.filter((s) => s.use === 'civic').map((s) => s.name.toLowerCase());
-		for (const hall of ['town hall', 'school', 'clinic', 'library', 'theatre']) expect(civic.some((n) => n.includes(hall))).toBe(true);
-		for (const s of tower.sites.filter((s) => s.use === 'civic')) expect(Math.hypot(s.x, s.z)).toBeGreaterThan(V.kinds.tower180.D / 2 + V.kinds[s.kind].D / 2);
+		for (const hall of ['town hall', 'school', 'clinic']) expect(civic.some((n) => n.includes(hall))).toBe(true);
+		for (const s of tower.sites.filter((s) => s.use === 'civic')) expect(Math.hypot(s.x, s.z)).toBeGreaterThan(A.sized.kinds.tower180.D / 2 + V.kinds[s.kind].D / 2);
 	});
-	test('the tower’s floors carry only commercial, factory or tourist uses, every storey one of them', () => {
-		const floors = tower.floors!;
-		for (const f of floors) expect(['commercial', 'factory', 'tourist']).toContain(f.use);
-		for (const f of floors) expect(f.name.toLowerCase()).not.toMatch(/apartment|home|flat|resident/);
-		expect(floors.some((f) => /hotel/i.test(f.name))).toBe(true);
-		const storeys = towerStoreys(V.kinds.tower180);
-		for (const s of storeys) expect(floors.some((f) => s.k >= f.from && s.k < f.to)).toBe(true);
+	test('the tower is sized from its programme: mostly communal, one floor of co-working, tens of guest rooms, no flats', () => {
+		const T = A.tower;
+		expect(T.need.length).toBeGreaterThan(0);
+		for (const u of T.need) expect(['communal', 'commercial', 'tourist', 'factory']).toContain(u.use);
+		for (const u of T.need) expect(u.label.toLowerCase()).not.toMatch(/apartment|flat|home|resident/);
+		expect(T.gfa).not.toBeNull();
+		const by = (use: string) => T.need.filter((u) => u.use === use).reduce((x, u) => x + u.m2!, 0);
+		expect(by('communal')).toBeGreaterThan(Math.max(by('commercial'), by('tourist'), by('factory')));
+		const storey = Math.max(...T.storeys!.map((s) => s.m2));
+		expect(T.need.find((u) => u.id === 'cowork')!.m2!).toBeLessThanOrEqual(storey);
+		expect(T.need.find((u) => u.id === 'guests')!.rooms!).toBeLessThanOrEqual(100);
+		const held = T.storeys!.reduce((x, s) => x + s.m2, 0);
+		expect(Math.abs(held - T.gfa!) / T.gfa!).toBeLessThan(0.15);
+		expect(T.gfa!).toBeLessThanOrEqual(327_000 / 5);
+		console.log(`the tower: ${Math.round(T.gfa!)} m² gross, ${Math.round(T.shape!.D)} m at its foot, ${Math.round(T.shape!.H)} m high, ${T.storeys!.length} storeys (the old shape: ${Math.round(T.full)} m²)`);
+	});
+	test('the page never calls it Tower180', () => {
+		const shown = JSON.stringify(V.plans.tower.sites.map((s) => s.name)) + JSON.stringify(V.plans.tower.programme);
+		expect(shown).not.toContain('Tower180');
+		const dir = join(import.meta.dir);
+		for (const f of readdirSync(dir).filter((f) => !f.endsWith('.test.ts'))) expect(`${f}: ${readFileSync(join(dir, f), 'utf8').includes('Tower180')}`).toBe(`${f}: false`);
 	});
 });

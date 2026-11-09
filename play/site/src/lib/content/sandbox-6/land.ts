@@ -73,7 +73,7 @@ function inside(v: Village, s: Site, dx: number, dz: number): Use {
 function outdoors(v: Village, plan: Plan, x: number, z: number, edge: number): Use {
 	const L = plan.land as any;
 	if (edge < L.hedge) return 'nature';
-	if (plan.floors) {
+	if (plan.programme) {
 		const r = Math.hypot(x - plan.ring.x, z - plan.ring.z);
 		if (r < plan.ring.r + L.yard) return 'yard';
 		for (const s of plan.sites) if (s.use === 'works' && Math.hypot(x - s.x, z - s.z) <= footR(v, s) + L.yardRound) return 'yard';

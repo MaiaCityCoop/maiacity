@@ -49,6 +49,8 @@ describe('data', () => {
 		}
 	});
 	test('nothing of the old repository is named', () => {
-		for (const { p, text } of code()) expect(`${p}: ${/SNAPSHOT_2611101|maia\/content|maia\/site/.test(text)}`).toBe(`${p}: false`);
+		// the names written in pieces, so this file is not itself a match for the check's grep
+		const old = new RegExp([['SNAPSHOT', '2611101'].join('_'), ['maia', 'content'].join('/'), ['maia', 'site'].join('/')].join('|'));
+		for (const { p, text } of code()) expect(`${p}: ${old.test(text)}`).toBe(`${p}: false`);
 	});
 });
