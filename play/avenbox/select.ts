@@ -59,16 +59,6 @@ function closure(file: string, seen = new Map<string, string>()): Map<string, st
 }
 
 const isMd = (p: string) => p.endsWith(".md");
-/** Sandbox 2's physics tests' code (intent 417af727): `bun run test:physics` in play/site */
-export const PHYSICS = "play/site/src/lib/sandbox-2/";
-
-/** Everything (`--all`, one part named), and Sandbox 2's physics too when the change is known to touch them. */
-export function planAll(root: string, changed: string[] | null): Plan {
-  const p = plan(root, null);
-  if (!changed?.some((f) => f.startsWith(PHYSICS))) return p;
-  const steps = new Set([...p.steps, "site-physics"]);
-  return { ...p, steps: STEPS.filter((s) => steps.has(s)), why: [...p.why, `Sandbox 2's physics: ${PHYSICS} changed`] };
-}
 /** a change everything in play/api depends on */
 const everything = (p: string) =>
   /^play\/api\/(package\.json|bun\.lock|tsconfig[^/]*\.json)$/.test(p) || p.startsWith("play/api/migrations/") ||
@@ -76,7 +66,7 @@ const everything = (p: string) =>
 
 /** The plan for `changed` (paths from the repository's root), or for everything with `changed` null. */
 export function plan(root: string, changed: string[] | null): Plan {
-  // everything but Sandbox 2's physics, which only a change known to touch them adds (planAll)
+  // everything but Sandbox 2's physics: switched off (intent 94c11a28), they run only by name (gate.sh physics)
   if (changed === null) return { steps: STEPS.filter((s) => s !== "site-physics"), tests: "all", why: ["everything: --all, one part named, or no merge base to diff against"] };
   const why: string[] = [];
   const steps = new Set<string>();
@@ -92,8 +82,6 @@ export function plan(root: string, changed: string[] | null): Plan {
     if (f.startsWith(".github/workflows/")) steps.add("lint");
     // the site's build and its whole test suite (vitest), wherever its build is (intent 417af727)
     if (f.startsWith("play/site/") || f.startsWith("play/api/")) steps.add("site-build").add("site-tests");
-    // Sandbox 2's physics (about ten minutes): only for a change to its code, as CI runs them on a pull request
-    if (f.startsWith(PHYSICS)) steps.add("site-physics");
     if (f.startsWith("play/api/")) steps.add("api-types");
     if (everything(f)) {
       all = true;
@@ -139,7 +127,7 @@ export function changedPaths(root: string): string[] | null {
 if (import.meta.main) {
   const root = resolve(import.meta.dir, "../..");
   const changed = changedPaths(root);
-  const p = process.argv.includes("--all") ? planAll(root, changed) : plan(root, changed);
+  const p = plan(root, process.argv.includes("--all") ? null : changed);
   for (const s of p.steps) console.log(`step ${s}`);
   if (p.tests !== "all") for (const t of p.tests) console.log(`test ${t}`);
   for (const w of p.why) console.log(`why ${w}`);
