@@ -7,7 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PLACES } from '../game/places.js';
-import { biomes, planet, sites } from './fixture';
+import { biomes, planet, sites } from './fixture.test';
 
 const SITE = fileURLToPath(new URL('../../../../', import.meta.url));
 const read = (p: string) => readFileSync(join(SITE, p), 'utf8');

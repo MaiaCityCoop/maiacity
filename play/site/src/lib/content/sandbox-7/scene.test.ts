@@ -3,7 +3,7 @@
 // 60 % of the triangles the old planet drew for them (a fan and two side triangles a corner).
 import { describe, expect, test } from 'vitest';
 import * as THREE from 'three';
-import { biomes, planet, tiles } from './fixture';
+import { biomes, planet, tiles } from './fixture.test';
 import { buildPlanet, census, oldCardTris, topOf } from './scene';
 
 describe('the planet in 3D', () => {

@@ -4,7 +4,7 @@
 // sources kept in play's Artifacts (each source an artifact's UUID). The scene pins each where it is.
 import { describe, expect, test } from 'vitest';
 import { WATER } from './globe';
-import { biomes, planet, sites, tiles } from './fixture';
+import { biomes, planet, sites, tiles } from './fixture.test';
 import { buildPlanet, tileAt, topOf } from './scene';
 import { unitAt } from './maps';
 import { ranked, SCORES } from './sites';
