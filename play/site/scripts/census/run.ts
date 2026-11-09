@@ -13,6 +13,7 @@
 import { setup, frame, lib, fetched } from './setup';
 import { CountingRenderer } from './counting.js';
 import { refusedContexts } from './dom';
+import { quietness } from '../quiet.js';
 
 /** Sandbox 1's views, as the Mac's runs (selector-shots.mjs): x, z (m; the cell's middle the master dome), yaw, pitch */
 export const VIEWS = {
@@ -106,22 +107,17 @@ async function steady(ms: number, hold: number, band = 0) {
 	return false;
 }
 
-/**
- * The world's streaming settled, as the Mac's QUIET (intent 373050d1): nothing built or kept in an asset renderer, no
- * dome's inside building (`__domeStream`), and their copies, pictures and domes the same for 60 frames on end
- */
-let was = '', still = 0;
+/** the world's streaming settled (../quiet.js, the one rule every check uses), and held so for 60 frames on end */
+let still = 0;
 function quiet() {
-	const s = g.__assets?.stats?.() ?? {}, rs = ['out', 'in', 'library'].map((k) => s[k]).filter(Boolean);
-	const domes = (g.__domeStream?.states?.() ?? []).map((e: { state: string }) => e.state);
-	const busy = rs.some((r) => r.building || r.keeping) || domes.includes('building');
-	const key = JSON.stringify([busy, rs.map((r) => [r.copies, r.taken]), domes]);
-	if (key !== was) (was = key), (still = 0);
-	return !busy && ++still > 60;
+	return quietness(g) === 0 ? ++still > 60 : ((still = 0), false);
 }
 
+/** frames turned until the world is quiet, at most `ms`: whether it was (./settle.ts) */
+export const untilQuiet = (ms: number) => run(ms, quiet);
+
 /** builds Sandbox 1 (the route's own mount: play/site/src/routes/sandbox-1/+page.svelte) and gives its handle */
-async function mountSandbox1(log: (s: string) => void) {
+export async function mountSandbox1(log: (s: string) => void) {
 	(g.__interiorHour = HOUR), (g.__worldTime = MOMENT);
 	const { catalogReady } = await import(lib('recipes'));
 	const { SANDBOX } = await import(lib('content/assets/sandboxes.js'));
