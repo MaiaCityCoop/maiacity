@@ -206,7 +206,6 @@ const secure = () => (RP_ID() === "localhost" ? "" : "; Secure");
 export const sessionCookie = (token: string) => `${COOKIE}=${token}; Path=/; Max-Age=${LIFETIME_MS / 1000}; SameSite=Lax; HttpOnly${secure()}`;
 export const clearCookie = () => `${COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly${secure()}`;
 
-/** the human a request's session names, or null */
 export function humanIdFrom(req: Request): string | null {
   for (const part of (req.headers.get("cookie") ?? "").split(";")) {
     const [k, ...rest] = part.trim().split("=");

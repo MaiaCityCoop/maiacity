@@ -34,7 +34,6 @@ type SandboxState = { pins: Record<string, Pin>; configs: Record<string, unknown
 type Key = string | number;
 
 export 
-/** only Maia City's admins change a sandbox, for now */
 const SANDBOX_ADMINS = "Only Maia City's admins change a sandbox's layout, for now.";
 
 async function sandboxRow(q: Queryable, sandbox: string) {
@@ -44,7 +43,6 @@ async function sandboxRow(q: Queryable, sandbox: string) {
   return rows[0];
 }
 
-/** a sandbox as it stands: its pins and its configs */
 export async function stateOf(q: Queryable, sandbox: string): Promise<SandboxState> {
   const { rows: p } = await q.query<{ slot: string; version_id: string; variant: string | null; params: any }>(
     `SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1 ORDER BY slot`, [sandbox],
@@ -246,7 +244,6 @@ export async function applyEdits(q: Queryable, from: SandboxState, edits: unknow
   }
   for (const [name, data] of Object.entries(state.configs))
     if (Buffer.byteLength(JSON.stringify(data)) > MOST_CONFIG) throw new SandboxError(`The config ${name} would be larger than 1 MB.`);
-  // every slot a config names is pinned
   const missing = slotsNamed(state.configs).filter((s) => !state.pins[s.slot]);
   if (missing.length) throw new SandboxError(`${missing[0].config}/${missing[0].path.join("/")} names slot ${missing[0].slot}, which the sandbox would not pin: pin it, or change that too.`);
   const pinChanges: Change[] = [];

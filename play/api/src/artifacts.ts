@@ -248,7 +248,6 @@ const ARTIFACT_FROM = `play.artifacts s LEFT JOIN play.agents ag ON ag.id = s.ag
   LEFT JOIN LATERAL (SELECT h.name, v.decided_at AS at FROM play.doc_variants v JOIN play.intents i ON i.id = v.intent_id JOIN play.humans h ON h.id = i.proposed_by
     WHERE v.doc_id = 'artifact:' || s.id::text AND v.version > 1 ORDER BY v.version DESC LIMIT 1) up ON true`;
 
-/** who brought an artifact, as it is shown */
 const byOf = (origin: Origin, operator: string | null, agent: string) =>
   origin === "human" ? `Added by ${operator ?? "a former member"}` : `Sourced by ${agent}`;
 

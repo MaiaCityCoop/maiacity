@@ -45,13 +45,11 @@ const who = (me: Pick<Me, "id"> | null | undefined) => me?.id ?? null;
 
 // ---- assets
 
-/** whether `me` sees asset `id` (false too where there is none) */
 export async function seesAsset(q: Queryable, me: Pick<Me, "id"> | null, id: string): Promise<boolean> {
   const { rows } = await q.query(`SELECT 1 FROM play.assets a WHERE a.id::text = $1 AND ${assetSeen("a", "$2")}`, [id, who(me)]);
   return rows.length > 0;
 }
 
-/** asset `id`'s owner and group, or null where there is none */
 export async function assetOwner(q: Queryable, id: string): Promise<{ owner: string; grp: string; private: boolean } | null> {
   const { rows } = await q.query<{ owner: string; grp: string }>(`SELECT owner::text, grp FROM play.assets WHERE id::text = $1`, [id]);
   return rows[0] ? { ...rows[0], private: rows[0].owner !== COOP } : null;

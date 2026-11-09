@@ -88,7 +88,6 @@ async function edit(q: Queryable, t: DocType, d: LoroDoc, before: ReturnType<Lor
   if (problems.length) throw new SchemaError(problems);
   d.commit({ message, timestamp: seconds(at) });
   const bytes = d.export({ mode: "update", from: before });
-  // nothing changed: no edit
   if (sameFrontiers(d.frontiers(), d.vvToFrontiers(before)) && kind !== "seed") return null;
   const frontiers = d.frontiers();
   const { rows } = await q.query<{ seq: string; created: Date }>(
@@ -450,7 +449,6 @@ export async function versionFrontiers(q: Queryable, id: string, number: number)
   return rows[0]?.frontiers ?? null;
 }
 
-/** the document's JSON at an edit (its seq) or a named version */
 export async function stateAt(db: Queryable, id: string, at: { edit: number } | { version: number }): Promise<any> {
   const row = await rowOf(db, id);
   if ("version" in at) {
@@ -486,7 +484,6 @@ export async function seedOf(db: Queryable, id: string, v: number): Promise<any>
   return jsonAt(main, r.seed);
 }
 
-/** an intent variant's row: its seed, status, note and intent */
 export async function variantOf(db: Queryable, id: string, v: number, o: { breeds?: boolean } = {}) {
   const r = await variantRow(db, id, v, false, o.breeds ? ["intent", "breed"] : ["intent"]);
   return { id: Number(r.id), type: r.type, name: r.name, seed: r.seed, mainSeed: r.main_seed, breed: r.breed === null ? null : Number(r.breed), makes: r.makes, status: r.status, note: r.note, intent_id: r.intent_id, created_by: r.created_by, created: r.created };

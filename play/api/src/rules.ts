@@ -73,13 +73,11 @@ type Facts = {
   docs: string[]; schemas: string[];
   /** its work only makes new documents (none had a version before) */
   new_only: boolean;
-  /** the edits of its intent variants */
   edits: number;
   /** it holds play's work and a pull request (intent 7c8986c5): no rule decides it, a person does */
   both?: boolean;
 };
 
-/** An intent's facts as matchRule reads them, from Postgres. */
 export async function factsOf(q: Queryable, id: string): Promise<Facts> {
   const { rows: [i] } = await q.query<any>(
     `SELECT i.kind, i.via, i.author, i.work_kind, i.proposed_by, i.proposed_via, i.work, i.pull_request FROM play.intents i WHERE i.id = $1`,

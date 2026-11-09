@@ -6,7 +6,6 @@
 export const OPEN_STAGES = ["idea", "specify", "build", "proposal", "ship"] as const;
 /** the stages an intent ends at: the board's columns loaded a page at a time */
 export const CLOSED_STAGES = ["accepted", "archived"] as const;
-/** an intent's stages in their order */
 export const INTENT_STAGES = [...OPEN_STAGES, ...CLOSED_STAGES] as const;
 export type IntentStage = (typeof INTENT_STAGES)[number];
 

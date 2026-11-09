@@ -42,7 +42,6 @@ export function fromBunSql(sql: SQL): Db {
   };
 }
 
-/** A connection to `url` (DATABASE_URL). */
 export function connect(url = process.env.DATABASE_URL): Db {
   if (!url) throw new Error("DATABASE_URL is not set");
   // twenty connections, not Bun's ten: a few agents drafting and proposing at once (each step a transaction holding

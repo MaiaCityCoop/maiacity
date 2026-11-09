@@ -15,7 +15,6 @@ import { HttpError } from "./kit/errors";
  *  a rule decides in this admin's request (./decide.ts autoMove): the rule, written as who decided */
 export type Me = { id: string; name: string; level: Level; rule: Rule; founder_number: number | null; token?: string; box?: boolean; auto?: AutoBy };
 
-/** the human `id` with their level and its rule, or null */
 export async function meOf(db: Queryable, id: string | null): Promise<Me | null> {
   if (!id) return null;
   const { rows } = await db.query<Me>(

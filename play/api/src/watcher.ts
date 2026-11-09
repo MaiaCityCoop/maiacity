@@ -51,7 +51,6 @@ export async function watchPulls(db: Db, gh: GitHub, store: BlobStore, at = Date
   }
 }
 
-/** the watcher's own main merge state, kept while play-api runs */
 const MAIN_MERGE = mainMergeState();
 
 /** One tick: the ships, the open pull requests read, then main merged into those behind it and conflicts shown (./mainmerge.ts). */

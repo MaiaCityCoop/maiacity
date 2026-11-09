@@ -47,7 +47,6 @@ export async function listAssets(db: Queryable, grp: string | undefined, me: Pic
   return rows.map((r) => ({ id: r.id, grp: r.grp, slug: r.slug, label: r.label, head: r.head, versions: Number(r.versions), ...summary(r.card, r.parent_card) }));
 }
 
-/** one asset `me` sees and its whole chain, newest first */
 export async function assetOf(db: Queryable, id: string, me: Pick<Me, "id"> | null) {
   const { rows: a } = await db.query<any>(
     `SELECT a.id, a.grp, a.slug, a.label, a.head, a.coop_id, a.created, a.sound, a.sound_gain, a.owner <> a.coop_id AS private FROM play.assets a WHERE a.id::text = $1 AND ${assetSeen("a", "$2")}`,

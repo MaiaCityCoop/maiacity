@@ -12,7 +12,6 @@ export const ACCEPTED_CONTEXT = "Intent accepted";
 export const MERGES_CONTEXT = "Merges with main";
 /** the intent on play's board, where the status 'Intent accepted' links to */
 export const intentLink = (id: string) => `https://play.maia.city/intents/#${id}`;
-/** how long one call to GitHub may take */
 const CALL_MS = 30_000;
 
 export type Pull = {
@@ -104,9 +103,7 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
     /** a commit status on `sha`, 'Intent accepted' unless `context` names another ('Merges with main', ./mainmerge.ts) */
     status: (sha: string, { context = ACCEPTED_CONTEXT, ...s }: { state: "success" | "failure" | "error" | "pending"; description: string; target_url?: string; context?: string }) =>
       json("POST", `/statuses/${sha}`, { ...s, context }),
-    /** one commit, its parents */
     commit: (sha: string) => json<Commit>("GET", `/commits/${sha}`),
-    /** a branch's head commit */
     branchHead: async (branch: string) => (await json<{ object: { sha: string } }>("GET", `/git/ref/heads/${branch}`)).object.sha,
     /** `head` against `base` (three dots): how far each is past their merge base, and the files `head` changed since it */
     compare: (base: string, head: string) => json<Compare>("GET", `/compare/${base}...${head}`),
@@ -128,7 +125,6 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
       (await json<{ workflow_runs: Run[] }>("GET", `/actions/workflows/${workflow}/runs?${q({ ...filter, per_page: 30 })}`)).workflow_runs,
     /** a branch's runs, every workflow, newest first (./delivery.ts) */
     branchRuns: async (branch: string) => (await json<{ workflow_runs: Run[] }>("GET", `/actions/runs?${q({ branch, per_page: 100 })}`)).workflow_runs,
-    /** one run */
     run: (id: number) => json<Run>("GET", `/actions/runs/${id}`),
     jobs: async (run: number) => (await json<{ jobs: Job[] }>("GET", `/actions/runs/${run}/jobs?per_page=100`)).jobs,
     dispatch: (workflow: string, ref: string, inputs: Record<string, string>) => json("POST", `/actions/workflows/${workflow}/dispatches`, { ref, inputs }),

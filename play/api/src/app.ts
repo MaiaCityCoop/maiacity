@@ -342,7 +342,6 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     if (allowed.length) return json({ error: "Method not allowed." }, { status: 405, headers: { Allow: allowed.join(", ") } });
     return json({ error: "Not found." }, { status: 404 });
   }
-  /** every route the app answers, "<METHOD> <path>" */
   const table = () => routes.map((r) => `${r.method} ${r.path}`);
   return { fetch, routes: table };
 }

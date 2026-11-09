@@ -52,7 +52,6 @@ export type Timeline = {
   /** Idea→Accepted, or Idea→now while it is open */
   lead_ms: number;
   segments: Segment[];
-  /** each stage's time, summed */
   stage_ms: Partial<Record<Stage, number>>;
   ship: ShipPart[] | null;
   step_backs: number;
@@ -63,7 +62,6 @@ export type Timeline = {
   ci?: CiOf;
 };
 
-/** an intent as delivery reads it */
 export type Row = {
   id: string;
   title: string;

@@ -46,7 +46,6 @@ type Row = {
 export const short = (s: string) => s.slice(0, 7);
 const heldWhy = (held: { title: string }[]) => `held: waits for ${held.map((d) => d.title).join(", ")}`;
 
-/** whether every required check is green on the head as `seen` */
 const greenOn = (seen: Pick<PrSeen, "checks">) => REQUIRED_CHECKS.every((c) => seen.checks?.[c] === "success");
 
 /** the commits play's clean main merges in a row made the head from (merged_in, walked back from the head), newest first */

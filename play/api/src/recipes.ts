@@ -33,7 +33,6 @@ export function labelOf(text: string): Label | null {
 /** an asset named by a readable ref, `group/id[@v][:variant][?values]`, as legacy's cards name other assets */
 const READABLE = /^((?:plants|things|machines|buildings|actors|biomes)\/[a-z0-9][a-z0-9-]{0,79})(?:@([1-9][0-9]{0,5}))?(?::([a-z0-9][a-z0-9-]{0,79}))?(?:\?(.*))?$/;
 
-/** every string in a JSON value, visited */
 function eachString(v: unknown, f: (s: string) => void): void {
   if (typeof v === "string") f(v);
   else if (Array.isArray(v)) for (const x of v) eachString(x, f);

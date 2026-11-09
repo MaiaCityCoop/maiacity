@@ -52,7 +52,6 @@ export class SchemaError extends HttpError {
 
 const kindOf = (v: unknown): string => (v === null ? "null" : Array.isArray(v) ? "array" : typeof v);
 
-/** the problems of `v` against `n`, each with its path */
 export function validate(n: Node, v: unknown, path = "$", out: string[] = []): string[] {
   if (out.length > 50) return out;
   if (n.const !== undefined && v !== n.const) out.push(`${path}: must be ${JSON.stringify(n.const)}`);
@@ -98,7 +97,6 @@ export function nodeAt(n: Node, path: (string | number)[]): Node {
   return at;
 }
 
-/** the problems of a whole document against its type */
 export function problemsOf(t: Pick<DocType, "schema" | "check">, doc: unknown): string[] {
   const out = validate(t.schema, doc);
   if (!out.length && t.check) out.push(...t.check(doc));

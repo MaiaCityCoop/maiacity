@@ -9,5 +9,4 @@ const list = (JSON.parse(readFileSync(at, "utf8")).box ?? []) as Engine[];
 
 /** the latest: the one new recipes are made for */
 export const LATEST_BOX = list[list.length - 1];
-/** box engine `v`, if frozen */
 export const boxEngine = (v: unknown) => list.find((e) => e.v === v);

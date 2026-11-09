@@ -30,7 +30,6 @@ export function fromBytes(snapshot: Uint8Array | null, updates: Uint8Array[]): L
   return d;
 }
 
-/** the document as plain JSON */
 export const jsonOf = (d: LoroDoc): any => (d.toJSON() as Record<string, unknown>)[ROOT] ?? null;
 /** the BLAKE3 of a state's canonical JSON: what a named version records */
 export const contentHash = (json: unknown): string => hashText(canonical(json));
@@ -47,7 +46,6 @@ function putInMap(m: LoroMap, key: string, v: unknown, n: Node): void {
   else if (isObj(v)) fill(m.setContainer(key, new LoroMap()), v, n);
   else m.set(key, v);
 }
-/** inserts `v` as its schema says at `i` of list `l` */
 function putInList(l: LoroMovableList, i: number, v: unknown, n: Node): void {
   if (isText(n, v)) {
     const t = l.insertContainer(i, new LoroText());

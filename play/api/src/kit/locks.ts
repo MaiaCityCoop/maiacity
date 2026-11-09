@@ -18,5 +18,4 @@ export const LOCK = {
   testTemplate: 4_711_035,
 } as const;
 
-/** the SQL that takes lock `n` for the caller's transaction */
 export const lockSql = (n: (typeof LOCK)[keyof typeof LOCK]) => `SELECT pg_advisory_xact_lock(${n})`;

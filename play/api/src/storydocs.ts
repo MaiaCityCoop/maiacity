@@ -26,7 +26,6 @@ const BLANK = (title: string) => ({ schema: STORY_SCHEMA, title, format: "9:16",
 
 type VersionRow = { id: string; number: number; title: string; body: StoryBody; note: string; author: string | null; approved_by: string | null; created: Date };
 
-/** the frontiers of the document's version `number` */
 async function frontiersOf(q: Queryable, docId: string, number: number): Promise<docs.Frontiers> {
   const frontiers = await docs.versionFrontiers(q, docId, number);
   if (!frontiers) throw new docs.DocError(`${docId} has no version ${number}`, 500);

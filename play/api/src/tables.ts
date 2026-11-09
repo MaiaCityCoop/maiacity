@@ -59,7 +59,6 @@ async function columnsOf(tx: Queryable): Promise<Map<string, Column[]>> {
   return out;
 }
 
-/** Every table, by name, with its columns and its rows counted. */
 export function listTables(db: Db, me: { id: string }): Promise<Table[]> {
   return readOnly(db, async (tx) => {
     const all = await columnsOf(tx);

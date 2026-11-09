@@ -10,7 +10,6 @@ import { LOCK, lockSql } from "./kit/locks";
 
 export type Migration = { id: string; sql: string };
 
-/** the folder the migrations are read from */
 export const MIGRATIONS_DIR = join(import.meta.dir, "..", "migrations");
 /** the last hand-numbered migration (0037-intent-depends, landed in the old array beside this change): none after it */
 const LAST_NUMBERED = 37;
@@ -40,7 +39,6 @@ export function loadMigrations(dir = MIGRATIONS_DIR): Migration[] {
   });
 }
 
-/** play's migrations, as the folder holds them */
 export const MIGRATIONS: Migration[] = loadMigrations();
 
 /** Runs every migration not yet run, each in its own transaction. */

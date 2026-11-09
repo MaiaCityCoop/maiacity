@@ -22,7 +22,6 @@ export interface BlobStore {
   get(hash: string): Promise<Uint8Array | null>;
   /** a URL the browser may read it from for `seconds` */
   url(hash: string, seconds?: number): string;
-  /** its media type where the store keeps one */
   typeOf?(hash: string): Promise<string | null>;
 }
 
