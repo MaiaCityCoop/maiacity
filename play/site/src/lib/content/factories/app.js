@@ -350,7 +350,7 @@ export function boot(spec, host, opts = {}) {
   resize()
   if (app.sel) setTimeout(() => app.select(app.sel), 50)
   let raf = 0, gone = false
-  // maiaCITY: the clocks start once the renderer may draw (WebGPU's device asked for, intent c1bee1f8; a WebGLRenderer
+  // maiaCITY: the clocks start once the renderer may draw (WebGPU's device asked for, intent c1bee1f8; on WebGL
   // at once), and a film is told it is ready only then
   void ready(look.renderer).then(() => {
     if (gone) return

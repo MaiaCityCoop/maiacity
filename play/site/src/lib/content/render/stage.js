@@ -12,7 +12,7 @@ import { adaptiveResolution, createControls, createRenderer, disposeRenderer, fi
  * @typedef {object} StageRenderer
  * @property {THREE.WebGLRenderer} renderer
  * @property {Promise<unknown>} ready settles once the renderer may draw (WebGPU's device asked for, intent c1bee1f8;
- *   a WebGLRenderer at once): the viewer's first frame waits for it
+ *   on WebGL at once): the viewer's first frame waits for it
  * @property {THREE.PerspectiveCamera} camera
  * @property {import('three/addons/controls/OrbitControls.js').OrbitControls} controls
  * @property {() => void} resize fit the canvas to its box now (the viewer calls it once it is set up; the box's

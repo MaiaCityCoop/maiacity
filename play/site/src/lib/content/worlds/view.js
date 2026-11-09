@@ -412,7 +412,7 @@ export function createWorldView(el, o) {
 	open.add(view);
 	let running = true;
 	let last = performance.now(), frames = 0, since = last;
-	// drawn once the renderer is ready (WebGPU's device asked for; a WebGLRenderer at once), unless left before
+	// drawn once the renderer is ready (WebGPU's device asked for; on WebGL at once), unless left before
 	void ready(renderer).then(() => running && renderer.setAnimationLoop((now) => {
 		if (!running || paused) return;
 		const dt = Math.min(0.1, (now - last) / 1000);

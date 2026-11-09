@@ -815,7 +815,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 	// standing alone (Sandbox 3) the dome has the kit's stage, sky and walker ($content/sandbox-kit); built into a host's
 	// world (Sandbox 4) it draws with the host's
 	const stage: StageHandle | null = host ? null : createWorldRenderer(container, { maxPixelRatio: huge ? 1.25 : 1.5, near: 0.05, far: R * 30 + 500 })
-	// nothing is drawn before the renderer may draw (WebGPU's device asked for; a WebGLRenderer at once)
+	// nothing is drawn before the renderer may draw (WebGPU's device asked for; on WebGL at once)
 	if (stage) await stage.ready
 	const renderer = host?.renderer ?? stage!.renderer
 

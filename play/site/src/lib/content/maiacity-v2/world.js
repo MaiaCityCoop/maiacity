@@ -3705,7 +3705,7 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 			if (r.on !== roamSeen.on || r.near !== roamSeen.near || r.driving !== roamSeen.driving || r.waterNear !== roamSeen.waterNear || r.waterDistance !== roamSeen.waterDistance || r.treeNear !== roamSeen.treeNear) ((roamSeen = r), onRoam(r));
 		}
 	}
-	// its own frames once the renderer is ready (WebGPU's device asked for; a WebGLRenderer at once), unless left before
+	// its own frames once the renderer is ready (WebGPU's device asked for; on WebGL at once), unless left before
 	let left = false;
 	const made = ready(renderer);
 	if (own) void made.then(() => !left && loop());

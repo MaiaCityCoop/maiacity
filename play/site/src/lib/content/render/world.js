@@ -15,7 +15,7 @@ import { createRenderer, disposeObject, disposeRenderer, fitTo, placeSeenOnly, r
  * @typedef {object} StageHandle
  * @property {THREE.WebGLRenderer} renderer
  * @property {Promise<unknown>} ready settles once the renderer may draw (WebGPU's device asked for, intent c1bee1f8;
- *   a WebGLRenderer at once): the world's first frame waits for it
+ *   on WebGL at once): the world's first frame waits for it
  * @property {THREE.Scene} scene
  * @property {THREE.PerspectiveCamera} camera
  * @property {(now?: number, hold?: boolean) => void} adapt call once a frame: the resolution follows the frame rate

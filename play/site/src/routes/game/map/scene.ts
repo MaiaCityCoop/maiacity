@@ -17,7 +17,7 @@ const WATER = '#4f8a8b';
 const PLOT_TOP = 1.6; // m above the ground
 
 export interface World {
-	/** settles once the renderer may draw (WebGPU's device asked for, intent c1bee1f8; a WebGLRenderer at once) */
+	/** settles once the renderer may draw (WebGPU's device asked for, intent c1bee1f8; on WebGL at once) */
 	ready: Promise<unknown>;
 	/** outline and tint a plot as the picked one, or none */
 	select(id: number | null): void;

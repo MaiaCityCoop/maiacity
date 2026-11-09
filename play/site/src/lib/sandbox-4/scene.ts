@@ -612,7 +612,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void, onI
 		tell();
 		raf = requestAnimationFrame(loop);
 	};
-	// the first frame once the renderer is ready (WebGPU's device asked for; a WebGLRenderer at once)
+	// the first frame once the renderer is ready (WebGPU's device asked for; on WebGL at once)
 	void ready(renderer).then(() => {
 		if (!disposed) raf = requestAnimationFrame(loop);
 	});
