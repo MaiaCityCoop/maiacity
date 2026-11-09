@@ -2,7 +2,7 @@
 # names (production.yml passes it):
 #   docker build -f play/Dockerfile --build-arg BUN_VERSION=$(cat .bun-version) -t maia-city-play .
 # The site is built in the first stage; the API serves it beside /api (PLAY_SITE). The import (bun import/run.ts)
-# runs from the same image with every deploy, against play's Postgres and store (play/deploy/README.md).
+# runs from the same image with every deploy, against play's Postgres and store (deploy/server-up.sh).
 ARG BUN_VERSION
 FROM oven/bun:${BUN_VERSION}-alpine AS site
 WORKDIR /src/play/site
