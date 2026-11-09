@@ -20,6 +20,7 @@ play/site/scripts/census/dom.ts
 play/site/scripts/census/run.ts
 play/site/scripts/census/settle.ts
 play/site/scripts/census/setup.ts
+play/site/scripts/census/viewer.ts
 play/site/scripts/census/webgpu.js
 play/site/scripts/engine.test.ts
 play/site/scripts/flyover/flyover.mjs
@@ -117,6 +118,7 @@ play/site/src/lib/content/render/nodes/grass.js
 play/site/src/lib/content/render/nodes/ground.js
 play/site/src/lib/content/render/nodes/index.js
 play/site/src/lib/content/render/nodes/nodes.test.ts
+play/site/src/lib/content/render/nodes/tsl.test.js
 play/site/src/lib/content/render/post.js
 play/site/src/lib/content/render/post.test.js
 play/site/src/lib/content/render/sprites.js
