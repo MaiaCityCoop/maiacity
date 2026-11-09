@@ -295,6 +295,20 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   manifest is refused, saying which. The asset viewer and the intents' board name a version's pieces (label, version,
   hash). The imported legacy sources are kept the same way in the repository (`play/api/import/legacy/sources/pieces`,
   each shared part once, every source rebuilt byte for byte to its hash).
+- **A recipe's own look is data, never code** (intent a5faafad, GPU 14/14; Samuel 2026-11-08). A material's own shader
+  travels as a **node graph**: plain JSON of one allowlist (play/site's `content/assets/box/graph.js`, the one module
+  that checks a graph, in the box, on the page and in play's API alike), set on the material as `userData.graph`. A
+  graph is a list of typed nodes (math, noise, `uv`, position and normal, time, instance attributes, the worlds' shared
+  `wind` and `sun`, and pictures of its own material by slot, declared in `textures`), each input an earlier node, so
+  it never loops back; its only loops are of a constant count (`loop`, at most 16 turns; `fbm`, at most 8 octaves);
+  storage, depth, screen, viewport and scene reads, undeclared pictures and unknown nodes are refused, and so are
+  graphs over 256 nodes, 64 deep, a cost of 4,096 or 32 KB. Box engine 6 (data format 5) carries it out checked; the
+  page checks it again against the pictures its material carries and builds it into TSL from the list alone
+  (`content/render/nodes/graph.js`, each node worked out once). A shader of its own given any other way (code patched
+  into three's, a ShaderMaterial) refuses the build, naming the material: no silent plain fallback (engines 1–5 drew it
+  as a plain material, and still do for what was made on them). At propose time play reads a recipe's graphs as a
+  plain literal, `module.exports.graphs = { <name>: { format, nodes, out }, … }`, checks each with the same module and
+  refuses a source that writes a shader of its own, saying why. A graph's format is frozen with its engine.
 - **One level-of-detail contract for every asset** (intent a2935147, Samuel 2026-11-07). Every asset is drawn at four
   levels by the one renderer (`play/site`'s `content/assets/render/`), chosen by its size on screen alone (`lod.js`:
   `LEVELS`, `HOLD`, `BAND`, its budgets): **L0** its build; **L1 and L2** its recipe's own where it declares them,
