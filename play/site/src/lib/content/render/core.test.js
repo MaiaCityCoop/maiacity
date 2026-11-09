@@ -98,7 +98,7 @@ describe('the one renderer', () => {
 		expect(parameters.fragmentShader).toMatch(/DiffuseColor = vec4\( mix\(/);
 	});
 
-	test('a compile draws no extra shadow pass and is never handed a kit node material (cb16b7a5)', () => {
+	test('a compile draws no extra shadow pass and is handed every material, the kit’s node materials too (660ad67f)', () => {
 		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1, shadows: 'pcf' }));
 		const scene = new THREE.Scene();
 		const classic = new THREE.MeshStandardMaterial(), node = /** @type {any} */ (new MeshStandardNodeMaterial());
@@ -107,24 +107,16 @@ describe('the one renderer', () => {
 		r.compile(scene, new THREE.PerspectiveCamera());
 		expect(r.shadowsAtCompile).toEqual([false]);
 		expect(r.shadowMap.autoUpdate).toBe(true);
-		// a kit node material, hidden or not, is built at its first frame: a program three's compile built for it would be
-		// met later with another build's uniforms (the sky's PMREM in a vec3, cb16b7a5)
+		// a kit node material, hidden or not, is built now: each build is paired with its program as three acquires it
+		// (./nodes/nodes.test.ts, on the fake context), so none meets another build's uniforms later (cb16b7a5)
 		const shown = new THREE.Mesh(new THREE.BoxGeometry(), node), hidden = new THREE.Mesh(new THREE.BoxGeometry(), [classic, node]);
 		hidden.visible = false;
 		scene.add(shown, hidden);
 		r.compile(scene, new THREE.PerspectiveCamera());
 		expect(r.shadowsAtCompile).toEqual([false, false]);
-		expect(r.compiled.filter((/** @type {any} */ m) => m.isNodeMaterial)).toEqual([]);
+		expect(r.compiled).toContain(node);
 		expect(shown.material).toBe(node);
 		expect(hidden.material).toEqual([classic, node]);
-		// any other node material (a sky) is warmed up as on main, under the tone of the moment: drawn first into an
-		// environment bake (no tone, linear), it would otherwise keep that program for the frame (cb16b7a5: the viewer's
-		// sky raw and bloomed, a haze over everything)
-		const sky = new MeshStandardNodeMaterial();
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), sky));
-		r.compile(scene, new THREE.PerspectiveCamera());
-		expect(r.compiled).toContain(sky);
-		expect(r.compiled).not.toContain(node);
 	});
 
 	test('tone mapping and exposure are set through the core', () => {
@@ -141,22 +133,25 @@ describe('the one renderer', () => {
 		expect([r.toneMapping, r.toneMappingExposure]).toEqual([THREE.NoToneMapping, 1]);
 	});
 
-	test('precompile leaves node materials out (compileAsync never settles for them) and settles itself', async () => {
+	test('precompile compiles everything and waits until each program is linked, never past its cap', async () => {
 		const r = /** @type {any} */ (createRenderer({ pixelRatio: 1 }));
-		/** @type {string[][]} */
-		const gathered = [];
-		r.compileAsync = (/** @type {THREE.Object3D} */ root) => {
-			const seen = [];
-			root.traverseVisible((o) => /** @type {any} */ (o).isMesh && seen.push(o.name));
-			gathered.push(seen);
-			// as three's under WebGLNodesHandler: one that gathered a node material never settles
-			return seen.includes('sky') ? new Promise(() => {}) : Promise.resolve();
-		};
-		const scene = new THREE.Scene();
-		const sky = Object.assign(new THREE.Mesh(new THREE.BoxGeometry(), new MeshStandardNodeMaterial()), { name: 'sky' });
-		scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()), { name: 'asset' }), sky);
-		await precompile(r, scene, new THREE.PerspectiveCamera());
-		expect(gathered).toEqual([['asset']]);
-		expect(sky.visible).toBe(true);
+		const asset = new THREE.MeshStandardMaterial(), sky = new MeshStandardNodeMaterial();
+		let polls = 0;
+		const ready = new Map([[asset, () => true], [sky, () => ++polls > 2]]);
+		r.compile = () => new Set([asset, sky]);
+		r.properties = { get: (/** @type {any} */ m) => ({ currentProgram: { isReady: ready.get(m) } }) };
+		await precompile(r, new THREE.Scene(), new THREE.PerspectiveCamera());
+		expect(polls).toBe(3);
+		// a program that never says it is linked holds the warm-up no longer than its cap (then it links at its first draw)
+		vi.useFakeTimers();
+		try {
+			ready.set(sky, () => false);
+			let settled = false;
+			precompile(r, new THREE.Scene(), new THREE.PerspectiveCamera()).then(() => (settled = true));
+			await vi.advanceTimersByTimeAsync(4100);
+			expect(settled).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

@@ -24,14 +24,14 @@
 		let gone = false;
 		(async () => {
 			const THREE = await import('three');
-			const [{ createStageRenderer }, { disposeObject }, { asker, loop }] = await Promise.all([import('$lib/content/render/stage.js'), import('$lib/content/render/core.js'), import('$lib/content/assets/viewer.js')]);
+			const [{ createStageRenderer }, { disposeObject, PICTURE }, { asker, loop }] = await Promise.all([import('$lib/content/render/stage.js'), import('$lib/content/render/core.js'), import('$lib/content/assets/viewer.js')]);
 			const [{ loadAsset }, { buildAt, loadRecipes }, { refOf }, { TIERS }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/catalog.js'), import('./flora.js'), import('./sandbox5.js')]);
 			// the plant's recipe is the Maia City vault's ($content/assets/vault.js)
 			await loadRecipes();
 			if (gone) return;
 			// the stage renderer ($content/render/stage.js), see-through over the card; what is under the soil cut away, as it
 			// is in the forest, where no one sees it
-			const view = createStageRenderer(box, { alpha: true, clipping: true, toneMapping: 'agx', exposure: 1.6, fov: 32, near: 0.01, far: 400, style: false, controls: { enablePan: false, autoRotate: true, autoRotateSpeed: 1.6, maxPolarAngle: Math.PI * 0.55 } });
+			const view = createStageRenderer(box, { alpha: true, clipping: true, toneMapping: PICTURE, exposure: 1.6, fov: 32, near: 0.01, far: 400, style: false, controls: { enablePan: false, autoRotate: true, autoRotateSpeed: 1.6, maxPolarAngle: Math.PI * 0.55 } });
 			const { renderer, camera, controls } = view;
 			const soilLine = [new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.01)];
 			const scene = new THREE.Scene();
