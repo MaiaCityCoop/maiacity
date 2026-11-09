@@ -6,9 +6,9 @@
 // and keeps a long line is refused with the readable message; a new asset with a long line is refused. Both shapes
 // the legacy people come in: a version with its own source, and a version of variants (breeds).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { COOP } from "../src/access";
+import { COOP } from "../src/kit/ids";
 import { createHuman } from "../src/auth";
-import { type BlobStore } from "../src/blobs";
+import { type BlobStore, keyOf } from "../src/blobs";
 import { hashText } from "../src/kit/hash";
 import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
@@ -49,7 +49,7 @@ suite("readable", () => {
   const keep = async (text: string) => {
     const hash = hashText(text);
     await store.put(hash, new TextEncoder().encode(text), "text/javascript");
-    await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, 'text/javascript', $3) ON CONFLICT DO NOTHING`, [hash, Buffer.byteLength(text), `blobs/${hash.slice(0, 2)}/${hash}`]);
+    await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, $2, 'text/javascript', $3) ON CONFLICT DO NOTHING`, [hash, Buffer.byteLength(text), keyOf(hash)]);
     return hash;
   };
   const record = (slug: string, variant: string | null, recipe: string, source: string) => ({ kind: "recipe", source, manifest: { libs: [], pieces: [] }, card: { group: "actors", id: slug, version: 1, v: 1, ...(variant ? { variant } : {}), recipe } });

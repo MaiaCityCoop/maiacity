@@ -5,7 +5,8 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
-import { COOP, type Me } from "../src/access";
+import type { Me } from "../src/access";
+import { COOP } from "../src/kit/ids";
 import { createHuman } from "../src/auth";
 import { BUDGETS, daysOf, delivery, NO_GITHUB, type Timeline } from "../src/delivery";
 import { carrySeen, mainMergeState } from "../src/mainmerge";

@@ -3,6 +3,7 @@
 // variant; each accepted version's source is kept among play's files by its hash; a minified piece is refused; an
 // asset's version may require only an accepted piece version's hash, and keeps building the version it names.
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { COOP } from "../src/kit/ids";
 import { meOf } from "../src/access";
 import { proposeAsset } from "../src/assetdocs";
 import { createHuman } from "../src/auth";
@@ -16,7 +17,6 @@ import { decide, docAt, docHistory, listDocs, proposeDocVersion } from "../src/v
 import "../src/allkinds";
 import { type Fresh, freshDb, suite, tempStore } from "./kit";
 
-const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
 
 const pieceSource = (n: number) => `// the kit's wheels, as written\nconst three = require("three");\nmodule.exports.wheels = ${n};\nmodule.exports.three = three;\n`;
 const assetSource = (piece: string) =>

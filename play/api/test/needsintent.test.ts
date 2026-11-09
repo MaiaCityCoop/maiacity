@@ -6,7 +6,7 @@
 // Build or Proposal refused, nothing written; naming one in Build with every must check passed, taken, the intent at
 // Proposal with that work and its spec. And Postgres holds it: an intent in Build, at Proposal or in Ship has a spec.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { COOP } from "../src/access";
+import { COOP } from "../src/kit/ids";
 import { createHuman } from "../src/auth";
 import * as docs from "../src/docs";
 import { migrate, MIGRATIONS } from "../src/migrations";

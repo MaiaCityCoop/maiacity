@@ -5,11 +5,12 @@
 // pass without running again only on the very tree a pull request's run tested (tested-tree.sh against a stand-in
 // GitHub); every gate of before is kept; play's Ship follows the jobs as they are; play-api stops on SIGTERM.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { COOP } from "../src/kit/ids";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createHuman, initSessions } from "../src/auth";
-import { folderStore, type BlobStore } from "../src/blobs";
+import { folderStore, type BlobStore, keyOf } from "../src/blobs";
 import { hashText } from "../src/kit/hash";
 import { migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
@@ -36,7 +37,6 @@ function counting(inner: BlobStore) {
 }
 
 const recipe = (id: string, v: number) => `${RECIPE_HEAD}module.exports.recipe = () => ({});\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, null);\n});\n`;
-const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
 
 suite("the deploy's import", () => {
   let t: Awaited<ReturnType<typeof freshDb>>;
@@ -70,7 +70,7 @@ suite("the deploy's import", () => {
     index({ [mint]: { asset: "plants/mint-old", v: 1, variant: null, source: src, commit: "c" } });
     // the legacy import ran; the media play's site names are among play's files (their rows: play keeps a file first)
     await db.query(`INSERT INTO play.imports (name) VALUES ('legacy')`);
-    for (const m of mediaNamed()) await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'image/jpeg', $2) ON CONFLICT DO NOTHING`, [m.hash, `blobs/${m.hash.slice(0, 2)}/${m.hash}`]);
+    for (const m of mediaNamed()) await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'image/jpeg', $2) ON CONFLICT DO NOTHING`, [m.hash, keyOf(m.hash)]);
     const run = () => runImport(db, store, { sources: dir, log: () => {} });
 
     // the first run gives the version its source, seeds the repo's stories and makes the documents
@@ -124,7 +124,7 @@ suite("a media file play's files lack", () => {
       for (const m of named) if (!lost && !(await own(m))) lost = m;
       expect(lost).toBeDefined();
       // every other one among play's files already
-      for (const m of named.filter((x) => x !== lost)) await t.db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'image/jpeg', $2)`, [m.hash, `blobs/${m.hash.slice(0, 2)}/${m.hash}`]);
+      for (const m of named.filter((x) => x !== lost)) await t.db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'image/jpeg', $2)`, [m.hash, keyOf(m.hash)]);
       const fetched: string[] = [];
       const real = globalThis.fetch;
       globalThis.fetch = (async (u: any) => (fetched.push(String(u)), new Response("", { status: 599 }))) as typeof fetch;

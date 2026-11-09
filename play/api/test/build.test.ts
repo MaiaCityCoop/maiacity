@@ -33,9 +33,7 @@ suite("the stage Build (migration 0033-build)", () => {
     db = f.db;
     // production's database: every migration but 0033-build (those after it too, so today's store writes its documents
     // and the token column 4ea6b2ed-avenbox-token adds is there to read)
-    await db.exec(`CREATE SCHEMA IF NOT EXISTS play; CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now());`);
-    for (const m of MIGRATIONS.filter((m) => m.id !== "0033-build"))
-      await db.transaction(async (tx) => (await tx.query(m.sql), await tx.query(`INSERT INTO play.migrations (id) VALUES ($1)`, [m.id])));
+    await migrate(db, { migrations: MIGRATIONS.filter((m) => m.id !== "0033-build") });
     await initSessions(db);
     api = appOn(db);
     who.ada = await human(db, "ada");

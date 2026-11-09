@@ -7,7 +7,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { createHuman } from "../src/auth";
 import { type Db } from "../src/kit/pg";
-import { COOP } from "../src/access";
+import { COOP } from "../src/kit/ids";
 import { fakeGitHub } from "./fixtures/github";
 import { type Api, appOn, cookieFor, type Fresh, freshDb, quiet, request, suite, tool as mcpTool } from "./kit";
 

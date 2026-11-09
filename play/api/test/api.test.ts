@@ -19,7 +19,7 @@ import { RECIPE_HEAD } from "../src/recipes";
 import { UUID } from "../src/kit/uuid";
 /** the repo's papaya story (import/stories/papaya-v2-devlog/story.json names it by this) */
 const PAPAYA_STORY = "7adaf0b3-01a9-8bb9-b250-d2bee7016c4c";
-import { COOP } from "../src/access";
+import { COOP } from "../src/kit/ids";
 import { randomUUID } from "node:crypto";
 import { leveled } from "./fixtures/lod";
 import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite } from "./kit";
@@ -480,7 +480,7 @@ suite("play API", () => {
     const legacy = "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant }, build: () => null };\n};\n";
     const own = await put(recipe("thyme-old", 1)), hen = await put(recipe("hen-old", 1, "hen-red"));
     const thyme = "8a1e2b44-0000-4000-8000-000000000001", hens = "8a1e2b44-0000-4000-8000-000000000002";
-    await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'plants', 'thyme-old', 'Thyme'), ($2, '12f8d4e7-701f-8727-a327-de9b240ea867', 'actors', 'hen-old', 'Hen')`, [thyme, hens]);
+    await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $3, 'plants', 'thyme-old', 'Thyme'), ($2, $3, 'actors', 'hen-old', 'Hen')`, [thyme, hens, COOP]);
     await db.query(
       `INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES
         ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"legacy"}'), ($4, $5, 1, NULL, 'hen-red', '{"card":{}}', 5, '{"from":"legacy"}')`,
@@ -512,7 +512,7 @@ suite("play API", () => {
     await expect(db.query(`UPDATE play.asset_variants SET card = '{}' WHERE recipe_hash = $1`, [hen])).rejects.toThrow(/never changed/);
     // an index that says the wrong version, for a version that lacks its source, or a source that is not its hash, is refused
     const sage = await put(recipe("sage-old", 1)), sageId = "8a1e2b44-0000-4000-8000-000000000003";
-    await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, '12f8d4e7-701f-8727-a327-de9b240ea867', 'plants', 'sage-old', 'Sage')`, [sageId]);
+    await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, 'plants', 'sage-old', 'Sage')`, [sageId, COOP]);
     await db.query(`INSERT INTO play.asset_versions (id, asset_id, number, recipe_hash, default_variant, card, engine, imported) VALUES ($1, $2, 1, $3, NULL, '{"card":{}}', 5, '{"from":"legacy"}')`, [hashText("sage-old@1"), sageId, sage]);
     index({ [sage]: { asset: "plants/sage-old", v: 2, variant: null, source: src, commit: "c" } });
     expect((await importSources(db, store, dir)).errors[0]).toMatch(/builds sage-old@1, not plants\/sage-old@2/);
@@ -1246,7 +1246,7 @@ suite("play API", () => {
     const v1 = storyVersionId({ story: OLD, parents: [], title: "Old", body: body("first") });
     const v2 = storyVersionId({ story: OLD, parents: [v1], title: "Old", body: body("second") });
     const p3 = storyVersionId({ story: OLD, parents: [v2], title: "Old", body: body("third") });
-    await db.query(`INSERT INTO play.stories (id, coop_id, title) VALUES ('${OLD}', '12f8d4e7-701f-8727-a327-de9b240ea867', 'Old')`);
+    await db.query(`INSERT INTO play.stories (id, coop_id, title) VALUES ($1, $2, 'Old')`, [OLD, COOP]);
     await db.query(`INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, created) VALUES ($1, '${OLD}', 1, '{}', 'Old', ($2::text)::jsonb, 'one', '2026-10-01T10:00:00Z')`, [v1, JSON.stringify(body("first"))]);
     await db.query(`INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, created) VALUES ($1, '${OLD}', 2, $2, 'Old', ($3::text)::jsonb, 'two', '2026-10-02T10:00:00Z')`, [v2, [v1], JSON.stringify(body("second"))]);
     await db.query(`INSERT INTO play.story_versions (id, story_id, parents, title, body, note, author) VALUES ($1, '${OLD}', $2, 'Old', ($3::text)::jsonb, 'three', $4)`, [p3, [v2], JSON.stringify(body("third")), who.ada.id]);

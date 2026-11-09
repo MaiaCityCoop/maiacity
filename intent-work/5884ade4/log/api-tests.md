@@ -98,3 +98,9 @@ behaviour is pinned, and for every test removed why it could not fail or only re
    the layouts) call `seed` after `migrate`, as play-api does; the comments that said "the end of migrate()" name the
    seed. The held assetdocs.test.ts calls `migrate` alone and needs no seed (run, 7 pass). Pinned: migrate.test
    (each old database migrated and seeded), rules.test, sandboxdocs.test, schemas.test, the whole suite.
+9. **Imported, not copied (F3, in part).** build.test's "every migration but 0033-build" is `migrate`'s own
+   `migrations` option (no new option needed), not a hand loop over the runner's table; no test writes the
+   play.migrations DDL now (api-tests#17). The coop's UUID is imported from `src/kit/ids` everywhere (the literal in
+   api.test's SQL, deploy-speed and pieces; the `access.ts` re-export in six tests and fixtures/board), and the
+   bucket key is `keyOf` (readable, deploy-speed), not `blobs/${hash.slice(0, 2)}/…` (api-tests#12). Pinned: the
+   files touched, unchanged.
