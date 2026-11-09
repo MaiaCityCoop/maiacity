@@ -11,7 +11,7 @@ import { seesIntent } from "./owners";
 import { factsOf, matchRule, ruleSetOf } from "./rules";
 import { acceptAndShip, acceptCode, runningCommit } from "./ship";
 import { decide } from "./versioned";
-import { statusOf } from "./fault";
+import { answerOf } from "./fault";
 
 /**
  * An admin's decision on an intent, whatever its stage (the one place an intent is decided; play/SPEC.md §4.12): at
@@ -80,7 +80,7 @@ export async function autoMove(ctx: Ctx, id: string, o: { me?: Me | null; gh?: G
   try {
     await decideAny(ctx, actor, intent.id, at, o.gh ?? null, o.commit, by);
   } catch (e) {
-    if (statusOf(e) !== null) return { gate: at, rule: rule.id, refused: (e as Error).message };
+    if (answerOf(e) !== null) return { gate: at, rule: rule.id, refused: (e as Error).message };
     throw e;
   }
   if ((await intentRow(db, intent.id)).stage === "accepted") await autoAfter(ctx, intent.id, o);

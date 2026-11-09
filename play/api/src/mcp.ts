@@ -48,7 +48,7 @@ import { HttpError } from "./kit/errors";
 import type { Formats, Tool, ToolCtx } from "./mcptool";
 import { intentTools } from "./intenttools";
 import { artifactTools } from "./artifacttools";
-import { statusOf } from "./fault";
+import { answerOf, statusOf } from "./fault";
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
@@ -532,7 +532,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)
-          if (statusOf(e) !== null)
+          if (answerOf(e) !== null)
             return reply(msg.id, { content: [{ type: "text", text: (e as Error).message }], isError: true });
           console.error(e);
           return reply(msg.id, { content: [{ type: "text", text: "Something went wrong on play's side." }], isError: true });
