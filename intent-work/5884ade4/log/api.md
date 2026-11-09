@@ -90,3 +90,10 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
    where Accept ships now reads decide.ts), rules.test, depends.test, mainmerge.test, delivery.test,
    intentpieces.test, the whole suite (one run timed out artifacts.test's 0026 migration under a load of 17 from the
    other builders; alone it passes).
+10. **One guard, one reason, one backward stage writer** (api-flow C). retire.ts, withdraw.ts and MCP's tools/call
+    use intents.ts `intentFor`/`noSuchIntent`; `reasonOf(v, what, why)` in intents.ts replaces the three copies in
+    retire, withdraw and stepback (api-flow #3); `moveBack(q, id, move, arg)` holds the SQL of every move back
+    (reject, reopen, step back to Specify or Idea, a withdrawal back to Build) with what each clears, instead of five
+    hand-written UPDATEs in intents, stepback and withdraw (api-flow #37). Ship's own stage writes stay in ship.ts:
+    ship.test pins that the reconcile is the one write of 'accepted' there. "There is no such intent" 13 → 2.
+    Pinned: intents.test, withdraw.test, retire.test, private.test (the same 404 text), depends.test, the whole suite.

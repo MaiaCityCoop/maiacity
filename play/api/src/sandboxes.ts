@@ -16,6 +16,7 @@ import * as docs from "./docs";
 import { SCHEMA } from "./kit/ids";
 import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
 import { holdVariant, intentIdOf } from "./held";
+import { noSuchIntent } from "./intents";
 import { resolveEdits } from "./kinds";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
@@ -515,7 +516,7 @@ export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at
 export async function proposedState(db: Queryable, me: Me | null, sandbox: string, id: string): Promise<SandboxState> {
   admin(me, SANDBOX_ADMINS);
   const intent = await intentIdOf(db, id);
-  if (!intent) throw new HttpError("There is no such intent.", 404);
+  if (!intent) throw noSuchIntent();
   const { rows } = await db.query<{ stage: string; doc_variant: string | null }>(`SELECT i.stage, iv.variant_id AS doc_variant FROM play.intents i JOIN play.intent_variants iv ON iv.intent_id = i.id WHERE i.id = $1 AND iv.doc_id = $2`, [intent, layoutDoc(sandbox)]);
   if (!rows[0]) throw new HttpError("There is no such intent's change of this sandbox.", 404);
   if ((rows[0].stage !== "proposal" && rows[0].stage !== "build") || rows[0].doc_variant == null) return stateOf(db, sandbox);

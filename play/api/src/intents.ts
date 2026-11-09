@@ -310,6 +310,14 @@ export async function intentCounts(db: Queryable, me: Me | null): Promise<Record
   return out;
 }
 
+/** a move's reason, one line: `what` is the move ("A retire"), `why` what its reason says ("why the document goes") */
+export function reasonOf(v: unknown, what: string, why: string): string {
+  const r = `${v ?? ""}`.replace(/\s+/g, " ").trim();
+  if (!r) throw new HttpError(`${what} needs its reason: ${why}, in a line.`);
+  if (r.length > LINE_MOST) throw new HttpError(`${what}'s reason is one line, at most ${LINE_MOST} characters.`);
+  return r;
+}
+
 /** what anyone is told of an intent that is not there, or is another's private one (./owners.ts): as one that never was */
 export const noSuchIntent = () => new HttpError("There is no such intent.", 404);
 
@@ -592,7 +600,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       if (intent.stage === "proposal" && waiting(intent)) refuse("Its work waits for a decision: archiving it archives the intent.");
       if (!["idea", "specify", "build", "proposal"].includes(intent.stage)) refuse(`An intent at the ${intent.stage} stage is decided already.`);
       // a reject undoes what a rule decided before it
-      await db.query(`UPDATE play.intents SET stage = 'archived', decided_by = $2, decided_at = now(), auto = '{}'::jsonb WHERE id = $1`, [intent.id, who.id]);
+      await moveBack(db, intent.id, "reject", who.id);
       // work proposed in Build that waited on it is archived with it, kept in the history
       if (intent.work) await closeWork(db, who, { id: intent.id });
       break;
@@ -600,11 +608,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       if (intent.stage !== "accepted" && intent.stage !== "archived") refuse(`This intent is at the ${intent.stage} stage already.`);
       // accepted work is in: what comes after it is an intent of its own
       if (intent.stage === "accepted" && intent.work) refuse("Its work is in (accepted): what is wanted now is an intent of its own.");
-      await db.query(
-        `UPDATE play.intents SET stage = CASE WHEN spec IS NULL OR jsonb_array_length(spec->'checks') = 0 THEN 'idea' ELSE 'specify' END,
-                approved_by = NULL, approved_at = NULL, results = NULL, decided_by = NULL, decided_at = NULL, auto = '{}'::jsonb WHERE id = $1`,
-        [intent.id],
-      );
+      await moveBack(db, intent.id, "reopen");
       break;
     default:
       throw new HttpError("No such decision.", 404);
@@ -632,6 +636,25 @@ async function decided(q: Queryable, id: string, move: Decision, by: By, o: { sh
 }
 /** the one decision path as every path calls it (a test may stand a stub in its place) */
 export const decisions = { decided };
+
+/**
+ * Every move back, what each clears (the one writer of a backward stage; going forward is `decided`'s and the gate's):
+ * rejected (archived by `$2`, a person), reopened (to Specify with its spec, else to Idea), stepped back to Specify or
+ * to Idea (./stepback.ts, its step `$2` kept), or back to Build as a document is withdrawn (./withdraw.ts, `$2` kept).
+ * Each clears what a rule decided (`auto`); a withdrawal only a rule's Accept.
+ */
+const BACK = {
+  reject: `stage = 'archived', decided_by = $2, decided_at = now(), auto = '{}'::jsonb`,
+  reopen: `stage = CASE WHEN spec IS NULL OR jsonb_array_length(spec->'checks') = 0 THEN 'idea' ELSE 'specify' END,
+           approved_by = NULL, approved_at = NULL, results = NULL, decided_by = NULL, decided_at = NULL, auto = '{}'::jsonb`,
+  specify: `stage = 'specify', approved_by = NULL, approved_at = NULL, results = NULL, auto = '{}'::jsonb, steps = steps || ($2::text)::jsonb`,
+  idea: `stage = 'idea', spec = NULL, specified_by = NULL, specified_at = NULL, approved_by = NULL, approved_at = NULL, results = NULL, auto = '{}'::jsonb,
+         steps = steps || ($2::text)::jsonb`,
+  withdrawn: `stage = 'build', auto = auto - 'accept', steps = steps || ($2::text)::jsonb`,
+} as const;
+export async function moveBack(q: Queryable, id: string, move: keyof typeof BACK, arg?: string) {
+  await q.query(`UPDATE play.intents SET ${BACK[move]} WHERE id = $1`, move === "reopen" ? [id] : [id, arg]);
+}
 
 // ---- work put on an intent, settled, or archived by whoever proposed it: its stage moves (the work's SQL is ./held.ts)
 

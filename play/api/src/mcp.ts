@@ -27,7 +27,7 @@ import { docAt, docEdit, docHistory, listDocs, proposeDocVersion } from "./versi
 import { intentOf } from "./review";
 import { kinds, syncKinds, workKinds } from "./kinds";
 import { NO_INTENT } from "./held";
-import { addIntent, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES, archiveOwn } from "./intents";
+import { addIntent, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES, archiveOwn, noSuchIntent } from "./intents";
 import { autoMove } from "./decide";
 import { stepBack } from "./stepback";
 import { withdrawDoc } from "./withdraw";
@@ -920,7 +920,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         try {
           // an intent whose work is another's private asset is as one that never was, whichever tool names it (./owners.ts)
           const named = msg.params?.arguments?.intent;
-          if (typeof named === "string" && me && !(await seesIntent(db, me, named))) throw new HttpError("There is no such intent.", 404);
+          if (typeof named === "string" && me && !(await seesIntent(db, me, named))) throw noSuchIntent();
           // (an edge to an intent another's private work keeps is shown as "a private intent": ./owners.ts)
           const out = await maskEdges(db, me, await tool.run(msg.params?.arguments ?? {}, me));
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });

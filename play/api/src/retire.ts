@@ -14,17 +14,9 @@
 import { admin, type Me } from "./access";
 import * as docs from "./docs";
 import type { Db, Queryable } from "./kit/pg";
-import { INTENT_ADMINS, intentRow, LINE_MOST, putAtProposal } from "./intents";
-import { seesIntent } from "./owners";
+import { INTENT_ADMINS, intentFor, intentRow, putAtProposal, reasonOf } from "./intents";
 import { authorOf, docRef, type Ctx } from "./kinds";
 import { HttpError } from "./kit/errors";
-
-const reasonOf = (v: unknown) => {
-  const r = `${v ?? ""}`.replace(/\s+/g, " ").trim();
-  if (!r) throw new HttpError("A retire needs its reason: why the document goes, in a line.");
-  if (r.length > LINE_MOST) throw new HttpError(`A retire's reason is one line, at most ${LINE_MOST} characters.`);
-  return r;
-};
 
 /** when document `docId` was retired and by which intent, or null while it is not */
 export async function retiredOf(q: Queryable, docId: string): Promise<{ at: string; intent: string | null } | null> {
@@ -39,9 +31,8 @@ export async function retiredOf(q: Queryable, docId: string): Promise<{ at: stri
  */
 export async function retireDoc(ctx: Ctx, me: Me | null, id: string, doc: unknown, reason: unknown, via: "mcp" | "web") {
   const who = admin(me, INTENT_ADMINS);
-  const why = reasonOf(reason);
-  const intent = await intentRow(ctx.db, id);
-  if (!(await seesIntent(ctx.db, who, intent.id))) throw new HttpError("There is no such intent.", 404);
+  const why = reasonOf(reason, "A retire", "why the document goes");
+  const intent = await intentFor(ctx.db, who, id);
   await (ctx.db as Db).transaction(async (tx) => {
     const { kind, uuid, docId } = await docRef(tx, ctx, `${doc ?? ""}`.trim().split(":").at(-1), who);
     if (!(await docs.versionsOf(tx, docId)).length) throw new HttpError(`The ${kind.label} ${uuid} has no accepted version: there is nothing on Main to retire (withdraw_doc takes a document out of an intent before its Accept).`, 409);

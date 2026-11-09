@@ -14,27 +14,18 @@
 import { admin, type Me } from "./access";
 import type { Db } from "./kit/pg";
 import { UUID } from "./kit/uuid";
-import { INTENT_ADMINS, intentRow, LINE_MOST } from "./intents";
-import { seesIntent } from "./owners";
+import { INTENT_ADMINS, intentFor, intentRow, reasonOf, moveBack } from "./intents";
 import { closeVariant, dropDoc, variantsOf, workOf } from "./held";
 import { HttpError } from "./kit/errors";
 
 /** a withdrawal, as it is kept on the intent beside its steps back */
 export type Withdrawal = { at: string; by: string | null; human: string; via: "mcp" | "site"; from: string; to: string; reason: string; doc: string };
 
-const reasonOf = (v: unknown) => {
-  const r = `${v ?? ""}`.replace(/\s+/g, " ").trim();
-  if (!r) throw new HttpError("A withdrawal needs its reason: why the document goes, in a line.");
-  if (r.length > LINE_MOST) throw new HttpError(`A withdrawal's reason is one line, at most ${LINE_MOST} characters.`);
-  return r;
-};
-
 /** Document `doc` (its UUID, or `<kind>:<uuid>`) taken out of intent `id`'s work, with its reason. Gives back the intent. */
 export async function withdrawDoc(db: Db, me: Me | null, id: string, doc: unknown, reason: unknown, via: "mcp" | "site") {
   const who = admin(me, INTENT_ADMINS);
-  const why = reasonOf(reason);
-  const intent = await intentRow(db, id);
-  if (!(await seesIntent(db, who, intent.id))) throw new HttpError("There is no such intent.", 404);
+  const why = reasonOf(reason, "A withdrawal", "why the document goes");
+  const intent = await intentFor(db, who, id);
   const named = `${doc ?? ""}`.trim().toLowerCase();
   await db.transaction(async (tx) => {
     const w = await workOf(tx, intent.id, true);
@@ -57,7 +48,7 @@ export async function withdrawDoc(db: Db, me: Me | null, id: string, doc: unknow
       await tx.query(`UPDATE play.intents SET work = NULL, asset_id = NULL, base = NULL, version = NULL, story_id = NULL, story_base = NULL, story_version = NULL WHERE id = $1`, [intent.id]);
     const step: Withdrawal = { at: new Date().toISOString(), by: who.name, human: who.id, via, from: w.stage, to: "build", reason: why, doc: docId };
     // at Proposal it goes back to Build, its results kept; nothing is decided by it
-    await tx.query(`UPDATE play.intents SET stage = 'build', auto = auto - 'accept', steps = steps || ($2::text)::jsonb WHERE id = $1`, [intent.id, JSON.stringify([step])]);
+    await moveBack(tx, intent.id, "withdrawn", JSON.stringify([step]));
   });
   return intentRow(db, intent.id);
 }
