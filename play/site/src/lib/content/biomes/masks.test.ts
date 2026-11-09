@@ -102,7 +102,9 @@ describe('a biome with masks', () => {
 		};
 		const edge = (d: number) => Math.abs(d - 6) < 1, under = (d: number) => d > 1.5 && d < 3.5, sun = (d: number) => d > 10 && d < 16;
 		const clover = kindOf(MASKED, 'clover'), anemone = kindOf(MASKED, 'anemone'), grass = kindOf(MASKED, 'grass');
-		expect(per(clover, edge)).toBeGreaterThan(1.5 * per(clover, sun));
+		// gathered, not cut off at full: a kind as full as it stands is spread thinner, so its edge band holds it at
+		// several times the open's density
+		expect(per(clover, edge)).toBeGreaterThan(3 * per(clover, sun));
 		expect(per(anemone, under)).toBeGreaterThan(2 * per(anemone, sun));
 		expect(per(grass, sun)).toBeGreaterThan(2 * per(grass, under));
 	});
@@ -123,7 +125,9 @@ describe('a biome with masks', () => {
 		};
 		const litter = kindOf(MASKED, 'litter'), straw = kindOf(MASKED, 'strawberry');
 		expect(density(litter, 0, 1.1)).toBeGreaterThan(2 * density(litter, 3, 4.4));
-		expect(density(straw, 1.4, 2.4)).toBeGreaterThan(1.5 * density(straw, 3, 4.4));
+		expect(density(straw, 1.4, 2.4)).toBeGreaterThan(6 * density(straw, 3, 4.4));
+		// round every trunk, its colonies or not
+		for (const t of trunks) expect(got[straw]!.some(([x, z]) => Math.abs(Math.hypot(x! - t.x, z! - t.z) - 1.9) < 0.7)).toBe(true);
 	});
 
 	it('grows its moist kinds in the hollows, and nothing on ground steeper than it stands on', () => {

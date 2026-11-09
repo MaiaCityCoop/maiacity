@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { SURFACES, inTrack, surfacesAt } from './surfaces.js';
 import { fbm2, rng } from './noise.js';
-import { MASKS, canopyOf, maskAt, reliefAt, tintAt, trunksNear } from './masks.js';
+import { MASKS, canopyOf, gainOf, maskAt, reliefAt, ringAt, tintAt, trunksNear } from './masks.js';
 import { versioned } from '$lib/site/app/versions.js';
 
 export { SURFACE, SURFACES, groundMaterial, inTrack, rowsOf, surfacesAt } from './surfaces.js';
@@ -434,7 +434,8 @@ function layMasked(recipe, ix, iz, o) {
 		const c = /** @type {Colony} */ (recipe.cover[k]);
 		const f = fbm2((x + ox) / c.colony + k * 9.7 + 3.1, (z + oz) / c.colony - k * 5.3);
 		const cut = 0.5 + (0.5 - c.spread) * 0.55;
-		const inColony = Math.min(1, Math.max(0, (f - cut) / 0.04 + 0.5));
+		// a kind with a ring (a guild, the litter at a trunk's foot) stands in it round every trunk, its colonies or not
+		const inColony = Math.max(Math.min(1, Math.max(0, (f - cut) / 0.04 + 0.5)), ringAt(c, h.canopy));
 		if (inColony <= 0) return 0;
 		const ground = c.on ? Math.min(1, /** @type {number} */ (h.surfaces[c.on]) * 2.2 + 0.05) : 1;
 		return inColony * ground * maskAt(c, h.canopy, h.relief, o.open, x, z);
@@ -478,7 +479,12 @@ function layMasked(recipe, ix, iz, o) {
 			return;
 		}
 		// the layer's dither: a place a cell, the cells fixed in the world
-		const fill = (/** @type {number} */ k) => Math.min(1, (recipe.cover[k]?.fill ?? 0.85) * (f / s0) ** 2);
+		// a kind as full as its masks could ever raise it: spread thinner everywhere by that much, so where its masks raise
+		// it (an edge band, a ring round a trunk) it gathers instead of being cut off at full
+		const fill = (/** @type {number} */ k) => {
+			const c = /** @type {Colony} */ (recipe.cover[k]), full = Math.min(1, (c.fill ?? 0.85) * (f / s0) ** 2);
+			return full / Math.max(1, full * gainOf(c));
+		};
 		for (let gx = Math.floor((x0 - pad + ox) / f); gx * f < x1 + pad + ox; gx++)
 			for (let gz = Math.floor((z0 - pad + oz) / f); gz * f < z1 + pad + oz; gz++) {
 				const r = cellRng(gx, gz, layer.key, seed);

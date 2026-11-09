@@ -128,10 +128,7 @@ export function maskAt(k, canopy, relief, open, x, z) {
 	if (canopy) {
 		if (k.shade) m *= Math.max(0, 1 + k.shade * (2 * canopy.shade - 1));
 		if (k.edge) m *= 1 + k.edge * canopy.band;
-		if (k.ring) {
-			const [from, to, gain] = k.ring, w = Math.max(0.05, (to - from) * 0.15);
-			m *= 1 + gain * smooth(from - w, from + w, canopy.trunk) * (1 - smooth(to - w, to + w, canopy.trunk));
-		}
+		if (k.ring) m *= 1 + k.ring[2] * ringAt(k, canopy);
 	}
 	if (relief) {
 		if (k.wet) m *= Math.max(0, 1 + k.wet * relief.wet);
@@ -139,6 +136,25 @@ export function maskAt(k, canopy, relief, open, x, z) {
 	}
 	if (m > 0 && k.clear && open && !open(x, z, k.clear)) return 0;
 	return m;
+}
+
+/**
+ * How far into its ring round the nearest trunk a point lies (0 outside it, 1 well inside), for a kind with a `ring`.
+ * @param {KindMasks} k @param {ReturnType<typeof canopyAt>} canopy
+ */
+export function ringAt(k, canopy) {
+	if (!k.ring || !canopy) return 0;
+	const [from, to] = k.ring, w = Math.max(0.05, (to - from) * 0.15);
+	return smooth(from - w, from + w, canopy.trunk) * (1 - smooth(to - w, to + w, canopy.trunk));
+}
+
+/**
+ * The most its masks can raise a kind (its edge band's and its ring's gains together): a kind whose colonies are
+ * already as full as they stand is spread thinner by this much everywhere, so its masks gather it rather than being
+ * cut off at full (./index.js). @param {KindMasks} k
+ */
+export function gainOf(k) {
+	return (1 + Math.max(0, k.edge ?? 0)) * (1 + Math.max(0, k.ring?.[2] ?? 0));
 }
 
 /**
