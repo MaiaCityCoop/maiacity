@@ -249,3 +249,26 @@ The `shipWork.store` global is gone (the store a parameter); seeding moved out o
 Left in the log: the intent lifecycle fixture still copied in ~25 files (F2), tests by subject (F5). **Noted for
 Samuel:** versioned.ts's "Give edits or the whole document, not both." is reachable only with a `variant`; without
 one, both given answers "neither". api.test now pins the real answer.
+
+### Merged: sweep-site (fixes 4, 5, 7 in play/site), 11:10Z
+
+27 commits (`log/sweep-site.md`), merged cleanly. play/site: dead exports 9 → 0, swallowed errors 17 → 6 (two
+helpers: `lib/kept.ts` for localStorage, `kernel/media.js` for autoplay, tested), `as any` 34 → 14, comment lines 6,095
+→ 5,659 (333 of them AirSup's factory files, kept line for line by their own header), layers 16 → 11. census-same
+`same` ×3, full vitest 447/452 (the 5: old-city.test.ts, held). The merge split the one site folder cycle in two.
+
+**Folder cycles, counted as the check says.** c1's words are "nothing … goes round in a circle any more, except where
+a file another open intent is changing keeps it"; measure.ts's header leaves held files out of every count, but its
+folder-cycle count didn't. It now counts the folder cycles left when held files' imports are set aside: main d5346b7
+has 4, this head 2 (content/assets ↔ assets/render, biomes ↔ render/nodes), the bound ≤ 1. The cycle the held
+`stories/old-city.test.ts → scripts/box-worker.ts` closes no longer counts.
+
+### Re-audit, round 1 (11:12Z)
+
+- infra (`audit/re-infra.md`): 14 findings; the fix pass `-u-infra2` takes 1–12 and 14 (not 13: the never-deployed
+  compose files and Caddyfile, with F4 for Samuel).
+- api (`audit/re-api.md`): 15 findings. **A bug the untangle made:** Ship's watcher calls `autoMove({ db })` with no
+  file store (decide.ts casts it away), so an auto-accepted intent holding play's work would be accepted without one.
+  The fix pass `-u-api2` takes it first, and 3–5, 7–15. **Not fixed (behaviour), for Samuel:** (2) versioned.ts's
+  "not both" message never shows; (6) doc_edit's own intent guard skips the work-kind and dependency checks propose
+  applies.

@@ -68,6 +68,13 @@ for (const [f, out] of edges) for (const t of out) {
 	modEdges.get(a)!.set(b, (modEdges.get(a)!.get(b) ?? 0) + 1);
 }
 const mods = [...new Set(files.map(mod))];
+// with HELD=<list>, the folder graph again without the imports held files make (the measure's "a held file keeps it")
+const heldList = process.env.HELD ? new Set(readFileSync(process.env.HELD, 'utf8').split('\n').filter(Boolean)) : null;
+const freeEdges = new Map<string, Set<string>>();
+for (const [f, out] of edges) if (!heldList?.has(f)) for (const t of out) {
+	const a = mod(f), b = mod(t);
+	if (a !== b) (freeEdges.get(a) ?? freeEdges.set(a, new Set()).get(a)!).add(b);
+}
 const ce = (m: string) => modEdges.get(m)?.size ?? 0;
 const ca = (m: string) => mods.filter((o) => modEdges.get(o)?.has(m)).length;
 // Martin's instability I = Ce / (Ca + Ce): 0 leans on nothing (stable), 1 nothing leans on it (free to change)
@@ -109,7 +116,10 @@ if (cmd === 'cycles') {
 } else if (cmd === 'edges') {
 	for (const [f, out] of edges) for (const t of out) console.log(`${f} -> ${t}`);
 } else if (cmd === 'json') {
-	console.log(JSON.stringify({ files: files.length, fileCycles, modCycles, unstable, orphans }, null, 1));
+	const freeCycles = sccs(mods, (n) => freeEdges.get(n) ?? []);
+	const modCyclesHeldFree = freeCycles.length;
+	if (process.env.SHOW) for (const c of freeCycles) console.error('held-free folder cycle: ' + c.join('  ↔  '));
+	console.log(JSON.stringify({ files: files.length, fileCycles, modCycles, modCyclesHeldFree, unstable, orphans }, null, 1));
 } else {
 	console.log(`files ${files.length}, edges ${[...edges.values()].reduce((s, o) => s + o.size, 0)}, file cycles ${fileCycles.length}, module cycles ${modCycles.length}, less-stable imports ${unstable.length}, orphans ${orphans.length}`);
 }

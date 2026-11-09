@@ -21,6 +21,9 @@ const filesWith = (files: string[], re: RegExp) => files.filter((f) => re.test(r
 const lines = (f: string) => read(f).split('\n').length - (read(f).endsWith('\n') ? 1 : 0);
 const under = (p: string) => own.filter((f) => f.startsWith(p));
 const graph = () => JSON.parse(sh('bun intent-work/5884ade4/graph.ts json'));
+// the check's own words: nothing goes round in a circle "except where a file another open intent is changing keeps it":
+// folder cycles counted over the imports of files that aren't held
+const heldFreeFolderCycles = () => Number(sh('HELD=intent-work/5884ade4/held.txt bun intent-work/5884ade4/graph.ts json').match(/"modCyclesHeldFree": (\d+)/)![1]);
 
 type Bound = [name: string, value: number, max: number];
 const families: Record<string, () => Bound[]> = {
@@ -31,7 +34,7 @@ const families: Record<string, () => Bound[]> = {
 		return [
 			['file cycles without a held file', free.length, 0],
 			['files in the largest file cycle', Math.max(0, ...g.fileCycles.map((c: string[]) => c.length)), 3],
-			['folder cycles', g.modCycles.length, 1]
+			['folder cycles a held file does not close', heldFreeFolderCycles(), 1]
 		];
 	},
 	// stable folders import nothing less stable (Martin's instability, ./graph.ts unstable)
@@ -79,7 +82,7 @@ const families: Record<string, () => Bound[]> = {
 			['box imports of content/assets', edges.filter((e) => /assets\/box\/[^/ ]+ -> play\/site\/src\/lib\/content\/assets\/[^/]+$/.test(e) && !/\.test\./.test(e)).length, 0],
 			['cache.js lines', lines(S + 'lib/content/assets/cache.js'), 350],
 			["sandbox slugs ('sandbox-N') in site code", count(nonTest.filter((f) => f.startsWith(S)), /['"]sandbox-\d['"]/), 3],
-			['folder cycles (again, for content)', g.modCycles.length, 1]
+			['folder cycles a held file does not close (again, for content)', heldFreeFolderCycles(), 1]
 		];
 	},
 	// nothing exported that nothing uses; no file nothing runs
