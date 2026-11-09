@@ -1,5 +1,12 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 10:20 Berlin
+- The loop now checks for 660ad67f's job before each next job and runs it first once its run.sh no longer uses
+  `vite preview` (chain12; generic runner: fetch intent-work/660ad67f-render, `bash …/run.sh`, push out/).
+- **#8 c7 failed on head a6f20d941**: story-parity's hyperframes capture threw in the composition script ("Cannot use
+  'import.meta' outside a module", "playLive is not defined" at hyperframes-composition://body:11) in both runs, so no
+  parity numbers. c8's views are still being shot; I record c7/c8 when the job ends.
+
 ## 10:00 Berlin: on "5 minutes, not 25"
 1. **Production build + preview: tried on 2026-11-08, it broke Sandbox 1** (its asset box never builds under `vite preview`),
    so the loop stays on the dev server. A build that works for the box would need its own fix first.
