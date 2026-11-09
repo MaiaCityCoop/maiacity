@@ -22,6 +22,12 @@ import { LOCK, lockSql } from "./kit/locks";
 
 class SandboxError extends HttpError {}
 
+/** what a layout takes as edits beyond a document's own: its helpers (layoutWrite), told to an agent over MCP (./kinds.ts Kind.edits) */
+export const LAYOUT_EDITS =
+  "A sandbox's layout takes its own helpers (all of one edit's, not mixed with the edits above): { op: 'pin', slot, asset?, version?, variant?, params? } pins a slot (a new one needs `asset`, a UUID): `version` an accepted version's number, the asset's newest if left out; `variant` a variant's name, null for the version's default, kept where left out (and the new version has it); `params` its values ({ stage: 9 }), null for none, kept where left out; " +
+  "{ op: 'pin_latest', asset, variant? } moves every slot that pins the asset to its newest version; { op: 'unpin', slot } (no config may still name it); " +
+  "{ op: 'set', config, path, value } sets the value at a path of a config (['outside', 'trees', 3, 'weight']; an index one past the end adds an item; path [] sets the whole config, a new one too); { op: 'delete', config, path } removes it (path []: the whole config). A config names an asset only by { slot }, never by a ref.";
+
 const SLOT = /^[A-Za-z0-9][A-Za-z0-9_.\/-]{0,199}$/;
 const CONFIG = /^[a-z][a-z0-9-]*$/;
 const MOST_EDITS = 500;

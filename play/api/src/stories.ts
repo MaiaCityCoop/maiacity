@@ -20,6 +20,12 @@ import { closeWork, dropDoc, stageAfter, WORK_OF } from "./held";
 import { HttpError } from "./kit/errors";
 
 const STORY_WORK = "story_version";
+
+/** what a story takes as edits: its timeline's ops (applyEdits), told to an agent over MCP (./kinds.ts Kind.edits) */
+export const STORY_EDITS =
+  "A story's edits are its timeline's: { op: 'set_clip', track, clip, fields: {…} } (a field set to null is removed), { op: 'add_clip', track, clip: { id, at, duration, … } }, { op: 'remove_clip', track, clip }, " +
+  "{ op: 'add_track', track: { id, kind, clips }, index? }, { op: 'remove_track', track }, { op: 'set_track', track, fields: { id?, kind? } }, { op: 'shift', from, by, tracks? } (every clip starting at or after `from` seconds moved by `by`), " +
+  "{ op: 'set', fields: { format?, fps? } }, { op: 'edit_text', track, clip, field, index, delete?, insert? }; on shots, voice, notes and story tracks clips must not overlap, so retime with shift; a story's whole is { title, …its timeline }. ";
 type VersionInfo = { number: number; id: string; note: string; created: string; author: string | null; approved_by: string | null };
 /** a linked version as it is read: its story (a UUID), title, number and id, its duration and timeline, and its story's
  *  newest accepted number (shown as "v5 available" where it is newer; a link plays only its own version) */

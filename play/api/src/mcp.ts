@@ -54,24 +54,21 @@ const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
 
 /** what each kind's documents hold, as their schemas say it (./kinds.ts formatOf), read for every tools/list */
-const FORMAT_KINDS = ["asset", "story", "factory", "game_config", "skill", "sandbox", "artifact"];
 const formatsOf = async (q: Queryable): Promise<Formats> => ({
   recipe: await formatOf(q, "asset", "source"),
   story: await formatOf(q, "story"),
-  all: (await Promise.all(FORMAT_KINDS.map((k) => formatOf(q, k)))).join(" "),
+  all: (await Promise.all(kinds().filter((k) => k.told).map((k) => formatOf(q, k.name)))).join(" "),
 });
 
-/** the edits doc_edit and propose_doc_version take */
-const EDITS =
-  "Edits, applied in order to the document: { op: 'set', path, value } (a field, or a list's item, replaced; a new field too), { op: 'insert', path, value } (into a list, before the index the path ends with; one past the end adds it last), { op: 'delete', path }, { op: 'move', path, to }, { op: 'text', path, index, delete?, insert? } (a range of a text). " +
-  "A path is a list of field names and indexes, and an item of a list may be named by its id instead: ['line', 'stations', { id: 'weld' }, 'reserve'], ['parts', { id: 'floor' }, 'ops', 0, 's'], ['stages', 'build']. " +
-  "An asset also takes { op: 'replace', find, replace, field?: 'source' | 'note', variant? }, replacing the one place `find` stands in its source (give enough of it to be unique). " +
-  "A story's edits are its timeline's: { op: 'set_clip', track, clip, fields: {…} } (a field set to null is removed), { op: 'add_clip', track, clip: { id, at, duration, … } }, { op: 'remove_clip', track, clip }, " +
-  "{ op: 'add_track', track: { id, kind, clips }, index? }, { op: 'remove_track', track }, { op: 'set_track', track, fields: { id?, kind? } }, { op: 'shift', from, by, tracks? } (every clip starting at or after `from` seconds moved by `by`), " +
-  "{ op: 'set', fields: { format?, fps? } }, { op: 'edit_text', track, clip, field, index, delete?, insert? }; on shots, voice, notes and story tracks clips must not overlap, so retime with shift; a story's whole is { title, …its timeline }. " +
-  "A sandbox's layout takes its own helpers (all of one edit's, not mixed with the edits above): { op: 'pin', slot, asset?, version?, variant?, params? } pins a slot (a new one needs `asset`, a UUID): `version` an accepted version's number, the asset's newest if left out; `variant` a variant's name, null for the version's default, kept where left out (and the new version has it); `params` its values ({ stage: 9 }), null for none, kept where left out; " +
-  "{ op: 'pin_latest', asset, variant? } moves every slot that pins the asset to its newest version; { op: 'unpin', slot } (no config may still name it); " +
-  "{ op: 'set', config, path, value } sets the value at a path of a config (['outside', 'trees', 3, 'weight']; an index one past the end adds an item; path [] sets the whole config, a new one too); { op: 'delete', config, path } removes it (path []: the whole config). A config names an asset only by { slot }, never by a ref.";
+/** the edits doc_edit and propose_doc_version take: a document's own, then each kind's (./kinds.ts Kind.edits) */
+const editsText = () =>
+  [
+    "Edits, applied in order to the document: { op: 'set', path, value } (a field, or a list's item, replaced; a new field too), { op: 'insert', path, value } (into a list, before the index the path ends with; one past the end adds it last), { op: 'delete', path }, { op: 'move', path, to }, { op: 'text', path, index, delete?, insert? } (a range of a text). " +
+    "A path is a list of field names and indexes, and an item of a list may be named by its id instead: ['line', 'stations', { id: 'weld' }, 'reserve'], ['parts', { id: 'floor' }, 'ops', 0, 's'], ['stages', 'build']. ",
+    ...kinds().map((k) => k.edits),
+  ]
+    .filter(Boolean)
+    .join("");
 
 export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobStore; github?: GitHub | null; commit?: string | null }) {
   // an intent that reached Specify or Proposal is asked of the auto-accept rules (./decide.ts autoMove, ./rules.ts)
@@ -286,7 +283,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     {
       name: "doc_edit",
       description:
-        `One edit of an intent variant, for the intent it is made for (\`intent\`: no edit without one, and nothing reaches the document's Main but an admin's Accept of that intent at Proposal), kept with its message: work on a document edit by edit (each fix, each tuning its own edit, so the history shows how it was made), then propose the variant with propose_doc_version and its \`variant\`. Without \`variant\` it goes on the intent's open variant of this document, or starts a new one seeded from Main's newest version, and gives back its number. One intent may change several documents: edit each for it, and propose each naming it; they are accepted together or archived together. Every edit is checked whole, and nobody sees an intent variant as the document until it is proposed and accepted. ${EDITS} Or give the whole document (\`whole\`, doc_at's \`json\` changed).`,
+        `One edit of an intent variant, for the intent it is made for (\`intent\`: no edit without one, and nothing reaches the document's Main but an admin's Accept of that intent at Proposal), kept with its message: work on a document edit by edit (each fix, each tuning its own edit, so the history shows how it was made), then propose the variant with propose_doc_version and its \`variant\`. Without \`variant\` it goes on the intent's open variant of this document, or starts a new one seeded from Main's newest version, and gives back its number. One intent may change several documents: edit each for it, and propose each naming it; they are accepted together or archived together. Every edit is checked whole, and nobody sees an intent variant as the document until it is proposed and accepted. ${editsText()} Or give the whole document (\`whole\`, doc_at's \`json\` changed).`,
       inputSchema: {
         type: "object",
         properties: {
@@ -310,7 +307,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
       name: "propose_doc_version",
       proposes: "required",
       description:
-        (f) => `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${f.recipe} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). With \`kind\` and \`whole\` and no \`doc\`, a new document: a schema (every schema is a document of the meta-schema: \`label\`, \`type\` its documents' prefix, \`name\`, \`node\` the JSON Schema it holds them to; once accepted, its documents are a kind of their own, listed, read, edited and proposed with these same tools), or a document of a kind that is a schema alone. A schema's new version is accepted only while every document on Main still validates against it: the Accept names those that would not. An asset's breeds (doc_history) live beside Main and take every change accepted on Main except on the fields they override: change one with \`breed\` (an intent variant seeded from it), make one with \`new_breed\`; either Accept makes the asset's next version, every breed built as its variant.`,
+        (f) => `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${editsText()} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${f.recipe} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). With \`kind\` and \`whole\` and no \`doc\`, a new document: a schema (every schema is a document of the meta-schema: \`label\`, \`type\` its documents' prefix, \`name\`, \`node\` the JSON Schema it holds them to; once accepted, its documents are a kind of their own, listed, read, edited and proposed with these same tools), or a document of a kind that is a schema alone. A schema's new version is accepted only while every document on Main still validates against it: the Accept names those that would not. An asset's breeds (doc_history) live beside Main and take every change accepted on Main except on the fields they override: change one with \`breed\` (an intent variant seeded from it), make one with \`new_breed\`; either Accept makes the asset's next version, every breed built as its variant.`,
       inputSchema: {
         type: "object",
         properties: {

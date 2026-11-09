@@ -8,11 +8,11 @@ import { hashText } from "./kit/hash";
 import { HttpError } from "./kit/errors";
 import { kinds, kindOfDoc, register, syncKinds, type Kind } from "./kinds";
 import { assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVariant, unreadable } from "./assetdocs";
-import { decideStory, proposeStoryVariant, storyCheck, storyEdit, storyReview } from "./stories";
+import { decideStory, proposeStoryVariant, STORY_EDITS, storyCheck, storyEdit, storyReview } from "./stories";
 import { ensureStoryDoc } from "./storydocs";
 import { storyListed } from "./listed";
 import { INTENT_STAGES } from "./intents";
-import { ensureLayoutDoc, layoutBefore, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck, writeRows } from "./sandboxes";
+import { ensureLayoutDoc, LAYOUT_EDITS, layoutBefore, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck, writeRows } from "./sandboxes";
 import { ensureArtifactDoc } from "./artifacts";
 import { intentPieces, keepPiece, PieceError, pieceProblems, piecesHeld, piecesOf } from "./pieces";
 
@@ -67,7 +67,10 @@ function levelsCheck(doc: any): string[] {
 }
 
 const asset: Kind = {
-  name: "asset", prefix: "asset", schema: SCHEMA.asset, check: assetCheck, build: true, work: "asset_version", table: "play.assets", owned: "owner", label: "asset", group: "assets", breeds: true,
+  name: "asset", prefix: "asset", schema: SCHEMA.asset, check: assetCheck, build: true, work: "asset_version", table: "play.assets", owned: "owner", label: "asset", group: "assets", breeds: true, told: true,
+  // its replace op is ./assetdocs.ts assetEdits' (held by another intent: its text kept here until that lands)
+  edits:
+    "An asset also takes { op: 'replace', find, replace, field?: 'source' | 'note', variant? }, replacing the one place `find` stands in its source (give enough of it to be unique). ",
   ensure: (q, ctx, id) => ensureAssetDoc(q, ctx.store, id).then(() => undefined),
   write: async (_q, _id, cur, input) => (input.whole !== undefined ? { target: { ...(input.whole as object), schema: cur.schema } } : { edits: assetEdits(cur, input.edits) }),
   propose: (ctx, me, o, via) => proposeAssetVariant(ctx, me, o, via),
@@ -75,7 +78,7 @@ const asset: Kind = {
   decide: (tx, ctx, me, p, verdict) => decideAsset(tx, ctx.store, me, p, verdict),
 };
 const story: Kind = {
-  name: "story", prefix: "story", schema: SCHEMA.story, check: storyCheck, work: "story_version", table: "play.stories", labelColumn: "title", listed: storyListed("r"), label: "story", group: "stories",
+  name: "story", prefix: "story", schema: SCHEMA.story, check: storyCheck, work: "story_version", table: "play.stories", labelColumn: "title", listed: storyListed("r"), label: "story", group: "stories", told: true, edits: STORY_EDITS,
   ensure: (q, _ctx, id) => ensureStoryDoc(q, id).then(() => undefined),
   write: (q, id, cur, input) => storyEdit(q, id, cur, input),
   propose: (ctx, me, o, via) => proposeStoryVariant(ctx.db, me, o, via),
@@ -83,22 +86,22 @@ const story: Kind = {
   decide: (tx, _ctx, me, p, verdict) => decideStory(tx, me, p, verdict),
 };
 const factory: Kind = {
-  name: "factory", prefix: "factory", schema: SCHEMA.factory, check: factoryCheck, work: "factory_version", table: "play.factories", label: "factory", group: "factories", open: "/factories/?factory={id}&intent={intent}",
+  name: "factory", prefix: "factory", schema: SCHEMA.factory, check: factoryCheck, work: "factory_version", table: "play.factories", label: "factory", group: "factories", open: "/factories/?factory={id}&intent={intent}", told: true,
   row: { updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", stations: json.line?.stations?.length ?? 0, parts: json.parts?.length ?? 0 }),
 };
 const gameConfig: Kind = {
-  name: "game_config", prefix: "game", schema: SCHEMA.levels, check: levelsCheck, work: "game_config_version", table: "play.game_configs", label: "config", group: "game", open: "/game-editor/?config={id}&intent={intent}",
+  name: "game_config", prefix: "game", schema: SCHEMA.levels, check: levelsCheck, work: "game_config_version", table: "play.game_configs", label: "config", group: "game", open: "/game-editor/?config={id}&intent={intent}", told: true,
   row: { updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", schema: json.schema }),
 };
 const skill: Kind = {
-  name: "skill", prefix: "skill", schema: SCHEMA.skill, work: "skill_version", table: "play.records", where: "r.kind = 'skill'", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}",
+  name: "skill", prefix: "skill", schema: SCHEMA.skill, work: "skill_version", table: "play.records", where: "r.kind = 'skill'", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}", told: true,
   row: { kind: () => "skill", updated: () => new Date() },
   item: (json) => ({ note: json.note ?? "", group: json.group, stages: INTENT_STAGES.filter((s) => `${json.stages?.[s] ?? ""}`.trim()) }),
 };
 const sandbox: Kind = {
-  name: "sandbox", prefix: "sandbox", schema: SCHEMA.sandbox, check: sandboxCheck, work: "sandbox_version", table: "play.sandboxes", labelColumn: "title", label: "layout", group: "sandboxes", open: "/sandboxes/{id}/?intent={intent}",
+  name: "sandbox", prefix: "sandbox", schema: SCHEMA.sandbox, check: sandboxCheck, work: "sandbox_version", table: "play.sandboxes", labelColumn: "title", label: "layout", group: "sandboxes", open: "/sandboxes/{id}/?intent={intent}", told: true, edits: LAYOUT_EDITS,
   ensure: (q, _ctx, id) => ensureLayoutDoc(q, id).then(() => undefined),
   write: (q, _id, cur, input) => layoutWrite(q, cur, input),
   review: (q, p) => layoutReview(q, p),
@@ -147,7 +150,7 @@ const field = (f: string) => (json: any) => json[f] ?? null;
 /** a kept artifact has every field (a new one's Main is only its schema until it is accepted) */
 const ARTIFACT_FIELDS = ["url", "title", "description", "summary", "kind", "origin", "agent", "authors"];
 const artifact: Kind = {
-  name: "artifact", prefix: "artifact", schema: SCHEMA.artifact, work: "artifact_version", table: "play.artifacts", labelColumn: "title", listed: "r.title IS NOT NULL", label: "artifact", group: "artifacts", open: "/artifacts/?artifact={id}&intent={intent}",
+  name: "artifact", prefix: "artifact", schema: SCHEMA.artifact, work: "artifact_version", table: "play.artifacts", labelColumn: "title", listed: "r.title IS NOT NULL", label: "artifact", group: "artifacts", open: "/artifacts/?artifact={id}&intent={intent}", told: true,
   check: (doc) => (Object.keys(doc ?? {}).length > 1 ? ARTIFACT_FIELDS.filter((f) => doc[f] === undefined).map((f) => `$.${f}: an artifact has its ${f}`) : []),
   ensure: (q, _ctx, id) => ensureArtifactDoc(q, id),
   row: {

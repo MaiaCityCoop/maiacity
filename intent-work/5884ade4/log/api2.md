@@ -79,3 +79,14 @@ left for Samuel.
   and `extra.mergedHash`): the re-audit missed it. EditError (docs.test's `toThrow(EditError)`) and OwnerError (the held
   assetdocs' rethrow) are told apart, so they stay.
 - Pinned by the suite (sandboxdocs and docs tests cover layoutWrite's three paths and their refusals).
+
+## 8. MCP's edit grammar and formats from the kinds (re-api#10)
+
+- `Kind.edits` (what its documents take beyond a document's own) and `Kind.told` (its schema's description is among the
+  formats tools/list tells). mcp.ts composes doc_edit's and propose_doc_version's edits text from the document's own
+  ops plus each kind's `edits`, in registration order, and the formats from the `told` kinds: no kind named in mcp.ts.
+- The story's text is `STORY_EDITS` in stories.ts and the layout's `LAYOUT_EDITS` in sandboxes.ts, beside the code that
+  applies them. The asset's `replace` text sits in allkinds.ts' asset kind: its code is the held assetdocs.ts (Next
+  untangles: move it there as `ASSET_EDITS`).
+- Pinned: the composed text is byte-for-byte the old literal and the told kinds are the old seven in the old order
+  (scratch edits-eq.ts: "same"); the suite's tools/list tests.

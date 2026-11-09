@@ -59,6 +59,10 @@ export type Kind = {
   row?: Record<string, (json: any) => unknown>;
   /** its document made where it is missing (from the kind's own history) */
   ensure?: (q: Queryable, ctx: Ctx, id: string) => Promise<void>;
+  /** what its documents take as edits beyond a document's own, as MCP tells an agent (doc_edit, propose_doc_version) */
+  edits?: string;
+  /** whether what its schema says it holds is told among the formats in MCP's tools/list (./mcp.ts formatsOf) */
+  told?: boolean;
   /** an edit of an agent's turned into the document's own: edits, or the whole new state */
   write?: (q: Queryable, id: string, cur: any, input: Input) => Promise<docs.Write>;
   /** the kind's own propose, its intent variant as it stands (an asset's recipe files and frozen version; a story's) */
