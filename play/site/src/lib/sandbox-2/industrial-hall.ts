@@ -3,19 +3,17 @@ import {fasteningPatch,type FastenerProfile} from './fasteners';
 import {transform,type Box,type Scenario,type V3,type Quaternion} from './simulation';
 import {v,add,sub,mul,cross,length,unit,hull,frameRotation} from './geometry';
 
-// Per-point experimental capacities. Each point stands for a small bolt or
-// screw group; none of these are design resistances from a standard.
-// Stiffness is matched to the mass of the parts joined: stiffer springs on light
-// purlins or bars only made the iterative solver chatter.
-export const HOLDING_DOWN_BOLTS:FastenerProfile={name:'Holding-down bolt group',stiffness:1e7,damping:1e5,withdrawalN:60000,shearN:50000};
-export const END_PLATE_BOLTS:FastenerProfile={name:'Bolted end-plate connection',stiffness:1e7,damping:1e5,withdrawalN:80000,shearN:90000};
-export const BRACING_BOLTS:FastenerProfile={name:'Bracing bolt',stiffness:5e6,damping:2e4,withdrawalN:20000,shearN:30000};
-export const POST_BOLTS:FastenerProfile={name:'Gable post / header bolt',stiffness:5e6,damping:2e4,withdrawalN:20000,shearN:30000};
-export const PURLIN_BOLTS:FastenerProfile={name:'Purlin cleat bolt',stiffness:2e6,damping:2000,withdrawalN:8000,shearN:10000};
-export const PANEL_FASTENER:FastenerProfile={name:'Sandwich panel fastener',stiffness:2e6,damping:2000,withdrawalN:1500,shearN:2500};
+// Per-point experimental capacities, each point a small bolt or screw group (no standard's design resistances).
+// Stiffness matched to the mass joined: stiffer springs on light purlins or bars only made the iterative solver chatter.
+const HOLDING_DOWN_BOLTS:FastenerProfile={name:'Holding-down bolt group',stiffness:1e7,damping:1e5,withdrawalN:60000,shearN:50000};
+const END_PLATE_BOLTS:FastenerProfile={name:'Bolted end-plate connection',stiffness:1e7,damping:1e5,withdrawalN:80000,shearN:90000};
+const BRACING_BOLTS:FastenerProfile={name:'Bracing bolt',stiffness:5e6,damping:2e4,withdrawalN:20000,shearN:30000};
+const POST_BOLTS:FastenerProfile={name:'Gable post / header bolt',stiffness:5e6,damping:2e4,withdrawalN:20000,shearN:30000};
+const PURLIN_BOLTS:FastenerProfile={name:'Purlin cleat bolt',stiffness:2e6,damping:2000,withdrawalN:8000,shearN:10000};
+const PANEL_FASTENER:FastenerProfile={name:'Sandwich panel fastener',stiffness:2e6,damping:2000,withdrawalN:1500,shearN:2500};
 // Thin flashings are rigid bodies here, so their fixings are compliant: real sheet would flex.
-export const TRIM_FIXING:FastenerProfile={name:'Flashing / gutter rivet',stiffness:2e5,damping:300,withdrawalN:600,shearN:1000};
-export const DOOR_HARDWARE:FastenerProfile={name:'Sectional door roller / hinge',stiffness:2e6,damping:2000,withdrawalN:1500,shearN:2500};
+const TRIM_FIXING:FastenerProfile={name:'Flashing / gutter rivet',stiffness:2e5,damping:300,withdrawalN:600,shearN:1000};
+const DOOR_HARDWARE:FastenerProfile={name:'Sectional door roller / hinge',stiffness:2e6,damping:2000,withdrawalN:1500,shearN:2500};
 
 /** Main dimensions in metres. Frames span X, the hall runs along Z, the door faces +Z. */
 export const HALL={span:12,length:20,bay:5,eavesM:5.7,pitchDeg:10,slabTopM:.25} as const;
@@ -60,9 +58,8 @@ const plateCorners=(p:Plate)=>[-1,1].flatMap(x=>[-1,1].flatMap(y=>[-1,1].map(z=>
 const zRotation=(angle:number):Quaternion=>({x:0,y:0,z:Math.sin(angle/2),w:Math.cos(angle/2)});
 /** Rafter-slope rotation for one side: the left rafter rises toward +X. */
 const slopeRotation=(side:number)=>zRotation(-side*PITCH);
-/** World-space parts. Every face that bears on another part is a box piece, axis-aligned or
- * rotated: Rapier's box-box contact stays robust for exactly touching faces. Convex solids are
- * used only for shapes that touch nothing else (haunches, tapered webs) or keep a small gap. */
+/** World-space parts. Every face bearing on another is a box piece, axis-aligned or rotated (Rapier's box-box contact is
+ * robust for exactly touching faces); convex solids only for shapes touching nothing (haunches, tapered webs) or gapped. */
 function part(id:string,look:Look,blocks:[Range,Range,Range][],solids:V3[][]=[],plates:Plate[]=[]):Box{
  const corners=blocks.map(([x,y,z])=>block(x,y,z));
  const {center,size}=boundsOf([...corners.flat(),...solids.flat(),...plates.flatMap(plateCorners)]);
@@ -96,13 +93,11 @@ export function industrialHallScenario():Scenario{
 export function industrialHallDefinition():BuildDefinition{
  const plan:BuildPart[]=[],stages:string[]=[],placementGroups:string[][]=[];let stage=-1;
  const nextStage=(name:string)=>{stages.push(name);stage++;};
- // From the bracing onward, each part is fitted to the current pose of the parts it fastens
- // to (as a fitter would), so a frame that has settled a few millimetres never preloads
- // new fixings. Existing structure is never moved to meet a new part.
+ // From the bracing on, each part is fitted to the current pose of what it fastens to (as a fitter would), so a frame
+ // settled a few millimetres never preloads new fixings; existing structure is never moved to meet a new part.
  const put=(box:Box,connectTo:string[],profile?:FastenerProfile,structural=true)=>{const entry:BuildPart={box,stage,connectTo,profile,structural,...(stage>=3&&connectTo.length?{fitToAttachments:true}:{})};plan.push(entry);return entry;};
  const find=(id:string)=>plan.find(p=>p.box.id===id)!.box;
- // Attachment targets are discovered once while authoring: only real shared
- // faces with a usable area. Running parts never join by proximity.
+ // Targets found once while authoring: real shared faces with a usable area only; running parts never join by proximity.
  const touching=(box:Box,candidates:Box[])=>candidates.filter(c=>sharedArea(box,c)>2e-4).map(c=>c.id);
  const sides=[-1,1] as const,sideName=(s:number)=>s<0?'left':'right';
 
@@ -144,8 +139,7 @@ export function industrialHallDefinition():BuildDefinition{
     xyPrism([[x0,B(x0)],[x1,B(x1)],[x0,h0]],web),
     xyPrism([[x0,h0],[x1,B(x1)],[x1,B(x1)-r.haunchFlange],[x0,h0-r.haunchFlange]],flange),
    ].map(points=>mirror(points,side));
-   // End plates are box pieces: box-box contact is robust when the mirrored
-   // apex plates bear exactly face to face.
+   // End plates are box pieces: box-box contact is robust when the mirrored apex plates bear exactly face to face.
    const plateZ:Range=[z-r.plateWidth/2,z+r.plateWidth/2],mx=(a:number,b:number)=>sorted(-side*a,-side*b);
    const plates:[Range,Range,Range][]=[[mx(xf,x0),[h0-r.haunchFlange-.02,EAVES+.015],plateZ],[mx(xa,0),[B(xa)-.04,T(0)+.015],plateZ]];
    const id=`rafter-${frame+1}-${sideName(side)}`;ids.push(id);

@@ -1,18 +1,17 @@
 /*
- * LEGACY — Sandbox 4's stand-in plants (./plants.ts) traded, in Sandbox 5, for the plants of our own library
- * ($content/plants, drawn by ./flora.js) in the same places. Every stand-in says what it is (`userData.legacy`): a bed of a
- * crop becomes a row of that crop, a tuft of herbs a kitchen herb, a potted olive the library's olive in the same pot,
- * a vine along a balcony rail grapevines, a pergola's vines grapevines up its posts, a shrub or a fruit tree its kind.
- * The pots, the posts and the beds' soil stay; the stand-ins go.
+ * LEGACY — Sandbox 4's stand-in plants (./plants.ts) traded in Sandbox 5 for our library's plants (./flora.js) in the
+ * same places, each by what it says it is (`userData.legacy`): a crop's bed a row of that crop, a herb tuft a kitchen
+ * herb, a potted olive the library's olive in its pot, vines along a rail or up a pergola grapevines, a shrub or fruit
+ * tree its kind. Pots, posts and soil stay; the stand-ins go.
  */
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { slotRef } from '$lib/content/assets/catalog.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 import * as THREE from 'three';
 
 /** @typedef {import('./flora.js').Forest} Forest */
 /** @typedef {import('./sandbox5.js').Kind} Kind */
 /** @typedef {import('./flora.js').Reach} Reach */
 
-/** the herbs a tuft of herbs becomes */
 const HERBS = ['basil', 'parsley', 'chives', 'thyme', 'oregano', 'mint', 'coriander', 'lemon-balm'];
 /** a crop of the stand-in beds, as the library has it; and how close it is sown (metres), in how many rows */
 const CROPS = /** @type {Record<string, { id: string, gap: number, rows: number[], reach: Reach }>} */ ({
@@ -30,12 +29,10 @@ const CROPS = /** @type {Record<string, { id: string, gap: number, rows: number[
 });
 
 /**
- * Trades every stand-in plant under `root` for library plants put down in `forest`, in `space`'s ground (the scene the
- * forest is drawn in: the village's, or a dome's own). Under glass (`warm`) a shrub becomes coffee, outside a currant.
- * The library plants are all at their first version, the one Sandbox 5 was planted with.
+ * Trades every stand-in under `root` for library plants in `forest`, in `space`'s ground (the village's, or a dome's):
+ * under glass (`warm`) a shrub becomes coffee, outside a currant; all at their first version, as Sandbox 5 was planted.
  * @param {THREE.Object3D} root @param {THREE.Object3D} space @param {Forest} forest
- * @param {{ warm: boolean, seed: string, r: () => number }} o
- * @returns {number} how many stand-ins were traded
+ * @param {{ warm: boolean, seed: string, r: () => number }} o @returns {number} how many stand-ins were traded
  */
 export function swapLegacy(root, space, forest, { warm, seed, r }) {
 	root.updateMatrixWorld(true);
@@ -54,7 +51,7 @@ export function swapLegacy(root, space, forest, { warm, seed, r }) {
 	const add = (id, stages, reach, w, scale) => {
 		const stage = stages[Math.min(stages.length - 1, Math.floor(r() * stages.length))];
 		// each plant by its slot of Sandbox 1's pins (`plant/<id>`: the version the stand-ins were traded for, v1)
-		forest.add({ id, v: 1, asset: `pin:${SANDBOX.one}/plant/${id}`, stage, seed }, reach, w.x, w.y, w.z, r() * Math.PI * 2, scale * (0.9 + r() * 0.2));
+		forest.add({ id, v: 1, asset: slotRef(SANDBOX.one, `plant/${id}`), stage, seed }, reach, w.x, w.y, w.z, r() * Math.PI * 2, scale * (0.9 + r() * 0.2));
 	};
 	for (const o of found) {
 		const L = o.userData.legacy;

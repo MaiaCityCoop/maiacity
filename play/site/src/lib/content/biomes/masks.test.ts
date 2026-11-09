@@ -74,7 +74,6 @@ describe('a biome with masks', () => {
 		const key = (p: number[]) => p.map((v) => v.toFixed(5)).join(',');
 		big.forEach((list, k) => expect(list.map(key).sort()).toEqual(small[k]!.map(key).sort()));
 		expect(big.flat().length).toBeGreaterThan(400);
-		// and again, the same
 		const again = plants(lay(MASKED, 0, 0, 1, 12, opts), MASKED.cover.length);
 		expect(again).toEqual(big);
 	});

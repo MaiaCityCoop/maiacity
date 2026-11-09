@@ -1,18 +1,7 @@
 /**
- * THE WALKER — the first-person camera every sandbox world is walked with.
- *
- * Taken out of Sandbox 4. WASD or the arrow keys walk (←/→ turn), Shift hurries; drag on
- * the canvas to look round (it takes the pointer, so the mouse alone looks on); on a phone
- * the page hands it a joystick and a finger (`move`, `look`: $lib/touch/TouchStick).
- *
- * The world says where you may stand and how high: `canStand(x, z, here, ground)` and
- * `floorAt(x, z, ground)`. You walk in short strides, each reaching up from the floor you
- * stand on, so a stair climbs as well at a hurry, and on a slow phone, as at a stroll; a
- * tree, a pillar or a wall in the way is walked round rather than stopped at; the eye
- * eases after the floor, so a step up is not a jolt.
- *
- * The film camera (maia/content/film, ./film.js) can take the camera from the walker (`fly`) and
- * give it back (`place`): the walker is a camera hold.
+ * The first-person camera every sandbox world is walked with (taken out of Sandbox 4): WASD or the arrows, Shift
+ * hurries, a drag looks round; on a phone a joystick and a finger (`move`, `look`). The world says where one may stand
+ * (`canStand`) and how high (`floorAt`). The film camera (./film.js) takes the camera (`fly`) and gives it back (`place`).
  */
 
 /** @typedef {[x: number, y: number, z: number, yaw: number, pitch: number]} Pose */
@@ -36,8 +25,7 @@
  * @property {() => void} dispose
  */
 
-/** The sandboxes' pace, walking and hurrying (m/s): every world walks at it unless it says otherwise (Sandbox 3's
- *  domes and village, the Buildings viewer's tents, domes and containers). */
+/** The sandboxes' pace, walking and hurrying (m/s), unless a world says otherwise (Sandbox 3's domes, the Buildings viewer). */
 export const PACE = { walk: 6.45, hurry: 14.6 };
 
 const KEYS = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'];
@@ -56,13 +44,8 @@ const TURNS = [25, 50, 75, 90].map((d) => (d * Math.PI) / 180);
  *   floorAt?: (x: number, z: number, ground: number) => number,
  *   onKey?: (key: string, down: boolean) => boolean
  * }} [options]
- *   x, z, yaw, pitch: where they start and how they face; eye: eye height over the floor (m); walk, hurry: paces (m/s);
- *   keyboard: the keys' own paces, if not walk and hurry (a phone's joystick hurries at its rim, where it is mostly
- *   pushed, so a world may walk the keys at that pace and hurry them faster still); turn: the arrow keys' turn (rad/s); mouse, touch: radians a pixel of drag turns; maxPitch: how far up or down they
- *   may look; stride: the longest stride (m); canStand: may they stand at x, z coming from `from`, on a floor `here` high
- *   (what stands in the way: ./obstacles.js, which never traps them in what they already stand in; the
- *   open ground, everywhere, if not given); floorAt: the floor at x, z for someone now on `ground` (0 if not given);
- *   onKey: the world's own keys, asked first (a lift's ↑/↓): true takes the key from the walker
+ *   `keyboard`: the keys' own paces (a phone's joystick hurries at its rim, so a world may walk the keys at that pace);
+ *   `canStand` defaults to open ground everywhere (./obstacles.js gives one); `onKey` is asked first (a lift's ↑/↓)
  * @returns {WalkerHandle}
  */
 export function createWalker(camera, dom, options = {}) {

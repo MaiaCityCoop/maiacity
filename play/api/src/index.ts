@@ -2,14 +2,17 @@
 import { app } from "./app";
 import { initSessions } from "./auth";
 import { blobStore } from "./blobs";
-import { migrate } from "./migrations";
-import { connect } from "./pg";
+import { prepare } from "./seed";
+import { connect } from "./kit/pg";
 import { siteHandler } from "./site";
-import { reconcile, runningCommit, shipGitHub, startShipWatcher } from "./ship";
-import { syncKinds } from "./versioned";
+import { reconcile, runningCommit } from "./ship";
+import { startShipWatcher } from "./watcher";
+import { shipGitHub } from "./github";
+import { syncKinds } from "./kinds";
+import "./allkinds";
 
 const db = connect();
-const ran = await migrate(db);
+const ran = await prepare(db);
 if (ran.length) console.log(`migrations: ${ran.join(", ")}`);
 await initSessions(db);
 // every accepted schema whose documents no kind of the code holds is a kind of its own (./versioned.ts)
@@ -17,17 +20,19 @@ await syncKinds(db);
 // Accept ships it (./ship.ts): with SHIP_TOKEN, an admin's Accept puts an intent in Ship, and the ship watcher (every
 // 10 s) merges its pull request when its turn comes and GitHub is ready, and follows it to production; without it, Accept on a code intent is refused and says why
 const github = shipGitHub();
-const stopWatcher = github ? startShipWatcher(db, github) : null;
+// play's files: the store the routes keep them in, and the reconcile accepts a shipped intent's work with
+const store = blobStore();
+const stopWatcher = github ? startShipWatcher(db, github, store) : null;
 // once as play starts (a deploy, a rollback, a deploy by hand all start it): every code intent's stage held to the
 // commit it runs (./ship.ts reconcile), in the background
 const commit = runningCommit();
-if (github && commit) void reconcile(db, github, commit).then(
+if (github && commit) void reconcile(db, github, store, commit).then(
   (r) => console.log(`reconcile at ${commit.slice(0, 7)}: ${r.accepted.length} accepted, ${r.flagged.length} not live, ${r.cleared.length} live again`),
   (e) => console.warn(`reconcile: not done as play started: ${(e as Error).message}`),
 );
 else console.log(`reconcile: ${commit ? "no SHIP_TOKEN" : "no PLAY_COMMIT"}: code intents are not reconciled here`);
 if (!github) console.log("ship: no SHIP_TOKEN: code intents are not shipped from here");
-const { fetch } = app({ db, store: blobStore(), github });
+const { fetch } = app({ db, store, github });
 // the site too, where PLAY_SITE names its build (the image's /app/site): everything outside /api
 const site = process.env.PLAY_SITE ? siteHandler(process.env.PLAY_SITE) : null;
 // a request that waits on the database longer than Bun's default 10 s was cut off, and Caddy answered 502 to the page

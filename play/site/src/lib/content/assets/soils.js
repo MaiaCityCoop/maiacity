@@ -1,14 +1,13 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * THE SOILS UNDER THE BIOMES — what a plant's ground is made of below its surface, as a soil scientist reads it on the
- * face of a pit: its horizons from the top down, each at its real depth, its colour (moist, as the Munsell chart has
- * it), its structure (crumbs, blocks, plates, prisms, loose grains, layered litter), its stones, its roots, its worm
- * burrows, and what marks it (rust mottles and grey where water stands, white lime, black charcoal, white fungal
- * threads). ./ground.js paints a pit's faces with them, worked out in the world's own metres.
+ * THE SOILS UNDER THE BIOMES — a plant's ground below its surface as a soil scientist reads a pit's face: its horizons
+ * top down at their real depths, colour (moist, Munsell), structure (crumbs, blocks, plates, prisms, loose grains,
+ * layered litter), stones, roots, worm burrows, and marks (rust mottles and grey where water stands, white lime, black
+ * charcoal, white fungal threads). ./ground.js paints a pit's faces with them in the world's own metres.
  *
- * A biome names its soil (`SOIL_OF`): the floor of a forest garden lies on a deep, dark garden humus, the beech wood's
- * on a brown earth, the spruce wood's on a podzol bleached grey under its needles, the meadow's on a black earth, the
- * warm food forest's on a red tropical earth under the humus its mulch keeps, the lawn's on a ploughed garden loam.
+ * A biome names its soil (`SOIL_OF`): a forest garden a deep dark garden humus, the beech wood a brown earth, the spruce
+ * wood a podzol bleached grey under its needles, the meadow a black earth, the warm food forest a red tropical earth
+ * under its mulch's humus, the lawn a ploughed garden loam.
  *
  * A horizon: `name`, `to` its lower boundary (m below the surface), `col`/`col2` its matrix colours (sRGB, moist) and
  * `ped` its structure: { kind, size (m), dark (how dark its pores and cracks are, 0…1), vary (how far one ped's shade
@@ -28,7 +27,7 @@ export const PED = { crumb: 0, blocky: 1, platy: 2, prismatic: 3, massive: 4, gr
 /** @typedef {{ id: string, label: string, kind: string, note: string, stone: string, horizons: Horizon[] }} Soil */
 
 /** @type {Record<string, Soil>} */
-export const SOILS = {
+const SOILS = {
 	'garden-humus': {
 		id: 'garden-humus',
 		label: 'Garden humus',
@@ -117,7 +116,7 @@ export const SOILS = {
 };
 
 /** the soil under each biome of the library, by its id; a biome not named here lies on a brown earth */
-export const SOIL_OF = {
+const SOIL_OF = {
 	'food-forest': 'garden-humus',
 	'warm-food-forest': 'tropical-red',
 	'beech-forest': 'brown-earth',

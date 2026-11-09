@@ -1,7 +1,7 @@
 // play's image (play/Dockerfile) builds the site from what its first stage copies, not from the whole repository as CI
 // does: a file outside play/site that the site's own code imports must be copied into that stage, or the deploy's image
 // fails to build while every check on the pull request is green (intent 67f0404a, 2026-11-09: sandboxes.js re-exports
-// play/api/src/ids.ts).
+// play/api/src/kit/ids.ts).
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";

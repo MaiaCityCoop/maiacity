@@ -3,7 +3,7 @@ import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { folderStore, keyOf } from "../src/blobs";
-import { hashText } from "../src/hash";
+import { hashText } from "../src/kit/hash";
 
 test("a folder store never takes a blob cut short for the blob: it writes it again", async () => {
   const dir = await mkdtemp(join(tmpdir(), "blobs-"));

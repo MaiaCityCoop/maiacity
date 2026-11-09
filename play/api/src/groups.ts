@@ -5,5 +5,4 @@
 // intent and accepted with it, never by a migration.
 export const GROUPS = ["plants", "things", "machines", "buildings", "actors", "characters", "biomes", "worlds"] as const;
 export type Group = (typeof GROUPS)[number];
-/** whether `g` is one of the asset groups */
 export const isGroup = (g: unknown): g is Group => typeof g === "string" && (GROUPS as readonly string[]).includes(g);

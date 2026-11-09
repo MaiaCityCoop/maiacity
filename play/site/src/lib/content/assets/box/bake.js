@@ -1,29 +1,14 @@
 // @ts-nocheck — plain JS, runs inside the box
 /*
- * AN ASSET'S CONTROLS AS DATA — what a builder leaves on its object to move it after it is built (a tent's pitch, a
- * pickup's doors, a machine's explode and build) is a function, and no function leaves the box (./serialize.js). So
- * the box plays each one here, from 0 to 1, and writes down where every part it moves stands at each step: its place,
- * turn and size, whether it shows, its blend shapes' weights, its instances. The page plays the control back from
- * those numbers alone (../controls.js), on its own page and in the renderer, as the builder's function would have
- * moved it. A function of one number is all any of our controls is, so nothing is lost but the shortcuts.
- *
- * Engine 5 adds what else a control changes, only for the parts it changes: a mesh it reshapes (a tent's canvas
- * hung and draped as its pole goes up, a bag's cover laid open), its positions and normals at each step (`shapes`),
- * as many vertices as it was built with; a material's colour, glow, opacity, roughness and metalness (`looks`, `MAT`
- * numbers a step); a light's colour, brightness, reach and fall-off (`lights`, `LIGHT` numbers). The page puts them
- * back as it does the rest (../controls.js), and so does a build kept running (./live.js), step by step.
- *
- * The controls it knows, by the function on the object's userData (engine 3, the first that bakes them):
- *   setPitch → pitch, setBuild → build, explode → explode, setOpen → open, setTailgate → tailgate,
- *   setDoor(name, k) with `doors` → door.<name> for each, fire.setLit(on) → lit (a choice: off or on); and from
- *   engine 5, setWet → wet.
- * Each is sampled at SAMPLES even steps from 0 to 1, with the object as built put back between controls and after the
- * last; `rest` is the value it was built at (the sample that matches it best). A control that changes the object's
- * tree (adds or takes away a part) cannot be played back from numbers: it is left out, and the object built again.
+ * An asset's controls as data: a control (a tent's pitch, a machine's explode) is a function, and none leaves the box
+ * (./serialize.js), so each is played here 0 to 1 and written at SAMPLES steps (each moved part's place, turn, size,
+ * visibility, blend weights, instances; from engine 5 reshaped meshes, material looks, lights) for ../controls.js to
+ * play back. One that changes the tree is left out and the object built again. Known: setPitch, setBuild, explode,
+ * setOpen, setTailgate, setDoor(name, k) with `doors`, fire.setLit(on); from engine 5, setWet.
  */
 
 /** steps a control is sampled at, from 0 to 1: enough to follow a part's turn or flight (our builds ease over a third or more of it) */
-export const SAMPLES = 33;
+const SAMPLES = 33;
 /** the longest the box spends sampling one asset's controls (ms): the rest are left out */
 const TIME = 4000;
 /** the most numbers one control's tracks may hold */
@@ -49,14 +34,12 @@ export function offered(u) {
 	return out;
 }
 
-/** numbers a material's look is written as: its colour (r, g, b), its glow (r, g, b), how strongly it glows, its
- *  opacity, roughness and metalness (a material without one of them: 0, and the page leaves it) */
+/** a material's look as numbers: colour (rgb), glow (rgb), glow strength, opacity, roughness, metalness (missing: 0, left by the page) */
 export const MAT = 10;
 /** numbers a light is written as: its colour (r, g, b), its brightness, how far it reaches, how it falls off */
 export const LIGHT = 6;
 const num = (x, or = 0) => (typeof x === 'number' && Number.isFinite(x) ? x : or);
 
-/** a material's look as numbers, into `out` at `at` */
 export function lookOf(m, out, at) {
 	const c = m?.color?.isColor ? m.color : null, e = m?.emissive?.isColor ? m.emissive : null;
 	out[at] = c ? c.r : 0;
@@ -71,7 +54,6 @@ export function lookOf(m, out, at) {
 	out[at + 9] = num(m?.metalness);
 }
 
-/** a light as numbers, into `out` at `at` */
 export function lightOf(l, out, at) {
 	out[at] = l.color?.isColor ? l.color.r : 1;
 	out[at + 1] = l.color?.isColor ? l.color.g : 1;
@@ -92,7 +74,6 @@ export function putLook(m, v, at) {
 	if (typeof m.metalness === 'number') m.metalness = v[at + 9];
 }
 
-/** a light set to numbers */
 export function putLight(l, v, at) {
 	if (l.color?.isColor) l.color.setRGB(v[at], v[at + 1], v[at + 2]);
 	if (typeof l.intensity === 'number') l.intensity = v[at + 3];
@@ -112,10 +93,7 @@ export const flat = (a) => {
 	return out;
 };
 
-/**
- * A mesh's shape as built: its geometry, its positions and normals (copied) and their versions; null for a node
- * without. Reshaped, it can be written down only with as many vertices, drawn the same way.
- */
+/** A mesh's shape as built (geometry, copied positions and normals, versions), null for a node without; reshaped, only with as many vertices drawn alike. */
 export function shapeOf(o) {
 	const g = o.geometry, p = g?.attributes?.position;
 	if (!p || p.itemSize !== 3 || o.isInstancedMesh) return null;
@@ -136,7 +114,6 @@ export function reshaped(o, was) {
 	return { p: pa, n: na };
 }
 
-/** a mesh put back in its shape as built */
 export function reshape(o, was) {
 	if (!was) return;
 	if (o.geometry !== was.g) o.geometry = was.g;
@@ -210,7 +187,6 @@ function snapshot(nodes) {
 	return { trs, visible, morph, instances, looks, lights, shapes };
 }
 
-/** the object put back as it stood */
 function restore(nodes, s) {
 	nodes.forEach((o, i) => {
 		const t = s.trs, a = i * 10;
@@ -252,10 +228,8 @@ const intact = (root, nodes) => {
 };
 
 /**
- * Plays an object's controls and writes them down.
- * @param {import('three').Object3D} root an object as its builder made it
- * @returns {{ controls: object[], intact: boolean }} its controls as data, and whether the object is still the one
- *   that was built (false: a control changed its tree or reshaped a mesh; build it again before it leaves)
+ * Plays an object's controls and writes them down. @param {import('three').Object3D} root as its builder made it
+ * @returns {{ controls: object[], intact: boolean }} `intact` false: rebuild it before it leaves
  */
 export function bake(root) {
 	const list = offered(root.userData ?? {});
@@ -369,8 +343,7 @@ export function bake(root) {
 		} catch {
 			ok = false;
 		}
-		// its rest: the sample nearest the object as built; of several as near, an end (a build is whole before its last
-		// step, a door shut at 0). It is set there again, so a mesh it reshapes (a canvas unrolled) is shaped as built
+		// its rest: the sample nearest the object as built, set again so a reshaped mesh is shaped as built
 		const least = Math.min(...off);
 		const ties = [...off.keys()].filter((s) => off[s] === least);
 		const best = ties.includes(S - 1) ? S - 1 : ties[0];
@@ -407,8 +380,7 @@ export function bake(root) {
 	}
 	restore(nodes, rest);
 	root.updateMatrixWorld(true);
-	// a mesh a control reshaped and its rest did not shape back as built (putting the nodes back does not undo it): its
-	// moves are kept, the object is built again
+	// a mesh a control reshaped that its rest did not shape back: its moves are kept, the object built again
 	const now = shapesOf(nodes.filter((o) => o.geometry));
 	const asBuilt = now.length === shaped.length && now.every((x, i) => x.a === shaped[i].a && (x.version === shaped[i].version || x.sum === shaped[i].sum));
 	return { controls, intact: asBuilt };

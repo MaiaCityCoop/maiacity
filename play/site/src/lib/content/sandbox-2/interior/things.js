@@ -1,30 +1,17 @@
 /*
- * THE LIBRARY'S THINGS IN THE VILLAGE — what Sandbox 3 and 4 put down that is a Thing of the library ($content/models):
- * the playgrounds between the domes, in Sandbox 4 the coops and hutches round the squares, mini domes, and in every
- * master dome the workshops round its ground floor (the dome rooms', $content/models/domerooms.js). Each is built in the
- * asset box from its recipe at the version the village's config pins (its legacy entry, `THINGS`) and drawn by the
- * renderer (./drawn.js) as a copy of it, at its finest shape, casting its shadow as the village's baked ones did.
- *
- * A Thing is built as the library has it, so every copy of one is the same: the village no longer gives each its own
- * seed (a coop's eggs, a hutch's tunnel, a playground's stumps once differed a little from one to the next; the
- * second co-working space's laptops and the second art studio's paintings were their own).
- *
- * What stands in the walker's way is the world's (`WALK`): each Thing's footprint as circles in its builder's ground,
- * the ones its builder hands back with it (./things.test.js holds them to it), put where the copy stands
- * (`collidersAt`). A list of Things says where each one's builder's ground is put (x, z, turned by `turn`); a Thing the
- * library brings to its own middle stands that far off it (`MIDDLE`, `placeOf`).
+ * THE LIBRARY'S THINGS IN THE VILLAGE — the playgrounds, Sandbox 4's coops and hutches, and every master dome's
+ * workshops ($content/models/domerooms.js), each built in the asset box at the version the village's config pins
+ * (`THINGS`) and drawn by ./drawn.js at its finest shape, casting its shadow. Every copy of a Thing is the same: the
+ * village no longer seeds each. What stands in the walker's way (`WALK`) is each builder's footprint circles, put where
+ * the copy stands (`collidersAt`); a Thing the library centres stands `MIDDLE` off its builder's ground (`placeOf`).
  */
 import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { slotRef } from '$lib/content/assets/catalog.js';
 import { coopsAround } from './spaces';
 
-/**
- * An asset of the village, by the key its config pins it under (maia/content/code/configs/sandbox-4/assets: its legacy entry and
- * the heads of its version, $content/assets/vault.js `WORLD_PIN`), with the values it is built with.
- * @param {string} key @param {string} [query]
- */
-export const villageAsset = (key, query = '') => `pin:${SANDBOX.one}/${key}${query ? `?${query}` : ''}`;
+/** An asset of the village by the key its config pins it under, with its values. @param {string} key @param {string} [query] */
+export const villageAsset = (key, query = '') => slotRef(SANDBOX.one, key, query);
 
-/** the Things the village puts down, each at the version its config pins */
 export const THINGS = {
 	/** the hens' mini dome (the chicken coop's v2), Sandbox 4's */
 	hens: villageAsset('hens'),
@@ -48,8 +35,7 @@ export const THINGS = {
 export const FLOORS = { outside: villageAsset('food-forest'), warm: villageAsset('warm-food-forest'), meadow: villageAsset('meadow') };
 
 /**
- * A set the dome builds round its own place and the library brings to its middle, its foot on the ground
- * ($content/models/domerooms.js `centred`): where that middle is in its builder's ground (x, z in metres).
+ * Where a set the library centres ($content/models/domerooms.js `centred`) has its middle in its builder's ground (m).
  * @type {Record<string, { x: number, z: number }>}
  */
 export const MIDDLE = {
@@ -63,8 +49,7 @@ export const MIDDLE = {
 };
 
 /**
- * What of each Thing stands in the walker's way: circles in its builder's ground (x, z, r in metres), as its builder
- * hands them back (maia/content/models/minidomes.js, ./spaces.ts `playground` and the workshops).
+ * Each Thing's footprint in its builder's ground (x, z, r in m), as its builder hands it back.
  * @type {Record<string, { x: number, z: number, r: number }[]>}
  */
 export const WALK = {
@@ -144,25 +129,19 @@ export const WALK = {
 	]
 };
 
-/**
- * Where a Thing stands in the walker's way, put down at x, z turned by `turn` about the upright (as a group turned by
- * rotation.y).
- * @param {string} ref @param {number} x @param {number} z @param {number} turn
- */
-export function collidersAt(ref, x, z, turn) {
+/** A Thing's footprint put down at x, z turned by `turn` (as rotation.y). @param {string} ref @param {number} x @param {number} z @param {number} turn */
+function collidersAt(ref, x, z, turn) {
 	const c = Math.cos(turn), s = Math.sin(turn);
 	return (WALK[ref] ?? []).map((p) => ({ x: x + p.x * c + p.z * s, z: z - p.x * s + p.z * c, r: p.r }));
 }
 
 /**
- * The coops round the squares as Sandbox 4 has them, mini domes: the hens' and the rabbits' in turn, every other one a
- * hutch (as ./spaces.ts `coops` lays them out), each facing out from the master dome.
+ * Sandbox 4's coops round the squares, every other one a hutch (as ./spaces.ts `coops`), facing out from the master dome.
  * @param {number} squareR @returns {{ ref: string, x: number, z: number, turn: number }[]}
  */
 export const coopsOf = (squareR) => coopsAround(squareR).map(({ a, r }, i) => ({ ref: i % 2 === 1 ? THINGS.rabbits : THINGS.hens, x: Math.sin(a) * r, z: Math.cos(a) * r, turn: a }));
 
-/** the master dome's workshops round its ground floor, between its doors, its stair, its kitchen and its aquaponics:
- *  each at its angle, as the dome has always laid them out */
+/** the workshops' angles round the master dome's ground floor, between its doors, stair, kitchen and aquaponics */
 const WORKSHOPS = /** @type {[number, keyof typeof THINGS][]} */ ([
 	[0.36, 'coworking'],
 	[1.2, 'woodshop'],
@@ -175,17 +154,11 @@ const WORKSHOPS = /** @type {[number, keyof typeof THINGS][]} */ ([
 	[5.93, 'coworking']
 ]);
 
-/**
- * The master dome's workshops, `rr` from its middle, each facing out to the glass.
- * @param {number} rr @returns {{ ref: string, x: number, z: number, turn: number }[]}
- */
+/** The master dome's workshops, `rr` from its middle, facing the glass. @param {number} rr @returns {{ ref: string, x: number, z: number, turn: number }[]} */
 export const workshopsOf = (rr) => WORKSHOPS.map(([a, k]) => ({ ref: THINGS[k], x: Math.sin(a) * rr, z: Math.cos(a) * rr, turn: a }));
 
-/**
- * Where a copy of a Thing stands for its builder's ground put at x, z turned by `turn`, in a ground standing at `at`.
- * @param {{ ref: string, x: number, z: number, turn: number }} t @param {number[]} [at]
- */
-export function placeOf(t, at = [0, 0, 0]) {
+/** Where a copy stands for a Thing at x, z turned by `turn`, in a ground at `at`. @param {{ ref: string, x: number, z: number, turn: number }} t @param {number[]} [at] */
+function placeOf(t, at = [0, 0, 0]) {
 	const m = MIDDLE[t.ref], c = Math.cos(t.turn), s = Math.sin(t.turn);
 	const dx = m ? m.x * c + m.z * s : 0, dz = m ? -m.x * s + m.z * c : 0;
 	return { x: at[0] + t.x + dx, y: at[1], z: at[2] + t.z + dz, turn: t.turn, scale: 1 };
@@ -194,8 +167,7 @@ export function placeOf(t, at = [0, 0, 0]) {
 /** @typedef {{ use: (ref: string, shadows?: boolean, picture?: boolean) => any, take: (k: any, at: { x: number, y: number, z: number, turn: number, scale: number }) => any, give: (c: any) => void }} Library */
 
 /**
- * Things put down by a renderer (./drawn.js), each a copy at its finest shape casting its shadow; and where each
- * stands in the walker's way.
+ * Things put down by a renderer (./drawn.js), and their footprints.
  * @param {Library} drawn @param {{ ref: string, x: number, z: number, turn: number }[]} list
  */
 export function putThings(drawn, list) {
@@ -204,11 +176,9 @@ export function putThings(drawn, list) {
 }
 
 /**
- * Things of a part of the world that comes and goes (a dome's inside, shown as you near it): their kinds asked for
- * at once, their copies put down while it is shown and handed back to the renderer when it is not, or let go of.
+ * Things of a part of the world that comes and goes (a dome's inside): copies put down while shown, handed back when not.
  * @param {Library} drawn @param {{ ref: string, x: number, z: number, turn: number }[]} list
- * @param {{ at?: number[], shown?: boolean }} [o] `at`: where the part's own ground stands in the renderer's;
- *   `shown`: put down now
+ * @param {{ at?: number[], shown?: boolean }} [o] `at`: the part's ground in the renderer's; `shown`: put down now
  */
 export function standThings(drawn, list, { at = [0, 0, 0], shown = true } = {}) {
 	const kinds = list.map((t) => drawn.use(t.ref, true, false));
@@ -227,7 +197,6 @@ export function standThings(drawn, list, { at = [0, 0, 0], shown = true } = {}) 
 		/** where they stand in the walker's way, in the part's own ground */
 		colliders: list.flatMap((t) => collidersAt(t.ref, t.x, t.z, t.turn)),
 		show,
-		/** every one of their kinds built (or failed) */
 		ready: () => Promise.all(kinds.map((k) => k.ready)),
 		dispose: () => show(false)
 	};
