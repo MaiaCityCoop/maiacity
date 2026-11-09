@@ -47,14 +47,15 @@ jobs:
         if: steps.tested.outputs.skip != 'true'
         with:
           bun-version: 1.4.4
-      # the site's fast suite, in the background: its output and exit code kept for "The site's tests" to await
+      # the site's fast suite, in the background: its output and exit code kept for "The site's tests" to await. At the
+      # lowest priority, so the API's tests beside it keep the cores they need (their hooks time out at 5 s otherwise)
       - name: The site's tests, started
         if: steps.tested.outputs.skip != 'true'
         working-directory: play/site
         run: |
           bun install --frozen-lockfile
           bunx svelte-kit sync
-          nohup bash -c 'bun run test > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &
+          nohup nice -n 19 bash -c 'bun run test > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &
       - name: The API
         if: steps.tested.outputs.skip != 'true'
         working-directory: play/api

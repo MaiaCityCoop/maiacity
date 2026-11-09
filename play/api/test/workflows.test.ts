@@ -333,7 +333,7 @@ describe("the site's tests on every pull request and on main", () => {
     expect(lines(started)).toEqual([
       "bun install --frozen-lockfile",
       "bunx svelte-kit sync",
-      `nohup bash -c 'bun run test > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &`,
+      `nohup nice -n 19 bash -c 'bun run test > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &`,
     ]);
     const awaited = steps[at("The site's tests")];
     expect(awaited.if).toBe("steps.tested.outputs.skip != 'true'");

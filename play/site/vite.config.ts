@@ -12,6 +12,8 @@ export default defineConfig({
 	test: {
 		include: ['src/**/*.test.{ts,js}'],
 		exclude: ['**/node_modules/**', 'src/**/*.bun.test.ts', 'src/lib/content/sandbox-7/fixture.test.ts'],
-		environment: 'node'
+		environment: 'node',
+		// in CI the suite runs beside the API's tests, at the lowest priority: a test of a few seconds alone needs room
+		testTimeout: 30_000
 	}
 });
