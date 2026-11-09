@@ -1,10 +1,7 @@
-// play's migrations against a real Postgres (set TEST_DATABASE_URL, as for ./api.test.ts).
-//
-// They run twice at once on a deploy: play-api migrates as it starts, and the import run beside it migrates too
-// (2026-11-06: the second ran 0029-one-record again after the first had, and the deploy failed on "column work already
-// exists"). Two migrate() calls at once on a fresh database: both finish, every migration ran exactly once, and a third
-// finds nothing to run.
-//
+// play's migrations against a real Postgres (TEST_DATABASE_URL, as for ./api.test.ts). They run twice at once on a
+// deploy, play-api's and the import's (2026-11-06: the second ran 0029-one-record again and the deploy failed on "column
+// work already exists"): two migrate() calls at once on a fresh database both finish, each migration ran exactly once,
+// and a third finds nothing to run.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { MIGRATIONS, MIGRATIONS_DIR, badId, loadMigrations, migrate } from "../src/migrations";
 import { seed } from "../src/seed";
@@ -45,14 +42,11 @@ suite("migrate, twice at once", () => {
   }, 60_000);
 });
 
-// Migration 0032-versioned (play/SPEC.md "Version control"): a database made at 0031 holding work of every kind at
-// Proposal and accepted (an asset's, a story's, a factory's, a config's, a skill's), migrated: doc_variants and
-// doc_edits replace doc_branches and doc_updates, every intent's work names its doc_id and doc_variant and keeps its
-// stage, the columns per kind are gone, and every intent is still reviewed and decided. Then 202611070117-847c5d38-intent-variants
-// (intent 847c5d38): every intent's document and variant a row of play.intent_variants, the intent's own columns gone,
-// and an artifact kept before (its authors in order) its v1, read as a document like any other.
-// every intent with work has a spec (no work without an intent, 706ed873: its migration archives one waiting without),
-// so the intents a test seeds with work are specified and approved, as production's at Proposal were
+// Migration 0032-versioned (play/SPEC.md "Version control"): a database at 0031 holding work of every kind at Proposal
+// and accepted, migrated: doc_variants and doc_edits replace doc_branches and doc_updates, every intent's work names its
+// doc_id and doc_variant and keeps its stage, the per-kind columns gone, every intent still reviewed and decided. Then
+// 202611070117-847c5d38-intent-variants: each intent's documents rows of play.intent_variants, and an artifact kept
+// before its v1. Every intent with work has a spec (intent 706ed873), so the seeded ones are specified and approved.
 const SPEC = JSON.stringify({ goal: "Its work is in.", scope: "A migration's fixture.", checks: [{ id: "c1", check: "It holds", how: "test", by: "a test", run: "true", must: true, step: "mvp" }] });
 
 suite("migration 0032-versioned", () => {
@@ -253,11 +247,10 @@ suite("migration 0032-versioned", () => {
   }, 60_000);
 });
 
-// Migration 202611070115-d2f50bf1-sandbox-layouts and ensureLayouts (play/SPEC.md §4.6): a database made at 0037 holding a sandbox's pins and configs and
-// its changes as the intents' sandbox_* columns kept them (one accepted, one archived, one at Proposal that still
-// holds, one that no longer does), migrated: the layout is sandbox:<uuid>, its v1 its pins and configs as they were;
-// every change an intent variant of it, each intent keeping its stage; the columns gone; and the one waiting reviewed
-// and accepted as the layout's v2, its rows written for the worlds.
+// Migration 202611070115-d2f50bf1-sandbox-layouts and ensureLayouts (play/SPEC.md §4.6): a database at 0037 holding a
+// sandbox's pins, configs and changes (accepted, archived, at Proposal holding, and one no longer holding), migrated:
+// the layout sandbox:<uuid>, v1 its pins and configs; each change an intent variant, its intent's stage kept; the
+// columns gone; the waiting one reviewed and accepted as v2, its rows written for the worlds.
 suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
   let f: Fresh;
   beforeAll(async () => {
@@ -310,8 +303,7 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
     const gone = await change("proposal", [{ op: "unpin", slot: "nowhere" }], [{ kind: "pin", slot: "nowhere", before: pin(v1), after: null }]);
     const wasPins = await q(`SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1 ORDER BY slot`, [S2]);
 
-    // ---- the migration, then ensureLayouts in the seed play runs after it
-    // (and every migration after it: 847c5d38's intent-variants holds each intent's documents)
+    // ---- the migration, then ensureLayouts as the seed runs it (and every migration after: 847c5d38's intent-variants)
     expect((await migrate(db))[0]).toEqual("202611070115-d2f50bf1-sandbox-layouts");
     await seed(db);
     expect(await q(`SELECT intent_id FROM play.sandbox_changes_kept WHERE NOT moved`)).toEqual([]);
@@ -351,10 +343,9 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
   }, 60_000);
 });
 
-// One file per migration (play/SPEC.md "Migrations"): every shipped migration a file `<id>.sql` of
-// play/api/migrations, its SQL byte for byte as it ran (the SHA-256 list frozen from main's array at b5d019e,
-// ./fixtures/migrations.sha256.json); the runner reads the folder, runs each file once in name order, and refuses a
-// duplicate or malformed id, naming the file.
+// One file per migration (play/SPEC.md "Migrations"): each shipped one `<id>.sql` in play/api/migrations, byte for byte
+// as it ran (./fixtures/migrations.sha256.json, frozen at b5d019e); the runner runs each once in name order and refuses
+// a duplicate or malformed id, naming the file.
 describe("migrations, one file each", () => {
   const frozen: Record<string, string> = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "migrations.sha256.json"), "utf8"));
   const sha = (s: string) => new Bun.CryptoHasher("sha256").update(s).digest("hex");
@@ -437,12 +428,10 @@ describe("migrations, one file each", () => {
   }, 120_000);
 });
 
-// Migration 202611070120-7c8085db-breeds and the import after it (play/SPEC.md "Breeds"; intent 7c8085db, its check c3): a database made
-// just before it holding assets of variants (a plant's kinds, each its own recipe in every frozen version), one with its
-// document made already (its variants in Main) and one without, and a sandbox pinning a variant by its name. Migrated
-// and imported: every asset's variants are breeds of its document with the same sources and cards (each breed built
-// gives its variant's recipe hash of the newest version, byte for byte), Main holds none, and every frozen version, its
-// variants' rows and the pin are as they were.
+// Migration 202611070120-7c8085db-breeds and the import after it (play/SPEC.md "Breeds"; intent 7c8085db, check c3): a
+// database just before it, with assets of variants (one with its document already, one without) and a sandbox pinning
+// a variant by name. Migrated and imported, each asset's variants are breeds with the same sources and cards (each
+// building its variant's newest recipe hash, byte for byte), Main holds none, frozen versions, rows and pin unchanged.
 const BREEDS = "202611070120-7c8085db-breeds";
 suite("migration 202611070120-7c8085db-breeds", () => {
   let f: Fresh;
@@ -508,8 +497,7 @@ suite("migration 202611070120-7c8085db-breeds", () => {
     ];
     const before = await frozen();
 
-    // ---- the breeds migration, then every one after it (the migrations that land after breeds run too: 4ea6b2ed's
-    // avenBOX token column first), and the import's breeds
+    // ---- the breeds migration and every one after (4ea6b2ed's avenBOX token column first), then the import's breeds
     const rest = MIGRATIONS.map((m) => m.id).slice(MIGRATIONS.findIndex((m) => m.id === BREEDS));
     expect(rest[0]).toBe(BREEDS);
     expect(await migrate(db)).toEqual(rest);
@@ -541,10 +529,9 @@ suite("migration 202611070120-7c8085db-breeds", () => {
   }, 60_000);
 });
 
-// Migration 202611070945-1d9995c3-skills-records (intent 1d9995c3): a skill's row is play.records' (kind 'skill'), as
-// a schema's and a piece's are, so a new skill is made over MCP like every schema-alone document. Every play.skills row
-// moves with its id, label and times; the table goes; avenMAIA and the Intents skill keep their documents, versions
-// and history, and are served as before.
+// Migration 202611070945-1d9995c3-skills-records (intent 1d9995c3): a skill's row is play.records' (kind 'skill'), like a
+// schema's and a piece's; each play.skills row moves with its id, label and times, the table goes, and avenMAIA and the
+// Intents skill keep their documents, versions and history, served as before.
 const SKILLS_RECORDS = "202611070945-1d9995c3-skills-records";
 suite(`migration ${SKILLS_RECORDS}`, () => {
   let f: Fresh;
@@ -558,8 +545,7 @@ suite(`migration ${SKILLS_RECORDS}`, () => {
   test("skills become records: every row moves with its id, label and times, play.skills goes, avenMAIA and Intents served as before", async () => {
     const db = f.db;
     const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
-    // the database as it stands before: every migration before it, the schemas as documents, the two skills as the
-    // import wrote them then (each its play.skills row and its document's v1)
+    // the database before: every migration before it, schemas as documents, the two skills as the import wrote them then
     const before_ = MIGRATIONS[MIGRATIONS.findIndex((m) => m.id === SKILLS_RECORDS) - 1].id;
     expect((await migrate(db, { until: before_ })).at(-1)).toBe(before_);
     await (await import("../src/docs/schemas")).ensureSchemas(db);
