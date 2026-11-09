@@ -218,9 +218,8 @@ export class ShedBuild {
       pose={position:add(mean(actual),transform(sub(spec.position,mean(ends.points)),delta,xyz(0,0,0))),rotation:multiplyRotations(delta,rotationOf(spec))};
     }
     if(entry.fitToAttachments&&entry.connectTo.length){
-      // Fit the supplied rigid panel to the current bracket poses. Fitting
-      // the attachment locations reduces installation preload without stretching
-      // the panel or moving any existing structure.
+      // Fit the rigid panel to the brackets' current poses: fitting the attachment points cuts installation preload
+      // without stretching the panel or moving existing structure.
       const targets=entry.connectTo.map(id=>this.sim.parts.get(id)!);
       const planned=targets.map(p=>mean(fasteningPatch(spec,p.spec,entry.profile?.clearanceM).points));
       const actual=planned.map((point,i)=>transform(transform(sub(point,targets[i].spec.position),inverseRotation(rotationOf(targets[i].spec)),xyz(0,0,0)),targets[i].body.rotation(),targets[i].body.translation()));
@@ -331,8 +330,7 @@ export class ShedBuild {
       if (parent === n) return n;
       const root = find(parent); parents.set(n, root); return root;
     };
-    // Only permanent fixed bonds remove all relative degrees of freedom.
-    // Internal contacts would redundantly fight those same constraints. This
+    // Only permanent fixed bonds remove all relative freedom; internal contacts would redundantly fight them. This
     // filter neither adds connections nor suppresses contact across a release.
     for (const c of this.connections.values()) if (!c.grip) parents.set(find(this.sim.body(c.a).handle), find(this.sim.body(c.b).handle));
     this.rigidComponents.clear();

@@ -1,9 +1,9 @@
 /*
- * The Factories (/factories/): a whole factory as a live 3D miniature on a discrete event simulation (AirSup's factory
- * skill, cloned into play from SNAPSHOT_2611101 on 2026-11-03: des.js, kit.js, world.js, look.js, app.js, our additions
- * marked "maiaCITY"). What a factory is lives in play's Postgres (Samuel 2026-11-04, play/SPEC.md §4.7), a document of
- * type factory/1 read from /api/factories/<id>; this file turns one into what the runtime reads (a station's cycle time
- * the sum of its parts' operations and its own handling, unless it gives its own) and the bill of process beside it.
+ * The Factories (/factories/): a factory as a live 3D miniature on a discrete event simulation (AirSup's factory skill,
+ * cloned from SNAPSHOT_2611101 on 2026-11-03: des.js, kit.js, world.js, look.js, app.js, our additions marked
+ * "maiaCITY"). A factory is a factory/1 document in play's Postgres (Samuel 2026-11-04, play/SPEC.md §4.7) read from
+ * /api/factories/<id>; this turns it into what the runtime reads (a station's cycle time its parts' operations plus its
+ * handling, unless it gives its own) and the bill of process.
  */
 
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -14,10 +14,7 @@ const r1 = (v) => Math.round(v * 10) / 10;
  * @typedef {{ schema: 'factory/1', label: string, note?: string, from?: string, builds?: string, line: any, stock?: Record<string, { label: string }>, assemblies?: { id: string, label: string }[], parts: Part[], handling?: Record<string, Op[]> }} FactoryDoc
  */
 
-/**
- * A factory's document, as the page and the runtime use it.
- * @param {FactoryDoc} doc
- */
+/** A factory's document as the page and the runtime use it. @param {FactoryDoc} doc */
 export function lineOf(doc) {
 	const parts = doc.parts ?? [];
 	const handling = doc.handling ?? {};

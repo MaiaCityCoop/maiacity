@@ -1,8 +1,7 @@
 /**
- * What the app adds to the nav pill (./NavPill.svelte), as back.svelte.js adds its way back. The You item is the
- * person's vault switcher too (Samuel 2026-10-18): a context (`pillContext`) lists their vaults, their own (their
- * profile) first, in its menu, and the item shows the one picked. The app lists them on every page once they are
- * known, as its `base`; a page lists them as it looks at them, with what waits in each, in its place while it shows.
+ * What the app adds to the nav pill (./NavPill.svelte), as back.svelte.js its way back. The You item is the vault
+ * switcher too (Samuel 2026-10-18): a context (`pillContext`) lists their vaults, their own first, the item showing the
+ * one picked; the app lists them as its `base` once known, a page its own (with what waits in each) while it shows.
  */
 import { untrack } from 'svelte';
 
@@ -22,11 +21,7 @@ export const pill = {
 	}
 };
 
-/**
- * the You item shows this context's current one, and its menu lists the context, while the page shows it
- * @param {Context} c
- * @returns {() => void} it is gone
- */
+/** The You item shows this context's current one, its menu the context, while the page shows it. @param {Context} c @returns {() => void} it is gone */
 export function pillContext(c) {
 	untrack(() => (contexts = [...contexts, c]));
 	return () => untrack(() => (contexts = contexts.filter((x) => x !== c)));
