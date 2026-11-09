@@ -23,6 +23,8 @@ for side in base head; do
   C=$([ $side = base ] && echo "$BASE_COMMIT" || echo "$HEAD_COMMIT")
   if [ -d "$TREE" ]; then git -C "$TREE" checkout -q --detach "$C"; else git -C "$ROOT" worktree add -q --detach "$TREE" "$C"; fi
   (cd "$TREE/play/site" && bun install --frozen-lockfile >/dev/null)
+  # the plant look alone, on a page of its own (never committed to either tree)
+  mkdir -p "$TREE/play/site/src/routes/look-harness" && cp "$JOB/look-harness.svelte" "$TREE/play/site/src/routes/look-harness/+page.svelte"
   [ "${ONLY:-}" = c7 ] && [ $side = base ] && continue
 done
 

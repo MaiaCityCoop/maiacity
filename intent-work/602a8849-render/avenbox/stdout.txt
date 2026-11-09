@@ -1,0 +1,62 @@
+GPU: ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)
+head s1-water-pond: frame 11182.90 (p95 11182.90) · cpu 41.00 · gpu – · 1323 calls · 3,306,763 tris · bound cpu
+head s1-water-river: frame 8683.00 (p95 8683.00) · cpu 38.10 · gpu – · 339 calls · 2,137,870 tris · bound cpu
+head s1-dome-0: frame 10532.90 (p95 10532.90) · cpu 49.20 · gpu – · 1104 calls · 2,228,750 tris · bound cpu
+head s1-dome-1: frame 13416.10 (p95 13416.10) · cpu 47.00 · gpu – · 1277 calls · 3,198,028 tris · bound cpu
+head s3-open: frame 2055.50 (p95 3550.00) · cpu 15.70 · gpu – · 366 calls · 438,696 tris · bound cpu
+head world-oldcity: frame 591.60 (p95 816.70) · cpu 7.80 · gpu – · 74 calls · 31,615 tris · bound null
+head world-oldcity-night: frame 703.30 (p95 950.00) · cpu 8.70 · gpu – · 68 calls · 49,352 tris · bound null
+head factories: frame 0.00 (p95 0.00) · cpu 0.00 · gpu – · 0 calls · 0 tris · bound null
+head game-map: frame 1516.60 (p95 1533.30) · cpu 2.20 · gpu – · 315 calls · 1,914,812 tris · bound null
+head lab: frame 29.90 (p95 33.40) · cpu 0.60 · gpu – · 3 calls · 12 tris · bound null
+head: 7 errors
+    /sandbox-1/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-3/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /worlds/#43420c0b-675b-4e50-98b5-c461b9432fc0 console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /factories/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-2/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    plant-look: Error: mouse.click: Target crashed 
+base s1-water-pond: frame 10666.30 (p95 10666.30) · cpu 36.40 · gpu – · 868 calls · 2,412,024 tris · bound cpu
+base s1-water-river: frame 8166.40 (p95 8166.40) · cpu 30.30 · gpu – · 339 calls · 2,137,870 tris · bound cpu
+base s1-dome-0: frame 10599.60 (p95 10599.60) · cpu 38.80 · gpu – · 1104 calls · 2,228,750 tris · bound cpu
+base s1-dome-1: frame 13666.10 (p95 13666.10) · cpu 44.90 · gpu – · 1277 calls · 3,198,028 tris · bound cpu
+base s3-open: frame 1133.30 (p95 1166.60) · cpu 8.00 · gpu – · 129 calls · 375,316 tris · bound null
+base world-oldcity: frame 640.00 (p95 866.60) · cpu 7.30 · gpu – · 79 calls · 31,848 tris · bound null
+base world-oldcity-night: frame 666.60 (p95 816.60) · cpu 8.80 · gpu – · 73 calls · 53,175 tris · bound null
+base factories: frame 0.00 (p95 0.00) · cpu 0.00 · gpu – · 0 calls · 0 tris · bound null
+base game-map: frame 1816.60 (p95 1950.00) · cpu 3.80 · gpu – · 315 calls · 1,914,812 tris · bound null
+base lab: frame 26.80 (p95 33.40) · cpu 0.50 · gpu – · 4 calls · 12 tris · bound null
+base: 21 errors
+    /sandbox-1/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-3/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /worlds/#43420c0b-675b-4e50-98b5-c461b9432fc0 console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /factories/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-2/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+    plant-look: Error: mouse.click: Target crashed 
+s1-water-pond: SSIM 0.9045 (water: judged by eye) · base 10666.30 (cpu) → head 11182.90 (cpu) · Δ 516.60 ms within +5 %
+s1-water-river: SSIM 0.9010 (water: judged by eye) · base 8166.40 (cpu) → head 8683.00 (cpu) · Δ 516.60 ms OVER +5 %
+s1-dome-0: SSIM 0.9234 UNDER 0.98 · base 10599.60 (cpu) → head 10532.90 (cpu) · Δ -66.70 ms within +5 %
+s1-dome-1: SSIM 0.7785 UNDER 0.98 · base 13666.10 (cpu) → head 13416.10 (cpu) · Δ -250.00 ms within +5 %
+s3-open: SSIM 0.9883 · base 1133.30 (null) → head 2055.50 (cpu) · Δ 922.20 ms OVER +5 %
+world-oldcity: SSIM 1.0000 · base 640.00 (null) → head 591.60 (null) · Δ -48.40 ms within +5 %
+world-oldcity-night: SSIM 0.9994 · base 666.60 (null) → head 703.30 (null) · Δ 36.70 ms OVER +5 %
+factories: SSIM 1.0000 · base 0.00 (null) → head 0.00 (null) · Δ 0.00 ms within +5 %
+game-map: SSIM 1.0000 · base 1816.60 (null) → head 1516.60 (null) · Δ -300.00 ms within +5 %
+lab: SSIM 1.0000 · base 26.80 (null) → head 29.90 (null) · Δ 3.10 ms OVER +5 %
+done in 5316 s: /home/user/job/intent-work/602a8849-render/avenbox/results.json

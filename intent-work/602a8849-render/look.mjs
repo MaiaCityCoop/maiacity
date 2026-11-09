@@ -45,6 +45,11 @@ mkdirSync(OUT, { recursive: true });
 
 const SAMPLE = 3, OPEN = Number(arg('--open', 60)), W = 1440, H = 900;
 const OLD_CITY = '43420c0b-675b-4e50-98b5-c461b9432fc0';
+/** the Checkout world: indoor, its lamps and signs lit (the world lights' glows, ../worlds/lights.js) */
+const CHECKOUT = 'c88b84db-3d48-4a85-8d21-a29f0c38610a';
+/** VIEWS=a,b: only those views ('sandbox-1' and 'plant-look' for those pages' own) */
+const ONLY_VIEWS = process.env.VIEWS ? process.env.VIEWS.split(',') : null;
+const want = (v) => !ONLY_VIEWS || ONLY_VIEWS.includes(v);
 const S1 = [
 	{ view: 'near', x: 0, z: 95, yaw: 0, pitch: -0.05 },
 	{ view: 'mid', x: 0, z: 235, yaw: 0, pitch: -0.05 },
@@ -52,8 +57,19 @@ const S1 = [
 ];
 
 const PLAY = 'https://play.maia.city';
+const HERE = dirname(fileURLToPath(import.meta.url));
 const proxy = createServer(async (req, res) => {
 	if (!['GET', 'HEAD'].includes(req.method ?? '') || !req.url?.startsWith('/api/')) return res.writeHead(405).end('read-only');
+	// the factories page reads /api/docs and the Factories' config by its slug, which a token doesn't open: the same
+	// read-only answers, the line from play's MCP (doc_at, kept beside this as factory-lifetrac.json) and the config by
+	// the Factories' UUID, alike for base and head
+	if (req.url.startsWith('/api/docs')) {
+		const f = JSON.parse(readFileSync(resolve(HERE, 'factory-lifetrac.json'), 'utf8'));
+		const body = req.url.startsWith('/api/docs?kind=factory') ? [{ id: f.id, label: f.json.label, note: f.json.note, number: f.number, versions: f.versions.length }] : req.url.startsWith(`/api/docs/${f.id}`) ? f : null;
+		res.writeHead(body ? 200 : 404, { 'content-type': 'application/json' });
+		return res.end(JSON.stringify(body ?? { error: 'not in the stand-in' }));
+	}
+	if (req.url.startsWith('/api/sandboxes/factories/')) req.url = req.url.replace('/api/sandboxes/factories/', '/api/sandboxes/9862777e-04c2-8362-b028-27ff7e0591b8/');
 	try {
 		const r = await fetch(PLAY + req.url, { method: req.method, headers: { authorization: `Bearer ${TOKEN}`, accept: req.headers.accept ?? '*/*', ...(req.headers.range ? { range: req.headers.range } : {}) } });
 		const h = Object.fromEntries([...r.headers].filter(([k]) => !['content-encoding', 'content-length', 'transfer-encoding'].includes(k)));
@@ -149,7 +165,7 @@ const t0 = Date.now();
 const errors = {};
 for (const site of sites) {
 	const err = (errors[site.name] = []);
-	try {
+	if (want('sandbox-1')) try {
 		// Sandbox 1: the water, two domes inside, near/mid/far, at noon
 		const { ctx, page } = await open(site, '/sandbox-1/', err);
 		await page.waitForFunction(() => window.__walker && window.__assets && window.__village, null, { timeout: 10 * 60e3 });
@@ -187,13 +203,17 @@ for (const site of sites) {
 	for (const [view, path, wait] of [
 		['s3-open', '/sandbox-3/', OPEN],
 		['world-oldcity', `/worlds/#${OLD_CITY}`, OPEN],
+		['world-checkout', `/worlds/#${CHECKOUT}`, OPEN],
 		['factories', '/factories/', 20],
 		['game-map', '/game/map/', 20],
-		['lab', '/sandbox-2/', 20]
-	]) {
+		['lab', '/sandbox-2/', 20],
+		['plant-harness', '/look-harness/', 90]
+	].filter(([v]) => want(v))) {
 		try {
 			const { ctx, page } = await open(site, path, err);
 			await page.waitForTimeout(wait * 1000);
+			// a world shot once it has built (its HUD says "building n" until then; a software GPU takes minutes)
+			if (view.startsWith('world-')) await page.waitForFunction(() => !/building \d/.test(document.body.innerText), null, { timeout: 12 * 60e3 }).catch(() => {});
 			await quiet(page, 60e3);
 			await measure(page, site, view);
 			// the world lights' glows show only after dark: the Old City again at 22:00
@@ -207,7 +227,7 @@ for (const site of sites) {
 			err.push(`${view}: ${e}`);
 		}
 	}
-	try {
+	if (want('plant-look')) try {
 		// Sandbox 5: a plant picked by a click on the canvas (a grid of clicks until a card shows), its card shot
 		const { ctx, page } = await open(site, '/sandbox-5/', err);
 		await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 }).catch(() => {});
