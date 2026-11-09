@@ -1,8 +1,21 @@
-serving 1ddf4899020eb2b245a6caffc02a8ada364ccd86 (vite dev: the asset box does not build under vite preview)
+serving 7e7c0aa5d805026358e9a78d4d2622bae645ccee (vite dev: the asset box does not build under vite preview)
 look: chromium: launch
 look: chromium: Sandbox 5
 look: chromium: Sandbox 1
-chromium (ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)): Sandbox 5 built in 28 s, 48 programs linked walking, 0 uniform/load errors, 32 clashes caught; Sandbox 1's film advanced 0…5 s
+chromium (ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)): Sandbox 5 built in 28 s, 47 programs linked walking, 0 uniform/load errors, 32 clashes caught; Sandbox 1's film advanced 0…5 s
+  viewer pickup: 0 uniform errors, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+  viewer city-bus: 0 uniform errors, 1 errors: pageerror: free is not defined
+
+	in <unknown>
+	in Frame.svelte
+	in AssetLibrary.svelte
+	in +page.svelte
+	in +layout.svelte
+	in root.svelte
+	in undefined
+
+  viewer delivery-van: 0 uniform errors, 1 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+  viewer fiat-500: 0 uniform errors, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
   clash  ~ :
     was …float nodeUniform18;
 	uint nodeUniform20;
@@ -80,7 +93,20 @@ OK: no uniform error, no plant failed to load, the film advanced
 look: webkit: launch
 look: webkit: Sandbox 5
 look: webkit: Sandbox 1
-webkit (Apple GPU): Sandbox 5 built in 41 s, 45 programs linked walking, 0 uniform/load errors, 32 clashes caught; Sandbox 1's film advanced 0…5 s
+webkit (Apple GPU): Sandbox 5 built in 39 s, 47 programs linked walking, 0 uniform/load errors, 32 clashes caught; Sandbox 1's film advanced 0…5 s
+  viewer pickup: 0 uniform errors, 3 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+  viewer city-bus: 0 uniform errors, 2 errors: pageerror: Can't find variable: free
+
+	in <unknown>
+	in Frame.svelte
+	in AssetLibrary.svelte
+	in +page.svelte
+	in +layout.svelte
+	in root.svelte
+	in undefined
+
+  viewer delivery-van: 0 uniform errors, 2 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+  viewer fiat-500: 0 uniform errors, 4 errors: Failed to load resource: the server responded with a status of 401 (Unauthorized)
   clash  ~ :
     was …float nodeUniform18;
 	uint nodeUniform20;

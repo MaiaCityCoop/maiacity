@@ -2,10 +2,51 @@
   {
     "browser": "webkit",
     "gpu": "Apple GPU",
+    "vehicles": [
+      {
+        "label": "pickup",
+        "id": "5bf0a85d-2f01-5a78-acc5-84fd63d05731",
+        "uniformErrors": 0,
+        "errors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Error: Pickup: Pickup: the box could not build it (no asset machines/pickup@2:pickup)",
+          "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+        ]
+      },
+      {
+        "label": "city-bus",
+        "id": "edbd06d9-5a01-4e57-9fbc-d0d017bf8631",
+        "uniformErrors": 0,
+        "errors": [
+          "pageerror: Can't find variable: free\n\n\tin <unknown>\n\tin Frame.svelte\n\tin AssetLibrary.svelte\n\tin +page.svelte\n\tin +layout.svelte\n\tin root.svelte\n\tin undefined\n",
+          "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+        ]
+      },
+      {
+        "label": "delivery-van",
+        "id": "53d1af5a-bbcf-4eba-9fe0-3a147baedd34",
+        "uniformErrors": 0,
+        "errors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+        ]
+      },
+      {
+        "label": "fiat-500",
+        "id": "33e29d24-08b9-40f7-b098-1ce81d37ef23",
+        "uniformErrors": 0,
+        "errors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Error: machines/fiat500: the box could not build it (no asset machines/fiat500@2)",
+          "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+          "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+        ]
+      }
+    ],
     "sandbox5": {
-      "builtSeconds": 40.99,
-      "programsLinkedWhileWalking": 45,
-      "programsLinkedTotal": 65,
+      "builtSeconds": 39.242,
+      "programsLinkedWhileWalking": 47,
+      "programsLinkedTotal": 54,
       "clashes": [
         {
           "a": "",
@@ -70,42 +111,6 @@
         {
           "a": "",
           "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
           "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
           "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
         },
@@ -162,6 +167,42 @@
           "b": "",
           "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
           "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
         },
         {
           "a": "",
@@ -234,34 +275,7 @@
     },
     "sandbox1": {
       "film": "advanced 0…5 s",
-      "errors": [
-        "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
-        "flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters",
-        "flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10",
-        "flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9",
-        "flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9",
-        "flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10",
-        "flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9",
-        "flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10",
-        "flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9",
-        "flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9",
-        "flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9",
-        "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
-        "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
-        "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
-        "THREE.Source: \"Source\" has been renamed to \"TextureSource\". Please update your code to use \"THREE.TextureSource\" instead.",
-        "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
-        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
-        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
-        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
-        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
-        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
-        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
-        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
-        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
-        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
-        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
-      ]
+      "errors": []
     },
     "bad": []
   }

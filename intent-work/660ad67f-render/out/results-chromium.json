@@ -2,10 +2,46 @@
   {
     "browser": "chromium",
     "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
+    "vehicles": [
+      {
+        "label": "pickup",
+        "id": "5bf0a85d-2f01-5a78-acc5-84fd63d05731",
+        "uniformErrors": 0,
+        "errors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Error: Pickup: Pickup: the box could not build it (no asset machines/pickup@2:pickup)\n    at vaultBuild (http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:9)\n    at async Module.track_reactivity_loss (http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=707a0f24:1434:1"
+        ]
+      },
+      {
+        "label": "city-bus",
+        "id": "edbd06d9-5a01-4e57-9fbc-d0d017bf8631",
+        "uniformErrors": 0,
+        "errors": [
+          "pageerror: free is not defined\n\n\tin <unknown>\n\tin Frame.svelte\n\tin AssetLibrary.svelte\n\tin +page.svelte\n\tin +layout.svelte\n\tin root.svelte\n\tin undefined\n"
+        ]
+      },
+      {
+        "label": "delivery-van",
+        "id": "53d1af5a-bbcf-4eba-9fe0-3a147baedd34",
+        "uniformErrors": 0,
+        "errors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      {
+        "label": "fiat-500",
+        "id": "33e29d24-08b9-40f7-b098-1ce81d37ef23",
+        "uniformErrors": 0,
+        "errors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Error: machines/fiat500: the box could not build it (no asset machines/fiat500@2)\n    at vaultBuild (http://localhost:5190/src/lib/content/assets/sources/viewer.js:85:9)\n    at async Module.track_reactivity_loss (http://localhost:5190/node_modules/.vite/deps/runtime-Do_u7Ssq.js?v=707a0f24:1434:14)\n "
+        ]
+      }
+    ],
     "sandbox5": {
-      "builtSeconds": 27.585,
-      "programsLinkedWhileWalking": 48,
-      "programsLinkedTotal": 64,
+      "builtSeconds": 27.5,
+      "programsLinkedWhileWalking": 47,
+      "programsLinkedTotal": 54,
       "clashes": [
         {
           "a": "",
@@ -46,12 +82,6 @@
         {
           "a": "",
           "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
           "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
           "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
         },
@@ -66,36 +96,6 @@
           "b": "",
           "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
           "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
-        },
-        {
-          "a": "",
-          "b": "",
-          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
-          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
         },
         {
           "a": "",
@@ -154,6 +154,42 @@
         {
           "a": "",
           "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
+          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
+          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+        },
+        {
+          "a": "",
+          "b": "",
           "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
           "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
         },
@@ -178,8 +214,8 @@
         {
           "a": "",
           "b": "",
-          "at": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n};\n\nlayout( s",
-          "was": "float nodeUniform18;\n\tuint nodeUniform20;\n\tmat4 nodeUniform22;\n\tfloat nodeUniform24;\n\tfloat nodeUniform25;\n};\n\nlayout( s"
+          "at": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform32;\n\tfloat nodeUniform34;\n\tfloat nodeUniform35;\n\tuint nodeUn",
+          "was": "\tfloat nodeUniform23;\n\tuint nodeUniform25;\n\tmat4 nodeUniform27;\n\tfloat nodeUniform29;\n\tfloat nodeUniform30;\n\tuint nodeUn"
         },
         {
           "a": "",
@@ -418,35 +454,7 @@
     },
     "sandbox1": {
       "film": "advanced 0…5 s",
-      "errors": [
-        "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
-        "flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters",
-        "flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10",
-        "flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9",
-        "flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9",
-        "flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10",
-        "flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9",
-        "flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10",
-        "flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9",
-        "flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9",
-        "flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9",
-        "THREE.Source: \"Source\" has been renamed to \"TextureSource\". Please update your code to use \"THREE.TextureSource\" instead.",
-        "flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10",
-        "flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters",
-        "flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters",
-        "flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters",
-        "flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters",
-        "flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters",
-        "flora: mango@3:12:sandbox-5 did not grow: stage: 12 is out of 0–10",
-        "flora: moringa@2:5:sandbox-5 did not grow: plants/moringa takes no parameters",
-        "flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters",
-        "flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10",
-        "flora: cassava@2:4:sandbox-5 did not grow: plants/cassava takes no parameters",
-        "flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters",
-        "flora: moringa@2:6:sandbox-5 did not grow: plants/moringa takes no parameters",
-        "flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters",
-        "flora: moringa@2:8:sandbox-5 did not grow: plants/moringa takes no parameters"
-      ]
+      "errors": []
     },
     "bad": []
   }
