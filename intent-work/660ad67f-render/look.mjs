@@ -27,6 +27,7 @@ const counting = () => {
 	}
 };
 const BAD = /uniform\dfv|@@iterator|did not load|cannot be converted to a sequence|uniform buffer that is too small|is not an object \(evaluating 'sky\.sun|reading 'position'/;
+const VEHICLES = [['pickup', '5bf0a85d-2f01-5a78-acc5-84fd63d05731'], ['city-bus', 'edbd06d9-5a01-4e57-9fbc-d0d017bf8631'], ['delivery-van', '53d1af5a-bbcf-4eba-9fe0-3a147baedd34'], ['fiat-500', '33e29d24-08b9-40f7-b098-1ce81d37ef23']];
 const results = [];
 let failed = false, finished = false;
 // a job that ends before its results are written failed, whatever its exit code says
@@ -77,12 +78,24 @@ for (const [name, type, opts] of [
 		}
 	});
 	await page.screenshot({ path: `${out}/${name}-sandbox-1-film.png` });
-	const r = { browser: name, gpu, sandbox5: { builtSeconds: built, programsLinkedWhileWalking: walked, programsLinkedTotal: await ev(() => window.__links ?? 0, 0), clashes: s5.clashes, errors: s5.said }, sandbox1: { film, errors: said.splice(0) } };
+	// evidence beside c6 (the Orchestrator, 10:03): the four vehicles Samuel saw not load in the asset viewer, each opened
+	// once and given 40 s, its console kept; they do not decide OK (the CPU run found other causes: README.md)
+	const vehicles = [];
+	for (const [label, id] of VEHICLES) {
+		said.splice(0);
+		await page.goto(`${site}/machines/#${id}`, { waitUntil: 'load' }).catch(() => {});
+		await page.waitForTimeout(40_000);
+		await page.screenshot({ path: `${out}/${name}-viewer-${label}.png` }).catch(() => {});
+		const errors = said.splice(0).filter((t) => !/toNonIndexed|TextureSource|did not grow/.test(t));
+		vehicles.push({ label, id, uniformErrors: errors.filter((t) => BAD.test(t)).length, errors: errors.slice(0, 20) });
+	}
+	const r = { browser: name, gpu, vehicles, sandbox5: { builtSeconds: built, programsLinkedWhileWalking: walked, programsLinkedTotal: await ev(() => window.__links ?? 0, 0), clashes: s5.clashes, errors: s5.said }, sandbox1: { film, errors: said.splice(0) } };
 	const bad = [...r.sandbox5.errors, ...r.sandbox1.errors].filter((t) => BAD.test(t));
 	if (bad.length || film.startsWith('threw')) failed = true;
 	r.bad = bad;
 	results.push(r);
 	console.log(`${name} (${gpu}): Sandbox 5 built in ${built.toFixed(0)} s, ${walked} programs linked walking, ${bad.length} uniform/load errors, ${s5.clashes.length} clashes caught; Sandbox 1's film ${film}`);
+	for (const v of vehicles) console.log(`  viewer ${v.label}: ${v.uniformErrors} uniform errors, ${v.errors.length} errors${v.errors[0] ? `: ${v.errors[0].slice(0, 160)}` : ''}`);
 	for (const c of s5.clashes.slice(0, 5)) console.log(`  clash ${c.a} ~ ${c.b}:\n    was …${c.was}…\n    is  …${c.at}…`);
 	await browser.close();
 }
