@@ -4,6 +4,9 @@
 # Bun, no GPU (play/site/scripts/census.ts), each from the inputs pinned in play/site/scripts/census/inputs.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
+# main as play/avenbox/vs-main.ts finds it: a runner's checkout has no origin/main, or too little history for a base
+git rev-parse -q --verify origin/main > /dev/null || git fetch -q --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+[ "$(git rev-parse --is-shallow-repository)" = true ] && git fetch -q --no-tags --unshallow origin '+refs/heads/main:refs/remotes/origin/main'
 base=$(git merge-base HEAD origin/main)
 out=$(mktemp -d)
 fail=0
