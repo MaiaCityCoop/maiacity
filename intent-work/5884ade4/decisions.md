@@ -117,12 +117,18 @@ play/site's 56 test files, run by nothing today, run and green.
 
 ## Behaviour unchanged
 
-- `bash play/avenbox/gate.sh` green, play/site's tests green.
+- `bash play/avenbox/gate.sh` green, and play/site's own checks green outside held files (`site-checks.sh`). On main
+  d5346b7: vitest 427 tests, 5 failing, all in `lib/stories/old-city.test.ts` (non-held), which reaches
+  `scripts/box-worker.ts`'s Bun-only `import.meta.dir` (undefined under vitest: a test failing without a bug, fixed in
+  8); svelte-check 30 errors, of which outside held files: routes/+page.svelte (the icon bug), routes/pieces (an
+  Aside prop that is gone), stories' and worlds' tests, scripts/box-worker.ts, vite.config.ts.
 - `census-same.sh`: Sandbox 1 (near, mid, far), Sandbox 3 and the Worlds page draw the same totals at the head as at
   the merge base.
 
 ## Asks (Samuel's, not done here)
 
+- play/site's tests in CI: they take 9.5 min (24 min of CPU) in avenBOX; this intent runs them in its checks, and
+  whether every pull request's CI runs them too is a speed decision (devx-speed).
 - infra F4: the legacy api service, aven.maia.city, the founders' grants and the old backup layouts out of production.
 
 ## Next untangles (held: their intents, or the next pass, take them)
