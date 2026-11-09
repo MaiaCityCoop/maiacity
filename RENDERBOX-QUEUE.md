@@ -1,5 +1,10 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 15:06 Berlin
+Loop order now: #6 (running) → 7af6e162 → **#8 run 3** (render 54630c308; run.sh gets the PR head when it starts —
+it is 32be9ea42 now, newer than the 2653aee98 relayed) → 544485e2's contact-shadow test → 0b4c007b's looks on main
+once 660ad67f is live.
+
 ## 15:03 Berlin
 - **#13 run 4 recorded: c6 PASS** (head 6a4c572ee; out/ 2daee0508). SSIM vs base 0.87–0.99 now: strawberries and flowers
   gather in the crowns' shade, bare ground between, a margin at the path, deadwood by the trunks. **24454c2d is at
