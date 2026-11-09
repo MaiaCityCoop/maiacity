@@ -21,6 +21,9 @@ vi.mock('three', async () => {
 			Object.assign(this, { toneMapping: real.NoToneMapping, toneMappingExposure: 1 });
 			this.outputColorSpace = real.SRGBColorSpace;
 			this.localClippingEnabled = false;
+			// three's per-object store, as the kit's handler reads it (nodes/index.js: a material's program, 8823eb7c)
+			const props = new WeakMap();
+			this.properties = { get: (o) => (props.has(o) ? props.get(o) : (props.set(o, {}), props.get(o))), has: (o) => props.has(o), remove: (o) => props.delete(o), update: (o, k, v) => ((this.properties.get(o)[k] = v), v) };
 			this.extensions = { has: () => false, get: () => null };
 			this.capabilities = { isWebGL2: true, maxTextures: 16, maxVertexTextures: 16, precision: 'highp' };
 			this.info = { render: { frame: 0 } };
