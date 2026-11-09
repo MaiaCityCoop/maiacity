@@ -20,7 +20,7 @@ function wrap(run: SQL): Queryable {
   return {
     async query<T>(text: string, params: unknown[] = []) {
       // with no params, the simple protocol: a migration may hold several statements
-      const r: any = params.length ? await run.unsafe(text, params as any[]) : await run.unsafe(text);
+      const r: any = params.length ? await run.unsafe(text, params) : await run.unsafe(text);
       return { rows: [...r] as T[], affectedRows: Number(r.count ?? r.length ?? 0) };
     },
   };
@@ -34,7 +34,7 @@ export function fromBunSql(sql: SQL): Db {
       await sql.unsafe(text);
     },
     transaction(fn) {
-      return sql.begin((tx: SQL) => fn(wrap(tx))) as any;
+      return sql.begin((tx: SQL) => fn(wrap(tx)));
     },
     async close() {
       await sql.close();
