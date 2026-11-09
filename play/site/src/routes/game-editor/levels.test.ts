@@ -95,6 +95,17 @@ describe('the levelling worked out', () => {
 		expect(rows[1].treasury.left).toBe(rows[1].treasury.raised - 850000);
 	});
 
+	it('contractors priced beside', () => {
+		const [one, two] = ledger(
+			config([2, 2], [[{ label: 'Dome', cost: 1000, contractor: 3000 }, { label: 'Tent', cost: 50 }], [{ label: 'Lines', cost: 500, contractor: 900, owner: 'coop' }]])
+		);
+		// the treasury spends the self-built cost; the contractors' beside it, an unlock without one at its cost
+		expect(one).toMatchObject({ cost: 1050, contractor: 3050 });
+		expect(one.treasury.contractor).toEqual({ spent: 3050, left: one.treasury.raised - 3050 });
+		// a coop's own is never the village's, whoever builds it
+		expect(two).toMatchObject({ cost: 0, contractor: 0, coops: 500 });
+	});
+
 	it('beds house the villagers', () => {
 		const levels = (beds: number[]) =>
 			ledger(config([2, 2], beds.map((b) => [{ label: 'Home', cost: 0, beds: b }])));

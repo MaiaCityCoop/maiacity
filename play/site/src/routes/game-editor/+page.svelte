@@ -109,7 +109,7 @@
 					<div class="stats">
 						<div><span>Villagers</span><b>{whole(last.level.villagers)}</b><small>{rows.length} levels</small></div>
 						<div><span>Raised</span><b>{euros(last.treasury.raised)}</b><small>{euros(last.treasury.euros.villagers)} villagers · {euros(last.treasury.euros.investors)} investors</small></div>
-						<div><span>Built</span><b>{euros(last.treasury.spent)}</b><small>{euros(last.treasury.left)} left in the treasury</small></div>
+						<div><span>Built</span><b>{euros(last.treasury.spent)}</b><small class:low={last.treasury.left < 0}>{euros(last.treasury.left)} left in the treasury</small>{#if last.treasury.contractor.spent !== last.treasury.spent}<small>{euros(last.treasury.contractor.spent)} by contractors, {euros(last.treasury.contractor.left)} left</small>{/if}</div>
 						<div><span>Coops' own</span><b>{euros(last.treasury.coops)}</b><small>put into their own coops, not from the treasury</small></div>
 						<div><span>Beds</span><b class:low={!!short_}>{whole(last.beds)}</b><small>{short_ ? `short from level ${short_.n}` : 'a bed for every villager at every level'}</small></div>
 						<div><span>Hearts</span><b>{short(last.treasury.hearts)}</b><small>in the coop's treasury</small></div>
@@ -140,14 +140,14 @@
 											<td><b>{whole(r.level.villagers)}</b><small>+{whole(r.joined)} new</small></td>
 											<td class="wide">
 												<ul class="unlocks">
-													{#each r.level.unlocks as u, i (i)}<li class:coop={isCoop(u)}>{u.label}{#if isCoop(u)}<span class="who">{u.coop ?? 'a coop'}'s own</span>{/if}{#if u.beds}<span class="who">{u.beds} beds</span>{/if}<em>{euros(u.cost)}</em></li>{/each}
+													{#each r.level.unlocks as u, i (i)}<li class:coop={isCoop(u)}>{u.label}{#if isCoop(u)}<span class="who">{u.coop ?? 'a coop'}'s own</span>{/if}{#if u.beds}<span class="who">{u.beds} beds</span>{/if}<em>{euros(u.cost)}{#if u.contractor}<small>{euros(u.contractor)} by contractors</small>{/if}</em></li>{/each}
 												</ul>
 											</td>
-											<td class="num"><b>{euros(r.cost)}</b>{#if r.coops}<small>+ {euros(r.coops)} the coops' own</small>{/if}</td>
+											<td class="num"><b>{euros(r.cost)}</b>{#if r.contractor !== r.cost}<small>{euros(r.contractor)} by contractors</small>{/if}{#if r.coops}<small>+ {euros(r.coops)} the coops' own</small>{/if}</td>
 											<td class="num"><b>{whole(r.villager.minds)} minds</b><small>a mind {short(r.price.hearts)} hearts or {euros(r.price.euros)}</small><small>{short(r.minted)} minted at this level</small></td>
 											<td class="num"><b>{euros(r.investor.euros)}</b><small>{times(r.investor.multiple)} the villagers'{#if r.investor.capped} (held to the cap, {times(r.level.investor)} asked){/if}</small><small>{short(r.investor.minds)} minds · {pct(r.investor.share)}</small><small>a mind {euros(r.investor.paid)}, {times(r.investor.premium)} a villager's</small></td>
 											<td class="num"><b class:low={!r.housed}>{whole(r.beds)}</b><small>for {whole(r.level.villagers)} villagers</small><small class:low={!r.ready}>{r.ready ? 'ready for the next' : r.housed ? 'short for the next level' : 'short'}</small></td>
-											<td class="num tre"><b>{euros(r.treasury.raised)}</b><small class:low={r.treasury.left < 0}>{euros(r.treasury.left)} left after building</small><small>{short(r.treasury.hearts)} hearts · {short(r.treasury.minds)} minds</small><small>villagers hold {pct(r.treasury.villagers)}</small>{#if r.treasury.coops}<small>{euros(r.treasury.coops)} the coops' own</small>{/if}</td>
+											<td class="num tre"><b>{euros(r.treasury.raised)}</b><small class:low={r.treasury.left < 0}>{euros(r.treasury.left)} left after building</small>{#if r.treasury.contractor.spent !== r.treasury.spent}<small class:low={r.treasury.contractor.left < 0}>{euros(r.treasury.contractor.left)} by contractors</small>{/if}<small>{short(r.treasury.hearts)} hearts · {short(r.treasury.minds)} minds</small><small>villagers hold {pct(r.treasury.villagers)}</small>{#if r.treasury.coops}<small>{euros(r.treasury.coops)} the coops' own</small>{/if}</td>
 										</tr>
 									{/each}
 								</tbody>
@@ -155,7 +155,7 @@
 						</table>
 					</div>
 					<p class="foot">
-						Each new villager's minds: their hearts and euros at the level's price. The investor's: its euros at the same price, and its share of the minds minted at that level. Treasury: euros raised so far and what is left after building everything unlocked, the hearts villagers brought, and every mind minted so far with the share villagers hold and what they are worth at the level's price. Beds: every bed built so far, against the level's villagers and, for a newcomer moves in only to a bed, the next level's. The costs are first estimates (v1's, split between the village and the coops), until they are re-audited: what is left after building moves with them.
+						Each new villager's minds: their hearts and euros at the level's price. The investor's: its euros at the same price, and its share of the minds minted at that level. Treasury: euros raised so far and what is left after building everything unlocked, the hearts villagers brought, and every mind minted so far with the share villagers hold and what they are worth at the level's price. Beds: every bed built so far, against the level's villagers and, for a newcomer moves in only to a bed, the next level's. The costs are first estimates, each unlock's source in its note: the way the village builds it (self-built), with what contractors would charge beside it where the config names it; what is left after building moves with them.
 					</p>
 				{:else if config && !levelling}
 					<p class="muted">This config is of a kind the editor can't show yet ({config.json.schema}).</p>
@@ -198,7 +198,8 @@
 	.wide { min-width: 15rem; }
 	.unlocks { list-style: none; margin: 0; padding: 0; }
 	.unlocks li { display: flex; gap: 0.4rem; align-items: baseline; padding: 0.1rem 0; }
-	.unlocks em { margin-left: auto; padding-left: 0.6rem; font-style: normal; color: var(--muted); white-space: nowrap; }
+	.unlocks em small { display: block; font-size: 0.68rem; }
+	.unlocks em { text-align: right; margin-left: auto; padding-left: 0.6rem; font-style: normal; color: var(--muted); white-space: nowrap; }
 	.foot { max-width: 60rem; margin: 0.8rem 0 0; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
 	.bad { color: #c23a22; }
 	.soon { margin: 0.8rem 0.35rem; font-size: 0.76rem; color: var(--soft); }

@@ -17,7 +17,8 @@
 // beside it, never taken from it (Samuel 2026-11-09). And an unlock may house people (`beds`): a level is housed while
 // its beds cover its villagers, and ready while they cover the next level's, for a newcomer moves in only to a bed.
 
-export type Unlock = { label: string; cost: number; kind?: string; note?: string; owner?: 'village' | 'coop'; coop?: string; beds?: number };
+/** cost: what it costs the way the village builds it (self-built); contractor: what a contractor would charge, shown beside */
+export type Unlock = { label: string; cost: number; contractor?: number; kind?: string; note?: string; owner?: 'village' | 'coop'; coop?: string; beds?: number };
 export type Level = { id: string; villagers: number; phase: string; investor: number; unlocks: Unlock[]; note?: string };
 export type Levelling = {
 	schema: 'levels/1';
@@ -61,6 +62,8 @@ export type Row = {
 	/** what the level's unlocks cost the village; and what coops put into their own, beside it */
 	cost: number;
 	coops: number;
+	/** the village's cost at contractors' prices (an unlock without one at its cost) */
+	contractor: number;
 	/** beds so far, and whether they house this level's villagers and the next level's */
 	beds: number;
 	housed: boolean;
@@ -76,6 +79,8 @@ export type Row = {
 		left: number;
 		/** what coops put into their own so far, never from the treasury */
 		coops: number;
+		/** spent so far had contractors built it, and raised less that */
+		contractor: { spent: number; left: number };
 		hearts: number;
 		minds: number;
 		/** the share of all minds minted so far that investors hold, and that villagers hold */
@@ -90,7 +95,7 @@ export function ledger(c: Levelling): Row[] {
 	const rows: Row[] = [];
 	const least = c.minds.villagersMin ?? VILLAGERS_MIN;
 	const most = c.investor?.maxPerVillager ?? Infinity;
-	let before = 0, villagerEuros = 0, investorEuros = 0, spent = 0, coops = 0, hearts = 0, villagerMinds = 0, investorMinds = 0, beds = 0;
+	let before = 0, villagerEuros = 0, investorEuros = 0, spent = 0, byContractors = 0, coops = 0, hearts = 0, villagerMinds = 0, investorMinds = 0, beds = 0;
 	c.levels.forEach((level, i) => {
 		const joined = Math.max(0, level.villagers - before);
 		before = level.villagers;
@@ -108,12 +113,14 @@ export function ledger(c: Levelling): Row[] {
 		const minted = all.minds + invMinds;
 		const cost = level.unlocks.reduce((t, u) => t + (isCoop(u) ? 0 : u.cost), 0);
 		const own = level.unlocks.reduce((t, u) => t + (isCoop(u) ? u.cost : 0), 0);
+		const contractor = level.unlocks.reduce((t, u) => t + (isCoop(u) ? 0 : (u.contractor ?? u.cost)), 0);
 		beds += level.unlocks.reduce((t, u) => t + (u.beds ?? 0), 0);
 		const next = c.levels[i + 1]?.villagers ?? level.villagers;
 		villagerEuros += all.euros;
 		investorEuros += inv;
 		const raised = villagerEuros + investorEuros;
 		spent += cost;
+		byContractors += contractor;
 		coops += own;
 		hearts += all.hearts;
 		const minds = villagerMinds + investorMinds;
@@ -129,6 +136,7 @@ export function ledger(c: Levelling): Row[] {
 			minted,
 			cost,
 			coops: own,
+			contractor,
 			beds,
 			housed: beds >= level.villagers,
 			ready: beds >= next,
@@ -138,6 +146,7 @@ export function ledger(c: Levelling): Row[] {
 				spent,
 				left: raised - spent,
 				coops,
+				contractor: { spent: byContractors, left: raised - byContractors },
 				hearts,
 				minds,
 				investors: minds ? investorMinds / minds : 0,
