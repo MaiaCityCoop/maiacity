@@ -283,6 +283,28 @@ describe('the render kit in TSL', () => {
 			}
 	});
 
+	// 544485e2: the viewers' sky, drawn first in its environment bake (a target, its colour space linear), then compiled
+	// by the stage's warm-up under the page's sRGB: three moved it to the compile's program without onUpdateProgram, so
+	// the handler never updated it and it drew with the camera another node material last set (the contact shadow's)
+	test('a node material drawn before a compile meets its compiled program through the handler at its next draw', () => {
+		const { gl } = fakeGL();
+		const r: any = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl } as any);
+		nodes(r);
+		const h: any = install(r);
+		const { scene, camera } = lit();
+		const sky = new MeshBasicNodeMaterial();
+		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), sky));
+		const target = new THREE.WebGLRenderTarget(16, 16);
+		r.setRenderTarget(target);
+		r.outputColorSpace = THREE.LinearSRGBColorSpace;
+		r.render(scene, camera);
+		r.outputColorSpace = THREE.SRGBColorSpace;
+		r.compile(scene, camera);
+		expect(r.properties.get(sky).programs.size).toBe(2);
+		r.render(scene, camera);
+		expect(h.programCache.get(sky).has(r.properties.get(sky).currentProgram)).toBe(true);
+	});
+
 	test('the sky’s sun lights a node material, its cascades shadowing it', () => {
 		const { r, shaders } = renderer();
 		const scene = new THREE.Scene();
@@ -307,7 +329,7 @@ describe('the render kit in TSL', () => {
 		valid(shaders);
 	});
 
-	test('only the kit’s node materials come out linear in a target; the sky’s as three’s handler draws it', () => {
+	test('every node material comes out linear in a target, as three’s own do: the sky is tone mapped once, at the output (544485e2)', () => {
 		const { r, shaders } = renderer();
 		const { scene, camera } = lit();
 		const sky = new MeshBasicNodeMaterial();
@@ -315,6 +337,6 @@ describe('the render kit in TSL', () => {
 		r.setRenderTarget(new THREE.WebGLRenderTarget(16, 16));
 		r.render(scene, camera);
 		const toned = /ToneMapping\(|TransferOETF\(|\bfn\d+\(/;
-		expect(shaders.filter((x) => x.includes('Node System')).map((x) => x.match(/fragColor = .*/)?.[0]).join('\n')).toMatch(toned);
+		expect(shaders.filter((x) => x.includes('Node System')).map((x) => x.match(/fragColor = .*/)?.[0]).join('\n')).not.toMatch(toned);
 	});
 });

@@ -125,6 +125,9 @@ export class Stage {
 			this.scene.background = null;
 			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25, ...(hour === undefined ? {} : { clock: () => hour }) });
 			this.sky.stars.visible = false;
+			// the sky is no surface: the occlusion's normal and depth pass leaves it out (as it did the old viewer sky), else
+			// its box shades the sky above the asset dark
+			this.sky.dome.userData.noAO = this.sky.stars.userData.noAO = true;
 		}
 		// lights: a soft key with its shadow, a cool rim, a gentle fill (the environment does most of the work)
 		const key = new THREE.DirectionalLight(0xfff3e6, paper ? 2.4 : 2.6);
@@ -166,13 +169,16 @@ export class Stage {
 			const h = fract(sin(dot(p.mul(u.uRes).add(fract(u.uTime).mul(91.7)), vec2(12.9898, 78.233))).mul(43758.5453));
 			return vec4(c.add(h.sub(0.5).mul(u.uGrain)), 1);
 		});
+		/** the bloom's threshold, after the lens (render): under the sky only the sun's glare blooms, not the sky round it
+		 *  (bright near the sun: a threshold of 1, 2, 4 or 8 through the lens still laid a haze over the asset) */
+		this.bloomAt = this.sky ? 16 : paper ? 1.6 : 1.0;
 		const post = createPost(r, this.scene, this.camera, {
 			target: [size.x, size.y],
 			samples: this.low ? 2 : 4,
 			size: { pixelRatio: r.getPixelRatio(), width: css.x, height: css.y },
 			// ambient occlusion on a desktop only: not on a phone (low) nor a big tablet, whose GPU draws it in streaks
 			ao: !this.low && !touchFirst() && ((ao) => this._ao(ao)),
-			bloom: { strength: paper ? 0.22 : 0.42, radius: 0.55, threshold: paper ? 1.6 : 1.0 },
+			bloom: { strength: paper ? 0.22 : 0.42, radius: 0.55, threshold: this.bloomAt },
 			after: [grade]
 		});
 		this.post = post;
@@ -714,7 +720,14 @@ export class Stage {
 		const r = this.renderer;
 		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
 		// AgX, as every page; the lens the sky's, or the studio's own
-		setExposure(r, this.sky ? this.sky.exposure() : 1);
+		const lens = this.sky ? this.sky.exposure() : 1;
+		setExposure(r, lens);
+		// the bloom's threshold in the lens's units: the scene's light is the sky's, its radiance far over 1 (544485e2:
+		// a threshold in the scene's units bloomed the whole sky into a haze over every asset)
+		// (WebGPU's bloom keeps its threshold in a uniform: intent c1bee1f8's post on a RenderPipeline)
+		const bloom = this.post?.bloom;
+		if (bloom?.threshold?.isNode) bloom.threshold.value = this.bloomAt / lens;
+		else if (bloom) bloom.threshold = this.bloomAt / lens;
 		r.localClippingEnabled = true;
 		this.camera.layers.enable(LAYER_FX);
 		this.camera.updateMatrixWorld();
