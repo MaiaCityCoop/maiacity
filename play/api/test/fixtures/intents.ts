@@ -2,7 +2,6 @@
 // spec approved by an admin on the board, its one must passed; and Ship emptied between tests.
 import { expect } from "bun:test";
 import type { Db } from "../../src/kit/pg";
-import type { Answer } from "../kit";
 
 /** a spec of one must, a test whose run passes (`c1`) */
 export const spec = (goal: string, scope: string) => ({
@@ -13,7 +12,7 @@ export const spec = (goal: string, scope: string) => ({
 });
 
 /** how a suite's agent and admin reach play: an MCP tool call, and an admin's Approve spec on the board */
-export type Hands = { tool: (name: string, args: Record<string, unknown>) => Promise<any>; approve: (id: string) => Promise<Answer | void> };
+export type Hands = { tool: (name: string, args: Record<string, unknown>) => Promise<any>; approve: (id: string) => Promise<{ data: any } | void> };
 
 /**
  * An intent added over MCP (`add` beside its title), specified (`spec`), its spec approved, its must c1 passed

@@ -167,3 +167,14 @@ left for Samuel.
   held (Next untangles).
 - Seen and left: sandboxes.ts' kept-change import builds `{ human, via: mcp|site }` by hand (authorOf would map an
   'import' via differently); assetdocs.ts' authorOf copy and its via re-maps (held).
+
+## 16. The fixture imports nothing of test/ (cycles)
+
+- test/fixtures/intents.ts took the `Answer` type from ../kit, a folder cycle test ↔ test/fixtures (cycles measure 2 → 3):
+  its approve now gives `{ data: any }`. Folder cycles back to the 2 the branch had (both in play/site, neither mine).
+
+## Measures (end)
+
+api 9/9 ok, tests 6/6 ok, special 3/3 ok, dead 3/3 ok; cycles: file cycles ok, largest ok, folder cycles 2 (at most 1),
+as at the start: both play/site's (lib/content…, and scripts ↔ lib/site/intents ↔ lib/stories), none in play/api.
+Full gate green: 356 api tests (354 + the two pinning tests added here), site build, website, actionlint.
