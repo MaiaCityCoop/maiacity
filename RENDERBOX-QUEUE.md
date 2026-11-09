@@ -1,5 +1,15 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 10:00 Berlin: on "5 minutes, not 25"
+1. **Production build + preview: tried on 2026-11-08, it broke Sandbox 1** (its asset box never builds under `vite preview`),
+   so the loop stays on the dev server. A build that works for the box would need its own fix first.
+2–5. **Base once, one page load, short films, one browser:** these live in each job's own `run.sh` and scripts, which their
+   builders write; the loop runs each job exactly as pushed, so the builders should change them: run head only against a
+   shared baseline in `intent-work/main-baseline/out/d5346b7/`, place the walker between views in one page with one
+   settle capped at 60 s, films of 5 s unless a check names a length. I'll make that baseline (near/mid/far, Sandbox 3,
+   the meter, stills) as soon as the queue gives me a slot, and run any job rewritten that way.
+- The loop itself already runs back to back with no wait between jobs.
+
 ## 09:58 Berlin (08:58 UTC): the loop
 #8 (a6f20d941, started 09:47, at its c8 views now) → #13 run 2 (24454c2d-render@b852dd8b4, head bf417ab) → #6 run 2
 (6fd5e63f-render@0cf50a18a, head a095a3b) → 0b4c007b's sky-light calibration → 544485e2's viewer calibration, all in
