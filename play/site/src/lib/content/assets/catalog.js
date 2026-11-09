@@ -65,9 +65,8 @@ const keep = (r) => {
 };
 
 /**
- * A proposed version's builds (/api/intents/:id `review.builds`), held beside the accepted ones so the board can build
- * it before anyone decides, as every recipe builds: held to its hash, run in the asset box (./box/host.js) on its frozen
- * engine. Nothing else names a proposed hash, so no sandbox ever draws one. @param {any[]} rows
+ * A proposed version's builds (/api/intents/:id `review.builds`), held beside the accepted ones so the board can build it
+ * before anyone decides; no sandbox names a proposed hash. @param {any[]} rows
  */
 export async function admitProposed(rows) {
 	await loadRecipes();
@@ -101,10 +100,7 @@ export const withQuery = (name, query) => `${name}${name.includes('?') ? '&' : '
 /** A pin by sandbox UUID (./sandboxes.js) and slot, with its values (`query`, as given). @param {string} sandbox @param {string} slot @param {string} [query] */
 export const slotRef = (sandbox, slot, query = '') => `pin:${sandbox}/${slot}${query ? `?${query}` : ''}`;
 
-/**
- * A name as its build: a build as it is; a pin as the build its sandbox pins, its own values after the pin's; anything
- * else refused. @param {string} name @returns {{ hash: string, params?: Record<string, string> }}
- */
+/** A name as its build (a pin's values after its own); anything else refused. @param {string} name @returns {{ hash: string, params?: Record<string, string> }} */
 export function resolve(name) {
 	if (typeof name !== 'string') throw new NotInCatalog(`not a build: ${JSON.stringify(name)}`);
 	const slot = SLOT.exec(name);
@@ -177,8 +173,7 @@ export async function recipeAt(hash) {
 	return { hash, code: new TextDecoder().decode(bytes), pieces };
 }
 
-/** the catalog as the asset viewer reads it (./VaultAsset.svelte, ./load.js `vaultBuild`): its index, a
- *  recipe by its hash, its name */
+/** the catalog as the asset viewer reads it (./VaultAsset.svelte) */
 export const source = { index: INDEX, recipeAt, nameOf, hashOf, cardOf };
 
 /** a plant version's record (`plant`): Latin name, layer, origin, note, stages; undefined for anything else */
@@ -188,8 +183,7 @@ const handed = new Map();
 /** and their rows, kept over play's catalog when it is read after them */
 const handedRows = new Map();
 /**
- * Recipes handed to this page by hand (the render bench's guests, made on this machine from readable sources), held to
- * their hashes beside the catalog for this page alone; a page that never reads play's catalog takes them as its catalog.
+ * Recipes handed to this page by hand (the render bench's guests), held to their hashes, for this page alone.
  * @param {{ hash: string, code: string, group: string, id: string, v: number, variant?: string | null, label: string, params?: any[], card?: any }[]} rows
  */
 export function admitHanded(rows) {

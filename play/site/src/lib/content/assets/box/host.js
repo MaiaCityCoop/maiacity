@@ -43,8 +43,7 @@ export class AssetBox extends Shell {
 	}
 
 	/**
-	 * A build's job, run once the box's earlier builds are done, holding one of the page's few turns (../../render/budget.js
-	 * `buildTurn`) only while it runs; one asked before the owner's stop fails with it.
+	 * A build's job, run after the box's earlier ones, holding one of the page's turns (../../render/budget.js) only while it runs.
 	 * @template T @param {() => Promise<T>} job @returns {Promise<T>}
 	 */
 	#turned(job) {
@@ -67,10 +66,7 @@ export class AssetBox extends Shell {
 		return mine;
 	}
 
-	/**
-	 * A recipe's room by its code, named when its turn comes: its own, else a new one, the oldest past ROOMS let go
-	 * (never one with a job open or a running build). @param {string} code
-	 */
+	/** A recipe's room by its code: its own, else a new one, the oldest idle past ROOMS let go. @param {string} code */
 	#roomOf(code) {
 		const i = this.rooms.findIndex((r) => r.code === code);
 		const r = i >= 0 ? this.rooms.splice(i, 1)[0] : { room: ++this.ids, code };
@@ -95,9 +91,7 @@ export class AssetBox extends Shell {
 	}
 
 	/**
-	 * A recipe built in the box: `{ data, card, ms }`, plain data (./serialize.js) and card, unchecked.
-	 * @param {{ hash: string, code: string, pieces?: string[] }} recipe checked against its hash (../catalog.js), with the
-	 *   pieces its manifest names (./pieces.js: read from play's files, each held to its hash)
+	 * A recipe built in the box: `{ data, card, ms }`, unchecked. @param {{ hash: string, code: string, pieces?: string[] }} recipe
 	 * @param {Record<string, string>} [given] its parameters' values, as text
 	 */
 	async build(recipe, given, o) {
@@ -107,8 +101,7 @@ export class AssetBox extends Shell {
 	}
 
 	/**
-	 * A build kept running in the box (engine 4 on): `{ session, nodes }`, `nodes` how many the page built (the box's
-	 * must match), `session` the page's handle, which knows its room.
+	 * A build kept running in the box (engine 4 on); `nodes` must match the page's.
 	 * @param {{ hash: string, code: string }} recipe @param {Record<string, string> | undefined} given @param {number} nodes
 	 */
 	async live(recipe, given, nodes, o) {

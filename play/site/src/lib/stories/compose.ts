@@ -1,16 +1,10 @@
 // THE COMPILE (play/SPEC.md §12): a story/1 version made into one HyperFrames composition, the one engine that plays it
 // (StoryPlayer.svelte, in play's sealed frame) and renders it (scripts/story-parity.ts). `compose(story, links,
 // compositions)` is pure (no clock, chance or environment): a version always gives the same bytes, kept by hash.
-// - shots: an image, a video (muted, from video_in) or a composition (readable HTML by hash, a sub-composition seeked
-//   from 0 at the shot's start), held over a gap to the next; transitions (cut, dissolve, from/to/dip black, s) as GSAP
-// - voice: its cues, or its line cut evenly, as caption clips (`em` alone and large)
-// - sound: each recording an <audio> clip (gain, fades, EQ data-fx-chain, gain keys data-automation) on its track's bus
-//   (<hf-audio-group>); a `duck` track dips under the voice
-// - links: each linked version a nested sub-composition at its place, its sound with the link's gain and mute
-// - live shots (intent f270269e, ./live.ts): the real asset drawn by the box's frozen engine, recipe and pieces by hash,
-//   built before ready (its still the poster), drawn at every seek from the camera and keyed values (./live-runtime.ts)
-// - world shots (intent 65d04790, ./live.ts): a whole world by the same runtime, its guests' recipes and pieces by hash;
-//   a moving world stepped through every frame before ready, each moment drawn with its camera, sun, exposure, lights
+// - shots: an image, a video or a composition (a sub-composition by hash), held to the next; transitions as GSAP tweens
+// - voice: caption clips; sound: <audio> clips on their tracks' buses, a `duck` track dipping under the voice
+// - links: each linked version a nested sub-composition; live and world shots (intents f270269e, 65d04790, ./live.ts):
+//   the real asset or world drawn by the box's frozen engine, by hash, built before ready (./live-runtime.ts)
 import { frameCsp, SANDBOX, DENY } from '../kernel/sandbox/policy.js';
 import { hashBytes, HEX } from '../kernel/hash.js';
 import { engineAt } from '../kernel/engines.js';
@@ -316,10 +310,7 @@ function shots(tl, veil, list) {
 	}
 }`;
 
-/**
- * A story's version as one HyperFrames composition, the same bytes for the same version; `links` every version it links
- * (by id), `compositions` every composition its shots name (by hash); what it can't read it leaves out.
- */
+/** A story's version as one HyperFrames composition, the same bytes for the same version; what it can't read it leaves out. */
 export function compose(story: StoryBody & { id?: string; title?: string; number?: number | null; version?: string }, links: Links = {}, compositions: Record<string, string> = {}, assets: Record<string, LiveAsset> = {}, worlds: Record<string, WorldAsset> = {}): string {
 	const size = sizeOf(story.format), [w, h] = size, D = num(story.duration);
 	const out: Out = { html: [], script: [] };

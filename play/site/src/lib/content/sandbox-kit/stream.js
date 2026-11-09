@@ -8,8 +8,7 @@
  * @typedef {{ x: number, y: number, z: number, frustum?: { intersectsSphere(s: { center: { x: number, y: number, z: number }, radius: number }): boolean, containsPoint(p: { x: number, y: number, z: number }): boolean } | null, near?: number }} View
  *   a camera looking: where it stands, what it sees (none: all round it), and how near round it a thing is wanted unseen
  * @typedef {{ id: string | number, x: number, y?: number, z: number, r: number, cost?: number, build: (job: { cancelled: boolean }) => Promise<any>, dispose?: (handle: any) => void }} Item
- *   a thing a world can build: its middle, reach (bounding radius), budget cost (1), how to build it (the job told when
- *   cancelled) and let it go
+ *   a thing a world can build: its middle, bounding radius, budget cost (1), build and dispose
  * @typedef {{ item: Item, state: 'idle' | 'building' | 'built' | 'failed', handle: any, job: { cancelled: boolean } | null, seen: number, failedAt: number }} Entry
  */
 
@@ -186,10 +185,7 @@ export function createStream(o = {}) {
 		handle: (id) => entries.get(id)?.handle ?? null,
 		/** @param {string | number} id */
 		building: (id) => entries.get(id)?.state === 'building',
-		/**
-		 * Resolves once all views `vs` want is built (or failed: an unbuildable thing holds no shot back), the views
-		 * pinned meanwhile. @param {View[]} vs
-		 */
+		/** Resolves once all views `vs` want is built or failed, pinning them meanwhile. @param {View[]} vs */
 		ready(vs) {
 			const ids = wanted(vs).map((i) => i.id);
 			const done = () => ids.every((id) => {
