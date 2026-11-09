@@ -10,8 +10,8 @@ set -euo pipefail
 ROOT=$(git rev-parse --show-toplevel)
 JOB="$ROOT/intent-work/6fd5e63f-render"
 OUT="$JOB/out"
-MAIN=54c17d998fb0be66b53ae9cad7e49d3201585b29   # main: intent 11ead007 merged (#2185), #2191 (the render bench), #2202 (the intents' page), on cb16b7a5's kit and db87a28f's ground
-HEAD=b5d2fbf6999550c6af28424b34b2463b2dc5a7b0   # intent/6fd5e63f-living-plants: PR #2180's head (the wind cheap at mid, the film advancing; main 54c17d9 merged in by play)
+MAIN=11e518c7e238b1a07fe572c391bef7a8eb9ac8bb   # main: intent 11ead007 merged (#2185), #2191, #2202, #2201, #2199 (scripts and pages that don't draw), on cb16b7a5's kit and db87a28f's ground
+HEAD=dbccfa97ff4d295dfd1fc286b2e514304c16ce8e   # intent/6fd5e63f-living-plants: PR #2180's head (backlit leaves glow in their crown's shade; the wind cheap at mid; the film advancing; on main 11e518c)
 git -C "$ROOT" fetch -q origin main intent/6fd5e63f-living-plants intent-work/main-baseline-render
 mkdir -p "$OUT"
 git -C "$ROOT" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$JOB/determinism.mjs"
