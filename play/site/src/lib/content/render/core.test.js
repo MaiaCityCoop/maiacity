@@ -301,6 +301,27 @@ describe('the switch to WebGPU', async () => {
 		expect(got?.isTexture).toBe(true);
 	});
 
+	test('WebGPU’s warm-ups on one renderer run one at a time, in order (three’s compileAsync is not reentrant)', async () => {
+		const { precompile } = await import('./core.js');
+		let running = 0, most = 0;
+		const order = [];
+		const r = {
+			isWebGPURenderer: true,
+			compileAsync: async (/** @type {any} */ o) => {
+				most = Math.max(most, ++running);
+				await new Promise((ok) => setTimeout(ok, 5));
+				order.push(o.name);
+				running--;
+				if (o.name === 'b') throw new Error('a material that fails to build');
+			}
+		};
+		const obj = (/** @type {string} */ name) => Object.assign(new THREE.Object3D(), { name });
+		await Promise.all(['a', 'b', 'c'].map((n) => precompile(/** @type {any} */ (r), obj(n), new THREE.PerspectiveCamera(), new THREE.Scene())));
+		expect(most).toBe(1);
+		// a warm-up that fails lets the next one run
+		expect(order).toEqual(['a', 'b', 'c']);
+	});
+
 	test('the largest picture a renderer takes, on either', async () => {
 		const { maxTextureSize } = await import('./core.js');
 		const r = /** @type {any} */ (make({ backend: 'webgl2', pixelRatio: 1, canvas: canvas().c }));

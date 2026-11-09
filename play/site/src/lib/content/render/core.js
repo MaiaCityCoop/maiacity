@@ -256,6 +256,9 @@ function tellUploads(renderer) {
 	};
 }
 
+/** each WebGPURenderer's warm-ups, one after the other (`precompile`) */
+const compiling = new WeakMap();
+
 /**
  * The PMREM generator a renderer takes (intent c1bee1f8): three's classic one on WebGL, three/webgpu's on a
  * WebGPURenderer (which bakes only once it is initialised: `environmentFrom` waits for it).
@@ -438,8 +441,14 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
  * @returns {Promise<void>}
  */
 export function precompile(renderer, object, camera, scene) {
-	// WebGPU builds node materials itself, and its compileAsync settles for them: nothing is left out
-	if (isWebGPU(renderer)) return Promise.resolve(/** @type {any} */ (renderer).compileAsync(object, camera, scene)).then(() => {}, () => {});
+	// WebGPU builds node materials itself, and its compileAsync settles for them: nothing is left out. But it keeps its
+	// state on the renderer while it yields to the page, so two at once on one renderer clash (three r187: the second's
+	// state gone under the first, "Cannot destructure property 'useFrameBufferTarget'"): one at a time, in order
+	if (isWebGPU(renderer)) {
+		const turn = (compiling.get(renderer) ?? Promise.resolve()).then(() => /** @type {any} */ (renderer).compileAsync(object, camera, scene)).then(() => {}, () => {});
+		compiling.set(renderer, turn);
+		return turn;
+	}
 	/** @type {THREE.Object3D[]} */
 	const off = [];
 	object.traverseVisible((o) => {
