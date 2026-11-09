@@ -19,7 +19,7 @@ import {
 	normalize, cross, dot, length, distance, fract, floor, texture, cameraPosition, modelWorldMatrix, positionGeometry, transformNormalToView,
 	faceDirection, select, sqrt, varyingProperty
 } from 'three/tsl';
-import { BOW, CELL, FADE, PATCH, PUSHERS, STANDS, TILE_CELLS } from '../../biomes/grass.js';
+import { BOW, CELL, FADE, PATCH, PUSHERS, SINK, STANDS, TILE_CELLS } from '../../biomes/grass.js';
 
 /** the uniforms a field's tiles share */
 export function grassUniforms(/** @type {THREE.Texture} */ mask) {
@@ -129,9 +129,11 @@ export function grassMaterial(o) {
 		const dd = d.toVar();
 		const keepD = select(dd.lessThanEqual(D.near), float(1), select(dd.greaterThanEqual(b2), float(0), pow(float(D.near).div(dd), D.falloff ?? 1.5)));
 		const reach = end.mul(b2);
-		// the mask thins it by rank as distance does (grass.js `growAt`, `standing`: a colony dense, the ground between bare)
-		const kept = keepD.mul(smoothstep(PATCH[0], PATCH[1], m.x));
-		const grow = clamp(kept.mul(1 + FADE).sub(rank).div(kept.mul(FADE).add(1e-4)), 0, 1).mul(float(1).sub(smoothstep(reach.sub(6), reach, dd)));
+		// the mask thins it by rank as distance does (grass.js `growAt`, `keptTo`, `standing`: a colony dense, the ground
+		// between bare): how far out this blade is kept, and it sinks in over SINK + FADE of that before it
+		const standingM = smoothstep(PATCH[0], PATCH[1], m.x);
+		const keptOut = select(rank.lessThan(standingM), pow(max(rank, 1e-6).div(standingM), -1 / (D.falloff ?? 1.5)).mul(D.near), float(0));
+		const grow = clamp(keptOut.sub(dd).div(keptOut.mul(FADE).add(SINK)), 0, 1).mul(float(1).sub(smoothstep(reach.sub(6), reach, dd)));
 
 		/* clumps: grass.js `clumpAt`, the two nearest of four */
 		const size = float(P.clump);

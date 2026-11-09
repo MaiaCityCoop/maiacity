@@ -132,11 +132,15 @@ describe('blades placed from their place alone', () => {
 		}
 		expect(last).toBe(0);
 	});
-	test('blades a square metre near by device: 120–200 on a desktop, 60–100 on a small device', () => {
-		expect(DEVICES.desktop.density).toBeGreaterThanOrEqual(120);
-		expect(DEVICES.desktop.density).toBeLessThanOrEqual(200);
-		expect(DEVICES.small.density).toBeGreaterThanOrEqual(60);
-		expect(DEVICES.small.density).toBeLessThanOrEqual(100);
+	test('blades a square metre near by device: as thick as real grass at the eye (500–1000 on a desktop, 250–500 on a small device), thinning by the square of the distance', () => {
+		// Samuel 2026-11-09: tufts of ten a square metre read as a sprinkle; 50–100× that at the eye, as the budget allows
+		expect(DEVICES.desktop.density).toBeGreaterThanOrEqual(500);
+		expect(DEVICES.desktop.density).toBeLessThanOrEqual(1000);
+		expect(DEVICES.small.density).toBeGreaterThanOrEqual(250);
+		expect(DEVICES.small.density).toBeLessThanOrEqual(500);
+		// thinning out past the eye: at 8 m about a tenth of it stands on a desktop, at 25 m about a hundredth
+		expect(DEVICES.desktop.density * keep(8, DEVICES.desktop)).toBeGreaterThan(40);
+		expect(DEVICES.desktop.density * keep(25, DEVICES.desktop)).toBeGreaterThan(4);
 		for (const dev of Object.values(DEVICES)) {
 			const n = perCell(dev.density);
 			// all of them stand near: as many as the density says, every one of them grown
