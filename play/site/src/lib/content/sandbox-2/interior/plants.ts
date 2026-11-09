@@ -394,7 +394,8 @@ const garden = {
 	chard: [shared(() => new THREE.MeshStandardMaterial({ color: '#c8323f', roughness: 0.6 })), shared(() => new THREE.MeshStandardMaterial({ color: '#e7b830', roughness: 0.6 })), shared(() => new THREE.MeshStandardMaterial({ color: '#f1ecd9', roughness: 0.6 }))],
 	chardLeaf: shared(() => new THREE.MeshStandardMaterial({ color: '#2f5a2a', roughness: 0.6, side: THREE.DoubleSide })),
 	stake: shared(() => new THREE.MeshStandardMaterial({ color: '#b89a64', roughness: 0.9 })),
-	net: shared(() => new THREE.MeshStandardMaterial({ color: '#e8e2d0', transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false })),
+	// a garden net and the floor's mycelium are cut by a dither (alphaHash), not blended: no sorting, no overdraw (intent 6fd5e63f)
+	net: shared(() => new THREE.MeshStandardMaterial({ color: '#e8e2d0', alphaHash: true, opacity: 0.35, side: THREE.DoubleSide })),
 	olive: shared(() => new THREE.MeshStandardMaterial({ map: leaves('fine'), color: '#c9d3b4', alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.8 })),
 	oliveFruit: shared(() => new THREE.MeshStandardMaterial({ color: '#3c3a22', roughness: 0.4 })),
 	lavender: shared(() => new THREE.MeshStandardMaterial({ color: '#8f74c9', roughness: 0.8 })),
@@ -844,7 +845,7 @@ const floor = {
 	mossLight: shared(() => new THREE.MeshStandardMaterial({ color: '#7a9a3c', roughness: 1 })),
 	earth: shared(() => new THREE.MeshStandardMaterial({ color: '#5a4230', roughness: 1 })),
 	litter: shared(() => new THREE.MeshStandardMaterial({ color: '#8a6a3c', roughness: 1, side: THREE.DoubleSide })),
-	mycelium: shared(() => new THREE.MeshStandardMaterial({ color: '#efeadb', roughness: 1, transparent: true, opacity: 0.8 })),
+	mycelium: shared(() => new THREE.MeshStandardMaterial({ color: '#efeadb', roughness: 1, alphaHash: true, opacity: 0.8 })),
 	cap: shared(() => new THREE.MeshStandardMaterial({ color: '#b98a5a', roughness: 0.7 })),
 	capRed: shared(() => new THREE.MeshStandardMaterial({ color: '#b8402a', roughness: 0.6 })),
 	stem: shared(() => new THREE.MeshStandardMaterial({ color: '#efe8d6', roughness: 0.8 })),

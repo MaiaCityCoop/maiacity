@@ -79,6 +79,21 @@
 			],
 			"kept": "6e1d7956fb02522d4c1f7facfc942afac3ecb96e:static/engines/engine-v5.js",
 			"note": "Engine 5 (format 4): an actor's clips played in the box and written down as tables on its view (box/clips.js: clips in time over 32 s, gaits by pace, distance and turn), for the page to play any number of copies by (../clips.js playerOf); lights leave as lights; and what else a control or a running build's step changes, only where it changes: the meshes it reshapes (positions and normals), material looks (colour, glow, opacity, roughness, metalness) and lights (colour, brightness, reach, fall-off); a dug patch's setWet a control (wet)"
+		},
+		{
+			"v": 6,
+			"date": "2026-11-08",
+			"blake3": "0d6fcfb0af014c796487001fb46bfb2a7d5cbf1f696d179a76e0029c34b31929",
+			"bytes": 807512,
+			"three": "0.186.1",
+			"modules": [
+				"three",
+				"three/addons/geometries/RoundedBoxGeometry.js",
+				"three/addons/objects/Reflector.js",
+				"three/addons/utils/BufferGeometryUtils.js",
+				"three/addons/utils/SkeletonUtils.js"
+			],
+			"note": "Engine 6 (format 5, intent 6fd5e63f): a material says what it is, its look (leaf, grass, petal, bark, stem, fruit or stone, with its translucency, stiffness and flutter, ../look.js), carried out as plain data so the page's own shaders draw it (one wind for everything that grows, light through leaves); built from play's own source of the engine (src/lib/content/assets/box/engine.js, scripts/freeze-engine.ts), three.js 0.186.1"
 		}
 	],
 	"logic": [
