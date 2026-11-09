@@ -23,7 +23,8 @@
 		{ href: '/sandbox-3/', label: 'Sandbox 3', note: 'The tired land: walk it as someone new every visit', cover: '41a858860a82169d3d5586d30b648723c32874a94e014f30718a5a70f5b56e85.jpg' },
 		{ href: '/sandbox-4/', label: 'Sandbox 4', note: 'The cassette joint: a cast cassette of the 100 m dome seated, keyed, capped and clamped', cover: 'd308f061bd5498775faa69da06ae54aef9a39c784b714c5c3605382e18540aca.jpg' },
 		{ href: '/sandbox-5/', label: 'Sandbox 5', note: 'The forest dome alone in its own food forest, outside and under the glass', cover: '80ee079deb5be54066d2fd230d11fa74ee59aa8f13c6ce3b9b7aa27fb30c8892.jpg' },
-		{ href: '/sandbox-6/', label: 'Sandbox 6', note: 'One village at its real size: six living hexes round the tower hex, every number from its sources', cover: '46e52e9e393b192c0a6db481e95fbf623e8d12d2753a3e1d15d1663292d2c716.jpg' }
+		{ href: '/sandbox-6/', label: 'Sandbox 6', note: 'One village at its real size: six living hexes round the tower hex, every number from its sources', cover: '46e52e9e393b192c0a6db481e95fbf623e8d12d2753a3e1d15d1663292d2c716.jpg' },
+		{ href: '/sandbox-7/', label: 'Sandbox 7', note: 'The hex planet: the Earth in 51,842 cards, with the places a new food-forest city could grow', cover: '88528c9521de8682f676c3e2539c3a19ffd2a4731a2343410761025e27fde55e.jpg' }
 	];
 	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media' | 'link' | 'journal' | 'ledger'; admins?: boolean };
 	const APPS: Tile[] = [

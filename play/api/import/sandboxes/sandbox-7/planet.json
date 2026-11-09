@@ -5,6 +5,8 @@
 	"depth": 1.8,
 	"core": 0.9,
 	"poles": true,
+	"land": 0.25,
+	"seed": 7,
 	"seaFloor": {
 		"drop": 0.25,
 		"deepest": 8
@@ -40,6 +42,7 @@
 		"ceiling": 5,
 		"eye": 0.9,
 		"background": "#f2efe7",
-		"fill": 0.55
+		"fill": 0.55,
+		"marker": "#c8553d"
 	}
 }
