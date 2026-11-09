@@ -156,7 +156,7 @@ suite("main merged into open intent pull requests", () => {
   test("a builder's push wins: update-branch refused because the head moved (422) changes nothing on the intent, and the next tick reads the new head before anything else is done", async () => {
     const state = mainMergeState();
     const c = await codeAtProposal();
-    await watchPulls(db, gh.gh);
+    await watchPulls(db, gh.gh, store);
     mainMoves();
     // the builder pushes after the watcher read the head and before it updates
     const pushed = gh.commit(sha(++commits), "the builder's push", [c.head], false);
@@ -177,7 +177,7 @@ suite("main merged into open intent pull requests", () => {
     expect(updates(from).map((x) => x.body)).toEqual([{ expected_head_sha: pushed }]);
     // any other refusal of GitHub's is not taken as done: it is tried again
     const d = await codeAtProposal();
-    await watchPulls(db, gh.gh);
+    await watchPulls(db, gh.gh, store);
     mainMoves();
     gh.refuseUpdate({ status: 500, message: "GitHub is down" });
     from = gh.calls.length;

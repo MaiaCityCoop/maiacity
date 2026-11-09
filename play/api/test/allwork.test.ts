@@ -251,7 +251,7 @@ suite("one intent holds all its work", () => {
     expect(matchRule(f, "accept", { rules: [{ id: crypto.randomUUID(), label: "everything", gates: ["accept"], match: {}, reason: "test" } as Rule] })).toBeNull();
     // what the board reads of GitHub: Accept and ship once its pull request is read
     const { watchPulls } = await import("../src/watcher");
-    await watchPulls(db, gh.gh);
+    await watchPulls(db, gh.gh, store);
     expect((await intent(c.id)).sub).toMatchObject({ state: "waiting", tag: "Accept and ship" });
   });
 });

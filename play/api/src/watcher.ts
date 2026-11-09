@@ -45,7 +45,7 @@ export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date
  * Every open intent's named pull request (Build or Proposal) read as GitHub has it now, kept as its pr_seen: what the
  * board's sub-state (./substate.ts) is told of GitHub, so GET /api/intents asks GitHub nothing.
  */
-export async function watchPulls(db: Db, gh: GitHub, at = Date.now()) {
+export async function watchPulls(db: Db, gh: GitHub, store: BlobStore, at = Date.now()) {
   for (const { id, pull_request, pr_seen } of await openPulls(db)) {
     try {
       await keepSeen(db, id, carrySeen(pr_seen, (await readPull(gh, pull_request, at)).seen));
@@ -54,7 +54,7 @@ export async function watchPulls(db: Db, gh: GitHub, at = Date.now()) {
       continue;
     }
     // GitHub ready since it reached Proposal: an auto-accept rule may take it now (./decide.ts autoMove)
-    await autoMove({ db }, id, { gh }).catch((e) => console.warn(`auto: intent ${id} not looked at: ${(e as Error).message}`));
+    await autoMove({ db, store }, id, { gh }).catch((e) => console.warn(`auto: intent ${id} not looked at: ${(e as Error).message}`));
   }
 }
 
@@ -67,7 +67,7 @@ const MAIN_MERGE = mainMergeState();
  */
 export async function watchTick(db: Db, gh: GitHub, store: BlobStore, at = Date.now(), commit: string | null = runningCommit(), merging: MainMergeState = MAIN_MERGE) {
   await watchShips(db, gh, store, at, commit);
-  await watchPulls(db, gh, at);
+  await watchPulls(db, gh, store, at);
   await mergeMain(db, gh, merging, at).catch((e) => console.warn(`ship: main not merged into the open pull requests: ${(e as Error).message}`));
 }
 

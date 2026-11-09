@@ -5,6 +5,7 @@
 // who decided. Each test is one check of the intent's spec (c1–c9), named as its run names it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createHuman } from "../src/auth";
+import type { BlobStore } from "../src/blobs";
 import * as docs from "../src/docs";
 import { RULE, RULES, SCHEMA } from "../src/kit/ids";
 import { decisions } from "../src/intents";
@@ -15,7 +16,7 @@ import { migrate } from "../src/migrations";
 import { type Db } from "../src/kit/pg";
 import { FIRST_RULE, RULES_DOC, RULES_V1, matchRule, type Rule } from "../src/rules";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tempStore, tool as mcpTool } from "./kit";
 
 const words = (k: number, w: string) => Array.from({ length: k }, () => w).join(" ");
 const SUMMARY = `## What it is\n\n${words(200, "artifact")}\n\n## Key points\n\n${Array.from({ length: 20 }, () => `- ${words(10, "point")}`).join("\n")}\n\n## The topic\n\n${words(193, "topic")}`;
@@ -32,6 +33,7 @@ const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  
 suite("auto-accept rules", () => {
   let f: Fresh, db: Db;
   let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
@@ -85,7 +87,8 @@ suite("auto-accept rules", () => {
     f = await freshDb();
     db = f.db;
     gh = fakeGitHub();
-    api = appOn(db, { github: gh.gh });
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
     const made = await createHuman(db, "ada");
     who.ada = { id: made.id, cookie: cookieFor(made.id) };
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
@@ -300,7 +303,7 @@ suite("auto-accept rules", () => {
     for (const id of [back.id, schema.id]) {
       expect(await intent(id)).toMatchObject({ stage: "proposal", decided_by: null });
       expect((await intent(id)).auto.accept).toBeUndefined();
-      expect(await autoMove({ db }, id)).toBeNull();
+      expect(await autoMove({ db, store }, id)).toBeNull();
     }
     expect((await call("ada", "POST", `/api/intents/${schema.id}/accept`)).data.decision.status).toBe("accepted");
     expect((await call("ada", "POST", `/api/intents/${back.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
@@ -312,7 +315,7 @@ suite("auto-accept rules", () => {
     expect((await tool("propose_doc_version", { doc: RULES, whole: { ...RULES_V1, rules: [] }, note: "no rules at all", intent: sly })).error).toBeUndefined();
     expect(await intent(sly)).toMatchObject({ stage: "proposal", decided_by: null });
     expect((await intent(sly)).auto.accept).toBeUndefined();
-    expect(await autoMove({ db }, sly)).toBeNull();
+    expect(await autoMove({ db, store }, sly)).toBeNull();
     expect((await call("ada", "POST", `/api/intents/${sly}/archive`)).data.decision.status).toBe("archived");
     const back2 = await readyIntent("The first rule back again", { work_kind: [SCHEMA.rules] });
     expect((await tool("propose_doc_version", { doc: RULES, whole: { ...RULES_V1, rules: [FIRST_RULE] }, note: "the first rule back", intent: back2 })).error).toBeUndefined();
@@ -341,7 +344,7 @@ suite("auto-accept rules", () => {
     expect((await tool("depend_intent", { intent: held, on: dep })).held_by.map((d: any) => d.id)).toEqual([dep]);
     await setRules([FIRST_RULE]);
     // the rule matches it, but it is held: not moved
-    expect(await autoMove({ db }, held)).toBeNull();
+    expect(await autoMove({ db, store }, held)).toBeNull();
     expect(await intent(held)).toMatchObject({ stage: "proposal", sub: { state: "idle" }, auto: {} });
     // the dependency Accepted (by ada): the rule moves it then
     await tool("check_intent", { intent: dep, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
@@ -353,7 +356,7 @@ suite("auto-accept rules", () => {
     expect(await stageOf(failing)).toBe("build");
     await tool("check_intent", { intent: failing, results: [{ check: "c1", pass: false, evidence: "exit 1" }] });
     expect(await stageOf(failing)).toBe("build");
-    expect(await autoMove({ db }, failing)).toBeNull();
+    expect(await autoMove({ db, store }, failing)).toBeNull();
   });
 
   // ---- c8
@@ -399,11 +402,11 @@ suite("auto-accept rules", () => {
     const c = await codeIntent("Ready later", pull);
     expect([c.r.stage, c.r.auto_refused]).toEqual(["proposal", expect.stringMatching(/draft/)]);
     // still a draft: the watcher's look leaves it
-    await watchPulls(db, gh.gh);
+    await watchPulls(db, gh.gh, store);
     expect(await intent(c.id)).toMatchObject({ stage: "proposal", auto: {} });
     // ready for review: the next look's rule takes it into Ship
     gh.pulls.set(pull.pr, { ...gh.pulls.get(pull.pr)!, draft: false } as Pull);
-    await watchPulls(db, gh.gh);
+    await watchPulls(db, gh.gh, store);
     expect(await intent(c.id)).toMatchObject({ stage: "ship", decided_by: null, auto: { accept: { label: "Code passes" } }, ship: { pr: pull.pr, by: "rule Code passes" } });
     await clearShips();
     await setRules([FIRST_RULE]);
