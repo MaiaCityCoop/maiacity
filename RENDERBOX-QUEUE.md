@@ -1,13 +1,14 @@
 # Mac render box: queue and handover
 
-## THE QUEUE I HOLD (15:30 Berlin; runner.sh, nohup, one at a time, each timed job after load < 5)
-1. **7af6e162** c7 — quiet re-run, running since 15:26 (render 98c9211d0, head 8f0f6a5ae).
-2. **0b4c007b** c3–c5 — its head 8fb07d1fd (main 12837b65e merged in: 660ad67f's and #13's) against main 12837b65e and
-   the pre-programme's stills: looks, viewers, Sandbox 1 near/mid/far (meter), WebKit's Sandbox 5 walk.
-3. Then each round: the first `MAC JOB READY` job (ed6694c3, #6 when their jobs carry the line; Proposal or one look from
-   it first, then GPU number), else the manual queue: **#8 run 3** (stopped at 15:25 for this order; re-runs whole),
-   then 544485e2's viewer test.
-- Seen without `MAC JOB READY` (not picked yet): 3a8b135a (#12), c1bee1f8 (#9), ed6694c3, 6fd5e63f's 749edcc8a.
+## THE QUEUE I HOLD (15:38 Berlin)
+1. **0b4c007b** c3–c5 — running since 15:35 (head 8fb07d1fd vs main 12837b65e).
+2. Then each round: the first `MAC JOB READY` job (ed6694c3, #6 …), else the manual queue: #8 run 3, then 544485e2's
+   viewer test.
+
+## 15:38 Berlin — **7af6e162 c7 recorded: PASS → at Proposal (Accept and ship)**
+Quiet re-run on PR head 088efc1f5 (out/ 68942f926): warm load quiet after **21 s, 0 pictures taken** (bound < 30 s);
+warm vs cold near 0.997, mid 0.996, far 0.925 (main's own far differs more between two loads: 0.857). Served by the dev
+server (the production build doesn't build the asset box on the Mac yet).
 
 ## 15:20 Berlin — 7af6e162 (head 8f0f6a5ae; out/ 88e2ac4c3) not recorded yet: also under the indexing load
 - Warm measured load quiet after **34 s with 0 pictures taken** (bound: under 30 s); cold 97 s with 106 taken. Warm vs
