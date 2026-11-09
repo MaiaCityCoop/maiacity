@@ -45,7 +45,7 @@ async function firstWorld() {
 
 // a Mac's Metal, WebGPU on (a page on WebGPURenderer draws with it; a WebGL one as before)
 const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] } : { args: ['--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] });
-const clock = () => { const w = window; w.__dt = []; let last = 0; const t = (now) => { if (last) w.__dt.push(now - last); last = now; requestAnimationFrame(t); }; requestAnimationFrame(t); };
+const clock = () => { const w = window; w.__dt = []; if (typeof requestAnimationFrame !== 'function') return; let last = 0; const t = (now) => { if (last) w.__dt.push(now - last); last = now; requestAnimationFrame(t); }; requestAnimationFrame(t); };
 const timed = async (page, ms) => {
 	await page.evaluate(() => (window.__dt.length = 0));
 	await page.waitForTimeout(ms);
