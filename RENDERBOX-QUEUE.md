@@ -1,5 +1,11 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 11:40 Berlin
+- 660ad67f split noted: I'm watching for it back in Build with the new c6 and will record c6 from run 3 (head 7e7c0aa5d,
+  out/ 44913732c) at once: drawn in both engines, 0 uniform/GL errors, film 0…5 s. If the box has re-run on a newer head
+  by then, I record against that head only if the run-3 tree is the same for what c6 looks at; otherwise one short re-run.
+- #8 run 2 running (its job since 11:30). After it: the viewer dome test (544485e2), then #13/#6 when relayed.
+
 ## 11:30 Berlin
 - **660ad67f run 3 recorded: c6 FAIL, close** (head 7e7c0aa5d). Safari walk: 274 frames, **mean 43.8 ms** (bound 31.2),
   p95 109, 17 over 100 ms, max 1.36 s; run 2 was 187 ms. All else passes (drawn, 0 errors, film). 47 programs still link
