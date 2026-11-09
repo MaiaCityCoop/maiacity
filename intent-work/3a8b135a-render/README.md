@@ -34,7 +34,8 @@ renders (main's was 8), so the first settle may take longer than main's.
    - **`orbit-<hour>`:** a slow 360° orbit at 370 m round the cell's middle, looking in. 72 settled stills are joined
      into `<site>-orbit-<hour>.mp4` at 12 fps, then the meter runs over a 600-frame turn.
 
-   For each view: every console and page error, and head against base (frame time, and SSIM for reference only, since
+   For each view: the backend that drew (`window.__rendererBackend`: webgpu, or its webgl2 fallback), every console
+   and page error, and head against base (frame time, and SSIM for reference only, since
    the look is meant to change).
 3. Commit `intent-work/3a8b135a-render/out/` (`results.json`, `stdout.txt`, `commits.txt`, the PNGs and MP4s) with
    `Intent: 3a8b135a-b7fd-4db8-b7e1-40b8afdc99f8`, and push this branch.

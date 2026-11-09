@@ -72,7 +72,7 @@ async function quiet(page, t) {
 
 const views = [];
 const ms = (x) => (x == null ? '–' : x.toFixed(2));
-const log = (r) => console.log(`${r.site} ${r.view}: frame ${ms(r.frame_ms)} (p95 ${ms(r.frame_p95)}) · cpu ${ms(r.cpu_ms)} · gpu ${ms(r.gpu_ms)} · ${r.calls} calls · ${(r.triangles ?? 0).toLocaleString('en')} tris · bound ${r.bound}`);
+const log = (r) => console.log(`${r.site} ${r.view}${r.backend ? ` [${r.backend}]` : ''}: frame ${ms(r.frame_ms)} (p95 ${ms(r.frame_p95)}) · cpu ${ms(r.cpu_ms)} · gpu ${ms(r.gpu_ms)} · ${r.calls} calls · ${(r.triangles ?? 0).toLocaleString('en')} tris · bound ${r.bound}`);
 const place = (page, v) => page.evaluate((v) => window.__walker.place(v.x, v.z, v.yaw, v.pitch), v);
 
 const t0 = Date.now();
@@ -102,7 +102,8 @@ for (const site of sites) {
 				const s = await page.evaluate((sec) => window.__meter.sample(sec), SAMPLE).catch((e) => ({ error: String(e) }));
 				const png = `${site.name}-${view}.png`;
 				await page.screenshot({ path: resolve(OUT, png) });
-				const r = { site: site.name, view, hour, settled, at: v, ...s, png };
+				const backend = await page.evaluate(() => window.__rendererBackend ?? 'unknown').catch(() => 'unknown');
+				const r = { site: site.name, view, hour, settled, at: v, backend, ...s, png };
 				log(r);
 				views.push(r);
 			}
