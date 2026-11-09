@@ -1,4 +1,3 @@
-.github/workflows/intents-pr.yml
 .github/workflows/play-checks.yml
 intent-work/1f0c6f79/shots/README.md
 intent-work/1f0c6f79/shots/oldcity-noon-head.jpg
@@ -17,10 +16,7 @@ play/api/test/gate.test.ts
 play/api/test/graphs.test.ts
 play/api/test/workflows.test.ts
 play/avenbox/gate.sh
-play/avenbox/intent.ts
 play/avenbox/select.ts
-play/avenbox/vs-main.test.ts
-play/avenbox/vs-main.ts
 play/shots/e5ddf0b2/batterycube-head.png
 play/shots/e5ddf0b2/batterycube-main.png
 play/shots/e5ddf0b2/pod-people-head.png

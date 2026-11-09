@@ -8,32 +8,49 @@
 # main-merge) cancels the older head's run, which records nothing (play/api/src/ship.ts).
 #
 # Only the box's run is evidence: on pull_request_target this file is main's, and so is the intent.ts that holds a
-# token. Four jobs:
-#   spec    main's pr-intent.ts and intent.ts, with avenBOX's token (PLAY_MCP_TOKEN): which intent, and its spec
-#   main    main's measures (intent f63774a3): main's code only, never the head's. Main is the merge base of main and
-#           the head; play/avenbox/vs-main.ts measures it for every vs-main call in the spec, kept in GitHub's cache
-#           by that commit (so main is measured once per main commit) and handed to the run job, which only reads it
-#   run     the pull request's head, checked out without credentials, no secret, a read-only GITHUB_TOKEN: main's
-#           intent.ts (handed over by spec) runs the spec's checks there and writes their results
-#   record  main's intent.ts, with avenBOX's token: records the results (only if they ran on the head), skipped if cancelled
+# token. Five jobs; main and run side by side once spec is done (intent 006eb26a: about 3 minutes, not 6 to 12):
+#   spec     main's pr-intent.ts and intent.ts, with avenBOX's token (PLAY_MCP_TOKEN): which intent, and its spec
+#   main     main's measures (intents f63774a3, 006eb26a): no secret. Main is the merge base of main and the head (GitHub's
+#            compare: no history fetched), checked out alone at depth 1, sparse (the paths vs-main measures); main's
+#            vs-main.ts measures it for every vs-main call in the spec, kept in GitHub's cache by what those calls read
+#            (so main is measured again only when that changed)
+#   run      the pull request's head, checked out without credentials, no secret, a read-only GITHUB_TOKEN: main's
+#            intent.ts (handed over by spec) runs the spec's checks there and writes their results; a vs-main call
+#            measures the head only (VS_MAIN_HEAD_OUT), its bound decided by compare
+#   compare  main's vs-main.ts, no secret: each of the head's vs-main calls against main's measures, into its check's
+#            result and evidence (--fold), once both are measured; nothing is recorded before it
+#   record   main's intent.ts, with avenBOX's token: records the results (only if they ran on the head), skipped if cancelled
 # Heads in this repository only: a fork's pull request runs nothing here.
+# workflow_dispatch (a pull request's number) is a dry run of this file and the branch's own vs-main.ts and intent.ts
+# as dispatched, to time it before it is main's (`intent`: another intent's spec on that head, e.g. one with a census):
+# it records nothing, and the token stays in spec with main's code.
 name: intents on pull requests
 
 on:
   pull_request_target:
     branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: the pull request's number (a dry run, recording nothing)
+        required: true
+        type: number
+      intent:
+        description: another intent's UUID whose spec runs on that head instead of its own (to time a spec it hasn't)
+        required: false
+        type: string
 
 permissions: {}
 
 concurrency:
-  group: intents-pr-${{ github.event.pull_request.number }}
+  group: intents-pr-${{ github.event.pull_request.number || inputs.pr }}
   cancel-in-progress: true
 
 jobs:
   spec:
     name: the intent's spec
-    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -41,6 +58,7 @@ jobs:
       pull-requests: read
     outputs:
       intent: ${{ steps.which.outputs.intent }}
+      head: ${{ steps.which.outputs.head }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,15 +71,29 @@ jobs:
         id: which
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
           PLAY_MCP_TOKEN: ${{ secrets.PLAY_MCP_TOKEN }}
-          PR: ${{ github.event.pull_request.number }}
+          PR: ${{ github.event.pull_request.number || inputs.pr }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DRY: ${{ github.event_name == 'workflow_dispatch' }}
+          OTHER: ${{ inputs.intent }}
         run: |
           [ -n "$PLAY_MCP_TOKEN" ] || { echo "::error::The repository secret PLAY_MCP_TOKEN (avenBOX's token) is not set"; exit 1; }
-          intent=$(bun play/avenbox/pr-intent.ts "$PR" --id)
+          if [ "$DRY" = true ] && [ -n "$OTHER" ]; then
+            [[ "$OTHER" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "::error::intent is a UUID"; exit 1; }
+            intent=$OTHER
+          else
+            intent=$(bun play/avenbox/pr-intent.ts "$PR" --id)
+          fi
           echo "intent=$intent" >> "$GITHUB_OUTPUT"
+          [ "$DRY" != true ] || HEAD_SHA=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .head.sha)
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no head for pull request $PR"; exit 1; }
+          echo "head=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           mkdir -p "$RUNNER_TEMP/box"
           bun play/avenbox/intent.ts "$intent" --spec-out "$RUNNER_TEMP/box/spec.json"
           cp play/avenbox/intent.ts play/avenbox/play.ts play/avenbox/box.env "$RUNNER_TEMP/box/"
+          # a dry run hands over the dispatched branch's intent.ts (and what it reads beside it), read with git show, never run here
+          if [ "$DRY" = true ]; then git fetch --quiet --depth=1 origin "$GITHUB_SHA" && git show "$GITHUB_SHA:play/avenbox/intent.ts" > "$RUNNER_TEMP/box/intent.ts" && git show "$GITHUB_SHA:play/avenbox/play.ts" > "$RUNNER_TEMP/box/play.ts" && git show "$GITHUB_SHA:play/avenbox/box.env" > "$RUNNER_TEMP/box/box.env"; fi
       - uses: actions/upload-artifact@v4
         with:
           name: box-spec
@@ -75,60 +107,82 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    outputs:
-      base: ${{ steps.base.outputs.base }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          fetch-depth: 0
-          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: box-spec
           path: ${{ runner.temp }}/box
-      - name: Main, the merge base of main and the head (the head's commits fetched, never checked out)
+      - name: Main, the merge base of main and the head (GitHub's compare, no history fetched)
         id: base
         env:
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          MAIN: ${{ github.event.repository.default_branch }}
+          HEAD_SHA: ${{ needs.spec.outputs.head }}
         run: |
-          git fetch --quiet origin "$HEAD_SHA"
-          base=$(git merge-base HEAD "$HEAD_SHA")
+          grep -q 'vs-main\.ts' "$RUNNER_TEMP/box/spec.json" || exit 0
+          base=$(gh api "repos/$GITHUB_REPOSITORY/compare/$MAIN...$HEAD_SHA" --jq .merge_base_commit.sha)
+          [[ "$base" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no merge base of $MAIN and $HEAD_SHA"; exit 1; }
           echo "base=$base" >> "$GITHUB_OUTPUT"
-          if grep -q 'vs-main\.ts' "$RUNNER_TEMP/box/spec.json"; then echo "measures=yes" >> "$GITHUB_OUTPUT"; fi
-          echo "calls=$(grep -o 'vs-main\.ts[^"]*' "$RUNNER_TEMP/box/spec.json" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
-        if: steps.base.outputs.measures
+      # main's code: vs-main.ts and what it imports (a dry run: the dispatched branch's)
+      - uses: actions/checkout@v4
+        if: steps.base.outputs.base
         with:
-          path: ${{ runner.temp }}/vs-main
-          key: vs-main-${{ steps.base.outputs.base }}-${{ steps.base.outputs.calls }}
-          restore-keys: vs-main-${{ steps.base.outputs.base }}-
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.repository.default_branch }}
+          path: code
+          persist-credentials: false
+          sparse-checkout: |
+            play/avenbox
+            play/site/scripts/census
+      # main as measured: the merge base alone, at depth 1, the paths a census reads (all of it for a count)
+      - uses: actions/checkout@v4
+        if: steps.base.outputs.base
+        with:
+          ref: ${{ steps.base.outputs.base }}
+          path: base
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            play/site
+            play/api/src
       - uses: oven-sh/setup-bun@v2
-        if: steps.base.outputs.measures
+        if: steps.base.outputs.base
         with:
           bun-version: 1.4.4
-      - name: Main measured, or read from the cache (main's vs-main.ts)
-        if: steps.base.outputs.measures
+      - name: The cache's key, by what the calls read at main
+        id: key
+        if: steps.base.outputs.base
         env:
-          VS_MAIN_CACHE: ${{ runner.temp }}/vs-main
           BASE: ${{ steps.base.outputs.base }}
         run: |
-          (cd play/site && bun install --frozen-lockfile > /dev/null)
-          bun play/avenbox/vs-main.ts --main-of "$RUNNER_TEMP/box/spec.json" --main "$BASE"
+          if grep -Eq 'vs-main\.ts +count' "$RUNNER_TEMP/box/spec.json"; then git -C base sparse-checkout disable; fi
+          echo "key=$(bun code/play/avenbox/vs-main.ts --key-of "$RUNNER_TEMP/box/spec.json" --main "$BASE" --repo base)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        if: steps.base.outputs.base
+        with:
+          path: ${{ runner.temp }}/vs-main-cache
+          key: vs-main-${{ steps.key.outputs.key }}
+          restore-keys: vs-main-
+      - name: Main measured in its own checkout, or read from the cache (main's vs-main.ts)
+        if: steps.base.outputs.base
+        env:
+          VS_MAIN_CACHE: ${{ runner.temp }}/vs-main-cache
+          BASE: ${{ steps.base.outputs.base }}
+        run: |
+          (cd base/play/site && bun install --frozen-lockfile > /dev/null)
+          bun code/play/avenbox/vs-main.ts --main-of "$RUNNER_TEMP/box/spec.json" --main "$BASE" --repo base --out "$RUNNER_TEMP/vs-main/main.json"
       - name: Nothing to measure
-        if: "!steps.base.outputs.measures"
-        run: mkdir -p "$RUNNER_TEMP/vs-main" && touch "$RUNNER_TEMP/vs-main/.none"
+        if: "!steps.base.outputs.base"
+        run: mkdir -p "$RUNNER_TEMP/vs-main" && echo '{"side":"main","sha":null,"measures":{}}' > "$RUNNER_TEMP/vs-main/main.json"
       - uses: actions/upload-artifact@v4
         with:
           name: vs-main
           path: ${{ runner.temp }}/vs-main
-          include-hidden-files: true
           retention-days: 7
 
   run:
     name: the checks in avenBOX
-    needs: [spec, main]
-    # main's measures failing leaves the head's vs-main to measure main itself
+    # beside main's measures, not after them: the head's vs-main calls measure the head only
+    needs: spec
     if: "!cancelled() && needs.spec.result == 'success'"
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -137,17 +191,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ needs.spec.outputs.head }}
           persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: box-spec
           path: ${{ runner.temp }}/box
-      - uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: vs-main
-          path: ${{ runner.temp }}/vs-main
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
@@ -155,21 +204,68 @@ jobs:
         run: sudo env "PATH=$PATH" bash play/avenbox/setup.sh
       - name: The intent's checks on the head (no token)
         env:
-          VS_MAIN_CACHE: ${{ runner.temp }}/vs-main
-          VS_MAIN: ${{ needs.main.outputs.base }}
+          VS_MAIN_HEAD_OUT: ${{ runner.temp }}/vs-head
         run: |
-          mkdir -p "$RUNNER_TEMP/results"
+          mkdir -p "$RUNNER_TEMP/results" "$RUNNER_TEMP/vs-head" && touch "$RUNNER_TEMP/vs-head/.none"
           bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --results-out "$RUNNER_TEMP/results/results.json" --root "$GITHUB_WORKSPACE" || echo "a must check failed: recorded as it ran"
       - uses: actions/upload-artifact@v4
         with:
           name: box-results
           path: ${{ runner.temp }}/results/results.json
           retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vs-head
+          path: ${{ runner.temp }}/vs-head
+          include-hidden-files: true
+          retention-days: 7
+
+  compare:
+    name: main and the head compared
+    needs: [spec, main, run]
+    # main's measures failing fails each check that needed them, saying so; the head's checks failing records them
+    if: "!cancelled() && needs.run.result == 'success'"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: |
+            play/avenbox
+            play/site/scripts/census
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/download-artifact@v4
+        with:
+          name: box-results
+          path: ${{ runner.temp }}/results
+      - uses: actions/download-artifact@v4
+        with:
+          name: vs-head
+          path: ${{ runner.temp }}/vs-head
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: vs-main
+          path: ${{ runner.temp }}/vs-main
+      - name: The head's vs-main calls against main's measures, into their checks (main's vs-main.ts, no token)
+        run: bun play/avenbox/vs-main.ts --fold "$RUNNER_TEMP/results/results.json" --main-values "$RUNNER_TEMP/vs-main/main.json" --heads "$RUNNER_TEMP/vs-head" --out "$RUNNER_TEMP/compared/results.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: box-compared
+          path: ${{ runner.temp }}/compared/results.json
+          retention-days: 30
 
   record:
     name: recorded on the intent
-    needs: [spec, run]
-    if: "!cancelled() && needs.spec.result == 'success'"
+    needs: [spec, compare]
+    # a dry run (workflow_dispatch) records nothing
+    if: "github.event_name == 'pull_request_target' && !cancelled() && needs.spec.result == 'success'"
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -184,16 +280,16 @@ jobs:
         with:
           bun-version-file: .bun-version
       - uses: actions/download-artifact@v4
-        if: needs.run.result == 'success'
+        if: needs.compare.result == 'success'
         with:
-          name: box-results
+          name: box-compared
           path: ${{ runner.temp }}/results
       - name: The results, recorded with the head, this run's link and the pull request (main's code, avenBOX's token)
         id: recorded
         env:
           PLAY_MCP_TOKEN: ${{ secrets.PLAY_MCP_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
+          HEAD: ${{ needs.spec.outputs.head }}
           INTENT: ${{ needs.spec.outputs.intent }}
         run: |
           [ -f "$RUNNER_TEMP/results/results.json" ] || { echo "::error::The checks did not run to the end: nothing recorded"; exit 1; }

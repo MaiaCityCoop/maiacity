@@ -145,7 +145,8 @@ async function runChecks(spec: SpecFile): Promise<ResultsFile> {
       (c.how === "look" ? toJudge : unrun).push(c);
       continue;
     }
-    const r = await runOne(c.run, env);
+    // INTENT_CHECK names the check to its command: a vs-main call deferred in intents-pr.yml's run job is folded into it
+    const r = await runOne(c.run, { ...env, INTENT_CHECK: c.id });
     if (c.how === "look") {
       console.log(`· ${label}: made in ${r.seconds.toFixed(1)} s (exit ${r.code}); judge it by eye: ${c.by}`);
       toJudge.push(c);

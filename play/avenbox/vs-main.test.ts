@@ -1,10 +1,11 @@
-// vs-main.ts's own tests (intent f63774a3): tolerances, comparing, finding main, the cache, bytes, lines and counts
-// against main in temp git repositories, and intents-pr.yml's job "main's measures".
+// vs-main.ts's own tests (intents f63774a3, 006eb26a): tolerances, comparing, finding main, the cache keyed by what a
+// measure reads, bytes, lines, counts and a census against main in temp git repositories, one step and measured apart.
+// intents-pr.yml's jobs are play/api/test/workflows.test.ts's.
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const TMP = mkdtempSync(join(tmpdir(), 'vs-main-test-'));
 process.env.CENSUS_CACHE = join(TMP, 'census-cache');
@@ -135,12 +136,30 @@ describe('against main in a git repository', () => {
 		expect(logs[0]).toMatch(/measured in/);
 		expect(logs[1]).toMatch(new RegExp(`^main ${base.slice(0, 9)} .* from cache$`));
 	});
-	test("the cache is keyed by main's commit and the measure's arguments", () => {
-		const m = { what: 'bytes' as const, args: ['a.txt'] };
-		expect(vm.cacheFile(base, m)).not.toBe(vm.cacheFile(tip, m));
-		expect(vm.cacheFile(base, m)).not.toBe(vm.cacheFile(base, { what: 'bytes', args: ['b.txt'] }));
-		expect(vm.cacheFile(base, m)).not.toBe(vm.cacheFile(base, { what: 'lines', args: ['a.txt'] }));
-		expect(vm.cacheFile(base, m).startsWith(join(process.env.VS_MAIN_CACHE!, base))).toBe(true);
+	test('cache key: the same at two mains where what the measure reads is the same, another where it changed', () => {
+		// tip changed n.txt only: a.txt's measures keep their key, n.txt's and a count's (the whole tree) do not
+		const a = { what: 'bytes' as const, args: ['a.txt'] };
+		expect(vm.keyOf(a, base, work)).toBe(vm.keyOf(a, tip, work));
+		expect(vm.keyOf({ what: 'lines', args: ['n.txt'] }, base, work)).not.toBe(vm.keyOf({ what: 'lines', args: ['n.txt'] }, tip, work));
+		const count = { what: 'count' as const, args: ['ls | wc -l'] };
+		expect(vm.keyOf(count, base, work)).not.toBe(vm.keyOf(count, tip, work));
+		// the calls are in it: another file, another measure
+		expect(vm.keyOf(a, base, work)).not.toBe(vm.keyOf({ what: 'bytes', args: ['b.txt'] }, base, work));
+		expect(vm.keyOf(a, base, work)).not.toBe(vm.keyOf({ what: 'lines', args: ['a.txt'] }, base, work));
+		expect(vm.cacheFile(base, a, work).startsWith(process.env.VS_MAIN_CACHE!)).toBe(true);
+		expect(() => vm.keyOf(a, 'f'.repeat(7), work)).toThrow(/no commit/);
+	});
+	test('cache key: main measured again only when what it reads changed, else read from the cache', () => {
+		const logs: string[] = [];
+		const m = { what: 'lines' as const, args: ['a.txt'] };
+		expect(vm.mainValues(m, base, work, (s) => logs.push(s))).toEqual({ lines: 2 });
+		expect(vm.mainValues(m, tip, work, (s) => logs.push(s))).toEqual({ lines: 2 });
+		expect(logs[0]).toMatch(/measured in/);
+		expect(logs[1]).toMatch(new RegExp(`^main ${tip.slice(0, 9)} .* from cache$`));
+		const n = { what: 'lines' as const, args: ['n.txt'] };
+		vm.mainValues(n, base, work, (s) => logs.push(s));
+		vm.mainValues(n, tip, work, (s) => logs.push(s));
+		expect(logs.slice(2).every((l) => /measured in/.test(l))).toBe(true);
 	});
 	test('the command line: within the bound exits 0, out of it 1, as it prints', () => {
 		const cli = (...a: string[]) => {
@@ -164,31 +183,144 @@ describe('against main in a git repository', () => {
 	});
 });
 
-describe("intents-pr.yml's workflow: main's measures", () => {
-	const wf = (Bun as any).YAML.parse(readFileSync(resolve(import.meta.dir, '../../.github/workflows/intents-pr.yml'), 'utf8'));
-	const steps = (job: string) => wf.jobs[job].steps as any[];
-	test('workflow: a job between spec and run measures main on main\'s code, never the head\'s', () => {
-		const main = wf.jobs.main;
-		expect(main.needs).toBe('spec');
-		const co = steps('main').find((s) => s.uses?.startsWith('actions/checkout'));
-		expect(co.with.ref).toBe('${{ github.event.repository.default_branch }}');
-		const runs = steps('main').map((s) => s.run ?? '').join('\n');
-		expect(runs).toMatch(/git merge-base HEAD "\$HEAD_SHA"/);
-		expect(runs).toMatch(/vs-main\.ts --main-of .* --main "\$BASE"/);
-		expect(runs).not.toMatch(/git (checkout|switch)/);
+describe('cache key: what a census reads', () => {
+	let repo: string;
+	beforeAll(() => {
+		repo = join(TMP, 'census-reads');
+		mkdirSync(join(repo, 'play/site'), { recursive: true });
+		mkdirSync(join(repo, 'play/api/src/kit'), { recursive: true });
+		execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+		writeFileSync(join(repo, 'play/api/src/kit/ids.ts'), 'export const A = 1;\n');
+		writeFileSync(join(repo, 'play/api/src/other.ts'), '1\n');
+		commit(repo, 'play/site/world.js', '1\n');
 	});
-	test("workflow: main's measures kept in GitHub's cache by the merge base and handed to the run", () => {
-		const cache = steps('main').find((s) => s.uses?.startsWith('actions/cache'));
-		expect(cache.with.key).toMatch(/^vs-main-\$\{\{ steps\.base\.outputs\.base \}\}-/);
-		const up = steps('main').find((s) => s.uses?.startsWith('actions/upload-artifact'));
-		expect(up.with.name).toBe('vs-main');
+	test('cache key: a census is keyed by the site and the id table it imports, nothing else of the repository', () => {
+		const census = { what: 'census' as const, args: ['sandbox-1', 'all', 'tris,draws'] };
+		const k0 = vm.keyOf(census, git(repo, 'rev-parse', 'HEAD'), repo);
+		const k1 = vm.keyOf(census, commit(repo, 'play/api/src/other.ts', '2\n'), repo);
+		expect(k1).toBe(k0);
+		const k2 = vm.keyOf(census, commit(repo, 'play/api/src/kit/ids.ts', 'export const A = 2;\n'), repo);
+		expect(k2).not.toBe(k1);
+		const k3 = vm.keyOf(census, commit(repo, 'play/site/world.js', '2\n'), repo);
+		expect(k3).not.toBe(k2);
+		expect(vm.keyOf({ ...census, args: ['sandbox-3', 'all', 'tris,draws'] }, git(repo, 'rev-parse', 'HEAD'), repo)).not.toBe(k3);
 	});
-	test("workflow: the run job (the head's code) reads main's measures and never writes GitHub's cache", () => {
-		expect(wf.jobs.run.needs).toEqual(['spec', 'main']);
-		expect(steps('run').some((s) => s.uses?.startsWith('actions/cache'))).toBe(false);
-		expect(steps('run').some((s) => s.uses?.startsWith('actions/download-artifact') && s.with?.name === 'vs-main')).toBe(true);
-		const checks = steps('run').find((s) => /intent's checks/.test(s.name ?? ''));
-		expect(checks.env.VS_MAIN).toBe('${{ needs.main.outputs.base }}');
-		expect(checks.env.VS_MAIN_CACHE).toBeDefined();
+	test("cache key: every file the census can load from outside play/site (the site's code, census.ts's imports) is among what it reads", () => {
+		const ROOT = resolve(import.meta.dir, '../..');
+		const outside = new Set<string>(), seen = new Set<string>();
+		const IMPORT = /(?:from|import\(|import)\s*['"]((?:\.\.?\/)[^'"\s]+)['"]/g;
+		const real = (f: string) => [f, `${f}.ts`, `${f}.js`, join(f, 'index.ts'), join(f, 'index.js')].find((x) => existsSync(x) && statSync(x).isFile());
+		// a file's relative imports: those outside play/site kept, those inside followed
+		const follow = (file: string) => {
+			if (seen.has(file)) return;
+			seen.add(file);
+			for (const m of readFileSync(file, 'utf8').matchAll(IMPORT)) {
+				const to = resolve(dirname(file), m[1]), rel = to.slice(ROOT.length + 1);
+				if (!rel.startsWith('play/site/')) outside.add(rel);
+				else if (real(to)) follow(real(to)!);
+			}
+		};
+		const walk = (dir: string) => {
+			for (const e of readdirSync(dir, { withFileTypes: true })) {
+				const f = join(dir, e.name);
+				if (e.isDirectory()) {
+					if (e.name !== 'node_modules' && !e.name.startsWith('.')) walk(f);
+				} else if (/\.(ts|js|svelte)$/.test(e.name) && !/\.test\.[jt]s$/.test(e.name)) follow(f);
+			}
+		};
+		walk(join(ROOT, 'play/site/src'));
+		follow(join(ROOT, 'play/site/scripts/census.ts'));
+		expect(seen.has(join(ROOT, 'play/site/scripts/census/run.ts'))).toBe(true);
+		expect(outside.size).toBeGreaterThan(0);
+		for (const f of outside) expect([f, vm.CENSUS_READS.some((p) => f === p || f.startsWith(`${p}/`))]).toEqual([f, true]);
+	});
+});
+
+describe('measured apart: each side on its own, compared after', () => {
+	// a census as census.ts answers it, its triangles read from tris.txt at --at (git show) or in its tree
+	const FAKE = `import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+const a = process.argv.slice(2), o = (k) => a[a.indexOf(k) + 1];
+const at = a.includes('--at') ? o('--at') : null;
+const [near, far] = (at ? execFileSync('git', ['show', at + ':tris.txt'], { encoding: 'utf8' }) : readFileSync('tris.txt', 'utf8')).trim().split(' ').map(Number);
+const v = (view, tris) => ({ view, settled: true, totals: { tris, calls: 10, mainTris: tris, mainCalls: 10 } });
+writeFileSync(o('--json'), JSON.stringify({ views: [v('near', near), v('far', far)] }));
+`;
+	let repo: string, main: string, n = 0;
+	const out = () => join(TMP, `apart-${++n}`);
+	const cli = (env: Record<string, string>, ...a: string[]) => {
+		const own = a[0] === 'compare' || a[0] === '--fold' ? [] : ['--repo', repo];
+		const r = Bun.spawnSync(['bun', resolve(import.meta.dir, 'vs-main.ts'), ...a, ...own], { cwd: repo, env: { ...ENV, VS_MAIN_CACHE: join(TMP, 'apart-cache'), ...env } });
+		return { code: r.exitCode, out: `${r.stdout}`, err: `${r.stderr}` };
+	};
+	/** the comparison's own lines: what the one step, compare and fold all print */
+	const rows = (s: string) => s.split('\n').filter((l) => /^ {2}(ok |OFF)|^vs-main: (within|out)/.test(l));
+	beforeAll(() => {
+		repo = join(TMP, 'apart');
+		mkdirSync(join(repo, 'play/site/scripts'), { recursive: true });
+		execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+		writeFileSync(join(repo, 'play/site/scripts/census.ts'), FAKE);
+		main = commit(repo, 'tris.txt', '1000 500\n');
+		git(repo, 'checkout', '-qb', 'head');
+		commit(repo, 'tris.txt', '1020 505\n', 'the head draws 2 % and 1 % more');
+	});
+
+	test('measured apart: a census of main in its own checkout (in place) equals the census at --at', () => {
+		const census = { what: 'census' as const, args: ['sandbox-1', 'all', 'tris,draws'] };
+		const at = vm.measure(census, main, repo);
+		expect(at).toEqual({ 'near tris': 1000, 'near draws': 10, 'far tris': 500, 'far draws': 10 });
+		const clone = join(TMP, 'apart-main');
+		execFileSync('git', ['clone', '-q', repo, clone]);
+		git(clone, 'checkout', '-q', main);
+		expect(vm.measure(census, main, clone)).toEqual(at);
+	});
+
+	for (const [bound, code] of [['3%', 0], ['1.5%', 1]] as const) {
+		test(`measured apart: --within ${bound} measured apart and compared equals the one step (exit ${code})`, () => {
+			const one = cli({}, 'census', '--within', bound, '--main', main);
+			expect(one.code).toBe(code);
+			const dir = out(), m = join(dir, 'main.json'), h = join(dir, 'head.json');
+			expect(cli({}, 'census', '--side', 'main', '--main', main, '--out', m).code).toBe(0);
+			expect(cli({}, 'census', '--side', 'head', '--out', h).code).toBe(0);
+			expect(JSON.parse(readFileSync(m, 'utf8')).sha).toBe(main);
+			const two = cli({}, 'compare', m, h, '--within', bound);
+			expect(two.code).toBe(code);
+			expect(rows(two.out)).toEqual(rows(one.out));
+			expect(rows(one.out).length).toBe(5);
+		});
+
+		test(`measured apart: deferred in the run job, main measured beside it and folded, the same verdict (--within ${bound})`, () => {
+			const run = `bun play/avenbox/vs-main.ts census --within ${bound}`;
+			const dir = out(), heads = join(dir, 'heads'), spec = join(dir, 'spec.json');
+			mkdirSync(dir, { recursive: true });
+			writeFileSync(spec, JSON.stringify({ intent: { id: 'x' }, checks: [{ id: 'c5', run }] }));
+			// the head alone, exit 0, the call and its values kept for its check
+			const d = cli({ VS_MAIN_HEAD_OUT: heads, INTENT_CHECK: 'c5' }, 'census', '--within', bound);
+			expect(d.code).toBe(0);
+			expect(d.out).toMatch(/compared with main once main is measured/);
+			const files = readdirSync(heads);
+			expect(files.length).toBe(1);
+			expect(JSON.parse(readFileSync(join(heads, files[0]), 'utf8'))).toMatchObject({ check: 'c5', call: ['census', '--within', bound, '--repo', repo] });
+			// main's job: every call of the spec, at main
+			expect(cli({}, '--main-of', spec, '--main', main, '--out', join(dir, 'main.json')).code).toBe(0);
+			writeFileSync(join(dir, 'results.json'), JSON.stringify({ intent: 'x', results: [{ check: 'c5', how: 'test', must: true, pass: true, code: 0, evidence: `$ ${run}\nexit 0` }, { check: 'c6', how: 'test', must: true, pass: true, code: 0, evidence: 'ok' }] }));
+			expect(cli({}, '--fold', join(dir, 'results.json'), '--main-values', join(dir, 'main.json'), '--heads', heads, '--out', join(dir, 'folded.json')).code).toBe(0);
+			const folded = JSON.parse(readFileSync(join(dir, 'folded.json'), 'utf8')).results;
+			expect(folded[0].pass).toBe(code === 0);
+			expect(folded[0].code).toBe(code);
+			expect(rows(folded[0].evidence)).toEqual(rows(cli({}, 'census', '--within', bound, '--main', main).out));
+			expect(folded[1]).toEqual({ check: 'c6', how: 'test', must: true, pass: true, code: 0, evidence: 'ok' });
+		});
+	}
+
+	test("measured apart: main's measures missing fail the check, saying so; nothing deferred without a check's name", () => {
+		const r = vm.fold({ results: [{ check: 'c5', pass: true, code: 0, evidence: 'ran' }] }, null, [{ check: 'c5', call: ['census', '--within', '3%'], values: { 'near tris': 1 } }]);
+		expect(r.results[0]).toMatchObject({ pass: false, code: 1 });
+		expect(r.results[0].evidence).toMatch(/main was not measured for it/);
+		const heads = join(out(), 'heads');
+		const one = cli({ VS_MAIN_HEAD_OUT: heads }, 'census', '--within', '3%', '--main', main);
+		expect(one.code).toBe(0);
+		expect(one.out).toMatch(/within the bound of main/);
+		expect(() => readdirSync(heads)).toThrow();
 	});
 });
