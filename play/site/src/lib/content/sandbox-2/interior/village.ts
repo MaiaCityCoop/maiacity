@@ -1573,7 +1573,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	if (plantsOut) {
 		onProgress('Growing the forest: the plants near you')
 		forestTick()
-		for (let waited = 0; waited < 120000 && !(plantsOut.settled() && plantsIn!.settled() && library.settled()); waited += 100) {
+		// two minutes at most by the clock (each tick grows plants: on a slow device a count of ticks waits far longer)
+		for (const until = performance.now() + 120000; performance.now() < until && !(plantsOut.settled() && plantsIn!.settled() && library.settled()); ) {
 			await new Promise((r) => setTimeout(r, 100))
 			forestTick()
 		}
