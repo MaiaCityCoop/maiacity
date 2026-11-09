@@ -652,8 +652,8 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     (`.github/workflows/intent-named.yml`, `play/avenbox/pr-intent.ts`, main's own on `pull_request_target`, the pull
     request only read through GitHub's API) is red when a pull request names no intent or more than one, names one not
     at Build, Proposal or Ship, or is not the intent's active one while that one is open, saying which to
-    consolidate into, or to close this one. main's ruleset requires it beside the checks `.github/required-checks.json`
-    names and `Intent accepted`.
+    consolidate into, or to close this one. main's ruleset requires it beside `play / API and site`, `website / build`
+    and `Intent accepted`.
   - **A draft while building; ready promotes to Proposal.** While the intent is in Build its pull request is a
     **draft**, and the agent tests itself anywhere, untrusted: `bash play/avenbox/gate.sh`, and `bun
     play/avenbox/intent.ts <uuid>`, which runs and prints the checks and records nothing (`--record` refuses outside a
@@ -688,7 +688,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     fine-grained token of Samuel's, the repository secret written into play's environment; deploy/README.md).
     **Accept takes only a waiting intent** (*Sub-states*, below; Samuel 2026-11-07, intent `2bf8af96`: *"if an
     intent is still working / waiting on main merging we can't promote accept it"*): its head the commit every must
-    check with a `run` last passed on, the checks `.github/required-checks.json` names green on that head, `mergeable`
+    check with a `run` last passed on, `play / API and site` and `website / build` green on that head, `mergeable`
     true, open into main, not a draft. Anything else is refused with its reason, nothing posted or merged, the intent
     left at Proposal: failed (a conflict, a red check, closed, a draft) or working (its head moved, its checks running,
     `mergeable` null). Taken, the intent is in **Ship** at once (Samuel 2026-11-06, intent `2f13976c`: *"ship should
@@ -779,7 +779,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     pushed tree is the very tree the merged pull request's run of main.yml tested (`.github/workflows/tested-tree.sh`,
     from GitHub's API); anything else runs them in full.
   - **GitHub requires it**: one repository ruleset on main, with no bypass: a pull request (0 approvals), the status
-    checks `.github/required-checks.json` names and **`Intent accepted`** (only play posts it, on Accept), no
+    checks `play / API and site`, `website / build` and **`Intent accepted`** (only play posts it, on Accept), no
     force pushes, no deletion. Agents open the pull request and **never merge**, into main or production.
   - What it does not stop: someone acting as Samuel on GitHub on purpose (agents act as him there). It stops every
     change landing without his Accept by mistake. `SHIP_TOKEN` never leaves play's server: no route answers with it,
