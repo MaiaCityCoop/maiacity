@@ -304,6 +304,8 @@ export function maxTextureSize(renderer) {
 export async function ready(renderer) {
 	const r = /** @type {any} */ (renderer);
 	if (isWebGPU(r) && !r.initialized) await r.init();
+	// which backend drew, for a job's evidence (scripts/selector-shots.mjs, story-parity): webgpu, its webgl2 fallback, or webgl
+	if (typeof window !== 'undefined') /** @type {any} */ (window).__rendererBackend = isWebGPU(r) ? (r.backend?.isWebGPUBackend ? 'webgpu' : 'webgl2') : 'webgl';
 	return renderer;
 }
 
