@@ -124,7 +124,7 @@ function quiet() {
 }
 
 /** builds Sandbox 1 (the route's own mount: play/site/src/routes/sandbox-1/+page.svelte) and gives its handle */
-async function mountSandbox1(log: (s: string) => void) {
+export async function mountSandbox1(log: (s: string) => void) {
 	(g.__interiorHour = HOUR), (g.__worldTime = MOMENT);
 	const { catalogReady } = await import(lib('recipes'));
 	const { SANDBOX } = await import(lib('content/assets/sandboxes.js'));

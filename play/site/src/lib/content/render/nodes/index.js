@@ -13,10 +13,8 @@
  *   distance from the eye (`aCover`, `aReach` per copy; `coverEye`), so it thins out with distance and has no edge.
  * - the far pictures' card, the x-ray ghost, the contact shadow's blur and the stage floor's fade into the horizon.
  *
- * Drawn on WebGLRenderer through three's WebGLNodesHandler (`install`), with what it lacks in r186 made good here:
- * a node material shared by many instanced meshes takes each one's own matrices (three's node instancing would keep
- * the first mesh's), clipping is ours (the handler draws no clipping planes), a target is drawn into linear and
- * untoned as three's own materials are, and a node material drawing a shadow is drawn from the light.
+ * Drawn on WebGLRenderer through three's WebGLNodesHandler (`install`), what it lacks in r186 made good here: each
+ * instanced mesh's own matrices, our clipping, a target drawn linear and untoned, a node material's shadow.
  */
 import * as THREE from 'three';
 import { AttributeNode, MeshBasicNodeMaterial, MeshLambertNodeMaterial, MeshPhongNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
@@ -38,8 +36,7 @@ const handlers = new WeakMap();
 
 /**
  * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: one of the kit's (`isKit`)
- * drawn into a target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for
- * the screen). Every other node material (the sky's, and the environment three bakes from it) as the handler draws it.
+ * drawn into a target comes out linear and untoned, as three's own do; every other as the handler draws it.
  * @param {THREE.WebGLRenderer} r
  */
 export function install(r) {
@@ -48,19 +45,33 @@ export function install(r) {
 	r.setNodesHandler(h);
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
-	// Only the kit's own materials are drawn linear and untoned into a target (and keyed apart as 'target'); every other
-	// node material (the sky, its environment bake) keeps the handler's key and output, toned and encoded by the
-	// renderer's settings of the moment, as on main: keyed by them, an environment bake (no tone, linear) and the frame
-	// that follows are two programs, never one (cb16b7a5: the viewer's sky drawn raw, a haze over everything).
+	// only the kit's own are drawn linear and untoned into a target (keyed apart as 'target'); every other node material
+	// keeps the handler's key and output (cb16b7a5)
 	let keying = null;
 	const keyOf = h.customProgramCacheKeyCallback;
 	h.customProgramCacheKeyCallback = function () {
 		keying = this;
+		drawing = h.nodeFrame.object;
 		try {
 			return keyOf.call(this);
 		} finally {
-			keying = null;
+			keying = drawing = null;
 		}
+	};
+	// a kit material meeting a program built from other source draws this frame with the owner's uniforms (none into a
+	// layout not its own), then keys by its id; each clash kept in __clashes (660ad67f)
+	const src = new WeakMap(), meet = h.onUpdateProgram.bind(h);
+	h.onUpdateProgram = (m, p, props) => {
+		const b = m._latestBuilder, s = b && b.vertexShader + b.fragmentShader, first = !h.programCache.get(m)?.has(p);
+		meet(m, p, props);
+		const o = src.get(p);
+		if (!m.isKit || !first || !s || o?.s === s) return;
+		if (!o) return void src.set(p, { s, m });
+		let i = 0;
+		while (s[i] === o.s[i]) i++;
+		(globalThis.__clashes ??= []).push({ a: o.m.name, b: m.name, at: s.slice(i - 60, i + 60), was: o.s.slice(i - 60, i + 60) });
+		const e = h.programCache.get(o.m)?.get(p);
+		(m.own = m.needsUpdate = true), (props.uniforms = e?.uniforms ?? {}), (props.uniformsList = e?.uniformsList ?? []), (m.uniformsGroups = e?.uniformsGroups ?? []);
 	};
 	h.getOutputCallback = (node, builder) => (onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node);
 	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
@@ -69,8 +80,8 @@ export function install(r) {
 }
 
 /**
- * A mesh whose shadow is drawn by a node material (its `customDepthMaterial`): drawn from the light. The handler keeps
- * the eye's camera through the shadow pass and updates nothing there; this does both, for this mesh.
+ * A mesh whose shadow is drawn by a node material (its `customDepthMaterial`): drawn from the light (the handler keeps
+ * the eye's camera through the shadow pass and updates nothing there).
  * @param {THREE.Mesh} mesh @param {THREE.WebGLRenderer} r
  */
 export function castsAsNode(mesh, r) {
@@ -118,10 +129,8 @@ export const coverEye = uniform(new THREE.Vector3(1e9, 0, 1e9));
 export const coverAway = { on: uniform(0), c: uniform(new THREE.Vector2()), f: uniform(new THREE.Vector2(0, 1)), b: uniform(0), band: uniform(0) };
 
 /**
- * How far a copy of the cover is grown (0…1) at distance d from the eye, by its rank: all of it stands within `near`,
- * fewer and fewer further off down to `thin` of it at `reach`, each rising out of the ground over 0.08 of rank, and
- * nothing in the last 4 m. The same sum as `grown`'s on the graphics card, for the renderer to leave out on the
- * processor what does not grow and to size the rest by it.
+ * How far a copy of the cover is grown (0…1) at distance d from the eye, by its rank: all within `near`, thinning to
+ * `thin` at `reach`, each rising over 0.08 of rank, none in the last 4 m: `grown`'s sum, for the processor.
  */
 export function coverGrow(d, rank, near, reach, thin) {
 	const keep = 1 - (1 - thin) * Math.min(1, Math.max(0, (d - near) / Math.max(1e-3, reach - near)));
@@ -141,11 +150,8 @@ function grown(p) {
 	return select(aCover.x.greaterThan(0), foot.add(p.sub(foot).mul(grow)), p);
 }
 
-/**
- * A picture we drew into (a render target: the far pictures' page, the contact shadow's) read where three's own
- * materials read it. On WebGL three's TextureNode turns v over (1 - v) for a render target's texture; this turns it back,
- * so the cell laid at row r is read at row r (else the far trees showed another tree's picture, upside down).
- */
+/** A picture we drew into (the far pictures' page, the contact shadow's) read as three's own read it: TextureNode
+ * flips v for a target on WebGL; this flips it back (else the far trees showed another tree's picture, upside down). */
 const drawn = (map, at = uv()) => texture(map, vec2(at.x, float(1).sub(at.y)));
 
 /** the dither every drawing of ours fades in by: the same everywhere on the screen, so two levels never fight */
@@ -260,13 +266,9 @@ const ours = (Base) =>
 			const G = glossy(model.constructor, float(this.gloss));
 			return Object.assign(new G(), model);
 		}
-		// a program for each shape, not for each material: three's key hashes only a node material's nodes, so the
-		// textures beside them (a picture drawn into a target, the sky's cube map) and our own settings join the key, and
-		// two of ours whose shaders differ never share a program (else each uploads its uniforms by name into the other's
-		// layout). Keyed by the material's id instead, every copy compiled its own: walking Sandbox 5, Safari linked 88
-		// programs in 8 frames, one at a time (bd087014).
+		// a program for each shape, not each material (by id, Safari linked 88 in 8 frames in Sandbox 5: bd087014)
 		customProgramCacheKey() {
-			return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
+			return `${super.customProgramCacheKey()}#${this.own ? this.id : shapeOf(this, drawing)}`;
 		}
 		copy(source) {
 			super.copy(source);
@@ -276,14 +278,15 @@ const ours = (Base) =>
 	};
 
 const I3 = new THREE.Matrix3();
-/**
- * What makes two of our materials' shaders differ beside three's node hash: the kit's own settings (fade, cut, cap,
- * gloss) and, for every texture slot, how it is read (drawn into, cube, data, array, compressed, its channel, colour
- * space, flipY and a matrix that is not the identity). The same shape is the same program.
- * @param {any} m
- */
-function shapeOf(m) {
-	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}`;
+/** the object being keyed (install) */
+let drawing = null;
+/** What makes two of our shaders differ beside three's node hash: the kit's settings, each texture slot's kind and
+ * the drawn geometry (a map reads `uv`, vertex colours `color`: 660ad67f). @param {any} m @param {any} o */
+function shapeOf(m, o) {
+	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}|${o?.type}${o?.instanceColor ? 'ic' : ''}`;
+	const g = o?.geometry;
+	for (const [k, a] of Object.entries(g?.attributes ?? {}).sort()) s += `|${k}${a.itemSize}${a.array?.constructor.name}${a.normalized ? 'n' : ''}${a.isInstancedBufferAttribute ? 'i' : ''}`;
+	for (const [k, l] of Object.entries(g?.morphAttributes ?? {})) s += `|~${k}${l.length}${g.morphTargetsRelative ? 'r' : ''}`;
 	for (const k of Object.keys(m).sort()) {
 		const t = m[k];
 		if (!t?.isTexture) continue;
