@@ -462,6 +462,14 @@ export class CountingWebGPURenderer extends CountingRenderer {
 	getArrayBufferAsync(attribute) {
 		return Promise.resolve(attribute.array.slice().buffer);
 	}
+	/** three's own (r187): three/webgpu's PMREMGenerator asks it before it bakes (a plant's or a sky's environment) */
+	hasInitialized() {
+		return this.initialized;
+	}
+	/** no compressed texture format offered (KTX2's detectSupport asks each), as before init on three's own */
+	hasFeature() {
+		return false;
+	}
 	renderAsync(scene, camera) {
 		return Promise.resolve(this.render(scene, camera));
 	}

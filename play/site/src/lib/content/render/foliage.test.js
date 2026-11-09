@@ -144,9 +144,10 @@ describe("on the render kit's own materials (intent cb16b7a5)", () => {
 		const vertex = shaders.filter((s) => /gl_Position/.test(s)).join('\n');
 		expect(vertex).toMatch(/aWind/);
 		expect(vertex).toMatch(/aFade/);
-		expect(vertex).toMatch(/instanceMatrix/);
-		// the wind after the kit's own instancing
-		expect(vertex.indexOf('instanceMatrix')).toBeLessThan(vertex.lastIndexOf('aWind'));
+		// three's instancing (the matrix from four vec4 attributes), the wind after it
+		const placed = vertex.search(/mat4\( nodeAttribute/);
+		expect(placed).toBeGreaterThan(-1);
+		expect(placed).toBeLessThan(vertex.lastIndexOf('aWind'));
 	});
 
 	test('a material with no look is the kit\'s own, untouched', async () => {
