@@ -154,7 +154,7 @@ async function mountSandbox3() {
 
 /** the worlds view (play/site/src/routes/worlds/+page.svelte): a world asset, the newest version of the one named
  *  (`asset`, its UUID), else of the first world play lists, shown as the page shows it */
-async function mountWorlds(asset?: string) {
+async function mountWorlds(log: (s: string) => void, asset?: string) {
 	const { catalogReady } = await import(lib('recipes'));
 	await catalogReady();
 	const get = async (route: string) => (await fetch(`/api${route}`)).json();
@@ -169,7 +169,14 @@ async function mountWorlds(asset?: string) {
 	g.document.body.appendChild(el);
 	const view = createWorldView(el, { source, engine: INDEX.engine, sound: false });
 	await turnUntil(view.show(hash));
-	return { view, label: chain.label as string, id: id as string, hash: hash as string };
+	log(`census: the worlds view shows ${chain.label} (${id}, ${hash.slice(0, 12)}…)`);
+	return view;
+}
+
+/** builds a world as its route opens it, frames turned while it builds: the census's and the Mac jobs' dry run's (../macjob) */
+export async function mount(world: World, o: { asset?: string; log?: (s: string) => void } = {}) {
+	const log = o.log ?? ((s: string) => console.error(s));
+	return world === 'sandbox-1' ? mountSandbox1(log) : world === 'sandbox-3' ? mountSandbox3() : mountWorlds(log, o.asset);
 }
 
 /** frames turned while a promise is open */
@@ -198,17 +205,10 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 	const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
 	if (o.views?.some((v) => !views.includes(v))) throw new Error(`census: ${o.world} has the views ${VIEWS_OF[o.world].join(', ')}`);
 	const t0 = performance.now();
-	let up = true;
-	if (o.world === 'sandbox-1') {
-		await mountSandbox1(log);
-		// where it opens, all streamed in round the eye, the domes' insides built ahead too (each copy it ever put down
-		// stays held by its renderer, put away: `Copy`'s ghosts)
-		up = await run(o.settleMs ?? 180_000, quiet);
-	} else if (o.world === 'sandbox-3') await mountSandbox3();
-	else {
-		const w = await mountWorlds(o.asset);
-		log(`census: the worlds view shows ${w.label} (${w.id}, ${w.hash.slice(0, 12)}…)`);
-	}
+	await mount(o.world, { asset: o.asset, log });
+	// Sandbox 1 where it opens, all streamed in round the eye, the domes' insides built ahead too (each copy it ever put
+	// down stays held by its renderer, put away: `Copy`'s ghosts)
+	const up = o.world !== 'sandbox-1' || (await run(o.settleMs ?? 180_000, quiet));
 	if (CountingRenderer.made.length !== 1) throw new Error(`census: ${CountingRenderer.made.length} renderers were made, not one`);
 	log(`census: ${o.world} built in ${((performance.now() - t0) / 1000).toFixed(1)} s${up ? '' : ' (still building)'} (${fetched.live.size} routes live, ${fetched.pinned.size} pinned, ${fetched.files} files)`);
 	const out: ViewCensus[] = [];
@@ -289,9 +289,7 @@ export async function smokeOf(o: { world: World; views?: ViewName[]; asset?: str
 		const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
 		const t0 = performance.now();
 		try {
-			if (o.world === 'sandbox-1') await mountSandbox1(log);
-			else if (o.world === 'sandbox-3') await mountSandbox3();
-			else await mountWorlds(o.asset);
+			await mount(o.world, { asset: o.asset, log });
 		} catch (e) {
 			keep(e);
 		}

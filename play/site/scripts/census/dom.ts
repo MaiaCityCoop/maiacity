@@ -14,6 +14,8 @@ export const refusedContexts: string[] = [];
 /** the smoke's WebGL 2 (intent c1bee1f8, ../census.ts --smoke): a context that only answers, for WebGPURenderer's WebGL 2
  *  backend to run its own code on (no pixel drawn); null: refused, as every census */
 export const contexts: { webgl2: null | (() => any) } = { webgl2: null };
+/** a Mac job's dry run (../macjob) answers as a browser with no GPU does, null, where the census throws */
+export const refusal = { quiet: false };
 
 type Listener = EventListenerOrEventListenerObject;
 
@@ -94,6 +96,7 @@ export class El extends EventTarget {
 		if (kind === 'webgl2' && contexts.webgl2) return (this.#gl ??= contexts.webgl2());
 		if (/webgl|experimental-webgl|webgpu|bitmaprenderer/.test(kind)) {
 			refusedContexts.push(kind);
+			if (refusal.quiet) return null;
 			throw new Error(`census: a ${kind} context was asked for; the census draws nothing (no WebGL in the cloud)`);
 		}
 		return (this.#ctx ??= context2d(this));
