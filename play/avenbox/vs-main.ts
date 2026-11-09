@@ -1,9 +1,7 @@
 #!/usr/bin/env bun
 /*
  * MEASURED AGAINST MAIN, IN THE SAME RUN (intent f63774a3): a check's bound is main's own value, measured in the run
- * that checks it, never a number taken from one main commit. Main is the merge base of HEAD and origin/main (fetched,
- * deepened in a shallow clone), else origin/main's tip; `--main <commit>` names it. Main's measures are cached by main's
- * commit, so main is measured once per main commit:
+ * that checks it, never a number taken from one main commit.
  *
  *   bun play/avenbox/vs-main.ts census --world sandbox-1|sandbox-3|worlds [--view near,mid|all] [--of tris,draws] (--within N% | --down N%)
  *   bun play/avenbox/vs-main.ts bytes <files…> (--within N% | --down N%)
@@ -16,11 +14,6 @@
  *   --main <sha>   main is this commit                       --main-only measure main (or read its cache) and stop
  *   bun play/avenbox/vs-main.ts --main-of <spec.json>       main's measures of every vs-main call in an intent's spec
  *                                                           (intents-pr.yml's job "main's measures", main's code only)
- *
- * census: play/site/scripts/census.ts --json, main by its --at; per view, triangles and draws a frame. bytes and lines:
- * the files' sum, main's read with git show (a file missing counts 0). count: the command run by bash in main's tree
- * (play/site/scripts/census/tree.ts) and in the head, its last number. Cache: $VS_MAIN_CACHE (~/.cache/maiacity-vs-main)
- * /<main sha>/<sha256 of the measure and its arguments>.json. Exits 0 only when every value is in its bound.
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -30,7 +23,6 @@ import { join, resolve } from 'node:path';
 import { REPO, treeAt } from '../site/scripts/census/tree';
 
 export type Values = Record<string, number>;
-/** a tolerance for every value (`pct`), or per value by the start of its key (`by`: near, far tris …) */
 type Bound = { kind: 'within' | 'down'; pct: number; by?: Record<string, number> };
 export type Measure = { what: 'census' | 'bytes' | 'lines' | 'count'; args: string[] };
 
@@ -44,14 +36,12 @@ const tryGit = (repo: string, ...a: string[]) => {
 };
 const cacheDir = () => resolve(process.env.VS_MAIN_CACHE ?? join(process.env.HOME ?? '/tmp', '.cache/maiacity-vs-main'));
 
-/** `3%`, `3`, `0.5%` → 3 / 0.5; anything else refused */
 export function parsePct(s: string | undefined): number {
 	const m = /^(\d+(?:\.\d+)?)%?$/.exec(s ?? '');
 	if (!m) throw new Error(`a tolerance is a percentage, e.g. 3%, not ${s}`);
 	return Number(m[1]);
 }
 
-/** `3%`, or a tolerance per value, `near:7%,mid:5%,far:11%` (each a value key's start; the longest that fits wins) */
 export function parseBound(kind: Bound['kind'], s: string): Bound {
 	if (!s.includes(':')) return { kind, pct: parsePct(s) };
 	const by: Record<string, number> = {};
@@ -63,7 +53,6 @@ export function parseBound(kind: Bound['kind'], s: string): Bound {
 	return { kind, pct: NaN, by };
 }
 
-/** the tolerance of the value `key` */
 export function pctOf(b: Bound, key: string) {
 	if (!b.by) return b.pct;
 	const k = Object.keys(b.by).filter((p) => key.startsWith(p)).sort((x, y) => y.length - x.length)[0];
@@ -71,10 +60,8 @@ export function pctOf(b: Bound, key: string) {
 	return b.by[k];
 }
 
-/** the highest value the head may have: main's + N % (within), main's − N % (down) */
 export const limit = (main: number, b: Bound, key = '') => main * (1 + (b.kind === 'within' ? pctOf(b, key) : -pctOf(b, key)) / 100);
 
-/** each value's main, head, limit and whether it holds; a value main hasn't counts against 0 */
 export function compare(main: Values, head: Values, b: Bound) {
 	const keys = [...new Set([...Object.keys(main), ...Object.keys(head)])];
 	return keys.map((k) => {
@@ -83,7 +70,6 @@ export function compare(main: Values, head: Values, b: Bound) {
 	});
 }
 
-/** words as bash would split them: single and double quotes, backslashes */
 export function words(s: string): string[] {
 	const out: string[] = [];
 	let cur = '', q: string | null = null, any = false;
@@ -104,7 +90,6 @@ export function words(s: string): string[] {
 	return out;
 }
 
-/** every vs-main call in a check's run, as its argument words (up to the next && || ; | of the shell) */
 export function callsIn(run: string): string[][] {
 	const calls: string[][] = [];
 	const re = /vs-main\.ts\s+/g;
@@ -122,7 +107,6 @@ export function callsIn(run: string): string[][] {
 	return calls;
 }
 
-/** parsed arguments: the measure, its bound, and the options */
 export function parse(argv: string[]) {
 	const opt = (k: string) => {
 		const i = argv.indexOf(k);
@@ -145,7 +129,6 @@ export function parse(argv: string[]) {
 	return { measure: what ? ({ what, args } as Measure) : null, bound, main: opt('--main'), mainOnly: argv.includes('--main-only'), mainOf: opt('--main-of') };
 }
 
-/** main: the merge base of HEAD and origin/main, deepening a shallow clone until it has one; else origin/main's tip */
 export function mainOf(repo = REPO): string {
 	tryGit(repo, 'fetch', '--quiet', 'origin', '+refs/heads/main:refs/remotes/origin/main');
 	const head = git(repo, 'rev-parse', 'HEAD');
@@ -153,7 +136,7 @@ export function mainOf(repo = REPO): string {
 		const base = tryGit(repo, 'merge-base', 'HEAD', 'origin/main');
 		if (base) return base;
 		if (tryGit(repo, 'rev-parse', '--is-shallow-repository') !== 'true') break;
-		// main by its ref and the head by its hash, each on its own (a server may refuse one), deeper each time
+		// each fetched on its own: a server may refuse one
 		const depth = i < 5 ? `--deepen=${50 << i}` : '--deepen=1000000';
 		tryGit(repo, 'fetch', '--quiet', depth, 'origin', '+refs/heads/main:refs/remotes/origin/main');
 		tryGit(repo, 'fetch', '--quiet', depth, 'origin', head);
@@ -164,7 +147,6 @@ export function mainOf(repo = REPO): string {
 	return tip;
 }
 
-/** the cache's file for a measure of main at a commit */
 export const cacheFile = (sha: string, m: Measure) => join(cacheDir(), sha, `${createHash('sha256').update(JSON.stringify([m.what, ...m.args])).digest('hex').slice(0, 24)}.json`);
 
 const lastNumber = (s: string) => {
@@ -173,7 +155,6 @@ const lastNumber = (s: string) => {
 	return Number(all[all.length - 1]);
 };
 
-/** measures `m` at `sha` (main) or in the working tree (sha null) of `repo` */
 export function measure(m: Measure, sha: string | null, repo = REPO): Values {
 	if (m.what === 'bytes' || m.what === 'lines') {
 		let total = 0;
@@ -210,7 +191,6 @@ export function measure(m: Measure, sha: string | null, repo = REPO): Values {
 	return out;
 }
 
-/** main's values for a measure: from the cache, else measured and kept; says which */
 export function mainValues(m: Measure, sha: string, repo = REPO, log = (s: string) => console.log(s)): Values {
 	const file = cacheFile(sha, m);
 	if (existsSync(file)) {

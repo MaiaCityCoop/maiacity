@@ -16,8 +16,7 @@
  *
  * With PLAY_MCP_TOKEN (avenBOX's, sent to play only) it reads play: the asset, its files, the story. An intent's checks
  * run with no token at all (play/avenbox/intent.ts), so what they read is kept beside the code, written from play with
- * --fetch: a world version's files in src/lib/stories/fixtures/worlds/<version>/ (its manifest, and each file under its
- * hash, held to it as it is read), a story's timeline as an intent makes it in src/lib/stories/fixtures/stories/.
+ * --fetch (src/lib/stories/fixtures/).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -45,13 +44,11 @@ const fail = (why: string): never => {
 };
 const fetching = args.includes('--fetch');
 if (fetching && !token) fail('--fetch reads play with PLAY_MCP_TOKEN (avenBOX\'s token)');
-/** where what play gave is kept: read from play while fetching, else from here */
 const KEPT = resolve(import.meta.dir, '../src/lib/stories/fixtures');
 const online = fetching;
 const auth = { Authorization: `Bearer ${token}` };
 let keptAt = '';
 
-/** a file of play's as text, held to its hash */
 const files = new Map<string, string>();
 async function file(hash: string) {
 	if (files.has(hash)) return files.get(hash)!;
@@ -84,8 +81,6 @@ const workerOf = (v: number) => {
 	}
 };
 
-/** a world version as the Stories player hands it to the frame (StoryPlayer.svelte worldAssets): its recipe, pieces,
- *  engine, and the guests its build plants, each with its pieces */
 async function worldSpec(asset: string, version: string, fps: number, duration: number) {
 	keptAt = join(KEPT, 'worlds', version);
 	let v: any;
@@ -123,7 +118,6 @@ async function worldSpec(asset: string, version: string, fps: number, duration: 
 	return { engine: { v: engine, hash: enginesOf('box').find((x: { v: number }) => x.v === engine)!.blake3 }, recipe: v.recipe, pieces, guests, fps, frames: framesOf(duration, fps) };
 }
 
-/** a world shot's places at story time t, as the runtime draws them */
 const placesAt = (got: { places: Float32Array[] }, t: number, fps: number, frames: number) => got.places[Math.min(frameOf(t, fps, frames), got.places.length - 1)];
 
 async function checkWorld() {
@@ -181,7 +175,6 @@ async function tool(name: string, a: Record<string, unknown>) {
 
 async function checkStory() {
 	const story = opt('--story')!, intent = opt('--intent'), want = Number(opt('--world-shots') ?? 1);
-	// as the intent's variant makes it (open or proposed: doc_at reads both), else its head; kept beside the code
 	const at = join(KEPT, 'stories', `${story}${intent ? `.${intent}` : ''}.json`);
 	let s: any;
 	if (online) {

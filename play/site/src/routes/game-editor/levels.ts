@@ -1,7 +1,5 @@
-// The levelling worked out (the Game editor, Samuel 2026-11-04): from a levels/1 config (its schema a document, play/api/migrations/schemas/levels.json its v1)
-// every level's new villagers and what they bring, the minds a mind costs and each villager gets, the investor's ticket
-// and its minds and share, the minds minted, what the level costs, and the treasury after it: euros raised and left after
-// building, hearts held, minds minted in all and how much of them investors own. Pure: the page and its test read it.
+// The levelling, level by level, worked out from a levels/1 config (the Game editor, Samuel 2026-11-04; its schema a
+// document, play/api/migrations/schemas/levels.json its v1).
 //
 // The rules, as Samuel set them: every new villager brings `villager.euros` and `villager.hearts`; at each level an
 // investor adds `investor` times the euros the level's new villagers brought, at most `investor.maxPerVillager` euros a
@@ -35,18 +33,14 @@ export type Levelling = {
 	levels: Level[];
 };
 
-/** the villagers' least share of the minds when the config names none */
 export const VILLAGERS_MIN = 0.51;
 
 export const isCoop = (u: Unlock) => u.owner === 'coop';
 
 export type Row = {
 	level: Level;
-	/** 1, 2, 3 … */
 	n: number;
-	/** villagers who joined at this level */
 	joined: number;
-	/** what one mind costs at this level */
 	price: { hearts: number; euros: number };
 	/** each new villager: what they bring and the minds it buys; and all of this level's new villagers together */
 	villager: { euros: number; hearts: number; minds: number };
@@ -55,45 +49,33 @@ export type Row = {
 	labour: { value: number; minds: number };
 	investor: {
 		euros: number;
-		/** the multiple of the villagers' euros it brought: the level's, or less where the cap held it */
 		multiple: number;
 		capped: boolean;
 		minds: number;
-		/** its share of the minds minted at this level */
 		share: number;
 		/** what it paid for a mind, in euros, and that as a multiple of a villager's price (Infinity: no mind left) */
 		paid: number;
 		premium: number;
 	};
 	minted: number;
-	/** what the level's unlocks cost the village; and what coops put into their own, beside it */
 	cost: number;
 	coops: number;
-	/** the village's cost at contractors' prices (an unlock without one at its cost) */
 	contractor: number;
 	/** beds so far, and whether they house this level's villagers and the next level's */
 	beds: number;
 	housed: boolean;
 	ready: boolean;
 	treasury: {
-		/** euros raised so far, villagers' and investors' */
 		raised: number;
-		/** of which villagers brought, and investors */
 		euros: { villagers: number; investors: number };
-		/** euros spent on the village's own unlocks so far */
 		spent: number;
-		/** raised less spent */
 		left: number;
-		/** what coops put into their own so far, never from the treasury */
 		coops: number;
-		/** spent so far had contractors built it, and raised less that */
 		contractor: { spent: number; left: number };
 		hearts: number;
 		minds: number;
-		/** the share of all minds minted so far that investors hold, and that villagers hold */
 		investors: number;
 		villagers: number;
-		/** all minds at this level's price, in euros */
 		value: number;
 	};
 };
@@ -182,8 +164,6 @@ export function short(n: number): string {
 }
 const trim = (n: number) => (n >= 100 ? Math.round(n).toString() : n >= 10 ? (Math.round(n * 10) / 10).toString() : (Math.round(n * 100) / 100).toString());
 
-/** 1,234,567 */
 export const whole = (n: number) => Math.round(n).toLocaleString('en-US');
 
-/** 50 %, 7.5 % */
 export const pct = (x: number) => `${x >= 0.1 ? Math.round(x * 100) : Math.round(x * 1000) / 10} %`;

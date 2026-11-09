@@ -18,7 +18,6 @@ import type { GitHub } from "../src/github";
 
 export const DB_URL = process.env.TEST_DATABASE_URL ?? "";
 
-/** describe(), red when there is no database to run it on */
 export function suite(name: string, fn: () => void) {
   if (DB_URL) return describe(name, fn);
   describe(name, () => test("needs TEST_DATABASE_URL (a Postgres to make its database in)", () => {
@@ -28,7 +27,6 @@ export function suite(name: string, fn: () => void) {
 
 export type Fresh = { db: Db; sql: Bun.SQL; url: string; name: string; drop: () => Promise<void> };
 
-/** what a migrated and seeded database is made from: play/api's migrations and source, as one hash */
 function codeHash(): string {
   const h = createHash("sha256");
   const walk = (dir: string) => {
@@ -75,11 +73,6 @@ export function templateDb(admin: Bun.SQL): Promise<string> {
   })());
 }
 
-/**
- * A database of its own on TEST_DATABASE_URL's server, migrated and seeded as play-api starts (a copy of the code's
- * template; `migrate: false` leaves it empty, `until` stops at that migration, as an older play's database), sessions
- * signed; `drop()` closes and drops it.
- */
 export async function freshDb(o: { prefix?: string; migrate?: boolean; until?: string } = {}): Promise<Fresh> {
   const name = `${o.prefix ?? "play_test"}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
   const admin = new Bun.SQL(DB_URL);
@@ -99,19 +92,15 @@ export async function freshDb(o: { prefix?: string; migrate?: boolean; until?: s
   return { db, sql, url: u.toString(), name, drop };
 }
 
-/** a folder of its own for play's files */
 export const tempStore = (): BlobStore => folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
 
-/** the app on `db`, with no rate limit, its files in a folder of its own */
 export const appOn = (db: Db, o: { store?: BlobStore; github?: GitHub | null; commit?: string | null; rate?: Rate } = {}) =>
   app({ db, store: o.store ?? tempStore(), rate: o.rate ?? new Rate(0), github: o.github ?? null, ...(o.commit !== undefined ? { commit: o.commit } : {}) });
 
 export type Api = ReturnType<typeof app>;
 
-/** the session cookie play sets for a human */
 export const cookieFor = (humanId: string) => `${COOKIE}=${tokenFor(humanId)}`;
 
-/** a human (an admin unless `level` says otherwise) and their session cookie */
 export async function human(db: Db, name: string, level: "admin" | "citizen" | "traveler" | null = "admin") {
   const h = await createHuman(db, name);
   if (level && level !== "traveler") await db.query(`UPDATE play.memberships SET level = $2 WHERE human_id = $1`, [h.id, level]);
@@ -120,7 +109,6 @@ export async function human(db: Db, name: string, level: "admin" | "citizen" | "
 
 export type Answer = { status: number; data: any; headers: Headers; text: string };
 
-/** One request to the app: `data` is the body's JSON, else its text, else null (an empty body). */
 export async function request(api: Api, who: { cookie?: string | null; bearer?: string | null }, method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<Answer> {
   const h: Record<string, string> = { ...headers };
   if (who.cookie) h.cookie = who.cookie;
@@ -132,7 +120,6 @@ export async function request(api: Api, who: { cookie?: string | null; bearer?: 
   try {
     data = text === "" ? null : JSON.parse(text);
   } catch {
-    // not JSON: kept as its text
   }
   return { status: r.status, data, headers: r.headers, text };
 }
@@ -149,7 +136,6 @@ export async function agentToken(api: Api, cookie: string, o: { name?: string; a
 }
 
 let rpcId = 0;
-/** one JSON-RPC request to play's MCP server with `bearer`: the whole answer, its status and its JSON (null if none) */
 export async function rpc(api: Api, bearer: string | null, method: string, params?: unknown) {
   const r = await api.fetch(
     new Request("http://play.test/api/mcp", {
@@ -163,15 +149,10 @@ export async function rpc(api: Api, bearer: string | null, method: string, param
   try {
     json = text ? JSON.parse(text) : null;
   } catch {
-    // not JSON: none
   }
   return { status: r.status, json, response: r };
 }
 
-/**
- * One MCP tool called with `bearer`: what it answered (its text read as JSON), or `{ error }`: the tool's error text,
- * the JSON-RPC error's message, or the HTTP status where the request itself was refused.
- */
 export async function tool(api: Api, bearer: string | null, name: string, args: Record<string, unknown>): Promise<any> {
   const { status, json } = await rpc(api, bearer, "tools/call", { name, arguments: args });
   if (status !== 200) return { error: `${status}` };
@@ -188,7 +169,6 @@ export function quiet() {
   return () => Object.assign(console, keep);
 }
 
-/** Waits until `ok()` gives something other than null or false, asking every `everyMs`; throws after `withinMs`. */
 export async function until<T>(what: string, ok: () => T | null | false | Promise<T | null | false>, o: { withinMs?: number; everyMs?: number } = {}): Promise<T> {
   const end = Date.now() + (o.withinMs ?? 10_000);
   for (;;) {
@@ -199,6 +179,5 @@ export async function until<T>(what: string, ok: () => T | null | false | Promis
   }
 }
 
-/** `p`'s value, or `late` once `ms` have passed first */
 export const within = <T, L>(p: Promise<T>, ms: number, late: L): Promise<T | L> =>
   Promise.race([p, new Promise<L>((done) => setTimeout(() => done(late), ms))]);

@@ -3,18 +3,6 @@
 //
 //   bun play/avenbox/select.ts            # the plan, one line each: `step <name>`, `test <file>`, `why <reason>`
 //   GATE_CHANGED="a b" bun …/select.ts    # for these paths (from the repository's root), not git's
-//
-// The changed paths are git's: everything since the merge base with origin/main, plus the working tree (staged,
-// unstaged, untracked). No merge base (a shallow checkout, as on GitHub, or no origin/main): everything.
-//
-// play/api's tests a change picks:
-//   - a test that imports a changed file, directly or through other files (relative imports, `import()`, `require`);
-//   - a test whose own file names a changed file by its whole file name (a workflow, a script, a compose file it
-//     reads);
-//   - all of them when play/api's package.json, bun.lock, a tsconfig, a migration or test/fixtures changed, or a
-//     changed file no test can be placed against (except the Markdown files, which only a test naming them reads,
-//     play/site's and the website's own files, which play/api's tests never import, and deploy/publish-site.py and its
-//     test, which the step deploy-tests runs).
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
@@ -25,18 +13,15 @@ type Plan = {
 };
 
 const STEPS = ["api-types", "api-tests", "site-build", "website-check", "website-build", "deploy-tests", "lint"] as const;
-/** the deploy's own tests (python3 -m unittest), and what they test */
 const DEPLOY_TESTED = ["deploy/publish-site.py", "deploy/test_publish_site.py"];
 const CODE = /\.(ts|js|mjs|cjs|tsx|jsx|json)$/;
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
 
-/** every play/api test file, relative to play/api */
 function allTests(root: string): string[] {
   const dir = join(root, "play/api/test");
   return readdirSync(dir).filter((f) => f.endsWith(".test.ts")).map((f) => `test/${f}`).sort();
 }
 
-/** the file a relative specifier names from `from`, as Bun resolves it, or null */
 function resolveSpec(from: string, spec: string): string | null {
   if (!spec.startsWith(".")) return null;
   const base = resolve(dirname(from), spec);
@@ -48,7 +33,6 @@ function resolveSpec(from: string, spec: string): string | null {
   return existsSync(ts) ? ts : null;
 }
 
-/** the files `file` reaches through its imports, itself included (absolute paths) */
 function closure(file: string, seen = new Map<string, string>()): Map<string, string> {
   if (seen.has(file)) return seen;
   const text = readFileSync(file, "utf8");
@@ -62,12 +46,10 @@ function closure(file: string, seen = new Map<string, string>()): Map<string, st
 }
 
 const isMd = (p: string) => p.endsWith(".md");
-/** a change everything in play/api depends on */
 const everything = (p: string) =>
   /^play\/api\/(package\.json|bun\.lock|tsconfig[^/]*\.json)$/.test(p) || p.startsWith("play/api/migrations/") ||
   p.startsWith("play/api/test/fixtures/") || /^play\/api\/src\/migrations?[./]/.test(p);
 
-/** The plan for `changed` (paths from the repository's root), or for everything with `changed` null. */
 export function plan(root: string, changed: string[] | null): Plan {
   if (changed === null) return { steps: [...STEPS], tests: "all", why: ["everything: --all, one part named, or no merge base to diff against"] };
   const why: string[] = [];
@@ -92,7 +74,6 @@ export function plan(root: string, changed: string[] | null): Plan {
     }
     const abs = join(root, f);
     const name = f.split("/").pop()!;
-    // imported, or named by the test file itself (where a test reads a workflow, a script or a compose file)
     // a whole file name with its extension, as a token: never a bare word
     const named = name.includes(".") ? new RegExp(`(^|[^\\w.-])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^\\w-])`) : null;
     const hits = tests.filter((t) => reach.get(t)!.has(abs) || (named?.test(reach.get(t)!.get(join(root, "play/api", t))!) ?? false));
@@ -109,7 +90,6 @@ export function plan(root: string, changed: string[] | null): Plan {
   return { steps: STEPS.filter((s) => steps.has(s)), tests: all ? "all" : [...picked].sort(), why };
 }
 
-/** The changed paths, from GATE_CHANGED or git; null when there is no merge base (then everything runs). */
 export function changedPaths(root: string): string[] | null {
   const given = process.env.GATE_CHANGED;
   if (given !== undefined) return given.split(/\s+/).filter(Boolean);

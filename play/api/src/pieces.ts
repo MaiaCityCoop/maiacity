@@ -1,13 +1,5 @@
-// Pieces (play/SPEC.md §4.5; intent 5a15e468, Samuel 2026-11-07): a recipe names a shared piece by its hash. A piece is
-// readable source, a document `piece:<uuid>` of its own schema (./kit/ids.ts SCHEMA.piece), changed by an intent variant
-// like any document; each accepted version's source is kept among play's files by its BLAKE3 hash and listed in
-// play.piece_versions with the pieces it requires and how deep it goes. A recipe (an asset's source) requires one by
-// that hash, `require('<64 hex>')`, and its manifest's `pieces` names it and every piece beneath it, so a frozen
-// version always builds the pieces it was accepted with: a newer piece version is a new version of the asset.
-//
-// A piece is a CommonJS module as written (no minified lines: ./assetdocs.ts `unreadable`), requiring only three.js,
-// three's addons and other pieces by hash, at most MOST_DEEP deep counted from the recipe (its own piece the first),
-// with no cycle. The box resolves them from play's files (play/site's content/assets/box/pieces.js).
+// Pieces (play/SPEC.md §4.5; intent 5a15e468, Samuel 2026-11-07): a recipe names a shared piece by its hash. The box
+// resolves them from play's files (play/site's content/assets/box/pieces.js).
 import { keepFile } from "./owners";
 import type { BlobStore } from "./blobs";
 import { keyOf } from "./blobs";
@@ -22,11 +14,8 @@ export const MOST_DEEP = 4;
 /** what a piece may require besides pieces: three.js and its addons, as the frozen engines hold them */
 const THREE = /^three(\/addons\/[A-Za-z0-9_./-]+\.js)?$/;
 
-/** everything a code requires, by name, in order */
 export const requiresOf = (code: string): string[] => [...new Set([...code.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]))];
-/** the pieces a code requires itself, by hash */
 export const piecesOf = (code: string): string[] => requiresOf(code).filter((n) => HASH.test(n));
-/** the modules of the engine a code requires (all but its pieces) */
 export const libsOf = (code: string): string[] => requiresOf(code).filter((n) => !HASH.test(n));
 
 export class PieceError extends HttpError {}
@@ -46,10 +35,8 @@ export function pieceProblems(source: string, unreadable: (s: string) => string 
 
 /** what the resolver knows of one piece version: what it requires, and how deep it goes where that is kept (an accepted one's) */
 export type Known = { requires: string[]; depth?: number };
-/** looks up piece versions by their hashes: those it knows, by hash */
 type Lookup = (hashes: string[]) => Promise<Map<string, Known>>;
 
-/** the accepted piece versions among `hashes` (play.piece_versions) */
 const acceptedPieces = (q: Queryable): Lookup => async (hashes) => {
   const { rows } = await q.query<{ hash: string; requires: string[]; depth: number }>(
     `SELECT DISTINCT ON (hash) hash, requires, depth FROM play.piece_versions WHERE hash = ANY($1::text[]) ORDER BY hash, created`,
@@ -59,8 +46,7 @@ const acceptedPieces = (q: Queryable): Lookup => async (hashes) => {
 };
 
 /**
- * The piece versions proposed in intent `intent` (intent 02e3a85f), by the hash of each one's source as it stands: every
- * proposed intent variant of a piece document it holds, in order (several versions of one piece among them).
+ * The piece versions proposed in intent `intent` (intent 02e3a85f), by the hash of each one's source as it stands.
  */
 export async function intentPieces(q: Queryable, intent: string): Promise<{ doc_id: string; variant: number; position: number; hash: string; source: string; requires: string[] }[]> {
   const { rows } = await q.query<{ doc_id: string; variant_id: string; position: number }>(
@@ -76,11 +62,6 @@ export async function intentPieces(q: Queryable, intent: string): Promise<{ doc_
   return out;
 }
 
-/**
- * The pieces `hashes` and every piece beneath them, found by `lookup`: in order, with the deepest chain (1 for a piece
- * that requires none). Throws a PieceError naming one `lookup` doesn't know (`unknown` says what it is not), pieces
- * that require each other in a circle, or a chain deeper than `most`.
- */
 export async function resolvePieces(lookup: Lookup, hashes: string[], most = MOST_DEEP, unknown = "no accepted version of a piece"): Promise<{ all: string[]; depth: number }> {
   if (!hashes.length) return { all: [], depth: 0 };
   const all: string[] = [];
@@ -112,10 +93,8 @@ export async function resolvePieces(lookup: Lookup, hashes: string[], most = MOS
 }
 
 /**
- * The one resolver of a source's pieces, at propose, at preview and at Accept (play/SPEC.md §4.5; intent 02e3a85f): the
- * pieces `hashes` and every piece beneath them, each an accepted piece version play holds or, with `intent`, a piece
- * version proposed in that same intent; in order, with the deepest chain. Throws a PieceError naming one that is
- * neither, pieces in a circle, or a chain deeper than `most` (the intent's own pieces counted).
+ * The one resolver of a source's pieces, at propose, at preview and at Accept (play/SPEC.md §4.5; intent 02e3a85f): an
+ * intent's own pieces count as held within that intent.
  */
 export async function piecesHeld(q: Queryable, hashes: string[], most = MOST_DEEP, intent?: string | null): Promise<{ all: string[]; depth: number }> {
   if (!hashes.length) return { all: [], depth: 0 };
@@ -136,10 +115,6 @@ export async function piecesHeld(q: Queryable, hashes: string[], most = MOST_DEE
   return resolvePieces(lookup, hashes, most, "no accepted version of a piece, nor one proposed in this intent");
 }
 
-/**
- * A piece's accepted version kept (the kind's `accepted` hook, in the Accept's transaction): its source among play's
- * files by its hash, and its row in play.piece_versions with what it requires and how deep it goes.
- */
 export async function keepPiece(tx: Queryable, store: BlobStore, docId: string, number: number, json: any, intent?: string | null): Promise<string> {
   const source = `${json?.source ?? ""}`;
   const own = piecesOf(source);
@@ -157,7 +132,6 @@ export async function keepPiece(tx: Queryable, store: BlobStore, docId: string, 
   return hash;
 }
 
-/** the pieces a version names, as its card and viewer show them: each its hash, its piece, its label and version */
 export async function piecesShown(q: Queryable, hashes: string[]): Promise<{ hash: string; piece: string; label: string; version: number }[]> {
   if (!hashes.length) return [];
   const { rows } = await q.query<{ hash: string; piece: string; label: string; version: number }>(

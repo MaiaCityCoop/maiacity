@@ -14,9 +14,6 @@
  *        [--pending <file>] hashes proposed with it and not accepted yet (a JSON list, or an object whose values have
  *                  a `hash`): named builds among them pass the check (they draw once an admin accepts them)
  *        [--url https://play.maia.city]
- *
- * The token is an admin's (made on play's profile page) and is read from the environment only. Nothing is accepted
- * here: the proposal comes to play's Proposals page, where an admin sees it built in the asset box and decides.
  */
 import { readFileSync } from 'node:fs';
 import { HEX } from '../src/lib/kernel/hash.js';

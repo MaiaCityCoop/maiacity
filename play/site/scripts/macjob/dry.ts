@@ -9,14 +9,6 @@
  * <job dir>       the job's folder, from the repository's root (intent-work/<intent>-render), holding its run.sh
  * --at <commit>   the job as it is at that commit (a worktree under the census's cache), else as in this checkout
  * --timeout <s>   the whole run's bound (default 480 s): past it the run is a hang, told with the step it hung at
- *
- * The job's run.sh runs as written, from the root of its checkout, with stubs first on its PATH (./dry/bin): `node`
- * runs a script in Bun with the CPU page for playwright (./dry/playwright.ts: the census's world, ../census), `bunx vite
- * dev` notes the tree its port serves and idles, `bun install` links this checkout's node_modules, `curl` to a local
- * server answers at once, `ffmpeg` checks its inputs and writes an empty output. Git is git.
- *
- * Prints DRY RUN PASSED (exit 0), or DRY RUN FAILED with the kind (throw, hang, exit n) and its first throw's stack, or
- * the step it hung at.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -38,7 +30,6 @@ const REPO = resolve(SITE, '../..');
 const CACHE = resolve(process.env.CENSUS_CACHE ?? join(process.env.HOME ?? '/tmp', '.cache/maiacity-census'));
 const git = (cwd: string, ...a: string[]) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
-/** the checkout the job runs from: this one, or the commit's, once, under the cache */
 function checkout() {
 	if (!at) return REPO;
 	let sha = '';
@@ -63,15 +54,13 @@ const runSh = join(root, job, 'run.sh');
 if (!existsSync(runSh)) throw new Error(`dry: no run.sh in ${job}${at ? ` at ${at}` : ''}`);
 const state = mkdtempSync(join(tmpdir(), 'dry-'));
 const realPath = (process.env.PATH ?? '').split(':').filter((p) => resolve(p) !== join(HOME, 'bin')).join(':');
-// the job's run.sh asks for play's token for its proxy, which no browser reaches here: a stand-in where there is none;
-// the census reads play with the real one only (DRY_PLAY_TOKEN, ./dry/playwright.ts)
+// the job's run.sh asks for play's token for its proxy, which no browser reaches here: a stand-in where there is none
 const token = process.env.PLAY_MCP_TOKEN ?? '';
 const env = { ...process.env, PLAY_MCP_TOKEN: token || 'play_dry_run_stand_in', DRY_PLAY_TOKEN: token, PATH: `${join(HOME, 'bin')}:${realPath}`, DRY_REAL_PATH: realPath, DRY_BUN: process.execPath, DRY_HOME: HOME, DRY_SITE: SITE, DRY_STATE: state, CENSUS_CACHE: CACHE, BASH_ENV: join(HOME, 'trace.sh') };
 const trace = join(state, 'trace');
 
 console.error(`dry: ${job}${at ? ` at ${at}` : ''}: bash ${runSh} on the CPU (stubs: ${join(HOME, 'bin')}), at most ${TIMEOUT} s`);
 const t0 = performance.now();
-// its own process group (setsid), so the dev servers' stand-ins and whatever else it leaves are ended with it
 const p = Bun.spawn(['setsid', 'bash', runSh], { cwd: root, env, stdout: 'pipe', stderr: 'pipe' });
 let out = '';
 const pipe = async (s: ReadableStream<Uint8Array>, to: NodeJS.WriteStream) => {
@@ -99,12 +88,10 @@ await Promise.race([piping, new Promise((r) => setTimeout(r, 1000))]);
 kill(); // what it left running: the dev servers' stand-ins
 const took = ((performance.now() - t0) / 1000).toFixed(1);
 
-/** the step run.sh was at: the last line its trace holds */
 const lastStep = () => {
 	const lines = existsSync(trace) ? readFileSync(trace, 'utf8').trim().split('\n') : [];
 	return lines.slice(-3).join('\n    ');
 };
-/** a block the CPU page told: from its first line to the job's line that called it */
 const block = (tag: string) => {
 	const i = out.indexOf(tag);
 	if (i < 0) return null;
