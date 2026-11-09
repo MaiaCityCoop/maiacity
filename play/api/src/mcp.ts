@@ -5,7 +5,7 @@
 // (one edit of an intent variant) and propose_doc_version. Each kind's own reads and creates stay where they hold more
 // than the document: get_asset (its recipe files), get_story (its links), propose_asset and propose_story (a new one),
 // and get_sandbox (a layout's pins by their assets). To propose is to put an intent at Proposal with that work (one record, the intent:
-// ./work.ts, Samuel 2026-11-06), in the admin's name with `via` 'mcp'. Accepting stays a person's, on the intents'
+// ./held.ts and ./intents.ts, Samuel 2026-11-06), in the admin's name with `via` 'mcp'. Accepting stays a person's, on the intents'
 // board (Samuel 2026-11-02): no tool here accepts. An agent may archive only its own intents at Proposal put there over
 // MCP (archive_intent, Samuel 2026-11-04), one it no longer stands by. Everything on the board is an intent
 // (./intents.ts): it adds intents (the only way in), specifies them (a goal, a scope, checks), records their checks'

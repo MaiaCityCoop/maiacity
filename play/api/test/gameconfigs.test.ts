@@ -1,4 +1,4 @@
-// The Game editor's configs on Loro (src/gameconfigs.ts) against a real Postgres: set TEST_DATABASE_URL, as for
+// The Game editor's configs on Loro (src/allkinds.ts' game_config, import/gameconfigs.ts) against a real Postgres: set TEST_DATABASE_URL, as for
 // ./api.test.ts. The levelling seeded as its v1, read by admins only, drafted step by step over MCP, each step checked
 // whole, proposed, reviewed field by field, accepted as v2, v1 still readable.
 import { afterAll, beforeAll, expect, test } from "bun:test";

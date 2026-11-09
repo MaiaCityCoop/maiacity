@@ -177,7 +177,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await configOf(db, p.id));
   });
 
-  // ---- intents (./intents.ts, ./work.ts): the one record on the board, Idea → Specify → Build → Proposal → (Ship →)
+  // ---- intents (./intents.ts, its work ./held.ts): the one record on the board, Idea → Specify → Build → Proposal → (Ship →)
   // Accepted or Archived; added, specified and built by agents over MCP, its work (an asset's version here; the rest
   // over MCP) proposed by putting it at Proposal, decided by its admins here: a spec approved (Specify → Build) or
   // sent back, its work at Proposal accepted (applied) or archived, its code accepted and shipped (./ship.ts: its pull
@@ -328,6 +328,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     if (q.get("edit") != null) return json(await storyAt(db, m, p.id, { edit: Number(q.get("edit")) }));
     return json(await storyOf(db, m, p.id, q.get("v") == null ? undefined : Number(q.get("v"))));
   });
+
   async function fetch(req: Request, server?: Parameters<typeof clientOf>[1]): Promise<Response> {
     if (costly(req) && !rate.allows(clientOf(req, server)))
       return json({ error: "Too many requests: try again in a minute." }, { status: 429, headers: { "Retry-After": "60" } });

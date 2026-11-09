@@ -1,4 +1,4 @@
-// The Factories on Loro (src/factories.ts, play/SPEC.md §4.7) against a real Postgres: set TEST_DATABASE_URL, as for
+// The Factories on Loro (src/allkinds.ts' factory, import/factories.ts; play/SPEC.md §4.8) against a real Postgres: set TEST_DATABASE_URL, as for
 // ./api.test.ts. The LifeTrac line seeded as its v1, read by admins only, drafted step by step over MCP, proposed,
 // reviewed field by field, accepted as v2; a proposal on an old version merged where it touches other fields and
 // archived where it touches the same.

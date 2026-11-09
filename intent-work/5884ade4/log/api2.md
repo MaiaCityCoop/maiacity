@@ -140,3 +140,14 @@ left for Samuel.
   building, ship.test's codeAtProposal and decisionAtProposal, api.test's `ready` (SQL), allwork/withdraw's look spec;
   migrate.test's admins (made between migrations); the held assetdocs.test.
 - Same 356 tests, all green.
+
+## 13. Comments that named moved or gone code (re-api#15)
+
+- decide.ts (autoMove named "./versioned.ts decideAny": it is above it), mcp.ts and app.ts ("./work.ts" as the
+  intent's work: ./held.ts and ./intents.ts), recipes.ts (named maia/content/assets/engines.js; the re-audit's
+  play/site/src/lib/kernel/engines.js holds no RECIPE_HEAD: it is play/site/src/lib/content/assets/box/engines.js),
+  kinds.ts' Ctx ("who, how": it is the database and the store), factories.test and gameconfigs.test (src/factories.ts,
+  src/gameconfigs.ts, gone), rules.test ("./intents.ts" from test/); app.ts' fetch set apart by a blank line (the
+  stray indent the re-audit saw was not there any more). import/factories, gameconfigs, skills: done in move 10.
+- Left: build.test's `inPrototype` is right as it is: it puts intents at 'prototype' on a database migrated below
+  0033-build, to test that migration.

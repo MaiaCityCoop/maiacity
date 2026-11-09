@@ -57,8 +57,8 @@ type AutoMoved = { gate: "approve" | "accept"; rule: string; refused?: string };
 
 /**
  * Intent `id` decided by a rule where one matches: at Specify its spec approved (Approve spec), at Proposal accepted
- * (its work accepted and applied, its code into Ship, else Accepted), exactly by a person's path (./versioned.ts
- * decideAny) with the rule as who decided. Only where the gate (mayMove) allows the move (its stage, its reduce step,
+ * (its work accepted and applied, its code into Ship, else Accepted), exactly by a person's path (decideAny,
+ * above) with the rule as who decided. Only where the gate (mayMove) allows the move (its stage, its reduce step,
  * its must checks, held by its dependencies) and matchRule gives a rule; a refusal on that path (a pull request not
  * ready) leaves it where it is, saying why. Accepted, the intents it held are asked again. `me` is the admin whose
  * request it is (else the intent's author, an admin); `gh` Ship's GitHub for code. Null where no rule decides.

@@ -1,7 +1,7 @@
-// Recipes and refs (maia/content/assets/engines.js, refs.js): a recipe file names its asset, version and variant in its
-// last line; a ref names an asset at a version, `group/id@v[:variant][?params]`.
+// Recipes (play/site/src/lib/content/assets/box/engines.js): a recipe file names its asset, version and variant in
+// its last line. And readable refs, `group/id@v[:variant][?params]`, which play refuses (below).
 
-/** the start every recipe file has (maia/content/assets/engines.js RECIPE_HEAD) */
+/** the start every recipe file has (play/site/src/lib/content/assets/box/engines.js RECIPE_HEAD) */
 export const RECIPE_HEAD = 'defineRecipe(function (require) {\n"use strict";\nvar module = { exports: {} }, exports = module.exports;\n';
 /** …and the line that ends it, naming its asset, version and variant (engines.js recipeTail) */
 const TAIL = /\nreturn module\.exports\.recipe\(("(?:[^"\\]|\\.)*"), ([1-9][0-9]{0,5}), (null|"(?:[^"\\]|\\.)*")\);\n\}\);\n$/;

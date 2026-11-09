@@ -29,7 +29,7 @@ import type { Db, Queryable } from "./kit/pg";
 import { UUID } from "./kit/uuid";
 import { HttpError } from "./kit/errors";
 
-/** how a hook is called: the database, the file store, who, how */
+/** how a hook is called: the database and the file store */
 export type Ctx = { db: Db; store: BlobStore };
 export type Input = { edits?: unknown; whole?: unknown };
 
