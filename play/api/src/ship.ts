@@ -21,7 +21,7 @@ import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mai
 import { decidable, prBlock, short, sub, type PrSeen } from "./substate";
 import type { BlobStore } from "./blobs";
 import { decideWork } from "./versioned";
-import { closeWork, workOf } from "./work";
+import { closeWork, workOf } from "./held";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
 

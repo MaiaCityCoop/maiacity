@@ -18,7 +18,7 @@ import { layoutAt, proposedState, SandboxError } from "./sandboxes";
 import { decideAny, docAt, docChanges, docHistory, listDocs, reviewHeld, reviewOf } from "./versioned";
 import { runningCommit, shipWork } from "./ship";
 import type { GitHub } from "./github";
-import { NO_INTENT } from "./work";
+import { NO_INTENT } from "./held";
 import { withdrawDoc } from "./withdraw";
 import { retireDoc } from "./retire";
 import { delivery } from "./delivery";

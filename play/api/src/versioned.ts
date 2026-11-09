@@ -29,8 +29,8 @@ import type { Db, Queryable } from "./kit/pg";
 import { UUID } from "./kit/uuid";
 import { HttpError } from "./kit/errors";
 import { NOTE_MOST } from "./notes";
-import { closeWork, NO_INTENT, putAtProposal, settle, stageAfter, WORK_OF, workOf } from "./work";
-import { autoAfter, byOf, decideIntent, getIntent, gate, mustDecide, type IntentVerdict } from "./intents";
+import { asOne, closeWork, heldOf, NO_INTENT, stageAfter, workOf } from "./held";
+import { archiveAsAuthor, autoAfter, byOf, decideIntent, getIntent, gate, mustDecide, putAtProposal, settle, type IntentVerdict } from "./intents";
 import type { AutoBy } from "./access";
 import { acceptAndShip, acceptCode, runningCommit } from "./ship";
 import type { GitHub } from "./github";
@@ -444,18 +444,6 @@ export async function seedDoc(db: Db, kindName: string, o: { id: string; json: a
 
 // ---- reviewing and deciding
 
-/** the documents an intent's work holds, each its document, its variant and what its version names (its refs), the first its work's own */
-const heldOf = (p: any): ({ doc_id: string; doc_variant: number | null } & Record<string, any>)[] =>
-  p.variants?.length ? p.variants : p.doc_id ? [{ doc_id: p.doc_id, doc_variant: p.doc_variant == null ? null : Number(p.doc_variant) }] : [];
-
-/** the work `p` as one of its documents (`h`) is decided or reviewed by its own kind: its kind of work, its document and variant, its version's refs */
-const asOne = (p: any, h: { doc_id: string; doc_variant: number | null } & Record<string, any>, k: Kind) => {
-  const out: any = { ...p, kind: k.work, doc_id: h.doc_id, doc_variant: h.doc_variant };
-  const isFirst = h.doc_id === (p.variants?.[0]?.doc_id ?? p.doc_id);
-  for (const r of ["asset_id", "base", "version", "story_id", "story_base", "story_version"]) out[r] = h[r] ?? (isFirst ? p[r] : null) ?? null;
-  return out;
-};
-
 /** what a held retire says on the board (./retire.ts): its reason, the document leaving every list once accepted */
 const retiresOf = (h: Record<string, any>) => (h.retire ? { retires: `${h.retire}` } : {});
 
@@ -720,33 +708,6 @@ export async function reviewOf(db: Queryable, id: string, shown: any) {
   if (!p.kind) return null;
   if (!kindOfWork(p.kind)) return { ...p };
   return { ...p, ...(await reviewDoc(db, p)) };
-}
-
-/** An intent's work archived by whoever proposed it: the intent archived, its intent variant closed, kept in the history. */
-async function archiveAsAuthor(tx: Queryable, me: Me, p: any) {
-  await settle(tx, p.id, "archived", me.id);
-  await closeWork(tx, me, p);
-  return { id: p.id as string, status: "archived" as const };
-}
-
-/**
- * An agent archives its own intent over MCP (Samuel 2026-11-04): one at Proposal whose work it no longer stands by.
- * Only an intent its admin put at Proposal over MCP (its work proposed so, or, with no work, added so), never anyone
- * else's and never one proposed on the page; accepting stays a person's, on the intents' board.
- */
-export async function archiveOwn(db: Db, me: Me | null, id: string) {
-  if (!me) throw new HttpError("Please sign in first.", 401);
-  if (!UUID.test(id)) throw new HttpError("Name the intent by its id (list_intents gives it).");
-  return db.transaction(async (tx) => {
-    const { rows } = await tx.query<any>(`SELECT ${WORK_OF}, i.author AS intent_author, i.via AS intent_via FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2 FOR UPDATE`, [id, COOP]);
-    const p = rows[0];
-    // (an intent whose work is another's private asset is as one that never was: ./owners.ts)
-    if (!p || !(await seesIntent(tx, me, p.id))) throw new HttpError("There is no such intent.", 404);
-    const [by, via] = p.kind ? [p.author, p.via] : [p.intent_author, p.intent_via];
-    if (by !== me.id || via !== "mcp") throw new HttpError("Only an intent you put at Proposal over MCP is yours to archive; the rest are decided on the intents' board.", 403);
-    if (p.stage !== "proposal") throw new HttpError(`This intent is at the ${p.stage} stage: only one at Proposal is archived so.`, 409);
-    return { ...(await archiveAsAuthor(tx, me, p)), intent: p.id as string, stage: "archived" as const };
-  });
 }
 
 /**

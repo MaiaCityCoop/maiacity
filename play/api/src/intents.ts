@@ -11,7 +11,8 @@ import type { GitHub } from "./github";
 import { NOTE_MOST } from "./notes";
 import { briefOf } from "./skills";
 import { newId, UUID } from "./kit/uuid";
-import { closeWork, intentIdOf, WORK_STATUS } from "./work";
+import { closeWork, holdVariant, intentIdOf, NO_INTENT, ownColumns, REFS, unhold, WORK_OF, WORK_STATUS, workOf, type Work } from "./held";
+import { SCHEMA } from "./kit/ids";
 import { decideAny } from "./versioned";
 import { workKinds, workSql } from "./kinds";
 import { decidable, sub, unmetOn } from "./substate";
@@ -655,6 +656,98 @@ async function decided(q: Queryable, id: string, move: Decision, by: By, o: { sh
 }
 /** the one decision path as every path calls it (a test may stand a stub in its place) */
 export const decisions = { decided };
+
+// ---- work put on an intent, settled, or archived by whoever proposed it: its stage moves (the work's SQL is ./held.ts)
+
+/**
+ * Puts work on an intent (in the caller's transaction): intent `intent`, in Build or at Proposal (its gate,
+ * ./intents.ts mayMove's work). At Proposal it stays there; in Build it moves to Proposal with it only where every must
+ * passes already, else the work waits on it in Build and goes to Proposal with it when its last must passes. No work
+ * without an intent: none named, nothing is taken. One way to hold work (intent 7c8986c5): every document goes in
+ * beside the others the intent holds, whatever its kind, its version's refs on its own intent variant; proposing a
+ * document again replaces only that document's variant. The intent's own columns name its first document's. Gives back its id.
+ */
+export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string | null; work: Work; note: string; via: "web" | "mcp" }): Promise<string> {
+  if (!o.intent) throw new HttpError(NO_INTENT, 400);
+  const was = await workOf(q, o.intent, true);
+  if (!was) throw new HttpError("There is no such intent.", 404);
+  // the kind of work it is (an intent that declares its kinds takes only those): its document's schema
+  const schema = o.work.doc_id
+    ? (await q.query<{ schema_id: string | null }>(`SELECT schema_id FROM play.docs WHERE id = $1`, [o.work.doc_id])).rows[0]?.schema_id ?? null
+    : o.work.story_id ? SCHEMA.story : o.work.asset_id ? SCHEMA.asset : null;
+  const no = await gate.mayMove(q, was.id, "work", { schema }).catch((e) => (e instanceof HttpError ? { why: e.message } : Promise.reject(e)));
+  if (no) throw new HttpError(no.why, 409);
+  if (!o.work.doc_id || o.work.doc_variant == null) throw new HttpError("Work of play's is a document's version: name its document and its intent variant.", 500);
+  const id: string = was.id;
+  // variants of work decided before (archived, the intent back in Build) are no longer its work
+  await unhold(q, id, null);
+  const refs: Record<string, unknown> = { kind: o.work.kind };
+  for (const k of REFS) if ((o.work as any)[k] != null) refs[k] = (o.work as any)[k];
+  if (o.work.retire) refs.retire = o.work.retire;
+  await holdVariant(q, who, id, o.work.doc_id, Number(o.work.doc_variant), refs);
+  await ownColumns(q, id);
+  // in Build, the work waits on the intent until its last must passes (intent 94061718): it then moves to Proposal with
+  // all of it (./intents.ts recordChecks); one whose musts pass already moves now
+  const moves = !(await gate.mayMove(q, id, "proposal"));
+  await q.query(
+    `UPDATE play.intents SET work_note = $2, proposed_by = $3, proposed_via = $4, proposed_at = now(), stage = CASE WHEN $5 THEN 'proposal' ELSE stage END, decided_by = NULL, decided_at = NULL, auto = auto - 'accept' WHERE id = $1`,
+    [id, o.note, who.id, o.via, moves],
+  );
+  return id;
+}
+
+/**
+ * Settles an intent's work (in the decision's transaction): accepted, or archived. Archived by a person (`by`), it ends
+ * archived; archived by itself (no `by`: its base moved and it no longer holds there), it goes back to Build (every
+ * intent with work has an approved spec), its results cleared, to be built again on the new head. Its stage is what it
+ * settled to.
+ */
+export async function settle(q: Queryable, id: string, outcome: "accepted" | "archived", by: By | null): Promise<string> {
+  // accepted: the one decision path (./intents.ts decided), a person's or a rule's
+  if (outcome === "accepted") {
+    await decisions.decided(q, id, "accept_work", by ?? "");
+    return "accepted";
+  }
+  if (by !== null && typeof by !== "string") throw new HttpError("A rule only accepts: archiving is a person's, or the work's own.", 500);
+  const { rows } = await q.query<{ stage: string }>(
+    `UPDATE play.intents SET
+        stage = CASE WHEN $2 = 'accepted' THEN 'accepted' WHEN $3::text IS NULL THEN 'build' ELSE 'archived' END,
+        results = CASE WHEN $2 = 'archived' AND $3::text IS NULL THEN NULL ELSE results END,
+        decided_by = CASE WHEN $2 = 'archived' AND $3::text IS NULL THEN NULL ELSE $3 END,
+        decided_at = CASE WHEN $2 = 'archived' AND $3::text IS NULL THEN NULL ELSE now() END,
+        auto = auto - 'accept'
+      WHERE id = $1 RETURNING stage`,
+    [id, outcome, by],
+  );
+  return rows[0]?.stage ?? outcome;
+}
+
+/** An intent's work archived by whoever proposed it: the intent archived, its intent variant closed, kept in the history. */
+export async function archiveAsAuthor(tx: Queryable, me: Me, p: any) {
+  await settle(tx, p.id, "archived", me.id);
+  await closeWork(tx, me, p);
+  return { id: p.id as string, status: "archived" as const };
+}
+
+/**
+ * An agent archives its own intent over MCP (Samuel 2026-11-04): one at Proposal whose work it no longer stands by.
+ * Only an intent its admin put at Proposal over MCP (its work proposed so, or, with no work, added so), never anyone
+ * else's and never one proposed on the page; accepting stays a person's, on the intents' board.
+ */
+export async function archiveOwn(db: Db, me: Me | null, id: string) {
+  if (!me) throw new HttpError("Please sign in first.", 401);
+  if (!UUID.test(id)) throw new HttpError("Name the intent by its id (list_intents gives it).");
+  return db.transaction(async (tx) => {
+    const { rows } = await tx.query<any>(`SELECT ${WORK_OF}, i.author AS intent_author, i.via AS intent_via FROM play.intents i WHERE i.id = $1 AND i.coop_id = $2 FOR UPDATE`, [id, COOP]);
+    const p = rows[0];
+    // (an intent whose work is another's private asset is as one that never was: ./owners.ts)
+    if (!p || !(await seesIntent(tx, me, p.id))) throw new HttpError("There is no such intent.", 404);
+    const [by, via] = p.kind ? [p.author, p.via] : [p.intent_author, p.intent_via];
+    if (by !== me.id || via !== "mcp") throw new HttpError("Only an intent you put at Proposal over MCP is yours to archive; the rest are decided on the intents' board.", 403);
+    if (p.stage !== "proposal") throw new HttpError(`This intent is at the ${p.stage} stage: only one at Proposal is archived so.`, 409);
+    return { ...(await archiveAsAuthor(tx, me, p)), intent: p.id as string, stage: "archived" as const };
+  });
+}
 
 // ---- auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules", ./rules.ts): a rule takes the move a person would
 

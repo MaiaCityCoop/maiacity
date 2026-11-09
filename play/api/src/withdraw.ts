@@ -16,7 +16,7 @@ import type { Db } from "./kit/pg";
 import { UUID } from "./kit/uuid";
 import { INTENT_ADMINS, intentRow, LINE_MOST } from "./intents";
 import { seesIntent } from "./owners";
-import { closeVariant, dropDoc, variantsOf, workOf } from "./work";
+import { closeVariant, dropDoc, variantsOf, workOf } from "./held";
 import { HttpError } from "./kit/errors";
 
 /** a withdrawal, as it is kept on the intent beside its steps back */

@@ -1,4 +1,4 @@
-// A fake GitHub for play's tests (src/ship.ts): GitHub's REST API for one repository answered here, behind the real
+// A fake GitHub for play's tests (src/github.ts): GitHub's REST API for one repository answered here, behind the real
 // client, so every request play makes (its path, its body, its Bearer) is seen.
 import { gitHub, type Job, type Pull, type Run } from "../../src/github";
 

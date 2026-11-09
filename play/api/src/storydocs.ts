@@ -9,7 +9,7 @@ import type { Me } from "./access";
 import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import { versionAt } from "./kinds";
-import { holdVariant } from "./work";
+import { holdVariant } from "./held";
 import { SCHEMA } from "./kit/ids";
 
 export type Clip = { id: string; at: number; duration: number; [field: string]: unknown };

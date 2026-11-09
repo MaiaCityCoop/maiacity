@@ -58,3 +58,19 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
    gives its schema is read from the seed schema (`STORY_SCHEMA = docs.seedType(SCHEMA.story).name`) instead of the
    literal `"story/1"` written in stories.ts and storydocs.ts (api-docs#11, F5 for stories). Pinned: api.test
    (stories proposed and read), docs.test, migrate.test (stories as documents), the whole suite.
+7. **`src/github.ts`: GitHub's client out of ship.ts** — the REST client, its types, `GitHubError`, `shipGitHub`,
+   the two commit status contexts (`Intent accepted`, `Merges with main`), `intentLink`, `readPull`, and once each
+   what was written twice: `keepSeen` (ship.ts' and mainmerge.ts' `keep`), `openPulls` (the open intents' pull
+   requests, queried by watchPulls and mergeMain alike). `short` is substate.ts' alone (delivery.ts and mainmerge.ts
+   had copies, the reconcile a third). mainmerge.ts and delivery.ts no longer import ship.ts. Removes api-flow E5,
+   #10, #20 (the client part), #22 (delivery's ship types). Pinned: ship.test, mainmerge.test, delivery.test,
+   substate.test (the fake GitHub, test/fixtures/github.ts, now over github.ts), the whole suite. (Its log entry and
+   the fixture's comment landed with the next commit.)
+8. **An intent's work: its SQL in `held.ts`, its stage moves in intents.ts.** work.ts (renamed `held.ts`, `git mv`)
+   keeps what an intent holds and how (WORK_OF, workOf, holdVariant, closeWork, dropDoc, unhold, stageAfter, and
+   `heldOf`/`asOne`, the work's shape, from versioned.ts) and imports nothing of intents.ts; `putAtProposal`,
+   `settle` and `archiveAsAuthor`/`archiveOwn` (from versioned.ts) are stage moves and live in intents.ts beside
+   the gate and `decided`. `src/work.ts` is now a re-export for the held assetdocs.ts only. `heldWith` (dead) goes.
+   Removes api-flow E4, #26 (heldWith). The cycle is down to intents ↔ versioned ↔ ship ↔ retire (autoMove,
+   decideAny: next move). Pinned: withdraw.test (its spy on `dropDoc`, now on held.ts), onerecord.test,
+   allwork.test, intents.test, rules.test (the stubbed `decisions.decided`), the whole suite.

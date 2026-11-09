@@ -26,7 +26,7 @@
 // head its newest accepted version) and change only by proposal: an admin's agent proposes a new story or a new
 // version over MCP (./mcp.ts), as the whole timeline or as edits applied to the head, and an admin accepts or archives
 // the intent it puts at Proposal on the intents' board (./versioned.ts `decide`). Admins only, reading and proposing.
-import { byOf } from "./intents";
+import { byOf, putAtProposal, settle } from "./intents";
 import { randomUUID } from "node:crypto";
 import { admin, COOP, type Me } from "./access";
 import { keyOf, type BlobStore } from "./blobs";
@@ -41,7 +41,7 @@ import { overlap } from "./kinds";
 import { storyListed } from "./listed";
 import { fileTypes, keepFile as keepOwned } from "./owners";
 import { unreadable } from "./assetdocs";
-import { closeWork, dropDoc, putAtProposal, settle, stageAfter, WORK_OF, workOf } from "./work";
+import { closeWork, dropDoc, stageAfter, WORK_OF, workOf } from "./held";
 import { HttpError } from "./kit/errors";
 
 /** the work a story's version is */
