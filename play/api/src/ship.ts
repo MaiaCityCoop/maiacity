@@ -74,7 +74,7 @@ export type Ship = {
   commit?: string;
   note?: string;
 };
-export type Pending = { kind: "merge"; head: string } | { kind: "main" } | { kind: "release" };
+type Pending = { kind: "merge"; head: string } | { kind: "main" } | { kind: "release" };
 
 /** the way to production, in order: the merge, main's checks, the release, the deploy's jobs */
 export const STEPS: { key: string; name: string; job?: string; step?: string }[] = [
