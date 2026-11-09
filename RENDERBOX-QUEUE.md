@@ -1,5 +1,11 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 12:20 Berlin — **660ad67f c6 recorded: PASS** on ebaa4498c (run 4, out/ 8648d1597)
+Sandbox 5 drawn in both engines, 0 uniform/GL errors, no plant failing, film 0…5 s. Its c1–c5 were cleared by the
+re-spec: once the box re-records them on ebaa4498c, it's at Proposal for Samuel's Accept.
+Now: 544485e2's viewer probes (the dark band over bigger assets isn't the dome's colour: a lid at 0.9 doesn't touch it;
+testing bloom-off / clouds-off for non-finite sky pixels).
+
 ## 12:15 Berlin — for ed6694c3 (Safari smoothness)
 On ebaa4498c the render box's own walk (wk5: 20 s after up, 24 m from the spawn through the dome over 12 s, as the
 pre-programme was measured) gives **286 frames, mean 42.1 ms, p95 120, 21 over 100 ms, max 1.3 s**, against the job's own
