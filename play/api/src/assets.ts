@@ -12,9 +12,8 @@ import { HttpError } from "./kit/errors";
 const asker = (me: Pick<Me, "id"> | null | undefined) => me?.id ?? null;
 
 /**
- * What a version's card says of it. Its measures (size, triangles, skinned) only where they were measured on its own
- * recipe: a version proposed before 2026-11-05 took its parent's card whole, its measures with it, so a measure the
- * same as its parent's is the parent's and is not shown.
+ * What a version's card says of it; its measures only where measured on its own recipe (a version proposed before
+ * 2026-11-05 took its parent's card whole, so a measure equal to its parent's is the parent's and not shown).
  */
 export const summary = (record: any, parent?: any) => {
   const c = record?.card ?? {};
@@ -93,8 +92,7 @@ export async function versionOf(db: Queryable, id: string, number: number, me: P
   return { id: v.id, asset: id, number: v.number, parents: v.parents, recipe: v.recipe_hash, source: v.source_hash, defaultVariant: v.default_variant, card: v.card, engine: v.engine, note: v.note, variants: v.variants, imported: v.imported };
 }
 
-/** what a sandbox draws: each slot, the build it pins (`<hash>?values`), and what that is, for showing; `state`: its
- * pins as a proposal would make them (./sandboxes.ts) instead of as they are */
+/** what a sandbox draws: each slot, its pinned build (`<hash>?values`) and what that is; `state`: pins as a proposal would make them (./sandboxes.ts) */
 export async function pinsOf(db: Queryable, sandbox: string, state?: { pins: Record<string, { version: string; variant: string | null; params: Record<string, string> | null }> }) {
   const { rows: s } = await db.query(`SELECT 1 FROM play.sandboxes WHERE id = $1`, [sandbox]);
   if (!s[0]) throw new HttpError(`There is no ${sandbox}.`, 404);
@@ -121,9 +119,8 @@ export async function pinsOf(db: Queryable, sandbox: string, state?: { pins: Rec
 }
 
 /**
- * The catalog (play/SPEC.md §4): every accepted version and variant by the BLAKE3 hash of its recipe file — the one
- * name a sandbox or another asset knows it by — with what it is (its asset, version, variant and label, for showing)
- * and its record (its card, manifest, contract and engine), which the site builds it by.
+ * The catalog (play/SPEC.md §4): every accepted version and variant by its recipe file's BLAKE3 hash (the one name a
+ * sandbox or asset knows it by), with what it is (for showing) and its record (card, manifest, contract, engine).
  */
 export async function catalogOf(db: Queryable, me: Pick<Me, "id"> | null) {
   const { rows } = await db.query<any>(
@@ -154,10 +151,7 @@ async function shownPieces(db: Queryable, records: any[]) {
   return (r: any) => named(r).map((h) => by.get(h)!);
 }
 
-/**
- * A sandbox's config: its pins as `assets`, each slot the build it pins (`<hash>?values`), and every other config it
- * keeps by name (Sandbox 1's `garden`), each planting's slot handed out as its build (`asset`).
- */
+/** A sandbox's config: its pins as `assets` (each slot its build, `<hash>?values`) and every other config by name (Sandbox 1's `garden`, each planting's slot as its build). */
 export async function configOf(db: Queryable, sandbox: string, state?: { pins: Record<string, any>; configs: Record<string, unknown> }) {
   const pins = await pinsOf(db, sandbox, state);
   const assets = Object.fromEntries(pins.map((p) => [p.slot, p.build]));
