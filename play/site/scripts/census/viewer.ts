@@ -4,19 +4,21 @@
  * builds it (sources/viewer.js `vaultBuild` in the census's headless box, hero.js `forStage`, stage.js `Stage` under
  * the sky), then drawn by three's real WebGLRenderer on the kit's fake WebGL (../../src/lib/content/render/nodes/fakegl.js),
  * which throws on a vector uniform given no sequence, as a browser does. Prints one JSON line: each asset's outcome
- * (drawn, or its error and where it came from) and the kit's clashes (`window.__clashes`). `--root` runs another tree's
- * play/site (main's, to see a regression), this script's census the same.
+ * (drawn, or its error and where it came from); exits 1 if any is not drawn. `--group` adds every asset of a group,
+ * `--intent` builds each as that intent's variant would make it where it holds one (8823eb7c), `--root` runs another
+ * tree's play/site (main's, to see a regression), this script's census the same.
  *
- *   bun play/site/scripts/census/viewer.ts <asset uuid>… [--root <tree>/play/site]
+ *   bun play/site/scripts/census/viewer.ts [<asset uuid>…] [--group <group>] [--intent <uuid>] [--root <tree>/play/site]
  */
 import { join, resolve } from 'node:path';
 
 import { setup, lib, frame } from './setup';
 
 const argv = process.argv.slice(2);
-const at = argv.indexOf('--root');
-const root = at >= 0 ? resolve(argv[at + 1]) : undefined;
-const ids = argv.filter((a, i) => /^[0-9a-f-]{36}$/.test(a) && (at < 0 || i !== at + 1));
+const flag = (f: string) => (argv.includes(f) ? argv[argv.indexOf(f) + 1] : undefined);
+const root = flag('--root') && resolve(flag('--root')!);
+const [group, intent] = [flag('--group'), flag('--intent')];
+const ids = argv.filter((a, i) => /^[0-9a-f-]{36}$/.test(a) && argv[i - 1] !== '--intent');
 // play read live (the assets' newest versions; PLAY_MCP_TOKEN, the header to play only)
 setup({ root });
 const g = globalThis as any;
@@ -42,6 +44,7 @@ async function turning<T>(p: Promise<T>) {
 	return q;
 }
 
+if (group) ids.push(...(await (await fetch(`/api/assets?group=${group}`)).json()).map((a: any) => a.id).filter((id: string) => !ids.includes(id)));
 const box = new AssetBox({ engine: INDEX.engine });
 const out: { id: string; label?: string; step: string; ok: boolean; error?: string }[] = [];
 for (const id of ids) {
@@ -51,7 +54,8 @@ for (const id of ids) {
 		const chain = await (await fetch(`/api/assets/${id}`)).json();
 		const v = chain.versions[0];
 		r.label = chain.label;
-		const hash = v.recipe ?? v.variants?.find((x: any) => x.name === v.defaultVariant)?.recipe ?? v.variants?.[0]?.recipe;
+		const mine = intent ? await fetch(`/api/assets/${id}/recipe?intent=${intent}`) : null;
+		const hash = mine?.ok ? (await mine.json()).hash : (v.recipe ?? v.variants?.find((x: any) => x.name === v.defaultVariant)?.recipe ?? v.variants?.[0]?.recipe);
 		step = 'build';
 		const got = await turning(vaultBuild(source, hash, {}, { box, keep: false }));
 		step = 'stage';
@@ -96,5 +100,5 @@ for (const id of ids) {
 	out.push(r);
 	console.error(`viewer: ${r.label ?? id} ${r.ok ? 'drawn' : `failed at ${step}: ${r.error}`}`);
 }
-console.log(JSON.stringify({ assets: out, clashes: (g.__clashes ?? []).length }));
-process.exit(0);
+console.log(JSON.stringify({ assets: out }));
+process.exit(out.every((r) => r.ok) ? 0 : 1);
