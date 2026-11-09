@@ -9,9 +9,9 @@ are two-sided, darker toward the root, and glow with the sun behind them. The ce
 triangles as main, a little fewer (the steady census: near 10,523,087/5,665; mid 13,840,939/4,244; far 2,762,180/1,782). This job checks what the census can't:
 frame time, the film, and that a frame repeats.
 
-**The head is the change on main** (PR #2180's head, `intent/6fd5e63f-living-plants` @ 8309593e0, main 9f1442d merged in). The looks are
-drawn on the render kit's TSL materials (cb16b7a5) and the one cover stream (11ead007), both on main now (#2185). So two trees are measured: **main** 9f1442d
-(base, what the change sits on) and **head** 8309593. head − main is this intent's own cost and what c7 bounds.
+**The head is the change on main** (PR #2180's head, `intent/6fd5e63f-living-plants` @ 8bab28a80, main d5346b7 merged in by play). The looks are
+drawn on the render kit's TSL materials (cb16b7a5) and the one cover stream (11ead007), both on main now (#2185). So two trees are measured: **main** d5346b7
+(base, what the change sits on) and **head** 8bab28a. head − main is this intent's own cost and what c7 bounds.
 
 **Run:** `PLAY_MCP_TOKEN=play_… bash intent-work/6fd5e63f-render/run.sh` (bun, node with Playwright's Chromium, ffmpeg).
 It makes two worktrees beside the repository (`../6fd5-main`, `../6fd5-head`) and serves them. It takes
