@@ -123,3 +123,6 @@ name and body, `// the next thing` lines.
     docs whose `@param` gave plain-JS functions their types for the TypeScript that imports them (`catalog.js`'s
     `withQuery`, `hashOf`, `paramsOf`, `buildAt`; `store.js`'s `ask`; `crowd.js`'s `labelOf`): each is back as a bare
     `/** @param … */`. The sweep's edit script now refuses to drop a line carrying a type. svelte-check unchanged.
+24. **`kernel/sandbox`** (8): `frame.js`'s rooms and failures said once (host.js says them for the box), the "logic
+    host" (gone) no longer named; two docs naming `start` and `stop` again. The browser's guarantees (opaque origin,
+    a blob worker inheriting its maker's CSP, Safari's sandboxed frame on the page's thread) kept.

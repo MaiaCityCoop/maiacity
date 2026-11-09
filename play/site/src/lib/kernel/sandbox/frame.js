@@ -18,17 +18,11 @@ import { BUDGETS, DENY, SANDBOX, SHELL_SCRIPT, frameCsp } from './policy.js';
  *   taken off its global scope.
  * - The frame does nothing but start workers and pass messages, so code that never stops cannot freeze the page, not
  *   even in Safari, where a sandboxed frame shares the page's thread.
- * - Rooms keep code apart inside one shell (the asset box gives each recipe its own). A room is a worker of its own
- *   that no other room's job ever reaches, and the frame names each message by the room of the worker that sent it,
- *   so a job is answered only from the room it was asked in: code in one room can neither see another's jobs nor
- *   answer them. A host may ask for a spare, a worker made ahead with nothing run in it, which the next new room
- *   takes while the frame makes the next one.
- * - Out comes plain data only, which the page checks before it uses it. A job that runs too long, or whose worker
- *   crashes, ends alone in a host that keeps its rooms apart (`apart`, the asset box): its room is let go, its worker
- *   ended, every job open in it failed, and every other room goes on in the same frame; the room's next job starts in
- *   a fresh worker. In a host of one room (the logic host) it is ended by removing the frame (the worker goes with
- *   it), and the next job starts a new shell. A crash before any room (the spare, nothing run in it yet) is the
- *   engine's own, and the shell goes too.
+ * - Rooms keep code apart inside one shell: each a worker no other room's job reaches, and a job is answered only from
+ *   the room it was asked in. A spare is a worker made ahead with nothing run in it.
+ * - Out comes plain data only, which the page checks. A job that runs too long, or whose worker crashes, ends alone
+ *   where rooms are kept apart (`apart`); with one room, the frame goes and the next job starts a new shell. A crash
+ *   before any room (the spare) is the engine's own, and the shell goes too.
  */
 
 /** The frame's policy: nothing in or out but its own script, its worker's blob and, if `wasm`, WebAssembly. */
@@ -98,7 +92,6 @@ export class Shell {
 		this.onmessage = (e) => this.#message(e);
 	}
 
-	/** starts the shell (once; again after it was torn down) */
 	start() {
 		if (this.ready) return this.ready;
 		// a stop while it starts ends the start too (its frame gone, its load never comes): nothing waits on it for ever;
@@ -206,7 +199,6 @@ export class Shell {
 		this.frame?.contentWindow?.postMessage({ op: 'leave', room }, '*');
 	}
 
-	/** tears the shell down: the frame and its workers are gone, every job open fails with `why` */
 	stop(why = 'the box was stopped') {
 		this.halt?.(new Error(why));
 		this.halt = null;
