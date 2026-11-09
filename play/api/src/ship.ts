@@ -523,7 +523,7 @@ async function acceptWorkLive(tx: Queryable, id: string) {
   const { rows: open } = await tx.query(`SELECT 1 FROM play.intent_variants iv JOIN play.doc_variants v ON v.id = iv.variant_id WHERE iv.intent_id = $1 AND v.status IN ('open', 'proposed')`, [id]);
   if (!open.length) return;
   const { rows: [r] } = await tx.query<{ decided_by: string | null; author: string | null; proposed_by: string | null; auto: any }>(
-    `SELECT decided_by, author, proposed_by, COALESCE(to_jsonb(i)->'auto', '{}'::jsonb) AS auto FROM play.intents i WHERE id = $1`, [id],
+    `SELECT decided_by, author, proposed_by, COALESCE(i.auto, '{}'::jsonb) AS auto FROM play.intents i WHERE id = $1`, [id],
   );
   const rule = r?.auto?.accept ?? null;
   let me = await meOf(tx, r?.decided_by ?? r?.author ?? r?.proposed_by ?? null);

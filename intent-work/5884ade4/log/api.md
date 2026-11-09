@@ -102,3 +102,9 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
     `k.name === "piece"` and `docId.startsWith("piece:")` (api-flow #33, api-docs#15 code side, #36, F4). The
     `ON CONFLICT … WHERE doc_id NOT LIKE 'piece:%'` stays: it names migration 02e3a85f's partial index, which
     Postgres matches by its predicate. Pinned: intentpieces.test, pieces.test, the whole suite.
+12. **No `to_jsonb(row)->'column'` fallbacks** (api-flow E, #32; api-docs#33): gist.ts, held.ts, intents.ts (the
+    board: steps, pr_seen, work_kind, auto), owners.ts (an asset's owner, now `pa.owner`, a UUID), rules.ts and
+    ship.ts read their columns directly; every live database has them. Only one test ran play's code on a schema
+    migrated short: onerecord.test read the board through the API before migration 706ed873. Its API checks now run
+    after it migrates to today (the story's intent, spec-less, archived there, as the test's next lines already
+    said); what it asserts of the SQL at 0029–0032 is unchanged. `to_jsonb(` fallbacks 11 → 0.

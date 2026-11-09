@@ -18,9 +18,8 @@ const topField = (path: string) => path.replace(/^\$\.?/, "").split(/[.[]/)[0] |
 
 /** variant `v` of document `docId` in brief: kept on its row, worked out again once it has a newer edit */
 export async function gistOf(q: Queryable, docId: string, v: number): Promise<Gist> {
-  // (read by name through to_jsonb, so a schema from before the column, as a migration's test runs it, still reads)
-  const { rows } = await q.query<{ gist: Gist | null; kept: boolean; seq: string | null }>(
-    `SELECT to_jsonb(v)->'gist' AS gist, to_jsonb(v) ? 'gist' AS kept, (SELECT max(seq) FROM play.doc_edits WHERE variant = $1)::text AS seq FROM play.doc_variants v WHERE v.id = $1`,
+  const { rows } = await q.query<{ gist: Gist | null; seq: string | null }>(
+    `SELECT v.gist, (SELECT max(seq) FROM play.doc_edits WHERE variant = $1)::text AS seq FROM play.doc_variants v WHERE v.id = $1`,
     [v],
   );
   const seq = rows[0]?.seq ?? "0";
@@ -41,6 +40,6 @@ export async function gistOf(q: Queryable, docId: string, v: number): Promise<Gi
     hash: typeof next?.source === "string" ? hashText(next.source) : null,
     requires: [...new Set(sources.flatMap(piecesOf))],
   };
-  if (rows[0]?.kept) await q.query(`UPDATE play.doc_variants SET gist = ($2::text)::jsonb WHERE id = $1`, [v, JSON.stringify(g)]);
+  if (rows[0]) await q.query(`UPDATE play.doc_variants SET gist = ($2::text)::jsonb WHERE id = $1`, [v, JSON.stringify(g)]);
   return g;
 }

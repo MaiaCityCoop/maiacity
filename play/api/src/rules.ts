@@ -87,7 +87,7 @@ export type Facts = {
 /** An intent's facts as matchRule reads them, from Postgres. */
 export async function factsOf(q: Queryable, id: string): Promise<Facts> {
   const { rows: [i] } = await q.query<any>(
-    `SELECT i.kind, i.via, i.author, to_jsonb(i)->'work_kind' AS work_kind, i.proposed_by, i.proposed_via, i.work, i.pull_request FROM play.intents i WHERE i.id = $1`,
+    `SELECT i.kind, i.via, i.author, i.work_kind, i.proposed_by, i.proposed_via, i.work, i.pull_request FROM play.intents i WHERE i.id = $1`,
     [id],
   );
   const { rows: held } = await q.query<{ doc_id: string; schema_id: string | null; edits: string; versions: string }>(

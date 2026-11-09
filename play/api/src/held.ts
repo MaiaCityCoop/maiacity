@@ -44,7 +44,7 @@ export const VARIANT_OF = `(SELECT iv.variant_id FROM play.intent_variants iv WH
  * (waiting at Proposal, accepted, else archived).
  */
 export const WORK_OF = `i.id, i.coop_id, i.work AS kind, ${DOC_OF} AS doc_id, ${VARIANT_OF} AS doc_variant,
-  COALESCE((SELECT json_agg(json_build_object('doc_id', iv.doc_id, 'doc_variant', iv.variant_id, 'refs', to_jsonb(iv)->'refs') ORDER BY iv.position) FROM play.intent_variants iv WHERE iv.intent_id = i.id), '[]'::json) AS variants,
+  COALESCE((SELECT json_agg(json_build_object('doc_id', iv.doc_id, 'doc_variant', iv.variant_id, 'refs', iv.refs) ORDER BY iv.position) FROM play.intent_variants iv WHERE iv.intent_id = i.id), '[]'::json) AS variants,
   i.asset_id, i.base, i.version, i.story_id, i.story_base, i.story_version,
   COALESCE(i.work_note, '') AS note, i.proposed_by AS author, i.proposed_via AS via, i.proposed_at AS created,
   i.stage, ${WORK_STATUS} AS status, i.pull_request,

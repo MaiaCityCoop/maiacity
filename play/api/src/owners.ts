@@ -39,14 +39,13 @@ export const fileSeen = (h: string, p: string) =>
   `(EXISTS (SELECT 1 FROM play.file_owners fo WHERE fo.hash = ${h} AND (fo.owner = '${COOP}' OR fo.owner = ${p}::uuid)) OR NOT EXISTS (SELECT 1 FROM play.file_owners fo WHERE fo.hash = ${h}))`;
 /**
  * an intent row `i` that `p` sees: none of its work is another's private asset (its frozen version's, or an intent
- * variant of its document). Only the intent's own assets are read, their owner by to_jsonb, so a database migrated short
- * of the owners (a migration's test) reads the board too.
+ * variant of its document).
  */
 export const intentSeen = (i: string, p: string) =>
   `NOT EXISTS (SELECT 1 FROM play.assets pa WHERE pa.id IN (SELECT ${i}.asset_id
        UNION ALL SELECT split_part(px.doc_id, ':', 2)::uuid FROM play.intent_variants px WHERE px.intent_id = ${i}.id AND px.doc_id LIKE 'asset:%'
        UNION ALL SELECT split_part(px.doc_id, ':', 2)::uuid FROM play.doc_variants px WHERE px.intent_id = ${i}.id AND px.doc_id LIKE 'asset:%')
-     AND COALESCE(to_jsonb(pa)->>'owner', '${COOP}') <> '${COOP}' AND (to_jsonb(pa)->>'owner') IS DISTINCT FROM ${p}::text)`;
+     AND pa.owner <> '${COOP}' AND pa.owner IS DISTINCT FROM ${p}::uuid)`;
 
 const who = (me: Pick<Me, "id"> | null | undefined) => me?.id ?? null;
 

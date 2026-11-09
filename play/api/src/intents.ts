@@ -130,13 +130,11 @@ const cursors = new WeakMap<object, string>();
 async function intentsWhere(db: Queryable, where: string, args: unknown[], limit?: number) {
   // a document's label and group, by its kind, from ./versioned.ts's registry
   const kind = workSql();
-  // its steps back (./stepback.ts) by to_jsonb: a database migrated short of 0036 (a migration's test) reads too
   // the cards picked first, ordered and cut to the page, then built: each row's joins and subqueries only for those
   const { rows } = await db.query<any>(
     `WITH pick AS (SELECT i.id, ${WHEN} AS at FROM play.intents i WHERE i.coop_id = $1 AND ${where} ORDER BY at DESC, i.id DESC${limit ? ` LIMIT ${limit}` : ""})
      SELECT i.id, i.kind, i.title, i.note, i.stage, i.via, i.created, i.spec, i.results, i.specified_at, i.approved_at, i.decided_at, i.came_with,
-            i.pull_request, i.ship, COALESCE(to_jsonb(i)->'steps', '[]') AS steps, to_jsonb(i)->'pr_seen' AS pr_seen,
-            to_jsonb(i)->'work_kind' AS work_kind, COALESCE(to_jsonb(i)->'auto', '{}'::jsonb) AS auto,
+            i.pull_request, i.ship, COALESCE(i.steps, '[]') AS steps, i.pr_seen, i.work_kind, COALESCE(i.auto, '{}'::jsonb) AS auto,
             ${EDGES("d.intent_id = i.id", "d.depends_on")} AS depends_on, ${EDGES("d.depends_on = i.id", "d.intent_id")} AS needed_by,
             au.name AS author, sp.name AS specified_by, ap.name AS approved_by, de.name AS decided_by,
             CASE WHEN i.work IS NULL THEN NULL ELSE json_build_object(
