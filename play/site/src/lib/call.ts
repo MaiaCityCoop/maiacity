@@ -34,7 +34,6 @@ const bufferOf = (hash: string) => {
 	return b;
 };
 
-/** the call that plays, faded out and stopped */
 export function stopCall() {
 	if (!playing || !ctx) return;
 	const { src, gain } = playing;

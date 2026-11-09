@@ -1,6 +1,5 @@
 <!-- The app's icons: plain line drawings, drawn in the text colour. -->
 <script lang="ts">
-	/** every icon this set draws */
 	type IconName = 'back' | 'home' | 'play' | 'board' | 'calendar' | 'media' | 'studio' | 'journal' | 'spark' | 'user' | 'key' | 'ledger' | 'coops' | 'proposals' | 'leaf' | 'database' | 'universe' | 'gear' | 'chat' | 'factory' | 'paw' | 'box' | 'building' | 'mountain' | 'star' | 'link' | 'check';
 
 	let { name, size = 24 }: { name: IconName; size?: number } = $props();

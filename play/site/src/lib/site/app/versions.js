@@ -11,7 +11,6 @@
  *   latest's, or a frozen one), not the latest's standing in for one that was not kept
  */
 
-/** The first version of everything: what every item was when versions began. */
 const FIRST = /** @type {Change} */ ({ v: 1, date: '2026-10-05', note: 'First version' });
 
 /**
