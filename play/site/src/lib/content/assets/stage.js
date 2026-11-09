@@ -36,7 +36,7 @@
 import * as THREE from 'three';
 import { ShaderPass, createPost } from '$lib/content/render/post.js';
 import { createSky } from '$lib/content/sandbox-kit/sky.js';
-import { PICTURE, precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
+import { precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
 import { budget } from '$lib/content/render/budget.js';
 import { floorMaterial } from '../render/nodes/index.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment } from './kit.js';
@@ -109,7 +109,7 @@ export class Stage {
 			this.scene.environment.dispose();
 			this.scene.environment = null;
 			this.scene.background = null;
-			this.sky = createSky(renderer, this.scene, { sun: { elevation: 40, azimuth: 218 }, light: false, fog: null, clouds: 0.25 });
+			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25 });
 			this.sky.stars.visible = false;
 		}
 		// lights: a soft key with its shadow, a cool rim, a gentle fill (the environment does most of the work)
@@ -159,7 +159,7 @@ export class Stage {
 			size: { pixelRatio: r.getPixelRatio(), width: css.x, height: css.y },
 			// ambient occlusion on a desktop only: not on a phone (low) nor a big tablet, whose GPU draws it in streaks
 			ao: !this.low && !touchFirst() && ((ao) => this._ao(ao)),
-			bloom: { strength: paper ? 0.22 : 0.42, radius: 0.55, threshold: paper ? 1.6 : this.sky ? 2.4 : 1.0 },
+			bloom: { strength: paper ? 0.22 : 0.42, radius: 0.55, threshold: paper ? 1.6 : 1.0 },
 			after: [grade]
 		});
 		this.post = post;
@@ -668,7 +668,7 @@ export class Stage {
 		if (!this.composer) this._post();
 		this._gloss();
 		const r = this.renderer;
-		const was = { tm: withTone(r, PICTURE), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
+		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
 		r.localClippingEnabled = true;
 		r.setRenderTarget(this.composer.readBuffer);
 		let done = Promise.resolve();
@@ -696,7 +696,7 @@ export class Stage {
 		if (!this.composer) this._post();
 		if ((this._glossed = (this._glossed ?? 0) + 1) % 12 === 1) this._gloss();
 		const r = this.renderer;
-		const was = { tm: withTone(r, PICTURE), clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
+		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
 		// AgX, as every page; the lens the sky's, or the studio's own
 		setExposure(r, this.sky ? this.sky.exposure() : 1);
 		r.localClippingEnabled = true;
