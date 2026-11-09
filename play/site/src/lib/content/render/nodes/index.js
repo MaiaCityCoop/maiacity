@@ -100,7 +100,7 @@ class Always extends AttributeNode {
 		return b.shaderStage === 'vertex' ? b.getAttribute(this.getAttributeName(b), type).name : varying(this).build(b, type);
 	}
 }
-const always = (name, type) => nodeObject(new Always(name, type));
+export const always = (name, type) => nodeObject(new Always(name, type));
 
 /** a copy's fade (../../assets/render/index.js keeps it per instance) */
 export const aFade = always('aFade', 'float');
@@ -146,7 +146,7 @@ function grown(p) {
  * materials read it. On WebGL three's TextureNode turns v over (1 - v) for a render target's texture; this turns it back,
  * so the cell laid at row r is read at row r (else the far trees showed another tree's picture, upside down).
  */
-const drawn = (map, at = uv()) => texture(map, vec2(at.x, float(1).sub(at.y)));
+export const drawn = (map, at = uv()) => texture(map, vec2(at.x, float(1).sub(at.y)));
 
 /** the dither every drawing of ours fades in by: the same everywhere on the screen, so two levels never fight */
 export const dither = fract(sin(dot(floor(screenCoordinate.xy), vec2(12.9898, 78.233))).mul(43758.5453));
@@ -192,7 +192,7 @@ const glossy = (Model, gloss) =>
 	};
 
 /** ours on top of a node material: per-mesh instancing, the fade, the cut, the caps and the gloss */
-const ours = (Base) =>
+export const ours = (Base) =>
 	class extends Base {
 		isKit = true;
 		/** @type {any} */ fade = null;
@@ -329,40 +329,6 @@ export function cutBy(m, cut, look) {
 	m.side = THREE.DoubleSide;
 	m.shadowSide = THREE.FrontSide;
 	return m;
-}
-
-// ---------------------------------------------------------------- the far pictures' card
-
-/**
- * The material of a page of far pictures (../../assets/render/impostors.js): each card stands at its foot (`aAt`),
- * `aSize` metres, turned about its upright axis to the eye (to the light, drawing its shadow), showing the picture of
- * its thing (`aCell`, then one of `frames` sides by the thing's own turn `aTurn`) from the page `map` of `grid` cells,
- * faded by `aFade`; `depth` the one that draws its shadow.
- * @param {THREE.Texture} map @param {THREE.Vector2} grid @param {number} frames @param {ReturnType<typeof cutOf>} cut
- */
-export function cardMaterials(map, cells, frames, cut) {
-	const grid = uniform(cells);
-	const at = always('aAt', 'vec3'), size = always('aSize', 'float');
-	const t = cameraPosition.xz.sub(at.xz);
-	const te = select(length(t).greaterThan(1e-4), normalize(t), vec2(0, 1));
-	const pos = at.add(vec3(te.y, 0, te.x.negate()).mul(positionLocal.x).mul(size)).add(vec3(0, positionLocal.y.mul(size), 0));
-	const step = (Math.PI * 2) / frames;
-	const face = mod(floor(atan(te.x, te.y).sub(always('aTurn', 'float')).div(step).add(0.5)), frames);
-	const cell = always('aCell', 'float').add(face);
-	const card = varying(vec2(mod(cell, grid.x), floor(cell.div(grid.x))).add(clamp(uv(), 0.004, 0.996)).div(grid));
-	const look = drawn(map, card);
-	const make = (K, o) => {
-		const m = new (ours(K))({ alphaTest: 0.5, side: THREE.DoubleSide, ...o });
-		m.positionNode = pos;
-		m.colorNode = look;
-		m.fade = aFade;
-		m.cut = cut;
-		return m;
-	};
-	const material = make(MeshStandardNodeMaterial, { roughness: 0.85 });
-	// lit as a thing facing the eye a little upward
-	material.normalNode = normalize(cameraViewMatrix.mul(vec4(normalize(vec3(te.x, 0.55, te.y)), 0)).xyz);
-	return { material, depth: make(MeshBasicNodeMaterial, {}) };
 }
 
 // ---------------------------------------------------------------- the asset stage

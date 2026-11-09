@@ -7,15 +7,14 @@
  * (src/lib/sandbox-2/interior/impostors.js), made for every asset: a chair, a pickup, a goat or a walnut tree.
  *
  * The picture is taken by our own renderer from the asset's coarsest shape, so it is no more than the asset is: nothing
- * of it comes from the asset itself. The card is lit as the scene is (as if it were a thing facing the eye a little
- * upward); its picture is taken in a soft light from the front, so it keeps its depth at any hour. It casts its
+ * of it comes from the asset itself. It is taken unlit, the thing's own colours (../../render/nodes/impostor.js
+ * `bakeOf`), and the card is lit as the scene is (as if it were a thing facing the eye a little upward). It casts its
  * shadow too: in the shadow pass the card turns to the sun and throws the thing's outline.
  */
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { cardMaterials, castsAsNode, cutOf } from '../../render/nodes/index.js';
+import { castsAsNode, cutOf } from '../../render/nodes/index.js';
+import { bakeOf, cardMaterials } from '../../render/nodes/impostor.js';
 import { budget } from '../../render/budget.js';
-import { precompile } from '../../render/core.js';
 
 /** how many sides each kind is photographed from */
 export const FRAMES = 8;
@@ -25,7 +24,7 @@ export const FRAMES = 8;
  * `levelKeyOf`, ./levels.js). Raised whenever a picture it takes changes (its light, its frame, its sides), so no
  * picture taken the old way is laid on a page again.
  */
-export const VERSION = 1;
+export const VERSION = 2;
 
 /**
  * @typedef {{ page: number, cell: number, size: number, foot: number }} Slot where a kind's pictures are: its page,
@@ -51,22 +50,8 @@ export function createImpostors(renderer, o = {}) {
 	/** the cut every card is cut by (a picture has no inside: no faces) */
 	const cut = cutOf();
 
-	// where the pictures are taken: a soft light from the front and all round, and a room's reflections for the metals
+	// where the pictures are taken: no light, each thing's own colours (`bakeOf`)
 	const studio = new THREE.Scene();
-	studio.add(new THREE.AmbientLight('#ffffff', Math.PI * 0.45));
-	const key = new THREE.DirectionalLight('#ffffff', Math.PI * 0.55);
-	studio.add(key, key.target);
-	// the room's reflections made when the first picture is to be taken, not with the renderer: a world that takes none
-	// (drawing every kind at its finest, as MaiaCity V1 does) never waits for them (seconds on a software GPU)
-	let env = null;
-	const lit = () => {
-		if (env) return;
-		const pmrem = new THREE.PMREMGenerator(renderer);
-		env = pmrem.fromScene(new RoomEnvironment(), 0.04);
-		pmrem.dispose();
-		studio.environment = env.texture;
-	};
-	studio.environmentIntensity = 0.35;
 	const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
 	const shot = new THREE.WebGLRenderTarget(px, px, { samples: 4, generateMipmaps: false });
 	shot.texture.colorSpace = THREE.SRGBColorSpace;
@@ -116,7 +101,7 @@ export function createImpostors(renderer, o = {}) {
 	function thingOf(level) {
 		const thing = new THREE.Group();
 		for (const d of level.draws) {
-			const m = new THREE.InstancedMesh(d.geometry, d.material, d.n);
+			const m = new THREE.InstancedMesh(d.geometry, bakeOf(d.material), d.n);
 			m.instanceMatrix.array.set(d.locals);
 			if (d.colors) m.instanceColor = new THREE.InstancedBufferAttribute(d.colors, 3);
 			m.frustumCulled = false;
@@ -125,17 +110,8 @@ export function createImpostors(renderer, o = {}) {
 		return thing;
 	}
 
-	/** a kind's shaders as the studio lights them, made before its picture is taken (./index.js, `compiled`) */
-	async function prepare(level) {
-		lit();
-		const thing = thingOf(level);
-		const clip = renderer.localClippingEnabled;
-		renderer.localClippingEnabled = false;
-		const made = precompile(renderer, thing, camera, studio);
-		renderer.localClippingEnabled = clip;
-		await made;
-		for (const m of thing.children) m.dispose();
-	}
+	/** nothing to make ahead: the pictures' materials are node materials, built as the first picture is taken */
+	const prepare = async () => {};
 
 	/** room for a kind's pictures on a page, and its frame: square, as wide as it reaches out both ways or as tall as it
 	 *  stands, whichever is more */
@@ -161,7 +137,6 @@ export function createImpostors(renderer, o = {}) {
 	 * @returns {Slot}
 	 */
 	function add(level) {
-		lit();
 		const { page: p, cell, size, foot, mid } = slotFor(level);
 		const page = pages[p];
 		const thing = thingOf(level);
@@ -187,7 +162,6 @@ export function createImpostors(renderer, o = {}) {
 			const a = (f / FRAMES) * Math.PI * 2, c = cell + f;
 			camera.position.set(Math.sin(a) * D, mid, Math.cos(a) * D);
 			camera.lookAt(0, mid, 0);
-			key.position.set(Math.sin(a) * D, mid + D * 0.6, Math.cos(a) * D);
 			renderer.setRenderTarget(shot);
 			// cleared to its own colour, see-through: from afar, where the picture is averaged down, its edges soften
 			// into its own colour, never into black
@@ -345,7 +319,6 @@ export function createImpostors(renderer, o = {}) {
 			}
 			pages.length = 0;
 			shot.dispose();
-			env?.dispose();
 		}
 	};
 }
