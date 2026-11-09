@@ -1,5 +1,12 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 11:22 Berlin
+- **660ad67f run 3** (head 7e7c0aa5d; out/ 44913732c): 0 errors of any kind in both engines, programs 54 in all (was 64–65),
+  47 linked while walking. Its job doesn't time the walk, so the Safari walk (wk5, the pre-programme's walk) runs on this
+  head right after #13 run 3 (~11:35); then I record c6. If the builder wants the walk inside its job: 24 m through the
+  dome over 12 s, 20 s after up, frame intervals (mean, p95, over 100 ms), bound 1.5 × 20.8 ms.
+- **#13 run 3 running** (head 7a8c52ac3, render f286675c6, since 11:20). Then the walk, then #8 run 2 (7f322dff8).
+
 ## 11:15 Berlin — 660ad67f c6 recorded: FAIL on the Safari walk (decision for Samuel below)
 - Judged as planned (the bound against its purpose: Safari walking Sandbox 5 smoothly). **WebKit walk on head 1ddf48990:
   66 frames in 12 s, mean 186.9 ms, p95 341, 27 over 100 ms, one 5.1 s stall** (pre-programme 577 frames, 20.8 ms; bound
