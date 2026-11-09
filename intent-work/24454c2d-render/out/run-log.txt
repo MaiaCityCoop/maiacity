@@ -1,0 +1,42 @@
+head 7a8c52ac3d6c6f75bebaee2401581d4a76387e7b (base: the same code, play's pinned v1 biome cards)
+[base] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+base: Sandbox 1 settled after 55 s
+base walk-near: {"frames":229,"frame_ms":26.3,"frame_p95":33.4,"cpu_ms":18.2,"gpu_ms":18.8,"calls":1785,"triangles":3407926,"bound":"gpu"}
+base walk-160: {"frames":225,"frame_ms":26.9,"frame_p95":33.4,"cpu_ms":16.2,"gpu_ms":20.4,"calls":1578,"triangles":3359492,"bound":"gpu"}
+base walk-edge: {"frames":214,"frame_ms":28.2,"frame_p95":33.4,"cpu_ms":13.1,"gpu_ms":21.9,"calls":1037,"triangles":3829825,"bound":"gpu"}
+base top-95: {"frames":361,"frame_ms":16.7,"frame_p95":16.8,"cpu_ms":7.9,"gpu_ms":10.9,"calls":732,"triangles":2113586,"bound":"vsync"}
+base top-160: {"frames":265,"frame_ms":22.8,"frame_p95":33.4,"cpu_ms":12,"gpu_ms":17.1,"calls":1148,"triangles":2921443,"bound":"gpu"}
+base above-140: {"frames":222,"frame_ms":27.2,"frame_p95":33.4,"cpu_ms":17,"gpu_ms":19.7,"calls":1703,"triangles":3110566,"bound":"gpu"}
+base walk-30m: {"frames":412,"frame_ms":28,"frame_p95":33.4,"cpu_ms":19.1,"gpu_ms":19.9,"calls":1552,"triangles":3458778,"bound":"gpu"}
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[proxy 3912] catalog: 2 biome card(s) swapped for the drafted ones
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+head: Sandbox 1 settled after 60 s
+head walk-near: {"frames":232,"frame_ms":26,"frame_p95":33.4,"cpu_ms":18.2,"gpu_ms":18.2,"calls":1789,"triangles":3392371,"bound":"gpu"}
+head walk-160: {"frames":222,"frame_ms":27.1,"frame_p95":33.4,"cpu_ms":16.9,"gpu_ms":19.7,"calls":1587,"triangles":3400087,"bound":"gpu"}
+head walk-edge: {"frames":226,"frame_ms":26.7,"frame_p95":33.4,"cpu_ms":12.7,"gpu_ms":20.8,"calls":1040,"triangles":3810856,"bound":"gpu"}
+head top-95: {"frames":361,"frame_ms":16.7,"frame_p95":16.8,"cpu_ms":8.6,"gpu_ms":10.7,"calls":736,"triangles":2137192,"bound":"vsync"}
+head top-160: {"frames":254,"frame_ms":23.8,"frame_p95":33.4,"cpu_ms":12.4,"gpu_ms":18,"calls":1152,"triangles":3020645,"bound":"gpu"}
+head above-140: {"frames":214,"frame_ms":28.2,"frame_p95":33.4,"cpu_ms":18,"gpu_ms":20,"calls":1717,"triangles":3181262,"bound":"gpu"}
+head walk-30m: {"frames":410,"frame_ms":28.1,"frame_p95":49.9,"cpu_ms":18.8,"gpu_ms":19.9,"calls":1558,"triangles":3519446,"bound":"gpu"}
+┌───┬───────────┬─────────┬─────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬───────┬───────┐
+│   │ view      │ base_ms │ head_ms │ base_p95 │ head_p95 │ base_cpu │ head_cpu │ base_gpu │ head_gpu │ bound │ worse │
+├───┼───────────┼─────────┼─────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼───────┼───────┤
+│ 0 │ walk-near │ 26.3    │ 26      │ 33.4     │ 33.4     │ 18.2     │ 18.2     │ 18.8     │ 18.2     │ gpu   │ false │
+│ 1 │ walk-160  │ 26.9    │ 27.1    │ 33.4     │ 33.4     │ 16.2     │ 16.9     │ 20.4     │ 19.7     │ gpu   │ false │
+│ 2 │ walk-edge │ 28.2    │ 26.7    │ 33.4     │ 33.4     │ 13.1     │ 12.7     │ 21.9     │ 20.8     │ gpu   │ false │
+│ 3 │ top-95    │ 16.7    │ 16.7    │ 16.8     │ 16.8     │ 7.9      │ 8.6      │ 10.9     │ 10.7     │ vsync │ true  │
+│ 4 │ top-160   │ 22.8    │ 23.8    │ 33.4     │ 33.4     │ 12       │ 12.4     │ 17.1     │ 18       │ gpu   │ false │
+│ 5 │ above-140 │ 27.2    │ 28.2    │ 33.4     │ 33.4     │ 17       │ 18       │ 19.7     │ 20       │ gpu   │ true  │
+│ 6 │ walk-30m  │ 28      │ 28.1    │ 33.4     │ 49.9     │ 19.1     │ 18.8     │ 19.9     │ 19.9     │ gpu   │ false │
+└───┴───────────┴─────────┴─────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴───────┴───────┘
+head 7a8c52ac3d6c6f75bebaee2401581d4a76387e7b · out: /Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out (commit out/ and push the branch intent-work/24454c2d-render)

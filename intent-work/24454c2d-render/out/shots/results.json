@@ -1,0 +1,222 @@
+[
+ {
+  "site": "base",
+  "view": "walk-near",
+  "settled": true,
+  "meter": {
+   "frames": 229,
+   "frame_ms": 26.3,
+   "frame_p95": 33.4,
+   "cpu_ms": 18.2,
+   "gpu_ms": 18.8,
+   "calls": 1785,
+   "triangles": 3407926,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/base-walk-near.png"
+ },
+ {
+  "site": "base",
+  "view": "walk-160",
+  "settled": true,
+  "meter": {
+   "frames": 225,
+   "frame_ms": 26.9,
+   "frame_p95": 33.4,
+   "cpu_ms": 16.2,
+   "gpu_ms": 20.4,
+   "calls": 1578,
+   "triangles": 3359492,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/base-walk-160.png"
+ },
+ {
+  "site": "base",
+  "view": "walk-edge",
+  "settled": true,
+  "meter": {
+   "frames": 214,
+   "frame_ms": 28.2,
+   "frame_p95": 33.4,
+   "cpu_ms": 13.1,
+   "gpu_ms": 21.9,
+   "calls": 1037,
+   "triangles": 3829825,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/base-walk-edge.png"
+ },
+ {
+  "site": "base",
+  "view": "top-95",
+  "settled": true,
+  "meter": {
+   "frames": 361,
+   "frame_ms": 16.7,
+   "frame_p95": 16.8,
+   "cpu_ms": 7.9,
+   "gpu_ms": 10.9,
+   "calls": 732,
+   "triangles": 2113586,
+   "bound": "vsync"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/base-top-95.png"
+ },
+ {
+  "site": "base",
+  "view": "top-160",
+  "settled": true,
+  "meter": {
+   "frames": 265,
+   "frame_ms": 22.8,
+   "frame_p95": 33.4,
+   "cpu_ms": 12,
+   "gpu_ms": 17.1,
+   "calls": 1148,
+   "triangles": 2921443,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/base-top-160.png"
+ },
+ {
+  "site": "base",
+  "view": "above-140",
+  "settled": true,
+  "meter": {
+   "frames": 222,
+   "frame_ms": 27.2,
+   "frame_p95": 33.4,
+   "cpu_ms": 17,
+   "gpu_ms": 19.7,
+   "calls": 1703,
+   "triangles": 3110566,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/base-above-140.png"
+ },
+ {
+  "site": "base",
+  "view": "walk-30m",
+  "meter": {
+   "frames": 412,
+   "frame_ms": 28,
+   "frame_p95": 33.4,
+   "cpu_ms": 19.1,
+   "gpu_ms": 19.9,
+   "calls": 1552,
+   "triangles": 3458778,
+   "bound": "gpu"
+  }
+ },
+ {
+  "site": "head",
+  "view": "walk-near",
+  "settled": true,
+  "meter": {
+   "frames": 232,
+   "frame_ms": 26,
+   "frame_p95": 33.4,
+   "cpu_ms": 18.2,
+   "gpu_ms": 18.2,
+   "calls": 1789,
+   "triangles": 3392371,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/head-walk-near.png"
+ },
+ {
+  "site": "head",
+  "view": "walk-160",
+  "settled": true,
+  "meter": {
+   "frames": 222,
+   "frame_ms": 27.1,
+   "frame_p95": 33.4,
+   "cpu_ms": 16.9,
+   "gpu_ms": 19.7,
+   "calls": 1587,
+   "triangles": 3400087,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/head-walk-160.png"
+ },
+ {
+  "site": "head",
+  "view": "walk-edge",
+  "settled": true,
+  "meter": {
+   "frames": 226,
+   "frame_ms": 26.7,
+   "frame_p95": 33.4,
+   "cpu_ms": 12.7,
+   "gpu_ms": 20.8,
+   "calls": 1040,
+   "triangles": 3810856,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/head-walk-edge.png"
+ },
+ {
+  "site": "head",
+  "view": "top-95",
+  "settled": true,
+  "meter": {
+   "frames": 361,
+   "frame_ms": 16.7,
+   "frame_p95": 16.8,
+   "cpu_ms": 8.6,
+   "gpu_ms": 10.7,
+   "calls": 736,
+   "triangles": 2137192,
+   "bound": "vsync"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/head-top-95.png"
+ },
+ {
+  "site": "head",
+  "view": "top-160",
+  "settled": true,
+  "meter": {
+   "frames": 254,
+   "frame_ms": 23.8,
+   "frame_p95": 33.4,
+   "cpu_ms": 12.4,
+   "gpu_ms": 18,
+   "calls": 1152,
+   "triangles": 3020645,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/head-top-160.png"
+ },
+ {
+  "site": "head",
+  "view": "above-140",
+  "settled": true,
+  "meter": {
+   "frames": 214,
+   "frame_ms": 28.2,
+   "frame_p95": 33.4,
+   "cpu_ms": 18,
+   "gpu_ms": 20,
+   "calls": 1717,
+   "triangles": 3181262,
+   "bound": "gpu"
+  },
+  "png": "/Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out/shots/head-above-140.png"
+ },
+ {
+  "site": "head",
+  "view": "walk-30m",
+  "meter": {
+   "frames": 410,
+   "frame_ms": 28.1,
+   "frame_p95": 49.9,
+   "cpu_ms": 18.8,
+   "gpu_ms": 19.9,
+   "calls": 1558,
+   "triangles": 3519446,
+   "bound": "gpu"
+  }
+ }
+]
