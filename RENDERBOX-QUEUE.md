@@ -1,5 +1,12 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 11:00 Berlin
+- **#13 run 2 recorded: c6 FAIL again** (on ff3cc57a1; out/ 1942b4871). SSIM base vs head is the same as run 1 to the third
+  decimal (0.967/0.983/0.997/0.962/0.995/0.973): "gather instead of cut off" changes nothing visible in these views. Still
+  sprigs spread evenly at walking height, no edge band, no litter at trunks in shot. Its builder should say which cards and
+  kinds the masks change and aim the shots there (a food-forest trunk close up), or strengthen the drifts.
+- **#6 run 2 is running** (head b5d2fbf69 against main 54c17d998, started 10:49).
+
 ## 10:55 Berlin — 660ad67f c6 recorded: FAIL, but close (evidence on the intent; out/ 46306577f)
 - **Passes:** Sandbox 5 draws again in Chromium and WebKit (plants, path), no uniform3fv error, no plant fails to load,
   Sandbox 1's film advances 0…5 s in both.
