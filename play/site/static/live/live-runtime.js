@@ -56855,11 +56855,28 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
     const keyOf = h.customProgramCacheKeyCallback;
     h.customProgramCacheKeyCallback = function() {
       keying = this;
+      drawing = h.nodeFrame.object;
       try {
         return keyOf.call(this);
       } finally {
-        keying = null;
+        keying = drawing = null;
       }
+    };
+    const src = new WeakMap, meet = h.onUpdateProgram.bind(h);
+    h.onUpdateProgram = (m, p, props) => {
+      const b = m._latestBuilder, s = b && b.vertexShader + b.fragmentShader, first = !h.programCache.get(m)?.has(p);
+      meet(m, p, props);
+      const o = src.get(p);
+      if (!m.isKit || !first || !s || o?.s === s)
+        return;
+      if (!o)
+        return void src.set(p, { s, m });
+      let i = 0;
+      while (s[i] === o.s[i])
+        i++;
+      (globalThis.__clashes ??= []).push({ a: o.m.name, b: m.name, at: s.slice(i - 60, i + 60), was: o.s.slice(i - 60, i + 60) });
+      const e = h.programCache.get(o.m)?.get(p);
+      m.own = m.needsUpdate = true, props.uniforms = e?.uniforms ?? {}, props.uniformsList = e?.uniformsList ?? [], m.uniformsGroups = e?.uniformsGroups ?? [];
     };
     h.getOutputCallback = (node, builder) => onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node;
     if (h.renderer)
@@ -56960,7 +56977,7 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
       return Object.assign(new G, model);
     }
     customProgramCacheKey() {
-      return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
+      return `${super.customProgramCacheKey()}#${this.own ? this.id : shapeOf(this, drawing)}`;
     }
     copy(source) {
       super.copy(source);
@@ -56971,8 +56988,14 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
     }
   };
   var I3 = new Matrix3;
-  function shapeOf(m) {
-    let s = `${m.fade ? "f" : ""}${m.cut ? "c" : ""}${m.cap ? "p" : ""}${m.gloss === 1 ? "" : `g${m.gloss}`}`;
+  var drawing = null;
+  function shapeOf(m, o = drawing) {
+    let s = `${m.fade ? "f" : ""}${m.cut ? "c" : ""}${m.cap ? "p" : ""}${m.gloss === 1 ? "" : `g${m.gloss}`}|${o?.type}${o?.instanceColor ? "ic" : ""}`;
+    const g = o?.geometry;
+    for (const [k, a] of Object.entries(g?.attributes ?? {}).sort())
+      s += `|${k}${a.itemSize}${a.array?.constructor.name}${a.normalized ? "n" : ""}${a.isInstancedBufferAttribute ? "i" : ""}`;
+    for (const [k, l] of Object.entries(g?.morphAttributes ?? {}))
+      s += `|~${k}${l.length}${g.morphTargetsRelative ? "r" : ""}`;
     for (const k of Object.keys(m).sort()) {
       const t = m[k];
       if (!t?.isTexture)
@@ -59704,7 +59727,7 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
   var own = (Base) => class extends Base {
     isKit = true;
     customProgramCacheKey() {
-      return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
+      return `${super.customProgramCacheKey()}#${this.own ? this.id : shapeOf(this)}`;
     }
   };
   var OwnStandard = own(MeshStandardNodeMaterial);

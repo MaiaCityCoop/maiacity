@@ -27,7 +27,7 @@ export function screenOutputs(r, h) {
 
 /**
  * A node material class of ours (`isKit`, as the render kit's): kept out of three's compile (./core.js), drawn linear
- * into a target, and keyed by its shape as the kit's are (./nodes `shapeOf`, bd087014): two whose shaders differ never
+ * into a target, and keyed by its shape and the drawn geometry as the kit's are (./nodes `shapeOf`, bd087014, 660ad67f): two whose shaders differ never
  * share a program, and copies alike share one (keyed by id, Safari linked a program for every copy). The handler reads
  * the key off the class (its prototype's `customProgramCacheKey`), so it is a class, not a property.
  * @template {new (...a: any[]) => any} B @param {B} Base @returns {B}
@@ -36,7 +36,8 @@ const own = (Base) =>
 	class extends Base {
 		isKit = true;
 		customProgramCacheKey() {
-			return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
+			// a clash the shape misses (./nodes `own`, 660ad67f) keys by its id, as the kit's do
+			return `${super.customProgramCacheKey()}#${this.own ? this.id : shapeOf(this)}`;
 		}
 	};
 export const OwnStandard = own(MeshStandardNodeMaterial);

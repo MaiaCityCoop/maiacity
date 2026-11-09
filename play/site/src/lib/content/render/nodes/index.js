@@ -281,8 +281,9 @@ const I3 = new THREE.Matrix3();
 /** the object being keyed (install) */
 let drawing = null;
 /** What makes two of our shaders differ beside three's node hash: the kit's settings, each texture slot's kind and
- * the drawn geometry (a map reads `uv`, vertex colours `color`: 660ad67f). @param {any} m @param {any} o */
-export function shapeOf(m, o) {
+ * the drawn geometry (a map reads `uv`, vertex colours `color`: 660ad67f); the object being keyed unless one is named
+ * (./tsl.js keys ours by it too). @param {any} m @param {any} [o] */
+export function shapeOf(m, o = drawing) {
 	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}|${o?.type}${o?.instanceColor ? 'ic' : ''}`;
 	const g = o?.geometry;
 	for (const [k, a] of Object.entries(g?.attributes ?? {}).sort()) s += `|${k}${a.itemSize}${a.array?.constructor.name}${a.normalized ? 'n' : ''}${a.isInstancedBufferAttribute ? 'i' : ''}`;
