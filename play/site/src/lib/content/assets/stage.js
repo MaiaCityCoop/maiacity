@@ -111,6 +111,9 @@ export class Stage {
 			this.scene.background = null;
 			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25 });
 			this.sky.stars.visible = false;
+			// the sky is no surface: the occlusion's normal and depth pass leaves it out (as it did the old viewer sky), else
+			// its box shades the sky above the asset dark
+			this.sky.dome.userData.noAO = this.sky.stars.userData.noAO = true;
 		}
 		// lights: a soft key with its shadow, a cool rim, a gentle fill (the environment does most of the work)
 		const key = new THREE.DirectionalLight(0xfff3e6, paper ? 2.4 : 2.6);
@@ -705,7 +708,7 @@ export class Stage {
 		setExposure(r, lens);
 		// the bloom's threshold in the lens's units: the scene's light is the sky's, its radiance far over 1 (544485e2:
 		// a threshold in the scene's units bloomed the whole sky into a haze over every asset)
-		if (this.post.bloom) this.post.bloom.threshold = this.bloomAt / lens;
+		if (this.post?.bloom) this.post.bloom.threshold = this.bloomAt / lens;
 		r.localClippingEnabled = true;
 		this.camera.layers.enable(LAYER_FX);
 		this.camera.updateMatrixWorld();
