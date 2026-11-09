@@ -1,5 +1,12 @@
 # 090168c8 · the Mac render job (c7 and c8: real grass)
 
+MAC JOB READY
+
+The pull request's head (intent/090168c8-real-grass) is the commit this job measures. Its dry run printed DRY RUN
+PASSED in avenBOX at 72cf410 (`bun play/site/scripts/macjob/dry.ts intent-work/090168c8-render --at 72cf410`, 149 s);
+only this README changed after it. The branch is stacked on intent 6 (6fd5e63f-living-plants), and its avenBOX checks
+pass (`bun play/avenbox/intent.ts 090168c8-…`: 6 passed, c7 c8 c9 to judge).
+
 GPU work runs only on Samuel's Mac (Metal), never on SwiftShader in the cloud. This job draws Sandbox 1's grass, the
 blades of `play/site/src/lib/content/biomes/grass.js`, and measures what they cost on the GPU.
 
