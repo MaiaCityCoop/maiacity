@@ -11,7 +11,7 @@ ROOT=$(git rev-parse --show-toplevel)
 JOB="$ROOT/intent-work/24454c2d-render"
 OUT="$JOB/out"
 TREE="$ROOT/../i12-head"
-BRANCH=intent/24454c2d-natural-placement
+BRANCH=intent/24454c2d-masks
 
 git -C "$ROOT" fetch -q origin "$BRANCH"
 HEAD=${HEAD_COMMIT:-$(git -C "$ROOT" rev-parse "origin/$BRANCH")}
