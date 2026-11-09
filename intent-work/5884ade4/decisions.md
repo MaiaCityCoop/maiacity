@@ -177,3 +177,7 @@ gain the toolkit's retry flags; server-care runs without `-i` under `timeout 0`.
 Docker daemon). Kept: `deploy/deploy-time.ts` (the `run` of 5ab64b8e's c12, not dead). Left: `.claude/settings.json`'s
 SessionStart hook, intent.ts's own database URL, play/site scripts' MCP clients, the tools/motion mirror (waits for
 b9e6ad45), F4 (Samuel's).
+- 09:30Z: four new intents started (660ad67f, 7af6e162, cb52fbd9; f63774a3 already landed); 175 files held. This PR
+  touched two of them after they became held, and one (play/SPEC.md, held by a5faafad) by my mistake: both restored
+  to main's. Pending their landing: SPEC names the required checks by `.github/required-checks.json` (infra's last
+  bound, 2 → 1 files), setup.sh reads `play/avenbox/box.env`.
