@@ -1,0 +1,32 @@
+ 99 | 	await new Promise(() => {});
+100 | }
+101 | 
+102 | const run = (cmd: string[]) => {
+103 | 	const p = Bun.spawnSync(cmd, { stdout: 'pipe', stderr: 'pipe' });
+104 | 	if (p.exitCode !== 0) throw new Error(`${cmd[0]} ${cmd[1]}: ${p.stderr.toString().slice(-2000)}`);
+                                       ^
+error: bunx hyperframes@0.9.20: ot defined
+[HyperFrames] render runtime fps {"canonicalFps":30,"source":"render-options","rawFpsSource":"render-options","rawFps":30}
+[initSession:screenshot] pollHfReady complete (328ms)
+[FrameCapture] Sub-composition timeline wait cut short after 5077ms: script(s) failed (runtime-error:SyntaxError: Cannot use 'import.meta' outside a module, runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-composition://body:11:1]), so the timeline registration they carry can never arrive. Fix the script.
+[FrameCapture] Composition(s) still waiting on the failed script: story.
+[initSession:screenshot] pollSubCompositionTimelines complete (script_failure) (5408ms)
+[FrameCapture:sub_timeline_script_failure] A composition script threw before its timeline registered (still unregistered: story) (runtime-error:SyntaxError: Cannot use 'import.meta' outside a module, runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-composition://body:11:1]). Fix the error; a composition animated by CSS or rAF rather than a GSAP timeline must mark its host with data-no-timeline. {
+  timeoutMs: 45000,
+  sources: [ "runtime-error:SyntaxError: Cannot use 'import.meta' outside a module",
+    "runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-composition://body:11:1]"
+  ],
+  pendingCompositionIds: [ "story" ],
+}
+[WARN] Render completed capture with correctness warnings {"renderJobId":"6a500e93-5839-495d-bc2c-f11d2485c270","strictness":"best-effort","warningCodes":["sub_timeline_script_failure"],"warningReasons":[],"warningStages":[],"warningOwners":[]}
+
+✗  Render failed
+
+   Render blocked by 1 correctness warning:
+   - sub_timeline_script_failure: A composition script threw before its timeline registered (still unregistered: story) (runtime-error:SyntaxError: Cannot use 'import.meta' outside a module, runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-comp…
+   Try --docker for containerized rendering
+
+      at run (/Users/samuelandert/Documents/Development/602a-head/play/site/scripts/story-parity.ts:104:34)
+      at /Users/samuelandert/Documents/Development/602a-head/play/site/scripts/story-parity.ts:114:22
+
+Bun v1.4.2 (macOS arm64)

@@ -1,0 +1,124 @@
+base d5346b7ce13519a0606b4451dbc46aa272e79a48 · head a6f20d9412d152a6f9820f35d847cc84b34c4ed5
+ 99 | 	await new Promise(() => {});
+100 | }
+101 | 
+102 | const run = (cmd: string[]) => {
+103 | 	const p = Bun.spawnSync(cmd, { stdout: 'pipe', stderr: 'pipe' });
+104 | 	if (p.exitCode !== 0) throw new Error(`${cmd[0]} ${cmd[1]}: ${p.stderr.toString().slice(-2000)}`);
+                                       ^
+error: bunx hyperframes@0.9.20: ot defined
+[HyperFrames] render runtime fps {"canonicalFps":30,"source":"render-options","rawFpsSource":"render-options","rawFps":30}
+[initSession:screenshot] pollHfReady complete (328ms)
+[FrameCapture] Sub-composition timeline wait cut short after 5077ms: script(s) failed (runtime-error:SyntaxError: Cannot use 'import.meta' outside a module, runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-composition://body:11:1]), so the timeline registration they carry can never arrive. Fix the script.
+[FrameCapture] Composition(s) still waiting on the failed script: story.
+[initSession:screenshot] pollSubCompositionTimelines complete (script_failure) (5408ms)
+[FrameCapture:sub_timeline_script_failure] A composition script threw before its timeline registered (still unregistered: story) (runtime-error:SyntaxError: Cannot use 'import.meta' outside a module, runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-composition://body:11:1]). Fix the error; a composition animated by CSS or rAF rather than a GSAP timeline must mark its host with data-no-timeline. {
+  timeoutMs: 45000,
+  sources: [ "runtime-error:SyntaxError: Cannot use 'import.meta' outside a module",
+    "runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-composition://body:11:1]"
+  ],
+  pendingCompositionIds: [ "story" ],
+}
+[WARN] Render completed capture with correctness warnings {"renderJobId":"6a500e93-5839-495d-bc2c-f11d2485c270","strictness":"best-effort","warningCodes":["sub_timeline_script_failure"],"warningReasons":[],"warningStages":[],"warningOwners":[]}
+
+✗  Render failed
+
+   Render blocked by 1 correctness warning:
+   - sub_timeline_script_failure: A composition script threw before its timeline registered (still unregistered: story) (runtime-error:SyntaxError: Cannot use 'import.meta' outside a module, runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-comp…
+   Try --docker for containerized rendering
+
+      at run (/Users/samuelandert/Documents/Development/602a-head/play/site/scripts/story-parity.ts:104:34)
+      at /Users/samuelandert/Documents/Development/602a-head/play/site/scripts/story-parity.ts:114:22
+
+Bun v1.4.2 (macOS arm64)
+ 99 | 	await new Promise(() => {});
+100 | }
+101 | 
+102 | const run = (cmd: string[]) => {
+103 | 	const p = Bun.spawnSync(cmd, { stdout: 'pipe', stderr: 'pipe' });
+104 | 	if (p.exitCode !== 0) throw new Error(`${cmd[0]} ${cmd[1]}: ${p.stderr.toString().slice(-2000)}`);
+                                       ^
+error: bunx hyperframes@0.9.20: ot defined
+[HyperFrames] render runtime fps {"canonicalFps":30,"source":"render-options","rawFpsSource":"render-options","rawFps":30}
+[initSession:screenshot] pollHfReady complete (261ms)
+[FrameCapture] Sub-composition timeline wait cut short after 5064ms: script(s) failed (runtime-error:SyntaxError: Cannot use 'import.meta' outside a module, runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-composition://body:11:1]), so the timeline registration they carry can never arrive. Fix the script.
+[FrameCapture] Composition(s) still waiting on the failed script: story.
+[initSession:screenshot] pollSubCompositionTimelines complete (script_failure) (5326ms)
+[FrameCapture:sub_timeline_script_failure] A composition script threw before its timeline registered (still unregistered: story) (runtime-error:SyntaxError: Cannot use 'import.meta' outside a module, runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-composition://body:11:1]). Fix the error; a composition animated by CSS or rAF rather than a GSAP timeline must mark its host with data-no-timeline. {
+  timeoutMs: 45000,
+  sources: [ "runtime-error:SyntaxError: Cannot use 'import.meta' outside a module",
+    "runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-composition://body:11:1]"
+  ],
+  pendingCompositionIds: [ "story" ],
+}
+[WARN] Render completed capture with correctness warnings {"renderJobId":"be2c4809-2c0c-48b4-8715-d8bac7dfbfca","strictness":"best-effort","warningCodes":["sub_timeline_script_failure"],"warningReasons":[],"warningStages":[],"warningOwners":[]}
+
+✗  Render failed
+
+   Render blocked by 1 correctness warning:
+   - sub_timeline_script_failure: A composition script threw before its timeline registered (still unregistered: story) (runtime-error:SyntaxError: Cannot use 'import.meta' outside a module, runtime-error:ReferenceError: playLive is not defined [thrown at: hyperframes-comp…
+   Try --docker for containerized rendering
+
+      at run (/Users/samuelandert/Documents/Development/602a-head/play/site/scripts/story-parity.ts:104:34)
+      at /Users/samuelandert/Documents/Development/602a-head/play/site/scripts/story-parity.ts:114:22
+
+Bun v1.4.2 (macOS arm64)
+t=1 seek 1 none · seek 2 none · DIFFERENT
+t=3 seek 1 none · seek 2 none · DIFFERENT
+t=5 seek 1 none · seek 2 none · DIFFERENT
+GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
+base s1-water-pond: frame 19.70 (p95 33.30) · cpu 8.00 · gpu 16.10 · 699 calls · 2,270,881 tris · bound gpu
+base s1-water-river: frame 16.90 (p95 16.80) · cpu 6.50 · gpu 14.20 · 384 calls · 2,523,838 tris · bound vsync
+base s1-dome-0: frame 49.20 (p95 50.10) · cpu 27.20 · gpu 38.90 · 1236 calls · 5,231,555 tris · bound gpu
+base s1-dome-1: frame 32.10 (p95 33.40) · cpu 16.20 · gpu 25.60 · 1357 calls · 3,110,762 tris · bound gpu
+base s1-near: frame 28.50 (p95 33.40) · cpu 22.10 · gpu 19.60 · 1767 calls · 3,401,006 tris · bound cpu
+base s1-mid: frame 34.30 (p95 50.00) · cpu 21.70 · gpu 25.80 · 1764 calls · 4,968,124 tris · bound gpu
+base s1-far: frame 16.80 (p95 16.70) · cpu 8.30 · gpu 12.40 · 851 calls · 1,529,320 tris · bound vsync
+base s3-open: frame 16.70 (p95 16.70) · cpu 4.00 · gpu 6.70 · 303 calls · 458,115 tris · bound vsync
+base world-oldcity: frame 16.70 (p95 16.80) · cpu 5.70 · gpu 0.50 · 47 calls · 29,210 tris · bound vsync
+base factories: frame 0.00 (p95 0.00) · cpu 0.00 · gpu – · 0 calls · 0 tris · bound null
+base game-map: frame 16.70 (p95 16.70) · cpu 2.70 · gpu 7.50 · 315 calls · 1,914,812 tris · bound vsync
+base lab: frame 16.70 (p95 16.70) · cpu 0.60 · gpu 1.30 · 4 calls · 12 tris · bound vsync
+base plant-look: frame 18.70 (p95 16.80) · cpu 8.20 · gpu 8.90 · 574 calls · 3,565,131 tris · bound vsync
+base: 6 errors
+    /sandbox-1/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-3/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /worlds/#43420c0b-675b-4e50-98b5-c461b9432fc0 console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /factories/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-2/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+head s1-water-pond: frame 21.20 (p95 33.40) · cpu 12.30 · gpu 16.90 · 741 calls · 2,370,478 tris · bound gpu
+head s1-water-river: frame 17.00 (p95 16.80) · cpu 6.80 · gpu 14.20 · 400 calls · 2,548,238 tris · bound vsync
+head s1-dome-0: frame 44.80 (p95 50.10) · cpu 20.60 · gpu 37.60 · 1236 calls · 5,231,555 tris · bound gpu
+head s1-dome-1: frame 31.60 (p95 33.40) · cpu 19.50 · gpu 25.20 · 1373 calls · 3,141,333 tris · bound gpu
+head s1-near: frame 26.50 (p95 33.40) · cpu 25.10 · gpu 18.90 · 1785 calls · 3,411,642 tris · bound cpu
+head s1-mid: frame 33.50 (p95 33.40) · cpu 24.20 · gpu 25.90 · 1753 calls · 4,973,195 tris · bound gpu
+head s1-far: frame 17.70 (p95 33.30) · cpu 17.30 · gpu 12.10 · 851 calls · 1,529,320 tris · bound cpu
+head s3-open: frame 16.70 (p95 16.70) · cpu 4.30 · gpu 6.40 · 296 calls · 457,939 tris · bound vsync
+head world-oldcity: frame 16.70 (p95 16.70) · cpu 5.50 · gpu 0.50 · 47 calls · 30,061 tris · bound vsync
+head factories: frame 0.00 (p95 0.00) · cpu 0.00 · gpu – · 0 calls · 0 tris · bound null
+head game-map: frame 16.70 (p95 16.70) · cpu 2.10 · gpu 7.60 · 315 calls · 1,914,812 tris · bound vsync
+head lab: frame 16.70 (p95 16.80) · cpu 0.70 · gpu 1.30 · 3 calls · 12 tris · bound vsync
+head plant-look: frame 16.70 (p95 16.80) · cpu 6.70 · gpu 8.80 · 568 calls · 3,557,393 tris · bound vsync
+head: 6 errors
+    /sandbox-1/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-3/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /worlds/#43420c0b-675b-4e50-98b5-c461b9432fc0 console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /factories/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-2/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+s1-water-pond: SSIM NaN (water: judged by eye) · base 19.70 (gpu) → head 21.20 (gpu) · Δ 1.50 ms OVER +1.0
+s1-water-river: SSIM NaN (water: judged by eye) · base 16.90 (vsync) → head 17.00 (vsync) · Δ 0.10 ms within +1.0
+s1-dome-0: SSIM NaN UNDER 0.98 · base 49.20 (gpu) → head 44.80 (gpu) · Δ -4.40 ms within +1.0
+s1-dome-1: SSIM NaN UNDER 0.98 · base 32.10 (gpu) → head 31.60 (gpu) · Δ -0.50 ms within +1.0
+s1-near: SSIM NaN UNDER 0.98 · base 28.50 (cpu) → head 26.50 (cpu) · Δ -2.00 ms within +1.0
+s1-mid: SSIM NaN UNDER 0.98 · base 34.30 (gpu) → head 33.50 (gpu) · Δ -0.80 ms within +1.0
+s1-far: SSIM NaN UNDER 0.98 · base 16.80 (vsync) → head 17.70 (cpu) · Δ 0.90 ms within +1.0
+s3-open: SSIM NaN UNDER 0.98 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
+world-oldcity: SSIM NaN UNDER 0.98 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
+factories: SSIM NaN UNDER 0.98 · base 0.00 (null) → head 0.00 (null) · Δ 0.00 ms within +1.0
+game-map: SSIM NaN UNDER 0.98 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
+lab: SSIM NaN UNDER 0.98 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
+plant-look: SSIM NaN UNDER 0.98 · base 18.70 (vsync) → head 16.70 (vsync) · Δ -2.00 ms within +1.0
+done in 2846 s: /Users/samuelandert/Documents/Development/s602a-render/intent-work/602a8849-render/out/results.json
+out: /Users/samuelandert/Documents/Development/s602a-render/intent-work/602a8849-render/out (commit out/ and push the branch intent-work/602a8849-render)

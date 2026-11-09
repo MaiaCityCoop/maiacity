@@ -1,0 +1,238 @@
+
+  VITE v8.3.5  ready in 478 ms
+
+  ➜  Local:   http://localhost:5192/
+  ➜  Network: use --host to expose
+10:03:22 AM [vite-plugin-svelte] src/lib/site/app/NavPill.svelte:167:1 Unused CSS selector ".avatar img"
+https://svelte.dev/e/css_unused_selector
+10:03:27 AM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+10:03:27 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+10:03:27 AM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:03:27 AM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:03:27 AM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:03:27 AM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:03:27 AM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+10:03:27 AM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:03:27 AM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:03:27 AM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:03:28 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+10:03:43 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+10:03:43 AM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: mango@3:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+10:03:43 AM [vite] (client) [console.warn] flora: moringa@2:5:sandbox-5 did not grow: plants/moringa takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:03:43 AM [vite] (client) [console.warn] flora: cassava@2:4:sandbox-5 did not grow: plants/cassava takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: moringa@2:6:sandbox-5 did not grow: plants/moringa takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+10:03:43 AM [vite] (client) [console.warn] flora: moringa@2:8:sandbox-5 did not grow: plants/moringa takes no parameters
+10:04:09 AM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+10:04:09 AM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+10:04:09 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+10:04:09 AM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+10:04:09 AM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+10:04:09 AM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+10:04:09 AM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+10:04:09 AM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+10:04:09 AM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:07:14 AM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+10:07:14 AM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+10:07:14 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+10:07:14 AM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+10:07:14 AM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+10:07:14 AM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+10:07:14 AM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+10:07:14 AM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+10:07:14 AM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:16:36 AM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+10:16:37 AM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+10:16:37 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+10:16:37 AM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+10:16:37 AM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+10:16:37 AM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+10:16:37 AM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+10:16:37 AM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+10:16:37 AM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:29:15 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+10:31:17 AM [vite-plugin-svelte] src/lib/content/worlds/WorldStage.svelte:57:1 Non-interactive element `<div>` should not be assigned mouse or keyboard event listeners
+https://svelte.dev/e/a11y_no_noninteractive_element_interactions
+10:31:19 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+10:31:26 AM [vite] (client) [console.warn] assets: things/jersey-barrier did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:26 AM [vite] (client) [console.warn] assets: things/sign-gantry did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:26 AM [vite] (client) [console.warn] assets: buildings/multi-storey-car-park did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:26 AM [vite] (client) [console.warn] assets: things/sign-gantry did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:27 AM [vite] (client) [console.warn] assets: buildings/panel-slab-block did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:27 AM [vite] (client) [console.warn] assets: buildings/panel-slab-block did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:28 AM [vite] (client) [console.warn] assets: buildings/panel-slab-block did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:28 AM [vite] (client) [console.warn] assets: things/billboard did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:29 AM [vite] (client) [console.warn] assets: buildings/panel-slab-block did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:29 AM [vite] (client) [console.warn] assets: buildings/panel-slab-block did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:29 AM [vite] (client) [console.warn] assets: things/billboard did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:31:30 AM [vite] (client) [console.warn] assets: buildings/panel-slab-block did not load: The object must have a callable @@iterator property.
+10:31:30 AM [vite] (client) [console.warn] assets: buildings/panel-slab-block did not load: The object must have a callable @@iterator property.
+10:31:30 AM [vite] (client) [console.warn] assets: buildings/brutalist-office-tower did not load: The object must have a callable @@iterator property.
+10:31:31 AM [vite] (client) [console.warn] assets: buildings/panel-slab-block did not load: The object must have a callable @@iterator property.
+10:31:31 AM [vite] (client) [console.warn] assets: things/street-lamp did not load: The object must have a callable @@iterator property.
+10:31:31 AM [vite] (client) [console.warn] assets: things/street-lamp did not load: The object must have a callable @@iterator property.
+10:31:31 AM [vite] (client) [console.warn] assets: things/street-lamp did not load: The object must have a callable @@iterator property.
+10:31:31 AM [vite] (client) [console.warn] assets: Abandoned gas station did not load: The object must have a callable @@iterator property.
+10:31:31 AM [vite] (client) [console.warn] assets: Bus stop did not load: The object must have a callable @@iterator property.
+10:31:31 AM [vite] (client) [console.warn] assets: buildings/brutalist-office-tower did not load: The object must have a callable @@iterator property.
+10:31:31 AM [vite] (client) [console.warn] assets: buildings/brutalist-office-tower did not load: The object must have a callable @@iterator property.
+10:31:32 AM [vite] (client) [console.warn] assets: buildings/shops-under-flats did not load: The object must have a callable @@iterator property.
+10:31:32 AM [vite] (client) [console.warn] assets: things/traffic-signal did not load: The object must have a callable @@iterator property.
+10:31:32 AM [vite] (client) [console.warn] assets: things/traffic-signal did not load: The object must have a callable @@iterator property.
+10:31:32 AM [vite] (client) [console.warn] assets: buildings/panel-slab-block did not load: The object must have a callable @@iterator property.
+10:31:32 AM [vite] (client) [console.warn] assets: things/bollard did not load: The object must have a callable @@iterator property.
+10:31:32 AM [vite] (client) [console.warn] assets: things/bollard did not load: The object must have a callable @@iterator property.
+10:31:32 AM [vite] (client) [console.warn] assets: things/bollard did not load: The object must have a callable @@iterator property.
+10:31:32 AM [vite] (client) [console.warn] assets: things/bollard did not load: The object must have a callable @@iterator property.
+10:31:32 AM [vite] (client) [console.warn] assets: things/bollard did not load: The object must have a callable @@iterator property.
+10:31:32 AM [vite] (client) [console.warn] assets: things/bollard did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: buildings/shops-under-flats did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: buildings/shops-under-flats did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: buildings/point-tower did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: buildings/discount-supermarket did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: buildings/point-tower did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: buildings/point-tower did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: Old shed did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: SUV: Gunmetal, dusty did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: buildings/point-tower did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: buildings/point-tower did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: Hatchback: Yellowed white did not load: The object must have a callable @@iterator property.
+10:31:33 AM [vite] (client) [console.warn] assets: buildings/point-tower did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Sedan: Faded silver did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Hatchback: Chalky black did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Sedan: Dull maroon, rusting did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Delivery van: Dusty grey, roof rack did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Delivery van: Yellowed white did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Delivery van: Dull red, a white door did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: things/pylon did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Hatchback: Dusty grey did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Taxi: Faded taxi yellow did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Sedan: Dull blue, a silver door did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: SUV: Dull green, rusting did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Sedan: Dusty graphite did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Sedan: Yellowed white did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: SUV: Faded silver did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Taxi: Cream, chequered did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Sedan: Chalky black did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Hatchback: Faded silver did not load: The object must have a callable @@iterator property.
+10:31:34 AM [vite] (client) [console.warn] assets: Taxi: Black cab did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: Travel van: Travel van did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: SUV: Chalky black did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: Hatchback: Dull blue, rusting did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: Pickup: Pickup did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: Delivery van: Sun-bleached beige, rusting did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: SUV: Yellowed white did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: Gravel did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: Faded white did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: Faded red did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: Faded blue did not load: The object must have a callable @@iterator property.
+10:31:35 AM [vite] (client) [console.warn] assets: Cream and red did not load: The object must have a callable @@iterator property.
+10:31:37 AM [vite] (client) [console.warn] assets: Faded white did not load: The object must have a callable @@iterator property.
+10:31:37 AM [vite] (client) [console.warn] assets: Faded blue did not load: The object must have a callable @@iterator property.
+10:31:38 AM [vite] (client) [console.warn] assets: Faded green did not load: The object must have a callable @@iterator property.
+10:31:38 AM [vite] (client) [console.warn] assets: Faded ochre did not load: The object must have a callable @@iterator property.
+10:31:38 AM [vite] (client) [console.warn] assets: Faded yellow did not load: The object must have a callable @@iterator property.
+10:31:38 AM [vite] (client) [console.warn] assets: Empty did not load: The object must have a callable @@iterator property.
+10:31:40 AM [vite] (client) [console.warn] assets: Ambulance: Yellowed white did not load: The object must have a callable @@iterator property.
+10:31:41 AM [vite] (client) [console.warn] assets: Fleet grey did not load: The object must have a callable @@iterator property.
+10:31:41 AM [vite] (client) [console.warn] assets: Earth did not load: The object must have a callable @@iterator property.
+10:31:41 AM [vite] (client) [console.warn] assets: Police car: White, blue band did not load: The object must have a callable @@iterator property.
+10:31:41 AM [vite] (client) [console.warn] assets: Hatchback: Dull red, a grey door did not load: The object must have a callable @@iterator property.
+10:31:41 AM [vite] (client) [console.warn] assets: Field (booms open) did not load: The object must have a callable @@iterator property.
+10:34:48 AM [vite] (client) dependency optimized: three/addons/controls/MapControls.js
+10:36:14 AM [vite] (client) dependencies optimized: @dimforge/rapier3d-compat, three/addons/geometries/ConvexGeometry.js
+10:37:42 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+10:37:45 AM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:37:45 AM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:37:45 AM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+10:37:45 AM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:37:45 AM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:37:45 AM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:37:45 AM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:37:45 AM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:37:47 AM [vite] (client) [console.warn] assets: Lemon did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:47 AM [vite] (client) [console.warn] assets: Lemon did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:50 AM [vite] (client) [console.warn] assets: Bell pepper did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:50 AM [vite] (client) [console.warn] assets: Bell pepper did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:50 AM [vite] (client) [console.warn] assets: Banana did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:50 AM [vite] (client) [console.warn] assets: Banana did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:50 AM [vite] (client) [console.warn] assets: Strawberry did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:50 AM [vite] (client) [console.warn] assets: Coffee did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:51 AM [vite] (client) [console.warn] assets: King coconut did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:51 AM [vite] (client) [console.warn] assets: Coffee did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:51 AM [vite] (client) [console.warn] assets: Fig did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:51 AM [vite] (client) [console.warn] assets: Papaya: Both did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:51 AM [vite] (client) [console.warn] assets: Lemon did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:52 AM [vite] (client) [console.warn] assets: Mango did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:52 AM [vite] (client) [console.warn] assets: Mango did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:52 AM [vite] (client) [console.warn] assets: Durian did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:52 AM [vite] (client) [console.warn] assets: Durian did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:53 AM [vite] (client) [console.warn] assets: Fig did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:53 AM [vite] (client) [console.warn] assets: Sapodilla did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:53 AM [vite] (client) [console.warn] assets: Avocado did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:53 AM [vite] (client) [console.warn] assets: Avocado did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:54 AM [vite] (client) [console.warn] assets: Papaya: Both did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:54 AM [vite] (client) [console.warn] assets: Sapodilla did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:54 AM [vite] (client) [console.warn] assets: Strawberry did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:54 AM [vite] (client) [console.warn] assets: Jackfruit did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:54 AM [vite] (client) [console.warn] assets: Jackfruit did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:54 AM [vite] (client) [console.warn] assets: Comfrey did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:55 AM [vite] (client) [console.warn] assets: Red banana did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:55 AM [vite] (client) [console.warn] assets: Lemon did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:55 AM [vite] (client) [console.warn] assets: Red banana did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:55 AM [vite] (client) [console.warn] assets: Ginger did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:56 AM [vite] (client) [console.warn] assets: Orange did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:56 AM [vite] (client) [console.warn] assets: Orange did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:56 AM [vite] (client) [console.warn] assets: Oyster mushroom did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:57 AM [vite] (client) [console.warn] assets: Cacao did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:57 AM [vite] (client) [console.warn] assets: Cacao did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:57 AM [vite] (client) [console.warn] assets: Pineapple did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:58 AM [vite] (client) [console.warn] assets: Pomegranate did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:58 AM [vite] (client) [console.warn] assets: White clover did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:58 AM [vite] (client) [console.warn] assets: Shiitake did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:58 AM [vite] (client) [console.warn] assets: things/table-dining-round did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:58 AM [vite] (client) [console.warn] assets: Pomegranate did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:59 AM [vite] (client) [console.warn] assets: things/chair-spindle did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:59 AM [vite] (client) [console.warn] assets: things/armchair-round did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:59 AM [vite] (client) [console.warn] assets: things/pot-terracotta did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:59 AM [vite] (client) [console.warn] assets: things/table-side-travertine did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:59 AM [vite] (client) [console.warn] assets: things/planter-trough did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:59 AM [vite] (client) [console.warn] assets: Soursop did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:37:59 AM [vite] (client) [console.warn] assets: Soursop did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:00 AM [vite] (client) [console.warn] assets: things/table-coffee-travertine did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:00 AM [vite] (client) [console.warn] assets: things/bench-oak-curved did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:00 AM [vite] (client) [console.warn] assets: things/workbench-oak did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:00 AM [vite] (client) [console.warn] assets: things/daybed-terrace did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:00 AM [vite] (client) [console.warn] assets: things/table-library-long did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:00 AM [vite] (client) [console.warn] assets: things/bed-platform did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:00 AM [vite] (client) [console.warn] assets: things/rug-jute-round did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:00 AM [vite] (client) [console.warn] assets: things/stool-oak did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:01 AM [vite] (client) [console.warn] assets: things/nightstand-round did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:01 AM [vite] (client) [console.warn] assets: things/lantern-floor did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:01 AM [vite] (client) [console.warn] assets: things/curtain-linen did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:01 AM [vite] (client) [console.warn] assets: things/lamp-mushroom did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:01 AM [vite] (client) [console.warn] assets: things/lantern-pendant did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:01 AM [vite] (client) [console.warn] assets: things/vanity-curved did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:01 AM [vite] (client) [console.warn] assets: things/bookcase-oak did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:01 AM [vite] (client) [console.warn] assets: things/bath-tub-freestanding did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:02 AM [vite] (client) [console.warn] assets: things/shower-walk-in did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:02 AM [vite] (client) [console.warn] assets: things/chair-desk did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:02 AM [vite] (client) [console.warn] assets: things/toilet-wall did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:02 AM [vite] (client) [console.warn] assets: things/pouf-linen did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:02 AM [vite] (client) [console.warn] assets: things/lantern-pendant-large did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:02 AM [vite] (client) [console.warn] assets: things/kitchen-counter did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:02 AM [vite] (client) [console.warn] assets: things/kitchen-island-curved did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:03 AM [vite] (client) [console.warn] assets: things/sofa-curved did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:04 AM [vite] (client) [console.warn] assets: things/desk-curved did not load: Failed to execute 'uniform3fv' on 'WebGL2RenderingContext': The object must have a callable @@iterator property.
+10:38:30 AM [vite] (client) [console.warn] plant look: not built Error: the garden names no asset for plum (Sandbox 1's garden config)
+    at refOf (http://localhost:5192/src/lib/content/sandbox-2/interior/flora.js:63:22)
+    at show (http://localhost:5192/src/lib/content/sandbox-2/interior/PlantLook.svelte:142:64)
+    at http://localhost:5192/src/lib/content/sandbox-2/interior/PlantLook.svelte:186:4
