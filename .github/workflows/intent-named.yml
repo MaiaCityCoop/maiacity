@@ -38,7 +38,7 @@ jobs:
           sparse-checkout: play/avenbox
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - name: The pull request names its one intent
         env:
           GITHUB_TOKEN: ${{ github.token }}

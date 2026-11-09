@@ -226,7 +226,8 @@ describe("Intent named", async () => {
     const box = run.steps.find((s: any) => s.name === "The intent's checks on the head (no token)");
     expect(box.run).toContain('bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --results-out');
     expect(run.steps.find((s: any) => s.name?.startsWith("avenBOX")).run).toBe('sudo env "PATH=$PATH" bash play/avenbox/setup.sh');
-    expect(run.steps.find((s: any) => s.uses === "oven-sh/setup-bun@v2").with["bun-version"]).toBe("1.4.4");
+    expect(run.steps.find((s: any) => s.uses === "oven-sh/setup-bun@v2").with["bun-version-file"]).toBe(".bun-version");
+    expect(text(".bun-version").trim()).toBe("1.4.4");
     // a newer head cancels the older head's run, whose record is then skipped (not red, nothing recorded)
     expect(w.concurrency).toEqual({ group: "intents-pr-${{ github.event.pull_request.number }}", "cancel-in-progress": true });
     expect(record.if).toBe("!cancelled() && needs.spec.result == 'success'");

@@ -1,8 +1,10 @@
-# play.maia.city: one image, the site and its API (play/SPEC.md §2). Built from the repo root:
-#   docker build -f play/Dockerfile -t maia-city-play .
+# play.maia.city: one image, the site and its API (play/SPEC.md §2). Built from the repo root, on the bun .bun-version
+# names (production.yml passes it):
+#   docker build -f play/Dockerfile --build-arg BUN_VERSION=$(cat .bun-version) -t maia-city-play .
 # The site is built in the first stage; the API serves it beside /api (PLAY_SITE). The import (bun import/run.ts)
 # runs from the same image with every deploy, against play's Postgres and store (play/deploy/README.md).
-FROM oven/bun:1.4.4-alpine AS site
+ARG BUN_VERSION
+FROM oven/bun:${BUN_VERSION}-alpine AS site
 WORKDIR /src/play/site
 COPY play/site/package.json play/site/bun.lock ./
 # an optional extra CA (a build behind a TLS-inspecting proxy: --secret id=ca,src=<bundle>); none elsewhere
@@ -10,7 +12,7 @@ RUN --mount=type=secret,id=ca,required=false NODE_EXTRA_CA_CERTS=/run/secrets/ca
 COPY play/site ./
 RUN bun run build
 
-FROM oven/bun:1.4.4-alpine
+FROM oven/bun:${BUN_VERSION}-alpine
 WORKDIR /app/api
 COPY play/api/package.json play/api/bun.lock ./
 RUN --mount=type=secret,id=ca,required=false NODE_EXTRA_CA_CERTS=/run/secrets/ca bun install --frozen-lockfile --production

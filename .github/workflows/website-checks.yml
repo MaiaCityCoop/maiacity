@@ -38,7 +38,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         if: steps.tested.outputs.skip != 'true'
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - if: steps.tested.outputs.skip != 'true'
         run: bun install --frozen-lockfile
       - if: steps.tested.outputs.skip != 'true'

@@ -115,3 +115,12 @@ committed before and as now, every call they make logged and diffed):
   required-checks.json` the image's COPY of it (move 1) would fail. Docker's ignore file re-includes a file under an
   excluded folder by its `!` line (unlike Git's). No Docker daemon here to build the image: the deploy's image job is
   its test.
+
+## 8. bun's version in one place (infra F1, part; infra#8)
+
+- `.bun-version` (1.4.4): every `oven-sh/setup-bun@v2` step reads it (`bun-version-file`, 8 steps in 6 workflows);
+  play/Dockerfile takes it as `ARG BUN_VERSION` for both stages, production.yml passing `$(cat .bun-version)`. The
+  sparse checkouts (`sparse-checkout: play/avenbox`, cone mode) keep the root's files, so `.bun-version` is there.
+- Pinned: workflows.test.ts reads intents-pr's `bun-version-file` and `.bun-version`'s 1.4.4; actionlint clean. The
+  image can't be built here (no Docker daemon): production's image job builds it.
+- Left: play/SPEC.md names 1.4.4 (not this area's).

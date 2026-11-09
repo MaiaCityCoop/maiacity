@@ -2,7 +2,7 @@
 # ready promotes to Proposal", "Only the box's run is evidence"; Samuel 2026-11-06). While the intent is in Build its
 # pull request is a draft, and nothing runs here: the agent tests itself, anywhere (play/avenbox/intent.ts without
 # --record). Marking it ready for review runs the intent's checks in the box (play/avenbox/setup.sh, PostgreSQL 17,
-# bun 1.4.4) on the pull request's head and records them on the intent with that head, this run's link and the pull
+# bun as .bun-version names it) on the pull request's head and records them on the intent with that head, this run's link and the pull
 # request (which becomes the intent's active one): every must green, the intent moves to Proposal; any must red, it
 # stays in (or goes back to) Build, failed on the board, its pull request as it is. A new head (a push, play's
 # main-merge) cancels the older head's run, which records nothing (play/api/src/ship.ts).
@@ -45,7 +45,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - name: The intent it names, and its spec (main's code, avenBOX's token)
         id: which
         env:
@@ -83,7 +83,7 @@ jobs:
           path: ${{ runner.temp }}/box
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - name: avenBOX (play/avenbox/setup.sh)
         run: sudo env "PATH=$PATH" bash play/avenbox/setup.sh
       - name: The intent's checks on the head (no token)
@@ -112,7 +112,7 @@ jobs:
           sparse-checkout: play/avenbox
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - uses: actions/download-artifact@v4
         if: needs.run.result == 'success'
         with:

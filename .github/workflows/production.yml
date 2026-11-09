@@ -45,7 +45,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
         run: |
-          docker build -f play/Dockerfile --build-arg PLAY_COMMIT="$GITHUB_SHA" -t "${{ steps.tag.outputs.image }}" .
+          docker build -f play/Dockerfile --build-arg BUN_VERSION="$(cat .bun-version)" --build-arg PLAY_COMMIT="$GITHUB_SHA" -t "${{ steps.tag.outputs.image }}" .
           docker push "${{ steps.tag.outputs.image }}"
 
   # play's schema and its files to the bucket, with the image that ran with them (deploy/backup.sh stops on a file missing)
@@ -174,7 +174,7 @@ jobs:
           sha: ${{ github.sha }}
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - name: Build
         working-directory: website
         run: |
