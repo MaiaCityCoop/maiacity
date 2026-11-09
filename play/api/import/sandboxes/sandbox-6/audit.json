@@ -59,7 +59,7 @@
 			"label": "Community halls in the tower",
 			"unit": "halls",
 			"value": 1,
-			"decided": "Samuel 2026-11-09: \"The tower should be way smaller, and it's more about communal spaces\"; the spec's default moves the theatre and library into it"
+			"decided": "Samuel 2026-11-09: \"Theatre and library move into tower\"; the school, clinic and town hall stay in the village centre"
 		},
 		"hallM2": {
 			"label": "A two-court village hall (18 × 17 m, seats up to 356, 496 with a stage)",
@@ -77,7 +77,7 @@
 			"label": "Libraries in the tower",
 			"unit": "libraries",
 			"value": 1,
-			"decided": "Samuel 2026-11-09: \"The tower should be way smaller, and it's more about communal spaces\"; the spec's default moves the theatre and library into it"
+			"decided": "Samuel 2026-11-09: \"Theatre and library move into tower\"; the school, clinic and town hall stay in the village centre"
 		},
 		"libraryM2": {
 			"label": "A village library below 2,500 inhabitants, at least",
