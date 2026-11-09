@@ -319,7 +319,9 @@ describe("the site's tests on every pull request and on main", () => {
     expect(site.if).toBe("steps.tested.outputs.skip != 'true'");
     const lines = String(site.run).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
     expect(lines).toEqual(["bun install --frozen-lockfile", "bun run build", "bun run test"]);
-    expect(JSON.parse(text("play/site/package.json")).scripts.test).toBe("vitest run");
+    // every file: vitest's, then those that need Bun's runtime (*.bun.test.ts, left out of vitest)
+    expect(JSON.parse(text("play/site/package.json")).scripts.test).toBe("vitest run && bun test .bun.test.ts");
+    expect(text("play/site/vite.config.ts")).toContain("'src/**/*.bun.test.ts'");
     const gate = text("play/avenbox/gate.sh");
     const build = gate.indexOf('has site-build && step "play/site build" play/site bun run build');
     const tests = gate.indexOf('has site-tests && step "play/site tests" play/site bun run test');
