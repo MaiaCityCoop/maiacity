@@ -108,3 +108,18 @@ left for Samuel.
   seedDocs(...)` (the tests and run.ts call them by name); their three Report types are run.ts' `SeedReport`.
 - Their header comments named src/factories.ts, gameconfigs.ts, skills.ts (gone): they name ./seeddocs.ts now.
 - Pinned by factories.test, gameconfigs.test and skills.test (each asserts the report, seeded then present).
+
+## 11. One stages module, for play/api, avenBOX and the site (re-api#14, and the infra re-audit's twin)
+
+- play/api/src/kit/stages.ts, importing nothing: `OPEN_STAGES`, `CLOSED_STAGES`, `INTENT_STAGES` (the two joined, so
+  no stage can be missing from one list), `IntentStage`, `stagesSaid(stages)` (a skill's stage keys it says something
+  for, in order) and `stagedBody(s, heading?)` (a skill's text with no body).
+- Its users: intents.ts (no longer defines them), intenttools.ts, skills.ts (skillText's body, promptsOf), allkinds.ts
+  (a skill's listed stages), wire.ts (the type), the tests; play/avenbox/skills.ts (its STAGES copy and its body
+  rendering, now `stagedBody(s, "# label")`); play/site through a new alias `$stages` (svelte.config.js: values that
+  import nothing), in lib/site/intents/board.ts (OPEN, CLOSED) and routes/skills/+page.svelte (its STAGES copy gone,
+  `stagesSaid` for a skill's stages).
+- `listIntents`/`pageIntents` take `readonly string[]` (OPEN_STAGES is a const tuple now).
+- Pinned: skills.test, build.test, avenbox.test (the mirror's body: system, then stages in order), the site's
+  board.test (vitest, 56 pass); site build green; svelte-check 9 errors, none in a touched file (all in content tests
+  and sandbox-2, as before).

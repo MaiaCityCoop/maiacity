@@ -9,7 +9,7 @@ import { initSessions } from "../src/auth";
 import { MIGRATIONS, migrate } from "../src/migrations";
 import type { Db } from "../src/kit/pg";
 import { SKILL } from "../src/kit/ids";
-import { INTENT_STAGES as SKILL_STAGES } from "../src/intents";
+import { INTENT_STAGES as SKILL_STAGES } from "../src/kit/stages";
 import { seedDoc } from "../src/versioned";
 import { avenmaia, intents } from "../import/skills";
 import { agentToken, type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";

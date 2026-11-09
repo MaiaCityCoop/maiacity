@@ -4,7 +4,8 @@ import type { Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import { SKILL } from "./kit/ids";
 import { HttpError } from "./kit/errors";
-import { intentRow, INTENT_STAGES, type IntentStage } from "./intents";
+import { intentRow } from "./intents";
+import { INTENT_STAGES, stagedBody, stagesSaid, type IntentStage } from "./kit/stages";
 
 export const docIdOf = (skill: string) => `skill:${skill}`;
 /** the skills whose `system` makes the system prompt, in this order: who the agent is, then the intents */
@@ -43,7 +44,7 @@ const SKILL_PROMPT = /^skill:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 /** a skill's whole text as one prompt: its description, its body (or its system part and stages, avenMAIA's and the
  *  Intents skill's), and the index of its references, each read whole with doc_at (a file by its hash from play's files) */
 function skillText(id: string, s: any): string {
-  const body = `${s.body ?? ""}`.trim() || [`${s.system ?? ""}`.trim(), ...INTENT_STAGES.filter((st) => `${s.stages?.[st] ?? ""}`.trim()).map((st) => `## At ${st}\n\n${`${s.stages[st]}`.trim()}`)].filter(Boolean).join("\n\n");
+  const body = `${s.body ?? ""}`.trim() || stagedBody(s);
   const refs = (s.references ?? []).map((r: any) => `- ${r.path}: ${typeof r.text === "string" ? `text, ${r.text.length} characters` : `file ${r.file}${r.type ? ` (${r.type})` : ""}`}`);
   const parts = [`# ${s.label}`, `${s.description ?? s.note ?? ""}`.trim(), body];
   if (refs.length) parts.push(`## References\n\nSkill ${id}'s references, each whole in doc_at's json.references (a file by its hash from play's files):\n\n${refs.join("\n")}`);
@@ -55,7 +56,7 @@ function skillText(id: string, s: any): string {
  *  id; then every skill, named `skill:<its UUID>`, its whole text */
 export async function promptsOf(db: Queryable) {
   const s = await accepted(db, SKILL.intents);
-  const stages = INTENT_STAGES.filter((st) => `${s?.stages?.[st] ?? ""}`.trim()).map((st) => ({
+  const stages = stagesSaid(s?.stages).map((st) => ({
     name: `intent_${st}`,
     title: `An intent at ${st[0].toUpperCase()}${st.slice(1)}`,
     description: `What to do with an intent at the ${st} stage (the Intents skill's ${st} part, ${SKILL.intents}), for the intent named by its id.`,

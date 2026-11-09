@@ -11,7 +11,7 @@ import { assetEdits, assetReview, decideAsset, ensureAssetDoc, proposeAssetVaria
 import { decideStory, proposeStoryVariant, STORY_EDITS, storyCheck, storyEdit, storyReview } from "./stories";
 import { ensureStoryDoc } from "./storydocs";
 import { storyListed } from "./listed";
-import { INTENT_STAGES } from "./intents";
+import { stagesSaid } from "./kit/stages";
 import { ensureLayoutDoc, LAYOUT_EDITS, layoutBefore, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck, writeRows } from "./sandboxes";
 import { ensureArtifactDoc } from "./artifacts";
 import { intentPieces, keepPiece, PieceError, pieceProblems, piecesHeld, piecesOf } from "./pieces";
@@ -98,7 +98,7 @@ const gameConfig: Kind = {
 const skill: Kind = {
   name: "skill", prefix: "skill", schema: SCHEMA.skill, work: "skill_version", table: "play.records", where: "r.kind = 'skill'", label: "skill", group: "skills", open: "/skills/?skill={id}&intent={intent}", told: true,
   row: { kind: () => "skill", updated: () => new Date() },
-  item: (json) => ({ note: json.note ?? "", group: json.group, stages: INTENT_STAGES.filter((s) => `${json.stages?.[s] ?? ""}`.trim()) }),
+  item: (json) => ({ note: json.note ?? "", group: json.group, stages: stagesSaid(json.stages) }),
 };
 const sandbox: Kind = {
   name: "sandbox", prefix: "sandbox", schema: SCHEMA.sandbox, check: sandboxCheck, work: "sandbox_version", table: "play.sandboxes", labelColumn: "title", label: "layout", group: "sandboxes", open: "/sandboxes/{id}/?intent={intent}", told: true, edits: LAYOUT_EDITS,

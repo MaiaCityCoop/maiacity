@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createHuman } from "../src/auth";
 import { type Db } from "../src/kit/pg";
-import { INTENT_STAGES } from "../src/intents";
+import { INTENT_STAGES } from "../src/kit/stages";
 import { SCHEMA, SKILL } from "../src/kit/ids";
 import { avenmaia, intents, seedSkills } from "../import/skills";
 import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";

@@ -10,15 +10,12 @@ import { workKinds, workSql } from "./kinds";
 import { decidable, sub, unmetOn } from "./substate";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
+import { INTENT_STAGES, type IntentStage } from "./kit/stages";
 
 export { unmetOn };
 
 export const INTENT_KINDS = ["idea", "fix", "improve"] as const;
 export type IntentKind = (typeof INTENT_KINDS)[number];
-export const INTENT_STAGES = ["idea", "specify", "build", "proposal", "ship", "accepted", "archived"] as const;
-export type IntentStage = (typeof INTENT_STAGES)[number];
-/** the intents still to be taken further: not yet done (Ship: accepted, on its way to production) */
-export const OPEN_STAGES: IntentStage[] = ["idea", "specify", "build", "proposal", "ship"];
 export const CHECK_HOWS = ["test", "measure", "look"] as const;
 /** a spec's two steps, reduce first (what it takes away), then the MVP (Samuel 2026-11-06; play/SPEC.md §4.12) */
 export const STEPS = ["reduce", "mvp"] as const;
@@ -227,7 +224,7 @@ const depsOf = (v: unknown) => {
   return v.map(idOf);
 };
 
-export async function listIntents(db: Queryable, me: Me | null, stages?: string[], work?: string) {
+export async function listIntents(db: Queryable, me: Me | null, stages?: readonly string[], work?: string) {
   return (await pageIntents(db, me, stages, work)).intents;
 }
 
@@ -253,7 +250,7 @@ const pageOf = (p: IntentPage | undefined) => {
 };
 
 /** Whole where no limit is asked (no cap cuts across the board: intent 2cb70fb8), else a page after `before`. */
-export async function pageIntents(db: Queryable, me: Me | null, stages?: string[], work?: string, page?: IntentPage) {
+export async function pageIntents(db: Queryable, me: Me | null, stages?: readonly string[], work?: string, page?: IntentPage) {
   admin(me, INTENT_ADMINS);
   for (const s of stages ?? []) if (!INTENT_STAGES.includes(s as IntentStage)) throw new HttpError(`An intent's stage is ${INTENT_STAGES.join(", ")}.`);
   if (work !== undefined && !workKinds().includes(work)) throw new HttpError(`An intent's work is ${workKinds().join(", ")}.`);
