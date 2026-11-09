@@ -66,7 +66,7 @@ const LIGHTS = [{ name: 'noon', hour: 12 }, { name: 'sun8', hour: 19.44 }];
 const HEIGHTS = [{ name: 'walk', eye: null }, { name: 'up2', eye: 3.65 }];
 const RENDERERS = small ? ['webgpu'] : ['webgl2', 'webgpu'];
 
-const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu', '--enable-features=Vulkan,WebGPU'] } : { args: ['--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] });
+const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] } : { args: ['--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] });
 const ctx = await browser.newContext(small ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 await page.addInitScript({ content: SEEDED_RANDOM });
@@ -140,7 +140,9 @@ for (const r of RENDERERS) {
 	await page.goto(`${site}/sandbox-1/?renderer=${r}${small ? '&budget=small' : ''}`, { waitUntil: 'domcontentloaded' });
 	await page.waitForFunction(() => window.__walker && window.__assets && window.__grass, null, { timeout: 10 * 60e3 });
 	const mode = await page.evaluate(() => window.__grass.mode ?? 'tiles');
-	console.log(`${r}: the grass's ${mode}`);
+	// which backend drew (render/core.js `ready`, intent c1bee1f8): webgpu, its webgl2 fallback, or webgl
+	const backend = await page.evaluate(() => window.__rendererBackend ?? null);
+	console.log(`${r}: drawn by ${backend}, the grass's ${mode}`);
 	// on the Mac a WebGPU page that fell back measures nothing of this intent's (the dry run in avenBOX has no GPU: it goes on)
 	if (r === 'webgpu' && mode !== 'indirect' && process.platform === 'darwin') throw new Error('?renderer=webgpu did not choose the blades on the card: no WebGPU here?');
 	const spot = results.spot ?? (results.spot = await findSpot());
@@ -162,7 +164,7 @@ for (const r of RENDERERS) {
 			const without = await page.evaluate(() => window.__meter.sample(4));
 			await page.evaluate(() => (window.__grass.object.visible = true));
 			const grassGpuMs = withGrass.gpu_ms != null && without.gpu_ms != null ? +(withGrass.gpu_ms - without.gpu_ms).toFixed(2) : null;
-			results.views.push({ renderer: r, mode, light: light.name, height: h.name, settled, blades: drawn, total: drawn.reduce((a, b) => a + b, 0), withGrass, without, grassGpuMs, grassCalls: withGrass.calls - without.calls, choice, png });
+			results.views.push({ renderer: r, backend, mode, light: light.name, height: h.name, settled, blades: drawn, total: drawn.reduce((a, b) => a + b, 0), withGrass, without, grassGpuMs, grassCalls: withGrass.calls - without.calls, choice, png });
 			console.log(`${r} ${light.name} ${h.name}: frame ${withGrass.frame_ms} ms (gpu ${withGrass.gpu_ms}, bound ${withGrass.bound}); the grass ${grassGpuMs} GPU ms in ${withGrass.calls - without.calls} draws; blades ${drawn.join(' / ')}${choice ? `; card vs CPU differ ${choice.share} of ${choice.drawn} (never reach the vertex stage: ${choice.neverVertex})` : ''}`);
 		}
 	}
