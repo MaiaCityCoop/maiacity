@@ -11,7 +11,7 @@ import { playIfAllowed, resumeIfAllowed } from '$lib/kernel/media.js'
 export const startAt = (duration: number, random: () => number = Math.random) =>
 	Number.isFinite(duration) && duration > 1 ? random() * (duration - 1) : 0
 
-export type SoundName = 'forest' | 'inside' | 'water' | 'hens' | 'geese' | 'goats' | 'frogs' | 'bees' | 'factory' | 'machine' | 'lift'
+type SoundName = 'forest' | 'inside' | 'water' | 'hens' | 'geese' | 'goats' | 'frogs' | 'bees' | 'factory' | 'machine' | 'lift'
 /** each sound's recording, by hash */
 const FILES: Record<SoundName, string> = {
 	forest: 'f3ebbb41045f0a45d3a27d6782beb71973fa539e9640d1c7d1b9434b02351575.mp3', // forest_nature.mp3
