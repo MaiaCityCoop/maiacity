@@ -120,3 +120,5 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
     `assets/seeded.js` is a one-line re-export for `interior/plants.ts` (held). `models` no longer imports a less
     stable folder (less-stable imports 15 → 14). Census: Sandbox 1 (whose timber this draws) and Worlds same, Sandbox 3
     its noise. Held, left: the copies in `maiacity-v2/world.js`, `interior/textures.ts`, `biomes/noise.js`.
+16. **`scripts/live-runtime.ts` back as it was**: 602a8849 now holds it, so move 5's change there (its `LIVE_HASH`
+    pattern through the kernel's `HEX`) is undone; next untangle: that one hash pattern to `kernel/hash.js`.
