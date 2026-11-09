@@ -57,3 +57,23 @@ export function fakeGL() {
 	});
 	return { gl, shaders };
 }
+
+/**
+ * The app's renderer (../core.js `makeRenderer`, a WebGPURenderer) on its WebGL 2 backend over a fake context, ready to
+ * draw, and every shader it hands the context (intent c1bee1f8: what a test reads of a page's programs).
+ * @param {Record<string, any>} [o] createRenderer's options beside the canvas
+ */
+export async function fakeRenderer(o = {}) {
+	const g = /** @type {any} */ (globalThis);
+	g.self ??= g;
+	g.requestAnimationFrame ??= () => 0;
+	g.cancelAnimationFrame ??= () => {};
+	g.ImageBitmap ??= class {};
+	const { gl, shaders } = fakeGL();
+	const c = /** @type {any} */ (gl.canvas);
+	c.getContext = (/** @type {string} */ kind) => (kind === 'webgl2' ? gl : null);
+	const { makeRenderer } = await import('../core.js');
+	const r = /** @type {any} */ (await makeRenderer({ backend: 'webgl2', pixelRatio: 1, canvas: c, ...o }));
+	r.setSize(64, 64, false);
+	return { r, gl, shaders };
+}
