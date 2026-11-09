@@ -3,7 +3,7 @@
 // takes; every input sourced (an artifact play keeps), decided (Samuel's, dated) or an estimate with its reason, every
 // cost row with its source and basis; and what it costs, self-built with the contractor price and the labour beside
 // it, the village's part against what villagers and investors raise, each coop's own apart.
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import village from '../../../../../api/import/sandboxes/sandbox-6/village.json';
 import audit from '../../../../../api/import/sandboxes/sandbox-6/audit.json';
 import type { Village } from './geometry';

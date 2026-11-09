@@ -16,7 +16,7 @@ const argv = process.argv.slice(2);
 const intent = argv.includes('--intent') ? argv[argv.indexOf('--intent') + 1] : undefined;
 const ids = argv.filter((a) => /^[0-9a-f-]{36}$/.test(a) && a !== intent);
 if (!intent || !ids.length) throw new Error('own-versions: --intent <uuid> <asset uuid>…');
-setup({ inputs: join(import.meta.dir, 'inputs'), record: argv.includes('--record') });
+setup({ inputs: join(import.meta.dir, 'inputs'), record: argv.includes('--record'), fresh: true });
 
 const get = async (route: string) => {
 	const r = await fetch(route);

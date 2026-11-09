@@ -337,7 +337,9 @@ export async function accept(db: Db | Queryable, id: string, v: number, o: { aut
     const concurrent = !o.whole && !sameFrontiers(r.seed, row.head);
     if (t.build && concurrent && o.mergedHash !== hash)
       throw new DocError(`Main moved on since this was made: its merge with Main's newest version is code nobody has seen run. Build and preview the merged result (${hash}) in the box, then accept it with that hash.`, 409, { needsPreview: true, mergedHash: hash });
-    const note = o.note ?? r.note;
+    // its own note, as proposed on this variant (intent 119a02d1): an intent that changes several documents holds one
+    // note per document; the caller's (the intent's) stands in only where the variant has none
+    const note = r.note || o.note || "";
     const merged = main.export({ mode: "update", from: before });
     const frontiers = main.frontiers();
     await q.query(
@@ -383,8 +385,8 @@ async function acceptIntoBreed(q: Queryable, row: DocRow, t: DocType, r: Variant
   if (problems.length) throw new DocError(`merged into its breed as it is now, the intent variant is no longer a valid ${t.name}: ${problems.slice(0, 4).join("; ")}. Propose it again on the breed as it is now.`, 409, { problems });
   if (t.build && into.concurrent && o.mergedHash !== contentHash(json))
     throw new DocError(`The breed moved on since this was made: its merge is code nobody has seen run. Build and preview the merged result (${contentHash(json)}) in the box, then accept it with that hash.`, 409, { needsPreview: true, mergedHash: contentHash(json) });
-  const bid = into.breed ? Number(into.breed.id) : (await makeBreed(q, row, { name: r.makes!, author: o.author, note: o.note ?? r.note, at: r.seed })).id;
-  const note = o.note ?? r.note;
+  const bid = into.breed ? Number(into.breed.id) : (await makeBreed(q, row, { name: r.makes!, author: o.author, note: r.note || o.note || "", at: r.seed })).id;
+  const note = r.note || o.note || "";
   const merged = into.doc.export({ mode: "update", from: into.before });
   const frontiers = into.doc.frontiers();
   const name_ = into.breed?.name ?? r.makes;
