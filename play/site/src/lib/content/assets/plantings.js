@@ -20,7 +20,7 @@
  * A floor the same way: a mesh of the build named `biome:<recipe hash>` (a dome's forest floor) is painted with that
  * biome's surfaces (its ground shader, $content/biomes `groundMaterial`, in place of the build's own stand-in) and its
  * cover (grasses, ferns, moss, fallen leaves) streamed round the eye over it, as the sandboxes stream it
- * (../sandbox-2/interior/cover.js): only where that mesh lies (its outline keeps the cover off the paths and the
+ * ($lib/content/biomes/stream.js): only where that mesh lies (its outline keeps the cover off the paths and the
  * water) and at its height there.
  */
 import * as THREE from 'three';
@@ -30,7 +30,7 @@ export { plantingsOf, shownIn };
 import { cardOf } from './catalog.js';
 import { groundMaterial, rowsOf } from '$lib/content/biomes/surfaces.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
-import { createCover } from '$lib/content/sandbox-2/interior/cover.js';
+import { coverStream } from '$lib/content/biomes/stream.js';
 
 /** a mesh's name that lays a biome's floor on it: `biome:` and the biome's recipe hash */
 const FLOOR = /^biome:([0-9a-f]{64})/;
@@ -140,9 +140,11 @@ export function createPlantings(o) {
 	/** the renderer as a sandbox's cover asks for it (./sandbox-2/interior/drawn.js): kinds used, copies taken and given */
 	const drawn = {
 		use: (ref, shadows, picture) => renderer().use(ref, { shadows, picture }),
-		take: (k, at) => assets.take(k, at),
+		take: (k, at, cover) => assets.take(k, at, cover),
 		move: (c, at) => assets.move(c, at),
-		give: (c) => assets.give(c)
+		give: (c) => assets.give(c),
+		/** the cover grows round p, or round the eye (null) */
+		round: (p) => renderer().round(p)
 	};
 	/** each floor of `root` named for a biome: its surfaces painted, its cover streamed over it */
 	const lay = (root) => {
@@ -186,7 +188,7 @@ export function createPlantings(o) {
 		const grid = floorGrid(meshes);
 		renderer();
 		covers.push(
-			createCover({
+			coverStream({
 				drawn,
 				recipe,
 				open: (x, z) => !Number.isNaN(grid.at(x, z)),
@@ -254,8 +256,11 @@ export function createPlantings(o) {
 		update() {
 			if (moving && assets) follow();
 			for (const c of covers) c.update(o.camera.position.x, o.camera.position.z);
-			if (assets && (shown.length || covers.length)) assets.update();
+			// (cheap when nothing moved; the page's other cover, a plant's ground, is drawn by it too: ./ground.js)
+			assets?.update();
 		},
+		/** the renderer as a biome's cover asks for it ($lib/content/biomes/stream.js): a plant's ground draws its cover by it */
+		drawn,
 		/** every copy drawn now, with the node it stands at, its kind and its build (a world's lights and sounds read them) */
 		guests: () => guests,
 		/** the renderer drawing them (none until the first build plants something) */
