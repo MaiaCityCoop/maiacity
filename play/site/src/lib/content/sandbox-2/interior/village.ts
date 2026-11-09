@@ -988,7 +988,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	// each in its colonies, laid out in tiles round you as you go ($content/biomes/stream.js) — too dense for the whole cell;
 	// all of it near you, thinning out further off, each plant growing out of the ground as you come (so it has no edge)
 	// ($content/biomes/stream.js lays it; each kind built in the box and drawn by the renderer, grown on the graphics card)
-	const floorCover = flora && FLOOR_BIOME ? coverStream({ drawn: library, recipe: FLOOR_BIOME, open: (x, z, margin) => floorOpen(x, z, margin), trunks: floorTrunks, heightAt: groundY, tile: 10, reach: 28, near: 7, thin: 0.2, density: 3.4, seed: 505 }) : null
+	const floorCover = flora && FLOOR_BIOME ? coverStream({ drawn: library, recipe: FLOOR_BIOME, open: (x, z, margin) => floorOpen(x, z, margin), trunks: floorTrunks, heightAt: groundY, tile: 10, reach: 28, near: 7, thin: 0.2, density: FLOOR_BIOME.density, seed: 505 }) : null
 	const TILE = 70
 	type Tile = { cx: number; cz: number; main: THREE.Matrix4[][]; under: THREE.Matrix4[][]; floor: THREE.Matrix4[][]; far: THREE.Matrix4[]; farCrowns: THREE.Matrix4[]; farColors: THREE.Color[]; dense: THREE.Matrix4[]; denseCrowns: THREE.Matrix4[]; denseColors: THREE.Color[]; near?: THREE.Group; farMesh?: THREE.Group; ground?: THREE.Group }
 	const tiles = new Map<string, Tile>()
@@ -1305,6 +1305,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	const pos = walker.position
 	// for a look round from the console (and the checks that photograph the cell): __walker.place(x, z, yaw, pitch)
 	;(window as unknown as { __walker?: typeof walker }).__walker = walker
+	// and where the forest garden's trees stand over its floor, each its crown (the checks that photograph a trunk's guild)
+	;(window as unknown as { __floorTrunks?: typeof floorTrunks }).__floorTrunks = floorTrunks
 
 	// every tree, pillar and table, filed by 8 m cells for walking ($content/sandbox-kit/obstacles)
 	const blockers = createObstacles(colliders)

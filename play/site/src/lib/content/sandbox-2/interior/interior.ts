@@ -1753,7 +1753,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			// trunks): each crown as wide as the trees' spacing lets them meet (a tree every 9 m², 11 where it is a house too)
 			const trunks = floraTrees.map((t) => ({ x: t.c.x, z: t.c.z, r: 0.62 * Math.sqrt(lush ? 9 : 11) * t.s }))
 			// in the dome's own ground, which lies where the dome stands (a hair above the host's ground); hidden until it joins
-			if (warmBiome) floorCover = coverStream({ drawn: flora.drawn, recipe: warmBiome, open, trunks, tile: 8, reach: 24, near: 9, thin: 0.25, density: 3.8, seed: 707 + kind.length, origin: host ? [host.x, host.z] : [0, 0], at: host ? [host.x, 0.03, host.z] : [0, 0, 0], hidden: !!host })
+			if (warmBiome) floorCover = coverStream({ drawn: flora.drawn, recipe: warmBiome, open, trunks, tile: 8, reach: 24, near: 9, thin: 0.25, density: warmBiome.density, seed: 707 + kind.length, origin: host ? [host.x, host.z] : [0, 0], at: host ? [host.x, 0.03, host.z] : [0, 0, 0], hidden: !!host })
 			drop.push(() => floorCover?.dispose())
 		}
 		await pause('Planting the forest inside')
