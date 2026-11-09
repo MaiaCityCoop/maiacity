@@ -200,7 +200,7 @@ suite("main merged into open intent pull requests", () => {
     expect(refused.map((x) => x.body)).toEqual([{ expected_head_sha: c.head }]);
     const { rows: [after] } = await db.query<any>(`SELECT stage, pr_seen, results, ship FROM play.intents WHERE id = $1`, [c.id]);
     expect(after).toEqual(before);
-    expect(after.pr_seen.main_merged).toBeUndefined();
+    expect(after.pr_seen.merged_in).toBeUndefined();
     // the next tick: the pull request read first, then main merged into the head it read
     from = gh.calls.length;
     await watchTick(db, gh.gh, Date.now(), null, state);
@@ -219,32 +219,37 @@ suite("main merged into open intent pull requests", () => {
     expect(updates(from).filter((x) => x.path === `/pulls/${d.pr}/update-branch`).length).toBe(2);
   });
 
-  test("working, then waiting: after the update the intent is working, main merged in, until every must check is recorded on the new head, then waiting", async () => {
+  test("working, then waiting: after the update the intent is working while GitHub makes the new head and its required checks run there, then waiting, its results kept across main's merge; the box's red on the new head is failed; a builder's push after it carries nothing", async () => {
     const state = mainMergeState();
     const c = await codeAtProposal();
     await watchTick(db, gh.gh, Date.now(), null, state);
     expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
     mainMoves();
     await watchTick(db, gh.gh, Date.now(), null, state);
-    // GitHub has made the new head, read on the same tick's next look
+    // GitHub has made the new head, not yet read by the watcher
     const head = gh.pulls.get(c.pr)!.head.sha;
     expect(head).not.toBe(c.head);
     // between the update and the read of the new head: working, never waiting (Accept takes no head play is moving)
     const { rows: [row] } = await db.query<any>(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id]);
-    expect(row.pr_seen.main_merged).toMatchObject({ from: c.head, main: gh.main.head });
+    expect(row.pr_seen.merged_in).toEqual([{ from: c.head, main: gh.main.head, at: expect.any(String) }]);
     let s = (await intent(c.id)).sub;
-    expect(s.state).toBe("working");
-    expect(s.why).toContain("main merged in: its checks run on");
+    expect(s).toMatchObject({ state: "working", tag: "main merged in", why: `main merged in: GitHub makes #${c.pr}'s new head` });
     const refused = await call("POST", `/api/intents/${c.id}/accept`);
     expect(refused.status).toBe(409);
-    // the new head read: working, its checks run on it
-    gh.checks.set(head, [green("play / API and site"), green("website / build")]);
+    // the new head read, its required checks not run yet: working, c1 kept once they are green
     await watchTick(db, gh.gh, Date.now(), null, state);
+    const { rows: [read] } = await db.query<any>(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id]);
+    expect(read.pr_seen.merged_in).toEqual([{ from: c.head, main: gh.main.head, at: expect.any(String), to: head }]);
     s = (await intent(c.id)).sub;
     expect(s.state).toBe("working");
-    expect(s.why).toContain(`main merged in: its checks run on ${head.slice(0, 7)}`);
+    expect(s.why).toContain(`c1 passed on ${c.head.slice(0, 7)}, kept across main's merge once the required checks are green on ${head.slice(0, 7)}`);
+    // its required checks green: waiting, c1 kept
+    gh.checks.set(head, [green("play / API and site"), green("website / build")]);
+    await watchTick(db, gh.gh, Date.now(), null, state);
+    const kept = { state: "waiting", tag: "Accept and ship", why: `Accept and ship: c1 passed on ${c.head.slice(0, 7)}, kept across main's merge` };
+    expect((await intent(c.id)).sub).toEqual(kept);
     expect((await intent(c.id)).stage).toBe("proposal");
-    // the box's run records every must on the new head: waiting
+    // the box's run records every must on the new head: waiting, nothing kept any more
     expect((await tool("check_intent", { intent: c.id, pr: c.pr, results: [{ check: "c1", pass: true, evidence: "0 fail", commit: head }] })).stage).toBe("proposal");
     await watchTick(db, gh.gh, Date.now(), null, state);
     expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });

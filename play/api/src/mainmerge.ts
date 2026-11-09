@@ -4,7 +4,9 @@
 // - a pull request of an intent in Build or at Proposal, open into main, mergeable and behind main's head is updated
 //   with GitHub's update-branch (main merged into its branch, `expected_head_sha` the head read), once per head and
 //   main's head. It is a push made with SHIP_TOKEN, so GitHub runs the required checks and the box's run
-//   (intents-pr.yml on `synchronize`) records the intent's checks on the new head: working until then, waiting after.
+//   (intents-pr.yml on `synchronize`) records the intent's checks on the new head. Each merge play made is kept in a
+//   row (pr_seen.merged_in): the results on the head it merged from count on the head GitHub made of it once the
+//   required checks are green there (./substate.ts countsOn; intent b17a4980), so an intent at Proposal stays waiting.
 //   A builder's push in between makes GitHub refuse it (422): nothing is done, the next tick reads the new head first.
 // - one in conflict (mergeable false) is failed, "conflicts with main: <files>" (the files both sides changed since
 //   their merge base), and play posts the commit status 'Merges with main' (failure, that line) on its head, which
@@ -14,7 +16,7 @@
 import { COOP } from "./access";
 import type { Db } from "./pg";
 import { GitHubError, intentLink, type GitHub } from "./ship";
-import { conflictWhy, type PrSeen } from "./substate";
+import { conflictWhy, type PlayMerge, type PrSeen } from "./substate";
 
 /** the commit status play posts on an open intent pull request's head: failure while it conflicts with main */
 export const MERGES_CONTEXT = "Merges with main";
@@ -29,22 +31,37 @@ const short = (s: string) => s.slice(0, 7);
 const fit = (s: string) => (s.length <= DESCRIPTION_MOST ? s : `${s.slice(0, DESCRIPTION_MOST - 1)}…`);
 
 /**
- * A pull request read again (`seen`), with what play keeps of its main merge carried from the read before (`was`):
- * the merge play made (while the head is the one it merged from, or the first head after it), the conflict's files
- * (while the head is the same) and the status last posted.
+ * A pull request read again (`seen`), with what play keeps of its main merges carried from the read before (`was`):
+ * play's merges in a row (while the head is the last one's, or the head it merged from while GitHub makes it), the
+ * conflict's files (while the head is the same) and the status last posted. A new head is the merge play made only
+ * where GitHub says its parents (`parents`, the head's: carried() reads them) are the head it merged from and main as
+ * it merged it; any other head (a builder's push) ends the row.
  */
-export function carrySeen(was: PrSeen | null | undefined, seen: PrSeen): PrSeen {
+export function carrySeen(was: PrSeen | null | undefined, seen: PrSeen, parents?: string[]): PrSeen {
   if (!was || was.pr !== seen.pr) return seen;
   const out: PrSeen = { ...seen };
-  const m = was.main_merged;
-  if (m) {
-    const to = m.to ?? (seen.head !== m.from ? seen.head : undefined);
-    if (seen.head === m.from || seen.head === to) out.main_merged = { ...m, ...(to ? { to } : {}) };
-  }
+  const row = was.merged_in ?? [];
+  const last = row.at(-1);
+  if (last && !last.to) {
+    if (seen.head === last.from) out.merged_in = row;
+    else if (parents?.length === 2 && parents[0] === last.from && parents[1] === last.main) out.merged_in = [...row.slice(0, -1), { ...last, to: seen.head }];
+  } else if (last && seen.head === last.to) out.merged_in = row;
   if (was.conflicts?.head === seen.head) out.conflicts = was.conflicts;
   if (was.merges) out.merges = was.merges;
   if (was.main_merges) out.main_merges = was.main_merges;
   return out;
+}
+
+/** a merge play made and GitHub has not been seen to make yet, its new head read now: the head's parents are asked */
+export async function carried(gh: GitHub, was: PrSeen | null | undefined, seen: PrSeen): Promise<PrSeen> {
+  const last = was?.pr === seen.pr ? was.merged_in?.at(-1) : undefined;
+  let parents: string[] | undefined;
+  if (last && !last.to && seen.head !== last.from && !seen.merged && seen.state === "open")
+    parents = await gh.commit(seen.head).then(
+      (c) => c.parents.map((p) => p.sha),
+      (e) => (console.warn(`ship: #${seen.pr}'s head ${short(seen.head)} not read: ${(e as Error).message}`), undefined),
+    );
+  return carrySeen(was, seen, parents);
 }
 
 const keep = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UPDATE play.intents SET pr_seen = ($2::text)::jsonb WHERE id = $1`, [id, JSON.stringify(seen)]);
@@ -143,7 +160,11 @@ async function update(db: Db, gh: GitHub, state: MainMergeState, id: string, see
       throw e;
     }
     state.done.set(key, main);
-    await keep(tx, id, { ...row.pr_seen!, main_merged: { from: seen.head, main, at: new Date(at).toISOString() }, main_merges: (row.pr_seen!.main_merges ?? 0) + 1 });
+    // the row of play's merges goes on where the head is the last one's, else starts here
+    const was = row.pr_seen!.merged_in ?? [];
+    const made: PlayMerge = { from: seen.head, main, at: new Date(at).toISOString() };
+    const merged_in = was.at(-1)?.to === seen.head ? [...was, made] : [made];
+    await keep(tx, id, { ...row.pr_seen!, merged_in, main_merges: (row.pr_seen!.main_merges ?? 0) + 1 });
     console.log(`ship: main ${short(main)} merged into #${seen.pr} of intent ${id} (from ${short(seen.head)}): its checks run on the new head`);
   });
 }

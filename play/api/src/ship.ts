@@ -16,7 +16,7 @@
 import { admin, COOP, type Me } from "./access";
 import type { Db, Queryable } from "./pg";
 import { INTENT_ADMINS, autoMove, byOf, decisions, gate, getIntent, IntentError, mustMove } from "./intents";
-import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
+import { carried, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
 import { checksSeen, decidable, prBlock, sub, type PrSeen } from "./substate";
 import type { BlobStore } from "./blobs";
 import { meOf } from "./access";
@@ -183,6 +183,8 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
     /** a commit status on `sha`, 'Intent accepted' unless `context` names another ('Merges with main', ./mainmerge.ts) */
     status: (sha: string, { context = ACCEPTED_CONTEXT, ...s }: { state: "success" | "failure" | "error" | "pending"; description: string; target_url?: string; context?: string }) =>
       json("POST", `/statuses/${sha}`, { ...s, context }),
+    /** one commit, its parents */
+    commit: (sha: string) => json<Commit>("GET", `/commits/${sha}`),
     /** a branch's head commit */
     branchHead: async (branch: string) => (await json<{ object: { sha: string } }>("GET", `/git/ref/heads/${branch}`)).object.sha,
     /** `head` against `base` (three dots): how far each is past their merge base, and the files `head` changed since it */
@@ -311,7 +313,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
   const read = await readPull(gh!, first.pull_request).catch((e) => refuse(`Pull request #${first.pull_request} could not be read: ${(e as Error).message}.`));
   const pr = read.pr;
   // what play keeps of its main merge goes on (./mainmerge.ts): main merged in and GitHub not done yet is working
-  const seen = carrySeen((first as any).pr_seen, read.seen);
+  const seen = await carried(gh!, (first as any).pr_seen, read.seen);
   await keepSeen(db, first.id, seen);
   await db.transaction(async (tx) => {
     // one Accept at a time: a second press waits here, then finds it in Ship
@@ -371,7 +373,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
 export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now()) {
   return db.transaction(async (tx) => {
     await tx.query(`SELECT pg_advisory_xact_lock(${QUEUE_LOCK})`);
-    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, decided_at, spec, results FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
+    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, decided_at, spec, results, pr_seen FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
     const was: Ship | undefined = row?.ship;
     if (!was?.pending) return;
     const ship: Ship = { ...was, steps: was.steps.map((s) => ({ ...s })) };
@@ -428,7 +430,10 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
     }
 
     // a merge: GitHub ready, the head as checked, its checks green (./substate.ts prBlock, at the head it was accepted on)
-    const { pr, seen, runs } = await readPull(gh, ship.pr, at);
+    const read = await readPull(gh, ship.pr, at);
+    const { pr, runs } = read;
+    // play's main merges carried on (./mainmerge.ts): results kept across them count at the head it was accepted on
+    const seen = await carried(gh, row.pr_seen, read.seen);
     await keepSeen(tx, id, seen);
     const block = prBlock(row, seen, pending.head);
     if (block?.state === "failed") return red(block.why, (block.why.startsWith("'") && runs.get(block.why.split("'")[1])?.html_url) || pr.html_url);
@@ -624,7 +629,7 @@ export async function watchPulls(db: Db, gh: GitHub, at = Date.now()) {
   );
   for (const { id, pull_request, pr_seen } of rows) {
     try {
-      await keepSeen(db, id, carrySeen(pr_seen, (await readPull(gh, pull_request, at)).seen));
+      await keepSeen(db, id, await carried(gh, pr_seen, (await readPull(gh, pull_request, at)).seen));
     } catch (e) {
       console.warn(`ship: #${pull_request} of intent ${id} not read: ${(e as Error).message}`);
       continue;
