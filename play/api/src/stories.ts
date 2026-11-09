@@ -2,7 +2,7 @@
 // whether it works, and later (motion design, three.js scenes, a frame-by-frame export into a real video) build it
 // there. A story is tracks of clips (play/SPEC.md §12, format `story/1`):
 //
-//   { schema: "story/1", format: "9:16", fps: 30, duration, tracks: [{ id, kind, clips: [{ id, at, duration, … }] }] }
+//   { schema: <its schema's name>, format: "9:16", fps: 30, duration, tracks: [{ id, kind, clips: [{ id, at, duration, … }] }] }
 //
 // Every clip has its place in time (`at`, `duration`, in seconds); what else it holds is its track's kind:
 //   shots  { frame: <an image's file hash>, transition }   — the storyboard; a `scene` will replace the still later
@@ -26,36 +26,27 @@
 // head its newest accepted version) and change only by proposal: an admin's agent proposes a new story or a new
 // version over MCP (./mcp.ts), as the whole timeline or as edits applied to the head, and an admin accepts or archives
 // the intent it puts at Proposal on the intents' board (./versioned.ts `decide`). Admins only, reading and proposing.
-import { byOf } from "./intents";
+import { byOf, putAtProposal, settle } from "./intents";
 import { randomUUID } from "node:crypto";
-import { admin, COOP, Denied, type Me } from "./access";
+import { admin, COOP, type Me } from "./access";
 import { keyOf, type BlobStore } from "./blobs";
-import { canonical, HASH, hashBytes } from "./hash";
-import type { Db, Queryable } from "./pg";
+import { canonical, HASH, hashBytes } from "./kit/hash";
+import type { Db, Queryable } from "./kit/pg";
 import { storyVersionId } from "./versions";
-import { UUID } from "./uuid";
+import { UUID } from "./kit/uuid";
 import { NOTE_MOST } from "./notes";
 import * as docs from "./docs";
-import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, storyDocAt, versionAtFrontiers } from "./storydocs";
-import { overlap } from "./versioned";
+import { asDoc, asStory, authorOf, docIdOf, ensureStoryDoc, STORY_SCHEMA, storyDocAt, versionAtFrontiers, type Clip, type StoryBody, type Track } from "./storydocs";
+import { overlap } from "./kinds";
 import { storyListed } from "./listed";
 import { fileTypes, keepFile as keepOwned } from "./owners";
 import { unreadable } from "./assetdocs";
-import { closeWork, dropDoc, putAtProposal, settle, stageAfter, WORK_OF, workOf, WorkError } from "./work";
+import { closeWork, dropDoc, stageAfter, WORK_OF } from "./held";
+import { HttpError } from "./kit/errors";
 
-export class StoryError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
-
-export const SCHEMA = "story/1";
 /** the work a story's version is */
 const STORY_WORK = "story_version";
-export type Clip = { id: string; at: number; duration: number; [field: string]: unknown };
-export type Track = { id: string; kind: string; gain?: number; mute?: boolean; clips: Clip[] };
-export type StoryBody = { schema: typeof SCHEMA; format: string; fps: number; duration: number; tracks: Track[] };
-export type VersionInfo = { number: number; id: string; note: string; created: string; author: string | null; approved_by: string | null };
+type VersionInfo = { number: number; id: string; note: string; created: string; author: string | null; approved_by: string | null };
 /** a linked version as it is read: its story (a UUID), title, number and id, its duration and timeline, and its story's
  *  newest accepted number (shown as "v5 available" where it is newer; a link plays only its own version) */
 export type Linked = { id: string; title: string; number: number; version: string; duration: number; newest: number | null; body: StoryBody };
@@ -64,14 +55,14 @@ export type Links = Record<string, Linked>;
 /** a story linking this one, at its newest version, and the number of this one's version it plays */
 export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
 export type Story = { id: string; title: string; version: string; number: number | null; note: string; created: string; author: string | null; versions: VersionInfo[]; links: Links; linked_by: LinkedBy[] } & StoryBody;
-export type StoryItem = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
+type StoryItem = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
 
 /** a story is named by its UUID (Samuel 2026-11-04); its title is only shown */
 export const STORY_ID = UUID;
 const TRACK_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const CLIP_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/;
 export const FORMATS = ["9:16", "16:9", "1:1", "4:5"];
-export const FPS = [24, 25, 30, 48, 50, 60];
+const FPS = [24, 25, 30, 48, 50, 60];
 /** a track of this kind links other stories in, a clip each (play/SPEC.md §12, linked stories) */
 export const LINK = "story";
 /** how deep links may nest: a story's links, their links, … at most this many stories down */
@@ -119,7 +110,7 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 
 /** only Maia City's admins read and propose stories */
 /** a story brought into another (foldStories) takes no proposal: its versions are that story's now */
-const folded = (id: string, into: string) => new StoryError(`Story ${id} is part of story ${into} now, its versions that story's: propose there.`, 409);
+const folded = (id: string, into: string) => new HttpError(`Story ${id} is part of story ${into} now, its versions that story's: propose there.`, 409);
 
 export const STORY_ADMINS = "Only Maia City's admins may open the Stories.";
 
@@ -127,18 +118,18 @@ export const STORY_ADMINS = "Only Maia City's admins may open the Stories.";
 
 const text = (v: unknown, what: string, most: number, need = false): string => {
   if (v == null || v === "") {
-    if (need) throw new StoryError(`${what} is missing.`);
+    if (need) throw new HttpError(`${what} is missing.`);
     return "";
   }
-  if (typeof v !== "string") throw new StoryError(`${what} must be text.`);
+  if (typeof v !== "string") throw new HttpError(`${what} must be text.`);
   const t = v.trim();
-  if (t.length > most) throw new StoryError(`${what} is longer than ${most} characters.`);
-  if (need && !t) throw new StoryError(`${what} is missing.`);
+  if (t.length > most) throw new HttpError(`${what} is longer than ${most} characters.`);
+  if (need && !t) throw new HttpError(`${what} is missing.`);
   return t;
 };
 const seconds = (v: unknown, what: string, least: number, most: number): number => {
   const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN;
-  if (!Number.isFinite(n) || n < least || n > most) throw new StoryError(`${what} must be a number of seconds from ${least} to ${most}.`);
+  if (!Number.isFinite(n) || n < least || n > most) throw new HttpError(`${what} must be a number of seconds from ${least} to ${most}.`);
   return round(n);
 };
 
@@ -146,27 +137,27 @@ const seconds = (v: unknown, what: string, least: number, most: number): number 
 const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record<string, unknown>> = {
   shots: (c, what) => {
     const frame = c.frame == null || c.frame === "" ? null : text(c.frame, `${what}'s frame`, 64);
-    if (frame !== null && !HASH.test(frame)) throw new StoryError(`${what}'s frame must be an image's file hash (add_story_frame gives one).`);
+    if (frame !== null && !HASH.test(frame)) throw new HttpError(`${what}'s frame must be an image's file hash (add_story_frame gives one).`);
     const out: Record<string, unknown> = { frame, transition: text(c.transition, `${what}'s transition`, 500) };
     // its moving picture, if it has one: a video's hash, played muted from video_in (s) for the shot's length, the frame
     // its still (shown until the video can play, and where no video is)
     if (c.video != null && c.video !== "") {
       const video = text(c.video, `${what}'s video`, 64);
-      if (!HASH.test(video)) throw new StoryError(`${what}'s video must be a video's file hash (add_story_video gives one).`);
+      if (!HASH.test(video)) throw new HttpError(`${what}'s video must be a video's file hash (add_story_video gives one).`);
       out.video = video;
       if (c.video_in != null) out.video_in = seconds(c.video_in, `${what}'s video_in`, 0, 36_000);
     } else if (c.video === "") out.video = null;
     // its motion design, if it has one: a composition's hash, played in its place from its 0 at the shot's at
     if (c.composition != null && c.composition !== "") {
       const comp = text(c.composition, `${what}'s composition`, 64);
-      if (!HASH.test(comp)) throw new StoryError(`${what}'s composition must be a composition's file hash (add_story_composition gives one).`);
+      if (!HASH.test(comp)) throw new HttpError(`${what}'s composition must be a composition's file hash (add_story_composition gives one).`);
       out.composition = comp;
     } else if (c.composition === "") out.composition = null;
     // the real asset drawn in it (intent f270269e): a version of an asset, its parameters over the shot and a camera path
     if (c.live != null) out.live = liveOf(c.live, what, Number(c.duration));
     // a whole world played in it (intent 65d04790): a world's version, its camera, hour, exposure and lights over the shot
     if (c.world != null) {
-      if (c.live != null) throw new StoryError(`${what} draws a live asset or a world, not both.`);
+      if (c.live != null) throw new HttpError(`${what} draws a live asset or a world, not both.`);
       out.world = worldOf(c.world, what, Number(c.duration));
     }
     return out;
@@ -186,78 +177,78 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
 // it) and its camera's keyframes (`camera`: eye and target in metres, fov in degrees); `steps`, how many builds a keyed
 // change is drawn in. The shot's frame stays its poster.
 const LIVE_KEYS = new Set(["asset", "version", "variant", "values", "keys", "camera", "steps"]);
-export const MOST_LIVE_STEPS = 24;
+const MOST_LIVE_STEPS = 24;
 const PARAM = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/;
 function liveValues(v: unknown, what: string): Record<string, number | string | boolean> {
-  if (!v || typeof v !== "object" || Array.isArray(v)) throw new StoryError(`${what} must be { parameter: a number, text or true/false }.`);
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new HttpError(`${what} must be { parameter: a number, text or true/false }.`);
   const out: Record<string, number | string | boolean> = {};
   const entries = Object.entries(v as object);
-  if (entries.length > 32) throw new StoryError(`${what} names at most 32 parameters.`);
+  if (entries.length > 32) throw new HttpError(`${what} names at most 32 parameters.`);
   for (const [k, x] of entries) {
-    if (!PARAM.test(k)) throw new StoryError(`${what}: ${k.slice(0, 40)} is no parameter's name.`);
+    if (!PARAM.test(k)) throw new HttpError(`${what}: ${k.slice(0, 40)} is no parameter's name.`);
     if (typeof x === "number" && Number.isFinite(x)) out[k] = Math.round(x * 1e6) / 1e6;
     else if (typeof x === "boolean") out[k] = x;
     else if (typeof x === "string" && x.length <= 80) out[k] = x;
-    else throw new StoryError(`${what}'s ${k} must be a number, a text of at most 80 characters or true/false.`);
+    else throw new HttpError(`${what}'s ${k} must be a number, a text of at most 80 characters or true/false.`);
   }
   return out;
 }
 const vec3 = (v: unknown, what: string): [number, number, number] => {
-  if (!Array.isArray(v) || v.length !== 3 || !v.every((x) => typeof x === "number" && Number.isFinite(x) && Math.abs(x) <= 100_000)) throw new StoryError(`${what} must be [x, y, z] in metres.`);
+  if (!Array.isArray(v) || v.length !== 3 || !v.every((x) => typeof x === "number" && Number.isFinite(x) && Math.abs(x) <= 100_000)) throw new HttpError(`${what} must be [x, y, z] in metres.`);
   return v.map((x) => Math.round(x * 1e6) / 1e6) as [number, number, number];
 };
 /** a time in a shot of `duration` seconds, rounded, or refused */
 const shotTime = (duration: number) => (at: unknown, what: string) => {
   const n = typeof at === "number" ? at : NaN;
-  if (!Number.isFinite(n) || n < 0 || n > duration + 1e-6) throw new StoryError(`${what} must be a time in the shot, 0 to ${duration} s.`);
+  if (!Number.isFinite(n) || n < 0 || n > duration + 1e-6) throw new HttpError(`${what} must be a time in the shot, 0 to ${duration} s.`);
   return round(n);
 };
 type InShot = ReturnType<typeof shotTime>;
 
 /** a shot's camera keyframes, a live shot's and a world shot's alike: [{ at, eye, target, fov, ease? }] in time order */
 function cameraKeys(v: unknown, w: string, inShot: InShot) {
-  if (!Array.isArray(v) || !v.length || v.length > 64) throw new StoryError(`${w}.camera must be 1 to 64 keyframes { at, eye, target, fov }.`);
+  if (!Array.isArray(v) || !v.length || v.length > 64) throw new HttpError(`${w}.camera must be 1 to 64 keyframes { at, eye, target, fov }.`);
   let last = -1;
   return v.map((c: any, i: number) => {
     const cw = `${w}.camera[${i}]`;
-    if (!c || typeof c !== "object") throw new StoryError(`${cw} must be { at, eye, target, fov }.`);
+    if (!c || typeof c !== "object") throw new HttpError(`${cw} must be { at, eye, target, fov }.`);
     const at = inShot(c.at, `${cw}.at`);
-    if (at <= last) throw new StoryError(`${w}.camera must be in time order, one per moment.`);
+    if (at <= last) throw new HttpError(`${w}.camera must be in time order, one per moment.`);
     last = at;
-    if (typeof c.fov !== "number" || !(c.fov >= 5 && c.fov <= 120)) throw new StoryError(`${cw}.fov must be 5 to 120 degrees.`);
-    if (c.ease != null && c.ease !== "smooth" && c.ease !== "linear") throw new StoryError(`${cw}.ease is smooth or linear.`);
+    if (typeof c.fov !== "number" || !(c.fov >= 5 && c.fov <= 120)) throw new HttpError(`${cw}.fov must be 5 to 120 degrees.`);
+    if (c.ease != null && c.ease !== "smooth" && c.ease !== "linear") throw new HttpError(`${cw}.ease is smooth or linear.`);
     return { at, eye: vec3(c.eye, `${cw}.eye`), target: vec3(c.target, `${cw}.target`), fov: round(c.fov), ...(c.ease ? { ease: c.ease } : {}) };
   });
 }
 
 function liveOf(v: unknown, what: string, duration: number) {
   const w = `${what}'s live`;
-  if (!v || typeof v !== "object" || Array.isArray(v)) throw new StoryError(`${w} must be { asset, version, values?, keys?, camera }.`);
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new HttpError(`${w} must be { asset, version, values?, keys?, camera }.`);
   const l = v as Record<string, unknown>;
-  for (const k of Object.keys(l)) if (!LIVE_KEYS.has(k)) throw new StoryError(`${w} has no field ${k.slice(0, 40)} (it takes ${[...LIVE_KEYS].join(", ")}).`);
-  if (typeof l.asset !== "string" || !UUID.test(l.asset)) throw new StoryError(`${w}.asset must be the asset's UUID (list_assets gives it).`);
-  if (typeof l.version !== "string" || !HASH.test(l.version)) throw new StoryError(`${w}.version must be the id of one of its accepted versions (get_asset gives them).`);
+  for (const k of Object.keys(l)) if (!LIVE_KEYS.has(k)) throw new HttpError(`${w} has no field ${k.slice(0, 40)} (it takes ${[...LIVE_KEYS].join(", ")}).`);
+  if (typeof l.asset !== "string" || !UUID.test(l.asset)) throw new HttpError(`${w}.asset must be the asset's UUID (list_assets gives it).`);
+  if (typeof l.version !== "string" || !HASH.test(l.version)) throw new HttpError(`${w}.version must be the id of one of its accepted versions (get_asset gives them).`);
   const out: Record<string, unknown> = { asset: l.asset, version: l.version };
   if (l.variant != null) {
-    if (typeof l.variant !== "string" || !/^[a-z0-9][a-z0-9-]{0,79}$/.test(l.variant)) throw new StoryError(`${w}.variant must be a variant's name.`);
+    if (typeof l.variant !== "string" || !/^[a-z0-9][a-z0-9-]{0,79}$/.test(l.variant)) throw new HttpError(`${w}.variant must be a variant's name.`);
     out.variant = l.variant;
   }
   if (l.values != null) out.values = liveValues(l.values, `${w}.values`);
   const inShot = shotTime(duration);
   if (l.keys != null) {
-    if (!Array.isArray(l.keys) || l.keys.length > 64) throw new StoryError(`${w}.keys must be a list of at most 64 { at, values }.`);
+    if (!Array.isArray(l.keys) || l.keys.length > 64) throw new HttpError(`${w}.keys must be a list of at most 64 { at, values }.`);
     let last = -1;
     out.keys = l.keys.map((k: any, i: number) => {
-      if (!k || typeof k !== "object") throw new StoryError(`${w}.keys[${i}] must be { at, values }.`);
+      if (!k || typeof k !== "object") throw new HttpError(`${w}.keys[${i}] must be { at, values }.`);
       const at = inShot(k.at, `${w}.keys[${i}].at`);
-      if (at <= last) throw new StoryError(`${w}.keys must be in time order, one per moment.`);
+      if (at <= last) throw new HttpError(`${w}.keys must be in time order, one per moment.`);
       last = at;
       return { at, values: liveValues(k.values, `${w}.keys[${i}].values`) };
     });
   }
   out.camera = cameraKeys(l.camera, w, inShot);
   if (l.steps != null) {
-    if (!Number.isInteger(l.steps) || (l.steps as number) < 2 || (l.steps as number) > MOST_LIVE_STEPS) throw new StoryError(`${w}.steps must be a whole number from 2 to ${MOST_LIVE_STEPS}.`);
+    if (!Number.isInteger(l.steps) || (l.steps as number) < 2 || (l.steps as number) > MOST_LIVE_STEPS) throw new HttpError(`${w}.steps must be a whole number from 2 to ${MOST_LIVE_STEPS}.`);
     out.steps = l.steps;
   }
   return out;
@@ -268,40 +259,40 @@ function liveOf(v: unknown, what: string, duration: number) {
 // its camera's keyframes, its hour (the sun's place), its exposure (stops) and its lights (multipliers over its mood),
 // each a number held over the shot or [[t, value], …] keys in time order (t in s into the shot).
 const WORLD_KEYS = new Set(["asset", "version", "camera", "hour", "exposure", "lights"]);
-export const WORLD_LIGHTS = ["sun", "sky", "lamps"];
+const WORLD_LIGHTS = ["sun", "sky", "lamps"];
 /** a value over a shot: a number held, or [[t, value], …] keys in time order, each value within [lo, hi] */
 function curveOf(v: unknown, what: string, lo: number, hi: number, inShot: InShot): number | [number, number][] {
   const val = (x: unknown, w: string) => {
-    if (typeof x !== "number" || !Number.isFinite(x) || x < lo || x > hi) throw new StoryError(`${w} must be a number from ${lo} to ${hi}.`);
+    if (typeof x !== "number" || !Number.isFinite(x) || x < lo || x > hi) throw new HttpError(`${w} must be a number from ${lo} to ${hi}.`);
     return round(x);
   };
   if (!Array.isArray(v)) return val(v, what);
-  if (!v.length || v.length > 64) throw new StoryError(`${what} is a number, or 1 to 64 keys [[t, value], …].`);
+  if (!v.length || v.length > 64) throw new HttpError(`${what} is a number, or 1 to 64 keys [[t, value], …].`);
   let last = -1;
   return v.map((k: any, i: number) => {
-    if (!Array.isArray(k) || k.length !== 2) throw new StoryError(`${what}[${i}] must be [t, value].`);
+    if (!Array.isArray(k) || k.length !== 2) throw new HttpError(`${what}[${i}] must be [t, value].`);
     const at = inShot(k[0], `${what}[${i}]'s t`);
-    if (at <= last) throw new StoryError(`${what} must be in time order, one per moment.`);
+    if (at <= last) throw new HttpError(`${what} must be in time order, one per moment.`);
     last = at;
     return [at, val(k[1], `${what}[${i}]'s value`)] as [number, number];
   });
 }
 function worldOf(v: unknown, what: string, duration: number) {
   const w = `${what}'s world`;
-  if (!v || typeof v !== "object" || Array.isArray(v)) throw new StoryError(`${w} must be { asset, version, camera, hour?, exposure?, lights? }.`);
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new HttpError(`${w} must be { asset, version, camera, hour?, exposure?, lights? }.`);
   const l = v as Record<string, unknown>;
-  for (const k of Object.keys(l)) if (!WORLD_KEYS.has(k)) throw new StoryError(`${w} has no field ${k.slice(0, 40)} (it takes ${[...WORLD_KEYS].join(", ")}).`);
-  if (typeof l.asset !== "string" || !UUID.test(l.asset)) throw new StoryError(`${w}.asset must be the world's UUID (list_assets with group worlds gives it).`);
-  if (typeof l.version !== "string" || !HASH.test(l.version)) throw new StoryError(`${w}.version must be the id of one of its accepted versions (get_asset gives them).`);
+  for (const k of Object.keys(l)) if (!WORLD_KEYS.has(k)) throw new HttpError(`${w} has no field ${k.slice(0, 40)} (it takes ${[...WORLD_KEYS].join(", ")}).`);
+  if (typeof l.asset !== "string" || !UUID.test(l.asset)) throw new HttpError(`${w}.asset must be the world's UUID (list_assets with group worlds gives it).`);
+  if (typeof l.version !== "string" || !HASH.test(l.version)) throw new HttpError(`${w}.version must be the id of one of its accepted versions (get_asset gives them).`);
   const inShot = shotTime(duration);
   const out: Record<string, unknown> = { asset: l.asset, version: l.version, camera: cameraKeys(l.camera, w, inShot) };
   if (l.hour != null) out.hour = curveOf(l.hour, `${w}.hour`, 0, 24, inShot);
   if (l.exposure != null) out.exposure = curveOf(l.exposure, `${w}.exposure`, -6, 6, inShot);
   if (l.lights != null) {
-    if (typeof l.lights !== "object" || Array.isArray(l.lights)) throw new StoryError(`${w}.lights must be { ${WORLD_LIGHTS.join(", ")} }, each a multiplier or keys.`);
+    if (typeof l.lights !== "object" || Array.isArray(l.lights)) throw new HttpError(`${w}.lights must be { ${WORLD_LIGHTS.join(", ")} }, each a multiplier or keys.`);
     const lights: Record<string, unknown> = {};
     for (const [k, x] of Object.entries(l.lights as object)) {
-      if (!WORLD_LIGHTS.includes(k)) throw new StoryError(`${w}.lights has no light ${k.slice(0, 40)} (it takes ${WORLD_LIGHTS.join(", ")}).`);
+      if (!WORLD_LIGHTS.includes(k)) throw new HttpError(`${w}.lights has no light ${k.slice(0, 40)} (it takes ${WORLD_LIGHTS.join(", ")}).`);
       lights[k] = curveOf(x, `${w}.lights.${k}`, 0, 8, inShot);
     }
     out.lights = lights;
@@ -321,10 +312,10 @@ async function checkLive(db: Queryable, tracks: Track[]) {
   for (const { c, t, l } of lives) {
     const what = `Clip ${c.id} of track ${t.id}'s live`;
     const v = by.get(l.version);
-    if (!v || v.asset_id !== l.asset) throw new StoryError(`${what}: asset ${l.asset.slice(0, 8)} has no version ${l.version.slice(0, 12)} (get_asset lists its versions).`);
-    if (v.number == null) throw new StoryError(`${what}: version ${l.version.slice(0, 12)} of asset ${l.asset.slice(0, 8)} is not accepted: a live shot draws an accepted version.`);
-    if (l.variant != null && !(v.variants ?? []).includes(l.variant)) throw new StoryError(`${what}: version ${v.number} has no variant ${l.variant}${v.variants?.length ? ` (it has ${v.variants.join(", ")})` : ""}.`);
-    if (l.variant == null && !v.recipe_hash && !v.default_variant) throw new StoryError(`${what}: version ${v.number} is a kind of variants: name one (${(v.variants ?? []).join(", ")}).`);
+    if (!v || v.asset_id !== l.asset) throw new HttpError(`${what}: asset ${l.asset.slice(0, 8)} has no version ${l.version.slice(0, 12)} (get_asset lists its versions).`);
+    if (v.number == null) throw new HttpError(`${what}: version ${l.version.slice(0, 12)} of asset ${l.asset.slice(0, 8)} is not accepted: a live shot draws an accepted version.`);
+    if (l.variant != null && !(v.variants ?? []).includes(l.variant)) throw new HttpError(`${what}: version ${v.number} has no variant ${l.variant}${v.variants?.length ? ` (it has ${v.variants.join(", ")})` : ""}.`);
+    if (l.variant == null && !v.recipe_hash && !v.default_variant) throw new HttpError(`${what}: version ${v.number} is a kind of variants: name one (${(v.variants ?? []).join(", ")}).`);
   }
 }
 
@@ -339,9 +330,9 @@ async function checkWorld(db: Queryable, tracks: Track[]) {
   for (const { c, t, l } of worlds) {
     const what = `Clip ${c.id} of track ${t.id}'s world`;
     const v = by.get(l.version);
-    if (!v || v.asset_id !== l.asset) throw new StoryError(`${what}: asset ${l.asset.slice(0, 8)} has no version ${l.version.slice(0, 12)} (get_asset lists its versions).`);
-    if (v.grp !== "worlds") throw new StoryError(`${what}: asset ${l.asset.slice(0, 8)} is of the group ${v.grp}, not a world: a world shot plays an asset of the group worlds (a live shot draws any other).`);
-    if (v.number == null) throw new StoryError(`${what}: version ${l.version.slice(0, 12)} of world ${l.asset.slice(0, 8)} is not accepted: a world shot plays an accepted version.`);
+    if (!v || v.asset_id !== l.asset) throw new HttpError(`${what}: asset ${l.asset.slice(0, 8)} has no version ${l.version.slice(0, 12)} (get_asset lists its versions).`);
+    if (v.grp !== "worlds") throw new HttpError(`${what}: asset ${l.asset.slice(0, 8)} is of the group ${v.grp}, not a world: a world shot plays an asset of the group worlds (a live shot draws any other).`);
+    if (v.number == null) throw new HttpError(`${what}: version ${l.version.slice(0, 12)} of world ${l.asset.slice(0, 8)} is not accepted: a world shot plays an accepted version.`);
   }
 }
 
@@ -349,11 +340,11 @@ async function checkWorld(db: Queryable, tracks: Track[]) {
  *  (Samuel 2026-11-04: "you need to link the actual version, so different timelines can link different trailer versions") */
 function linkOf(c: Record<string, unknown>, what: string): { story: string; version: string } {
   const story = text(c.story, `${what}'s story (the id of the story it links, a UUID)`, 36, true);
-  if (!STORY_ID.test(story)) throw new StoryError(`${what} names the story it links by its id, a UUID (list_stories), never by its title.`);
+  if (!STORY_ID.test(story)) throw new HttpError(`${what} names the story it links by its id, a UUID (list_stories), never by its title.`);
   if (c.version == null || c.version === "")
-    throw new StoryError(`${what} names no version: a link plays one accepted version of story ${story}, given as its id (version: a hash; get_story lists its versions). A story changes only by its own proposals, never because a story it links got a new version.`);
+    throw new HttpError(`${what} names no version: a link plays one accepted version of story ${story}, given as its id (version: a hash; get_story lists its versions). A story changes only by its own proposals, never because a story it links got a new version.`);
   const version = text(c.version, `${what}'s version`, 64);
-  if (!HASH.test(version)) throw new StoryError(`${what}'s version is one of story ${story}'s accepted versions' ids, a hash (get_story lists them).`);
+  if (!HASH.test(version)) throw new HttpError(`${what}'s version is one of story ${story}'s accepted versions' ids, a hash (get_story lists them).`);
   return { story, version };
 }
 
@@ -362,12 +353,12 @@ const MOST_CUES = 64;
  *  inside the clip; `em` sets one apart, alone and large (Samuel 2026-11-04: "100x" while "a hundred times" is said) */
 function cuesOf(v: unknown, what: string, duration: unknown): { cues?: { at: number; text: string; em?: true }[] } {
   if (v == null) return {};
-  if (!Array.isArray(v)) throw new StoryError(`${what}'s cues are a list of subtitles: { at (seconds into the clip), text, em? }.`);
-  if (v.length > MOST_CUES) throw new StoryError(`${what} sets at most ${MOST_CUES} subtitles.`);
+  if (!Array.isArray(v)) throw new HttpError(`${what}'s cues are a list of subtitles: { at (seconds into the clip), text, em? }.`);
+  if (v.length > MOST_CUES) throw new HttpError(`${what} sets at most ${MOST_CUES} subtitles.`);
   const most = typeof duration === "number" && duration > 0 ? duration : 3600;
   const cues = v.map((c: any, i) => {
     const cue = `${what}'s subtitle ${i + 1}`;
-    if (!c || typeof c !== "object" || Array.isArray(c)) throw new StoryError(`${cue} is { at, text, em? }.`);
+    if (!c || typeof c !== "object" || Array.isArray(c)) throw new HttpError(`${cue} is { at, text, em? }.`);
     const out: { at: number; text: string; em?: true } = { at: seconds(c.at, `${cue}'s start (seconds into the clip)`, 0, most), text: text(c.text, `${cue}'s text`, 200, true) };
     if (c.em === true) out.em = true;
     return out;
@@ -380,7 +371,7 @@ function sound(c: Record<string, unknown>, what: string): Record<string, unknown
   const out: Record<string, unknown> = {};
   if (c.audio != null && c.audio !== "") {
     const audio = text(c.audio, `${what}'s audio`, 64);
-    if (!HASH.test(audio)) throw new StoryError(`${what}'s audio must be a recording's file hash (add_story_audio gives one).`);
+    if (!HASH.test(audio)) throw new HttpError(`${what}'s audio must be a recording's file hash (add_story_audio gives one).`);
     out.audio = audio;
   } else if (c.audio === "") out.audio = null;
   if (c.audio_in != null) out.audio_in = seconds(c.audio_in, `${what}'s audio_in`, 0, 36_000);
@@ -393,27 +384,27 @@ function sound(c: Record<string, unknown>, what: string): Record<string, unknown
 }
 
 /** the biquad types an EQ band may be (the Audio EQ Cookbook's, as Web Audio's BiquadFilterNode plays them) */
-export const EQ_TYPES = ["highpass", "lowshelf", "peaking", "notch", "highshelf", "lowpass"];
+const EQ_TYPES = ["highpass", "lowshelf", "peaking", "notch", "highshelf", "lowpass"];
 const MOST_BANDS = 8;
 const MOST_KEYS = 64;
 /** a clip's EQ: bands in order, each { type, f (Hz, 20–20000), gain (dB, ±24), q (0.1–18) } (the old studio's, checked the same) */
 function eqOf(v: unknown, what: string) {
-  if (!Array.isArray(v)) throw new StoryError(`${what}'s eq is a list of bands: { type, f, gain, q }.`);
-  if (v.length > MOST_BANDS) throw new StoryError(`${what}'s eq has at most ${MOST_BANDS} bands.`);
+  if (!Array.isArray(v)) throw new HttpError(`${what}'s eq is a list of bands: { type, f, gain, q }.`);
+  if (v.length > MOST_BANDS) throw new HttpError(`${what}'s eq has at most ${MOST_BANDS} bands.`);
   return v.map((b: any, i) => {
     const band = `${what}'s eq band ${i + 1}`;
-    if (!b || typeof b !== "object" || !EQ_TYPES.includes(b.type)) throw new StoryError(`${band}'s type is one of ${EQ_TYPES.join(", ")}.`);
+    if (!b || typeof b !== "object" || !EQ_TYPES.includes(b.type)) throw new HttpError(`${band}'s type is one of ${EQ_TYPES.join(", ")}.`);
     const q = b.q == null ? (b.type === "peaking" || b.type === "notch" ? 1 : 0.707) : seconds(b.q, `${band}'s q`, 0.1, 18);
     return { type: b.type, f: seconds(b.f, `${band}'s frequency (Hz)`, 20, 20000), gain: b.gain == null ? 0 : seconds(b.gain, `${band}'s gain (dB)`, -24, 24), q };
   });
 }
 /** a clip's gain automation: [seconds into the clip, dB (-60…12)] points, straight lines between them */
 function keysOf(v: unknown, what: string) {
-  if (!Array.isArray(v)) throw new StoryError(`${what}'s keys are a list of [seconds into the clip, dB].`);
-  if (v.length > MOST_KEYS) throw new StoryError(`${what} has at most ${MOST_KEYS} keys.`);
+  if (!Array.isArray(v)) throw new HttpError(`${what}'s keys are a list of [seconds into the clip, dB].`);
+  if (v.length > MOST_KEYS) throw new HttpError(`${what} has at most ${MOST_KEYS} keys.`);
   return v
     .map((k: any, i) => {
-      if (!Array.isArray(k) || k.length !== 2) throw new StoryError(`${what}'s key ${i + 1} is [seconds, dB].`);
+      if (!Array.isArray(k) || k.length !== 2) throw new HttpError(`${what}'s key ${i + 1} is [seconds, dB].`);
       return [seconds(k[0], `${what}'s key ${i + 1} time`, 0, 3600), seconds(k[1], `${what}'s key ${i + 1} gain (dB)`, -60, 12)];
     })
     .sort((a, b) => a[0] - b[0]);
@@ -425,15 +416,15 @@ function keysOf(v: unknown, what: string) {
  * (Linker: `self` is the story the timeline is of, so it never plays inside itself), the link clip as long as that
  * version (left out, it is given that length).
  */
-export async function checkBody(db: Queryable, given: any, self?: string): Promise<StoryBody> {
-  if (!given || typeof given !== "object" || Array.isArray(given)) throw new StoryError("A story's timeline is a JSON object: { format, fps, tracks }.");
-  if (given.schema != null && given.schema !== SCHEMA) throw new StoryError(`A story's schema is ${SCHEMA}.`);
+async function checkBody(db: Queryable, given: any, self?: string): Promise<StoryBody> {
+  if (!given || typeof given !== "object" || Array.isArray(given)) throw new HttpError("A story's timeline is a JSON object: { format, fps, tracks }.");
+  if (given.schema != null && given.schema !== STORY_SCHEMA) throw new HttpError(`A story's schema is ${STORY_SCHEMA}.`);
   const format = given.format == null ? "9:16" : text(given.format, "The format", 8);
-  if (!FORMATS.includes(format)) throw new StoryError(`The format is one of ${FORMATS.join(", ")}.`);
+  if (!FORMATS.includes(format)) throw new HttpError(`The format is one of ${FORMATS.join(", ")}.`);
   const fps = given.fps == null ? 30 : Number(given.fps);
-  if (!FPS.includes(fps)) throw new StoryError(`The frame rate is one of ${FPS.join(", ")}.`);
-  if (!Array.isArray(given.tracks) || !given.tracks.length) throw new StoryError("A story has at least one track.");
-  if (given.tracks.length > MOST_TRACKS) throw new StoryError(`A story has at most ${MOST_TRACKS} tracks.`);
+  if (!FPS.includes(fps)) throw new HttpError(`The frame rate is one of ${FPS.join(", ")}.`);
+  if (!Array.isArray(given.tracks) || !given.tracks.length) throw new HttpError("A story has at least one track.");
+  if (given.tracks.length > MOST_TRACKS) throw new HttpError(`A story has at most ${MOST_TRACKS} tracks.`);
   // the versions it links, each checked and read first: a link clip is as long as the version it plays
   const linker = new Linker(db);
   const linked = new Map<Clip, Target>();
@@ -441,38 +432,38 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
     if (t && typeof t === "object" && typeof t.kind === "string" && t.kind.trim() === LINK && Array.isArray(t.clips))
       for (const [ci, c] of t.clips.entries()) {
         const what = `Clip ${c?.id ?? ci + 1} of track ${t.id ?? LINK}`;
-        if (!c || typeof c !== "object" || Array.isArray(c)) throw new StoryError(`${what} is not an object.`);
+        if (!c || typeof c !== "object" || Array.isArray(c)) throw new HttpError(`${what} is not an object.`);
         const ref = linkOf(c, what);
-        if (self && ref.story === self) throw new StoryError(`${what} links this story itself: a story can't play inside itself.`);
+        if (self && ref.story === self) throw new HttpError(`${what} links this story itself: a story can't play inside itself.`);
         linked.set(c, await linker.must(ref, what));
       }
   const trackIds = new Set<string>();
   let clipCount = 0;
   const tracks: Track[] = given.tracks.map((t: any, ti: number) => {
-    if (!t || typeof t !== "object") throw new StoryError(`Track ${ti + 1} is not an object.`);
+    if (!t || typeof t !== "object") throw new HttpError(`Track ${ti + 1} is not an object.`);
     const kind = text(t.kind, `Track ${ti + 1}'s kind`, 32, true);
-    if (!TRACK_ID.test(kind)) throw new StoryError(`Track ${ti + 1}'s kind is a short word: lower-case letters, digits and dashes.`);
+    if (!TRACK_ID.test(kind)) throw new HttpError(`Track ${ti + 1}'s kind is a short word: lower-case letters, digits and dashes.`);
     const id = t.id == null ? kind : text(t.id, `Track ${ti + 1}'s id`, 32, true);
-    if (!TRACK_ID.test(id)) throw new StoryError(`Track ${ti + 1}'s id is a short word: lower-case letters, digits and dashes.`);
-    if (trackIds.has(id)) throw new StoryError(`Two tracks are called ${id}.`);
+    if (!TRACK_ID.test(id)) throw new HttpError(`Track ${ti + 1}'s id is a short word: lower-case letters, digits and dashes.`);
+    if (trackIds.has(id)) throw new HttpError(`Two tracks are called ${id}.`);
     trackIds.add(id);
-    if (!Array.isArray(t.clips)) throw new StoryError(`Track ${id} has no clips list.`);
+    if (!Array.isArray(t.clips)) throw new HttpError(`Track ${id} has no clips list.`);
     clipCount += t.clips.length;
-    if (clipCount > MOST_CLIPS) throw new StoryError(`A story has at most ${MOST_CLIPS} clips.`);
+    if (clipCount > MOST_CLIPS) throw new HttpError(`A story has at most ${MOST_CLIPS} clips.`);
     const clipIds = new Set<string>();
     let next = 0;
     const clips: Clip[] = t.clips.map((c: any, ci: number) => {
       const what = `Clip ${c?.id ?? ci + 1} of track ${id}`;
-      if (!c || typeof c !== "object" || Array.isArray(c)) throw new StoryError(`${what} is not an object.`);
+      if (!c || typeof c !== "object" || Array.isArray(c)) throw new HttpError(`${what} is not an object.`);
       const cid = c.id == null ? `${id}-${ci + 1}` : text(c.id, `${what}'s id`, 64, true);
-      if (!CLIP_ID.test(cid)) throw new StoryError(`${what}'s id is letters, digits, dots, colons, dashes or underscores.`);
-      if (clipIds.has(cid)) throw new StoryError(`Two clips of track ${id} are called ${cid}.`);
+      if (!CLIP_ID.test(cid)) throw new HttpError(`${what}'s id is letters, digits, dots, colons, dashes or underscores.`);
+      if (clipIds.has(cid)) throw new HttpError(`Two clips of track ${id} are called ${cid}.`);
       clipIds.add(cid);
       const at = c.at == null ? round(next) : seconds(c.at, `${what}'s start`, 0, 36_000);
       const link = kind === LINK ? linked.get(c) : undefined;
       const duration = seconds(c.duration == null && link ? link.duration : c.duration, `${what}'s duration`, 0.04, 3600);
       if (link && Math.abs(duration - link.duration) > 1e-3)
-        throw new StoryError(`${what} is ${duration} s long, but the version it plays (“${link.title}” v${link.number}) is ${link.duration} s: a link holds its whole version. Leave its duration out and it is given that length.`);
+        throw new HttpError(`${what} is ${duration} s long, but the version it plays (“${link.title}” v${link.number}) is ${link.duration} s: a link holds its whole version. Leave its duration out and it is given that length.`);
       next = at + duration;
       const { id: _i, at: _a, duration: _d, ...rest } = c;
       return { ...rest, ...(KINDS[kind]?.(c, what) ?? {}), ...sound(c, what), id: cid, at, duration };
@@ -481,7 +472,7 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
     if (SEQUENTIAL.has(kind))
       for (let i = 1; i < clips.length; i++)
         if (clips[i].at < clips[i - 1].at + clips[i - 1].duration - 1e-6)
-          throw new StoryError(`On track ${id}, clip ${clips[i].id} starts at ${clips[i].at} s, before clip ${clips[i - 1].id} ends (${round(clips[i - 1].at + clips[i - 1].duration)} s).`);
+          throw new HttpError(`On track ${id}, clip ${clips[i].id} starts at ${clips[i].at} s, before clip ${clips[i - 1].id} ends (${round(clips[i - 1].at + clips[i - 1].duration)} s).`);
     const level = t.gain == null ? {} : { gain: seconds(t.gain, `Track ${id}'s gain (dB)`, -60, 24) };
     const mute = t.mute == null ? {} : { mute: !!t.mute };
     return { id, kind, ...level, ...mute, clips };
@@ -490,32 +481,32 @@ export async function checkBody(db: Queryable, given: any, self?: string): Promi
   if (sounds.length) {
     const held = new Set([...(await fileTypes(db, sounds))].filter(([, t]) => t.startsWith("audio/")).map(([h]) => h));
     const missing = sounds.filter((f) => !held.has(f));
-    if (missing.length) throw new StoryError(`No recording is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_audio first.`);
+    if (missing.length) throw new HttpError(`No recording is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_audio first.`);
   }
   const frames = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.frame)).filter((f): f is string => typeof f === "string"))];
   if (frames.length) {
     const held = new Set([...(await fileTypes(db, frames))].filter(([, t]) => t.startsWith("image/")).map(([h]) => h));
     const missing = frames.filter((f) => !held.has(f));
-    if (missing.length) throw new StoryError(`No image is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_frame first.`);
+    if (missing.length) throw new HttpError(`No image is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_frame first.`);
   }
   const videos = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.video)).filter((v): v is string => typeof v === "string"))];
   if (videos.length) {
     const held = new Set([...(await fileTypes(db, videos))].filter(([, t]) => t.startsWith("video/")).map(([h]) => h));
     const missing = videos.filter((v) => !held.has(v));
-    if (missing.length) throw new StoryError(`No video is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_video first.`);
+    if (missing.length) throw new HttpError(`No video is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_video first.`);
   }
   const comps = [...new Set(tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.map((c) => c.composition)).filter((v): v is string => typeof v === "string"))];
   if (comps.length) {
     const held = new Set([...(await fileTypes(db, comps))].filter(([, t]) => t === COMPOSITION_TYPE).map(([h]) => h));
     const missing = comps.filter((v) => !held.has(v));
-    if (missing.length) throw new StoryError(`No composition is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_composition first.`);
+    if (missing.length) throw new HttpError(`No composition is kept by ${missing.length === 1 ? "the hash" : "the hashes"} ${missing.map((m) => m.slice(0, 12)).join(", ")}: add ${missing.length === 1 ? "it" : "them"} with add_story_composition first.`);
   }
   await checkLive(db, tracks);
   await checkWorld(db, tracks);
   const duration = round(Math.max(0, ...tracks.flatMap((t) => t.clips.map((c) => c.at + c.duration))));
-  if (!(duration > 0)) throw new StoryError("A story has at least one clip.");
-  const body: StoryBody = { schema: SCHEMA, format, fps, duration, tracks };
-  if (JSON.stringify(body).length > MOST_BODY) throw new StoryError(`A story is at most ${MOST_BODY / 1e6} MB as JSON.`, 413);
+  if (!(duration > 0)) throw new HttpError("A story has at least one clip.");
+  const body: StoryBody = { schema: STORY_SCHEMA, format, fps, duration, tracks };
+  if (JSON.stringify(body).length > MOST_BODY) throw new HttpError(`A story is at most ${MOST_BODY / 1e6} MB as JSON.`, 413);
   if (linked.size) await linker.nesting(body, self);
   return body;
 }
@@ -566,10 +557,10 @@ class Linker {
   async must(r: Ref, what: string): Promise<Target> {
     const t = await this.get(r);
     if (!("miss" in t)) return t;
-    if (t.miss === "unknown") throw new StoryError(`${what} links story ${r.story}, but there is no such story (list_stories gives every story's id).`);
+    if (t.miss === "unknown") throw new HttpError(`${what} links story ${r.story}, but there is no such story (list_stories gives every story's id).`);
     if (t.miss === "unaccepted")
-      throw new StoryError(`${what} plays version ${r.version.slice(0, 12)}… of story ${r.story}, which was never accepted: a link plays only what an admin accepted (get_story lists the accepted versions).`);
-    throw new StoryError(`${what} plays version ${r.version.slice(0, 12)}…, which is not a version of story ${r.story} (get_story lists its versions and their ids).`);
+      throw new HttpError(`${what} plays version ${r.version.slice(0, 12)}… of story ${r.story}, which was never accepted: a link plays only what an admin accepted (get_story lists the accepted versions).`);
+    throw new HttpError(`${what} plays version ${r.version.slice(0, 12)}…, which is not a version of story ${r.story} (get_story lists its versions and their ids).`);
   }
 
   /** no loop to any depth (a story never plays inside itself, however far down), and links nested at most MOST_LINK_DEPTH deep */
@@ -581,8 +572,8 @@ class Linker {
         const t = await this.get(r);
         if ("miss" in t) continue; // a link inside a linked version was checked when that version was proposed
         names.set(t.id, t.title);
-        if (t.id === self || path.includes(t.id)) throw new StoryError(`These links would loop: ${said([...path, t.id])}${t.id === self ? " (this story)" : ""}. A story can't play inside itself, however far down.`);
-        if (path.length > MOST_LINK_DEPTH) throw new StoryError(`Links nest at most ${MOST_LINK_DEPTH} stories deep: ${said([...path, t.id])}.`);
+        if (t.id === self || path.includes(t.id)) throw new HttpError(`These links would loop: ${said([...path, t.id])}${t.id === self ? " (this story)" : ""}. A story can't play inside itself, however far down.`);
+        if (path.length > MOST_LINK_DEPTH) throw new HttpError(`Links nest at most ${MOST_LINK_DEPTH} stories deep: ${said([...path, t.id])}.`);
         await walk(t.body, [...path, t.id]);
       }
     };
@@ -615,7 +606,7 @@ export const linksOf = (q: Queryable, body: StoryBody, self?: string): Promise<L
 export const slimLinks = (links: Links) => Object.fromEntries(Object.entries(links).map(([k, { body: _b, ...l }]) => [k, l]));
 
 /** the stories whose newest version links story `id`, and the version of it each plays */
-export async function linkedBy(q: Queryable, id: string): Promise<{ id: string; title: string; number: number; version: string; plays: number | null }[]> {
+async function linkedBy(q: Queryable, id: string): Promise<{ id: string; title: string; number: number; version: string; plays: number | null }[]> {
   const { rows } = await q.query<{ id: string; title: string; number: number; version: string; plays: number | null }>(
     `SELECT DISTINCT s.id, s.title, v.number, c->>'version' AS version, lv.number AS plays
        FROM play.stories s JOIN play.story_versions v ON v.id = s.head
@@ -644,20 +635,20 @@ export type Edit =
 
 /** The head's timeline with `edits` applied in order (checked as a whole afterwards by checkBody). */
 export function applyEdits(head: StoryBody, edits: unknown): any {
-  if (!Array.isArray(edits) || !edits.length) throw new StoryError("Edits are a list of operations: set_clip, add_clip, remove_clip, add_track, remove_track, set_track, shift, set, edit_text.");
+  if (!Array.isArray(edits) || !edits.length) throw new HttpError("Edits are a list of operations: set_clip, add_clip, remove_clip, add_track, remove_track, set_track, shift, set, edit_text.");
   const body: any = JSON.parse(JSON.stringify(head));
   const trackOf = (id: unknown, i: number) => {
     const t = body.tracks.find((x: any) => x.id === id);
-    if (!t) throw new StoryError(`Edit ${i + 1}: there is no track ${id}.`);
+    if (!t) throw new HttpError(`Edit ${i + 1}: there is no track ${id}.`);
     return t;
   };
   const clipOf = (t: any, id: unknown, i: number) => {
     const c = t.clips.find((x: any) => x.id === id);
-    if (!c) throw new StoryError(`Edit ${i + 1}: track ${t.id} has no clip ${id}.`);
+    if (!c) throw new HttpError(`Edit ${i + 1}: track ${t.id} has no clip ${id}.`);
     return c;
   };
   const object = (v: unknown, what: string, i: number) => {
-    if (!v || typeof v !== "object" || Array.isArray(v)) throw new StoryError(`Edit ${i + 1}: ${what} must be an object.`);
+    if (!v || typeof v !== "object" || Array.isArray(v)) throw new HttpError(`Edit ${i + 1}: ${what} must be an object.`);
     return v as Record<string, unknown>;
   };
   edits.forEach((e: any, i: number) => {
@@ -695,7 +686,7 @@ export function applyEdits(head: StoryBody, edits: unknown): any {
         break;
       case "shift": {
         const from = Number(e.from), by = Number(e.by);
-        if (!Number.isFinite(from) || !Number.isFinite(by)) throw new StoryError(`Edit ${i + 1}: shift takes from and by, in seconds.`);
+        if (!Number.isFinite(from) || !Number.isFinite(by)) throw new HttpError(`Edit ${i + 1}: shift takes from and by, in seconds.`);
         for (const t of body.tracks) {
           if (Array.isArray(e.tracks) && !e.tracks.includes(t.id)) continue;
           for (const c of t.clips) if (Number(c.at) >= from - 1e-6) c.at = round(Number(c.at) + by);
@@ -712,17 +703,17 @@ export function applyEdits(head: StoryBody, edits: unknown): any {
         // a range of one of a clip's texts: the finest step there is (a word put in, a phrase taken out)
         const c = clipOf(trackOf(e.track, i), e.clip, i);
         const field = `${e.field ?? ""}`;
-        if (!/^[a-z][a-z_]{0,31}$/.test(field)) throw new StoryError(`Edit ${i + 1}: edit_text names the clip's field (line, transition, camera …).`);
+        if (!/^[a-z][a-z_]{0,31}$/.test(field)) throw new HttpError(`Edit ${i + 1}: edit_text names the clip's field (line, transition, camera …).`);
         const was = c[field] == null ? "" : c[field];
-        if (typeof was !== "string") throw new StoryError(`Edit ${i + 1}: clip ${c.id}'s ${field} is not text.`);
+        if (typeof was !== "string") throw new HttpError(`Edit ${i + 1}: clip ${c.id}'s ${field} is not text.`);
         const index = Number(e.index), del = e.delete == null ? 0 : Number(e.delete), put = e.insert == null ? "" : `${e.insert}`;
         if (!Number.isInteger(index) || !Number.isInteger(del) || index < 0 || del < 0 || index + del > was.length)
-          throw new StoryError(`Edit ${i + 1}: the range ${e.index}+${e.delete ?? 0} is outside clip ${c.id}'s ${field} (${was.length} characters).`);
+          throw new HttpError(`Edit ${i + 1}: the range ${e.index}+${e.delete ?? 0} is outside clip ${c.id}'s ${field} (${was.length} characters).`);
         c[field] = was.slice(0, index) + put + was.slice(index + del);
         break;
       }
       default:
-        throw new StoryError(`Edit ${i + 1}: ${e?.op ?? "an edit without op"} is not an operation (set_clip, add_clip, remove_clip, add_track, remove_track, set_track, shift, set, edit_text).`);
+        throw new HttpError(`Edit ${i + 1}: ${e?.op ?? "an edit without op"} is not an operation (set_clip, add_clip, remove_clip, add_track, remove_track, set_track, shift, set, edit_text).`);
     }
   });
   return body;
@@ -798,8 +789,8 @@ type VersionRow = { id: string; story_id: string; number: number | null; title: 
  *  newest version links it (`linked_by`) */
 export async function storyOf(db: Queryable, me: Me | null, id: string, number?: number): Promise<Story> {
   admin(me, STORY_ADMINS);
-  if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID (list_stories).", 404);
-  if (number !== undefined && !(Number.isInteger(number) && number >= 1)) throw new StoryError(`${number} is not a version.`, 404);
+  if (!STORY_ID.test(id)) throw new HttpError("A story is named by its id, a UUID (list_stories).", 404);
+  if (number !== undefined && !(Number.isInteger(number) && number >= 1)) throw new HttpError(`${number} is not a version.`, 404);
   const { rows } = await db.query<VersionRow>(
     `SELECT v.id, v.story_id, v.number, v.title, v.body, v.note, v.created, au.name AS author, ap.name AS approved_by
        FROM play.stories s JOIN play.story_versions v ON v.story_id = s.id
@@ -808,9 +799,9 @@ export async function storyOf(db: Queryable, me: Me | null, id: string, number?:
       ORDER BY v.number DESC`,
     [id],
   );
-  if (!rows.length) throw new StoryError("There is no such story.", 404);
+  if (!rows.length) throw new HttpError("There is no such story.", 404);
   const v = number === undefined ? rows[0] : rows.find((r) => r.number === number);
-  if (!v) throw new StoryError(`Story ${id} has no version ${number}.`, 404);
+  if (!v) throw new HttpError(`Story ${id} has no version ${number}.`, 404);
   const versions = rows.map((r) => ({ number: r.number!, id: r.id, note: r.note, created: iso(r.created), author: r.author, approved_by: r.approved_by }));
   return { id, title: v.title, version: v.id, number: v.number, note: v.note, created: iso(v.created), author: v.author, versions, ...v.body, links: await linksOf(db, v.body, id), linked_by: await linkedBy(db, id) };
 }
@@ -818,7 +809,7 @@ export async function storyOf(db: Queryable, me: Me | null, id: string, number?:
 // ---- proposing (play/SPEC.md §4.4, "Version control"): every story is also a Loro document (./storydocs.ts), each
 // intent's work an intent variant of it, each change an edit on one
 
-export type StoryProposal = {
+type StoryProposal = {
   story?: string; // the story a version is of (its UUID); a new story gets one of its own
   title?: string;
   note?: string;
@@ -829,28 +820,32 @@ export type StoryProposal = {
   intent?: string; // the intent it is the work of, by its UUID, held to its gate before (./intents.ts): no work without an intent
 };
 
+/**
+ * A story's version kept in play.story_versions (its frozen, content-addressed row: what pins, links and the player
+ * read), the one writer of it. Kept once by its id: a version proposed again, or made again by a fold or a merge, is
+ * the row already there; `accept` numbers a proposed one as it is accepted (its number and approver), the document's
+ * version of the same number.
+ */
+async function keepVersion(q: Queryable, v: { id: string; story: string; parents: string[]; title: string; body: StoryBody; note: string; author?: string | null; number?: number | null; approvedBy?: string | null }, accept = false) {
+  await q.query(
+    `INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, author, approved_by) VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, $7, $8, $9)
+     ON CONFLICT (id) DO UPDATE SET number = CASE WHEN $10 THEN EXCLUDED.number ELSE play.story_versions.number END,
+       approved_by = CASE WHEN $10 THEN EXCLUDED.approved_by ELSE play.story_versions.approved_by END`,
+    [v.id, v.story, v.number ?? null, v.parents, v.title, JSON.stringify(v.body), v.note, v.author ?? null, v.approvedBy ?? null, accept],
+  );
+}
+
 // a story version's id is content-addressed as an asset version's is (./versions.ts, play/SPEC.md §4.3): the same story,
 // parents, title and timeline give the same id; any change to any of them, or to the history it stands on, another
 const versionIdOf = (story: string, parents: string[], title: string, body: StoryBody) => storyVersionId({ story, parents, title, body });
 
-/** a document's errors said as a story's (MCP shows them to the agent) */
-async function asStoryError<R>(run: () => Promise<R>): Promise<R> {
-  try {
-    return await run();
-  } catch (e) {
-    if (e instanceof docs.DocError) throw new StoryError(e.message, e.status);
-    if (e instanceof docs.SchemaError || e instanceof docs.EditError) throw new StoryError(e.message);
-    throw e;
-  }
-}
-
 /** a story's intent variant `v`, still open for edits */
 async function openVariant(tx: Queryable, docId: string, story: string, v: unknown): Promise<{ id: number; seed: docs.Frontiers }> {
   const n = Number(v);
-  if (!Number.isInteger(n) || n < 1) throw new StoryError("An intent variant is named by its number (doc_edit gives it).");
+  if (!Number.isInteger(n) || n < 1) throw new HttpError("An intent variant is named by its number (doc_edit gives it).");
   const { rows } = await tx.query<{ id: string; status: string; seed: docs.Frontiers }>(`SELECT id, status, seed FROM play.doc_variants WHERE id = $1 AND doc_id = $2 AND type = 'intent'`, [n, docId]);
-  if (!rows[0]) throw new StoryError(`Story ${story} has no intent variant ${n}.`, 404);
-  if (rows[0].status !== "open") throw new StoryError(`Variant ${n} of ${story} was ${rows[0].status === "proposed" ? "proposed already: it is decided as it was proposed. Start a new variant" : rows[0].status}.`, 409);
+  if (!rows[0]) throw new HttpError(`Story ${story} has no intent variant ${n}.`, 404);
+  if (rows[0].status !== "open") throw new HttpError(`Variant ${n} of ${story} was ${rows[0].status === "proposed" ? "proposed already: it is decided as it was proposed. Start a new variant" : rows[0].status}.`, 409);
   return { id: n, seed: rows[0].seed };
 }
 
@@ -862,7 +857,7 @@ async function openVariant(tx: Queryable, docId: string, story: string, v: unkno
 export async function storyEdit(tx: Queryable, story: string, cur: any, p: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
   const now = asStory(cur);
   if (p.whole !== undefined) {
-    if (!p.whole || typeof p.whole !== "object") throw new StoryError("A whole story is an object: its title and its timeline (doc_at's `json`).");
+    if (!p.whole || typeof p.whole !== "object") throw new HttpError("A whole story is an object: its title and its timeline (doc_at's `json`).");
     const w = asStory(p.whole);
     return { target: asDoc(text(w.title ?? now.title, "The title", 120, true), await checkBody(tx, w.body, story)) };
   }
@@ -889,73 +884,66 @@ export async function proposeStoryVariant(db: Db, me: Me, o: { id: string; varia
 export async function proposeStory(db: Db, me: Me | null, p: StoryProposal, fresh: boolean, via: "web" | "mcp" = "mcp") {
   const who = admin(me, STORY_ADMINS);
   // a new story gets a UUID of its own; a version names its story by its UUID
-  if (fresh && p?.story !== undefined) throw new StoryError("A new story gets its id when it is proposed: give its title, not an id.");
+  if (fresh && p?.story !== undefined) throw new HttpError("A new story gets its id when it is proposed: give its title, not an id.");
   const id = fresh ? randomUUID() : `${p?.story ?? ""}`;
-  if (!STORY_ID.test(id)) throw new StoryError("Name the story by its id, a UUID (list_stories).");
+  if (!STORY_ID.test(id)) throw new HttpError("Name the story by its id, a UUID (list_stories).");
   const note = text(p.note, "The note", NOTE_MOST, true);
   const drafted = p.variant != null;
-  if (drafted && fresh) throw new StoryError("A new story is proposed whole (its body); an intent variant is of a story that has a version.");
-  if (!drafted && (p.body === undefined) === (p.edits === undefined)) throw new StoryError("Give the new timeline (body) or edits to the head's, not both and not neither.");
-  if (drafted && (p.body !== undefined || p.edits !== undefined)) throw new StoryError("An intent variant is proposed as it stands: make its last edit with doc_edit.");
+  if (drafted && fresh) throw new HttpError("A new story is proposed whole (its body); an intent variant is of a story that has a version.");
+  if (!drafted && (p.body === undefined) === (p.edits === undefined)) throw new HttpError("Give the new timeline (body) or edits to the head's, not both and not neither.");
+  if (drafted && (p.body !== undefined || p.edits !== undefined)) throw new HttpError("An intent variant is proposed as it stands: make its last edit with doc_edit.");
   const author = authorOf(who, via === "mcp" ? "mcp" : "site");
-  return asStoryError(() =>
-    db.transaction(async (tx) => {
-      const { rows: s } = await tx.query<{ head: string | null; title: string; number: number | null; body: StoryBody | null; folded_into: string | null }>(
-        `SELECT s.head, s.title, v.number, v.body, s.folded_into FROM play.stories s LEFT JOIN play.story_versions v ON v.id = s.head WHERE s.id = $1 FOR UPDATE OF s`, [id],
-      );
-      if (s[0]?.folded_into) throw folded(id, s[0].folded_into);
-      const head = s[0]?.head ?? null;
-      if (fresh && head) throw new StoryError(`There is a story ${id} already: propose a version of it.`, 409);
-      if (!fresh && !s[0]) throw new StoryError(`There is no story ${id}: propose it as a new story.`, 404);
-      if (!fresh && !head) throw new StoryError(`Story ${id} has no accepted version yet: propose it as a new story.`, 409);
-      if (p.base !== undefined && (p.base ?? null) !== head) throw new StoryError("Someone changed this story since you read it: make your change again on its newest version (get_story).", 409);
-      let title: string, body: StoryBody, variantId: number, base: string | null;
-      if (fresh) {
-        title = text(p.title, "The title", 120, true);
-        if (p.edits !== undefined) throw new StoryError("A new story is given as its whole timeline (body), not as edits.");
-        body = await checkBody(tx, p.body, id);
-        await tx.query(`INSERT INTO play.stories (id, coop_id, title) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`, [id, COOP, title]);
-        const docId = await ensureStoryDoc(tx, id);
+  return db.transaction(async (tx) => {
+    const { rows: s } = await tx.query<{ head: string | null; title: string; number: number | null; body: StoryBody | null; folded_into: string | null }>(
+      `SELECT s.head, s.title, v.number, v.body, s.folded_into FROM play.stories s LEFT JOIN play.story_versions v ON v.id = s.head WHERE s.id = $1 FOR UPDATE OF s`, [id],
+    );
+    if (s[0]?.folded_into) throw folded(id, s[0].folded_into);
+    const head = s[0]?.head ?? null;
+    if (fresh && head) throw new HttpError(`There is a story ${id} already: propose a version of it.`, 409);
+    if (!fresh && !s[0]) throw new HttpError(`There is no story ${id}: propose it as a new story.`, 404);
+    if (!fresh && !head) throw new HttpError(`Story ${id} has no accepted version yet: propose it as a new story.`, 409);
+    if (p.base !== undefined && (p.base ?? null) !== head) throw new HttpError("Someone changed this story since you read it: make your change again on its newest version (get_story).", 409);
+    let title: string, body: StoryBody, variantId: number, base: string | null;
+    if (fresh) {
+      title = text(p.title, "The title", 120, true);
+      if (p.edits !== undefined) throw new HttpError("A new story is given as its whole timeline (body), not as edits.");
+      body = await checkBody(tx, p.body, id);
+      await tx.query(`INSERT INTO play.stories (id, coop_id, title) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`, [id, COOP, title]);
+      const docId = await ensureStoryDoc(tx, id);
+      variantId = (await docs.variant(tx, docId, { author, note })).id;
+      await docs.commit(tx, docId, { variant: variantId, target: asDoc(title, body), message: note, author });
+      base = null;
+    } else {
+      const docId = await ensureStoryDoc(tx, id);
+      if (drafted) {
+        const d = await openVariant(tx, docId, id, p.variant);
+        if (!(await docs.history(tx, docId, { variant: d.id })).length) throw new HttpError(`Variant ${d.id} has no edits yet: there is nothing to propose.`);
+        const cur = await storyDocAt(tx, id, d.id);
+        title = cur.title;
+        body = await checkBody(tx, cur.body, id);
+        variantId = d.id;
+        const n = await versionAtFrontiers(tx, id, d.seed);
+        base = n === null ? head : ((await tx.query<{ id: string }>(`SELECT id FROM play.story_versions WHERE story_id = $1 AND number = $2`, [id, n])).rows[0]?.id ?? head);
+      } else {
+        title = text(p.title ?? s[0]?.title, "The title", 120, true);
+        body = await checkBody(tx, p.body !== undefined ? p.body : applyEdits(s[0]!.body!, p.edits), id);
         variantId = (await docs.variant(tx, docId, { author, note })).id;
         await docs.commit(tx, docId, { variant: variantId, target: asDoc(title, body), message: note, author });
-        base = null;
-      } else {
-        const docId = await ensureStoryDoc(tx, id);
-        if (drafted) {
-          const d = await openVariant(tx, docId, id, p.variant);
-          if (!(await docs.history(tx, docId, { variant: d.id })).length) throw new StoryError(`Variant ${d.id} has no edits yet: there is nothing to propose.`);
-          const cur = await storyDocAt(tx, id, d.id);
-          title = cur.title;
-          body = await checkBody(tx, cur.body, id);
-          variantId = d.id;
-          const n = await versionAtFrontiers(tx, id, d.seed);
-          base = n === null ? head : ((await tx.query<{ id: string }>(`SELECT id FROM play.story_versions WHERE story_id = $1 AND number = $2`, [id, n])).rows[0]?.id ?? head);
-        } else {
-          title = text(p.title ?? s[0]?.title, "The title", 120, true);
-          body = await checkBody(tx, p.body !== undefined ? p.body : applyEdits(s[0]!.body!, p.edits), id);
-          variantId = (await docs.variant(tx, docId, { author, note })).id;
-          await docs.commit(tx, docId, { variant: variantId, target: asDoc(title, body), message: note, author });
-          base = head;
-        }
+        base = head;
       }
-      const parents = base ? [base] : [];
-      const version = versionIdOf(id, parents, title, body);
-      if (base) {
-        const { rows: b } = await tx.query<{ title: string; body: StoryBody }>(`SELECT title, body FROM play.story_versions WHERE id = $1`, [base]);
-        if (b[0] && version === versionIdOf(id, parents, b[0].title, b[0].body)) throw new StoryError("That is the head as it is: nothing changed.");
-      }
-      await tx.query(
-        `INSERT INTO play.story_versions (id, story_id, parents, title, body, note, author) VALUES ($1, $2, $3, $4, ($5::text)::jsonb, $6, $7) ON CONFLICT (id) DO NOTHING`,
-        [version, id, parents, title, JSON.stringify(body), note, who.id],
-      );
-      await docs.propose(tx, docIdOf(id), variantId, { note, author });
-      const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: STORY_WORK, doc_id: docIdOf(id), doc_variant: variantId, story_id: id, story_base: base, story_version: version }, note, via }).catch((e) => {
-        throw e instanceof WorkError ? new StoryError(e.message, e.status) : e;
-      });
-      const edits = (await docs.history(tx, docIdOf(id), { variant: variantId })).length;
-      return { intent, stage: await stageAfter(tx, intent), story: id, version, number: (s[0]?.number ?? 0) + 1, base, duration: body.duration, variant: variantId, edits };
-    }),
-  );
+    }
+    const parents = base ? [base] : [];
+    const version = versionIdOf(id, parents, title, body);
+    if (base) {
+      const { rows: b } = await tx.query<{ title: string; body: StoryBody }>(`SELECT title, body FROM play.story_versions WHERE id = $1`, [base]);
+      if (b[0] && version === versionIdOf(id, parents, b[0].title, b[0].body)) throw new HttpError("That is the head as it is: nothing changed.");
+    }
+    await keepVersion(tx, { id: version, story: id, parents, title, body, note, author: who.id });
+    await docs.propose(tx, docIdOf(id), variantId, { note, author });
+    const intent = await putAtProposal(tx, who, { intent: p.intent, work: { kind: STORY_WORK, doc_id: docIdOf(id), doc_variant: variantId, story_id: id, story_base: base, story_version: version }, note, via });
+    const edits = (await docs.history(tx, docIdOf(id), { variant: variantId })).length;
+    return { intent, stage: await stageAfter(tx, intent), story: id, version, number: (s[0]?.number ?? 0) + 1, base, duration: body.duration, variant: variantId, edits };
+  });
 }
 
 // ---- one film, one timeline (Samuel 2026-11-03)
@@ -980,10 +968,7 @@ async function foldVersion(tx: Queryable, id: string, v: { title: string; body: 
   await docs.propose(tx, docId, variant, { note: v.note, author });
   const parents = head ? [head] : [];
   const version = versionIdOf(id, parents, v.title, body);
-  await tx.query(
-    `INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, author, approved_by) VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, $7, $8, $9) ON CONFLICT (id) DO NOTHING`,
-    [version, id, n, parents, v.title, JSON.stringify(body), v.note, by, approver],
-  );
+  await keepVersion(tx, { id: version, story: id, number: n, parents, title: v.title, body, note: v.note, author: by, approvedBy: approver });
   const d = await docs.accept(tx, docId, variant, { author, note: v.note });
   if (d.number !== n) throw new Error(`story ${id} and its document disagree: version ${n} against ${d.number}`);
   await tx.query(`UPDATE play.stories SET head = $2, title = $3, updated = now() WHERE id = $1`, [id, version, v.title]);
@@ -1067,7 +1052,7 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
   return out;
 }
 
-/** a story's work as people review it beside its changes and edits (./versioned.ts reviewDoc): the proposed timeline
+/** a story's work as people review it beside its changes and edits (./review.ts reviewDoc): the proposed timeline
  *  and the head's it was made from (each with the versions it links, to play side by side), what changed clip by clip */
 export async function storyReview(db: Queryable, p: { story_id: string; story_base: string | null; story_version: string }) {
   const { rows } = await db.query<{ id: string; title: string; body: StoryBody; number: number | null }>(
@@ -1089,68 +1074,64 @@ export async function storyReview(db: Queryable, p: { story_id: string; story_ba
  * whose parents are both); where they touch the same field it is archived, kept on its side line, to be proposed again.
  */
 export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") {
-  if (me.level !== "admin") throw new Denied("Only Maia City's admins decide on stories.");
-  return asStoryError(async () => {
-    const docId = await ensureStoryDoc(tx, p.story_id);
-    // its own intent variant on this story's document (an intent may hold several documents: intent 7c8986c5)
-    const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2`, [p.id, docId])).rows[0]?.doc_variant ?? p.doc_variant);
-    const author = authorOf(me, "site");
-    const closeBranch = async (status: "archived") => {
-      const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1`, [variant]);
-      if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(tx, docId, variant, { author, status });
-    };
-    if (verdict === "archive") {
-      await settle(tx, p.id, "archived", me.id);
-      await closeBranch("archived");
-      return { id: p.id, status: "archived" };
-    }
-    const { rows } = await tx.query<{ head: string | null; number: number | null }>(
-      `SELECT s.head, v.number FROM play.stories s LEFT JOIN play.story_versions v ON v.id = s.head WHERE s.id = $1 FOR UPDATE OF s`, [p.story_id],
-    );
-    const head = rows[0]?.head ?? null, n = (rows[0]?.number ?? 0) + 1;
-    const accepted = async (version: string) => {
-      const v = await docs.accept(tx, docId, variant, { author, note: p.note });
-      if (v.number !== n) throw new Error(`story ${p.story_id} and its document disagree: version ${n} against ${v.number}`);
-      await tx.query(`UPDATE play.stories SET head = $2, title = (SELECT title FROM play.story_versions WHERE id = $2), updated = now() WHERE id = $1`, [p.story_id, version]);
-      await settle(tx, p.id, "accepted", byOf(me));
-    };
-    if (head === (p.story_base ?? null)) {
-      await tx.query(`UPDATE play.story_versions SET number = $2, approved_by = $3 WHERE id = $1`, [p.story_version, n, me.id]);
-      await accepted(p.story_version);
-      return { id: p.id, status: "accepted", number: n, version: p.story_version };
-    }
-    // the head moved on since this was made: merged where the two changes touch different fields, archived where the same
-    let merged: { title: string; body: StoryBody } | null = null, clash: string[] = [], why = "";
-    if (head && p.story_base) {
-      const baseNumber = (await tx.query<{ number: number }>(`SELECT number FROM play.story_versions WHERE id = $1`, [p.story_base])).rows[0]?.number;
-      const was = await docs.stateAt(tx, docId, { version: baseNumber });
-      const now = (await docs.readDoc(tx, docId)).json, mine = (await docs.readDoc(tx, docId, { variant })).json;
-      clash = overlap(docs.diff(was, now).map((c) => c.path), docs.diff(was, mine).map((c) => c.path));
-      const preview = await docs.previewMerge(tx, docId, variant);
-      if (!clash.length && !preview.problems.length) {
-        const m = asStory(preview.json);
-        try {
-          merged = { title: text(m.title, "The title", 120, true), body: await checkBody(tx, m.body, p.story_id) };
-        } catch (e) {
-          merged = null;
-          if (e instanceof StoryError) why = ` Merged with it, it would not hold: ${e.message}`;
-        }
+  if (me.level !== "admin") throw new HttpError("Only Maia City's admins decide on stories.", 403);
+  const docId = await ensureStoryDoc(tx, p.story_id);
+  // its own intent variant on this story's document (an intent may hold several documents: intent 7c8986c5)
+  const variant = Number((await tx.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id = $1 AND doc_id = $2`, [p.id, docId])).rows[0]?.doc_variant ?? p.doc_variant);
+  const author = authorOf(me, "site");
+  const closeBranch = async (status: "archived") => {
+    const { rows } = await tx.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1`, [variant]);
+    if (rows[0] && (rows[0].status === "open" || rows[0].status === "proposed")) await docs.close(tx, docId, variant, { author, status });
+  };
+  if (verdict === "archive") {
+    await settle(tx, p.id, "archived", me.id);
+    await closeBranch("archived");
+    return { id: p.id, status: "archived" };
+  }
+  const { rows } = await tx.query<{ head: string | null; number: number | null }>(
+    `SELECT s.head, v.number FROM play.stories s LEFT JOIN play.story_versions v ON v.id = s.head WHERE s.id = $1 FOR UPDATE OF s`, [p.story_id],
+  );
+  const head = rows[0]?.head ?? null, n = (rows[0]?.number ?? 0) + 1;
+  const accepted = async (version: string) => {
+    const v = await docs.accept(tx, docId, variant, { author, note: p.note });
+    if (v.number !== n) throw new Error(`story ${p.story_id} and its document disagree: version ${n} against ${v.number}`);
+    await tx.query(`UPDATE play.stories SET head = $2, title = (SELECT title FROM play.story_versions WHERE id = $2), updated = now() WHERE id = $1`, [p.story_id, version]);
+    await settle(tx, p.id, "accepted", byOf(me));
+  };
+  if (head === (p.story_base ?? null)) {
+    const { rows: [was] } = await tx.query<{ parents: string[]; title: string; body: StoryBody; note: string; author: string | null }>(`SELECT parents, title, body, note, author FROM play.story_versions WHERE id = $1`, [p.story_version]);
+    if (was) await keepVersion(tx, { id: p.story_version, story: p.story_id, ...was, number: n, approvedBy: me.id }, true);
+    await accepted(p.story_version);
+    return { id: p.id, status: "accepted", number: n, version: p.story_version };
+  }
+  // the head moved on since this was made: merged where the two changes touch different fields, archived where the same
+  let merged: { title: string; body: StoryBody } | null = null, clash: string[] = [], why = "";
+  if (head && p.story_base) {
+    const baseNumber = (await tx.query<{ number: number }>(`SELECT number FROM play.story_versions WHERE id = $1`, [p.story_base])).rows[0]?.number;
+    const was = await docs.stateAt(tx, docId, { version: baseNumber });
+    const now = (await docs.readDoc(tx, docId)).json, mine = (await docs.readDoc(tx, docId, { variant })).json;
+    clash = overlap(docs.diff(was, now).map((c) => c.path), docs.diff(was, mine).map((c) => c.path));
+    const preview = await docs.previewMerge(tx, docId, variant);
+    if (!clash.length && !preview.problems.length) {
+      const m = asStory(preview.json);
+      try {
+        merged = { title: text(m.title, "The title", 120, true), body: await checkBody(tx, m.body, p.story_id) };
+      } catch (e) {
+        merged = null;
+        if (e instanceof HttpError) why = ` Merged with it, it would not hold: ${e.message}`;
       }
     }
-    if (!merged) {
-      await settle(tx, p.id, "archived", null);
-      await closeBranch("archived");
-      const where = clash.length ? ` It changes what v${n - 1} changed too (${clash.slice(0, 3).map((c) => c.replace(/^\$\./, "")).join(", ")}).` : "";
-      return { id: p.id, status: "archived", message: `This story has a newer version than the one this was made on.${where}${why} Propose the change again on its head.` };
-    }
-    const version = versionIdOf(p.story_id, [head!, p.story_version], merged.title, merged.body);
-    await tx.query(
-      `INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note, author, approved_by) VALUES ($1, $2, $3, $4, $5, ($6::text)::jsonb, $7, $8, $9) ON CONFLICT (id) DO NOTHING`,
-      [version, p.story_id, n, [head, p.story_version], merged.title, JSON.stringify(merged.body), `${p.note} (merged with v${n - 1})`.slice(0, 2000), p.author ?? null, me.id],
-    );
-    await accepted(version);
-    return { id: p.id, status: "accepted", number: n, version, merged: true };
-  });
+  }
+  if (!merged) {
+    await settle(tx, p.id, "archived", null);
+    await closeBranch("archived");
+    const where = clash.length ? ` It changes what v${n - 1} changed too (${clash.slice(0, 3).map((c) => c.replace(/^\$\./, "")).join(", ")}).` : "";
+    return { id: p.id, status: "archived", message: `This story has a newer version than the one this was made on.${where}${why} Propose the change again on its head.` };
+  }
+  const version = versionIdOf(p.story_id, [head!, p.story_version], merged.title, merged.body);
+  await keepVersion(tx, { id: version, story: p.story_id, number: n, parents: [head!, p.story_version], title: merged.title, body: merged.body, note: `${p.note} (merged with v${n - 1})`.slice(0, 2000), author: p.author ?? null, approvedBy: me.id });
+  await accepted(version);
+  return { id: p.id, status: "accepted", number: n, version, merged: true };
 }
 
 // ---- a story at an edit, or as an intent's variant would make it
@@ -1158,36 +1139,31 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
 /** story `id` as it was at edit `edit` of its history, or as intent `intent`'s variant would make it, with the versions it links */
 export async function storyAt(db: Db, me: Me | null, id: string, at: { edit?: number; intent?: string }) {
   admin(me, STORY_ADMINS);
-  if (!STORY_ID.test(id)) throw new StoryError("A story is named by its id, a UUID.", 404);
-  return asStoryError(async () => {
-    const docId = await db.transaction((q) => ensureStoryDoc(q, id));
-    let json: any;
-    if (at.intent !== undefined) {
-      const { rows } = await db.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id::text = $1 AND doc_id = $2`, [`${at.intent}`.toLowerCase(), docId]);
-      if (!rows[0]?.doc_variant) throw new StoryError(`Story ${id} has no variant of intent ${at.intent}.`, 404);
-      json = (await docs.readDoc(db, docId, { variant: Number(rows[0].doc_variant) })).json;
-    } else {
-      if (!Number.isInteger(at.edit) || (at.edit as number) < 1) throw new StoryError(`${at.edit} is not an edit.`, 404);
-      json = await docs.stateAt(db, docId, { edit: at.edit as number });
-    }
-    const { title, body } = asStory(json);
-    return { id, title, ...(at.intent !== undefined ? { intent: `${at.intent}`.toLowerCase() } : { edit: at.edit }), ...body, links: await linksOf(db, body, id) };
-  });
+  if (!STORY_ID.test(id)) throw new HttpError("A story is named by its id, a UUID.", 404);
+  const docId = await db.transaction((q) => ensureStoryDoc(q, id));
+  let json: any;
+  if (at.intent !== undefined) {
+    const { rows } = await db.query<{ doc_variant: string | null }>(`SELECT variant_id AS doc_variant FROM play.intent_variants WHERE intent_id::text = $1 AND doc_id = $2`, [`${at.intent}`.toLowerCase(), docId]);
+    if (!rows[0]?.doc_variant) throw new HttpError(`Story ${id} has no variant of intent ${at.intent}.`, 404);
+    json = (await docs.readDoc(db, docId, { variant: Number(rows[0].doc_variant) })).json;
+  } else {
+    if (!Number.isInteger(at.edit) || (at.edit as number) < 1) throw new HttpError(`${at.edit} is not an edit.`, 404);
+    json = await docs.stateAt(db, docId, { edit: at.edit as number });
+  }
+  const { title, body } = asStory(json);
+  return { id, title, ...(at.intent !== undefined ? { intent: `${at.intent}`.toLowerCase() } : { edit: at.edit }), ...body, links: await linksOf(db, body, id) };
 }
 
 /** A story kept in the repo, written as its accepted v1 where play holds no story of its id (import/stories.ts). */
 export async function seedStory(db: Db, id: string, title: string, note: string, given: unknown): Promise<boolean> {
-  if (!STORY_ID.test(id)) throw new StoryError("its story.json names no id (a UUID)");
+  if (!STORY_ID.test(id)) throw new HttpError("its story.json names no id (a UUID)");
   const body = await checkBody(db, given, id);
   const t = text(title, "The title", 120, true);
   const version = versionIdOf(id, [], t, body);
   return db.transaction(async (tx) => {
     const { rows } = await tx.query(`INSERT INTO play.stories (id, coop_id, title) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id`, [id, COOP, t]);
     if (!rows.length) return false;
-    await tx.query(
-      `INSERT INTO play.story_versions (id, story_id, number, parents, title, body, note) VALUES ($1, $2, 1, '{}', $3, ($4::text)::jsonb, $5)`,
-      [version, id, t, JSON.stringify(body), text(note, "The note", 2000)],
-    );
+    await keepVersion(tx, { id: version, story: id, number: 1, parents: [], title: t, body, note: text(note, "The note", 2000) });
     await tx.query(`UPDATE play.stories SET head = $2 WHERE id = $1`, [id, version]);
     // and its document, its first edit that version
     await ensureStoryDoc(tx, id);
@@ -1198,15 +1174,15 @@ export async function seedStory(db: Db, id: string, title: string, note: string,
 // ---- recordings
 
 /** The audio type of `bytes`, by how they start, or null */
-export const audioType = (bytes: Uint8Array): string | null => AUDIO.find((a) => a.is(bytes))?.type ?? null;
+const audioType = (bytes: Uint8Array): string | null => AUDIO.find((a) => a.is(bytes))?.type ?? null;
 
 /** Keep one recording (MP3, WAV, Ogg, FLAC, M4A or WebM audio, at most MOST_AUDIO bytes) among play's files; its hash. */
-export async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
-  if (!bytes.length) throw new StoryError("The recording is empty.");
-  if (bytes.length > MOST_AUDIO) throw new StoryError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
+async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
+  if (!bytes.length) throw new HttpError("The recording is empty.");
+  if (bytes.length > MOST_AUDIO) throw new HttpError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
   const type = audioType(bytes);
-  if (!type) throw new StoryError("A recording is MP3, WAV, Ogg, FLAC, M4A or WebM audio.", 415);
-  if (said && said !== type && !(said === "audio/mp3" && type === "audio/mpeg") && !(said === "audio/x-wav" && type === "audio/wav")) throw new StoryError(`Those bytes are ${type}, not ${said}.`, 415);
+  if (!type) throw new HttpError("A recording is MP3, WAV, Ogg, FLAC, M4A or WebM audio.", 415);
+  if (said && said !== type && !(said === "audio/mp3" && type === "audio/mpeg") && !(said === "audio/x-wav" && type === "audio/wav")) throw new HttpError(`Those bytes are ${type}, not ${said}.`, 415);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, type);
   await keepFile(db, hash, bytes.length, type, key, label);
@@ -1215,10 +1191,10 @@ export async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Arra
 
 /** A recording given as base64 (an agent's), checked and kept */
 export async function putAudioBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown) {
-  if (typeof data !== "string" || !data) throw new StoryError("Give the recording as base64 text (data).");
+  if (typeof data !== "string" || !data) throw new HttpError("Give the recording as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
-  if (clean.length > Math.ceil((MOST_AUDIO * 4) / 3) + 8) throw new StoryError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
+  if (clean.length > Math.ceil((MOST_AUDIO * 4) / 3) + 8) throw new HttpError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new HttpError("That is not base64.");
   return putAudio(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label));
 }
 
@@ -1227,9 +1203,9 @@ export async function putAudioBase64(db: Queryable, store: BlobStore, data: unkn
 /** A label given with a file: trimmed text of at most 200 characters, or none */
 export function fileLabel(v: unknown): string | undefined {
   if (v == null || v === "") return undefined;
-  if (typeof v !== "string") throw new StoryError("A file's label must be text.");
+  if (typeof v !== "string") throw new HttpError("A file's label must be text.");
   const t = v.trim().replace(/\s+/g, " ");
-  if (t.length > 200) throw new StoryError("A file's label is at most 200 characters.");
+  if (t.length > 200) throw new HttpError("A file's label is at most 200 characters.");
   return t || undefined;
 }
 
@@ -1242,14 +1218,14 @@ const keepFile = (db: Queryable, hash: string, size: number, type: string, key: 
 /** a document is Markdown text of at most this many bytes */
 export const MOST_DOCUMENT = 2_000_000;
 /** the one media type play keeps a document as (recipe sources are text/javascript, never shown in the Library) */
-export const DOCUMENT_TYPE = "text/markdown";
+const DOCUMENT_TYPE = "text/markdown";
 
 /** Keep one document (Markdown text, at most MOST_DOCUMENT bytes) among play's files; its hash. */
 export async function putDocument(db: Queryable, store: BlobStore, text: unknown, label?: unknown, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
-  if (typeof text !== "string" || !text.trim()) throw new StoryError("Give the document as Markdown text (text).");
-  if (/\u0000/.test(text)) throw new StoryError("A document is text: no NUL characters.");
+  if (typeof text !== "string" || !text.trim()) throw new HttpError("Give the document as Markdown text (text).");
+  if (/\u0000/.test(text)) throw new HttpError("A document is text: no NUL characters.");
   const bytes = new TextEncoder().encode(text);
-  if (bytes.length > MOST_DOCUMENT) throw new StoryError(`A document is at most ${MOST_DOCUMENT / 1e6} MB.`, 413);
+  if (bytes.length > MOST_DOCUMENT) throw new HttpError(`A document is at most ${MOST_DOCUMENT / 1e6} MB.`, 413);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, DOCUMENT_TYPE);
   await keepFile(db, hash, bytes.length, DOCUMENT_TYPE, key, fileLabel(label), owner);
@@ -1261,7 +1237,7 @@ export async function putDocument(db: Queryable, store: BlobStore, text: unknown
 /** a composition is readable HTML of at most this many bytes */
 export const MOST_COMPOSITION = 2_000_000;
 /** the media type play keeps a composition as (served as plain text, like every code file) */
-export const COMPOSITION_TYPE = "text/html";
+const COMPOSITION_TYPE = "text/html";
 
 /**
  * Keep one composition among play's files; its hash. It is one HyperFrames composition as written: readable (not bundled
@@ -1270,15 +1246,15 @@ export const COMPOSITION_TYPE = "text/html";
  * sealed frame and in HyperFrames' renderer, never on play's server or origin.
  */
 export async function putComposition(db: Queryable, store: BlobStore, html: unknown, label?: unknown, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
-  if (typeof html !== "string" || !html.trim()) throw new StoryError("Give the composition as its HTML (html).");
-  if (/\u0000/.test(html)) throw new StoryError("A composition is text: no NUL characters.");
+  if (typeof html !== "string" || !html.trim()) throw new HttpError("Give the composition as its HTML (html).");
+  if (/\u0000/.test(html)) throw new HttpError("A composition is text: no NUL characters.");
   const bytes = new TextEncoder().encode(html);
-  if (bytes.length > MOST_COMPOSITION) throw new StoryError(`A composition is at most ${MOST_COMPOSITION / 1e6} MB.`, 413);
+  if (bytes.length > MOST_COMPOSITION) throw new HttpError(`A composition is at most ${MOST_COMPOSITION / 1e6} MB.`, 413);
   const why = unreadable(html);
-  if (why) throw new StoryError(`A composition is read before it plays, so ${why}.`);
-  if (!/\bdata-composition-id=["'][^"']+["']/.test(html) || !/__timelines\[/.test(html)) throw new StoryError("A composition is one HyperFrames composition: a root with its data-composition-id, its timeline registered on window.__timelines.");
+  if (why) throw new HttpError(`A composition is read before it plays, so ${why}.`);
+  if (!/\bdata-composition-id=["'][^"']+["']/.test(html) || !/__timelines\[/.test(html)) throw new HttpError("A composition is one HyperFrames composition: a root with its data-composition-id, its timeline registered on window.__timelines.");
   const outside = [...html.matchAll(/https?:\/\/[^\s"'<>)]+/gi)].map((m) => m[0]).find((u) => !/^http:\/\/www\.w3\.org\//i.test(u)) ?? html.match(/\b(?:src|href)\s*=\s*["']\/\/[^"']*/i)?.[0];
-  if (outside) throw new StoryError(`A composition loads nothing from outside play (GSAP and HyperFrames' runtime come from play: leave out the scripts that load them), not ${outside.slice(0, 80)}.`);
+  if (outside) throw new HttpError(`A composition loads nothing from outside play (GSAP and HyperFrames' runtime come from play: leave out the scripts that load them), not ${outside.slice(0, 80)}.`);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, COMPOSITION_TYPE);
   await keepFile(db, hash, bytes.length, COMPOSITION_TYPE, key, fileLabel(label), owner);
@@ -1288,15 +1264,15 @@ export async function putComposition(db: Queryable, store: BlobStore, html: unkn
 // ---- videos
 
 /** The video type of `bytes`, by how they start, or null */
-export const videoType = (bytes: Uint8Array): string | null => VIDEOS.find((v) => v.is(bytes))?.type ?? null;
+const videoType = (bytes: Uint8Array): string | null => VIDEOS.find((v) => v.is(bytes))?.type ?? null;
 
 /** Keep one video (MP4 or WebM, at most MOST_VIDEO bytes) among play's files; its hash. */
-export async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
-  if (!bytes.length) throw new StoryError("The video is empty.");
-  if (bytes.length > MOST_VIDEO) throw new StoryError(`A video is at most ${MOST_VIDEO / 1e6} MB.`, 413);
+async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
+  if (!bytes.length) throw new HttpError("The video is empty.");
+  if (bytes.length > MOST_VIDEO) throw new HttpError(`A video is at most ${MOST_VIDEO / 1e6} MB.`, 413);
   const type = videoType(bytes);
-  if (!type) throw new StoryError("A video is an MP4 or a WebM.", 415);
-  if (said && said !== type) throw new StoryError(`Those bytes are ${type}, not ${said}.`, 415);
+  if (!type) throw new HttpError("A video is an MP4 or a WebM.", 415);
+  if (said && said !== type) throw new HttpError(`Those bytes are ${type}, not ${said}.`, 415);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, type);
   await keepFile(db, hash, bytes.length, type, key, label);
@@ -1305,25 +1281,25 @@ export async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Arra
 
 /** A video given as base64 (an agent's), checked and kept */
 export async function putVideoBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown) {
-  if (typeof data !== "string" || !data) throw new StoryError("Give the video as base64 text (data).");
+  if (typeof data !== "string" || !data) throw new HttpError("Give the video as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
-  if (clean.length > Math.ceil((MOST_VIDEO * 4) / 3) + 8) throw new StoryError(`A video is at most ${MOST_VIDEO / 1e6} MB.`, 413);
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
+  if (clean.length > Math.ceil((MOST_VIDEO * 4) / 3) + 8) throw new HttpError(`A video is at most ${MOST_VIDEO / 1e6} MB.`, 413);
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new HttpError("That is not base64.");
   return putVideo(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label));
 }
 
 // ---- frames
 
 /** The image type of `bytes`, by how they start, or null */
-export const imageType = (bytes: Uint8Array): string | null => IMAGES.find((i) => i.is(bytes))?.type ?? null;
+const imageType = (bytes: Uint8Array): string | null => IMAGES.find((i) => i.is(bytes))?.type ?? null;
 
 /** Keep one frame (an image, at most MOST_FRAME bytes) among play's files; its hash. */
 export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
-  if (!bytes.length) throw new StoryError("The frame is empty.");
-  if (bytes.length > MOST_FRAME) throw new StoryError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
+  if (!bytes.length) throw new HttpError("The frame is empty.");
+  if (bytes.length > MOST_FRAME) throw new HttpError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
   const type = imageType(bytes);
-  if (!type) throw new StoryError("A frame is a JPEG, PNG or WebP image.", 415);
-  if (said && said !== type) throw new StoryError(`Those bytes are ${type}, not ${said}.`, 415);
+  if (!type) throw new HttpError("A frame is a JPEG, PNG or WebP image.", 415);
+  if (said && said !== type) throw new HttpError(`Those bytes are ${type}, not ${said}.`, 415);
   const hash = hashBytes(bytes);
   const key = (await store.has(hash)) ? keyOf(hash) : await store.put(hash, bytes, type);
   await keepFile(db, hash, bytes.length, type, key, label, owner);
@@ -1332,9 +1308,26 @@ export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Arra
 
 /** A frame given as base64 (an agent's), checked and kept */
 export async function putFrameBase64(db: Queryable, store: BlobStore, data: unknown, mediaType: unknown, label?: unknown, owner?: string) {
-  if (typeof data !== "string" || !data) throw new StoryError("Give the image as base64 text (data).");
+  if (typeof data !== "string" || !data) throw new HttpError("Give the image as base64 text (data).");
   const clean = data.replace(/^data:[^,]*,/, "").replace(/\s+/g, "");
-  if (clean.length > Math.ceil((MOST_FRAME * 4) / 3) + 8) throw new StoryError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new StoryError("That is not base64.");
+  if (clean.length > Math.ceil((MOST_FRAME * 4) / 3) + 8) throw new HttpError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(clean)) throw new HttpError("That is not base64.");
   return putFrame(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label), owner);
+}
+
+/** a story: its tracks' and clips' ids each once, every clip inside the story's duration */
+export function storyCheck(doc: any): string[] {
+  const out: string[] = [];
+  const tracks = new Set<string>();
+  for (const t of doc.tracks ?? []) {
+    if (tracks.has(t.id)) out.push(`track ${t.id}: its id is taken twice`);
+    tracks.add(t.id);
+    const clips = new Set<string>();
+    for (const c of t.clips ?? []) {
+      if (clips.has(c.id)) out.push(`track ${t.id}, clip ${c.id}: its id is taken twice`);
+      clips.add(c.id);
+      if (c.at + c.duration > doc.duration + 1e-6) out.push(`track ${t.id}, clip ${c.id}: ends at ${+(c.at + c.duration).toFixed(3)} s, after the story's ${doc.duration} s`);
+    }
+  }
+  return out;
 }

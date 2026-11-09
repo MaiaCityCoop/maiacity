@@ -19,11 +19,12 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { createDoc } from "../src/docs";
-import { COOP, SCHEMA } from "../src/ids";
+import { COOP, SCHEMA } from "../src/kit/ids";
 import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
-import { register, seedDoc, unregister } from "../src/versioned";
+import { fromBunSql, type Db } from "../src/kit/pg";
+import { seedDoc } from "../src/versioned";
+import { register, unregister } from "../src/kinds";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;

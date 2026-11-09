@@ -9,10 +9,10 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import { levelling, seedGameConfigs } from "../import/gameconfigs";
-import { GAME_CONFIG } from "../src/ids";
+import { GAME_CONFIG } from "../src/kit/ids";
 
 const LV = GAME_CONFIG.levelling;
 

@@ -7,17 +7,12 @@
 // state is served as JSON.
 import { randomInt } from "node:crypto";
 import type { LoroDoc } from "loro-crdt";
-import type { Db, Queryable } from "../pg";
-import { applyEdits, contentHash, fromBytes, jsonAt, jsonOf, newDoc, patchTo, sameFrontiers, seed, type Edit, type Frontiers } from "./core";
-import { typeFor } from "./schemas";
+import type { Db, Queryable } from "../kit/pg";
+import { applyEdits, contentHash, DocError, fromBytes, jsonAt, jsonOf, newDoc, patchTo, sameFrontiers, seed, type Edit, type Frontiers } from "./core";
+import { asType, hooked, seedOf as schemaSeed, type SchemaJson } from "./seed";
 import { problemsOf, SchemaError, type DocType } from "./validate";
 import { breedOn, changedFields, union, type Path } from "./breeds";
 
-export class DocError extends Error {
-  constructor(message: string, public status = 400, public extra: Record<string, unknown> = {}) {
-    super(message);
-  }
-}
 
 /** who writes: a human (or the agent acting under their name), and through what */
 export type Author = { human: string | null; via: "site" | "mcp" | "import" | "system" };
@@ -504,4 +499,34 @@ export async function seedOf(db: Queryable, id: string, v: number): Promise<any>
 export async function variantOf(db: Queryable, id: string, v: number, o: { breeds?: boolean } = {}) {
   const r = await variantRow(db, id, v, false, o.breeds ? ["intent", "breed"] : ["intent"]);
   return { id: Number(r.id), type: r.type, name: r.name, seed: r.seed, mainSeed: r.main_seed, breed: r.breed === null ? null : Number(r.breed), makes: r.makes, status: r.status, note: r.note, intent_id: r.intent_id, created_by: r.created_by, created: r.created };
+}
+
+// ---- reading a schema from Postgres
+
+const cache = new Map<string, { key: string; type: DocType }>();
+
+/**
+ * The type schema `id` is now: its Main's newest version, from Postgres, cached by the schema document's head. A schema
+ * not yet a document is its seed's v1 (the meta-schema as ensureSchemas makes it, a database before it); one proposed
+ * and not yet accepted is no type yet.
+ */
+export async function typeFor(q: Queryable, id: string | null | undefined): Promise<DocType> {
+  if (!id) throw new DocError("this document names no schema (play.docs.schema_id): run the migrations", 500);
+  const { rows } = await q.query<{ head: unknown; n: number | null }>(
+    `SELECT d.head, (SELECT max(number) FROM play.doc_versions v WHERE v.doc_id = d.id) AS n FROM play.docs d WHERE d.id = $1`,
+    [`schema:${id}`],
+  );
+  if (!rows[0]) {
+    const j = schemaSeed(id);
+    if (!j) throw new DocError(`there is no schema ${id}`, 404);
+    return asType(id, 1, j);
+  }
+  if (!rows[0].n) throw new DocError(`schema ${id} is not accepted yet: no document is written against it until it is`, 409);
+  const key = `${JSON.stringify(rows[0].head)}#${rows[0].n}#${hooked(id) ? "h" : ""}`;
+  const was = cache.get(id);
+  if (was?.key === key) return was.type;
+  const j = (await readDoc(q, `schema:${id}`)).json as SchemaJson;
+  const type = asType(id, rows[0].n, j);
+  cache.set(id, { key, type });
+  return type;
 }

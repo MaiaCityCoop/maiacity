@@ -4,7 +4,7 @@
 // short by a full disk) is named, not copied (it was lost already; deploy/server-care.sh mends what a backup holds). Run
 // again, it copies only what is still missing. Prints what it did as JSON; a copy that fails stops it (exit 1).
 import { bucketStore, folderStore } from "./blobs";
-import { connect } from "./pg";
+import { connect } from "./kit/pg";
 
 const db = connect();
 const folder = folderStore(process.env.PLAY_BLOBS || "blobs");
@@ -18,7 +18,7 @@ await Promise.all(Array.from({ length: 8 }, async () => {
   for (let i = next++; i < rows.length; i = next++) {
     const { hash, media_type } = rows[i];
     if (await bucket.has(hash)) { there++; continue; }
-    const b = await folder.get(hash).catch(() => undefined);
+    const b = await folder.get(hash).catch((e) => (console.warn(`tobucket: ${hash} not read from the folder (${(e as Error).message})`), undefined));
     if (!b) { broken.push(hash); continue; }
     await bucket.put(hash, b, media_type);
     copied++;

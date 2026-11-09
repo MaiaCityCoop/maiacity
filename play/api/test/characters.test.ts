@@ -15,7 +15,7 @@ import { folderStore } from "../src/blobs";
 import { GROUPS } from "../src/groups";
 import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;

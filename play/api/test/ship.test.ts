@@ -12,10 +12,12 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import { readFileSync } from "node:fs";
-import { ACCEPTED_CONTEXT, gitHub, reconcile, runningCommit, shipGitHub, startShipWatcher, tailOf, watchShips, type Job, type Pull, type Run } from "../src/ship";
+import { reconcile, runningCommit, tailOf } from "../src/ship";
+import { startShipWatcher, watchShips } from "../src/watcher";
+import { ACCEPTED_CONTEXT, gitHub, shipGitHub, type Job, type Pull, type Run } from "../src/github";
 import { fakeGitHub, green, iso, job, REPO, run, sha, TOKEN } from "./fixtures/github";
 
 const URL_ = process.env.TEST_DATABASE_URL;
@@ -547,8 +549,8 @@ suite("accept ships it", () => {
     const intentsTs = readFileSync(join(import.meta.dir, "../src/intents.ts"), "utf8");
     expect(writes(intentsTs).length).toBe(1);
     expect(intentsTs.slice(intentsTs.indexOf("export async function decideIntent("))).toMatch(/stage\s*=\s*'accepted'/);
-    const versioned = readFileSync(join(import.meta.dir, "../src/versioned.ts"), "utf8");
-    expect(versioned).toMatch(/acceptAndShip\(db, gh, me, w\.id\)\) \?\? \(await acceptCode\(/);
+    const decide = readFileSync(join(import.meta.dir, "../src/decide.ts"), "utf8");
+    expect(decide).toMatch(/acceptAndShip\(db, gh, me, w\.id\)\) \?\? \(await acceptCode\(/);
 
     // Ship's watcher, all green: ended in Ship, Accepted only by the reconcile, once play runs its merge
     const before = gh.main.head;

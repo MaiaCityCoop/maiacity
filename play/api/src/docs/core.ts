@@ -3,8 +3,9 @@
 // make it (so a proposal that sends its whole body still lands as small steps), the state read back as plain JSON at
 // any point of its history, and two states compared field by field.
 import { LoroDoc, LoroList, LoroMap, LoroMovableList, LoroText } from "loro-crdt";
-import { canonical, hashText } from "../hash";
+import { canonical, hashText } from "../kit/hash";
 import { nodeAt, problemsOf, SchemaError, type DocType, type Node } from "./validate";
+import { HttpError } from "../kit/errors";
 
 /** the one root container every document lives under */
 export const ROOT = "doc";
@@ -146,7 +147,13 @@ export type Edit =
   | { op: "move"; path: Path; to: number } // a list's item, the path ending with its index, to index `to`
   | { op: "text"; path: Path; index: number; delete?: number; insert?: string }; // a range of a text
 
-export class EditError extends Error {}
+export class EditError extends HttpError {}
+
+export class DocError extends HttpError {
+  constructor(message: string, status = 400, public extra: Record<string, unknown> = {}) {
+    super(message, status);
+  }
+}
 
 /** the container the path leads into (all but its last step), and that last step */
 function parentOf(d: LoroDoc, path: Path): [LoroMap | LoroMovableList, string | number] {

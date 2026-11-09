@@ -1,5 +1,5 @@
 // Pieces (play/SPEC.md §4.5; intent 5a15e468, Samuel 2026-11-07): a recipe names a shared piece by its hash. A piece is
-// readable source, a document `piece:<uuid>` of its own schema (./ids.ts SCHEMA.piece), changed by an intent variant
+// readable source, a document `piece:<uuid>` of its own schema (./kit/ids.ts SCHEMA.piece), changed by an intent variant
 // like any document; each accepted version's source is kept among play's files by its BLAKE3 hash and listed in
 // play.piece_versions with the pieces it requires and how deep it goes. A recipe (an asset's source) requires one by
 // that hash, `require('<64 hex>')`, and its manifest's `pieces` names it and every piece beneath it, so a frozen
@@ -11,10 +11,11 @@
 import { keepFile } from "./owners";
 import type { BlobStore } from "./blobs";
 import { keyOf } from "./blobs";
-import { hashText } from "./hash";
-import type { Queryable } from "./pg";
+import { hashText } from "./kit/hash";
+import type { Queryable } from "./kit/pg";
 import { readDoc } from "./docs";
-import { UUID } from "./uuid";
+import { UUID } from "./kit/uuid";
+import { HttpError } from "./kit/errors";
 
 /** a piece's name in a require: its BLAKE3 hash */
 export const PIECE = /^[0-9a-f]{64}$/;
@@ -30,7 +31,7 @@ export const piecesOf = (code: string): string[] => requiresOf(code).filter((n) 
 /** the modules of the engine a code requires (all but its pieces) */
 export const libsOf = (code: string): string[] => requiresOf(code).filter((n) => !PIECE.test(n));
 
-export class PieceError extends Error {}
+export class PieceError extends HttpError {}
 
 const short = (h: string) => `${h.slice(0, 12)}…`;
 
@@ -48,10 +49,10 @@ export function pieceProblems(source: string, unreadable: (s: string) => string 
 /** what the resolver knows of one piece version: what it requires, and how deep it goes where that is kept (an accepted one's) */
 export type Known = { requires: string[]; depth?: number };
 /** looks up piece versions by their hashes: those it knows, by hash */
-export type Lookup = (hashes: string[]) => Promise<Map<string, Known>>;
+type Lookup = (hashes: string[]) => Promise<Map<string, Known>>;
 
 /** the accepted piece versions among `hashes` (play.piece_versions) */
-export const acceptedPieces = (q: Queryable): Lookup => async (hashes) => {
+const acceptedPieces = (q: Queryable): Lookup => async (hashes) => {
   const { rows } = await q.query<{ hash: string; requires: string[]; depth: number }>(
     `SELECT DISTINCT ON (hash) hash, requires, depth FROM play.piece_versions WHERE hash = ANY($1::text[]) ORDER BY hash, created`,
     [hashes],

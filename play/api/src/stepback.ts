@@ -11,26 +11,20 @@
 // Archived. Each step is kept on the intent (`steps`, migration 0036): when, who (over MCP), from which stage to which,
 // its reason, and the spec it dropped; the board shows them under the intent's note.
 import { admin, type Me } from "./access";
-import type { Queryable } from "./pg";
-import { INTENT_ADMINS, IntentError, intentRow, LINE_MOST, waiting } from "./intents";
+import type { Queryable } from "./kit/pg";
+import { INTENT_ADMINS, intentRow, waiting, reasonOf, moveBack } from "./intents";
+import { HttpError } from "./kit/errors";
 
 /** one step back, as it is kept on the intent */
 export type Step = { at: string; by: string | null; human: string; via: "mcp"; from: string; to: string; reason: string; spec?: unknown };
 
-const reasonOf = (v: unknown) => {
-  const r = `${v ?? ""}`.replace(/\s+/g, " ").trim();
-  if (!r) throw new IntentError("A step back needs its reason: why the intent goes back, in a line.");
-  if (r.length > LINE_MOST) throw new IntentError(`A step back's reason is one line, at most ${LINE_MOST} characters.`);
-  return r;
-};
-
 /** The intent one stage back with its reason, by an admin's agent over MCP (step_back_intent). */
 export async function stepBack(db: Queryable, me: Me | null, id: string, reason: unknown) {
   const who = admin(me, INTENT_ADMINS);
-  const why = reasonOf(reason);
+  const why = reasonOf(reason, "A step back", "why the intent goes back");
   const intent = await intentRow(db, id);
   const refuse = (because: string): never => {
-    throw new IntentError(`Intent ${intent.id} is at the ${intent.stage} stage: ${because}.`, 409);
+    throw new HttpError(`Intent ${intent.id} is at the ${intent.stage} stage: ${because}.`, 409);
   };
   let to: "specify" | "idea";
   if (intent.stage === "build" || intent.stage === "proposal") {
@@ -41,12 +35,6 @@ export async function stepBack(db: Queryable, me: Me | null, id: string, reason:
   else if (intent.stage === "idea") return refuse("it is at the first stage already");
   else return refuse(intent.stage === "ship" ? "it is accepted and on its way to production" : "it is decided already (an admin reopens it)");
   const step: Step = { at: new Date().toISOString(), by: who.name, human: who.id, via: "mcp", from: intent.stage, to, reason: why, ...(to === "idea" ? { spec: intent.spec } : {}) };
-  await db.query(
-    to === "specify"
-      ? `UPDATE play.intents SET stage = 'specify', approved_by = NULL, approved_at = NULL, results = NULL, auto = '{}'::jsonb, steps = steps || ($2::text)::jsonb WHERE id = $1`
-      : `UPDATE play.intents SET stage = 'idea', spec = NULL, specified_by = NULL, specified_at = NULL, approved_by = NULL, approved_at = NULL, results = NULL, auto = '{}'::jsonb,
-                steps = steps || ($2::text)::jsonb WHERE id = $1`,
-    [intent.id, JSON.stringify([step])],
-  );
+  await moveBack(db, intent.id, to, JSON.stringify([step]));
   return intentRow(db, intent.id);
 }

@@ -1,5 +1,5 @@
 // bun src/migrate.ts — runs play's migrations against DATABASE_URL
-import { connect } from "./pg";
+import { connect } from "./kit/pg";
 import { migrate } from "./migrations";
 
 const db = connect();

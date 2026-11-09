@@ -14,7 +14,7 @@ import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { heavy, type Heavy } from "../scripts/heavy";
 
 const URL_ = process.env.TEST_DATABASE_URL;

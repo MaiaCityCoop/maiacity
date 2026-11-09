@@ -8,16 +8,17 @@ import {
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { COOP } from "./access";
+import { HttpError } from "./kit/errors";
 
 const env = (k: string, d: string) => (process.env[k] ?? d).trim();
-export const RP_ID = () => env("RP_ID", "localhost");
+const RP_ID = () => env("RP_ID", "localhost");
 const RP_NAME = () => env("RP_NAME", "maiaCITY play");
 const ORIGINS = () => env("SITE_ORIGIN", "http://localhost:5173").split(",").map((o) => o.trim()).filter(Boolean);
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
-export type Human = { id: string; name: string };
+type Human = { id: string; name: string };
 
 // open challenges, short-lived, in memory (one container serves play)
 type Challenge = { purpose: "register" | "login"; name?: string; invite?: string; expires: number };
@@ -72,7 +73,7 @@ export async function registerOptions(db: Queryable, name: string, invite: unkno
   return { ok: true, value: options };
 }
 
-export class InviteUsed extends Error {}
+class InviteUsed extends HttpError {}
 
 /**
  * A new human, their passkey and their membership as a traveler, in one transaction; with an invite, the invite used up

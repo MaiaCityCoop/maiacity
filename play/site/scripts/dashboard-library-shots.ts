@@ -19,7 +19,7 @@ import { createHuman, initSessions, tokenFor } from '../../api/src/auth';
 import { folderStore } from '../../api/src/blobs';
 import { Rate } from '../../api/src/limits';
 import { migrate } from '../../api/src/migrations';
-import { fromBunSql } from '../../api/src/pg';
+import { fromBunSql } from '../../api/src/kit/pg';
 
 const BASE = process.env.SITE ?? 'http://localhost:5173';
 const OUT = process.argv[2] ?? '../shots/1b2ebc8d-library-tile';

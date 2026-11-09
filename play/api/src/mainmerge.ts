@@ -1,6 +1,6 @@
 // Main merged into open intent pull requests by play (play/SPEC.md §4.12 "Accept ships it"; intent f28822d9, Samuel
 // 2026-11-07: "This merging main conflicts steps should be also automated right?"). Ship's watcher runs it each tick,
-// after it has read every open intent's pull request (./ship.ts watchPulls, the intents' pr_seen):
+// after it has read every open intent's pull request (./watcher.ts watchPulls, the intents' pr_seen):
 // - a pull request of an intent in Build or at Proposal, open into main, mergeable and behind main's head is updated
 //   with GitHub's update-branch (main merged into its branch, `expected_head_sha` the head read), once per head and
 //   main's head. It is a push made with SHIP_TOKEN, so GitHub runs the required checks and the box's run
@@ -11,13 +11,10 @@
 //   wakes its builder session subscribed to the pull request; success once it merges again. Not a required check.
 // Never an intent in Ship, Accepted or Archived, never a pull request into another branch or naming no intent, never
 // a merge into main or production.
-import { COOP } from "./access";
-import type { Db } from "./pg";
-import { GitHubError, intentLink, type GitHub } from "./ship";
-import { conflictWhy, type PrSeen } from "./substate";
+import type { Db } from "./kit/pg";
+import { GitHubError, intentLink, keepSeen, MERGES_CONTEXT, openPulls, type GitHub } from "./github";
+import { conflictWhy, short, type PrSeen } from "./substate";
 
-/** the commit status play posts on an open intent pull request's head: failure while it conflicts with main */
-export const MERGES_CONTEXT = "Merges with main";
 /** GitHub's longest status description */
 const DESCRIPTION_MOST = 140;
 
@@ -25,7 +22,6 @@ const DESCRIPTION_MOST = 140;
 export type MainMergeState = { main: string | null; done: Map<string, string> };
 export const mainMergeState = (): MainMergeState => ({ main: null, done: new Map() });
 
-const short = (s: string) => s.slice(0, 7);
 const fit = (s: string) => (s.length <= DESCRIPTION_MOST ? s : `${s.slice(0, DESCRIPTION_MOST - 1)}…`);
 
 /**
@@ -47,8 +43,6 @@ export function carrySeen(was: PrSeen | null | undefined, seen: PrSeen): PrSeen 
   return out;
 }
 
-const keep = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UPDATE play.intents SET pr_seen = ($2::text)::jsonb WHERE id = $1`, [id, JSON.stringify(seen)]);
-
 /** the files both the branch and main changed since their merge base: every file a conflict can be in */
 async function conflictFiles(gh: GitHub, seen: PrSeen, main: string) {
   const base = (await gh.compare(main, seen.head)).merge_base_commit.sha;
@@ -68,11 +62,7 @@ export async function mergeMain(db: Db, gh: GitHub, state: MainMergeState, at = 
     if (state.main) console.log(`ship: main moved to ${short(main)}: open intent pull requests behind it are updated`);
     state.main = main;
   }
-  const { rows } = await db.query<{ id: string; pull_request: number; pr_seen: PrSeen | null }>(
-    `SELECT id, pull_request, pr_seen FROM play.intents WHERE coop_id = $1 AND stage IN ('build', 'proposal') AND pull_request IS NOT NULL ORDER BY created, id`,
-    [COOP],
-  );
-  for (const { id, pull_request, pr_seen } of rows) {
+  for (const { id, pull_request, pr_seen } of await openPulls(db)) {
     const seen = pr_seen;
     if (!seen || seen.pr !== pull_request || seen.state !== "open" || seen.merged || seen.base !== "main") continue;
     try {
@@ -92,7 +82,7 @@ async function post(db: Db, gh: GitHub, id: string, seen: PrSeen, state: "succes
   if (seen.merges?.head === seen.head && seen.merges.state === state && seen.merges.description === d) return;
   await gh.status(seen.head, { state, description: d, target_url: intentLink(id), context: MERGES_CONTEXT });
   seen.merges = { head: seen.head, state, description: d };
-  await keep(db, id, seen);
+  await keepSeen(db, id, seen);
 }
 
 async function conflicted(db: Db, gh: GitHub, id: string, seen: PrSeen, main: string) {
@@ -103,7 +93,7 @@ async function conflicted(db: Db, gh: GitHub, id: string, seen: PrSeen, main: st
     });
     if (files) {
       seen.conflicts = { head: seen.head, main, files };
-      await keep(db, id, seen);
+      await keepSeen(db, id, seen);
     }
   }
   await post(db, gh, id, seen, "failure", conflictWhy(seen));
@@ -143,7 +133,7 @@ async function update(db: Db, gh: GitHub, state: MainMergeState, id: string, see
       throw e;
     }
     state.done.set(key, main);
-    await keep(tx, id, { ...row.pr_seen!, main_merged: { from: seen.head, main, at: new Date(at).toISOString() }, main_merges: (row.pr_seen!.main_merges ?? 0) + 1 });
+    await keepSeen(tx, id, { ...row.pr_seen!, main_merged: { from: seen.head, main, at: new Date(at).toISOString() }, main_merges: (row.pr_seen!.main_merges ?? 0) + 1 });
     console.log(`ship: main ${short(main)} merged into #${seen.pr} of intent ${id} (from ${short(seen.head)}): its checks run on the new head`);
   });
 }

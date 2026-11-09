@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { canonical } from "../src/hash";
+import { canonical } from "../src/kit/hash";
 import { versionId } from "../src/versions";
 import { RECIPE_HEAD, labelOf, parseRef, readableRefs } from "../import/plan";
 

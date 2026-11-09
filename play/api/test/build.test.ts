@@ -12,10 +12,10 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { MIGRATIONS, migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import { SKILL_STAGES } from "../src/skills";
-import { SKILL } from "../src/ids";
+import { INTENT_STAGES as SKILL_STAGES } from "../src/intents";
+import { SKILL } from "../src/kit/ids";
 import { seedDoc } from "../src/versioned";
 import { avenmaia, intents } from "../import/skills";
 
@@ -119,7 +119,7 @@ suite("the stage Build (migration 0033-build)", () => {
     // each kind of state an intent in Prototype is in
     const approved = await inPrototype("Just approved");
     const partly = await inPrototype("Partly checked, its pull request named", { results: { c1: result(true), c2: result(false) }, pull_request: 2107 });
-    // back in Prototype with its work archived, as a moved base leaves it (./work.ts settle): its work proposed for it
+    // back in Prototype with its work archived, as a moved base leaves it (./intents.ts settle): its work proposed for it
     // (no work without an intent, 706ed873) while it waited at Proposal, every must passed
     const worked = await inPrototype("Its work proposed, then back in Prototype", { results: { c1: result(true), c2: result(true) } });
     await db.query(`UPDATE play.intents SET stage = 'proposal' WHERE id = $1`, [worked]);

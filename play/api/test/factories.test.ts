@@ -10,10 +10,10 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import { lifetracLine, seedFactories } from "../import/factories";
-import { FACTORY } from "../src/ids";
+import { FACTORY } from "../src/kit/ids";
 
 const LT = FACTORY.lifetrac;
 

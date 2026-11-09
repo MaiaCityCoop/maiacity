@@ -2,32 +2,37 @@
 // The site and the API share an origin (play.maia.city, /api behind Caddy), so there is no CORS. A visitor gets 401
 // everywhere but the health check and the passkey ceremonies.
 import type { BlobStore } from "./blobs";
-import { HASH } from "./hash";
-import { UUID } from "./uuid";
-import type { Db } from "./pg";
-import { admin, COOP, Denied, meOf, must } from "./access";
-import { SANDBOX } from "./ids";
-import { assetOf, catalogOf, configOf, listAssets, NotFound, versionOf } from "./assets";
-import { fileFor, maskEdges, OwnerError } from "./owners";
+import { HASH } from "./kit/hash";
+import { UUID } from "./kit/uuid";
+import type { Db } from "./kit/pg";
+import { admin, COOP, meOf, must } from "./access";
+import { SANDBOX } from "./kit/ids";
+import { assetOf, catalogOf, configOf, listAssets, versionOf } from "./assets";
+import { fileFor, maskEdges } from "./owners";
 import { mcp } from "./mcp";
 import { adminByToken, listTokens, makeToken, markAvenbox, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
-import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
-import { listTables, readTable, TableError } from "./tables";
-import { layoutAt, proposedState, SandboxError } from "./sandboxes";
-import { decideAny, docAt, docChanges, docHistory, listDocs, reviewHeld, reviewOf, VersionError } from "./versioned";
-import { runningCommit, shipWork, type GitHub } from "./ship";
-import { NO_INTENT, WorkError } from "./work";
+import { inviteOpen, listMembers, makeInvite, removeMember, renameMember, renameSelf, setLevel } from "./members";
+import { listTables, readTable } from "./tables";
+import { layoutAt, proposedState } from "./sandboxes";
+import { docAt, docChanges, docHistory, listDocs } from "./versioned";
+import { intentDocOf, intentOf } from "./review";
+import { decideAny } from "./decide";
+import { runningCommit, shipWork } from "./ship";
+import type { GitHub } from "./github";
+import { NO_INTENT } from "./held";
 import { withdrawDoc } from "./withdraw";
 import { retireDoc } from "./retire";
 import { delivery } from "./delivery";
-import { INTENT_ADMINS, intentCounts, intentDocOf, intentOf, IntentError, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
+import { INTENT_ADMINS, intentCounts, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
-import { listStories, storyAt, storyOf, StoryError } from "./stories";
+import { listStories, storyAt, storyOf } from "./stories";
 import { labelFile, listLibrary } from "./library";
-import { AssetDocError, proposeAsset, recipeAt } from "./assetdocs";
-import { SkillError } from "./skills";
-import { authorOf, listAuthors, listArtifacts, ArtifactError, artifactOf } from "./artifacts";
+import { proposeAsset, recipeAt } from "./assetdocs";
+import { authorOf, listAuthors, listArtifacts, artifactOf } from "./artifacts";
+import { HttpError } from "./kit/errors";
+import { statusOf } from "./fault";
+import "./allkinds";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
 type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
@@ -108,21 +113,21 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("GET", "/api/assets/:id", async (req, p) => {
     const m = must(await me(req), "read", "assets");
-    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
+    if (!UUID.test(p.id)) throw new HttpError("An asset is named by its id, a UUID.", 404);
     return json(await assetOf(db, p.id, m));
   });
   // the recipe file an asset builds at an edit of its history (?edit=<seq>) or at an intent's variant (?intent=<id>),
   // kept among play's files by its hash for the History tab: admins only (before /:id/:v, which it would match)
   on("GET", "/api/assets/:id/recipe", async (req, p) => {
-    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
+    if (!UUID.test(p.id)) throw new HttpError("An asset is named by its id, a UUID.", 404);
     const q = new URL(req.url).searchParams;
     return json(await recipeAt(db, store, await me(req), p.id, q.get("intent") ? { intent: q.get("intent")! } : { edit: Number(q.get("edit")) }));
   });
   on("GET", "/api/assets/:id/:v", async (req, p) => {
     const m = must(await me(req), "read", "assets");
-    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
+    if (!UUID.test(p.id)) throw new HttpError("An asset is named by its id, a UUID.", 404);
     const n = Number(p.v);
-    if (!Number.isInteger(n) || n < 1) throw new NotFound(`${p.v} is not a version.`);
+    if (!Number.isInteger(n) || n < 1) throw new HttpError(`${p.v} is not a version.`, 404);
     return json(await versionOf(db, p.id, n, m));
   });
   on("GET", "/api/catalog", async (req) => {
@@ -131,14 +136,14 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("GET", "/api/files/:hash", async (req, p) => {
     const m = must(await me(req), "read", "assets");
-    if (!HASH.test(p.hash)) throw new NotFound("That is not a file's hash.");
+    if (!HASH.test(p.hash)) throw new HttpError("That is not a file's hash.", 404);
     // (another's private file is as one never kept: ./owners.ts)
     const f = await fileFor(db, m, p.hash);
-    if (!f) throw new NotFound("There is no such file.");
+    if (!f) throw new HttpError("There is no such file.", 404);
     // served from here whether the store is the folder or the bucket: never a redirect to the bucket, so a file keeps
     // the headers below (code as plain text, nothing sniffed or run as a document) and needs no CORS on the bucket
     const bytes = await store.get(p.hash);
-    if (!bytes) throw new NotFound("The file's bytes are missing.");
+    if (!bytes) throw new HttpError("The file's bytes are missing.", 404);
     // code (recipes and their sources, accepted or only proposed) is served as plain text, never as script the page's
     // origin could run: it runs only in the asset box, which gets its text by fetch, held to its hash. Media keep their
     // type (covers, sounds), and nothing served here is sniffed or may run as a document.
@@ -162,8 +167,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/sandboxes/:id/config", async (req, p) => {
     const m = must(await me(req), "read", "sandboxes");
     // the Factories are Maia City's admins' alone for now (Samuel 2026-11-03)
-    if (!UUID.test(p.id)) throw new NotFound("A sandbox is named by its id, a UUID.");
-    if (p.id === SANDBOX.factories && m.level !== "admin") throw new Denied("Only Maia City's admins may open the Factories, for now.");
+    if (!UUID.test(p.id)) throw new HttpError("A sandbox is named by its id, a UUID.", 404);
+    if (p.id === SANDBOX.factories && m.level !== "admin") throw new HttpError("Only Maia City's admins may open the Factories, for now.", 403);
     // as an intent's work at Proposal would make it (admins, ./sandboxes.ts), to walk it before deciding
     const q = new URL(req.url).searchParams;
     const intent = q.get("intent");
@@ -200,13 +205,13 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("GET", "/api/intents/:id", async (req, p) => {
     const m = await me(req);
-    return json(await maskEdges(db, m, await intentOf(db, m, p.id, reviewOf)));
+    return json(await maskEdges(db, m, await intentOf(db, m, p.id)));
   });
   // one document of its work, read when it is opened (intent 2df30a21: the detail lists them in brief); ?variant= names
   // one of a piece's versions
   on("GET", "/api/intents/:id/docs/:doc", async (req, p) => {
     const v = new URL(req.url).searchParams.get("variant");
-    return json(await intentDocOf(db, await me(req), p.id, p.doc, v == null || v === "" ? null : Number(v), reviewHeld));
+    return json(await intentDocOf(db, await me(req), p.id, p.doc, v == null || v === "" ? null : Number(v)));
   });
   // to propose is to put an intent at Proposal: the one named, held to its gate (no work without an intent)
   on("POST", "/api/intents", async (req) => {
@@ -215,7 +220,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     // (who may propose first, then what: an admin's, for an intent)
     if (b?.intent === undefined || b?.intent === null || b?.intent === "") {
       admin(m, INTENT_ADMINS);
-      throw new IntentError(NO_INTENT, 400);
+      throw new HttpError(NO_INTENT, 400);
     }
     b.intent = (await intentReady(db, m, b.intent)).id;
     return json(await proposeAsset(db, store, m, b), { status: 201 });
@@ -233,7 +238,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await maskEdges(db, m, await retireDoc({ db, store }, m, p.id, b?.doc, b?.reason, "web")));
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
-    if (!["approve", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
+    if (!["approve", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new HttpError("No such decision.", 404);
     const m = await me(req);
     return json(await maskEdges(db, m, await decideAny({ db, store }, m, p.id, p.verdict as IntentVerdict | "archive", github, commit)));
   });
@@ -341,8 +346,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof VersionError || e instanceof WorkError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof SkillError || e instanceof ArtifactError || e instanceof OwnerError)
-          return json({ error: e.message }, { status: (e as any).status });
+                const status = statusOf(e);
+        if (status !== null) return json({ error: (e as Error).message }, { status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });
       }
@@ -355,7 +360,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
 
 /** the one byte range a Range header asks of a file of `size` bytes (inclusive), null for the whole file (no header, or
  * one asking several ranges or another unit), "unsatisfiable" for one that starts past its end */
-export function rangeOf(header: string | null, size: number): [number, number] | null | "unsatisfiable" {
+function rangeOf(header: string | null, size: number): [number, number] | null | "unsatisfiable" {
   const m = /^bytes=(\d*)-(\d*)$/.exec(header?.trim() ?? "");
   if (!m || (m[1] === "" && m[2] === "")) return null;
   if (m[1] === "") {

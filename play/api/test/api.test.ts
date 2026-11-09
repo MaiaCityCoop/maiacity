@@ -14,12 +14,12 @@ import { seedStories, STORIES } from "../import/stories";
 import { storyVersionId } from "../src/versions";
 import { foldStories } from "../src/stories";
 import { NOTE_MOST } from "../src/notes";
-import { hashText } from "../src/hash";
+import { hashText } from "../src/kit/hash";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { RECIPE_HEAD } from "../src/recipes";
-import { UUID } from "../src/uuid";
-import { SANDBOX } from "../src/ids";
+import { UUID } from "../src/kit/uuid";
+import { SANDBOX } from "../src/kit/ids";
 /** the repo's papaya story (import/stories/papaya-v2-devlog/story.json names it by this) */
 const PAPAYA_STORY = "7adaf0b3-01a9-8bb9-b250-d2bee7016c4c";
 import { Rate } from "../src/limits";

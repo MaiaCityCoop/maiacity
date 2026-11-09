@@ -2,10 +2,11 @@
 // play's Postgres as the v1 of its Loro document (../src/gameconfigs.ts) only when play holds no config of its id yet.
 // From then on play's Postgres is the source of truth: a config changes only by proposal (over MCP), and nothing here
 // writes over it. Run with every deploy, by ./run.ts.
-import type { Db } from "../src/pg";
+import type { Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
-import { GAME_CONFIG } from "../src/ids";
+import { GAME_CONFIG } from "../src/kit/ids";
 import { levelling } from "./gameconfigs/levelling";
+import "../src/allkinds";
 
 export { levelling };
 export type GameConfigsReport = { seeded: string[]; present: string[]; errors: string[] };

@@ -10,8 +10,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { blobStore, keyOf, type BlobStore } from "../src/blobs";
-import { hashBytes } from "../src/hash";
-import { connect, type Db, type Queryable } from "../src/pg";
+import { hashBytes } from "../src/kit/hash";
+import { connect, type Db, type Queryable } from "../src/kit/pg";
 import { migrate } from "../src/migrations";
 import { importSources, type SourcesReport } from "./sources";
 import { seedStories, type StoriesReport } from "./stories";
@@ -19,6 +19,7 @@ import { ensureAssetDocs, type AssetDocsReport } from "../src/assetdocs";
 import { seedFactories, type FactoriesReport } from "./factories";
 import { seedGameConfigs, type GameConfigsReport } from "./gameconfigs";
 import { seedSkills, type SkillsReport } from "./skills";
+import "../src/allkinds";
 
 // the repo root: three up from play/api/import in a checkout; PLAY_REPO in the image (/app)
 const ROOT = process.env.PLAY_REPO ?? join(import.meta.dir, "../../..");

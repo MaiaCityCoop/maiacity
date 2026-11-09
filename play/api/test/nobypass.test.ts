@@ -16,9 +16,9 @@ import { folderStore } from "../src/blobs";
 import * as docs from "../src/docs";
 import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
-import { RULE, SCHEMA } from "../src/ids";
+import { RULE, SCHEMA } from "../src/kit/ids";
 
 const URL_ = process.env.TEST_DATABASE_URL;
 const suite = URL_ ? describe : describe.skip;

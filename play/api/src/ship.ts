@@ -2,7 +2,7 @@
 // an admin's Accept at Proposal takes only a waiting intent (./substate.ts: the pull request as read then, its head the
 // checked one, mergeable, its required checks green), puts it in Ship, where it waits its turn (one ship at a time, in
 // the order accepted), then play reads GitHub again, posts 'Intent accepted' on the head and merges it (startIfReady).
-// The ship watcher (every 10 s; its state the intent's `ship` in Postgres) follows main's checks, the release and the
+// The ship watcher (./watcher.ts, every 10 s; its state the intent's `ship` in Postgres) follows main's checks, the release and the
 // deploy's jobs as steps; any red, back to Proposal with the report; ended either way, it asks the reconcile. It also
 // reads every open intent's pull request into its `pr_seen` (watchPulls), so the board asks GitHub nothing, and merges
 // main into those behind it, a conflict shown failed (./mainmerge.ts, intent f28822d9). The reconcile (intent 9876ef00) is the one place a code intent becomes Accepted: play knows the commit
@@ -13,33 +13,31 @@
 // (./versioned.ts decideWork, every document in one transaction) in the very step that marks it Accepted, so documents
 // that need the new code land only once it runs; a red step brings it back to Proposal with its work still waiting.
 // play only calls GitHub's API with SHIP_TOKEN, which never leaves this server.
-import { admin, COOP, type Me } from "./access";
-import type { Db, Queryable } from "./pg";
-import { INTENT_ADMINS, autoMove, byOf, decisions, gate, getIntent, IntentError, mustMove } from "./intents";
-import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
-import { checksSeen, decidable, prBlock, sub, type PrSeen } from "./substate";
+import { admin, COOP, meOf, type Me } from "./access";
+import type { Db, Queryable } from "./kit/pg";
+import { canonical } from "./kit/hash";
+import { ACCEPTED_CONTEXT, intentLink, keepSeen, readPull, type GitHub, type Job, type Pull, type Run } from "./github";
+import { INTENT_ADMINS, byOf, decisions, gate, getIntent, mustMove } from "./intents";
+import { carrySeen } from "./mainmerge";
+import { decidable, prBlock, short, sub } from "./substate";
 import type { BlobStore } from "./blobs";
-import { meOf } from "./access";
 import { decideWork } from "./versioned";
-import { closeWork, workOf } from "./work";
+import { closeWork, workOf } from "./held";
+import { HttpError } from "./kit/errors";
+import { LOCK, lockSql } from "./kit/locks";
 
 /** the store play's work is accepted with when the reconcile sees its code live (set by ./app.ts) */
 export const shipWork: { store?: BlobStore } = {};
 
-export { REQUIRED_CHECKS } from "./substate";
-/** the commit status play posts on the head it merges; main's ruleset requires it */
-export const ACCEPTED_CONTEXT = "Intent accepted";
 /** how long a step may wait for its run to appear before the ship is red */
-export const START_WITHIN_MS = 15 * 60_000;
+const START_WITHIN_MS = 15 * 60_000;
 /** how long a ship first in line waits for its pull request's checks or for GitHub before it is red */
-export const WAIT_MOST_MS = 30 * 60_000;
+const WAIT_MOST_MS = 30 * 60_000;
 /** how many of the failed job's last log lines the report keeps */
-export const LOG_LINES = 60;
+const LOG_LINES = 60;
 const LOG_MOST = 12_000;
-/** how long one call to GitHub may take */
-const CALL_MS = 30_000;
 
-export type StepState = "queued" | "running" | "green" | "red" | "skipped";
+type StepState = "queued" | "running" | "green" | "red" | "skipped";
 export type Step = { key: string; name: string; state: StepState; started?: string; finished?: string; link?: string; note?: string };
 export type Report = { step: string; why: string; link?: string; log: string; at: string };
 export type Ship = {
@@ -92,157 +90,12 @@ export const STEPS: { key: string; name: string; job?: string; step?: string }[]
 const DEPLOY = STEPS.filter((s) => s.job);
 const KEYS = new Set(STEPS.map((s) => s.key));
 
-// ---- GitHub, through its REST API with SHIP_TOKEN
-
-export type Pull = {
-  number: number;
-  state: string;
-  merged: boolean;
-  merge_commit_sha: string | null;
-  mergeable: boolean | null;
-  draft?: boolean;
-  base: { ref: string };
-  head: { sha: string; ref: string };
-  html_url: string;
-  title: string;
-};
-export type Run = {
-  id: number;
-  status: string;
-  conclusion: string | null;
-  html_url: string;
-  head_sha: string;
-  event: string;
-  display_title?: string;
-  name?: string;
-  head_branch?: string;
-  created_at: string;
-  run_started_at?: string;
-  updated_at?: string;
-  run_attempt?: number;
-};
-export type Job = {
-  id: number;
-  name: string;
-  status: string;
-  conclusion: string | null;
-  html_url: string;
-  started_at?: string | null;
-  completed_at?: string | null;
-  steps?: { name: string; status: string; conclusion: string | null; started_at?: string | null; completed_at?: string | null }[];
-};
-
-export type Compare = { status: string; ahead_by: number; behind_by: number; merge_base_commit: { sha: string }; files?: { filename: string; previous_filename?: string }[] };
-
-export type Commit = { sha: string; commit: { message: string }; parents: { sha: string }[] };
-
-export class GitHubError extends Error {
-  constructor(message: string, public status: number) {
-    super(message);
-  }
-}
-
-export type GitHub = ReturnType<typeof gitHub>;
-
-/**
- * GitHub's REST API for one repository (`owner/name`) with a token (SHIP_TOKEN), `fetch` given in the tests. An answer
- * that is no 2xx throws GitHubError with GitHub's own message; neither the token nor any header is ever in it.
- */
-export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.github.com" }: { token: string; repo: string; fetch?: typeof fetch; api?: string }) {
-  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`SHIP_REPO is owner/name: ${repo}`);
-  const headers = { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", "user-agent": "play.maia.city ship" };
-  const call = async (method: string, path: string, body?: unknown, redirect: RequestRedirect = "follow") => {
-    const r = await get(`${api}/repos/${repo}${path}`, {
-      method,
-      redirect,
-      // an Accept holds its intent's row while it asks, and the watcher looks once at a time: no call hangs on
-      signal: AbortSignal.timeout(CALL_MS),
-      headers: body === undefined ? headers : { ...headers, "content-type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    if (redirect === "manual" && r.status >= 300 && r.status < 400) return r;
-    if (!r.ok) {
-      const said = await r.json().then((j: any) => j?.message, () => null).catch(() => null);
-      throw new GitHubError(`GitHub answered ${r.status} to ${method} ${path.split("?")[0]}${said ? `: ${said}` : ""}`, r.status);
-    }
-    return r;
-  };
-  const json = async <T>(method: string, path: string, body?: unknown) => {
-    const r = await call(method, path, body);
-    return (r.status === 204 ? null : await r.json()) as T;
-  };
-  const q = (o: Record<string, string | number | undefined>) =>
-    Object.entries(o)
-      .filter(([, v]) => v !== undefined && v !== "")
-      .map(([k, v]) => `${k}=${encodeURIComponent(`${v}`)}`)
-      .join("&");
-  return {
-    repo,
-    pull: (n: number) => json<Pull>("GET", `/pulls/${n}`),
-    checkRuns: async (sha: string) => (await json<{ check_runs: any[] }>("GET", `/commits/${sha}/check-runs?per_page=100`)).check_runs,
-    /** a commit status on `sha`, 'Intent accepted' unless `context` names another ('Merges with main', ./mainmerge.ts) */
-    status: (sha: string, { context = ACCEPTED_CONTEXT, ...s }: { state: "success" | "failure" | "error" | "pending"; description: string; target_url?: string; context?: string }) =>
-      json("POST", `/statuses/${sha}`, { ...s, context }),
-    /** a branch's head commit */
-    branchHead: async (branch: string) => (await json<{ object: { sha: string } }>("GET", `/git/ref/heads/${branch}`)).object.sha,
-    /** `head` against `base` (three dots): how far each is past their merge base, and the files `head` changed since it */
-    compare: (base: string, head: string) => json<Compare>("GET", `/compare/${base}...${head}`),
-    /** the paths a pull request changes (up to 3,000, GitHub's most) */
-    pullFiles: async (n: number) => {
-      const out: string[] = [];
-      for (let page = 1; page <= 30; page++) {
-        const got = await json<{ filename: string; previous_filename?: string }[]>("GET", `/pulls/${n}/files?${q({ per_page: 100, page })}`);
-        for (const f of got) out.push(f.filename, ...(f.previous_filename ? [f.previous_filename] : []));
-        if (got.length < 100) break;
-      }
-      return out;
-    },
-    /** main merged into a pull request's branch (GitHub's update-branch), refused (422) where its head is no longer `head` */
-    updateBranch: (n: number, head: string) => json<{ message?: string }>("PUT", `/pulls/${n}/update-branch`, { expected_head_sha: head }),
-    merge: (n: number, sha: string, commit_title: string, commit_message: string) =>
-      json<{ sha: string; merged: boolean }>("PUT", `/pulls/${n}/merge`, { merge_method: "merge", sha, commit_title, commit_message }),
-    runs: async (workflow: string, filter: { head_sha?: string; event?: string; created?: string }) =>
-      (await json<{ workflow_runs: Run[] }>("GET", `/actions/workflows/${workflow}/runs?${q({ ...filter, per_page: 30 })}`)).workflow_runs,
-    /** a branch's runs, every workflow, newest first (./delivery.ts) */
-    branchRuns: async (branch: string) => (await json<{ workflow_runs: Run[] }>("GET", `/actions/runs?${q({ branch, per_page: 100 })}`)).workflow_runs,
-    /** one run */
-    run: (id: number) => json<Run>("GET", `/actions/runs/${id}`),
-    jobs: async (run: number) => (await json<{ jobs: Job[] }>("GET", `/actions/runs/${run}/jobs?per_page=100`)).jobs,
-    dispatch: (workflow: string, ref: string, inputs: Record<string, string>) => json("POST", `/actions/workflows/${workflow}/dispatches`, { ref, inputs }),
-    rerunFailed: (run: number) => json("POST", `/actions/runs/${run}/rerun-failed-jobs`, {}),
-    /** one page of the commits a ref or sha reaches (itself first), newest first */
-    commits: (ref: string, page: number) => json<Commit[]>("GET", `/commits?${q({ sha: ref, per_page: 100, page })}`),
-    /** a job's log: GitHub answers with a signed address, fetched without the token */
-    log: async (job: number) => {
-      const r = await call("GET", `/actions/jobs/${job}/logs`, undefined, "manual");
-      const at = r.headers.get("location");
-      if (!at) return await r.text();
-      const l = await get(at, { headers: { "user-agent": headers["user-agent"] }, signal: AbortSignal.timeout(CALL_MS) });
-      if (!l.ok) throw new GitHubError(`the job's log answered ${l.status}`, l.status);
-      return await l.text();
-    },
-  };
-}
-
-/**
- * play's GitHub, where SHIP_TOKEN is set (the repository SHIP_REPO, MyAvenCEO/maiacity by default), else null;
- * SHIP_API names another GitHub API than api.github.com, for a play run against a stand-in (never set in production)
- */
-export function shipGitHub(env: Record<string, string | undefined> = process.env): GitHub | null {
-  const token = env.SHIP_TOKEN?.trim();
-  return token ? gitHub({ token, repo: env.SHIP_REPO?.trim() || "MyAvenCEO/maiacity", api: env.SHIP_API?.trim() || undefined }) : null;
-}
-
 // ---- Accept and ship: Accept puts it in Ship at once; it starts when its turn comes and GitHub is ready
 
 function refuse(why: string): never {
-  throw new IntentError(why, 409);
+  throw new HttpError(why, 409);
 }
 const now = () => new Date().toISOString();
-/** the intent on play's board, where the status 'Intent accepted' links to */
-export const intentLink = (id: string) => `https://play.maia.city/intents/#${id}`;
-/** one start at a time: the queue's order is read and its head started under this lock */
-const QUEUE_LOCK = 4_711_030;
 /** the first step's name, by what it waits to do */
 const READY: Record<Pending["kind"], string> = { merge: "Ready to merge", main: "Ready to run main's checks again", release: "Ready to release again" };
 
@@ -259,36 +112,13 @@ function stepsFor(at: string, from: Step[], restart: Pending["kind"]): Step[] {
 }
 
 /** a ship kept on its intent, in Ship still or back at Proposal (undecided); only the reconcile makes it Accepted */
-const saveShip = (q: Pick<Db, "query">, id: string, ship: Ship, stage: "ship" | "proposal") =>
+export const saveShip = (q: Pick<Db, "query">, id: string, ship: Ship, stage: "ship" | "proposal") =>
   q.query(
     `UPDATE play.intents SET ship = ($2::text)::jsonb, stage = $3, decided_by = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_by END,
             decided_at = CASE WHEN $3 = 'proposal' THEN NULL ELSE decided_at END, auto = CASE WHEN $3 = 'proposal' THEN auto - 'accept' ELSE auto END
       WHERE id = $1 AND stage = 'ship'`,
     [id, JSON.stringify(ship), stage],
   );
-
-/** the latest of the check runs of each name (a re-run after a red one) */
-function latestRuns(runs: any[]) {
-  const by = new Map<string, any>();
-  for (const r of runs) {
-    const was = by.get(r.name);
-    if (!was || `${r.started_at ?? ""}` > `${was.started_at ?? ""}` || (r.started_at === was.started_at && r.id > was.id)) by.set(r.name, r);
-  }
-  return by;
-}
-
-/** a pull request as GitHub has it now, kept as the intent's pr_seen: its head's checks read where it is open */
-export async function readPull(gh: GitHub, n: number, at = Date.now()): Promise<{ pr: Pull; seen: PrSeen; runs: Map<string, any> }> {
-  const pr = await gh.pull(n);
-  const open = pr.state === "open" && !pr.merged;
-  const all = open ? await gh.checkRuns(pr.head.sha) : [];
-  const seen: PrSeen = {
-    pr: pr.number, head: pr.head.sha, draft: !!pr.draft, mergeable: pr.mergeable, state: pr.merged ? "merged" : pr.state, merged: !!pr.merged,
-    base: pr.base.ref, checks: checksSeen(all), at: new Date(at).toISOString(),
-  };
-  return { pr, seen, runs: latestRuns(all) };
-}
-const keepSeen = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UPDATE play.intents SET pr_seen = ($2::text)::jsonb WHERE id = $1`, [id, JSON.stringify(seen)]);
 
 /**
  * An admin's Accept on an intent at Proposal whose work is code (it names its pull request). Its pull request is read
@@ -300,7 +130,7 @@ const keepSeen = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UP
  * intent is no code intent at Proposal (it is decided as before: ./intents.ts decideIntent, ./versioned.ts decide).
  */
 export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, id: string) {
-  // (one holding play's work beside its pull request too, intent 7c8986c5: its work waits on it in Ship, ./work.ts WORK_STATUS)
+  // (one holding play's work beside its pull request too, intent 7c8986c5: its work waits on it in Ship, ./held.ts WORK_STATUS)
   const me = admin(who, INTENT_ADMINS);
   // who Accepted, as the ship shows it: a person, or a rule (./rules.ts)
   const who_ = me.auto ? `rule ${me.auto.label}` : me.name;
@@ -370,7 +200,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
  */
 export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now()) {
   return db.transaction(async (tx) => {
-    await tx.query(`SELECT pg_advisory_xact_lock(${QUEUE_LOCK})`);
+    await tx.query(lockSql(LOCK.shipQueue));
     const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, decided_at, spec, results FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
     const was: Ship | undefined = row?.ship;
     if (!was?.pending) return;
@@ -392,7 +222,7 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
     const wait = async (why: string, timed: boolean) => {
       if (timed && ship.front && at - Date.parse(ship.front) > WAIT_MOST_MS) return red(`${why}, for more than ${WAIT_MOST_MS / 60_000} minutes`);
       Object.assign(ready, { state: "running", note: why });
-      if (stable(ship) !== stable(was)) await save("ship");
+      if (canonical(ship) !== canonical(was)) await save("ship");
     };
 
     // the gate (./intents.ts mayMove): a dependency ahead of it in Ship is waited for; one gone back takes it back too
@@ -444,7 +274,7 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
     try {
       merged = await gh.merge(pr.number, pending.head, `${pr.title} (#${pr.number})`, `Accepted by ${by} on play: ${intentLink(id)}\n\nIntent: ${id}`);
     } catch (e) {
-      await gh.status(pending.head, { state: "failure", description: "Accepted, but not merged: accept it again", target_url: intentLink(id) }).catch(() => {});
+      await gh.status(pending.head, { state: "failure", description: "Accepted, but not merged: accept it again", target_url: intentLink(id) }).catch((e) => console.warn(`ship: intent ${id}: not merged, and its head not marked so: ${(e as Error).message}`));
       return red(`GitHub did not merge #${pr.number}: ${(e as Error).message}`, pr.html_url);
     }
     Object.assign(ready, { state: "green", finished: iso, note: `#${pr.number} ready, its checks green` });
@@ -457,7 +287,7 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
   });
 }
 
-// ---- the ship watcher
+// ---- one look at a ship on its way (./watcher.ts looks every 10 s)
 
 const runState = (r: { status: string; conclusion: string | null }, skippedIs: StepState = "skipped"): StepState => {
   if (r.status !== "completed") return r.status === "in_progress" ? "running" : "queued";
@@ -577,94 +407,6 @@ export async function advance(gh: GitHub, was: Ship, at = Date.now()): Promise<S
   return ship;
 }
 
-/** JSON with its keys in order: Postgres keeps a jsonb's keys in its own order */
-const stable = (v: unknown): string =>
-  Array.isArray(v) ? `[${v.map(stable).join(",")}]` : v && typeof v === "object"
-    ? `{${Object.keys(v).filter((k) => (v as any)[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${stable((v as any)[k])}`).join(",")}}`
-    : JSON.stringify(v);
-
-/**
- * The ship watcher's one look: every intent in Ship advanced as GitHub has it now; all green, it stays in Ship, ended;
- * any red, back to Proposal with its report. Its state is the intents' `ship`, so a restarted play goes on where it was.
- * As one ends, the reconcile (against `commit`, the commit play runs) decides at once what is Accepted, so the ships
- * after it in this look see it.
- */
-export async function watchShips(db: Db, gh: GitHub, at = Date.now(), commit: string | null = runningCommit()) {
-  const { rows } = await db.query<{ id: string; ship: Ship }>(`SELECT id, ship FROM play.intents WHERE stage = 'ship' AND ship IS NOT NULL ORDER BY decided_at, id`);
-  for (const { id, ship } of rows) {
-    try {
-      // waiting: its turn and GitHub (read again, as the ones before it may have moved on in this look)
-      if (ship.pending) {
-        await startIfReady(db, gh, id, at);
-        continue;
-      }
-      if (ship.outcome) continue;
-      const next = await advance(gh, ship, at);
-      if (stable(next) === stable(ship)) continue;
-      await saveShip(db, id, next, next.outcome === "red" ? "proposal" : "ship");
-      if (next.outcome) {
-        console.log(`ship: intent ${id} ${next.outcome === "green" ? "is green all the way: the reconcile decides once play runs it" : `is red at ${next.report?.step}: back to Proposal`}`);
-        if (!commit) console.warn("ship: play knows no commit of its own (PLAY_COMMIT): nothing is reconciled");
-        else await reconcile(db, gh, commit).catch((e) => console.warn(`ship: the reconcile missed a look: ${(e as Error).message}`));
-      }
-    } catch (e) {
-      console.warn(`ship: intent ${id} not looked at: ${(e as Error).message}`);
-    }
-  }
-}
-
-/**
- * Every open intent's named pull request (Build or Proposal) read as GitHub has it now, kept as its pr_seen: what the
- * board's sub-state (./substate.ts) is told of GitHub, so GET /api/intents asks GitHub nothing.
- */
-export async function watchPulls(db: Db, gh: GitHub, at = Date.now()) {
-  const { rows } = await db.query<{ id: string; pull_request: number; pr_seen: PrSeen | null }>(
-    `SELECT id, pull_request, pr_seen FROM play.intents WHERE coop_id = $1 AND stage IN ('build', 'proposal') AND pull_request IS NOT NULL ORDER BY created, id`,
-    [COOP],
-  );
-  for (const { id, pull_request, pr_seen } of rows) {
-    try {
-      await keepSeen(db, id, carrySeen(pr_seen, (await readPull(gh, pull_request, at)).seen));
-    } catch (e) {
-      console.warn(`ship: #${pull_request} of intent ${id} not read: ${(e as Error).message}`);
-      continue;
-    }
-    // GitHub ready since it reached Proposal: an auto-accept rule may take it now (./intents.ts autoMove)
-    await autoMove({ db }, id, { gh }).catch((e) => console.warn(`auto: intent ${id} not looked at: ${(e as Error).message}`));
-  }
-}
-
-/** the watcher's own main merge state, kept while play-api runs */
-const MAIN_MERGE = mainMergeState();
-
-/**
- * One tick of the watcher: the ships, then the open intents' pull requests read, then main merged into those behind it
- * and conflicts shown (./mainmerge.ts).
- */
-export async function watchTick(db: Db, gh: GitHub, at = Date.now(), commit: string | null = runningCommit(), merging: MainMergeState = MAIN_MERGE) {
-  await watchShips(db, gh, at, commit);
-  await watchPulls(db, gh, at);
-  await mergeMain(db, gh, merging, at).catch((e) => console.warn(`ship: main not merged into the open pull requests: ${(e as Error).message}`));
-}
-
-/** The ship watcher, every `every` ms while play-api runs (one look at a time), against the commit play runs. */
-export function startShipWatcher(db: Db, gh: GitHub, every = 10_000, commit: string | null = runningCommit()) {
-  let busy = false;
-  const timer = setInterval(async () => {
-    if (busy) return;
-    busy = true;
-    try {
-      await watchTick(db, gh, Date.now(), commit);
-    } catch (e) {
-      console.warn(`ship: the watcher missed a look: ${(e as Error).message}`);
-    } finally {
-      busy = false;
-    }
-  }, every);
-  (timer as any).unref?.();
-  return () => clearInterval(timer);
-}
-
 // ---- the reconcile: a code intent's stage agrees with what play runs (intent 9876ef00)
 
 /** the commit play runs: PLAY_COMMIT, built into its image (production.yml), a 40-character sha; else null */
@@ -695,7 +437,7 @@ function trailersOf(main: Map<string, string>) {
   return by;
 }
 
-export type Reconciled = { commit: string; accepted: string[]; flagged: string[]; cleared: string[] };
+type Reconciled = { commit: string; accepted: string[]; flagged: string[]; cleared: string[] };
 
 /**
  * The one place a code intent becomes Accepted. A code intent is one that names a pull request (with play's work beside
@@ -718,7 +460,6 @@ export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Rec
     [COOP, [...trailers.keys()]],
   );
   const out: Reconciled = { commit, accepted: [], flagged: [], cleared: [] };
-  const short = (s: string) => s.slice(0, 7);
   for (const i of rows) {
     // on its way still: the watcher's, which asks again as it ends
     if (i.stage === "ship" && (i.ship?.pending || !i.ship?.outcome)) continue;
@@ -782,7 +523,7 @@ async function acceptWorkLive(tx: Queryable, id: string) {
   const { rows: open } = await tx.query(`SELECT 1 FROM play.intent_variants iv JOIN play.doc_variants v ON v.id = iv.variant_id WHERE iv.intent_id = $1 AND v.status IN ('open', 'proposed')`, [id]);
   if (!open.length) return;
   const { rows: [r] } = await tx.query<{ decided_by: string | null; author: string | null; proposed_by: string | null; auto: any }>(
-    `SELECT decided_by, author, proposed_by, COALESCE(to_jsonb(i)->'auto', '{}'::jsonb) AS auto FROM play.intents i WHERE id = $1`, [id],
+    `SELECT decided_by, author, proposed_by, COALESCE(i.auto, '{}'::jsonb) AS auto FROM play.intents i WHERE id = $1`, [id],
   );
   const rule = r?.auto?.accept ?? null;
   let me = await meOf(tx, r?.decided_by ?? r?.author ?? r?.proposed_by ?? null);

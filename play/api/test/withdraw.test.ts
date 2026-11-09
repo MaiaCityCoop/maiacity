@@ -1,6 +1,6 @@
 // A document withdrawn from an intent's work before it is decided (intent ee0a7455; ../src/withdraw.ts), against a real
 // Postgres (TEST_DATABASE_URL, as for ./api.test.ts): two stories on one intent at Proposal, one withdrawn over MCP
-// (withdraw_doc) or by an admin on the board's route, both through ../src/work.ts dropDoc; the intent back in Build with
+// (withdraw_doc) or by an admin on the board's route, both through ../src/held.ts dropDoc; the intent back in Build with
 // its results kept, the reason in its history; Accept then keeps only the other. Refused for a decided intent, a
 // document not in its work, no reason, and an agent whose admin is an admin no more.
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
@@ -11,9 +11,9 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import * as work from "../src/work";
+import * as heldSql from "../src/held";
 import { fakeGitHub } from "./fixtures/github";
 
 const URL_ = process.env.TEST_DATABASE_URL;
@@ -105,7 +105,7 @@ suite("withdraw a document from an intent's work", () => {
   const row = async (id: string) => (await db.query<any>(`SELECT stage, results, steps FROM play.intents WHERE id = $1`, [id])).rows[0];
 
   test("withdraw over MCP: two stories at Proposal, one withdrawn through dropDoc; back in Build, results kept, reason kept; Accept keeps only the other", async () => {
-    const drop = spyOn(work, "dropDoc");
+    const drop = spyOn(heldSql, "dropDoc");
     const id = await ready("Two cuts of one film");
     const stray = await story("The stray first cut", id);
     const film = await story("The film it means", id);

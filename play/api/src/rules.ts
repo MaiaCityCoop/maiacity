@@ -4,18 +4,19 @@
 // schema (`schema:<SCHEMA.rules>`, ../migrations/schemas/rules.json), kept in Postgres like every other: its Main is the
 // rules in force, its v1 (made at migrate's end where absent) holds the first rule, and every later version is a
 // person's Accept of an intent variant. Nothing here decides: matchRule only says which rule, if any, an intent meets
-// at a gate, and ./intents.ts autoMove (beside the gate, mayMove) takes the move a person would, with that rule as who
+// at a gate, and ./decide.ts autoMove (beside the gate, mayMove) takes the move a person would, with that rule as who
 // decided it.
 //
 // The rules are always a person's: matchRule gives null, whatever the rules say, for an intent whose work changes the
 // rule set or its schema (or that declares it will), so no rule can open them.
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
-import { COOP, RULE, RULES, SCHEMA } from "./ids";
-import { kindOfWork } from "./versioned";
+import { COOP, RULE, RULES, SCHEMA } from "./kit/ids";
+import { kindOfWork } from "./kinds";
+import { LOCK, lockSql } from "./kit/locks";
 
 export const GATES = ["approve", "accept"] as const;
-export type Gate = (typeof GATES)[number];
+type Gate = (typeof GATES)[number];
 
 /** what a rule names, each field a condition that holds or doesn't (a list: any of its values); the accept fields are not looked at at approve */
 export type Match = {
@@ -25,12 +26,10 @@ export type Match = {
 export type Rule = { id: string; label: string; gates: Gate[]; match: Match; reason: string };
 /** the rule set in force: its Main's newest version, and that version's BLAKE3 content hash */
 export type RuleSet = { rules: Rule[]; hash: string; number: number };
-/** who decided, where a rule did: the rule (its UUID, its label only shown), the rule set's version and the rule's reason */
-export type AutoBy = { rule: string; label: string; rules: string; reason: string };
 
 /** the rule set's document, and its schema's */
 export const RULES_DOC = `rules:${RULES}`;
-export const RULES_SCHEMA_DOC = `schema:${SCHEMA.rules}`;
+const RULES_SCHEMA_DOC = `schema:${SCHEMA.rules}`;
 
 /** the first rule (Samuel 2026-11-07): an artifact added or corrected over MCP needs no tap */
 export const FIRST_RULE: Rule = {
@@ -51,7 +50,7 @@ export const RULES_V1 = {
 /** The end of migrate(), after ensureSchemas: the rule set's v1, made only where absent (one at a time: play-api and the import migrate at once on a deploy). */
 export async function ensureRules(db: Db): Promise<boolean> {
   return db.transaction(async (q) => {
-    await q.query(`SELECT pg_advisory_xact_lock(4711030)`);
+    await q.query(lockSql(LOCK.rulesSeed));
     if ((await q.query(`SELECT 1 FROM play.docs WHERE id = $1`, [RULES_DOC])).rows.length) return false;
     await q.query(`INSERT INTO play.records (id, coop_id, kind, label, updated) VALUES ($1, $2, 'rules', $3, now()) ON CONFLICT (id) DO NOTHING`, [RULES, COOP, RULES_V1.label]);
     const note = "the first rule: artifacts need no tap (Samuel 2026-11-07)";
@@ -70,7 +69,7 @@ export async function ruleSetOf(q: Queryable): Promise<RuleSet | null> {
 }
 
 /** what a rule is matched against: the intent, its declared work, and (at accept) the work it holds */
-export type Facts = {
+type Facts = {
   kind: string; via: string; author: string | null; work_kind: string[] | null;
   proposed_by: string | null; proposed_via: string | null;
   /** its work is a pull request (no work of play's) */
@@ -88,7 +87,7 @@ export type Facts = {
 /** An intent's facts as matchRule reads them, from Postgres. */
 export async function factsOf(q: Queryable, id: string): Promise<Facts> {
   const { rows: [i] } = await q.query<any>(
-    `SELECT i.kind, i.via, i.author, to_jsonb(i)->'work_kind' AS work_kind, i.proposed_by, i.proposed_via, i.work, i.pull_request FROM play.intents i WHERE i.id = $1`,
+    `SELECT i.kind, i.via, i.author, i.work_kind, i.proposed_by, i.proposed_via, i.work, i.pull_request FROM play.intents i WHERE i.id = $1`,
     [id],
   );
   const { rows: held } = await q.query<{ doc_id: string; schema_id: string | null; edits: string; versions: string }>(
@@ -114,7 +113,7 @@ export async function factsOf(q: Queryable, id: string): Promise<Facts> {
 }
 
 /** whether the intent's work changes the rules, or it declares it will: then no rule decides it */
-export function touchesRules(f: Pick<Facts, "docs" | "work_kind">): boolean {
+function touchesRules(f: Pick<Facts, "docs" | "work_kind">): boolean {
   return f.docs.includes(RULES_DOC) || f.docs.includes(RULES_SCHEMA_DOC) || !!f.work_kind?.some((k) => k === SCHEMA.rules || k === SCHEMA.meta);
 }
 

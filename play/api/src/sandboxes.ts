@@ -6,24 +6,22 @@
 // the intents' board with each pin before and after, by its asset's label and version, and openable in the sandbox as
 // it would be; accepted by an admin there. Accepting merges it into Main and writes Main's pins and configs to
 // play.sandbox_pins and play.sandbox_configs, which the worlds read (/api/sandboxes/<uuid>/config) as before.
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { admin, must, type Me } from "./access";
-import { canonical } from "./hash";
-import { UUID } from "./uuid";
+import { canonical } from "./kit/hash";
+import { UUID } from "./kit/uuid";
 import { readableRefs } from "../import/plan";
-import { NotFound } from "./assets";
 import { assetSeen } from "./owners";
 import * as docs from "./docs";
-import { SCHEMA } from "./ids";
+import { SCHEMA } from "./kit/ids";
 import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
-import { closeWork, holdVariant, intentIdOf, settle } from "./work";
-import { resolveEdits, VersionError } from "./versioned";
+import { holdVariant, intentIdOf } from "./held";
+import { noSuchIntent } from "./intents";
+import { resolveEdits } from "./kinds";
+import { HttpError } from "./kit/errors";
+import { LOCK, lockSql } from "./kit/locks";
 
-export class SandboxError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-  }
-}
+class SandboxError extends HttpError {}
 
 const SLOT = /^[A-Za-z0-9][A-Za-z0-9_.\/-]{0,199}$/;
 const CONFIG = /^[a-z][a-z0-9-]*$/;
@@ -31,16 +29,10 @@ const MOST_EDITS = 500;
 const MOST_CONFIG = 1024 * 1024;
 
 type Pin = { version: string; variant: string | null; params: Record<string, string> | null };
-export type SandboxState = { pins: Record<string, Pin>; configs: Record<string, unknown> };
+type SandboxState = { pins: Record<string, Pin>; configs: Record<string, unknown> };
 type Key = string | number;
 
-export type SandboxEdit =
-  | { op: "pin"; slot: string; asset?: string; version?: number; variant?: string | null; params?: Record<string, unknown> | null }
-  | { op: "pin_latest"; asset: string; variant?: string | null }
-  | { op: "unpin"; slot: string }
-  | { op: "set"; config: string; path?: Key[]; value: unknown }
-  | { op: "delete"; config: string; path?: Key[] };
-
+export 
 /** only Maia City's admins change a sandbox, for now */
 const SANDBOX_ADMINS = "Only Maia City's admins change a sandbox's layout, for now.";
 
@@ -64,7 +56,7 @@ export async function stateOf(q: Queryable, sandbox: string): Promise<SandboxSta
 }
 
 /** every slot a config names (`{ slot }` anywhere in it), with where */
-export function slotsNamed(configs: Record<string, unknown>): { slot: string; config: string; path: Key[] }[] {
+function slotsNamed(configs: Record<string, unknown>): { slot: string; config: string; path: Key[] }[] {
   const out: { slot: string; config: string; path: Key[] }[] = [];
   const walk = (o: unknown, config: string, path: Key[]) => {
     if (Array.isArray(o)) o.forEach((x, i) => walk(x, config, [...path, i]));
@@ -318,7 +310,7 @@ export async function listSandboxes(db: Queryable, me: Me | null) {
 // ---- the layout as a document (./versioned.ts's kind `sandbox`)
 
 /** a sandbox's layout document: sandbox:<its uuid> */
-export const layoutDoc = (sandbox: string) => `sandbox:${sandbox}`;
+const layoutDoc = (sandbox: string) => `sandbox:${sandbox}`;
 
 /** a sandbox's layout as its rows hold it, as the document's state */
 export async function layoutOf(q: Queryable, sandbox: string) {
@@ -337,7 +329,7 @@ export async function ensureLayoutDoc(q: Queryable, sandbox: string): Promise<bo
 }
 
 /** what a layout holds that play does not (a pin of a version that is no accepted version, or a variant it lacks): each problem said */
-export async function layoutProblems(q: Queryable, json: any): Promise<string[]> {
+async function layoutProblems(q: Queryable, json: any): Promise<string[]> {
   const pins = Object.entries<Pin>(json?.pins ?? {});
   const info = await versionInfo(q, pins.map(([, p]) => p.version));
   const out: string[] = [];
@@ -366,13 +358,13 @@ export async function layoutWrite(q: Queryable, cur: any, input: { edits?: unkno
   try {
     let target: any;
     if (input.whole !== undefined) {
-      if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new VersionError("A whole layout is an object (doc_at's `json`).");
+      if (!input.whole || typeof input.whole !== "object" || Array.isArray(input.whole)) throw new HttpError("A whole layout is an object (doc_at's `json`).");
       target = { ...(input.whole as object), schema: cur.schema };
     } else if (Array.isArray(input.edits) && input.edits.length && input.edits.every(isHelper)) {
       const { state } = await applyEdits(q, { pins: cur.pins ?? {}, configs: cur.configs ?? {} }, input.edits);
       target = { ...cur, pins: state.pins, configs: state.configs };
     } else {
-      if (Array.isArray(input.edits) && input.edits.some(isHelper)) throw new VersionError("Give the sandbox's edit helpers (pin, pin_latest, unpin, set and delete of a config) or a document's edits, not both in one edit.");
+      if (Array.isArray(input.edits) && input.edits.some(isHelper)) throw new HttpError("Give the sandbox's edit helpers (pin, pin_latest, unpin, set and delete of a config) or a document's edits, not both in one edit.");
       // a document's edits, applied to the layout as it stands to check what they make
       const t = await docs.typeFor(q, SCHEMA.sandbox);
       const d = newDoc();
@@ -381,10 +373,10 @@ export async function layoutWrite(q: Queryable, cur: any, input: { edits?: unkno
       target = jsonOf(d);
     }
     const problems = await layoutProblems(q, target);
-    if (problems.length) throw new VersionError(problems[0]);
+    if (problems.length) throw new HttpError(problems[0]);
     return { target };
   } catch (e) {
-    throw e instanceof SandboxError ? new VersionError(e.message, e.status) : e;
+    throw e instanceof SandboxError ? new HttpError(e.message, e.status) : e;
   }
 }
 
@@ -432,7 +424,7 @@ export async function layoutShown(q: Queryable, before: any, after: any) {
 type Kept = { edits: unknown; diff: Change[] | null; holds?: boolean; why?: string };
 
 /**
- * A layout's intent variant as people review it, beside its changes field by field (./versioned.ts reviewDoc): each pin
+ * A layout's intent variant as people review it, beside its changes field by field (./review.ts reviewDoc): each pin
  * before and after by its asset's label and version, whether it still holds on the layout as it is now (accepting
  * would merge it so), and the sandbox to open as it would be.
  */
@@ -467,7 +459,7 @@ export async function layoutReview(q: Queryable, p: any) {
 }
 
 /** the rows the worlds read, written from a layout (in the caller's transaction) */
-async function writeRows(tx: Queryable, sandbox: string, json: any) {
+export async function writeRows(tx: Queryable, sandbox: string, json: any) {
   const pins = Object.entries<Pin>(json.pins ?? {});
   await tx.query(`DELETE FROM play.sandbox_pins WHERE sandbox_id = $1 AND NOT (slot = ANY($2))`, [sandbox, pins.map(([s]) => s)]);
   for (const [slot, p] of pins)
@@ -487,38 +479,26 @@ async function writeRows(tx: Queryable, sandbox: string, json: any) {
 }
 
 /**
- * Accept or archive a layout's intent variant (`decide`: ./versioned.ts decideDoc, the one decide every kind shares):
- * accepted, it is merged into Main and named the next version, and Main's pins and configs are written to the rows
- * the worlds read, in this transaction. One that no longer holds on the layout as it is (a pin of a version or variant
- * play no longer keeps; one kept from before layouts were documents that no longer held then) is archived instead.
+ * What a layout's Accept holds it to first (./kinds.ts before), in the Accept's transaction, its sandbox's row locked:
+ * one that no longer holds on the layout as it is (a pin of a version or variant play no longer keeps; one kept from
+ * before layouts were documents that no longer held then) is archived, saying why. Accepted, Main's pins and configs
+ * are written to the rows the worlds read (writeRows, its accepted hook).
  */
-export async function decideLayout(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive", decide: (tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") => Promise<any>) {
-  admin(me, SANDBOX_ADMINS);
-  const docId = p.doc_id as string, sandbox = docId.split(":")[1];
-  await tx.query(`SELECT 1 FROM play.sandboxes WHERE id = $1 FOR UPDATE`, [sandbox]);
-  if (verdict === "accept") {
-    const v = Number(p.doc_variant);
-    const empty = !(await docs.history(tx, docId, { variant: v })).length;
-    const problems = empty ? ["it no longer held on the layout when the layout became a document"] : await layoutProblems(tx, (await docs.previewMerge(tx, docId, v)).json);
-    if (problems.length) {
-      await settle(tx, p.id, "archived", null);
-      await closeWork(tx, me, p);
-      return { id: p.id as string, status: "archived" as const, message: `Merged into the layout as it is now, this no longer holds: ${problems[0]}. Propose it again on its newest version.` };
-    }
-  }
-  const r = await decide(tx, me, p, verdict);
-  if (r.status === "accepted") await writeRows(tx, sandbox, (await docs.readDoc(tx, docId)).json);
-  return r;
+export async function layoutBefore(tx: Queryable, docId: string, v: number, merged: any): Promise<string | null> {
+  await tx.query(`SELECT 1 FROM play.sandboxes WHERE id = $1 FOR UPDATE`, [docId.split(":")[1]]);
+  const empty = !(await docs.history(tx, docId, { variant: v })).length;
+  const problems = empty ? ["it no longer held on the layout when the layout became a document"] : await layoutProblems(tx, merged);
+  return problems.length ? `Merged into the layout as it is now, this no longer holds: ${problems[0]}. Propose it again on its newest version.` : null;
 }
 
 /** The sandbox at a version or an edit of its layout's history, to walk it so (admins; `?v=` or `?edit=` on its config). */
 export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at: { version: number } | { edit: number }): Promise<SandboxState> {
   admin(me, SANDBOX_ADMINS);
   const n = "version" in at ? at.version : at.edit;
-  if (!Number.isInteger(n) || n < 1) throw new NotFound("A version or an edit is named by its number.");
+  if (!Number.isInteger(n) || n < 1) throw new HttpError("A version or an edit is named by its number.", 404);
   await ensureLayoutDoc(db, sandbox);
   const json = await docs.stateAt(db, layoutDoc(sandbox), at).catch((e) => {
-    throw e instanceof docs.DocError ? new NotFound(e.message) : e;
+    throw e instanceof docs.DocError ? new HttpError(e.message, 404) : e;
   });
   return { pins: json.pins ?? {}, configs: json.configs ?? {} };
 }
@@ -530,12 +510,12 @@ export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at
 export async function proposedState(db: Queryable, me: Me | null, sandbox: string, id: string): Promise<SandboxState> {
   admin(me, SANDBOX_ADMINS);
   const intent = await intentIdOf(db, id);
-  if (!intent) throw new NotFound("There is no such intent.");
+  if (!intent) throw noSuchIntent();
   const { rows } = await db.query<{ stage: string; doc_variant: string | null }>(`SELECT i.stage, iv.variant_id AS doc_variant FROM play.intents i JOIN play.intent_variants iv ON iv.intent_id = i.id WHERE i.id = $1 AND iv.doc_id = $2`, [intent, layoutDoc(sandbox)]);
-  if (!rows[0]) throw new NotFound("There is no such intent's change of this sandbox.");
+  if (!rows[0]) throw new HttpError("There is no such intent's change of this sandbox.", 404);
   if ((rows[0].stage !== "proposal" && rows[0].stage !== "build") || rows[0].doc_variant == null) return stateOf(db, sandbox);
   const merged = (await docs.previewMerge(db, layoutDoc(sandbox), Number(rows[0].doc_variant))).json;
-  if ((await layoutProblems(db, merged)).length) throw new NotFound("It no longer holds on the layout as it is now.");
+  if ((await layoutProblems(db, merged)).length) throw new HttpError("It no longer holds on the layout as it is now.", 404);
   return { pins: merged.pins ?? {}, configs: merged.configs ?? {} };
 }
 
@@ -551,7 +531,7 @@ export async function ensureLayouts(db: Db): Promise<number> {
   const { rows: has } = await db.query(`SELECT to_regclass('play.sandbox_changes_kept') AS t`);
   if (!(has[0] as any)?.t) return 0;
   return db.transaction(async (q) => {
-    await q.query(`SELECT pg_advisory_xact_lock(4711031)`);
+    await q.query(lockSql(LOCK.layoutsMove));
     const { rows: sandboxes } = await q.query<{ id: string }>(
       `SELECT s.id FROM play.sandboxes s
         WHERE NOT EXISTS (SELECT 1 FROM play.docs d WHERE d.id = 'sandbox:' || s.id::text)

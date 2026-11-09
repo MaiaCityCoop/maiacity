@@ -3,10 +3,13 @@ import { app } from "./app";
 import { initSessions } from "./auth";
 import { blobStore } from "./blobs";
 import { migrate } from "./migrations";
-import { connect } from "./pg";
+import { connect } from "./kit/pg";
 import { siteHandler } from "./site";
-import { reconcile, runningCommit, shipGitHub, startShipWatcher } from "./ship";
-import { syncKinds } from "./versioned";
+import { reconcile, runningCommit } from "./ship";
+import { startShipWatcher } from "./watcher";
+import { shipGitHub } from "./github";
+import { syncKinds } from "./kinds";
+import "./allkinds";
 
 const db = connect();
 const ran = await migrate(db);

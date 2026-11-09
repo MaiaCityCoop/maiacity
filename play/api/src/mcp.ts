@@ -19,22 +19,21 @@
 // prompts are the skills', kept once in play's Postgres and changed only by proposal (./skills.ts, play/SPEC.md §4.14,
 // Samuel 2026-11-06); a tool's description says only what it takes, gives back and refuses.
 import type { BlobStore } from "./blobs";
-import type { Db } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { admin, type Me } from "./access";
-import type { GitHub } from "./ship";
-import { assetOf, listAssets, NotFound } from "./assets";
-import { archiveOwn, docAt, docEdit, docHistory, kinds, listDocs, proposeDocVersion, reviewOf, syncKinds, VersionError, workKinds } from "./versioned";
-import { NO_INTENT, WorkError } from "./work";
-import { addIntent, autoMove, CHECK_HOWS, CHECKS_MOST, dependIntent, getIntent, intentOf, IntentError, intentReady, INTENT_KINDS, INTENT_STAGES, LINE_MOST, listIntents, OPEN_STAGES, recordChecks, specifyIntent, TITLE_MOST, WHERES } from "./intents";
-import { stepBack } from "./stepback";
-import { withdrawDoc } from "./withdraw";
-import { retireDoc } from "./retire";
-import { instructionsOf, promptOf, promptsOf, SkillError } from "./skills";
+import type { GitHub } from "./github";
+import { assetOf, listAssets } from "./assets";
+import { docAt, docEdit, docHistory, listDocs, proposeDocVersion } from "./versioned";
+import { formatOf, kinds, syncKinds } from "./kinds";
+import { NO_INTENT } from "./held";
+import { getIntent, intentReady, noSuchIntent } from "./intents";
+import { autoMove } from "./decide";
+import { instructionsOf, promptOf, promptsOf } from "./skills";
 import { adminByToken } from "./tokens";
-import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_LINK_DEPTH, MOST_VIDEO, MOST_COMPOSITION, proposeStory, putAudioBase64, putComposition, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, StoryError, VIDEO_TYPES } from "./stories";
-import { AssetDocError, assetAt, proposeAsset } from "./assetdocs";
+import { STORY_ADMINS, AUDIO_TYPES, listStories, MOST_AUDIO, MOST_DOCUMENT, MOST_FRAME, MOST_VIDEO, MOST_COMPOSITION, proposeStory, putAudioBase64, putComposition, putDocument, putFrameBase64, putVideoBase64, slimLinks, storyAt, storyOf, VIDEO_TYPES } from "./stories";
+import { assetAt, proposeAsset } from "./assetdocs";
 import { GROUPS, isGroup } from "./groups";
-import { listSandboxes, sandboxOf, SandboxError } from "./sandboxes";
+import { listSandboxes, sandboxOf } from "./sandboxes";
 import { LIBRARY_KINDS, listLibrary } from "./library";
 import { delivery } from "./delivery";
 import { fileHidden, LIBRARIES, libraryOf, maskEdges, seesIntent } from "./owners";
@@ -45,80 +44,22 @@ const LIBRARY_ARG = {
   enum: [...LIBRARIES],
   description: "optional: the library it goes into: 'coop' (Maia City's, seen by every member; the default) or 'personal' (your operator's own, private to them: to anyone else it is as a file never kept), for their own character's photos and sheet",
 };
-import { addArtifact, AUTHOR_KINDS, authorOf, DESCRIPTION_MOST, listAuthors, listArtifacts, ORIGINS, ARTIFACT_KINDS, ArtifactError, artifactOf, SUMMARY_WORDS, TITLE_MOST as ARTIFACT_TITLE_MOST, updateArtifact } from "./artifacts";
+import { HttpError } from "./kit/errors";
+import type { Formats, Tool, ToolCtx } from "./mcptool";
+import { intentTools } from "./intenttools";
+import { artifactTools } from "./artifacttools";
+import { statusOf } from "./fault";
 
 const PROTOCOL = "2025-06-18";
 const HASH = /^[0-9a-f]{64}$/;
 
-type Tool = {
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  run: (args: any, me: Me) => Promise<unknown>;
-};
-
-const RECIPE_RULE =
-  "Send the version's readable source, as people write it (not bundled or minified: lines under 1000 characters), because " +
-  "the admins read it before they decide. It is a CommonJS module that sets `module.exports.recipe = function (id, v, variant) { … return { meta, build } }`, " +
-  "requires only 'three', three's addons ('three/addons/…') and shared pieces by hash, and names every other asset by its BLAKE3 hash. " +
-  "A piece is readable source shared by recipes (a car kit, a battery pack), a document of kind 'piece' (list_docs, doc_at; made or changed " +
-  "with propose_doc_version, kind 'piece', whole { schema: 'piece/1', label, note, source }, a CommonJS module): a recipe names an accepted " +
-  "version of one by the BLAKE3 hash of its source, `require('<64 hex>')` (list_docs gives each piece's versions and their hashes), and " +
-  "the box reads it from play's files; a piece may require three.js and other pieces, at most 4 deep. A version keeps the pieces it was " +
-  "accepted with: a newer piece is a new version of the asset. Pieces may be proposed in the same intent as what uses them: a recipe or " +
-  "piece may require the hash of a piece version proposed in that intent, and one intent may carry several versions of one piece (each " +
-  "proposed in order, the next growing from the last); Accept keeps them first, in the order they require each other. play wraps it into the " +
-  "recipe file itself (the asset box's header, then the source, then the line naming this asset and its new version). The code runs only " +
-  "in the asset box, the sandboxed frame in the page, never on play's server. Start from the head's source (get_asset gives its hash, " +
-  "get_file its text). Every version has one: an imported version's is legacy's own code its recipe file was bundled from (the asset's " +
-  "library, each module marked by the file it came from), made again and checked against that file byte for byte. " +
-  "Every new version names its levels of detail on its card, `lod: { levels: 'declared' | 'derived' }` (propose_asset's `lod`; doc_edit's card " +
-  "field `card.lod`, carried on from the head where it has one): 'declared' where its source exports its own L1 and L2 as a plain literal, " +
-  "`module.exports.levels = [{ values: { … } }, …]`, each the same recipe built with those values (its params), else 'derived'; L0 is its build, L3 its picture.";
-
-const STORY_FORMAT =
-  "A story is a film as one timeline (format story/1): { schema: 'story/1', format: '9:16' | '16:9' | '1:1' | '4:5', fps: 24 | 25 | 30 | 48 | 50 | 60, duration, tracks }. " +
-  "Each track is { id, kind, clips } and each clip { id, at, duration } in seconds (at may be left out to follow the clip before it), plus its kind's fields: " +
-  "kind 'shots' { frame: an image's hash from add_story_frame (the shot's still), video?: a video's hash from add_story_video (its moving picture, played muted, the story's own sound under it), video_in?: where in the video the shot starts (s), composition?: a composition's hash from add_story_composition (its motion design, one HyperFrames composition played in the shot's place from its 0 at the shot's at, for its length; the frame stays its still), transition: how it goes into the next shot, as code where it starts with one: 'cut', 'dissolve 0.5', 'from black 0.7', 'to black 1', 'dip to black 0.4', several joined by commas ('from black 0.7, cut'), else prose }; " +
-  "kind 'voice' { who, line, cues? } (the narration, shown as the subtitle, cut evenly; or its own subtitles cues: [{ at: seconds into the clip, text, em?: true }], each until the next, em setting one apart, alone and large, such as '100x' while 'a hundred times' is said); " +
-  "kind 'notes' { section, emotion (the one primary emotion the section should leave the viewer with, shown under its name on the timeline), camera, retention, mood } (mood as arrows: ↑ ↑↑ ↑↑↑ ↓ ↓↓ ↕). " +
-  "Any clip of any track may sound: { audio: a recording's hash from add_story_audio, audio_in: where in the recording it starts (s), gain (dB), fade_in, fade_out (s) }, played from the clip's at for its duration; " +
-  "a voice clip's audio is its take, and tracks of kind music, sfx or ambience hold the score, the spot sounds and the beds, their clips overlapping as they like; a track may carry gain (dB) and mute. " +
-  "A clip may carry more fields, and a track may be of another kind (callout, scene): they are kept as given. " +
-  "kind 'story' links other stories in, one clip each: { id, at, story: the linked story's id (a UUID from list_stories, never its title), version: the id of the accepted version of it that plays (get_story's versions) }, that version's whole timeline played in the clip's place from at (its shots, voice, notes and sounds). " +
-  "A link always names its version, so two films may link two versions of one trailer, and a film never changes because the trailer got a new version: moving a film to a newer trailer is a proposal on the film, { op: 'set_clip', track, clip, fields: { version: <the newer version's id> } } (the clip then takes that version's length; shift what follows by the difference if it is longer or shorter). " +
-  "A link's duration is its version's: leave it out and it is given that. " +
-  `A story track's clips never overlap each other, but a linked story may overlap this story's own clips (its music ringing out under the next line). A link is refused without a version, to a story that does not exist, to the story itself, to a version not that story's or never accepted, with a duration other than its version's, and where links would loop (A links B links A) or nest more than ${MOST_LINK_DEPTH} stories deep. ` +
-  "duration is worked out from the clips. Clip ids are unique within their track; track ids within the story.";
-
-const FACTORY_FORMAT =
-  "A factory is { schema: 'factory/1', label, note, from, builds: the pin of what it makes, line, stock, assemblies, parts, handling }. " +
-  "line is the spec AirSup's factory runtime reads: { product: { name, unit, perToken }, demand: { perDay }, calendar: { shifts, hoursPerShift, startHour }, sizing: { targetUtil }, release, seed, " +
-  "stations: [{ id, name, machine (the kit's machine it is drawn as), variant?, cv (cycle time's variation), buffer (in front of it), reserve (spare floor for more machines), operators, mtbf and mttr (s: breakdowns), kind (laser, cnc, robot, line, oven, press, tester), yield?, input? (a stage it is fed), after? (the stations it joins), stage (what leaves it), what and rate (its description and where its rate comes from), ct? }], stages: { stage: its look }, layout, look }. " +
-  "A station's cycle time is the sum of every operation at it (the parts' ops and its handling), worked out where the line is drawn, unless it gives its own ct; the line is sized from the demand and run as a discrete event simulation. " +
-  "parts: [{ id, label, assembly, qty, raw: { stock?, also?, size?, kg?, bought? }, ops: [{ at: a station's id, s: seconds for one unit's worth, what }] }]; stock: { id: { label, form, … } }; assemblies: [{ id, label }]; handling: { station: [{ at: that station, s, what }] }.";
-
-const LEVELS_FORMAT =
-  "The levelling config is { schema: 'levels/1', label, note, villager: { euros, hearts } (what each new villager brings), minds: { heartsPerMind, step, heartsPerEuro } (a mind costs heartsPerMind + step × (level − 1) hearts, or that over heartsPerEuro in euros), " +
-  "levels: [{ id, villagers (the count that reaches it: Fibonacci 1, 2, 3, 5, 8 …), phase, investor (the investor's ticket as a multiple of the euros the level's new villagers bring), unlocks: [{ label, cost (euros), kind? }], note? }] }. " +
-  "The Game editor works out the rest: each level's new villagers, their euros and hearts and the minds they get, the investor's euros and minds and share, the minds minted, and the treasury in euros (raised and left after building), hearts and minds.";
-
-const SKILL_FORMAT =
-  "A skill is { schema: 'skill/1', label, group (both only shown: a skill is named by its id), note, system (Markdown: its part of the system prompt every agent connected here gets, initialize's instructions), " +
-  "stages? (the Intents skill's: { idea, specify, build, proposal, ship, accepted, archived }, each Markdown: what an agent sent to an intent at that stage does, {intent} and {title} filled with the intent's id and title where it is served as the intent's brief) }.";
-
-const ASSET_FORMAT =
-  "An asset is { schema: 'asset/1', label, note, source (its readable source, as text), engine, card (its version's record), defaultVariant?, variants?: [{ name, source? (where it differs from the asset's own), card }] }; " +
-  "its reference sheet, data sheet and brief are its card's sheet, datasheet and brief (each a file's hash: add_story_frame, add_document).";
-
-const ARTIFACT_FORMAT =
-  "An artifact is { schema: 'artifact/1', url, title, description, summary, kind, tags, published, text_hash, origin, agent, operator, token, authors: its authors' ids in order }: change it with update_artifact, which holds every field to its form.";
-const SANDBOX_FORMAT =
-  "A sandbox's layout is { schema: 'sandbox/1', title (only shown), pins: { <slot>: { version (an accepted asset version's hash), variant (a variant's name, null for the version's default), params ({ stage: '9' }, or null) } }, configs: { <name>: {…} } } " +
-  "(Sandbox 1's `garden`: its layers of plantings, each { id, slot, stages, weight, … }, its spacing, drift and fields): anything in a config with a `slot` is drawn as that slot's pin, and every slot a config names is pinned. Its UUID is the sandbox's (list_sandboxes).";
-
-/** what each kind's document holds, for doc_at */
-const FORMATS = `${ASSET_FORMAT} ${STORY_FORMAT} ${FACTORY_FORMAT} ${LEVELS_FORMAT} ${SKILL_FORMAT} ${SANDBOX_FORMAT} ${ARTIFACT_FORMAT}`;
+/** what each kind's documents hold, as their schemas say it (./kinds.ts formatOf), read for every tools/list */
+const FORMAT_KINDS = ["asset", "story", "factory", "game_config", "skill", "sandbox", "artifact"];
+const formatsOf = async (q: Queryable): Promise<Formats> => ({
+  recipe: await formatOf(q, "asset", "source"),
+  story: await formatOf(q, "story"),
+  all: (await Promise.all(FORMAT_KINDS.map((k) => formatOf(q, k)))).join(" "),
+});
 
 /** the edits doc_edit and propose_doc_version take */
 const EDITS =
@@ -133,7 +74,7 @@ const EDITS =
   "{ op: 'set', config, path, value } sets the value at a path of a config (['outside', 'trees', 3, 'weight']; an index one past the end adds an item; path [] sets the whole config, a new one too); { op: 'delete', config, path } removes it (path []: the whole config). A config names an asset only by { slot }, never by a ref.";
 
 export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobStore; github?: GitHub | null; commit?: string | null }) {
-  // an intent that reached Specify or Proposal is asked of the auto-accept rules (./intents.ts autoMove, ./rules.ts)
+  // an intent that reached Specify or Proposal is asked of the auto-accept rules (./decide.ts autoMove, ./rules.ts)
   const auto = async <R extends Record<string, any>>(out: R, me: Me | null, id?: unknown): Promise<R> => {
     const intent = `${id ?? out?.intent ?? out?.id ?? ""}`;
     if (!intent) return out;
@@ -142,6 +83,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     const now = await getIntent(db, intent);
     return { ...out, stage: now.stage, auto: now.auto, ...(moved.refused ? { auto_refused: moved.refused } : {}) };
   };
+  const c: ToolCtx = { db, store, github, commit, auto };
   const tools: Tool[] = [
     {
       name: "list_assets",
@@ -152,7 +94,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         additionalProperties: false,
       },
       run: async ({ group, query }, me) => {
-        if (group !== undefined && !isGroup(group)) throw new VersionError(`${group} is not an asset group (${GROUPS.join(", ")}).`);
+        if (group !== undefined && !isGroup(group)) throw new HttpError(`${group} is not an asset group (${GROUPS.join(", ")}).`);
         const all = await listAssets(db, group, me);
         const q = `${query ?? ""}`.trim().toLowerCase();
         return all
@@ -183,11 +125,11 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
       description: "A file's text by its BLAKE3 hash: a version's readable source or its recipe file (their hashes from get_asset).",
       inputSchema: { type: "object", properties: { hash: { type: "string", description: "64 hex characters" } }, required: ["hash"], additionalProperties: false },
       run: async ({ hash }, me) => {
-        if (!HASH.test(`${hash}`)) throw new NotFound("That is not a file's hash.");
+        if (!HASH.test(`${hash}`)) throw new HttpError("That is not a file's hash.", 404);
         // another's private file is as one never kept (./owners.ts)
-        if (await fileHidden(db, me, `${hash}`)) throw new NotFound("There is no such file.");
+        if (await fileHidden(db, me, `${hash}`)) throw new HttpError("There is no such file.", 404);
         const bytes = await store.get(`${hash}`);
-        if (!bytes) throw new NotFound("There is no such file.");
+        if (!bytes) throw new HttpError("There is no such file.", 404);
         return { hash, text: new TextDecoder().decode(bytes) };
       },
     },
@@ -224,7 +166,8 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     },
     {
       name: "propose_asset",
-      description: `Propose a new asset, its first version. It puts an intent at Proposal with it (the intent you name, or a new one; via MCP), for Maia City's admins to decide. ${RECIPE_RULE}`,
+      proposes: "required",
+      description: (f) => `Propose a new asset, its first version. It puts an intent at Proposal with it (the intent you name, or a new one; via MCP), for Maia City's admins to decide. ${f.recipe}`,
       inputSchema: {
         type: "object",
         properties: {
@@ -275,12 +218,12 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
       },
       run: async ({ group, slug, label, source, note, variants, default_variant, params, sheet, datasheet, brief, intent, private: own, lod }, me) => {
         const kinds = Array.isArray(variants) && variants.length ? variants : null;
-        if (!source && !kinds) throw new VersionError("Give its source, or its variants.");
+        if (!source && !kinds) throw new HttpError("Give its source, or its variants.");
         // play runs no code: a recipe's declared params reach its record only from here (a build with values is refused without them)
         const texts = [source, ...(kinds ?? []).map((x: any) => x?.source)].filter((x) => typeof x === "string");
         if (params === undefined && texts.some((x) => /\bparams\s*:\s*(\[|[A-Za-z_$])/.test(x) && !/\bparams\s*:\s*\[\s*\]/.test(x)))
-          throw new VersionError("Its recipe declares parameters (meta.params): give them as `params`, in the order its build takes them, or its builds with values are refused.");
-        if (kinds && kinds.some((x: any) => !x?.source) && !source) throw new VersionError("Give the version's source, or each variant's own.");
+          throw new HttpError("Its recipe declares parameters (meta.params): give them as `params`, in the order its build takes them, or its builds with values are refused.");
+        if (kinds && kinds.some((x: any) => !x?.source) && !source) throw new HttpError("Give the version's source, or each variant's own.");
         return proposeAsset(
           db,
           store,
@@ -313,7 +256,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     },
     {
       name: "doc_at",
-      description: `One document whole (its \`json\`), at Main's newest version, at an accepted version, at an edit of its history (doc_history's \`seq\`), or as an intent's variant would make it; with its versions. ${FORMATS}`,
+      description: (f) => `One document whole (its \`json\`), at Main's newest version, at an accepted version, at an edit of its history (doc_history's \`seq\`), or as an intent's variant would make it; with its versions. ${f.all}`,
       inputSchema: {
         type: "object",
         properties: {
@@ -365,8 +308,9 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     },
     {
       name: "propose_doc_version",
+      proposes: "required",
       description:
-        `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${RECIPE_RULE} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). With \`kind\` and \`whole\` and no \`doc\`, a new document: a schema (every schema is a document of the meta-schema: \`label\`, \`type\` its documents' prefix, \`name\`, \`node\` the JSON Schema it holds them to; once accepted, its documents are a kind of their own, listed, read, edited and proposed with these same tools), or a document of a kind that is a schema alone. A schema's new version is accepted only while every document on Main still validates against it: the Accept names those that would not. An asset's breeds (doc_history) live beside Main and take every change accepted on Main except on the fields they override: change one with \`breed\` (an intent variant seeded from it), make one with \`new_breed\`; either Accept makes the asset's next version, every breed built as its variant.`,
+        (f) => `Propose a document's next version: an intent variant made edit by edit with doc_edit (its \`variant\`; its edits go with it), or edits applied at once to Main's newest version, or the whole document. ${EDITS} It puts an intent at Proposal with it (via MCP), for Maia City's admins, who see what changed field by field on the intents' board (an asset built in the asset box, a story played in the Stories player, a factory opened with its simulation running) and accept or archive it. An asset's version is checked as readable source when it is proposed: ${f.recipe} If Main gets a newer version first, it still goes in where the two changes touch different fields, and is archived where they touch the same (an asset's, whenever its head moved). With \`kind\` and \`whole\` and no \`doc\`, a new document: a schema (every schema is a document of the meta-schema: \`label\`, \`type\` its documents' prefix, \`name\`, \`node\` the JSON Schema it holds them to; once accepted, its documents are a kind of their own, listed, read, edited and proposed with these same tools), or a document of a kind that is a schema alone. A schema's new version is accepted only while every document on Main still validates against it: the Accept names those that would not. An asset's breeds (doc_history) live beside Main and take every change accepted on Main except on the fields they override: change one with \`breed\` (an intent variant seeded from it), make one with \`new_breed\`; either Accept makes the asset's next version, every breed built as its variant.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -409,7 +353,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     },
     {
       name: "get_story",
-      description: `One story's whole timeline, at its head, at an accepted version, at any edit of its history (doc_history lists them), or as an intent's variant would make it: ${STORY_FORMAT} At its head or a version it also lists the story's versions (number, id, note, author, who accepted it). Use its \`version\` as \`base\` when you propose a change. ` +
+      description: (f) => `One story's whole timeline, at its head, at an accepted version, at any edit of its history (doc_history lists them), or as an intent's variant would make it: ${f.story} At its head or a version it also lists the story's versions (number, id, note, author, who accepted it). Use its \`version\` as \`base\` when you propose a change. ` +
         "Its `links` are the versions it links, to any depth, each under the version's id: { id (the linked story's), title, number, version, duration, newest (that story's newest accepted number: where it is higher, a newer version is there to move to by set_clip) }; with `links: true` each also with its whole timeline (body). Its `linked_by` are the stories whose newest version links this one, each with the number of this one's version it plays.",
       inputSchema: {
         type: "object",
@@ -431,7 +375,8 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     },
     {
       name: "propose_story",
-      description: `Propose a new story, its first version, as its whole timeline. It gets a UUID of its own (the answer's story), which names it from then on; its title is only shown. It puts an intent at Proposal with it (via MCP), for Maia City's admins, who play it in the Stories player on the intents' board and accept or archive it. ${STORY_FORMAT} Add each storyboard image first with add_story_frame and use the hashes it gives as the shots' frames.`,
+      proposes: "required",
+      description: (f) => `Propose a new story, its first version, as its whole timeline. It gets a UUID of its own (the answer's story), which names it from then on; its title is only shown. It puts an intent at Proposal with it (via MCP), for Maia City's admins, who play it in the Stories player on the intents' board and accept or archive it. ${f.story} Add each storyboard image first with add_story_frame and use the hashes it gives as the shots' frames.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -500,350 +445,18 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
       run: async ({ data, media_type, label }, me) => (admin(me, STORY_ADMINS), putAudioBase64(db, store, data, media_type, label)),
     },
     // ---- intents (./intents.ts): everything on the board, Idea → Specify → Build → Proposal → Accepted or Archived
-    {
-      name: "list_intents",
-      description:
-        "Maia City's intents, the latest first: everything on the board, each something wanted made, fixed or improved, going Idea → Specify → Build → Proposal → Accepted (or Archived), code through Ship between Proposal and Accepted. Each has its id (a UUID), kind (idea, fix, improve), title, note, stage, who wrote it, its spec (goal, scope, checks) once specified, its checks' results while being built, its work once proposed (`work`: what it changes, the version it would be, who proposed it and how, its status), and its dependencies (`depends_on`, each with its stage; `held_by`, those not shipped yet, which hold it; `needed_by`, the intents waiting on it), and its sub-state (`sub`: { state: failed, waiting, working or idle, tag: a few words, why: its reason }; null once decided). One record: an intent at Proposal is the proposal, its work waiting for the decision. " +
-        "Sent to work on an intent: read it with get_intent, whose `brief` says what to do at the stage it is at (the Intents skill's part for that stage: doc_at on the Intents skill).",
-      inputSchema: {
-        type: "object",
-        properties: {
-          stage: { type: "string", enum: [...INTENT_STAGES, "all"], description: "which intents: one stage, or all; those not yet done (idea, specify, build, proposal, ship) if left out" },
-          work: { type: "string", enum: [...workKinds()], description: "only those holding work of this kind (an asset's or story's version, a factory's, config's, skill's or sandbox layout's version)" },
-        },
-        additionalProperties: false,
-      },
-      run: async ({ stage, work }, me) => listIntents(db, me, stage === "all" ? undefined : stage ? [`${stage}`] : OPEN_STAGES, work ? `${work}` : undefined),
-    },
-    {
-      name: "get_intent",
-      description: "One intent, whole: its kind, title, note, stage, who wrote, specified and approved it, its spec (goal, scope, checks: each its id, statement, how it is checked, must or nice), its checks' latest results with their evidence, its `brief` (what to do now, at the stage it is at: the Intents skill's part for that stage, filled for it; null where there is nothing to do), its work (`work`) with its review (`review`: what it changes, as the board shows it before it is decided), and its dependencies (`depends_on` each with its stage, `held_by` those not shipped yet, `needed_by` those waiting on it), and its sub-state (`sub`: failed, waiting, working or idle, its tag and why; only a waiting one is decided; null once decided). An old proposal's id finds the intent it is now.",
-      inputSchema: {
-        type: "object",
-        properties: { intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" } },
-        required: ["intent"],
-        additionalProperties: false,
-      },
-      run: async ({ intent }, me) => intentOf(db, me, `${intent ?? ""}`, reviewOf),
-    },
-    {
-      name: "add_intent",
-      description:
-        "Add an intent at the Idea stage, in this token's admin's name: something to make, fix or improve, as the admin asked you to note it or as you found it and are not doing now (a bug seen while working, an idea for an asset, a story or a sandbox), for the admins to triage. This is the only way an intent comes in: no one adds one by hand. " +
-        "Say it in the title, in a line, and the rest in the note: where it is (name assets, stories and sandboxes by their ids), what is wrong or wanted, and why.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          title: { type: "string", maxLength: TITLE_MOST, description: "what is to be made, fixed or improved, in a line" },
-          note: { type: "string", description: "the rest: where, what and why (Markdown)" },
-          kind: { type: "string", enum: [...INTENT_KINDS], description: "idea (something new), fix (something wrong) or improve (something there, made better); idea if left out" },
-          depends_on: { type: "array", items: { type: "string" }, description: "the intents it depends on, each by its id (a UUID): while any of them is not shipped (Accepted) it is held at every forward gate (approve, Proposal, accept, Ship); no edge to itself, none closing a cycle" },
-          work_kind: {
-            type: "array",
-            items: { type: "string" },
-            description:
-              "the kinds of work it will bring, declared up front: each a schema's UUID (an artifact's, an asset's, a story's …: list_docs with kind schema gives them) or code (a pull request). Work of another kind is refused; an auto-accept rule may match on it (Approve spec before anything is built). Left out or empty, it declares nothing: any kind, and no rule naming work_kind matches it",
-          },
-        },
-        required: ["title"],
-        additionalProperties: false,
-      },
-      run: async ({ title, note, kind, depends_on, work_kind }, me) => addIntent(db, me, { title, note, kind, depends_on, work_kind }),
-    },
-    {
-      name: "depend_intent",
-      description:
-        "Add, or drop (drop: true), one dependency: intent `intent` depends on intent `on`, each by its id. While any intent it depends on is not shipped (Accepted; in Ship is not yet, archived holds until the edge is dropped or it is reopened and shipped), it is held: not approved, not moved to Proposal, given no work, not accepted, not shipped; going back is never held. " +
-        "Refused: an edge to itself, one closing a cycle. Gives back the intent with depends_on, held_by and needed_by.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          intent: { type: "string", description: "the intent that waits, by its id (a UUID)" },
-          on: { type: "string", description: "the intent it depends on, by its id (a UUID)" },
-          drop: { type: "boolean", description: "true drops the edge" },
-        },
-        required: ["intent", "on"],
-        additionalProperties: false,
-      },
-      run: async ({ intent, on, drop }, me) => dependIntent(db, me, `${intent ?? ""}`, on, drop),
-    },
-    {
-      name: "specify_intent",
-      description:
-        `Specify an intent at Idea or Specify: its goal, scope and 1 to ${CHECKS_MOST} checks, at least one a must, replacing any spec before. Its reduce step comes first: a check with step reduce (every one a must), or nothing_to_reduce. ` +
-        "Gives back the intent at Specify, where an admin approves the spec. Refused: no reduce step, a reduce check marked nice, a test or measure without its run, a run holding a placeholder, an intent past Specify. How to write a spec is the Intents skill's (get_intent's brief).",
-      inputSchema: {
-        type: "object",
-        properties: {
-          intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" },
-          goal: { type: "string", description: "what is true when it is done, in a sentence" },
-          scope: { type: "string", description: "what changes, named by UUIDs, hashes or paths, and what stays as it is (Markdown)" },
-          checks: {
-            type: "array",
-            minItems: 1,
-            maxItems: CHECKS_MOST,
-            items: {
-              type: "object",
-              properties: {
-                check: { type: "string", description: "one statement that passes or fails" },
-                how: { type: "string", enum: [...CHECK_HOWS], description: "test and measure are deterministic: preferred over look" },
-                by: { type: "string", description: "test: the command that passes; measure: the tool and the range; look: the reference it is judged against" },
-                run: {
-                  type: "string",
-                  description:
-                    "the command that decides it in avenBOX, run from the repository's root as written, no placeholder in it (TEST_DATABASE_URL is set already): required for test (passes when it exits 0) and measure (prints the value, exits 0 only in its range); for a look, optionally the command that makes what is looked at (screenshots)",
-                },
-                must: { type: "boolean", description: "true (the default): it must pass before the intent is proposed; false: nice to have" },
-                step: { type: "string", enum: ["reduce", "mvp"], description: "reduce: what it removes, simplifies or compacts (a must); mvp (the default): what it does" },
-              },
-              required: ["check", "how", "by"],
-              additionalProperties: false,
-            },
-          },
-          nothing_to_reduce: { type: "string", description: "where no check is a reduction: why nothing is to be reduced" },
-          title: { type: "string", maxLength: TITLE_MOST, description: "a sharper title, if it needs one" },
-          kind: { type: "string", enum: [...INTENT_KINDS] },
-          note: { type: "string", description: "a new note, if it needs one" },
-          depends_on: { type: "array", items: { type: "string" }, description: "the intents it depends on, each by its id (a UUID): while any of them is not shipped (Accepted) it is held at every forward gate (approve, Proposal, accept, Ship); no edge to itself, none closing a cycle (given, it replaces those before; left out, they stay)" },
-          work_kind: {
-            type: "array",
-            items: { type: "string" },
-            description:
-              "the kinds of work it will bring, declared up front: each a schema's UUID (an artifact's, an asset's, a story's …: list_docs with kind schema gives them) or code (a pull request). Work of another kind is refused; an auto-accept rule may match on it (Approve spec before anything is built). Given, it replaces the declaration (only while the intent holds no work); left out, it stays; empty, it declares nothing: any kind, and no rule naming work_kind matches it",
-          },
-        },
-        required: ["intent", "goal", "scope", "checks"],
-        additionalProperties: false,
-      },
-      run: async ({ intent, goal, scope, checks, nothing_to_reduce, title, kind, note, depends_on, work_kind }, me) =>
-        auto(await specifyIntent(db, me, `${intent ?? ""}`, { goal, scope, checks, nothing_to_reduce, title, kind, note, depends_on, work_kind }), me),
-    },
-    {
-      name: "step_back_intent",
-      description:
-        "Send an intent one stage back, always with its reason (kept with the step in its history and shown on the board under its note): from Build, or Proposal with no work of play's waiting, to Specify (its spec kept, its approval and results cleared: specify it again with specify_intent), or from Specify to Idea (its spec dropped, its whole text kept in the history). " +
-        "Only an admin's Approve spec moves it forward again: until then no check is recorded and nothing is proposed for it. Refused: no reason, at Idea, at Proposal while work of play's waits there (decided first), in Ship, Accepted and Archived.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" },
-          reason: { type: "string", maxLength: LINE_MOST, description: "why it goes back, in one line" },
-        },
-        required: ["intent", "reason"],
-        additionalProperties: false,
-      },
-      run: async ({ intent, reason }, me) => stepBack(db, me, `${intent ?? ""}`, reason),
-    },
-    {
-      name: "withdraw_doc",
-      description:
-        "Take one document out of an intent before it is decided, always with its reason (a document proposed by mistake, or a draft gone stale): the intent's open variant of it, proposed or a draft, closed and kept in the history, the rest of the work as it was; the next doc_edit of it for the intent seeds a new variant from Main. " +
-        "Only while the intent is in Build or at Proposal; at Proposal it goes back to Build, its results kept, the reason kept in its history and shown on the board. Refused: no reason, a decided intent (Ship, Accepted, Archived) or one not built yet, a document the intent has no open or proposed variant of.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" },
-          doc: { type: "string", description: "the document to take out: its UUID (get_intent's review.docs[].doc.id), or <kind>:<uuid>" },
-          reason: { type: "string", maxLength: LINE_MOST, description: "why it goes, in one line" },
-        },
-        required: ["intent", "doc", "reason"],
-        additionalProperties: false,
-      },
-      run: async ({ intent, doc, reason }, me) => withdrawDoc(db, me, `${intent ?? ""}`, doc, reason, "mcp"),
-    },
-    {
-      name: "retire_doc",
-      description:
-        "Propose retiring an accepted document as an intent's work, always with its reason (a stray copy, one no longer wanted): an admin's Accept takes it off every list (list_docs, list_stories, Stories, the Library's uses), Main's content as it was, no new version; " +
-        "its history stays, read by its UUID (doc_history, doc_at, get_story say `retired`: when, by which intent), and nothing that names it by hash changes (its files, its frozen versions, a story linking one). Archive leaves it as it was. " +
-        "Only for an intent in Build or at Proposal, as any work. Refused: no reason, a document never accepted (withdraw_doc takes one out of an intent before its Accept), one retired already.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it)" },
-          doc: { type: "string", description: "the document to retire: its UUID (list_docs), or <kind>:<uuid>" },
-          reason: { type: "string", maxLength: LINE_MOST, description: "why it goes, in one line" },
-        },
-        required: ["intent", "doc", "reason"],
-        additionalProperties: false,
-      },
-      run: async ({ intent, doc, reason }, me) => retireDoc({ db, store }, me, `${intent ?? ""}`, doc, reason, "mcp"),
-    },
-    {
-      name: "check_intent",
-      description:
-        "Record an intent's checks' results while it is being built, or at Proposal while no work of it waits: each check's id, pass, evidence, where and commit; the latest stands. Gives back the intent: at Proposal once every must passes, back at Build if a must fails there. main's results confirm, moving nothing. Refused: an unknown check, no evidence, an unapproved intent; from a token not avenBOX's, a pull request or a test or measure result that could decide a code intent (a commit, main, a pull request named): its run records them. The rest is the Intents skill's (get_intent's brief).",
-      inputSchema: {
-        type: "object",
-        properties: {
-          intent: { type: "string", description: "the intent's id (a UUID)" },
-          results: {
-            type: "array",
-            description: "each check's result; may be left out when only pr is given",
-            items: {
-              type: "object",
-              properties: {
-                check: { type: "string", description: "the check's id: c1, c2 …" },
-                pass: { type: "boolean" },
-                evidence: { type: "string" },
-                where: { type: "string", enum: [...WHERES], description: "where it ran: avenBOX (the default) or main (after the merge, by .github/workflows/intents.yml)" },
-                commit: { type: "string", description: "the 40-character git hash it ran on" },
-                link: { type: "string", description: "the https link of the GitHub run that ran it (avenBOX's token only)" },
-              },
-              required: ["check", "pass", "evidence"],
-              additionalProperties: false,
-            },
-          },
-          pr: { type: "integer", minimum: 1, description: "the number of the intent's pull request into main (its code), which an admin's Accept merges (in Ship, when its turn comes and GitHub is ready), only on the head every must check with a run last passed on; named while it is being built or at Proposal, a newer one replacing it; named by its run in avenBOX on GitHub (avenBOX's token only)" },
-        },
-        required: ["intent"],
-        additionalProperties: false,
-      },
-      run: async ({ intent, results, pr }, me) => auto(await recordChecks(db, me, `${intent ?? ""}`, results, pr), me),
-    },
-    {
-      name: "archive_intent",
-      description:
-        "Archive an intent of your own at Proposal, still waiting for a decision: one whose work you no longer stand by, or one newer work of yours replaces elsewhere (to replace an intent's own work, propose again naming it: the new work replaces the old). Only one this token's admin put at Proposal over MCP (its work proposed here, or, with no work, added here), never anyone else's or one proposed on the page. It ends archived, its work's branch kept as a side line in the history; accepting stays a person's, on the intents' board.",
-      inputSchema: {
-        type: "object",
-        properties: { intent: { type: "string", description: "the intent's id (a UUID: list_intents gives it, with who proposed its work and how)" } },
-        required: ["intent"],
-        additionalProperties: false,
-      },
-      run: async ({ intent }, me) => archiveOwn(db, me, `${intent ?? ""}`),
-    },
+    ...intentTools(c),
     // ---- artifacts (./artifacts.ts, play/SPEC.md §4.13): Maia City's library of links, kept by avenMAIA
-    {
-      name: "list_artifacts",
-      description:
-        "Maia City's artifacts, newest first: every link kept, each its id (a UUID), link, title, description, kind, tags, published date, authors (ids and names), origin and who brought it (\"Added by <operator>\" or \"Sourced by avenMAIA\"), without its summary (get_artifact). " +
-        "q finds words in a title, description, summary, link or an author's name; author (an author's id), tag, kind and origin narrow it. Look here before you add a link: one link is one artifact.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          q: { type: "string", description: "words to find in a title, description, summary, link or an author's name" },
-          author: { type: "string", description: "only the artifacts of this author (their id, a UUID: list_authors gives it)" },
-          tag: { type: "string" },
-          kind: { type: "string", enum: [...ARTIFACT_KINDS] },
-          origin: { type: "string", enum: [...ORIGINS], description: "human: pasted by an operator; agent: found by avenMAIA in its own research" },
-          offset: { type: "integer", minimum: 0 },
-          limit: { type: "integer", minimum: 1, maximum: 200 },
-        },
-        additionalProperties: false,
-      },
-      run: async (args, me) => listArtifacts(db, me, args),
-    },
-    {
-      name: "get_artifact",
-      description: "One artifact, whole: its link, title, description and summary, kind, tags, published date, authors in order, origin and who brought it, when it was kept and last corrected, and the hash of its page's text if it was kept (get_file reads it).",
-      inputSchema: {
-        type: "object",
-        properties: { artifact: { type: "string", description: "the artifact's id (a UUID: list_artifacts gives it)" } },
-        required: ["artifact"],
-        additionalProperties: false,
-      },
-      run: async ({ artifact }, me) => artifactOf(db, me, artifact),
-    },
-    {
-      name: "add_artifact",
-      description:
-        "Keep an artifact in Maia City's Artifacts: a link from the net (a web page, an article, a paper, a video, a social post, a book, a podcast, code) with its three texts and its authors. Every artifact is kept as avenMAIA's (who you are: initialize's instructions), for the admin whose token connected you (its operator). " +
-        "Every link your operator pastes to you, add with origin 'human' (shown \"Added by\" them); every artifact you find and use in your own research (a plant's numbers, a claim in a story, a technique), add with origin 'agent' (shown \"Sourced by avenMAIA\"). " +
-        `Read the artifact itself first, then write: title, very compact (what it is about in plain words: one line, at most ${ARTIFACT_TITLE_MOST} characters, without the site's or channel's name, which is an author, no clickbait); ` +
-        `description, the mini summary (1–2 sentences, one line, at most ${DESCRIPTION_MOST} characters, no Markdown: what it is and its main point); ` +
-        `summary, a small report on the overall topic (Markdown, ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words, in the sections ## What it is (who made it, what kind of thing, when, from which angle), ## Key points (its claims, findings and numbers as bullets, as the artifact puts them), ## The topic (the wider subject: what it is, where this artifact stands in it, what else is known or disputed), and if you like ## For Maia City last (where it bears on our work); what the artifact says in the first two, what you know beyond it only in ## The topic). ` +
-        "Authors: call list_authors first and name an author already kept by their id; add a new one { name, kind: person | organization, url? } only when none is them (two of one name stay two: never guess by a name). Where no person is named, its publisher (a site, a channel, a lab) is its author, as an organization. " +
-        "One link is one artifact: links are compared without their #fragment, utm_*, fbclid and gclid and a trailing slash, and a YouTube video is one link however it is written; a link already kept answers with that artifact and kept: true (correct it with update_artifact), one an intent's work waits with answers with that intent. " +
-        "An artifact is a document like any other: adding one proposes its first version as an intent's work. Named (\`intent\`, held to its gate), it is that intent's, kept once an admin accepts it; left out, play makes the artifact's own intent, declaring the artifact, which the auto-accept rules decide in the same call (the first rule, artifacts need no tap: kept at once, the answer at stage accepted). " +
-        "Give text, the page's readable text as you fetched it, to keep a copy: links rot and pages change.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          url: { type: "string", description: "the link, http(s)" },
-          title: { type: "string", maxLength: ARTIFACT_TITLE_MOST, description: `very compact: one line, at most ${ARTIFACT_TITLE_MOST} characters` },
-          description: { type: "string", maxLength: DESCRIPTION_MOST, description: `the mini summary: 1–2 sentences, one line, at most ${DESCRIPTION_MOST} characters, no Markdown` },
-          summary: { type: "string", description: `a small report on the overall topic: Markdown, ${SUMMARY_WORDS.least}–${SUMMARY_WORDS.most} words, ## What it is, ## Key points (bullets), ## The topic, and if you like ## For Maia City` },
-          authors: {
-            type: "array",
-            minItems: 1,
-            description: "its authors, in order: an author already kept by their id ({ id }, list_authors), or a new one ({ name, kind, url?, note? })",
-            items: {
-              type: "object",
-              properties: {
-                id: { type: "string", description: "an author already kept (a UUID: list_authors gives it)" },
-                name: { type: "string", description: "a new author's name" },
-                kind: { type: "string", enum: [...AUTHOR_KINDS] },
-                url: { type: "string", description: "their page or profile, http(s)" },
-                note: { type: "string", description: "who they are, in a line" },
-              },
-              additionalProperties: false,
-            },
-          },
-          kind: { type: "string", enum: [...ARTIFACT_KINDS] },
-          tags: { type: "array", items: { type: "string" }, description: "a few words it is about, lower case" },
-          published: { type: "string", description: "when it was published, YYYY-MM-DD, if known" },
-          origin: { type: "string", enum: [...ORIGINS], description: "human: your operator pasted it; agent: you found it in your own research" },
-          text: { type: "string", description: "the page's readable text as you fetched it, kept among play's files by its hash" },
-        },
-        required: ["url", "title", "description", "summary", "authors", "kind", "origin"],
-        additionalProperties: false,
-      },
-      run: async ({ intent, ...args }, me) => addArtifact(db, store, me, args, intent),
-    },
-    {
-      name: "update_artifact",
-      description:
-        "Correct a kept artifact: any of its link, title, description, summary, kind, tags, published date, authors (the whole list, in order, as in add_artifact) and text, each held to the same form as in add_artifact. Its origin and who brought it never change. The correction is its next version proposed as an intent's work: named (\`intent\`, held to its gate), the artifact stays as it is until an admin accepts that intent; left out, play makes its own intent, which the auto-accept rules decide in the same call (the first rule: corrected at once). doc_history shows every accepted change.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          artifact: { type: "string", description: "the artifact's id (a UUID)" },
-          url: { type: "string" },
-          title: { type: "string", maxLength: ARTIFACT_TITLE_MOST },
-          description: { type: "string", maxLength: DESCRIPTION_MOST },
-          summary: { type: "string" },
-          authors: { type: "array", minItems: 1, items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" }, kind: { type: "string", enum: [...AUTHOR_KINDS] }, url: { type: "string" }, note: { type: "string" } }, additionalProperties: false } },
-          kind: { type: "string", enum: [...ARTIFACT_KINDS] },
-          tags: { type: "array", items: { type: "string" } },
-          published: { type: "string" },
-          text: { type: "string" },
-        },
-        required: ["artifact"],
-        additionalProperties: false,
-      },
-      run: async ({ artifact, intent, ...fields }, me) => updateArtifact(db, store, me, artifact, fields, intent),
-    },
-    {
-      name: "list_authors",
-      description: "The authors of Maia City's artifacts, by name: each their id (a UUID), name, kind (person or organization), page and how many artifacts name them. q finds words in a name. Look here before you name an author in add_artifact, and reuse one by their id.",
-      inputSchema: {
-        type: "object",
-        properties: { q: { type: "string", description: "words in the author's name" } },
-        additionalProperties: false,
-      },
-      run: async ({ q }, me) => listAuthors(db, me, { q }),
-    },
-    {
-      name: "get_author",
-      description: "One author, with every artifact that names them, newest first.",
-      inputSchema: {
-        type: "object",
-        properties: { author: { type: "string", description: "the author's id (a UUID: list_authors gives it)" } },
-        required: ["author"],
-        additionalProperties: false,
-      },
-      run: async ({ author }, me) => authorOf(db, me, author),
-    },
+    ...artifactTools(c),
   ];
 
   // to propose is to put an intent at Proposal (play/SPEC.md §4.12): no work without an intent. Work names its intent,
   // held to its gate first (its spec approved and every must check passed, ./intents.ts intentReady), and replaces any
   // work it held; without one nothing is taken. Every propose tool gives back the intent (`intent`, at stage proposal)
   for (const t of tools) {
-    if (!t.name.startsWith("propose_") && t.name !== "add_artifact" && t.name !== "update_artifact") continue;
+    if (!t.proposes) continue;
     // an artifact added or corrected without one makes its own (./artifacts.ts): the first rule needs no tap for it
-    const own = t.name === "add_artifact" || t.name === "update_artifact";
+    const own = t.proposes === "own";
     (t.inputSchema.properties as Record<string, unknown>).intent = {
       type: "string",
       description: "the intent this is the work of, by its id (a UUID: list_intents gives it), in Build or at Proposal: its spec approved and every must check passed (check_intent), or nothing is proposed; it moves to Proposal with this work, replacing any it held. No work without an intent: add_intent adds one, specify_intent specifies it",
@@ -857,7 +470,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     t.run = async ({ intent, ...args }, me) => {
       if (intent === undefined || intent === null || intent === "") {
         if (own) return run(args, me);
-        throw new WorkError(NO_INTENT, 400);
+        throw new HttpError(NO_INTENT, 400);
       }
       const ready = await intentReady(db, me, intent);
       // its work proposed, the intent at Proposal: asked of the rules
@@ -901,27 +514,28 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         return reply(msg.id, { prompts: await promptsOf(db) });
       case "prompts/get":
         try {
-          return reply(msg.id, await promptOf(db, msg.params?.name, msg.params?.arguments, (q, id) => getIntent(q, id)));
+          return reply(msg.id, await promptOf(db, msg.params?.name, msg.params?.arguments));
         } catch (e) {
-          if (e instanceof SkillError || e instanceof IntentError) return fail(msg.id, -32602, (e as Error).message);
+          if (statusOf(e) !== null) return fail(msg.id, -32602, (e as Error).message);
           throw e;
         }
       case "tools/list":
         await syncKinds(db);
-        return reply(msg.id, { tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) });
+        const f = await formatsOf(db);
+        return reply(msg.id, { tools: tools.map(({ name, description, inputSchema }) => ({ name, description: typeof description === "string" ? description : description(f), inputSchema })) });
       case "tools/call": {
         const tool = tools.find((t) => t.name === msg.params?.name);
         if (!tool) return fail(msg.id, -32602, `There is no tool ${msg.params?.name}.`);
         try {
           // an intent whose work is another's private asset is as one that never was, whichever tool names it (./owners.ts)
           const named = msg.params?.arguments?.intent;
-          if (typeof named === "string" && me && !(await seesIntent(db, me, named))) throw new IntentError("There is no such intent.", 404);
+          if (typeof named === "string" && me && !(await seesIntent(db, me, named))) throw noSuchIntent();
           // (an edge to an intent another's private work keeps is shown as "a private intent": ./owners.ts)
           const out = await maskEdges(db, me, await tool.run(msg.params?.arguments ?? {}, me));
           return reply(msg.id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: Array.isArray(out) ? { items: out } : out });
         } catch (e) {
           // what went wrong, as the tool's own answer the agent reads (a refused recipe, a moved head, no such asset)
-          if (e instanceof VersionError || e instanceof WorkError || e instanceof IntentError || e instanceof NotFound || e instanceof StoryError || e instanceof SandboxError || e instanceof SkillError || e instanceof AssetDocError || e instanceof ArtifactError || (e as Error)?.name === "Denied" || (e as any)?.status)
+          if (statusOf(e) !== null)
             return reply(msg.id, { content: [{ type: "text", text: (e as Error).message }], isError: true });
           console.error(e);
           return reply(msg.id, { content: [{ type: "text", text: "Something went wrong on play's side." }], isError: true });

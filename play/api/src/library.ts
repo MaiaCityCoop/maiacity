@@ -7,15 +7,17 @@
 // coop's (Maia City's, as before) or their own personal one, private to them (./owners.ts decides who sees what, and
 // reads play.files). Admins only for now: opening it to every member is LIBRARY_OPEN_TO.
 
-import type { Queryable } from "./pg";
-import { admin, Denied, type Me } from "./access";
-import { HASH } from "./hash";
+import type { Queryable } from "./kit/pg";
+import { admin, type Me } from "./access";
+import { HASH } from "./kit/hash";
 import { storyListed } from "./listed";
-import { fileLabel, StoryError, type StoryBody } from "./stories";
+import { fileLabel } from "./stories";
+import type { StoryBody } from "./storydocs";
 import { assetSeen, libraryOf, libraryPage, relabel } from "./owners";
+import { HttpError } from "./kit/errors";
 
 /** who opens the Library: its admins, for now (characters are admins' alone); "member" opens it to every member, each their own library */
-export const LIBRARY_OPEN_TO: "admin" | "member" = "admin";
+const LIBRARY_OPEN_TO: "admin" | "member" = "admin";
 
 // a document is Markdown (text/markdown: a plant's data sheet, its sheet's brief); recipe sources (text/javascript) are not shown
 export const LIBRARY_KINDS = ["image", "video", "audio", "document"] as const;
@@ -25,12 +27,12 @@ export type StoryUse = { story: string; title: string; number: number | null; tr
 /** an asset version whose record names the file as its reference sheet: accepted (a version of the asset) or proposed */
 export type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: "sheet" | "datasheet" | "brief"; accepted: boolean };
 export type Use = StoryUse | SheetUse;
-export type LibraryFile = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
+type LibraryFile = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
 
 const LIBRARY_ADMINS = "Only Maia City's admins open the Library.";
 /** `me`, if they may open the Library: the coop's library is its admins' always; their own is theirs where it is open to them */
 function opener(me: Me | null, library: "coop" | "personal"): Me {
-  if (!me) throw new Denied("Please sign in first.", 401);
+  if (!me) throw new HttpError("Please sign in first.", 401);
   if (LIBRARY_OPEN_TO === "admin" || library === "coop") return admin(me, LIBRARY_ADMINS);
   return me;
 }
@@ -84,7 +86,7 @@ export async function listLibrary(db: Queryable, me: Me | null, o: { kind?: stri
   const lib = libraryOf(me ?? { id: "" }, o.library);
   const who = opener(me, lib.library);
   const kinds: Kind[] = o.kind ? [o.kind as Kind] : [...LIBRARY_KINDS];
-  if (!kinds.every((k) => (LIBRARY_KINDS as readonly string[]).includes(k))) throw new StoryError(`A kind is one of ${LIBRARY_KINDS.join(", ")}.`);
+  if (!kinds.every((k) => (LIBRARY_KINDS as readonly string[]).includes(k))) throw new HttpError(`A kind is one of ${LIBRARY_KINDS.join(", ")}.`);
   const limit = Math.max(1, Math.min(200, Math.floor(o.limit ?? 60)));
   const offset = Math.max(0, Math.floor(o.offset ?? 0));
   const q = (o.q ?? "").trim().toLowerCase();
@@ -106,9 +108,9 @@ export async function listLibrary(db: Queryable, me: Me | null, o: { kind?: stri
 export async function labelFile(db: Queryable, me: Me | null, hash: string, label: unknown, library?: unknown) {
   const lib = libraryOf(me ?? { id: "" }, library);
   opener(me, lib.library);
-  if (!HASH.test(hash)) throw new StoryError("A file is named by its hash.");
+  if (!HASH.test(hash)) throw new HttpError("A file is named by its hash.");
   const l = fileLabel(label) ?? null;
   const r = await relabel(db, lib.owner, hash, l);
-  if (!r) throw new StoryError("No file is kept by that hash.", 404);
+  if (!r) throw new HttpError("No file is kept by that hash.", 404);
   return r;
 }

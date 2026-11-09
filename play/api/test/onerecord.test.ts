@@ -8,10 +8,10 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MIGRATIONS, migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
-import { COOP } from "../src/ids";
-import { UUID } from "../src/uuid";
-import { hashText } from "../src/hash";
+import { fromBunSql, type Db } from "../src/kit/pg";
+import { COOP } from "../src/kit/ids";
+import { UUID } from "../src/kit/uuid";
+import { hashText } from "../src/kit/hash";
 import { storyVersionId } from "../src/versions";
 import { oldBranch, oldCommit, oldCreate, oldPropose } from "./fixtures/olddocs";
 import { app } from "../src/app";
@@ -180,24 +180,10 @@ suite("one record: the intent (migration 0029)", () => {
     // what an intent's work names is held to its kind
     await expect(db.query(`UPDATE play.intents SET story_id = $2 WHERE id = $1`, [two, story])).rejects.toThrow(/intents_work_names_what/);
 
-    // on to today (0032: the old proposals' ids go, an intent is named by its own), and through the API: the board
-    // lists the work on each intent; an old proposal's address answers no more. (Up to the migration before no work
-    // without an intent, 706ed873, which archives the spec-less ones still waiting: below.)
+    // on to 0032: the old proposals' ids go, an intent is named by its own (up to the migration before no work without
+    // an intent, 706ed873, which archives the spec-less ones still waiting: below)
     await migrate(db, { until: MIGRATIONS[MIGRATIONS.findIndex((m) => m.id.includes("-706ed873-intents-specified")) - 1].id });
     expect((await q(`SELECT to_regclass('play.proposal_ids') AS t`))[0].t).toBeNull();
-    await initSessions(db);
-    const api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
-    const get = (path: string) => api.fetch(new Request(`http://play.test${path}`, { headers: { cookie: `play_session=${tokenFor(ada)}` }, redirect: "manual" }));
-    expect((await get(`/api/proposals/${twoB}`)).status).toBe(404);
-    const byOwn = await (await get(`/api/intents/${storyIntent}`)).json();
-    expect(byOwn).toMatchObject({ id: storyIntent, stage: "proposal", work: { kind: "story_version", story_id: story, doc_variant: branch, status: "proposal" } });
-    expect(byOwn.review.diff).toBeDefined();
-    expect(byOwn.review.edits.map((e: any) => e.message)).toEqual(["two"]);
-    const board = await (await get(`/api/intents`)).json();
-    // one intent for each proposal, and the one back in Build (0033) that kept none
-    expect(board.length).toBe(all.length + 1);
-    expect(board.find((i: any) => i.id === two).work).toMatchObject({ kind: "asset_version", status: "proposal", label: "Fern", number: 2, author: "cit" });
-
     // then no work without an intent (706ed873): the story's intent, waiting with no spec, ends archived, its variant
     // archived and kept; the specified one waiting stays at Proposal with its work
     await migrate(db);
@@ -205,5 +191,20 @@ suite("one record: the intent (migration 0029)", () => {
     expect((await intent(storyIntent)).note).toContain("no work without an intent");
     expect((await q(`SELECT status FROM play.doc_variants WHERE id = $1`, [branch]))[0].status).toBe("archived");
     expect(await intent(two)).toMatchObject({ stage: "proposal", work: "asset_version", spec });
+    // and through the API, on today's schema (play's code runs on no other): the board lists the work on each intent;
+    // an old proposal's address answers no more
+    await initSessions(db);
+    const api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    const get = (path: string) => api.fetch(new Request(`http://play.test${path}`, { headers: { cookie: `play_session=${tokenFor(ada)}` }, redirect: "manual" }));
+    expect((await get(`/api/proposals/${twoB}`)).status).toBe(404);
+    const byOwn = await (await get(`/api/intents/${storyIntent}`)).json();
+    expect(byOwn).toMatchObject({ id: storyIntent, stage: "archived", work: { kind: "story_version", story_id: story, doc_variant: branch, status: "archived" } });
+    expect(byOwn.review.diff).toBeDefined();
+    expect(byOwn.review.edits.map((e: any) => e.message)).toEqual(["two"]);
+    const board = await (await get(`/api/intents`)).json();
+    // one intent for each proposal, and the one back in Build (0033) that kept none
+    expect(board.length).toBe(all.length + 1);
+    expect(board.find((i: any) => i.id === two).work).toMatchObject({ kind: "asset_version", status: "proposal", label: "Fern", number: 2, author: "cit" });
+
   });
 });

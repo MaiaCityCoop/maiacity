@@ -8,7 +8,7 @@
 import { initSessions, createHuman, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
-import { fromBunSql } from "../src/pg";
+import { fromBunSql } from "../src/kit/pg";
 import { heavy } from "./heavy";
 
 const [name, blobs] = process.argv.slice(2);

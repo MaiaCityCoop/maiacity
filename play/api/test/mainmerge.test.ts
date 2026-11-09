@@ -13,11 +13,12 @@ import { seedSkills } from "../import/skills";
 import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
-import { mainMergeState, mergeMain, MERGES_CONTEXT } from "../src/mainmerge";
+import { mainMergeState, mergeMain } from "../src/mainmerge";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import { watchPulls, watchTick, type Pull } from "../src/ship";
+import { watchPulls, watchTick } from "../src/watcher";
+import { type Pull, MERGES_CONTEXT } from "../src/github";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
 
 const URL_ = process.env.TEST_DATABASE_URL;

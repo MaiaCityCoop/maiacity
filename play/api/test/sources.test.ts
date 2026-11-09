@@ -4,7 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { hashText } from "../src/hash";
+import { hashText } from "../src/kit/hash";
 import { pieceFile, piecesIn, readSource, SOURCES, type SourceIndex } from "../import/sources";
 
 const index: SourceIndex = JSON.parse(readFileSync(join(SOURCES, "index.json"), "utf8"));

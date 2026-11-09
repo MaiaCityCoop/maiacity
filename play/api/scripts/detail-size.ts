@@ -13,7 +13,7 @@ import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
-import { fromBunSql } from "../src/pg";
+import { fromBunSql } from "../src/kit/pg";
 import { heavy } from "./heavy";
 
 const args = process.argv.slice(2);

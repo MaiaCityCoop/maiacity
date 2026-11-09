@@ -8,16 +8,16 @@ import { resolve } from "node:path";
 
 /** the checks main.yml runs on a pull request, required green on its head before Accept merges it: named once, in
  * .github/required-checks.json (the image copies it to the same place under PLAY_REPO) */
-export const REQUIRED_CHECKS: string[] = Object.values(JSON.parse(readFileSync(resolve(process.env.PLAY_REPO ?? resolve(import.meta.dir, "../../.."), ".github/required-checks.json"), "utf8")));
+const REQUIRED_CHECKS: string[] = Object.values(JSON.parse(readFileSync(resolve(process.env.PLAY_REPO ?? resolve(import.meta.dir, "../../.."), ".github/required-checks.json"), "utf8")));
 /** how old the watcher's read of a pull request may be before it is read again first */
-export const SEEN_MOST_MS = 60_000;
+const SEEN_MOST_MS = 60_000;
 
-export type SubState = "failed" | "waiting" | "working" | "idle";
+type SubState = "failed" | "waiting" | "working" | "idle";
 /** `tag`: what it is, in at most 32 characters (the dialog's chip, "<State> · <tag>"); `why`: its reason, checks named by id only */
 export type Sub = { state: SubState; tag: string; why: string };
 const S = (state: SubState, tag: string, why: string): Sub => ({ state, tag, why });
 /** a check as GitHub concluded it: neutral reads as success, skipped and cancelled as themselves, every other end as failure */
-export type CheckState = "queued" | "running" | "success" | "failure" | "skipped" | "cancelled";
+type CheckState = "queued" | "running" | "success" | "failure" | "skipped" | "cancelled";
 /** a pull request as Ship's watcher (or an Accept) last read it */
 export type PrSeen = {
   pr: number; head: string; draft: boolean; mergeable: boolean | null; state: string; merged: boolean; base: string; checks: Record<string, CheckState>; at: string;
@@ -43,9 +43,10 @@ type Row = {
   pr_seen?: PrSeen | null;
 };
 
-const short = (s: string) => s.slice(0, 7);
+/** a commit as people read it: its first seven characters */
+export const short = (s: string) => s.slice(0, 7);
 /** the text a hold is read by, on the board and in every refusal of a held intent's move */
-export const heldWhy = (held: { title: string }[]) => `held: waits for ${held.map((d) => d.title).join(", ")}`;
+const heldWhy = (held: { title: string }[]) => `held: waits for ${held.map((d) => d.title).join(", ")}`;
 
 /**
  * The must checks with a `run` that did not last pass on `head`, the pull request's head commit, as people read them:
