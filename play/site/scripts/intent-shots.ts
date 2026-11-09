@@ -25,12 +25,9 @@ const fromPlay = async (path: string) => {
 };
 const catalogRows: any[] = await (await fromPlay('/catalog')).json();
 const rowsOf = (hashes: readonly string[]) => hashes.map((h, n) => ({ ...catalogRows.find((r) => r.hash === h), first: n === 0 }));
-/** a stage's fixture: an asset upgrade's, a new story's, or none */
 const assetOf = (stage: string) => (stage in ASSETS ? ASSETS[stage as keyof typeof ASSETS] : undefined);
 const storyOf = (stage: string) => (stage in STORIES ? STORIES[stage as keyof typeof STORIES] : undefined);
-/** an asset upgrade's review as play's /api/intents/<id> gives it: its builds, its source and its base's */
 const reviewOf = (stage: string) => {
-	// a new story's review (play/api/src/stories.ts): its timeline, no base, nothing to diff against
 	const s = storyOf(stage);
 	if (s) return { id: FIXTURES[stage].id, story: s.story, baseStory: null, diff: { title: null, settings: [], tracks: [] }, edits: [], changes: [] };
 	const a = assetOf(stage);
@@ -46,7 +43,6 @@ const SIZES = [
 const ME = { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 };
 const all = Object.values(FIXTURES);
 
-/** drawn once its build is done and prepared for display: no "Building …" or "Preparing …" note left for 3 s, polled */
 async function quiet(page: import('playwright').Page, stage: string, width: number) {
 	await page.waitForTimeout(1500);
 	const busy = page.getByText(/^(Building|Preparing|Drawing) .*…$/);
@@ -83,7 +79,6 @@ for (const size of SIZES.filter((x) => !process.env.WIDTH || x.width === +proces
 	});
 	for (const stage of STAGES.filter((x) => !ONLY || x === ONLY)) {
 		const i = FIXTURES[stage];
-		// the board opened, every column open, the intent's card tapped
 		await page.goto(`${BASE}/intents/`);
 		await page.locator('.card .open', { hasText: i.title }).click({ timeout: 60000 });
 		await page.locator('.item-review').waitFor();
