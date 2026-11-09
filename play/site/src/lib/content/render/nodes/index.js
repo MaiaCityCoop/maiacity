@@ -38,8 +38,7 @@ const handlers = new WeakMap();
 
 /**
  * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: one of the kit's (`isKit`)
- * drawn into a target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for
- * the screen). Every other node material (the sky's, and the environment three bakes from it) as the handler draws it.
+ * drawn into a target comes out linear and untoned, as three's own do; every other as the handler draws it.
  * @param {THREE.WebGLRenderer} r
  */
 export function install(r) {
@@ -48,18 +47,18 @@ export function install(r) {
 	r.setNodesHandler(h);
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
-	// Only the kit's own materials are drawn linear and untoned into a target (and keyed apart as 'target'); every other
-	// node material (the sky, its environment bake) keeps the handler's key and output, toned and encoded by the
-	// renderer's settings of the moment, as on main: keyed by them, an environment bake (no tone, linear) and the frame
-	// that follows are two programs, never one (cb16b7a5: the viewer's sky drawn raw, a haze over everything).
+	// only the kit's own are drawn linear and untoned into a target (keyed apart as 'target'); every other node material
+	// (the sky, its environment bake) keeps the handler's key and output, so a bake and the frame after are two programs
+	// (cb16b7a5: the viewer's sky drawn raw, a haze over everything)
 	let keying = null;
 	const keyOf = h.customProgramCacheKeyCallback;
 	h.customProgramCacheKeyCallback = function () {
 		keying = this;
+		drawing = h.nodeFrame.object;
 		try {
 			return keyOf.call(this);
 		} finally {
-			keying = null;
+			keying = drawing = null;
 		}
 	};
 	h.getOutputCallback = (node, builder) => (onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node);
@@ -245,13 +244,10 @@ const ours = (Base) =>
 			const G = glossy(model.constructor, float(this.gloss));
 			return Object.assign(new G(), model);
 		}
-		// a program for each shape, not for each material: three's key hashes only a node material's nodes, so the
-		// textures beside them (a picture drawn into a target, the sky's cube map) and our own settings join the key, and
-		// two of ours whose shaders differ never share a program (else each uploads its uniforms by name into the other's
-		// layout). Keyed by the material's id instead, every copy compiled its own: walking Sandbox 5, Safari linked 88
-		// programs in 8 frames, one at a time (bd087014).
+		// a program for each shape, not each material (by id, Safari linked 88 in 8 frames walking Sandbox 5: bd087014);
+		// never one for two shaders that differ, each uploading its uniforms into the other's layout (660ad67f)
 		customProgramCacheKey() {
-			return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
+			return `${super.customProgramCacheKey()}#${shapeOf(this, drawing)}`;
 		}
 		copy(source) {
 			super.copy(source);
@@ -261,14 +257,18 @@ const ours = (Base) =>
 	};
 
 const I3 = new THREE.Matrix3();
+/** the object being keyed (install's key callback) */
+let drawing = null;
 /**
- * What makes two of our materials' shaders differ beside three's node hash: the kit's own settings (fade, cut, cap,
- * gloss) and, for every texture slot, how it is read (drawn into, cube, data, array, compressed, its channel, colour
- * space, flipY and a matrix that is not the identity). The same shape is the same program.
- * @param {any} m
+ * What makes two of our shaders differ beside three's node hash: the kit's settings, how each texture slot is read,
+ * and the drawn geometry's attributes and morphs (a map reads `uv`, vertex colours `color`: three's key holds neither,
+ * 660ad67f). The same shape is the same program. @param {any} m @param {any} o
  */
-function shapeOf(m) {
-	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}`;
+function shapeOf(m, o) {
+	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}|${o?.type}${o?.instanceColor ? 'ic' : ''}`;
+	const g = o?.geometry;
+	for (const [k, a] of Object.entries(g?.attributes ?? {}).sort()) s += `|${k}${a.itemSize}${a.array?.constructor.name}${a.normalized ? 'n' : ''}${a.isInstancedBufferAttribute ? 'i' : ''}`;
+	for (const [k, l] of Object.entries(g?.morphAttributes ?? {})) s += `|~${k}${l.length}${g.morphTargetsRelative ? 'r' : ''}`;
 	for (const k of Object.keys(m).sort()) {
 		const t = m[k];
 		if (!t?.isTexture) continue;
