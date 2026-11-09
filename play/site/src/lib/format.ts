@@ -1,4 +1,4 @@
-// How play's pages write a date and a person (only shown, never read back).
+// How play's pages write a date, a person and how long something took (only shown, never read back).
 
 /** a moment in the reader's own way: "9 Nov 2026, 16:27" */
 export const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
@@ -27,3 +27,19 @@ export const calendarDay = (date: string) => new Date(`${date}T00:00:00Z`).toLoc
 /** a person's initials, for a round badge: "Samuel Gómez" → "SG" */
 export const initialsOf = (name: string | null | undefined) =>
 	(name ?? '?').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+
+/** a span of milliseconds: "42 s", "7 min 5 s", "2 h 15 min"; '' where there is none */
+export function span(ms: number | null | undefined): string {
+	if (ms == null || !(ms >= 0)) return '';
+	const sec = Math.round(ms / 1000);
+	if (sec < 60) return `${sec} s`;
+	if (sec < 3600) return `${Math.floor(sec / 60)} min ${sec % 60} s`;
+	const min = Math.round(sec / 60);
+	return `${Math.floor(min / 60)} h ${min % 60} min`;
+}
+
+/** how long a step took: from its start to its end, or to `at` while it runs */
+export function took(s: { started?: string; finished?: string }, at: number): string {
+	if (!s.started) return '';
+	return span((s.finished ? Date.parse(s.finished) : at) - Date.parse(s.started));
+}

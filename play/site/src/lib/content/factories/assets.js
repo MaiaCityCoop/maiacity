@@ -1,14 +1,9 @@
 /*
- * OUR ASSETS ON THE LINE — a product stage of a factory drawn as one of our own assets, by its slot of the Factories'
- * pins (`stages.lifetrac = { shape: 'asset', ref: 'pin:factories/lifetrac' }`, play's database), and the Euro pallets
- * its raw material is stacked on (the Things' `euro-pallet`, ./pallet.js). Each is built as anyone's asset is, in the
- * asset box or got from this device's cache ($lib/content/assets/load.js), at its real size, and turned into what the
- * world needs: a stage's asset into one geometry in its rest pose and one material, so every finished machine on the
- * line is one instance of the real asset; the pallet into its pieces, each painted in the kit's way.
- *
- * In play (2026-11-03) the Factories' pins live in play's database like a sandbox's (`/api/sandboxes/factories/config`),
- * read once before anything is built. What could not be built (no pin yet, a refused build) is left out and said in
- * `missing`: the world then draws the stage's own `fallback` shape and the kit's EPAL pallet instead.
+ * Our assets on the line: a factory's product stage drawn as one of our own assets, by its slot of the Factories' pins
+ * (read from play's database once before anything is built; 2026-11-03), and the Euro pallets its raw material is
+ * stacked on (./pallet.js), each built as anyone's asset is ($lib/content/assets/load.js): a stage's asset as one
+ * geometry and one material, so every finished machine on the line is one instance of it. What could not be built is
+ * said in `missing`, and the stage's own `fallback` shape is drawn instead.
  */
 import { SANDBOX } from '$lib/kernel/sandboxes.js';
 import * as THREE from 'three';

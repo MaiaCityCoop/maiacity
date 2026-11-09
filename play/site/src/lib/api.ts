@@ -1,5 +1,5 @@
 // play's API, same origin (/api behind Caddy; the dev server proxies it)
-import { hashText } from '$lib/content/game/hash.js';
+import { hashText } from '$lib/kernel/hash.js';
 
 export class ApiError extends Error {
 	constructor(message: string, public status: number) {

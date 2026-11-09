@@ -16,7 +16,7 @@ import { resolve } from 'node:path';
 import { webkit, type Browser } from 'playwright';
 import { CSP } from '../src/lib/stories/compose';
 import { engineAt } from '../src/lib/kernel/engines.js';
-import { hashBytes, hashText } from '../src/lib/content/game/hash.js';
+import { hashBytes, hashText } from '../src/lib/kernel/hash.js';
 
 const SITE = resolve(import.meta.dir, '..');
 const V8 = '9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8';

@@ -1,33 +1,20 @@
 // @ts-nocheck — plain JS, runs inside the box
 /*
- * AN ACTOR'S MOVES, WRITTEN DOWN — a clip is a function in the actor's own code, and the page runs none of an asset's
- * code. So each clip of a rigged build is played here, in the box, and written down as tables of numbers that the page
- * plays back (../clips.js `playerOf`, the mirror of this file) for any number of copies, each at its own time, in step
- * with the world's clock: a film's frame is the same frame however often it is drawn. Each bone's turn (about x, y, z),
- * its size and its offset, and the root's place, is a channel:
- *
- * - A clip that runs in time alone (a goat grazing, a bee's wings) is written down over LOOP seconds, at the rate its
- *   fastest channel needs (15 to 120 a second, the line between two samples nowhere further than a fraction of a
- *   degree from the clip). Past LOOP it repeats, its last SEAM seconds blended into its start; a channel that keeps
- *   going one way (an ant round its hill) carries on from where the loop left it (`drift`).
- * - A gait also takes how the actor moves (how far it has come, how fast, how fast it turns: $content/actors/rig.ts
- *   `Motion`). It is written down at a few paces of the one it is made for (its gear, `PACES`), each channel by what
- *   moves it, found here by trying: time alone (a tail's swing, an ear's flick); distance alone (a foot set down and
- *   kept there), over one stride, found here too; both as one wave (a fish's body: a beat for every length swum and a
- *   slow one in time, `k` the metres a second the wave moves by itself); or both, laid one over the other. And what
- *   turning adds to it, at a few rates of turn (`TURNS`).
- *
- * Every number is finite (a clip's NaN is its rest), and every clip that throws is left out.
+ * An actor's clips written down: a clip is a function in the actor's own code, and the page runs none of an asset's
+ * code, so each clip of a rigged build is played here, in the box, and written down as tables the page plays back
+ * (../clips.js `playerOf`, the mirror of this file) for any number of copies, in step with the world's clock. A clip in
+ * time alone repeats every LOOP seconds, its last SEAM blended into its start; a gait is written at a few paces
+ * (`PACES`) and rates of turn (`TURNS`). A clip's NaN is its rest; a clip that throws is left out.
  */
 
 /** how long a clip is written down for before it repeats (s), a gait's time half as long (it is played a few seconds
  *  at a time, between stops), and how much of its end is blended into its start */
-export const LOOP = 32;
-export const GAIT_LOOP = 16;
-export const SEAM = 2;
+const LOOP = 32;
+const GAIT_LOOP = 16;
+const SEAM = 2;
 /** the paces a gait is written down at, of the pace it is made for (above the last, the last: ours go no faster), and
  *  the rates of turn (rad/s) besides none */
-export const PACES = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5];
+const PACES = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5];
 const MOST_PACES = 16;
 export const TURNS = [-2, -1, 1, 2];
 /** numbers a bone: its turn about x, y and z, its size, its offset x, y and z; the root's place after the bones */

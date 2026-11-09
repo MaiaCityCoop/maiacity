@@ -1,18 +1,11 @@
 /**
- * The sounds of the land: the forest always, the stream as you come near
- * it, the hens, the geese and the goats as you walk up to them. Each is a
- * looping recording (/sounds/ in the media library, from the CDN), streamed rather than decoded, so the
- * five-minute forest costs next to nothing in memory; Web Audio sets its
- * volume, easing it up and down as the distances change. Under the glass of
- * a dome everything outside is muffled.
- *
- * The recordings start loading the moment the world is made, while it is
- * still loading, and play as soon as it opens: a page you came to by a click
- * (the dashboard's) may make sound at once. Where the browser still holds it
- * back, it starts with your first touch, click or key. play serves each
- * recording in parts (Range), so a loop begun anywhere in it plays at once.
+ * The sounds of the land: the forest, the stream, the hens, geese and goats, each nearer as you walk up to it, muffled
+ * under a dome's glass. Each is a looping recording streamed (not decoded: the five-minute forest costs next to nothing
+ * in memory) from the media library, play serving it in parts (Range) so a loop begun anywhere plays at once; Web Audio
+ * eases its volume. Where the browser holds sound back, it starts with the first touch, click or key.
  */
 import { asset } from '$lib/site/media/url'
+import { playIfAllowed, resumeIfAllowed } from '$lib/kernel/media.js'
 
 type SoundName = 'forest' | 'inside' | 'water' | 'hens' | 'geese' | 'goats' | 'frogs' | 'bees' | 'factory' | 'machine' | 'lift'
 /** each sound's recording, by hash */
@@ -91,8 +84,8 @@ export function ambience(): Ambience {
 		if (gone) return false
 		make()
 		if (!ctx) return false
-		if (ctx.state !== 'running') void ctx.resume().then(() => ctx?.state === 'running' && unlisten(), () => {})
-		for (const { el } of tracks.values()) if (el.paused) void el.play().catch(() => {})
+		if (ctx.state !== 'running') void resumeIfAllowed(ctx).then((on) => on && unlisten())
+		for (const { el } of tracks.values()) if (el.paused) void playIfAllowed(el)
 		if (ctx.state === 'running') unlisten()
 		return ctx.state === 'running'
 	}
@@ -101,7 +94,7 @@ export function ambience(): Ambience {
 		const now = ctx.currentTime
 		for (const [name, { el, gain }] of tracks) {
 			const src = asset(FILES[name])
-			if (src && el.getAttribute('src') !== src) { el.src = src; void el.play().catch(() => {}) }
+			if (src && el.getAttribute('src') !== src) { el.src = src; void playIfAllowed(el) }
 			const v = (wanted[name] ?? 0) * LOUDEST[name] * (LEVEL[name] ?? 1) * (underGlass && !['forest', 'inside', 'factory', 'machine', 'lift'].includes(name) ? 0.5 : 1)
 			// a slow glide, so nothing ever switches on or off
 			gain.gain.setTargetAtTime(v, now, 0.6)

@@ -1,18 +1,11 @@
 // @ts-nocheck — plain JS, runs in the page
 /*
- * PIECES — a recipe names a shared piece by hash (play/SPEC.md §4.5; intent 5a15e468). A piece is readable source kept
- * among play's files by its BLAKE3 hash, a version of a `piece:<uuid>` document; a recipe requires it by that hash,
- * `require('<64 hex>')`, and lists it in its manifest's `pieces` with every piece those require, so a frozen version
- * always builds the pieces it was accepted with.
- *
- * Before a build the page resolves them here, from play's files alone (../cache/files.js: held to the hash, kept on
- * this device as every file is), and hands the worker one script: the pieces, each a CommonJS module, then the
- * recipe's own file as it is. The frozen engine is not changed: its `defineRecipe` takes the recipe's function, and the
- * pieces' part hands it on with a `require` that gives a piece by its hash and anything else (three.js and its addons)
- * from the engine. The worker still loads nothing.
- *
- * Refused, saying which: a piece not in the manifest, one play's files don't hold, one whose bytes are not its hash,
- * a piece requiring itself (a cycle), and a chain of pieces more than MOST_DEEP deep.
+ * Pieces (play/SPEC.md §4.5; intent 5a15e468): a recipe requires a shared piece by its BLAKE3 hash,
+ * `require('<64 hex>')`, and lists it in its manifest's `pieces`, so a frozen version always builds the pieces it was
+ * accepted with. They are resolved here from play's files alone (../cache/files.js), held to the hash, and handed to the
+ * worker as one script with the recipe: the frozen engine is unchanged, and the worker still loads nothing. Refused,
+ * saying which: a piece not in the manifest, one play's files don't hold, one whose bytes are not its hash, a cycle,
+ * and a chain more than MOST_DEEP deep.
  */
 import { HASH, hashBytes, holds } from '../../../kernel/hash.js';
 import { playFile } from '../cache/files.js';

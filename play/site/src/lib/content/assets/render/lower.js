@@ -1,11 +1,8 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * THE LOWER LEVELS, MADE BESIDE THE PAGE — a renderer's (./index.js) levels of detail made from a finer level it has
- * (./simplify.js), in a worker of its own where the browser has one, so even the biggest machine (the LifeTrac, one
- * shape of 437,713 corners) never holds the page's frames: a second or two of simplifying happens off them. Without a
- * worker, in the page, a step at a time between frames. One kind at a time, in the order they were asked for (a
- * recipe's level made lighter, which is drawn as it came meanwhile, after all the others). What it makes is kept on
- * the device by ./levels.js, so a build's levels are made once a device.
+ * The renderer's (./index.js) lower levels of detail made by ./simplify.js in a worker of its own where the browser has
+ * one, so even the biggest machine (the LifeTrac, one shape of 437,713 corners: a second or two) never holds the page's
+ * frames; without one, in the page, a step at a time between frames. Kept on the device by ./levels.js.
  */
 import * as THREE from 'three';
 import { LEFT, lowerDraws } from './simplify.js';
@@ -41,7 +38,6 @@ function plainOf(d) {
 	return { attributes, index, tris: d.tris, n: d.n, size: 2 * g.boundingSphere.radius * scale, scale, locals: d.locals.slice(0, d.n * 16), side: d.material.side, see: through(d.material), painted: !!d.material.map };
 }
 
-/** the items of an array of `size` numbers each that `pick` names, in its order */
 const picked = (A, pick, size) => {
 	const out = new A.constructor(pick.length * size);
 	pick.forEach((c, i) => out.set(A.subarray(c * size, c * size + size), i * size));
@@ -84,7 +80,6 @@ export function levelOf(source, made) {
 export function createLowering(o = {}) {
 	/** @type {Worker | null} */
 	let worker = null;
-	/** no worker to be had (none here, or it stopped): the page makes them */
 	let gone = o.worker === false;
 	let disposed = false;
 	let next = 1, busy = 0;
@@ -123,7 +118,6 @@ export function createLowering(o = {}) {
 
 	const frame = () => new Promise((ok) => setTimeout(ok, 0));
 
-	/** the drawings lowered, in the worker or else in the page */
 	async function run(draws, plans) {
 		if (disposed) throw new Error('the renderer was disposed');
 		const w = start();
@@ -141,7 +135,6 @@ export function createLowering(o = {}) {
 		return lowerDraws(draws, plans, frame);
 	}
 
-	/** the next job begun, when none is running */
 	function pump() {
 		if (running || !jobs.length) return;
 		const i = jobs.findIndex((j) => !j.later);
@@ -170,7 +163,6 @@ export function createLowering(o = {}) {
 				pump();
 			});
 		},
-		/** how many kinds are waiting for their levels, or being lowered */
 		get busy() {
 			return busy;
 		},

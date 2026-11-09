@@ -1,36 +1,9 @@
-// A WORLD SHOT AS DATA — everything the film camera needs to render one shot of a sandbox, as a plain record (the
-// `shots` table keeps it, versioned; a world clip on a timeline names it). Nothing in it is a picture: the world
-// renders it on demand — live in the studio, as a proxy, or as a 4K log plate at render time.
-//
-//   spec = {
-//     world:    { sandbox: one of ./worlds.js WORLDS (a sandbox's UUID, or worlds), area?, build: { commit, hash, file? } | null, seed, stand: [x, z],
-//                 asset?, recipe? (sandbox `worlds`: the world asset's UUID and its version's recipe hash, play/SPEC.md §4.11),
-//                 dome?, props?, clock },   which world (./worlds.js) and where in it; dome and props are a dome cell's
-//     seconds, fps: 30, aspect: '1:1',          the shot's length, frame rate, and the shape it was composed for
-//     camera:   ./camera.js (move · orbit · turn · fly · whip · keys, with a curve; or `world`, the world's
-//               own camera), its poses in the world's frame or, with `frame`, in one of the world's own (a van, a
-//               pickup: the world says where that stands at each moment, so the camera rides with it),
-//     lens:     { fov, fovTo?, near? },         vertical field of view in degrees (for `aspect`), zooming to fovTo; the
-//               nearest the camera sees (m: 0.05 inside a van), else the world's own
-//     time:     { hour, hourTo? },              the hour, and where a time-lapse runs to
-//     exposure: { meter: 'lock' | 'ramp' | 'fixed', stops, ev? },   metered like a camera (middle grey 18%), `stops`
-//               over or under it; `ev` = the metered (or, fixed, the given) gain in stops — once known, it is pinned
-//     lights:   [{ id: 'sun' | 'fill' | 'glow' | 'lamps' | 'sky' | 'glass' | 'cb60', intensity?: k | [[t, k], …], color? }],  multipliers
-//               (glass: the low sun's warm sheen on the domes' glass, 0 = none, about 1–4 a glow; cb60: the Neewer CB60 of the
-//               room world, since removed; kept so its old shots still read)
-//     parts:    [{ id, <channel>: value | [[t, value], …] }],  the world's moving parts (./worlds.js `parts`: a van
-//               along its road, a tent pitched), each channel a constant or keys on the shot's clock, kept to the
-//               channel's range; a part left out moves as the world moves it
-//     cues:     [{ at, kind: 'sound', hash, level } | { at, kind: 'event', name, args }],  on the shot's clock (seconds)
-//     shutter:  { angle: 180, samples: 1 },     motion blur: the shutter open for angle/360 of a frame, in samples
-//     framing:  { [shape]: { fov?, yaw?, pitch?, dx?, dy? } },  a native camera per delivery shape (else the rule)
-//     look?:    preset name (vault-render `grade::PRESETS`) — the grade it was lit for; a suggestion, never applied here
-//     meta?:    { … }                           notes (size, scene, where it came from): not part of the picture
-//   }
-//
-// A shot's time t is in seconds from its first frame; its progress is t / seconds. The world's own clock (animals,
-// water, the trucks of a set) runs at world.clock + t, so the same shot always sees the same world.
-// Plain JavaScript, shared by the browser (film mode), the API, the worker and the scripts.
+// A world shot as data: everything the film camera needs to render one shot of a sandbox, as a plain record (`Spec`
+// below; the `shots` table keeps it, versioned). The world renders it on demand, live in the studio or as a 4K log
+// plate. A shot's time t is seconds from its first frame, and the world's own clock runs at world.clock + t, so the same
+// shot always sees the same world. `lens.fov` is vertical, in degrees, for `aspect`; `exposure` is metered as a camera
+// meters (middle grey 18%); `lights` are multipliers (`cb60`: the Neewer CB60 of the room world, since removed, kept so
+// its old shots still read); `look` names the grade it was lit for, never applied here.
 import { isHash } from '../../../kernel/hash.js';
 import { checkCamera, fovOf, pathOf } from './camera.js';
 import { DEFAULT_SANDBOX, WORLDS } from './worlds.js';
@@ -61,9 +34,7 @@ import { DEFAULT_SANDBOX, WORLDS } from './worlds.js';
 /** @typedef {'sun' | 'fill' | 'glow' | 'lamps' | 'sky' | 'glass' | 'cb60'} LightId */
 /** @typedef {import('./worlds.js').Sandbox} Sandbox */
 
-/** The delivery shapes, width over height. */
 export const SHAPES = /** @type {Record<Shape, number>} */ ({ '1:1': 1, '16:9': 16 / 9, '9:16': 9 / 16, '4:5': 4 / 5 });
-/** The lights a shot can set, over what the hour gives them. */
 export const LIGHTS = /** @type {LightId[]} */ (['sun', 'fill', 'glow', 'lamps', 'sky', 'glass', 'cb60']);
 /** The looks a shot may suggest (vault-render `grade::PRESETS`). */
 const LOOKS = ['neutral', 'cold', 'dip', 'bright', 'night', 'warm'];
@@ -218,7 +189,6 @@ export function normalize(s) {
 	};
 }
 
-/** A curve's value at shot time t. */
 const valueAt = (/** @type {Curve} */ c, /** @type {number} */ t) => {
 	if (!Array.isArray(c)) return c;
 	if (t <= c[0][0]) return c[0][1];
@@ -282,7 +252,6 @@ export function evaluate(spec, t, shape) {
 
 // ── fingerprints ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** JSON with its keys sorted at every level: the same data always gives the same text. */
 export function stable(/** @type {unknown} */ v) {
 	/** @returns {string} */
 	const go = (/** @type {any} */ x) => {

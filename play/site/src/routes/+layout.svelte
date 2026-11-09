@@ -22,7 +22,7 @@
 	import { page, updated } from '$app/state';
 	import NavPill from '$lib/site/app/NavPill.svelte';
 	import IntentsModal from '$lib/site/intents/IntentsModal.svelte';
-	import { closeIntents, intentsModal, openIntents } from '$lib/site/intents/intents.svelte';
+	import { closeIntents, intentsModal, openIntents } from '$lib/site/app/intents.svelte';
 	import { pillContext } from '$lib/site/app/pill.svelte.js';
 	import { footHost } from '$lib/site/app/foot.js';
 	import { initialsOf } from '$lib/format';

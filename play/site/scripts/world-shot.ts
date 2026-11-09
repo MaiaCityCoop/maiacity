@@ -28,7 +28,7 @@ import type { WorkerLike } from '../src/lib/stories/world-build';
 const LIB = resolve(import.meta.dir, '../src/lib') + '/';
 Bun.plugin({ name: 'lib', setup: (b) => void b.onResolve({ filter: /^\$lib\// }, (a) => ({ path: Bun.resolveSync('./' + a.path.slice(5), LIB) })) });
 const { enginesOf } = await import('../src/lib/kernel/engines.js');
-const { hashText } = await import('../src/lib/content/game/hash.js');
+const { hashText } = await import('../src/lib/kernel/hash.js');
 const { piecesOf } = await import('../src/lib/content/assets/box/pieces.js');
 const { plantingsOf } = await import('../src/lib/content/assets/uses.js');
 const { frameOf, framesOf } = await import('../src/lib/stories/live');

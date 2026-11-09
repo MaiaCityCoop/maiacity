@@ -195,11 +195,15 @@
 	/** the bar and the cursor hidden while it plays and the pointer rests */
 	let resting = $state(false);
 	let restTimer: ReturnType<typeof setTimeout> | undefined;
-	const fsElement = () => document.fullscreenElement ?? (document as any).webkitFullscreenElement ?? null;
+	// Safari on iPhone and older WebKit name the full screen with a webkit prefix only
+	type WebkitDocument = Document & { webkitFullscreenElement?: Element | null; webkitFullscreenEnabled?: boolean; webkitExitFullscreen?: () => Promise<void> };
+	type WebkitElement = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
+	const doc = () => document as WebkitDocument;
+	const fsElement = () => document.fullscreenElement ?? doc().webkitFullscreenElement ?? null;
 	async function enterFull() {
-		const el = screenEl as any;
+		const el = screenEl as WebkitElement | undefined;
 		const ask = el?.requestFullscreen ?? el?.webkitRequestFullscreen;
-		if (ask && (document.fullscreenEnabled || (document as any).webkitFullscreenEnabled)) {
+		if (ask && (document.fullscreenEnabled || doc().webkitFullscreenEnabled)) {
 			try {
 				await ask.call(el);
 				return;
@@ -211,7 +215,7 @@
 		full = true;
 	}
 	async function exitFull() {
-		if (fsElement()) await (document.exitFullscreen ?? (document as any).webkitExitFullscreen)?.call(document);
+		if (fsElement()) await (document.exitFullscreen ?? doc().webkitExitFullscreen)?.call(document);
 		inWindow = false;
 		full = false;
 	}

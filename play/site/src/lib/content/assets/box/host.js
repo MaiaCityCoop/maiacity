@@ -4,25 +4,14 @@ import { Shell, TIMEOUT, engineCode as frozenCode } from '$lib/kernel/sandbox/fr
 import { budget, buildTurn } from '$lib/content/render/budget.js';
 import { resolved } from './pieces.js';
 /*
- * THE ASSET BOX — where an asset's builder runs when we cannot trust it: the shell (../../../kernel/sandbox/frame.js, a worker
- * inside a frame with no origin, the same for every host of code we cannot trust) running the asset engine.
- *
- * - The worker is a frozen engine (static/engines/engine-v<n>.js), its bytes checked against its BLAKE3
- *   hash (../../../kernel/sandbox/engines.json, kind box) before it starts, and handed in whole: the box can load nothing. Each build hands it its
- *   recipe as code (../catalog.js `recipeAt`), which the page checked against the recipe's hash as well.
- * - Each recipe runs in a worker of its own (a room of the shell), one that no other recipe's
- *   code ever ran in: a recipe sees only its own jobs, and the shell takes an answer only from the room its job was
- *   asked in, so no recipe can answer another's build with a model of its own (which the page would then keep under
- *   that recipe's name). A recipe is known by its code, the bytes it runs, so even a caller handing two recipes one
- *   hash keeps them apart. The box keeps the rooms of the last ROOMS recipes asked of it and of every build it keeps
- *   running, and one worker made ahead, nothing run in it, for the next: it loads three.js while the last builds.
- * - It holds only what the device's budget lets it (../../render/budget.js): as many builds at once in the whole page,
- *   as many rooms kept, a spare or none, and a box with nothing to do (no job open, no build kept running) lets its
- *   frame and workers go after the budget's `idle` time; its next job starts it again.
- * - Out comes plain data only (./serialize.js), which the page checks and builds its own objects from (./rebuild.js).
- * - A recipe dies alone (the shell's `apart`): one whose build runs past its time, or whose worker crashes, has its
- *   room let go, its worker ended and the builds kept running in it gone with it, while every other recipe's room, and
- *   the machines running there, go on in the same box. Its next build starts in a fresh worker.
+ * The asset box: where an asset's builder runs when we cannot trust it, the shell (../../../kernel/sandbox/frame.js)
+ * running a frozen engine (static/engines/engine-v<n>.js), its bytes checked against its BLAKE3 hash
+ * (../../../kernel/sandbox/engines.json) and handed in whole: the box can load nothing.
+ * - Each recipe runs in a worker no other recipe's code ran in, and an answer is taken only from the room its job was
+ *   asked in, so no recipe can answer another's build; a recipe is known by its code, not by the hash it is handed with.
+ * - It holds only what the device's budget lets it (../../render/budget.js), and lets its frame go when idle.
+ * - Out comes plain data only (./serialize.js), checked and rebuilt by the page (./rebuild.js).
+ * - A recipe dies alone (the shell's `apart`): its room, its worker and its running builds go, every other room goes on.
  */
 
 export { TIMEOUT };

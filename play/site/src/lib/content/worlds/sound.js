@@ -105,7 +105,7 @@ export function createSound(o = {}) {
 					l.src.start(ctx.currentTime, Math.random() * buffer.duration);
 					l.g.gain.linearRampToValueAtTime(0.9 * s.gain, ctx.currentTime + 0.4);
 				})
-				.catch(() => {});
+				.catch((e) => console.warn(`a sound loop (${s.hash.slice(0, 8)}) is not played: ${e?.message ?? e}`));
 		}
 		at(l.pan, v);
 		l.seen = true;

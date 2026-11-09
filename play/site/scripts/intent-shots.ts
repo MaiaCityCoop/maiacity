@@ -25,12 +25,15 @@ const fromPlay = async (path: string) => {
 };
 const catalogRows: any[] = await (await fromPlay('/catalog')).json();
 const rowsOf = (hashes: readonly string[]) => hashes.map((h, n) => ({ ...catalogRows.find((r) => r.hash === h), first: n === 0 }));
+/** a stage's fixture: an asset upgrade's, a new story's, or none */
+const assetOf = (stage: string) => (stage in ASSETS ? ASSETS[stage as keyof typeof ASSETS] : undefined);
+const storyOf = (stage: string) => (stage in STORIES ? STORIES[stage as keyof typeof STORIES] : undefined);
 /** an asset upgrade's review as play's /api/intents/<id> gives it: its builds, its source and its base's */
 const reviewOf = (stage: string) => {
 	// a new story's review (play/api/src/stories.ts): its timeline, no base, nothing to diff against
-	const s = (STORIES as any)[stage];
+	const s = storyOf(stage);
 	if (s) return { id: FIXTURES[stage].id, story: s.story, baseStory: null, diff: { title: null, settings: [], tracks: [] }, edits: [], changes: [] };
-	const a = (ASSETS as any)[stage];
+	const a = assetOf(stage);
 	if (!a) return null;
 	const w = FIXTURES[stage].work!;
 	return { doc: { id: a.asset, kind: 'asset', what: 'asset', label: w.label, open: null }, seedNumber: a.base.number, moved: false, changes: [], edits: [], id: FIXTURES[stage].id, source: a.source, recipe: a.recipes[0], baseVersion: a.base, builds: rowsOf(a.recipes) };
@@ -86,20 +89,20 @@ for (const size of SIZES.filter((x) => !process.env.WIDTH || x.width === +proces
 		await page.locator('.item-review').waitFor();
 		await page.waitForTimeout(400);
 		// an asset upgrade opens on its Changes tab, the asset drawn inline: shot once it is drawn
-		if ((ASSETS as any)[stage]) await quiet(page, stage, size.width);
+		if (assetOf(stage)) await quiet(page, stage, size.width);
 		// a story opens on its Changes tab, played in the Stories player: shot once its first frame is in
-		if ((STORIES as any)[stage]) {
+		if (storyOf(stage)) {
 			await page.locator('.inline-story .player').waitFor({ timeout: 60000 });
 			await page.waitForTimeout(3000);
 		}
 		await page.screenshot({ path: `${OUT}/${stage}-${size.width}.png` });
 		// on a phone and a tablet the picture fills the tab: the controls and the timeline are below it, scrolled to
-		if ((STORIES as any)[stage] && size.width < 900) {
+		if (storyOf(stage) && size.width < 900) {
 			await page.locator('.inline-story + .btn').scrollIntoViewIfNeeded();
 			await page.waitForTimeout(800);
 			await page.screenshot({ path: `${OUT}/${stage}-timeline-${size.width}.png` });
 		}
-		if (!(ASSETS as any)[stage]) continue;
+		if (!assetOf(stage)) continue;
 		// its work opened from the Changes tab: the asset built in the asset box, as the board draws it
 		await page.locator('.linked .open').click();
 		await page.locator('.review:not(.item-review) canvas').first().waitFor({ timeout: 90000 });

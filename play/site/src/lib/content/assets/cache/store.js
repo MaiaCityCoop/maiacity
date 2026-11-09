@@ -1,30 +1,20 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * THE DEVICE'S ASSET CACHE, ITS FOLDER — where what this device keeps of play's assets lies: builds (./builds.js), what
- * was made from them (./levels.js) and play's files by their hash (./files.js). Never synced and never the truth: the
- * recipe is (any device builds it again), so this may be emptied at any time, and a page that finds nothing builds.
- * Kept in the origin private file system (OPFS), in a folder of its own (DIR), each entry a file; bounded: past LIMIT
- * bytes the entries used longest ago go first.
- *
- * Writing costs the page nothing it needs for its frames: files are written, and pictures encoded, in a worker of the
- * cache's own (./cache.worker.js), one after another, in the order they came, once the builds stop coming in (`quiet`):
- * a world that is loading has the graphics card for its frames and its shaders.
- *
- * A page keeps nothing in IndexedDB (Samuel 2026-10-20): this cache was kept there until then, and that database is
- * deleted once on each device (`OLD`).
+ * The device's asset cache: builds (./builds.js), what was made from them (./levels.js) and play's files (./files.js),
+ * in the origin private file system (OPFS), a folder of its own (DIR), bounded at LIMIT bytes. Never the truth (the
+ * recipe is): it may be emptied at any time. Written in its own worker (./cache.worker.js) once the builds stop coming
+ * in (`quiet`), so a loading world has the graphics card for its frames. Nothing in IndexedDB (Samuel 2026-10-20): the
+ * old database there is deleted once on each device (`OLD`).
  */
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { HEX } from '../../../kernel/hash.js';
 import { budget } from '../../render/budget.js';
 
-/** how much the cache may hold (bytes) */
 export const LIMIT = 512 * 1024 * 1024;
-/** the cache's folder in the origin private file system */
 const DIR = 'asset-cache';
 /** a build's file is named BUILD and its key, a file of play's FILE and its hash, a level made from a build LEVEL and
  *  its key */
 export const BUILD = 'build-', FILE = 'recipe-', LEVEL = 'level-';
-/** an entry's file */
 const ENTRY = new RegExp(`^(build|recipe|level)-${HEX}$`);
 /** the file where when each entry was last used is noted, by its file's name */
 const USED = 'used.json';
@@ -64,7 +54,7 @@ export function workerOf() {
 	return worker;
 }
 
-/** a job for the worker `w`, `moved` handed over to it @param {Worker} w @param {object} message @param {Transferable[]} moved */
+/** @param {Worker} w @param {object} message @param {Transferable[]} moved */
 export const ask = (w, message, moved) =>
 	new Promise((ok, no) => {
 		const id = job++;
@@ -93,7 +83,6 @@ export function folder() {
 	})());
 }
 
-/** the bytes of the file `name` of the folder `d`, or undefined if there is none */
 export async function read(d, name) {
 	try {
 		return new Uint8Array(await (await (await d.getFileHandle(name)).getFile()).arrayBuffer());
@@ -161,7 +150,6 @@ export async function write(d, name, bytes) {
 	}
 }
 
-/** removes the file `name` of the folder `d`: whether it is gone */
 export const removed = (d, name) => d.removeEntry(name).then(() => true, (e) => e?.name === 'NotFoundError');
 
 /** the cache's entries: each one's file's name, its bytes and when it was written (ms) */
@@ -214,7 +202,6 @@ async function note() {
  */
 export const lost = (p) => Promise.resolve(p).then(undefined, () => false);
 
-/** what the cache writes, one after another */
 let line = Promise.resolve();
 /** `work` once everything written before it is: its own result, the line going on whether it failed or not */
 export function inLine(work) {
@@ -230,7 +217,6 @@ export function inLine(work) {
  *  small device (../../render/budget.js) a little only, as every build waiting holds its whole data in the page */
 const QUIET = 2000, LATEST = 20000;
 const waits = () => (budget().small ? { quiet: 300, latest: 2000 } : { quiet: QUIET, latest: LATEST });
-/** the builds waiting for a quiet moment, and the timer that ends the wait */
 let calm = [], timer = 0;
 /** settles once nothing has been handed in for QUIET ms (each one handed in starts that wait again), or LATEST ms on */
 export function quiet() {
@@ -256,7 +242,6 @@ export async function added(d, bytes) {
 	if (held === null || held > LIMIT) held = await trim(d);
 }
 
-/** an entry went: the cache is counted again */
 export const recount = () => {
 	held = null;
 };
@@ -279,7 +264,6 @@ async function trim(d) {
 	return total;
 }
 
-/** empties the cache */
 export async function clear() {
 	const d = await folder();
 	if (!d) return;

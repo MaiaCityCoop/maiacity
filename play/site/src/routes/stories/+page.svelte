@@ -10,7 +10,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { StoryItem } from '$wire';
-	import { storyAddress, storyHash } from '$lib/app/address';
+	import { storyAddress, storyHash } from '$lib/address';
 	import { api, fileUrl } from '$lib/api';
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';

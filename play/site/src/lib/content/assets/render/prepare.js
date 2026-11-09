@@ -1,19 +1,8 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * A BUILD, READY TO BE DRAWN MANY TIMES — one level of detail of an asset (a build the box made and the page rebuilt,
- * ../load.js) turned into the few drawings the renderer (./index.js) repeats for every copy of it in a world:
- *
- * - each shape and material it draws once becomes one, its own part's place in the asset baked into its corners, and
- *   all of them of one material are welded into one shape: a chair of forty parts in three materials is three
- *   drawings, not forty;
- * - a shape it draws many times (a bolt, a leaf, a fence post, or its own instances) stays one shape drawn at each of
- *   its places (`locals`), the copies of the asset times its copies of it;
- * - a part's materials become the renderer's own (./presets.js), one for all that are the same;
- * - a pose of blend shapes (a face's smile) is baked into its shape, as an asset stands still until its motion comes
- *   to the renderer (phase 6). Lines and points are left out and counted.
- *
- * And its measure: the box round it, the ball that holds it (how big it looks from afar, ./lod.js), how tall it stands
- * and how far it reaches out from its upright axis (its picture's frame, ./impostors.js).
+ * One level of detail of an asset (../load.js) as the few drawings the renderer (./index.js) repeats for every copy of
+ * it: what it draws once welded by material (a chair of forty parts in three materials is three drawings), what it draws
+ * many times one shape at each of its places (`locals`). Lines and points are left out and counted.
  */
 import * as THREE from 'three';
 
@@ -28,14 +17,12 @@ import * as THREE from 'three';
 
 const IDENTITY = new THREE.Matrix4().toArray();
 
-/** the attributes a shape has, as they must match to be welded */
 const signatureOf = (g) =>
 	Object.entries(g.attributes)
 		.map(([k, a]) => `${k}:${a.itemSize}:${a.array.constructor.name}:${a.normalized ? 1 : 0}`)
 		.sort()
 		.join(',');
 
-/** a shape's indices, made when it has none */
 const indexOf = (g) => (g.index ? g.index.array : Uint32Array.from({ length: g.attributes.position.count }, (_, i) => i));
 
 /** each corner's new number in the group being cut out, -1 for none: kept between groups, and only as big as needed */
@@ -51,7 +38,6 @@ function groupOf(g, group) {
 	const end = Math.min(idx.length, group.start + group.count);
 	const n = g.attributes.position.count;
 	if (renumber.length < n) renumber = new Int32Array(n).fill(-1);
-	/** the corners it uses, in the order they first come */
 	const used = [];
 	const index = new Uint32Array(Math.max(0, end - group.start));
 	for (let t = group.start; t < end; t++) {
@@ -100,7 +86,6 @@ function posed(g, weights) {
 
 const _m = new THREE.Matrix4(), _n = new THREE.Matrix3(), _v = new THREE.Vector3();
 
-/** many shapes of one material and the same attributes, each at its place, welded into one */
 function weld(list) {
 	let vertices = 0, indices = 0;
 	for (const { g } of list) {
@@ -159,7 +144,6 @@ function weld(list) {
  */
 export function prepare(root, presets) {
 	root.updateMatrixWorld(true);
-	/** the shapes it draws, by shape and material: each with every place it is drawn at */
 	const by = new Map();
 	const left = { lines: 0, points: 0 };
 	const split = new Map();
@@ -211,7 +195,6 @@ export function prepare(root, presets) {
 	};
 	visit(root);
 
-	// what is drawn once, of one material and the same attributes, welded into one; what is drawn many times, as it is
 	/** @type {Draw[]} */
 	const draws = [];
 	const welds = new Map();
@@ -230,7 +213,6 @@ export function prepare(root, presets) {
 	}
 	for (const w of welds.values()) draws.push(drawOf(weld(w.list), w.material, Float32Array.from(IDENTITY), null, w.cast));
 
-	// its measure, from every drawing at every place
 	const box = new THREE.Box3();
 	let reach = 0;
 	const corner = new THREE.Vector3(), b = new THREE.Box3();

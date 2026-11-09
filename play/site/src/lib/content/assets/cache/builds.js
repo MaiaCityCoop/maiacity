@@ -1,20 +1,12 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * BUILDS KEPT ON THIS DEVICE — what the box built (../box), kept in the device's cache (./store.js), so a page shows an
- * asset it showed before without running its recipe again. Each build a file named by the key `keyOf` names, the box's
- * plain data and the card as they came out (./packed.js); what is read back goes through the same checks as what comes
- * out of a box (../load.js: the card's schema, ../box/rebuild.js), so an entry spoiled by anyone is refused like a box
- * that lies, dropped and built again.
+ * Builds kept on this device (./store.js), so a page shows an asset it showed before without running its recipe again;
+ * each is read back through the same checks as a box's answer (../load.js), so a spoiled entry is dropped and built
+ * again. Each is kept by
  *
  *   key = BLAKE3 in its key-derivation mode, context CONTEXT, of [engine, recipe, values]
  *
- * engine: the frozen engine's hash (../../../kernel/sandbox/engines.json), recipe: the recipe file's hash, values: what
- * it is built with, sorted (`seed=maia&stage=9`). The same recipe with the same values on the same engine is the same
- * build, so it is kept once; a recipe changed is another hash, so another build, and the old ones fade out by the
- * cache's LIMIT.
- *
- * A build's pictures are written as PNG files (lossless) in the cache's worker, once the builds stop coming in: a
- * picture is copied and read back off the graphics card to be written.
+ * (the frozen engine's hash, the recipe file's hash, and the values sorted: `seed=maia&stage=9`).
  */
 import { blake3 } from '@noble/hashes/blake3.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';

@@ -7,13 +7,12 @@
 	minutes and slowest steps. `?days=<n>` the window (7 by default, 1 to 30). Admins only; it changes nothing.
 -->
 <script lang="ts">
-	import { shortWhen as short, weekday as dayName } from '$lib/format';
+	import { shortWhen as short, span, weekday as dayName } from '$lib/format';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';
-	import { span } from '$lib/site/intents/took';
 
 	type Stage = 'idea' | 'specify' | 'build' | 'proposal' | 'ship';
 	type Segment = { stage: Stage; who: 'agent' | 'person' | 'ci'; from: string; to: string | null; ms: number };

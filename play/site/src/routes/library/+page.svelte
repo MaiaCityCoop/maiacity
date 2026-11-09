@@ -15,12 +15,13 @@
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import type { LibraryFile } from '$wire';
-	import { libraryAddress, storyHref } from '$lib/app/address';
+	import { libraryAddress, storyHref } from '$lib/address';
 	import { api, fileText, fileUrl as url } from '$lib/api';
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';
 	import { acting, asCity } from '$lib/acting.svelte';
 	import { listWhen as when } from '$lib/format';
+	import { playIfAllowed } from '$lib/kernel/media.js';
 
 	const PAGE = 60;
 	type File = LibraryFile;
@@ -226,7 +227,7 @@
 							<button class="tile" class:on={open?.hash === f.hash} onclick={() => show(f)} title={f.label ?? f.hash}>
 								<span class="pic">
 									{#if kindOf(f) === 'video'}
-										<video src="{url(f.hash)}#t=0.5" muted playsinline preload="metadata" onmouseenter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})} onmouseleave={(e) => (e.currentTarget as HTMLVideoElement).pause()}></video>
+										<video src="{url(f.hash)}#t=0.5" muted playsinline preload="metadata" onmouseenter={(e) => playIfAllowed(e.currentTarget as HTMLVideoElement)} onmouseleave={(e) => (e.currentTarget as HTMLVideoElement).pause()}></video>
 										<span class="badge">Video</span>
 									{:else if kindOf(f) === 'audio'}
 										<span class="sound"><Icon name="audio" size={30} /></span>

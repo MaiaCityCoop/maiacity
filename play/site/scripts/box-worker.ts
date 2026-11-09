@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { enginesOf } from '../src/lib/kernel/engines.js';
-import { hashBytes } from '../src/lib/content/game/hash.js';
+import { hashBytes } from '../src/lib/kernel/hash.js';
 import type { WorkerLike } from '../src/lib/stories/world-build';
 
 const SHIM = `const __B = Blob, __t = new Map();

@@ -68,7 +68,10 @@ async function playwright() {
 	for (const from of [site, process.cwd()]) {
 		try {
 			return createRequire(resolve(from, 'x.js'))('playwright');
-		} catch {}
+		} catch (e) {
+			// not installed there: the next place
+			if (e?.code !== 'MODULE_NOT_FOUND') throw e;
+		}
 	}
 	throw new Error('Playwright is needed: bun install (in play/site)');
 }

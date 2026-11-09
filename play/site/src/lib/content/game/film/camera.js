@@ -1,23 +1,7 @@
-// THE FILM CAMERA AS DATA — every camera move of a world shot is a plain object (JSON), and one evaluator turns it
-// into a pose at any moment. A pose is [x, y, z, yaw, pitch], as Sandbox 4's camera takes it (`__village.fly`).
-//
-//   { kind: 'move',  from, to, aimFrom, aimTo, curve }          from one position and aim to another
-//   { kind: 'orbit', centre: [x, z], a0, a1, r0, r1, y0, y1, aim, curve }   round a centre, looking at `aim`
-//   { kind: 'turn',  at, yaw0, yaw1, pitch0, pitch1, curve }      turn in place
-//   { kind: 'fly',   keys: [[position, aim], …], curve }         a drone flight through points (Catmull-Rom)
-//   { kind: 'whip',  path: <camera>, out, into, d }                a whip pan at the end (out) or start (into)
-//   { kind: 'keys',  keys: [{ t, position, aim } | { t, position, yaw, pitch }, … + fov?], curve }
-//                                                                  keyframes in shot seconds (a recorded flight)
-//   { kind: 'world' }                                             the world's own camera: whatever the world shows
-//                                                                  at that moment (a game's coded moves), no pose here
-//
-// Any of them may name a `frame`: one of the world's own frames its poses are in (a van, a pickup), where the world
-// says that stands at each moment (maia/content/sandbox-kit/film.js `frames`), so the camera rides with it however the
-// world got it there; without one, the poses are the world's.
-//
-// `curve` is one of CURVES by name. The maths is exactly maia/content/scripts/film/camera.mjs's (which is now built on this file),
-// so a shot list written with camera.mjs becomes data without a single pose changing.
-// Plain JavaScript, shared by the browser (film mode), the worker, the API and the scripts.
+// The film camera as data: every camera move of a world shot is a plain object (JSON), evaluated to a pose
+// [x, y, z, yaw, pitch] at any moment, as Sandbox 4's camera takes it (`__village.fly`). `fly` passes through its
+// points (Catmull-Rom), `whip` pans at its end (`out`) or start (`into`), `world` leaves the camera to the world. Any may
+// name a `frame` of the world's own (a van) its poses are in, where the world says it stands (../../sandbox-kit/film.js).
 
 /** @typedef {[number, number, number, number, number]} Pose  x, y, z, yaw, pitch */
 /** @typedef {[number, number, number]} Vec3 */

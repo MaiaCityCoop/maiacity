@@ -6,7 +6,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { openIntents } from '$lib/site/intents/intents.svelte';
+	import { openIntents } from '$lib/site/app/intents.svelte';
 
 	onMount(async () => {
 		const focus = location.hash.slice(1);
