@@ -134,7 +134,8 @@ const o = args(process.argv.slice(2));
 mkdirSync(o.out, { recursive: true });
 const { chromium } = await playwright();
 const dev = await server(o.url);
-const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+// on a Mac its Metal, WebGPU on (intent c1bee1f8); elsewhere software, as before
+const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] } : { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const results = [];
 try {
 	for (const r of o.recipes) {

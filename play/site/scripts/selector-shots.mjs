@@ -96,6 +96,35 @@ function countTriangles(hour) {
 		wrap('drawArraysInstanced', 2, 3);
 		wrap('drawElementsInstanced', 1, 4);
 	}
+	// WebGPU's draws too (intent c1bee1f8): its render passes', triangles by the pipeline's topology (three's default a list)
+	const P = w.GPURenderPassEncoder?.prototype, D = w.GPUDevice?.prototype;
+	if (P && D) {
+		const topology = new WeakMap(), pipeline = new WeakMap();
+		for (const name of ['createRenderPipeline', 'createRenderPipelineAsync']) {
+			const make = D[name];
+			if (!make) continue;
+			D[name] = function (desc) {
+				const got = make.call(this, desc);
+				const keep = (pl) => (pl && topology.set(pl, desc?.primitive?.topology ?? 'triangle-list'), pl);
+				return got && typeof got.then === 'function' ? got.then(keep) : keep(got);
+			};
+		}
+		const set = P.setPipeline;
+		P.setPipeline = function (pl) {
+			pipeline.set(this, pl);
+			return set.call(this, pl);
+		};
+		for (const name of ['draw', 'drawIndexed']) {
+			const f = P[name];
+			if (!f) continue;
+			P[name] = function (count, n = 1, ...rest) {
+				const t = topology.get(pipeline.get(this)) ?? 'triangle-list';
+				if (t === 'triangle-list') w.__tri.now += Math.floor(count / 3) * n;
+				else if (t === 'triangle-strip') w.__tri.now += Math.max(0, count - 2) * n;
+				return f.call(this, count, n, ...rest);
+			};
+		}
+	}
 	const raf = w.requestAnimationFrame.bind(w);
 	const tick = (t) => {
 		w.__tri.frames.push([t, w.__tri.now]);
@@ -112,10 +141,12 @@ const meterScript = meterFile ? readFileSync(meterFile, 'utf8').replace(/^export
 const metered = (page, s = 4) => (meterScript ? page.evaluate((s) => window.__meter.sample(s), s) : Promise.resolve(null));
 
 // a Mac's Metal, as the render box ran it (intent-work/6295a650-render/out/NOTES.md); the GPU named first
-const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] } : { args: ['--ignore-gpu-blocklist'] });
+// WebGPU on Metal too (intent c1bee1f8), where the page draws with WebGPURenderer
+const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] } : { args: ['--ignore-gpu-blocklist'] });
 {
 	const p = await browser.newPage();
 	console.log('GPU:', await p.evaluate(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g?.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; }));
+	console.log('WebGPU:', await p.evaluate(async () => { const a = await navigator.gpu?.requestAdapter?.(); return a ? `${a.info?.vendor ?? ''} ${a.info?.architecture ?? ''} ${a.info?.description ?? ''}`.trim() || 'an adapter' : 'none'; }).catch(() => 'none'));
 	await p.close();
 }
 const results = [];
@@ -191,9 +222,11 @@ for (const site of sites) {
 		const meter = await metered(page);
 		const png = `${out}/${tag}${site.name}-sandbox-1-${v.name}.png`;
 		await page.screenshot({ path: png });
+		// which backend drew it (../src/lib/content/render/core.js `ready`: webgpu, webgl2, webgl), and the finishing plan (intent 1f0c6f79)
+		const backend = await page.evaluate(() => window.__rendererBackend ?? 'webgl');
 		const finish = await finishOf(page);
-		results.push({ site: site.name, world: 'sandbox-1', view: tag + v.name, hour: HOUR, settled: ok, ...m, meter, finish, png });
-		if (finish?.plan) console.log(`${site.name} ${tag}${v.name}: finishing ${finish.plan.device} (${finish.backend}), scale ${finish.plan.scale}, ${finish.plan.aa}${finish.plan.ao ? ', AO' : ''}${finish.plan.bloom ? ', bloom' : ''}${finish.plan.contact ? ', contact shadows' : ''}`);
+		results.push({ site: site.name, world: 'sandbox-1', view: tag + v.name, hour: HOUR, settled: ok, ...m, meter, backend, finish, png });
+		if (finish?.plan) console.log(`${site.name} ${tag}${v.name}: finishing ${finish.plan.device} (${backend}), scale ${finish.plan.scale}, ${finish.plan.aa}${finish.plan.ao ? ', AO' : ''}${finish.plan.bloom ? ', bloom' : ''}${finish.plan.contact ? ', contact shadows' : ''}`);
 		if (census) await takeCensus(page, site, v);
 		console.log(`${site.name} sandbox-1 ${v.name}: ${m.frameMs} ms/frame (p95 ${m.frameP95?.toFixed?.(1)}), ${m.tris.toLocaleString('en')} tris drawn (max ${m.trisMax.toLocaleString('en')})${ok ? '' : ', still building'}`);
 	}
@@ -211,7 +244,7 @@ for (const site of sites) {
 	const png3 = `${out}/${tag}${site.name}-sandbox-3-open.png`;
 	await p3.screenshot({ path: png3 });
 	const t3 = await p3.evaluate(() => { const t = window.__tri.frames.map((x) => x[1]).filter((x) => x > 0).sort((a, b) => a - b); return Math.round(t[t.length >> 1] ?? 0); });
-	results.push({ site: site.name, world: 'sandbox-3', view: tag + 'open', hour: HOUR, tris: t3, meter: meter3, finish: await finishOf(p3), png: png3 });
+	results.push({ site: site.name, world: 'sandbox-3', view: tag + 'open', hour: HOUR, tris: t3, meter: meter3, backend: await p3.evaluate(() => window.__rendererBackend ?? 'webgl'), finish: await finishOf(p3), png: png3 });
 	console.log(`${site.name} sandbox-3 open: ${t3.toLocaleString('en')} tris drawn`);
 	await ctx3.close();
 }
