@@ -4,19 +4,19 @@
 // is handed and the places it draws, not a picture (scripts/webkit-world.ts builds the world in WebKit's sealed frame).
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { boxWorker } from '../../../scripts/box-worker';
-import { hashText } from '../content/game/hash.js';
-import { piecesOf } from '../content/assets/box/pieces.js';
-import { plantingsOf } from '../content/assets/uses.js';
-import { engineAt } from '../kernel/engines.js';
-import { codeOf, compose, CSP } from './compose';
-import { cameraAt, worldAt, type WorldAsset } from './live';
-import { buildWorld, built, engineOf, type WorkerLike } from './world-build';
-import type { StoryBody } from './timeline';
+import { boxWorker } from './box-worker';
+import { hashText } from '../src/lib/content/game/hash.js';
+import { piecesOf } from '../src/lib/content/assets/box/pieces.js';
+import { plantingsOf } from '../src/lib/content/assets/uses.js';
+import { engineAt } from '../src/lib/kernel/engines.js';
+import { codeOf, compose, CSP } from '../src/lib/stories/compose';
+import { cameraAt, worldAt, type WorldAsset } from '../src/lib/stories/live';
+import { buildWorld, built, engineOf, type WorkerLike } from '../src/lib/stories/world-build';
+import type { StoryBody } from '../src/lib/stories/timeline';
 
 const STORY = '55b69416-8516-47dc-a235-781a8c08c640';
 const V8 = '9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8';
-const KEPT = new URL(`./fixtures/worlds/${V8}/`, import.meta.url);
+const KEPT = new URL(`../src/lib/stories/fixtures/worlds/${V8}/`, import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', KEPT), 'utf8'));
 const kept = new Set(readdirSync(new URL('files/', KEPT)));
 const code = (h: string) => {
@@ -28,7 +28,7 @@ const deep = (c: string, seen = new Set<string>()): string[] => {
 	for (const h of piecesOf(c) as string[]) if (!seen.has(h)) seen.add(h), deep(code(h), seen);
 	return [...seen];
 };
-const story = JSON.parse(readFileSync(new URL(`./fixtures/stories/${STORY}.json`, import.meta.url), 'utf8')) as StoryBody;
+const story = JSON.parse(readFileSync(new URL(`../src/lib/stories/fixtures/stories/${STORY}.json`, import.meta.url), 'utf8')) as StoryBody;
 const fps = story.fps;
 
 /** the world as the Stories player hands it to compose (StoryPlayer.svelte worldAssets): its guests from its build */
@@ -74,7 +74,7 @@ describe('the Old City film', () => {
 		expect(asked.filter((a) => a === `live ${manifest.recipe}`).length).toBe(1);
 		expect(got.copies.length).toBe(1898);
 		// the runtime makes one renderer for a world, whatever its shots
-		const runtime = readFileSync(new URL('./live-runtime.ts', import.meta.url), 'utf8');
+		const runtime = readFileSync(new URL('../src/lib/stories/live-runtime.ts', import.meta.url), 'utf8');
 		const world = runtime.slice(runtime.indexOf('function world('));
 		expect(world.match(/createRenderer\(/g)?.length).toBe(1);
 		expect(world.indexOf('createRenderer(')).toBeLessThan(world.indexOf('for (const s of spec.shots)'));
@@ -93,7 +93,7 @@ describe('the Old City film', () => {
 		}
 		expect(names.length).toBe(1 + kept.size);
 		for (const [, url] of out.matchAll(/\s(?:src|href|poster)="([^"]*)"/g)) expect(url).toMatch(/^\/api\/files\/[0-9a-f]{64}$/);
-		expect(existsSync(new URL(`../../../static/engines/engine-v${spec.engine.v}.js`, import.meta.url))).toBe(true);
+		expect(existsSync(new URL(`../static/engines/engine-v${spec.engine.v}.js`, import.meta.url))).toBe(true);
 	}, 60_000);
 
 	it('first key: each shot opens on its own first camera key, the moment before it on the shot before', async () => {

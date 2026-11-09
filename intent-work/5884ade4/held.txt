@@ -1,4 +1,3 @@
-.github/workflows/play-checks.yml
 intent-work/1f0c6f79/shots/README.md
 intent-work/1f0c6f79/shots/oldcity-noon-head.jpg
 intent-work/1f0c6f79/shots/oldcity-noon-main.jpg
@@ -12,14 +11,7 @@ play/api/src/assetdocs.ts
 play/api/src/graphs.ts
 play/api/src/lod.ts
 play/api/test/assetdocs.test.ts
-play/api/test/deploy-speed.test.ts
-play/api/test/gate.test.ts
 play/api/test/graphs.test.ts
-play/api/test/workflows.test.ts
-play/avenbox/gate.sh
-play/avenbox/select.ts
-play/site/package.json
-play/site/scripts/box-worker.ts
 play/site/scripts/census.ts
 play/site/scripts/census/census.test.ts
 play/site/scripts/census/counting.js
@@ -101,18 +93,8 @@ play/site/src/lib/content/sandbox-2/interior/PlantLook.svelte
 play/site/src/lib/content/sandbox-2/interior/drawn.js
 play/site/src/lib/content/sandbox-2/interior/interior.ts
 play/site/src/lib/content/sandbox-2/interior/village.ts
-play/site/src/lib/content/sandbox-6/audit.test.ts
-play/site/src/lib/content/sandbox-6/layout.test.ts
 play/site/src/lib/content/sandbox-6/mount.ts
-play/site/src/lib/content/sandbox-6/page.test.ts
-play/site/src/lib/content/sandbox-6/scene.test.ts
-play/site/src/lib/content/sandbox-7/fixture.test.ts
-play/site/src/lib/content/sandbox-7/globe.test.ts
 play/site/src/lib/content/sandbox-7/mount.ts
-play/site/src/lib/content/sandbox-7/page.test.ts
-play/site/src/lib/content/sandbox-7/rig.test.ts
-play/site/src/lib/content/sandbox-7/scene.test.ts
-play/site/src/lib/content/sandbox-7/sites.test.ts
 play/site/src/lib/content/sandbox-kit/film.js
 play/site/src/lib/content/sandbox-kit/sky-clock.test.ts
 play/site/src/lib/content/sandbox-kit/sky.js
@@ -125,8 +107,6 @@ play/site/src/lib/sandbox-2/main.ts
 play/site/src/lib/sandbox-2/parts-gallery.ts
 play/site/src/lib/sandbox-4/scene.ts
 play/site/src/lib/stories/live-runtime.ts
-play/site/src/lib/stories/old-city.bun.test.ts
 play/site/src/lib/stories/old-city.test.ts
 play/site/src/routes/game/map/scene.ts
 play/site/static/engines/engine-v7.js
-play/site/vite.config.ts

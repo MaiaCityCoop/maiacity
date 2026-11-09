@@ -2,8 +2,9 @@
  * THREE FOR THE FACTORIES — the app's three.js (^0.186) with the addons AirSup's runtime uses, behind one name `T` as
  * their vendored bundle (r185 on `globalThis.THREE`) gave them, so the ported runtime (des.js, kit.js, world.js, look.js,
  * app.js) reads `T.…` as AirSup wrote it and a newer AirSup version diffs line by line. Its renderer, orbit controls and
- * composer are the render core's ($content/render, plan C5): `new T.WebGLRenderer(p)`, `new T.OrbitControls(camera,
- * dom)` and `new T.EffectComposer(renderer, target)` give createRenderer's, createControls' and createComposer's, set as
+ * composer are the render core's ($content/render, plan C5): T's WebGLRenderer (`new` with three's params),
+ * `new T.OrbitControls(camera, dom)` and `new T.EffectComposer(renderer, target)` give createRenderer's, createControls'
+ * and createComposer's, set as
  * three's constructors leave them (one pixel per CSS pixel, no damping), the runtime setting the rest as it always did.
  */
 import * as THREE from 'three';

@@ -87,9 +87,11 @@ jobs:
         working-directory: play/site
         run: |
           bun install --frozen-lockfile
-          # avenBOX's gate, the part whole: its build, then its fast suite (vitest without Sandbox 2's physics, then the
-          # *.bun.test.ts with Bun)
-          bash ../avenbox/gate.sh site --no-up
+          bun run build
+      - name: The site's tests
+        working-directory: play/site
+        # the fast suite: vitest without Sandbox 2's physics, then the *.bun.test.ts with Bun
+        run: bun run test
 
   checks:
     name: API and site
@@ -151,4 +153,4 @@ jobs:
         working-directory: play/site
         run: |
           bun install --frozen-lockfile
-          bash ../avenbox/gate.sh physics --no-up
+          bun run test:physics

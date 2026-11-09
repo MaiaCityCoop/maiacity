@@ -47,10 +47,10 @@ function closure(file: string, seen = new Map<string, string>()): Map<string, st
 
 const isMd = (p: string) => p.endsWith(".md");
 /** Sandbox 2's physics tests' code (intent 417af727): `bun run test:physics` in play/site */
-export const PHYSICS = "play/site/src/lib/sandbox-2/";
+const PHYSICS = "play/site/src/lib/sandbox-2/";
 
 /** Everything (`--all`, one part named), and Sandbox 2's physics too when the change is known to touch them. */
-export function planAll(root: string, changed: string[] | null): Plan {
+function planAll(root: string, changed: string[] | null): Plan {
   const p = plan(root, null);
   if (!changed?.some((f) => f.startsWith(PHYSICS))) return p;
   const steps = new Set([...p.steps, "site-physics"]);
