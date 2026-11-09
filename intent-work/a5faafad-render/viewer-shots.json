@@ -1,0 +1,5 @@
+[
+ { "name": "front", "camera": { "az": 0, "el": 12, "zoom": 1 } },
+ { "name": "side", "camera": { "az": 90, "el": 12, "zoom": 1 } },
+ { "name": "close", "camera": { "az": 30, "el": 25, "zoom": 0.55 } }
+]
