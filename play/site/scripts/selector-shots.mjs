@@ -27,9 +27,9 @@
  * ./quiet.js. Out: <out>/<site>-<world>-<view>.png and <out>/results.json, and
  * a table on stdout.
  */
-import { createServer } from 'node:http';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { openSite, gpuOf, settle } from './mac-page.mjs';
+import { playProxy } from './macjob/proxy.mjs';
 
 const argv = process.argv.slice(2);
 const sites = [];
@@ -50,8 +50,6 @@ for (let i = 0; i < argv.length; i++) {
 	else if (argv[i] === '--cold') cold = true;
 }
 if (!sites.length) throw new Error('give at least one --site name=url');
-const TOKEN = process.env.PLAY_MCP_TOKEN;
-if (!TOKEN) throw new Error('PLAY_MCP_TOKEN: the admin token the proxy reads play with');
 mkdirSync(out, { recursive: true });
 
 /** Sandbox 1's views: x, z (m, the cell's middle the master dome), yaw (0 looks to -z), pitch */
@@ -61,20 +59,8 @@ const VIEWS = [
 	{ name: 'far', x: 0, z: 370, yaw: 0, pitch: -0.12 }
 ];
 
-// the read-only proxy to play
-const PLAY = 'https://play.maia.city';
-const proxy = createServer(async (req, res) => {
-	if (!['GET', 'HEAD'].includes(req.method ?? '') || !req.url?.startsWith('/api/')) return res.writeHead(405).end('read-only');
-	try {
-		const r = await fetch(PLAY + req.url, { method: req.method, headers: { authorization: `Bearer ${TOKEN}`, accept: req.headers.accept ?? '*/*', ...(req.headers.range ? { range: req.headers.range } : {}) } });
-		const h = Object.fromEntries([...r.headers].filter(([k]) => !['content-encoding', 'content-length', 'transfer-encoding'].includes(k)));
-		res.writeHead(r.status, h);
-		res.end(Buffer.from(await r.arrayBuffer()));
-	} catch (err) {
-		res.writeHead(502).end(String(err));
-	}
-});
-await new Promise((ok) => proxy.listen(3911, '127.0.0.1', ok));
+// the read-only proxy to play (./macjob/proxy.mjs)
+const proxy = await playProxy();
 
 /** the world's hour, the same for every site and view (the sky's film hook, sandbox-kit/sky.js): noon, lamps out */
 const HOUR = 12;

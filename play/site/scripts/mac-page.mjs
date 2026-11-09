@@ -18,13 +18,12 @@ import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { quietness, taken } from './quiet.js';
+import { SEEDED_RANDOM } from './macjob/determinism.js';
 const { chromium } = createRequire(import.meta.url)('playwright');
 
 /** a Mac's Metal, as the render box runs it (the GPU named first); elsewhere the browser as it comes */
 export const LAUNCH = process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] } : { args: ['--ignore-gpu-blocklist'] };
 
-/** a seeded Math.random, as an init script: two runs of one commit draw the same (the old city's visitor) */
-export const SEEDED_RANDOM = `(() => { let s = 0x2545f491; Math.random = () => { s |= 0; s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })();`;
 
 /** where a site's profile is kept @param {string} name @param {string} [root] */
 export const profileOf = (name, root = process.env.MAC_PROFILES ?? join(homedir(), '.cache/maiacity-render/profiles')) => {
