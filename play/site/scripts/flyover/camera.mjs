@@ -1,10 +1,7 @@
-// THE FLYOVER CAMERA'S MOVES — over the game's world map (world units: x east, z south, y up, the map's centre at 0; one
-// unit is about 11 m: a village is about 150 across, a tower 30 high). A move is a function of u, 0 at a shot's first
-// frame and 1 at its last, giving the camera { eye, at, fov } (fov the vertical angle in degrees; `at` the point it
-// looks at). Every move runs at an even speed from its first frame to its last, so a cut lands in motion and nothing
-// starts or stops on screen (the cinematographer's rule).
-//
-// A number may be given as [from, to], a point ([x, y, z] or [x, z]) as [[from…], [to…]]: moved evenly between them.
+// THE FLYOVER CAMERA'S MOVES — over the game's world map (x east, z south, y up, centre 0; a unit about 11 m: a village
+// ~150 across, a tower 30 high). A move is a function of u (0 a shot's first frame, 1 its last) giving { eye, at, fov }
+// (fov vertical degrees; `at` the point looked at), at an even speed throughout, so a cut lands in motion and nothing
+// starts or stops on screen (the cinematographer's rule). A number may be [from, to], a point [[from…], [to…]].
 
 const mix = (a, b, u) => a + (b - a) * u;
 /** a number, or [from, to] */
@@ -15,10 +12,7 @@ export const pt = (v, u) => (Array.isArray(v[0]) ? v[0].map((a, i) => mix(a, v[1
 /** a straight move: the eye and the point it looks at each from one place to another, the lens from one fov to another */
 export const line = ({ eye, look, fov = 38 }) => (u) => ({ eye: pt(eye, u), at: pt(look, u), fov: num(fov, u) });
 
-/**
- * round a centre `c` [x, z]: `deg` the angle the eye stands at (0 east, 90 south, as the map's z runs), `r` its distance,
- * `h` its height, `y` the height it looks at (a tower's middle), `ahead` how far beyond the centre it looks
- */
+/** round centre `c` [x, z]: the eye at angle `deg` (0 east, 90 south), distance `r`, height `h`, looking at height `y`, `ahead` past the centre */
 export const orbit = ({ c, deg, r, h, y = 0, ahead = 0, fov = 38 }) => (u) => {
 	const [cx, cz] = pt(c, u), a = (num(deg, u) * Math.PI) / 180, d = num(r, u);
 	const ex = cx + d * Math.cos(a), ez = cz + d * Math.sin(a), k = num(ahead, u) / d;
@@ -26,9 +20,8 @@ export const orbit = ({ c, deg, r, h, y = 0, ahead = 0, fov = 38 }) => (u) => {
 };
 
 /**
- * the god's eye: high over `over` [x, z], looking nearly straight down (never quite: the eye stands back of the point
- * by `lean` of its height, which keeps the picture upright), the picture's top toward `heading` (degrees: 270 is north),
- * turning as it moves
+ * the god's eye: high over `over` [x, z], looking nearly straight down (stood back by `lean` of its height, keeping the
+ * picture upright), its top toward `heading` (degrees: 270 north), turning as it moves
  */
 export const above = ({ over, h, heading = 270, lean = 0.1, fov = 38 }) => (u) => {
 	const [x, z] = pt(over, u), y = num(h, u), a = (num(heading, u) * Math.PI) / 180, back = y * num(lean, u);
@@ -36,9 +29,8 @@ export const above = ({ over, h, heading = 270, lean = 0.1, fov = 38 }) => (u) =
 };
 
 /**
- * along a line of [x, z] (the river), from share `from` to share `to` of its length (to < from goes upstream the other
- * way), at height `h`, `side` to the right of it, looking `ahead` along it; the line smoothed so the camera does not
- * take every bend
+ * along a line of [x, z] (the river) from share `from` to `to` of its length (to < from: upstream), at height `h`,
+ * `side` to its right, looking `ahead`; the line smoothed so the camera does not take every bend
  */
 export const along = ({ path, from, to, h, ahead, side = 0, y = 0, fov = 38 }) => {
 	const len = [0];

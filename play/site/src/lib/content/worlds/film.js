@@ -5,18 +5,14 @@
  * version's recipe hash (../game/film/shot.js `world.asset`, `world.recipe`; its film page `/worlds/?film&asset=…&recipe=…`,
  * ../game/film/worlds.js `filmPath`), and every frame of the shot is the world at the shot's moment:
  *
- *   clock        the world's clock is the shot's from the moment it is connected (./view.js `clock`): only advance
- *                moves it, never the page's own frames nor `window.__worldTime`, so whoever calls advance(t) gets the
- *                same world at the same t, whatever else ran between
- *   animate(t)   the world brought to t (./view.js `seek`: its build's own tick, exactly that much time, seeded; back
- *                in time, built afresh and stepped from 0), so a shot renders the same every time; its guests followed
- *                and drawn for the camera where the shot puts it
- *   settle()     on `window.__world`: resolves once the box has answered every step that moment owes (its run is in the
- *                asset box, one step behind the page; a long jump owes many), its guests then followed for the camera;
- *                a plate renderer awaits it before it draws. `settle(ms)` gives up after ms with no step answered
- *   frames       the world's nodes `frame:<name>` (a seat in a vehicle): a shot's camera rides in one (camera `frame`)
- *   lights       `sun`, `sky` (its light from the lid above) and `lamps` (every light the page lights on the guests:
- *                their lit faces and glows), each scaled by the shot over what the mood gives it
+ *   clock        the world's clock is the shot's from connection (./view.js `clock`): only advance moves it, so
+ *                advance(t) gives the same world at the same t, whatever ran between
+ *   animate(t)   the world brought to t (./view.js `seek`: its build's tick, seeded; back in time, rebuilt and stepped
+ *                from 0), its guests followed and drawn for the camera where the shot puts it
+ *   settle()     on `window.__world`: resolves once the box answered every step that moment owes (one step behind the
+ *                page; a long jump owes many); a plate renderer awaits it. `settle(ms)` gives up after ms of silence
+ *   frames       the world's nodes `frame:<name>` (a seat in a vehicle) a shot's camera rides in (camera `frame`)
+ *   lights       `sun`, `sky` (the lid's light) and `lamps` (every light lit on the guests), scaled over the mood's
  *   stage(w)     the world built and settled at the shot's clock
  */
 import { connectFilm, createCameraHold } from '../sandbox-kit/film.js';
@@ -47,8 +43,7 @@ export function connectWorldFilm(view, o) {
 				scene.environmentIntensity = base.hemi;
 			}
 			lit.k = 1;
-			// what it plants where its nodes stand now, drawn for the camera where the shot has put it (a cut far away
-			// draws what stands there in this frame, not in the next the page happens to run)
+			// what it plants where its nodes stand now, drawn where the shot put the camera (a cut draws this frame's world)
 			view.drawn();
 		},
 		lights: {
@@ -75,8 +70,7 @@ export function connectWorldFilm(view, o) {
 		progress: () => (view.state.phase === 'building' ? { label: 'Building the world in the asset box' } : view.building() > 0 ? { label: 'Building what it stands', done: view.state.kinds, total: view.state.kinds + view.building() } : null),
 		extra: {
 			world: { asset: o.asset, recipe: o.recipe },
-			/** resolves once the world has come to the moment it was brought to (its box has answered every step owed),
-			 *  or once `stall` ms (default 60 s) went by with no step answered (the box gone or stuck) */
+			/** resolves once the world reached its moment (every owed step answered), or after `stall` ms (60 s) with none */
 			settle: (stall) => view.settle(stall),
 			/** whether what it stands is still being built */
 			building: () => view.building()

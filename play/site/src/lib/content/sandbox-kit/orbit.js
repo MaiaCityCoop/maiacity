@@ -7,12 +7,9 @@
  *   · drag turns and tilts, right-drag slides, Q/E turn from the keyboard
  *   · a click stays a click, so it can still select
  *
- * The two gestures stay strictly separate: dragging sets the ANGLE and the wheel sets the DISTANCE. Coupling them
- * (zooming in also tilting toward eye level, the way Cities: Skylines does) reads as the camera fighting you once you
- * have chosen an angle you want to keep. With `freeMove: false` it is a turntable: orbit one fixed point, never leave.
- *
- * It is a camera hold (./film.js): the film camera flies it to a pose (`fly`) and lets go (`release`), and the map
- * takes over from wherever the camera was left, looking where it looked.
+ * Dragging sets the ANGLE and the wheel the DISTANCE, strictly apart: coupling them (zooming in also tilting, as Cities:
+ * Skylines does) reads as the camera fighting you. `freeMove: false` makes it a turntable round one fixed point. A
+ * camera hold (./film.js): the film flies it to a pose (`fly`) and lets go (`release`), the map going on from there.
  */
 import * as THREE from 'three';
 import { createControls } from '$lib/content/render/core.js';
@@ -39,11 +36,9 @@ const TURN_SPEED = 1.4;
  * @param {THREE.PerspectiveCamera} camera
  * @param {HTMLElement} dom
  * @param {{ minDistance?: number, maxDistance?: number, moveSpeed?: number, target?: THREE.Vector3, floorY?: number, freeMove?: boolean, keys?: boolean }} [options]
- *   minDistance, maxDistance: how near and far the camera may be from what it looks at; moveSpeed: world units per
- *   second of keyboard travel; target: where it looks as it starts; floorY: the camera never drops below this height —
- *   no going under the board; freeMove: false locks the view to orbiting one fixed point (a turntable); keys: false
- *   leaves the keyboard to the world (MaiaCity V1 walks its player with WASD and the arrows), the mouse, the wheel and
- *   the fingers still turn, slide and zoom the map
+ *   minDistance, maxDistance: how near and far from what it looks at; moveSpeed: world units a second by keyboard;
+ *   target: where it first looks; floorY: never below this height; freeMove: false orbits one fixed point (a turntable);
+ *   keys: false leaves the keyboard to the world (MaiaCity V1's WASD), mouse, wheel and fingers still moving the map
  * @returns {OrbitRig}
  */
 export function createOrbitRig(camera, dom, options = {}) {
@@ -147,8 +142,7 @@ export function createOrbitRig(camera, dom, options = {}) {
 
 			const length = move.length();
 			if (length > 0) {
-				// travel scales with how far out you are: a step that feels right
-				// on the board view would be a teleport at ground level
+				// travel scales with distance: a step right on the board view would be a teleport at ground level
 				const zoomScale = Math.max(0.08, camera.position.distanceTo(controls.target) / 60);
 				// never faster than one key's worth; a half-pushed stick goes at half pace
 				const pace = Math.min(1, length) / length;
@@ -160,8 +154,7 @@ export function createOrbitRig(camera, dom, options = {}) {
 
 		controls.update();
 
-		// never let the view sink under the ground — orbiting low, travelling
-		// downhill or dollying in all try to, and the world has no underside
+		// never below the ground: orbiting low, travelling downhill or dollying in all try to, and the world has no underside
 		if (camera.position.y < floorY) {
 			camera.position.y = floorY;
 			if (controls.target.y < floorY) controls.target.y = floorY;

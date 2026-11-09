@@ -1,22 +1,19 @@
 /**
- * A world shot, built on the CPU (intent 90de96fb): a world version from play's files, built in Bun as a story's world
- * shot builds it in the Stories player (src/lib/stories/world-build.ts, the live runtime's own build), through the
- * frozen box engine (static/engines, held to its BLAKE3 hash) as workers. No DOM, no WebGL: what it checks is the
- * build, its time, its workers and the places it gives each frame, not a picture (that is a Mac job).
+ * A world shot built on the CPU (intent 90de96fb): a world version from play's files built in Bun as the Stories player
+ * builds it (src/lib/stories/world-build.ts), on the frozen box engine (static/engines, held to its BLAKE3 hash) as
+ * workers. No DOM, no WebGL: it checks the build, its time, workers and each frame's places, not a picture (a Mac job).
  *
  *   bun scripts/world-shot.ts --asset <world UUID> --version <its version's hash> [--fps 24] [--duration 6]
  *       [--within <s>] [--most-workers <n>] [--moving <t1>,<t2>]
  *   bun scripts/world-shot.ts --story <story UUID> [--intent <intent UUID>] --world-shots <n>
  *
- * --within: ready (the world, every guest build and every frame) within that many seconds; --most-workers: never more
- * engine workers alive at once; --moving t1,t2: built twice, the vehicles (guests of the group machines) stand in at
- * least 10 other places at story time t2 than at t1, and the two builds give the same places at both, to the byte.
- * --story: the story (as the intent's variant makes it, if one is named: doc_at; else its head: get_story; over play's MCP) has at least n world shots,
- * each its own camera path, each but the last going into the next with a cut.
+ * --within: ready (world, guest builds, every frame) within that many seconds; --most-workers: never more engine workers
+ * at once; --moving t1,t2: built twice, the vehicles (guests of group machines) stand in at least 10 other places at t2
+ * than t1, both builds giving the same places, to the byte. --story: the story (its intent's variant if named, doc_at;
+ * else its head, get_story) has at least n world shots, each its own camera path, each but the last cut into the next.
  *
- * With PLAY_MCP_TOKEN (avenBOX's, sent to play only) it reads play: the asset, its files, the story. An intent's checks
- * run with no token at all (play/avenbox/intent.ts), so what they read is kept beside the code, written from play with
- * --fetch (src/lib/stories/fixtures/).
+ * With PLAY_MCP_TOKEN (avenBOX's, sent to play only) it reads play; an intent's checks run with no token
+ * (play/avenbox/intent.ts), so what they read is kept beside the code, written from play with --fetch (src/lib/stories/fixtures/).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
