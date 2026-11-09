@@ -89,9 +89,11 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
     the board no longer hands it `opened`. Pinned by the intents' tests, build and svelte-check.
 
 ## Next untangles (held)
-- `lib/site/intents/IntentDetail.svelte` (held by 96206162): draw its build with `BuildView.svelte` (its
+- `lib/site/intents/IntentDetail.svelte` (held by 96206162 while this was built; it has landed, and the file is left as
+  the merge base has it so the merge with main's version is clean): draw its build with `BuildView.svelte` (its
   `grp === 'worlds'` and its two lazy viewers go), take `KIND_NAME`, `typeOf`, `docTypeOf` (for its `GROUP_TYPE`) and
-  `titleOf` from `names.ts` and `when`/`shortWhen` from `lib/format.ts`, and read the intent through the board's
+  `titleOf` from `names.ts` (and a `docTypeOf` there for its documents' `GROUP_TYPE`) and `when`/`shortWhen` from
+  `lib/format.ts`, and read the intent through the board's
   `opened.intent(id, stage)` (a prop; `opened.forget()` after a withdraw), so the review is read once for board and
   detail (site-app#18's rest); `REPO_URL` from the API (F8, site-app#29).
 15. **Comments name files that exist.** `maia/site/app.css` → `src/app.css` (NavPill, TouchStick); legacy paths say
@@ -104,3 +106,20 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
     Pinned by `timeline.test.ts` (a link's address), the build and svelte-check; the live runtime's bundle is
     byte-identical (`scripts/live-runtime.ts --check` gives the same hash before and after; it differs from compose.ts's
     pin on the base already, nothing of this branch's).
+- `lib/stories/compose.ts:44` `fileUrl` and its `/api/files/` regexes → `$lib/api`'s `fileUrl` (held).
+- The schemas' page finds the meta-schema by `type === 'schema'` and the game editor its levelling by
+  `'levels/1'` (site-app#38): both want the schema UUIDs (`play/api/src/ids.ts` `SCHEMA`) as a dependency-free
+  constant the site can import at run time (`play/api/src/shared/`, the API builder's), not a copy.
+- Not done here (no bound in `measure.ts site`, left for a next pass): one `DocPage.svelte` for the seven document
+  pages (site-app#14, F3), the layout's route regexes as page options (#37), the nav pill's star as a slot (#27),
+  one icon set (#25), `lib/kernel/sandbox/engines.js` (its one caller is content's `assets/engines.js`) and the kernel's
+  comments naming gone files, `content/game/hash.js` into the kernel (fix 3's), the worlds page's copy of the asset
+  library's chain (#16).
+
+## Runs at the head
+- `bash play/avenbox/gate.sh site`: green after every commit.
+- svelte-check: 30 errors on the base → 12 (none in a file this branch changed; the wire brings Bun's types, see move 11).
+- Full `bunx vitest run` (load average 9–11 on 4 cores from other builders): 436 tests, old-city's 5 failing as on the
+  base (Bun-only `import.meta.dir`), and 13 timeouts in `lib/sandbox-2/tests` and `routes/game/map`; run again alone,
+  game/map passed and 3 sandbox-2 physics tests still hit their 180 s limit under the load. None of them imports a file
+  this branch changed.
