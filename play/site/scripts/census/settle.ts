@@ -6,9 +6,11 @@
  * visit). For each: the seconds until the world is quiet (../quiet.js), the pictures taken, and the pictures taken on a
  * 30 m walk from near in 1 m steps (each step a few frames, then quiet again).
  *
- *   bun play/site/scripts/census/settle.ts [--max 20]
+ *   bun play/site/scripts/census/settle.ts [--ratio 0.25] [--max 30]
  *
- * Exits 0 only if the warm load is quiet within --max seconds (20), took no picture, and took none on its walk.
+ * Exits 0 only if the warm load is quiet within --ratio of the cold load's seconds in the same run (a quarter) and
+ * within --max seconds (30) at most, took no picture, and took none on its walk. Relative to the cold load, as a
+ * slower machine is slower at both (avenBOX on GitHub: cold 120 s, warm 20.2 s; here cold 81 s, warm 15.7 s).
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
@@ -46,7 +48,8 @@ if (argv[0] === '--one') {
 	process.exit(0);
 }
 
-const max = Number(argv[argv.indexOf('--max') + 1] || 20);
+const opt = (k: string, d: number) => (argv.includes(k) ? Number(argv[argv.indexOf(k) + 1]) : d);
+const ratio = opt('--ratio', 0.25), max = opt('--max', 30);
 const cache = mkdtempSync(join(tmpdir(), 'census-settle-'));
 // play's files by hash, as the census keeps them (what they name never changes): the world's inputs, not its cache
 const files = join(resolve(process.env.CENSUS_CACHE ?? join(homedir(), '.cache/maiacity-census')), 'files');
@@ -64,6 +67,7 @@ try {
 }
 console.table(Object.entries(loads).map(([load, l]) => ({ load, 'quiet after (s)': l.seconds, quiet: l.quiet, 'pictures taken': l.taken, 'taken on a 30 m walk': l.walkTaken, copies: l.copies })));
 const w = loads.warm;
-const ok = w.quiet && w.walkQuiet && w.seconds <= max && w.taken === 0 && w.walkTaken === 0;
-console.log(`settle: warm ${w.seconds} s (at most ${max}), ${w.taken} pictures taken, ${w.walkTaken} on the walk: ${ok ? 'ok' : 'NOT ok'} (cold ${loads.cold.seconds} s, ${loads.cold.taken} taken, ${loads.cold.walkTaken} on the walk)`);
+const c = loads.cold, bound = Math.min(max, +(c.seconds * ratio).toFixed(1));
+const ok = c.quiet && w.quiet && w.walkQuiet && w.seconds <= bound && w.taken === 0 && w.walkTaken === 0;
+console.log(`settle: warm ${w.seconds} s (at most ${bound}: ${ratio} of cold, ${max} at most), ${w.taken} pictures taken, ${w.walkTaken} on the walk: ${ok ? 'ok' : 'NOT ok'} (cold ${loads.cold.seconds} s, ${loads.cold.taken} taken, ${loads.cold.walkTaken} on the walk)`);
 process.exit(ok ? 0 : 1);
