@@ -1,6 +1,21 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+**23:31 Berlin, #9 (c1bee1f8) c8: FAIL, recorded on the head `b798efc`** (job 23:15–23:28 on render 1b5c305,
+out/ pushed as `5f829ca64`). Chrome 153 (Metal) and WebKit 26.6 both drew on `webgpu`, but:
+1. **Every kit material on an InstancedMesh fails on WebGPU**: WGSL `cannot apply '@location' to declaration of type
+   'mat4x4<f32>'` (`@location(2) instanceMatrix : mat4x4<f32>`), then invalid pipelines and invalid command buffers
+   (Chrome: Sandbox 3 87 errors, Sandbox 5 242, plants 20, biomes 19; Safari 47 / 87 / 20 / 12). Seen: Sandbox 3's
+   building on the grey pad is gone (main draws it), the biome viewer's Beech forest is a bare ground disc. Cause:
+   `render/nodes/index.js` `ours.setupPosition` reads `always('instanceMatrix', 'mat4')`, a matrix vertex attribute
+   (GLSL takes it, WGSL doesn't; three's InstanceNode reads four vec4 columns on WebGPU).
+2. Every asset viewer: `renderPipeline_Sky`'s fragment fails (`structures must have at least one member`, WGSL line
+   12), and `NodeBuilder: Material "MeshDepthMaterial" is not compatible`, in both browsers.
+3. Safari only: `Refused to apply a stylesheet … style-src` (CSP) on Sandbox 1, 4, worlds and the viewers (vite dev;
+   not checked against a build).
+The harness's part, left aside: one 401 per page (the aside's `/api/docs`, which the token can't open), and Sandbox 1
+still on its title card at the job's 12 s. The watcher runs the job again on the next `MAC JOB READY` tip.
+
 **22:51 Berlin, to the Orchestrator:** every deploy you named is smoked OK: 4417092b7 (#7 real grass), 1698a55f5
 (#8 every other shader; by hand after it: the Lab's contact dots and its start race, **fix intent cef10a08**), aa593c290
 (544485e2) and 3b19a5f99 (0b4c007b); details below. **#9 is armed and goes first:** its job starts within two minutes
