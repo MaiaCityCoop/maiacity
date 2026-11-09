@@ -1,0 +1,156 @@
+10:39:42 AM [vite] (client) Forced re-optimization of dependencies
+(!) Failed to run dependency scan. Skipping dependency pre-bundling. Error:   Failed to scan for dependencies from entries:
+  /Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/+layout.ts
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/+layout.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/sandboxes/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/buildings/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/biomes/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/artifacts/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/plants/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/worlds/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/profile/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/delivery/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/postgres/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/admin/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/render/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/skills/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/rules/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/stories/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/machines/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/factories/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/game-editor/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/characters/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/assets/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/sandbox-1/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/schemas/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/sandbox-4/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/sandbox-2/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/animals/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/sandbox-5/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/library/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/game/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/pieces/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/intents/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/sandbox-3/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/things/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/sandboxes/[id]/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/sandboxes/[id]/+page.ts
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/worlds/bench/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/game/map/+page.svelte
+/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/routes/game/map/film/+page.svelte
+
+  Build failed with 10 errors:
+
+[31m[PARSE_ERROR] [0mExport 'paramTabs' is not defined
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m virtual-module:/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/lib/content/assets/ViewerParts.svelte?id=0:5:11 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m5 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0mparamTabs[38;5;249m,[0m[38;5;249m [0m[38;5;249mm[0m[38;5;249mo[0m[38;5;249mv[0m[38;5;249me[0m[38;5;249mC[0m[38;5;249mh[0m[38;5;249mi[0m[38;5;249mp[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249mC[0m[38;5;249mh[0m[38;5;249mi[0m[38;5;249mp[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mb[0m[38;5;249mu[0m[38;5;249mi[0m[38;5;249ml[0m[38;5;249mt[0m[38;5;249mR[0m[38;5;249mo[0m[38;5;249mw[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ml[0m[38;5;249ma[0m[38;5;249mb[0m[38;5;249mR[0m[38;5;249mo[0m[38;5;249mw[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249ml[0m[38;5;249mi[0m[38;5;249md[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mh[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249md[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249mN[0m[38;5;249mo[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mc[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mB[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249mg[0m[38;5;249mL[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m;[0m
+ [38;5;240m  │[0m              ────┬────  
+ [38;5;240m  │[0m                  ╰────── 
+[38;5;246m───╯[0m
+
+[31m[PARSE_ERROR] [0mExport 'moveChips' is not defined
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m virtual-module:/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/lib/content/assets/ViewerParts.svelte?id=0:5:22 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m5 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0m[38;5;249mp[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249ma[0m[38;5;249mm[0m[38;5;249mT[0m[38;5;249ma[0m[38;5;249mb[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0mmoveChips[38;5;249m,[0m[38;5;249m [0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249mC[0m[38;5;249mh[0m[38;5;249mi[0m[38;5;249mp[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mb[0m[38;5;249mu[0m[38;5;249mi[0m[38;5;249ml[0m[38;5;249mt[0m[38;5;249mR[0m[38;5;249mo[0m[38;5;249mw[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ml[0m[38;5;249ma[0m[38;5;249mb[0m[38;5;249mR[0m[38;5;249mo[0m[38;5;249mw[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249ml[0m[38;5;249mi[0m[38;5;249md[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mh[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249md[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249mN[0m[38;5;249mo[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mc[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mB[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249mg[0m[38;5;249mL[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m;[0m
+ [38;5;240m  │[0m                         ────┬────  
+ [38;5;240m  │[0m                             ╰────── 
+[38;5;246m───╯[0m
+
+[31m[PARSE_ERROR] [0mExport 'viewChips' is not defined
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m virtual-module:/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/lib/content/assets/ViewerParts.svelte?id=0:5:33 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m5 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0m[38;5;249mp[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249ma[0m[38;5;249mm[0m[38;5;249mT[0m[38;5;249ma[0m[38;5;249mb[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mm[0m[38;5;249mo[0m[38;5;249mv[0m[38;5;249me[0m[38;5;249mC[0m[38;5;249mh[0m[38;5;249mi[0m[38;5;249mp[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0mviewChips[38;5;249m,[0m[38;5;249m [0m[38;5;249mb[0m[38;5;249mu[0m[38;5;249mi[0m[38;5;249ml[0m[38;5;249mt[0m[38;5;249mR[0m[38;5;249mo[0m[38;5;249mw[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ml[0m[38;5;249ma[0m[38;5;249mb[0m[38;5;249mR[0m[38;5;249mo[0m[38;5;249mw[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249ml[0m[38;5;249mi[0m[38;5;249md[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mh[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249md[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249mN[0m[38;5;249mo[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mc[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mB[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249mg[0m[38;5;249mL[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m;[0m
+ [38;5;240m  │[0m                                    ────┬────  
+ [38;5;240m  │[0m                                        ╰────── 
+[38;5;246m───╯[0m
+
+[31m[PARSE_ERROR] [0mExport 'builtRows' is not defined
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m virtual-module:/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/lib/content/assets/ViewerParts.svelte?id=0:5:44 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m5 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0m[38;5;249mp[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249ma[0m[38;5;249mm[0m[38;5;249mT[0m[38;5;249ma[0m[38;5;249mb[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mm[0m[38;5;249mo[0m[38;5;249mv[0m[38;5;249me[0m[38;5;249mC[0m[38;5;249mh[0m[38;5;249mi[0m[38;5;249mp[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249mC[0m[38;5;249mh[0m[38;5;249mi[0m[38;5;249mp[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0mbuiltRows[38;5;249m,[0m[38;5;249m [0m[38;5;249ml[0m[38;5;249ma[0m[38;5;249mb[0m[38;5;249mR[0m[38;5;249mo[0m[38;5;249mw[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249ml[0m[38;5;249mi[0m[38;5;249md[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mh[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249md[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249mN[0m[38;5;249mo[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mc[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mB[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249mg[0m[38;5;249mL[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m;[0m
+ [38;5;240m  │[0m                                               ────┬────  
+ [38;5;240m  │[0m                                                   ╰────── 
+[38;5;246m───╯[0m
+
+[31m[PARSE_ERROR] [0mExport 'labRows' is not defined
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m virtual-module:/Users/samuelandert/Documents/Development/660ad67f-head/play/site/src/lib/content/assets/ViewerParts.svelte?id=0:5:55 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m5 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0m[38;5;249mp[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249ma[0m[38;5;249mm[0m[38;5;249mT[0m[38;5;249ma[0m[38;5;249mb[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mm[0m[38;5;249mo[0m[38;5;249mv[0m[38;5;249me[0m[38;5;249mC[0m[38;5;249mh[0m[38;5;249mi[0m[38;5;249mp[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249mC[0m[38;5;249mh[0m[38;5;249mi[0m[38;5;249mp[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mb[0m[38;5;249mu[0m[38;5;249mi[0m[38;5;249ml[0m[38;5;249mt[0m[38;5;249mR[0m[38;5;249mo[0m[38;5;249mw[0m[38;5;249ms[0m[38;5;249m,[0m[38;5;249m [0mlabRows[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249ml[0m[38;5;249mi[0m[38;5;249md[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mh[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249md[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249mN[0m[38;5;249mo[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mc[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mB[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249mg[0m[38;5;249mL[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m;[0m
+ [38;5;240m  │[0m                                                          ───┬───  
+ [38;5;240m  │[0m                                                             ╰───── 
+[38;5;246m───╯[0m
+
+...
+    at aggregateBindingErrorsIntoJsError (/Users/samuelandert/Documents/Development/660ad67f-head/play/site/node_modules/rolldown/dist/shared/error-BJ9uQLIS.mjs:50:22)
+    at unwrapBindingResult (/Users/samuelandert/Documents/Development/660ad67f-head/play/site/node_modules/rolldown/dist/shared/error-BJ9uQLIS.mjs:20:128)
+    at <anonymous> (/Users/samuelandert/Documents/Development/660ad67f-head/play/site/node_modules/rolldown/dist/experimental-index.mjs:239:3)
+    at async build (/Users/samuelandert/Documents/Development/660ad67f-head/play/site/node_modules/vite/dist/node/chunks/node.js:28207:9)
+    at async scan (/Users/samuelandert/Documents/Development/660ad67f-head/play/site/node_modules/vite/dist/node/chunks/node.js:28146:18)
+    at processTicksAndRejections (native:7:39)
+
+  VITE v8.3.5  ready in 2096 ms
+
+  ➜  Local:   http://localhost:5190/
+  ➜  Network: use --host to expose
+10:39:49 AM [vite-plugin-svelte] src/lib/site/app/NavPill.svelte:167:1 Unused CSS selector ".avatar img"
+https://svelte.dev/e/css_unused_selector
+10:39:49 AM [vite] (client) dependencies optimized: @simplewebauthn/browser, three, three/addons/controls/OrbitControls.js, three/addons/lights/SunLightNode.js, three/addons/lights/SunLight.js, three/addons/loaders/KTX2Loader.js, three/addons/tsl/WebGLNodesHandler.js, three/tsl, three/webgpu
+10:39:50 AM [vite] (client) dependencies optimized: @noble/hashes/blake3.js, @noble/hashes/utils.js
+10:39:52 AM [vite] (client) dependencies optimized: three/addons/environments/RoomEnvironment.js, three/addons/geometries/RoundedBoxGeometry.js, three/addons/libs/meshopt_simplifier.module.js, three/addons/utils/BufferGeometryUtils.js, three/addons/utils/SkeletonUtils.js
+10:39:54 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+10:40:00 AM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:40:00 AM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:40:00 AM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+10:40:00 AM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:40:00 AM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:40:00 AM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:40:00 AM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:40:00 AM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:40:56 AM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+10:40:56 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+10:40:56 AM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:40:56 AM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:40:56 AM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:40:56 AM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:40:56 AM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+10:40:56 AM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:40:56 AM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:40:56 AM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:40:56 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+10:41:18 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+10:41:18 AM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: mango@3:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+10:41:18 AM [vite] (client) [console.warn] flora: moringa@2:5:sandbox-5 did not grow: plants/moringa takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:41:18 AM [vite] (client) [console.warn] flora: cassava@2:4:sandbox-5 did not grow: plants/cassava takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: moringa@2:6:sandbox-5 did not grow: plants/moringa takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+10:41:18 AM [vite] (client) [console.warn] flora: moringa@2:8:sandbox-5 did not grow: plants/moringa takes no parameters
+10:41:25 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+10:41:31 AM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:41:31 AM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:41:31 AM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+10:41:31 AM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:41:31 AM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:41:31 AM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:41:31 AM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:41:31 AM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:42:37 AM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+10:42:37 AM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+10:42:37 AM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:42:37 AM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:42:37 AM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+10:42:37 AM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:42:37 AM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+10:42:37 AM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+10:42:37 AM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+10:42:37 AM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+10:42:40 AM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.

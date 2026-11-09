@@ -1,0 +1,5 @@
+look: webkit: launch
+look: webkit: Sandbox 5
+look: webkit: Sandbox 1
+webkit (Apple GPU): Sandbox 5 built in 53 s, 35 programs linked walking, 0 uniform/load errors; Sandbox 1's film advanced 0…5 s
+OK: no uniform error, no plant failed to load, the film advanced
