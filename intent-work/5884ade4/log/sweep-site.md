@@ -61,3 +61,10 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
     write's answer, `ok` or its error, is posted from the chain itself, which so never rejects. The probe's clean-up
     (`removeEntry` of the one byte written to see whether the browser keeps files) stays a best-effort, said so.
     Pinned: `cache/cache.test.ts`; gate site.
+11. **The shot and parity scripts typed** (special: `as any`, scripts 14 → 1). `intent-shots.ts` looked its
+    fixtures up as `any` (×6): `assetOf`/`storyOf` index the fixtures by their own keys. `story-parity-page.ts` and
+    `story-parity.ts` (×7) passed the player and its readiness through `window as any`: the player is HyperFrames'
+    own `HyperframesPlayer` type, and what the runner reads of the page is one exported type, `ParityWindow`
+    (`import type`, erased). Pinned: `tsc --strict` over the three scripts shows no error on any line changed (the
+    scripts have no checked tsconfig of their own; the errors it shows are Bun's and Node's globals, as before).
+    The one left, `census/away.test.ts`'s `globalThis as any`, stands in for browser globals in a test.

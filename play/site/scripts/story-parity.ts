@@ -19,6 +19,7 @@ import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { codeOf, compose, filesOf, laid, VENDOR } from '../src/lib/stories/compose';
 import { liveRuntime } from './live-runtime';
+import type { ParityWindow } from './story-parity-page';
 import { enginesOf } from '../src/lib/kernel/engines.js';
 import { HEX, hashBytes } from '../src/lib/kernel/hash.js';
 
@@ -125,15 +126,15 @@ try {
 	const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
 	page.on('console', (m) => m.type() === 'error' && console.error('player:', m.text()));
 	await page.goto(`http://localhost:${server.port}/`);
-	await page.waitForFunction(() => (window as any).ready === true, null, { timeout: 120_000 });
+	await page.waitForFunction(() => (window as ParityWindow).ready === true, null, { timeout: 120_000 });
 	// and the composition's own setup (a live shot's builds: HyperFrames' __hf.buildReady), in its frame
 	// (found, or the run fails: a seek before it is ready is not taken, and would measure the poster)
 	let inner = page.frames().find((f) => f !== page.mainFrame());
 	for (let i = 0; !inner && i < 600; i++) await page.waitForTimeout(100), (inner = page.frames().find((f) => f !== page.mainFrame()));
 	if (!inner) throw new Error("the player's frame never came");
-	await inner.waitForFunction(() => (window as any).__renderReady === true, null, { timeout: 300_000, polling: 250 });
+	await inner.waitForFunction(() => (window as ParityWindow).__renderReady === true, null, { timeout: 300_000, polling: 250 });
 	for (const t of at) {
-		await page.evaluate((s) => (window as any).at(s), t);
+		await page.evaluate((s) => (window as ParityWindow).at!(s), t);
 		// and drawn in its frame (its own process, its WebGL slow without a GPU): two of its frames after the seek
 		await inner.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 		await page.screenshot({ path: join(work, `player-${t}.png`), clip: { x: 0, y: 0, width: W, height: H }, timeout: 300_000 });
