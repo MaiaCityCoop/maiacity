@@ -30,7 +30,11 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    `src/lib/content/assets/RenderBench.svelte` (now `src/routes/render/`): Next untangles.
    **Done again** (freed when 660ad67f landed): the move and its split are back (4 tests, passing). The scripts
    `flyover.mjs`, `render.mjs`, `story-parity.ts` and `stories/world.test.ts` are held (3a8b135a, c1bee1f8, ed6694c3)
-   and left exactly as the untangle branch has them.
+   and left exactly as the untangle branch has them. **Undone again** (14:18): ed6694c3 changes `tsl.test.js` now;
+   it is back at its path as the merge base has it, and its two halves gone. It alone breaks the cycle: the other
+   imports between the two folders are `biomes/surfaces.js → render/nodes/ground.js` and `biomes/stream.test.ts →
+   render/nodes/index.js` (one way), and back only `render/nodes/ground.js → biomes/sets.js` (held) and this test
+   (held). Held, both are set aside: held-free folder cycles 0; the move waits for ed6694c3 (Next untangles).
 3. **Comments naming a file that is gone: 3 (6 after move 1) → 0** (comments only). The bench's own `./catalog.js`,
    `./clips.js` and `./render/crowd.js` name `content/assets/…` now; three of play/api's tests named
    `./intents.ts` and `./select.ts` beside them, which are `../src/intents.ts` and `play/avenbox/select.ts`.
