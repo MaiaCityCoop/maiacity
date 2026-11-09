@@ -72,3 +72,7 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
     modules bring Bun's types into the site's type check, so svelte-check's count outside held files falls (29 → 12;
     `import.meta.dir` in old-city's worker now type-checks, though vitest still lacks it). Pinned by svelte-check (a
     stage or a ship's pending kind outside the API's is an error), the build, the intents' and stories' tests.
+12. **Dates and initials written once, in `lib/format.ts`.** The Library, Artifacts, Delivery, profile, admin pages,
+    History, Changes, Aside and the layout's and nav pill's initials use its functions (each the format it had: the
+    reader's, `en-GB`, a calendar day in UTC, a weekday); `versions.js`'s unused `day` goes in move 13. Removes
+    site-app#12, #13 (initials). Pinned by the build and svelte-check; each function is the expression it replaces.

@@ -16,6 +16,7 @@
 </script>
 
 <script lang="ts">
+	import { day as dayOf } from '$lib/format';
 	import type { Snippet } from 'svelte';
 	import { api } from '$lib/api';
 	import { isAdmin } from '$lib/session.svelte';
@@ -92,7 +93,7 @@
 	const now = $derived(shown ?? d?.version ?? newest);
 	const v = $derived(chain.find((c) => c.number === now));
 	const name = $derived(label || d?.json?.label || d?.json?.title || '');
-	const day = (iso: unknown) => (iso ? new Date(`${iso}`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+	const day = (iso: unknown) => (iso ? dayOf(`${iso}`) : '');
 </script>
 
 {#snippet body()}

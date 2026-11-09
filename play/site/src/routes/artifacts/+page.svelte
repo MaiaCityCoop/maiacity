@@ -11,6 +11,7 @@
 	($lib/app/Aside.svelte: Info and History), and opens as an intent would make it (?intent=<uuid>, from the intents' board).
 -->
 <script lang="ts">
+	import { calendarDay, day as when } from '$lib/format';
 	import { onMount } from 'svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
@@ -76,8 +77,7 @@
 			return u;
 		}
 	};
-	const date = (d: string | null) => (d ? new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '');
-	const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+	const date = (d: string | null) => (d ? calendarDay(d) : '');
 	const names = (a: AuthorRef[]) => a.map((x) => x.name).join(', ');
 
 	/** the page's address from what it shows: an artifact or an author opened, and the filters */

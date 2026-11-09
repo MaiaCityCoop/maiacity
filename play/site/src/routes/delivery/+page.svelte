@@ -7,6 +7,7 @@
 	minutes and slowest steps. `?days=<n>` the window (7 by default, 1 to 30). Admins only; it changes nothing.
 -->
 <script lang="ts">
+	import { shortWhen as short, weekday as dayName } from '$lib/format';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
@@ -51,8 +52,6 @@
 		return () => (gone = true);
 	});
 	const most = $derived(Math.max(1, ...(d?.intents ?? []).map((t) => t.lead_ms)));
-	const short = (s: string) => new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-	const dayName = (s: string) => new Date(`${s}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 	const hasCi = (c: Ci | undefined): c is Extract<Ci, { list: CiRun[] }> => !!c && 'list' in c;
 </script>
 

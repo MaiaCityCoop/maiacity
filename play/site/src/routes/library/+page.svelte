@@ -19,6 +19,7 @@
 	import { adminsOnly } from '$lib/admins.svelte';
 	import { isAdmin } from '$lib/session.svelte';
 	import { acting, asCity } from '$lib/acting.svelte';
+	import { listWhen as when } from '$lib/format';
 
 	const PAGE = 60;
 	type File = LibraryFile;
@@ -54,7 +55,6 @@
 	/** what a plant version keeps a file as */
 	const DOC_AS = { sheet: 'reference sheet', datasheet: 'data sheet', brief: 'sheet brief' };
 	const size = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n >= 1e3 ? `${Math.round(n / 1e3)} kB` : `${n} B`);
-	const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 	const AS = { frame: 'still', video: 'video', audio: 'recording' };
 
 	/** a page of files: the first (again, for a new kind or search) or the next */

@@ -4,6 +4,7 @@
 	them with over MCP (/api/mcp). Opened from the nav pill's You menu.
 -->
 <script lang="ts">
+	import { localDay } from '$lib/format';
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { loadMe, session, isAdmin } from '$lib/session.svelte';
@@ -52,7 +53,7 @@
 		await api(`/tokens/${t.id}/avenbox`, { json: { avenbox } }).catch((err) => (tokenError = (err as Error).message));
 		await loadTokens();
 	}
-	const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—');
+	const day = (iso: string | null) => (iso ? localDay(iso) : '—');
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();

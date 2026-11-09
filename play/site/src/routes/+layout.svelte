@@ -25,6 +25,7 @@
 	import { closeIntents, intentsModal, openIntents } from '$lib/site/intents/intents.svelte';
 	import { pillContext } from '$lib/site/app/pill.svelte.js';
 	import { footHost } from '$lib/site/app/foot.js';
+	import { initialsOf } from '$lib/format';
 	import { loadMe, session, signOut, isAdmin } from '$lib/session.svelte';
 	import { acting, actAs } from '$lib/acting.svelte';
 	import SignIn from '$lib/SignIn.svelte';
@@ -111,13 +112,12 @@
 		};
 	});
 
-	const initials = (s: string) => s.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 	// whom you act as, in the You menu: yourself, and for an admin Maia City, the coop that owns every asset
 	$effect(() => {
 		const me = session.me;
 		if (!me) return;
 		const list = [
-			{ id: 'me', label: me.name, sub: `Your account · ${me.level}`, text: initials(me.name), colour: '#c8744f', shape: 'human' as const },
+			{ id: 'me', label: me.name, sub: `Your account · ${me.level}`, text: initialsOf(me.name), colour: '#c8744f', shape: 'human' as const },
 			...(isAdmin() ? [{ id: 'maia-city', label: 'Maia City', sub: 'The coop · its admins act for it', text: 'MC', colour: '#24452f', shape: 'coop' as const }] : [])
 		];
 		return pillContext({

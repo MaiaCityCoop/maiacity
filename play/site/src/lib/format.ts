@@ -12,6 +12,12 @@ export const listWhen = (iso: string) => new Date(iso).toLocaleString('en-GB', {
 /** a day: "4 Nov 2026" */
 export const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
+/** a day, in figures: "04/11/2026" */
+export const figuresDay = (iso: string) => new Date(iso).toLocaleDateString('en-GB');
+
+/** a day of the calendar with its weekday, in the reader's way: "Wed 4 Nov" */
+export const weekday = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+
 /** a day as the reader writes one */
 export const localDay = (iso: string) => new Date(iso).toLocaleDateString();
 
