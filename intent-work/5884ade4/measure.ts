@@ -84,7 +84,9 @@ const families: Record<string, () => Bound[]> = {
 	},
 	// nothing exported that nothing uses; no file nothing runs
 	dead: () => {
-		const all = code.filter((f) => /\.(ts|js|mjs|svelte)$/.test(f));
+		// users count wherever they are: play/api/import's scripts (the deploy's import runs them) are code, its data aren't
+		const importers = tracked.filter((f) => /^play\/api\/import\/[^/]+\.(ts|js)$/.test(f) && existsSync(f));
+		const all = [...code.filter((f) => /\.(ts|js|mjs|svelte)$/.test(f)), ...importers];
 		const corpus = all.map((f) => [f, read(f)] as const);
 		let dead = 0;
 		const names: string[] = [];
