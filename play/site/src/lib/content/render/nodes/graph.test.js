@@ -1,4 +1,4 @@
-// A checked graph built into TSL and on to GLSL as three's node handler for WebGL builds it (intent a5faafad): the test
+// A checked graph built into TSL and on to GLSL as WebGPURenderer's WebGL 2 backend builds it (intent a5faafad): the test
 // asset's glow and sway, every operation of the allowlist, a loop, its own picture; a graph that reuses a value many
 // times grows the shader by its nodes, never by its paths; and nothing unchecked is built.
 import { describe, expect, it } from 'vitest';
@@ -7,37 +7,44 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as THREE from 'three';
-// until intent c1bee1f8 (the switch to WebGPU) lands; then its WebGL 2 fallback on a stand-in context builds these
-import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
-import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { MeshStandardNodeMaterial, WebGPURenderer } from 'three/webgpu';
+import { fakeGL } from './fakegl.js';
 import { applyGraph, BUILD_OPS } from './graph.js';
 import { nodeOf } from './index.js';
 import { createPresets } from '../../assets/render/presets.js';
 import { GLOW } from '../../assets/box/graph.examples.js';
 import { OPS, OUTPUTS } from '../../assets/box/graph.js';
 
-/** a material's GLSL against a stand-in context, as ./tsl.test.js gets the ground's; checked by glslangValidator where installed */
-function glslOf(material) {
-	globalThis.ImageBitmap ??= class {};
-	const gl = new Proxy({}, { get: (_, k) => (k === 'getParameter' ? () => 16 : k === 'getExtension' ? () => ({}) : k === 'getSupportedExtensions' ? () => [] : typeof k === 'string' && /^[A-Z_0-9]+$/.test(k) ? 1 : () => null) });
-	const renderer = {
-		getContext: () => gl, extensions: { has: () => true, get: () => ({}) }, toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace,
-		info: { render: { frame: 0 } }, properties: { has: () => false }, getRenderTarget: () => null, getActiveCubeFace: () => 0, getActiveMipmapLevel: () => 0,
-		shadowMap: { enabled: true, type: THREE.PCFShadowMap }, localClippingEnabled: false, coordinateSystem: THREE.WebGLCoordinateSystem, getOutputRenderTarget: () => null,
-		xr: { enabled: false, isPresenting: false }, getPixelRatio: () => 1, getDrawingBufferSize: (v) => v.set(800, 600), getSize: (v) => v.set(800, 600),
-		debug: { checkShaderErrors: true, diagnostics: { keywords: false } }
-	};
-	const h = new WebGLNodesHandler();
-	h.setRenderer(renderer);
-	const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(), mesh = new THREE.Mesh(new THREE.PlaneGeometry(), material);
+/**
+ * A material's GLSL as WebGPURenderer's WebGL 2 backend builds it (the switch's fallback, intent c1bee1f8), drawn once
+ * on a context that only answers (./fakegl.js), no graphics card: its vertex and fragment shaders, each checked by
+ * glslangValidator where installed.
+ */
+async function glslOf(material) {
+	const g = /** @type {any} */ (globalThis);
+	g.self ??= g;
+	g.requestAnimationFrame ??= () => 0;
+	g.cancelAnimationFrame ??= () => {};
+	g.ImageBitmap ??= class {};
+	const { gl, shaders } = fakeGL();
+	const canvas = /** @type {any} */ (gl.canvas);
+	canvas.getContext = (kind) => (kind === 'webgl2' ? gl : null);
+	const r = new WebGPURenderer({ canvas, forceWebGL: true, antialias: false });
+	await r.init();
+	r.setSize(64, 64, false);
+	r.shadowMap.enabled = true;
+	const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+	camera.position.set(0, 1, 4);
+	camera.lookAt(0, 0, 0);
 	const sun = new THREE.DirectionalLight();
 	sun.castShadow = true;
-	scene.add(mesh, sun, new THREE.HemisphereLight());
-	scene.fog = new THREE.Fog('#ffffff', 10, 100);
-	h.renderStart(scene, camera);
-	h.updateLights([sun]);
-	const p = {};
-	h.build(material, mesh, p);
+	scene.add(new THREE.Mesh(new THREE.PlaneGeometry(), material), sun, new THREE.HemisphereLight());
+	r.render(scene, camera);
+	const isFrag = (s) => /\bout\s+(highp\s+)?vec4\b|gl_FragColor|fragColor/.test(s ?? '');
+	// the material's own pair: the longest fragment shader drawn, and the longest vertex shader
+	const longest = (list) => list.reduce((a, b) => (b.length > a.length ? b : a), '');
+	const p = { fragmentShader: longest(shaders.filter(isFrag)), vertexShader: longest(shaders.filter((x) => x && !isFrag(x))) };
+	r.dispose();
 	return p;
 }
 
@@ -54,7 +61,7 @@ function valid(name, p) {
 	if (!glslang) return;
 	for (const [stage, src] of [['frag', p.fragmentShader], ['vert', p.vertexShader]]) {
 		const f = join(dir, `${name}.${stage}`);
-		writeFileSync(f, `#version 300 es\n${src}`);
+		writeFileSync(f, src.startsWith('#version') ? src : `#version 300 es\n${src}`);
 		execFileSync('glslangValidator', [f]);
 	}
 }
@@ -63,17 +70,17 @@ function valid(name, p) {
 const built = (graph, more = {}) => applyGraph(Object.assign(new MeshStandardNodeMaterial(), more), graph);
 
 describe('a graph built', () => {
-	it('the test asset: colour, glow and its vertices moved', () => {
+	it('the test asset: colour, glow and its vertices moved', async () => {
 		const m = built(GLOW);
 		expect(m.colorNode).toBeTruthy();
 		expect(m.emissiveNode).toBeTruthy();
 		expect(m.positionNode).toBeTruthy();
-		const p = glslOf(m);
+		const p = await glslOf(m);
 		valid('glow', p);
 		// the noise and the time are in it
 		expect(p.vertexShader).toMatch(/sin/);
 	});
-	it('every operation of the list, into every output it fits', () => {
+	it('every operation of the list, into every output it fits', async () => {
 		const zero = { float: { value: 0.5 }, vec2: { value: [0.1, 0.2] }, vec3: { value: [0.1, 0.2, 0.3] }, vec4: { value: [0.1, 0.2, 0.3, 0.4] }, color: { value: 0xff8800 } };
 		// inputs of each type, then each operation fed from them
 		const base = [{ op: 'float', value: 0.3 }, { op: 'vec2', value: [0.1, 0.2] }, { op: 'vec3', value: [0.1, 0.2, 0.3] }, { op: 'vec4', value: [1, 2, 3, 4] }];
@@ -99,36 +106,36 @@ describe('a graph built', () => {
 				nodes.push({ op: 'length', in: [nodes.length - 1] });
 				g.out.roughness = nodes.length - 1;
 			}
-			valid(`op-${c.op}`, glslOf(built(g)));
+			valid(`op-${c.op}`, await glslOf(built(g)));
 		}
 		expect(BUILD_OPS.length).toBeGreaterThan(40);
 	});
-	it('a loop of a constant count', () => {
+	it('a loop of a constant count', async () => {
 		const body = [{ op: 'acc' }, { op: 'index' }, { op: 'positionLocal' }, { op: 'swizzle', in: [2], mask: 'x' }, { op: 'mul', in: [1, 3] }, { op: 'sin', in: [4] }, { op: 'add', in: [0, 5] }];
 		const m = built({ format: 1, nodes: [{ op: 'float', value: 0 }, { op: 'loop', in: [0], count: 8, body }, { op: 'float', value: 0.125 }, { op: 'mul', in: [1, 2] }], out: { roughness: 3, position: 1 } });
-		const p = glslOf(m);
+		const p = await glslOf(m);
 		valid('loop', p);
 		expect(p.fragmentShader).toMatch(/for\s*\(/);
 	});
-	it('its own picture', () => {
+	it('its own picture', async () => {
 		const map = new THREE.DataTexture(new Uint8Array(4), 1, 1);
 		const m = built({ format: 1, textures: ['map'], nodes: [{ op: 'uv' }, { op: 'texture', in: [0], slot: 'map' }, { op: 'swizzle', in: [1], mask: 'xyz' }], out: { color: 2 } }, { map });
-		valid('texture', glslOf(m));
+		valid('texture', await glslOf(m));
 	});
-	it('a value used again and again is worked out once: the shader grows with the nodes, never with the paths', () => {
+	it('a value used again and again is worked out once: the shader grows with the nodes, never with the paths', async () => {
 		// each node adds the one before to itself: 2^40 paths if inlined
 		const nodes = [{ op: 'positionLocal' }, ...Array.from({ length: 40 }, (_, i) => ({ op: 'add', in: [i, i] }))];
-		const p = glslOf(built({ format: 1, nodes, out: { color: 40 } }));
+		const p = await glslOf(built({ format: 1, nodes, out: { color: 40 } }));
 		valid('chain', p);
 		expect(p.fragmentShader.length).toBeLessThan(200_000);
 	});
-	it('nothing unchecked: a refused graph builds nothing', () => {
+	it('nothing unchecked: a refused graph builds nothing', async () => {
 		const m = new MeshStandardNodeMaterial();
 		expect(() => applyGraph(m, { format: 1, nodes: [{ op: 'storage' }], out: { color: 0 } })).toThrow(/refused/);
 		expect(() => applyGraph(m, { format: 1, textures: ['map'], nodes: [{ op: 'uv' }, { op: 'texture', in: [0], slot: 'map' }], out: { opacity: 1 } })).toThrow(/carries no map/);
 		expect(m.colorNode).toBeNull();
 	});
-	it('every way a material is drawn draws its graph: nodeOf, and the renderer’s kept materials, a skinned one’s too', () => {
+	it('every way a material is drawn draws its graph: nodeOf, and the renderer’s kept materials, a skinned one’s too', async () => {
 		const m = new THREE.MeshStandardMaterial();
 		m.userData.graph = GLOW;
 		const n = nodeOf(m);
@@ -144,7 +151,7 @@ describe('a graph built', () => {
 		other.userData.graph = { format: 1, nodes: [{ op: 'color', value: 1 }], out: { color: 0 } };
 		expect(presets.of(other)).not.toBe(kept);
 	});
-	it('outputs share the graph: five outputs of one value cost what one does', () => {
+	it('outputs share the graph: five outputs of one value cost what one does', async () => {
 		const nodes = [{ op: 'positionWorld' }];
 		let layer = [];
 		for (let i = 0; i < 60; i++) nodes.push({ op: 'worley', in: [0] }), layer.push(nodes.length - 1);
@@ -154,11 +161,11 @@ describe('a graph built', () => {
 			layer = next;
 		}
 		const last = nodes.length - 1;
-		const one = glslOf(built({ format: 1, nodes, out: { roughness: last } })).fragmentShader.length;
-		const five = glslOf(built({ format: 1, nodes, out: { roughness: last, metalness: last, opacity: last, color: last, emissive: last } })).fragmentShader.length;
+		const one = (await glslOf(built({ format: 1, nodes, out: { roughness: last } }))).fragmentShader.length;
+		const five = (await glslOf(built({ format: 1, nodes, out: { roughness: last, metalness: last, opacity: last, color: last, emissive: last } }))).fragmentShader.length;
 		expect(five).toBeLessThan(one * 1.2);
 	});
-	it('a vector made again and again from the one before is worked out once (join and swizzle too)', () => {
+	it('a vector made again and again from the one before is worked out once (join and swizzle too)', async () => {
 		const nodes = [{ op: 'positionLocal' }];
 		for (let k = 0; k < 30; k++) {
 			nodes.push({ op: 'swizzle', in: [nodes.length - 1], mask: 'x' });
@@ -166,14 +173,14 @@ describe('a graph built', () => {
 			nodes.push({ op: 'join', in: [s, s, s] });
 		}
 		const last = nodes.length - 1;
-		const p = glslOf(built({ format: 1, nodes, out: { color: last, emissive: last, position: last } }));
+		const p = await glslOf(built({ format: 1, nodes, out: { color: last, emissive: last, position: last } }));
 		valid('joins', p);
 		expect(p.fragmentShader.length).toBeLessThan(60_000);
 		expect(p.vertexShader.length).toBeLessThan(60_000);
 	});
-	it('a colour is the colour given, in linear components (not black)', () => {
+	it('a colour is the colour given, in linear components (not black)', async () => {
 		const c = new THREE.Color(0x2bd4a8);
-		const f = glslOf(built({ format: 1, nodes: [{ op: 'color', value: 0x2bd4a8 }], out: { color: 0 } })).fragmentShader;
+		const f = (await glslOf(built({ format: 1, nodes: [{ op: 'color', value: 0x2bd4a8 }], out: { color: 0 } }))).fragmentShader;
 		expect(f).toContain(`vec3( ${c.r}, ${c.g}, ${c.b} )`);
 	});
 });
