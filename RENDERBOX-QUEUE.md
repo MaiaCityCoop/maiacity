@@ -1,6 +1,10 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+**00:34 Berlin, #9 c8 run on `d9628c7` itself (render a36a83b, out/ `21529e3c2`): PASS** again, 64 pages, 0 errors, both
+engines on `webgpu`, Safari's BatteryPack drawn in time; the c8 result on `d9628c7` now cites this run. #9 stands in
+Build as "c5 failed" (the box's census): the builder's, nothing the Mac waits on.
+
 **00:24 Berlin, #9 (c1bee1f8) c8: PASS, recorded on the head `d9628c7`.** Run 3 of the job (production build, head
 `d79ec166d`; out/ `573a993c7`): 32 pages in Chrome 153 (Metal) and in WebKit 26.6, 0 console and page errors, every
 drawing page on `webgpu`; Sandbox 3's building, the biome cover, the goat, the worlds all drawn. Safari's machine and
