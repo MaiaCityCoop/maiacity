@@ -159,6 +159,8 @@ export const standing = (grass) => smooth(PATCH[0], PATCH[1], grass);
  * thousands, so each is drawn as wide as the few it stands for and the ground is covered as a meadow's is.
  */
 export const STANDS = 2.5;
+/** how far a blade's middle bows the way it leans (of how far its tip reaches out), so it arches */
+export const BOW = 0.35;
 /**
  * How far it grows (0…1) where it stands, with its rank and its end, where the mask grows `grass` (0…1): the mask thins
  * it by rank as distance does (by `standing`: a colony dense, the ground between bare), the same blades further out.
@@ -285,16 +287,18 @@ export function bladeLevel(level) {
 
 /**
  * Where a blade's vertex is, in the blade's own frame before it is turned to its facing (x across, y up, z the way
- * it leans): a quadratic Bézier from its foot to its tip, its control above the foot, its width narrowing to the tip.
+ * it leans): a quadratic Bézier from its foot to its tip, its control above the foot bowed `BOW` of its lean's reach the
+ * way it leans, its width narrowing to the tip.
  * @param {number} t @param {number} side @param {{ height: number, lean: number, width: number, bend?: [number, number] }} b
  *   lean in radians; bend, the wind's push on its tip (m, in its own x and z)
  */
 export function shapeAt(t, side, b) {
 	const [bx, bz] = b.bend ?? [0, 0];
 	const tipY = b.height * Math.cos(b.lean), tipZ = b.height * Math.sin(b.lean) + bz, tipX = bx;
-	const cy = b.height * 0.66;
+	// its control above the foot, bowed a little the way it leans, so a leaning blade arches rather than kinks
+	const cy = b.height * 0.66, cz = b.height * Math.sin(b.lean) * BOW;
 	const u = 1 - t;
-	const x = t * t * tipX, y = 2 * u * t * cy + t * t * tipY, z = t * t * tipZ;
+	const x = t * t * tipX, y = 2 * u * t * cy + t * t * tipY, z = 2 * u * t * cz + t * t * tipZ;
 	const w = b.width * Math.pow(1 - t, 0.75) * 0.5 * side;
 	return [x + w, y, z];
 }
