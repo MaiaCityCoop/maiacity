@@ -31,8 +31,8 @@ bash intent-work/e85a5860-render/run.sh
   token is read by the read-only proxy. No fal, nothing paid.
 - **Shaders:** checked in avenBOX before the job, not here. `bun play/site/scripts/grass-wgsl.ts` builds every pass
   and level to WGSL, and naga held all nine to the WGSL grammar.
-- **Determinism:** the render box's `determinism.mjs`, from `intent-work/main-baseline-render`, the shared main
-  baseline.
+- **Determinism:** the tree's own `play/site/scripts/macjob/determinism.js`, the same the census and the dry run
+  use.
   - `SEEDED_RANDOM` is an init script.
   - Every view waits for `QUIET`, for at most about 3 minutes.
   - The hour is pinned (`__interiorHour`), and so is the world's clock (`__worldTime`).

@@ -2,20 +2,20 @@
 # Intent e85a5860's Mac job (c4, c5; c2 on the card): grass by the million in Sandbox 1 on Samuel's Mac (Metal, WebGPU).
 #   bash intent-work/e85a5860-render/run.sh      (from the repository's root, on the branch intent/e85a5860-grass-compute)
 # Needs bun, node, Playwright with its Chromium, ffmpeg, curl, PLAY_MCP_TOKEN (reads play through the read-only proxy).
-# No fal, nothing paid. Uses the render box's determinism (intent-work/main-baseline-render).
+# No fal, nothing paid. Uses the tree's own determinism (play/site/scripts/macjob/determinism.js, as the census does).
+# Dry-run first in avenBOX: bun play/site/scripts/macjob/dry.ts intent-work/e85a5860-render --at <this commit>
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"; J="$REPO/intent-work/e85a5860-render"; OUT="$J/out"; W="${WORK:-$HOME/e85a5860-work}"
 rm -rf "$W" && mkdir -p "$W" "$OUT"
-git -C "$REPO" fetch -q origin intent-work/main-baseline-render
-git -C "$REPO" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$W/determinism.mjs"
+DET="$REPO/play/site/scripts/macjob/determinism.js"
 cd "$REPO/play/site" && bun install >/dev/null
 PORT=5183
 PLAY_API=http://localhost:3911 bunx vite dev --port $PORT --strictPort >"$W/vite.log" 2>&1 &
 VITE=$!; trap 'kill $VITE 2>/dev/null || true' EXIT
 until curl -sf "http://localhost:$PORT/" >/dev/null; do sleep 1; done
 cd "$REPO"
-DETERMINISM="$W/determinism.mjs" node "$J/grass.mjs" --site head=http://localhost:$PORT --out "$W" 2>&1 | tee "$OUT/run-log.txt"
-DETERMINISM="$W/determinism.mjs" node "$J/grass.mjs" --site head=http://localhost:$PORT --out "$W" --small 2>&1 | tee "$OUT/run-log-small.txt"
+DETERMINISM="$DET" node "$J/grass.mjs" --site head=http://localhost:$PORT --out "$W" 2>&1 | tee "$OUT/run-log.txt"
+DETERMINISM="$DET" node "$J/grass.mjs" --site head=http://localhost:$PORT --out "$W" --small 2>&1 | tee "$OUT/run-log-small.txt"
 cp "$W"/results*.json "$OUT/"
 for p in "$W"/*.png; do ffmpeg -loglevel error -y -i "$p" -vf "scale=1440:-2" -q:v 3 "$OUT/$(basename "${p%.png}").jpg"; done
 # intent 7's tiles beside the compute's blades, each view

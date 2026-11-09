@@ -6,8 +6,8 @@
  *   node intent-work/e85a5860-render/grass.mjs --site head=http://localhost:5183 --out <dir> [--small]
  *
  * One dev server of this branch (PLAY_API at the read-only proxy this script starts on 127.0.0.1:3911; PLAY_MCP_TOKEN
- * reads play). Every page gets the render box's determinism (intent-work/main-baseline/determinism.mjs on
- * intent-work/main-baseline-render: SEEDED_RANDOM, settled by QUIET), the frame meter
+ * reads play). Every page gets the tree's own determinism (play/site/scripts/macjob/determinism.js: SEEDED_RANDOM,
+ * settled by QUIET), the frame meter
  * (play/site/src/lib/content/render/meter.js: on WebGPU its draws and its passes' timestamps, compute passes included)
  * and the hour and the world's clock pinned, so two runs draw the same frames. Intent 7's meadow (090168c8-render's
  * spot: the most grassy 12 m round the near view, from the grass's own mask) and its views, each drawn twice:
@@ -34,7 +34,7 @@ const REPO = join(HERE, '../..');
 const { chromium } = createRequire(join(REPO, 'play/site/package.json'))('playwright');
 
 const argv = process.argv.slice(2);
-let site = null, out = join(HERE, 'out'), small = false, determinism = process.env.DETERMINISM ?? join(REPO, 'intent-work/main-baseline/determinism.mjs');
+let site = null, out = join(HERE, 'out'), small = false, determinism = process.env.DETERMINISM ?? join(REPO, 'play/site/scripts/macjob/determinism.js');
 for (let i = 0; i < argv.length; i++) {
 	if (argv[i] === '--site') site = argv[++i].split('=')[1].replace(/\/$/, '');
 	else if (argv[i] === '--out') out = argv[++i];
