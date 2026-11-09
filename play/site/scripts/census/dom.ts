@@ -11,6 +11,8 @@ export const VIEWPORT = { width: 1440, height: 900 };
 
 /** every WebGL context asked for (the test fails on any): the counting renderer asks for none */
 export const refusedContexts: string[] = [];
+/** a Mac job's dry run (../macjob) answers as a browser with no GPU does, null, where the census throws */
+export const refusal = { quiet: false };
 
 type Listener = EventListenerOrEventListenerObject;
 
@@ -89,6 +91,7 @@ export class El extends EventTarget {
 	getContext(kind: string) {
 		if (/webgl|experimental-webgl|webgpu|bitmaprenderer/.test(kind)) {
 			refusedContexts.push(kind);
+			if (refusal.quiet) return null;
 			throw new Error(`census: a ${kind} context was asked for; the census draws nothing (no WebGL in the cloud)`);
 		}
 		return (this.#ctx ??= context2d(this));
