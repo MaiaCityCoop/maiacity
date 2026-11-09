@@ -14,6 +14,11 @@
  */
 import { asset } from '$lib/site/media/url'
 
+/** where a loop starts: a random point of a recording whose length is known (over a second), else 0 — a streamed
+ *  recording's duration is Infinity or NaN until it is known, and a non-finite currentTime throws */
+export const startAt = (duration: number, random: () => number = Math.random) =>
+	Number.isFinite(duration) && duration > 1 ? random() * (duration - 1) : 0
+
 export type SoundName = 'forest' | 'inside' | 'water' | 'hens' | 'geese' | 'goats' | 'frogs' | 'bees' | 'factory' | 'machine' | 'lift'
 /** each sound's recording, by hash */
 const FILES: Record<SoundName, string> = {
@@ -81,7 +86,7 @@ export function ambience(): Ambience {
 			// the soft nature inside is heard in the room itself, not through the glass
 			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machine' || name === 'lift' ? ctx.destination : filter)
 			// every loop starts somewhere else, so two visits never sound the same
-			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { once: true })
+			el.addEventListener('loadedmetadata', () => (el.currentTime = startAt(el.duration)), { once: true })
 			tracks.set(name, { el, gain })
 		}
 		apply()
