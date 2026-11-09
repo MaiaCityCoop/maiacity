@@ -56,3 +56,8 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
    quiet; anything else (a source it can't play, a closed context) is now said with `console.warn`.
    `playIfAllowed`, `resumeIfAllowed`; the ambience's resume, already handled, takes the same. Pinned:
    `media.test.js`; gate site; svelte-check unchanged.
+10. **The cache worker's writes answered in their own line** (special: swallowed, 1). Writes go one after another;
+    the chain was kept alive by a swallowing copy of each write while the handler awaited the original. Now each
+    write's answer, `ok` or its error, is posted from the chain itself, which so never rejects. The probe's clean-up
+    (`removeEntry` of the one byte written to see whether the browser keeps files) stays a best-effort, said so.
+    Pinned: `cache/cache.test.ts`; gate site.

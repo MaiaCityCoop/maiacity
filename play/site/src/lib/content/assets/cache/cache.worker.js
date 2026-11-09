@@ -25,7 +25,7 @@ const NAME = /^[a-z0-9.-]+$/;
 let folder;
 const folderOf = (dir) => (folder ??= navigator.storage.getDirectory().then((root) => root.getDirectoryHandle(dir, { create: true })));
 
-/** the files being written, one after another */
+/** the files being written, one after another, each answered with how it went */
 let writing = Promise.resolve();
 
 /** writes `bytes` as the file `name` of the folder `dir`, whole and flushed */
@@ -55,13 +55,14 @@ self.onmessage = async (e) => {
 		if (op === 'can') {
 			const { dir, name } = e.data;
 			const can = await write({ dir, name, bytes: new Uint8Array(1) }).then(() => true, () => false);
+			// the probe's one byte, taken away again if the browser lets it: left behind, it is only a byte
 			if (can) await (await folderOf(dir)).removeEntry(name).catch(() => {});
 			self.postMessage({ id, can });
 		} else if (op === 'write') {
-			const turn = writing.then(() => write(e.data));
-			writing = turn.catch(() => {});
-			await turn;
-			self.postMessage({ id, ok: true });
+			writing = writing.then(() => write(e.data)).then(
+				() => self.postMessage({ id, ok: true }),
+				(err) => self.postMessage({ id, error: String(err?.message ?? err) })
+			);
 		} else {
 			const png = await pngOf(e.data.bitmap);
 			self.postMessage({ id, png }, [png.buffer]);
