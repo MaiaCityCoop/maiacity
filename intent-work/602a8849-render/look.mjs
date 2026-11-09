@@ -87,8 +87,11 @@ async function open(site, path, errors) {
 	await page.goto(`${site.url}${path}`, { waitUntil: 'domcontentloaded' });
 	return { ctx, page };
 }
-/** QUIET polled every 2 s until 0 (true), or `t` ms gone (false); a page with no __assets settles by time alone */
+/** QUIET polled every 2 s until 0 (true), or `t` ms gone (false), never more than 3.5 min (since cb16b7a5 Sandbox 1
+ *  keeps photographing for minutes and never counts as quiet); a page with no __assets settles by time alone */
+const QUIET_MAX = 3.5 * 60e3;
 async function quiet(page, t) {
+	t = Math.min(t, QUIET_MAX);
 	for (const end = Date.now() + t; Date.now() < end; await page.waitForTimeout(2000)) {
 		const q = await page.evaluate(QUIET).catch(() => null);
 		if (q === 0) return true;
