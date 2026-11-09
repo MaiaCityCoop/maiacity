@@ -1,20 +1,15 @@
 /*
- * THE BOX'S ENGINES AND RECIPE FILES — the frozen box engines (kind `box` of the kernel's one list,
- * ../../../kernel/engines.js: each version's BLAKE3 hash and size, its file static/engines/engine-v<n>.js, made by
- * scripts/freeze-engine.ts), and the shape of a recipe file of ours, so its BLAKE3 hash names the same
- * bytes wherever it is written.
- *
- * One of our recipe files is its asset's library (its builders, every version's, and what they share with other
- * assets, bundled with three.js left to the engine) and one line naming the version and variant it builds. So each
- * asset, version and variant has a file and a hash of its own, and the hash moves only when the asset's own code
- * changes, or code it shares: never with another asset's.
+ * THE BOX'S ENGINES AND RECIPE FILES — the frozen box engines (kind `box` of ../../../kernel/engines.js: each version's
+ * BLAKE3 hash and size, its file static/engines/engine-v<n>.js, made by scripts/freeze-engine.ts), and the shape of our
+ * recipe file, so its hash names the same bytes wherever written: its asset's library (every version's builders and what
+ * they share, bundled with three.js left to the engine) and one line naming the version and variant it builds. So each
+ * asset, version and variant has its own file and hash, moving only when its own code, or code it shares, changes.
  */
 import { engineAt as frozenAt, enginesOf } from '$lib/kernel/engines.js';
 
 /**
  * @typedef {{ v: number, date: string, blake3: string, bytes: number, three: string, modules: string[], note: string }} Engine
- *   a frozen engine: its version, when, the BLAKE3 hash of its file and its size, the three.js it carries, the modules
- *   a recipe may require of it, and what it brought
+ *   a frozen engine: version, date, its file's hash and size, its three.js, the modules a recipe may require, what it brought
  */
 
 /** every frozen engine, oldest first @type {Engine[]} */
@@ -26,19 +21,11 @@ export const LATEST = ENGINES[ENGINES.length - 1];
 /** an engine by its version @param {number} v */
 export const engineAt = (v) => /** @type {Engine | undefined} */ (/** @type {unknown} */ (frozenAt('box', v)));
 
-/**
- * The start of every recipe file of ours: a script that hands the frozen engine one function, which runs
- * its library (strict, as the modules it was made of were) and gives back the asset's recipe.
- */
+/** The start of every recipe file: a script handing the engine one function that runs its library (strict) and gives the recipe. */
 export const RECIPE_HEAD = 'defineRecipe(function (require) {\n"use strict";\nvar module = { exports: {} }, exports = module.exports;\n';
 
-/**
- * The end of one asset's recipe file: the line naming it. @param {string} id @param {number} v @param {string | null} [variant]
- */
+/** The end of one asset's recipe file: the line naming it. @param {string} id @param {number} v @param {string | null} [variant] */
 export const recipeTail = (id, v, variant) => `\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, ${JSON.stringify(variant ?? null)});\n});\n`;
 
-/**
- * One asset's recipe file. @param {string} library the asset's library @param {string} id @param {number} v
- * @param {string | null} [variant]
- */
+/** One asset's recipe file. @param {string} library the asset's library @param {string} id @param {number} v @param {string | null} [variant] */
 export const recipeFile = (library, id, v, variant) => RECIPE_HEAD + library + recipeTail(id, v, variant);

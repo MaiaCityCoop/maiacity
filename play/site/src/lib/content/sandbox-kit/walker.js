@@ -25,8 +25,7 @@
  * @property {() => void} dispose
  */
 
-/** The sandboxes' pace, walking and hurrying (m/s): every world walks at it unless it says otherwise (Sandbox 3's
- *  domes and village, the Buildings viewer's tents, domes and containers). */
+/** The sandboxes' pace, walking and hurrying (m/s), unless a world says otherwise (Sandbox 3's domes, the Buildings viewer). */
 export const PACE = { walk: 6.45, hurry: 14.6 };
 
 const KEYS = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'];
@@ -45,13 +44,11 @@ const TURNS = [25, 50, 75, 90].map((d) => (d * Math.PI) / 180);
  *   floorAt?: (x: number, z: number, ground: number) => number,
  *   onKey?: (key: string, down: boolean) => boolean
  * }} [options]
- *   x, z, yaw, pitch: where they start and how they face; eye: eye height over the floor (m); walk, hurry: paces (m/s);
- *   keyboard: the keys' own paces, if not walk and hurry (a phone's joystick hurries at its rim, where it is mostly
- *   pushed, so a world may walk the keys at that pace and hurry them faster still); turn: the arrow keys' turn (rad/s); mouse, touch: radians a pixel of drag turns; maxPitch: how far up or down they
- *   may look; stride: the longest stride (m); canStand: may they stand at x, z coming from `from`, on a floor `here` high
- *   (what stands in the way: ./obstacles.js, which never traps them in what they already stand in; the
- *   open ground, everywhere, if not given); floorAt: the floor at x, z for someone now on `ground` (0 if not given);
- *   onKey: the world's own keys, asked first (a lift's ↑/↓): true takes the key from the walker
+ *   x, z, yaw, pitch: start; eye: eye height (m); walk, hurry: paces (m/s); keyboard: the keys' own paces (a phone's
+ *   joystick hurries at its rim, mostly pushed, so a world may walk the keys at that pace and hurry them faster); turn:
+ *   the arrows' turn (rad/s); mouse, touch: radians a pixel; maxPitch; stride: the longest (m); canStand: may they stand
+ *   at x, z from `from` on a floor `here` high (./obstacles.js, never trapping them in what they stand in; open ground
+ *   if not given); floorAt: the floor at x, z for one on `ground` (0); onKey: the world's keys first (a lift's ↑/↓), true takes it
  * @returns {WalkerHandle}
  */
 export function createWalker(camera, dom, options = {}) {

@@ -1,17 +1,12 @@
 // @ts-nocheck — plain JS, runs inside the box
 /*
- * A BUILD KEPT RUNNING — what moves by itself (a machine's solver, an actor's clips, a fire's flames) moves by its own
- * functions, which never leave the box. So a viewer that shows one asks the box to keep a build of it (`open`) and to
- * tick it, frame by frame (`tick`): the box sets what the page asks (the solver's sliders, the controls, the clip and
- * its time, a pose held, the parts drawn apart or flown in), runs one step of it, and hands back only what changed
- * since the last step, as numbers: each node moved (its place, turn and size, by its place in the walk of the tree,
- * the order the page built it in, ./serialize.js), shown or hidden, its blend shapes, its instances; each mesh
- * reshaped, its positions and normals (engine 5), each material's look and each light that changed (./bake.js
- * `MAT`, `LIGHT`: a fire's flicker); and what the solver reads now (its hero number, its labels' readings, its
- * sliders). The page checks them (../hero.js) and puts them on its own copy, which nothing of the box's touches.
- *
- * A session is one build; a box keeps a few (the last ones ticked), and a torn-down box has none (the page then shows
- * its copy standing still).
+ * A BUILD KEPT RUNNING — what moves by itself (a solver, an actor's clips, a fire) moves by functions that never leave
+ * the box, so a viewer asks it to keep a build (`open`) and tick it each frame (`tick`): the box sets what the page asks
+ * (sliders, controls, clip and time, a held pose, parts apart or flown in), runs one step, and hands back as numbers only
+ * what changed: each node moved (place, turn, size, by its place in the tree's walk, ./serialize.js), shown or hidden,
+ * blend shapes, instances; each reshaped mesh (engine 5), material look and light (./bake.js `MAT`, `LIGHT`: a fire's
+ * flicker); and what the solver reads (hero number, readings, sliders). The page checks them (../hero.js) and puts them
+ * on its own copy. A session is one build; a box keeps the last few ticked, a torn-down box none (the copy stands still).
  */
 import { LIGHT, MAT, SLOTS, lightOf, lookOf, materialsOf, offered, reshaped, shapeOf, trsOf } from './bake.js';
 
@@ -35,9 +30,8 @@ const sessions = new Map();
 let next = 1;
 
 /**
- * Keeps a build running. `obj` as its builder made it (`cast` its rig, if it came in one); `nodes` how many nodes the
- * page built of it, which must be this one's (the same recipe, the same values, the same tree).
- * @returns {{ session: number, nodes: number }}
+ * Keeps a build running: `obj` as built (`cast` its rig), `nodes` how many the page built of it, which must match (same
+ * recipe, values, tree). @returns {{ session: number, nodes: number }}
  */
 export function open(obj, cast, nodes) {
 	const list = walk(obj);
@@ -93,8 +87,7 @@ const sessionOf = (id) => sessions.get(id) ?? (() => {
 })();
 
 /**
- * One step: what the page asks set, the build stepped, and what changed since the last step.
- * @param {number} id
+ * One step: what the page asks set, the build stepped, and what changed since the last. @param {number} id
  * @param {{ dt?: number, env?: object, sliders?: Record<string, number>, controls?: Record<string, number>, explode?: number, build?: number, clip?: string, t?: number, pose?: string, edits?: Record<string, number[]> }} ask
  */
 export function tick(id, ask = {}) {
