@@ -1,28 +1,11 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * ONE WIND FOR EVERYTHING THAT GROWS (intent 6fd5e63f) — a world's wind as one field every plant, every blade of grass
- * and every leaf reads (Ghost of Tsushima's one wind model; Crysis's and GPU Gems 3 ch. 16's bending), drawn in TSL so
- * it carries to WebGPU unchanged, with its maths mirrored here on the CPU line for line so it can be tested without a
- * graphics card (./wind.test.js).
- *
- * - **The field**: a prevailing direction and strength per world (`windOf`), and a gust field of two octaves whose
- *   fronts travel along the wind at `speed` (`gustAt`: a function of the distance along the wind less speed × t, so a
- *   front at x at t is at x + speed × dt at t + dt). The strength at a place is the prevailing one raised and lowered
- *   by the gust there (`strengthAt`).
- * - **Each plant its own phase** (`phaseOf`): a hash of where it stands, so neighbours sway apart and the same plant
- *   always sways alike. The gust is read at the plant's foot, so a whole plant leans together as a front passes.
- * - **The main bend** (`bendAt`): grows as the square of the height on the plant, the whole copy alike (its leaves never
- *   leave their branches; a stiffer kind may lean less, `stiffness` 1 for every plant drawn today), divided by its stiffness
- *   (trunks hardly move, crowns and grass do), and keeps the length from the foot: what leans over comes down
- *   (`keepLength`).
- * - **Tip flutter** (`flutterAt`): smoothed triangle waves at four frequencies (GPU Gems 3 ch. 16), scaled by the
- *   material's flutter and the height on the plant, gone beyond FLUTTER_FAR (about 15 m) where no eye can read it.
- * - **One clock**: everything is a function of the world's time (`worldTime`, the film's when it sets one), so the
- *   same t draws the same frame, as a film needs.
- *
- * A plant's copies carry, per copy, where their foot stands and their height (`aWind`, written by the renderer with
- * `windOfCopy`); a material's numbers are its look's (../assets/look.js). The TSL (`windNodes`) adds the bend and
- * flutter to a node material's position after instancing, in the mesh's own frame.
+ * ONE WIND FOR EVERYTHING THAT GROWS (intent 6fd5e63f) — one field every plant, blade and leaf reads (Ghost of
+ * Tsushima's one wind model; Crysis's and GPU Gems 3 ch. 16's bending), in TSL so it carries to WebGPU unchanged, its
+ * maths mirrored here on the CPU line for line so it is tested without a graphics card (./wind.test.js). Gust fronts
+ * travel along the wind; each plant sways on its own phase (a hash of its foot) and leans as a whole, by the square of
+ * the height, its length kept; tips flutter (gone past FLUTTER_FAR); all on the world's time, so a film's t is one frame.
+ * Copies carry `aWind` (foot and height, `windOfCopy`); a material's numbers are its look's (../assets/look.js).
  */
 import { KINDS } from '../assets/look.js';
 

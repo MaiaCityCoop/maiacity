@@ -1,21 +1,10 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * LIGHT THROUGH LEAVES (intent 6fd5e63f) — what a material that says it is a leaf, grass, a petal, a stem or bark
- * (its `look`, ../assets/look.js) is drawn with, in TSL, on top of any node material (`foliage(Base)`), so it carries to
- * WebGPU unchanged and sits on the render kit's own (./nodes, intent cb16b7a5) as on three's:
- *
- * - **Wind** (./wind.js): each copy's points bent by the world's one wind after instancing, by its foot and height
- *   (`aWind`, per copy) and the look's stiffness and flutter; a stone never moves.
- * - **Crowns bent outward**: a leaf's or petal's normal turned toward the outside of its crown (about 0.6 of its height
- *   up), a blade of grass's toward the sky, so a crown is lit as one round mass and not leaf by leaf (the trick every
- *   game's trees use).
- * - **Root to tip**: darker toward the foot (the light a crown or a sward keeps from its own inside).
- * - **Wrap diffuse and a backlight lobe** (Frostbite's translucency, Barré-Brisebois and Bouchard 2011): light wrapped a
- *   little past the terminator, and, with the sun behind it, light through it toward the eye, stronger at the tips,
- *   tinted by its own colour: a leaf glows at golden hour. Thin looks are drawn two-sided (both faces lit, each by its
- *   own normal) and cut out, never blended.
- *
- * `foliageOf(material, look, wind)` makes one from a material the page already has (its colour, maps and settings kept).
+ * LIGHT THROUGH LEAVES (intent 6fd5e63f) — a material whose `look` (../assets/look.js) is a leaf, grass, a petal, a
+ * stem or bark drawn in TSL on any node material (`foliage(Base)`): bent by the one wind (./wind.js); a crown's normals
+ * turned outward (grass's to the sky) so it is lit as one mass, the trick every game's trees use; darker toward the
+ * foot; wrap diffuse and a backlight lobe (Frostbite's translucency, Barré-Brisebois and Bouchard 2011), so a leaf glows
+ * at golden hour. Thin looks two-sided and cut out, never blended. `foliageOf(material, look, wind)` makes one.
  */
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
