@@ -10,12 +10,11 @@
  * read once before anything is built. What could not be built (no pin yet, a refused build) is left out and said in
  * `missing`: the world then draws the stage's own `fallback` shape and the kit's EPAL pallet instead.
  */
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadAsset } from '$lib/content/assets/load.js';
-import { buildAt, loadRecipes } from '$lib/content/assets/catalog.js';
-import { loadConfig } from '$lib/content/game/code/index.js';
+import { buildAt, catalogReady } from '$lib/content/assets/catalog.js';
 import { PALLET } from './pallet.js';
 
 /** @typedef {{ ref: string, geometry: THREE.BufferGeometry, material: THREE.Material, object: THREE.Object3D }} Token */
@@ -28,7 +27,7 @@ const KEEP = new Set(['position', 'normal', 'color', 'uv']);
  * throws when the vault holds no such asset (NotInVault, naming it) or its build was refused. @param {string} ref
  */
 async function built(ref) {
-	await Promise.all([loadRecipes(), loadConfig(SANDBOX.factories)]);
+	await catalogReady(SANDBOX.factories);
 	const { obj } = await loadAsset(buildAt(ref));
 	obj.updateMatrixWorld(true);
 	return obj;
@@ -41,7 +40,7 @@ async function built(ref) {
  * @param {string} ref
  * @returns {Promise<Token>}
  */
-export async function tokenOf(ref, { face } = {}) {
+async function tokenOf(ref, { face } = {}) {
 	const object = await built(ref);
 	/** @type {THREE.BufferGeometry[]} */
 	const geos = [];

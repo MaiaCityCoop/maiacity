@@ -6,14 +6,14 @@ import {v,add,sub,mul,cross,length,hull,frameRotation} from './geometry';
 
 // Experimental per-point capacities for the timber roof, cladding and joinery.
 // Masonry, mortar and wall ties are ideal rigid bonds, as in the brick house.
-export const PLATE_ANCHOR:FastenerProfile={name:'Wall-plate anchor bolt',stiffness:5e6,damping:2e4,withdrawalN:12000,shearN:15000};
-export const RAFTER_ANCHOR:FastenerProfile={name:'Rafter tie-down bracket and nails',stiffness:2e6,damping:5000,withdrawalN:3000,shearN:5000};
-export const BOARD_NAIL:FastenerProfile={name:'Roof boarding nails',stiffness:1e6,damping:2000,withdrawalN:600,shearN:1200};
-export const STAPLE:FastenerProfile={name:'Underlayment staples / batten',stiffness:2e5,damping:300,withdrawalN:150,shearN:300};
-export const SHINGLE_NAIL:FastenerProfile={name:'Shingle nails and self-seal strip',stiffness:2e5,damping:300,withdrawalN:120,shearN:250};
-export const TRIM_SCREW:FastenerProfile={name:'Barge board / gutter bracket screw',stiffness:5e5,damping:500,withdrawalN:500,shearN:900};
-export const FRAME_ANCHOR:FastenerProfile={name:'Window / door frame anchor',stiffness:2e6,damping:3000,withdrawalN:1500,shearN:2500};
-export const GLAZING_BEAD:FastenerProfile={name:'Glazing bead and setting blocks',stiffness:1e6,damping:1000,withdrawalN:800,shearN:1500};
+const PLATE_ANCHOR:FastenerProfile={name:'Wall-plate anchor bolt',stiffness:5e6,damping:2e4,withdrawalN:12000,shearN:15000};
+const RAFTER_ANCHOR:FastenerProfile={name:'Rafter tie-down bracket and nails',stiffness:2e6,damping:5000,withdrawalN:3000,shearN:5000};
+const BOARD_NAIL:FastenerProfile={name:'Roof boarding nails',stiffness:1e6,damping:2000,withdrawalN:600,shearN:1200};
+const STAPLE:FastenerProfile={name:'Underlayment staples / batten',stiffness:2e5,damping:300,withdrawalN:150,shearN:300};
+const SHINGLE_NAIL:FastenerProfile={name:'Shingle nails and self-seal strip',stiffness:2e5,damping:300,withdrawalN:120,shearN:250};
+const TRIM_SCREW:FastenerProfile={name:'Barge board / gutter bracket screw',stiffness:5e5,damping:500,withdrawalN:500,shearN:900};
+const FRAME_ANCHOR:FastenerProfile={name:'Window / door frame anchor',stiffness:2e6,damping:3000,withdrawalN:1500,shearN:2500};
+const GLAZING_BEAD:FastenerProfile={name:'Glazing bead and setting blocks',stiffness:1e6,damping:1000,withdrawalN:800,shearN:1500};
 export const HINGE:FastenerProfile={name:'Door hinges and lock',stiffness:2e6,damping:2000,withdrawalN:2000,shearN:3000};
 
 /** Outer dimensions and levels in metres. X along the eaves, Z front (+, entrance) to back. */

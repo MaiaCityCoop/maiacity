@@ -55,7 +55,7 @@ if (args.includes('--clips')) {
 }
 
 // ---- a whole build in the box's own engine ----
-// (as play/site/src/lib/content/assets/engines.js writes a recipe file)
+// (as play/site/src/lib/content/assets/box/engines.js writes a recipe file)
 const RECIPE_HEAD = 'defineRecipe(function (require) {\n"use strict";\nvar module = { exports: {} }, exports = module.exports;\n';
 const recipeTail = (id, v, variant) => `\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, ${JSON.stringify(variant ?? null)});\n});\n`;
 const engines = JSON.parse(readFileSync(`${SITE}src/lib/kernel/sandbox/engines.json`, 'utf8')).box;

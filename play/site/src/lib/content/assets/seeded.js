@@ -1,5 +1,2 @@
-/** @param {number} seed */
-export function seeded(seed) {
-	let state = seed >>> 0 || 1;
-	return () => ((state = (state * 1664525 + 1013904223) >>> 0) / 4294967296);
-}
+// the one seeded random is the kernel's (../../kernel/random.js); sandbox-2/interior/plants.ts (held) still imports it here
+export { seededLcg as seeded } from '../../kernel/random.js';

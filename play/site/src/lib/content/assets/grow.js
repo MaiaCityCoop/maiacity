@@ -3,7 +3,7 @@
  * A PLANT GROWING ON A VIEWER'S STAGE — as the plants page has grown one since it was made: on from where it stands to
  * its last stage at half a stage a second (seed to ripe in 18 s), by the clock on the wall, between its stages as well
  * as at them, so it grows smoothly rather than stage by stage. A viewer builds it where it has grown to whenever its
- * last build is shown (./AssetViewer.svelte, ./VaultAsset.svelte); a build between two stages is not kept in the
+ * last build is shown (./VaultAsset.svelte); a build between two stages is not kept in the
  * device's cache, as no one asks for that one again.
  */
 

@@ -5,11 +5,11 @@ import {verticesOf,type Box,type Scenario} from './simulation';
 import {type FastenerProfile} from './fasteners';
 import {v,add,sub,mul,dot,cross,length,unit,mean,hull,frameRotation} from './geometry';
 import type {V3} from './simulation';
-export const DOME_GRIP:FastenerProfile={name:'Hub timber grip',stiffness:5e6,damping:5000,withdrawalN:8000,shearN:12000};
+const DOME_GRIP:FastenerProfile={name:'Hub timber grip',stiffness:5e6,damping:5000,withdrawalN:8000,shearN:12000};
 export const DOME_BOLT:FastenerProfile={name:'Hub base bolt',stiffness:5e6,damping:5000,withdrawalN:12000,shearN:18000};
-export const SHORING_FIXING:FastenerProfile={name:'Temporary support screw / bolt',stiffness:5e6,damping:5000,withdrawalN:1500,shearN:2500};
-export const ENTRANCE_BOLT:FastenerProfile={name:'Plywood through-bolt with load-spreading washer',stiffness:1e6,damping:2000,withdrawalN:2400,shearN:4800};
-export const PANEL_CLIP:FastenerProfile={name:'Panel fixing',stiffness:1e6,damping:2000,withdrawalN:400,shearN:800};
+const SHORING_FIXING:FastenerProfile={name:'Temporary support screw / bolt',stiffness:5e6,damping:5000,withdrawalN:1500,shearN:2500};
+const ENTRANCE_BOLT:FastenerProfile={name:'Plywood through-bolt with load-spreading washer',stiffness:1e6,damping:2000,withdrawalN:2400,shearN:4800};
+const PANEL_CLIP:FastenerProfile={name:'Panel fixing',stiffness:1e6,damping:2000,withdrawalN:400,shearN:800};
 export const DEFAULT_DOME_DIAMETER=8,MIN_DOME_DIAMETER=6;
 function validateDiameter(diameter:number){
  if(!Number.isFinite(diameter)||diameter<MIN_DOME_DIAMETER)throw new Error(`Dome diameter must be at least ${MIN_DOME_DIAMETER} m and finite.`);

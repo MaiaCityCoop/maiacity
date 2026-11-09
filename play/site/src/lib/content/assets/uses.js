@@ -4,8 +4,10 @@
  * (./plantings.js draws them on a page; a story's world shot, ../../stories/live-runtime.ts, in its frame). Only three.js:
  * nothing here loads or draws.
  */
+import { HEX } from '../../kernel/hash.js';
+
 /** a node's name that plants a build: `use:` and the build */
-export const USE = /^use:([0-9a-f]{64}(?:\?[A-Za-z0-9=&._%-]*)?)$/;
+export const USE = new RegExp(`^use:(${HEX}(?:\\?[A-Za-z0-9=&._%-]*)?)$`);
 
 /**
  * Every build a build plants, with where: its nodes named `use:<build>`, each its build's name and its matrix in the

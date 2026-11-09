@@ -3,11 +3,11 @@
 // renders it on demand — live in the studio, as a proxy, or as a 4K log plate at render time.
 //
 //   spec = {
-//     world:    { sandbox: one of ./worlds.js WORLDS (sandbox-1 … sandbox-6, tired-land, maiacity-v1, worlds), area?, build: { commit, hash, file? } | null, seed, stand: [x, z],
+//     world:    { sandbox: one of ./worlds.js WORLDS (a sandbox's UUID, or worlds), area?, build: { commit, hash, file? } | null, seed, stand: [x, z],
 //                 asset?, recipe? (sandbox `worlds`: the world asset's UUID and its version's recipe hash, play/SPEC.md §4.11),
-//                 dome?, props?, clock },   which world (maia/content/game/film/worlds.js) and where in it; dome and props are Sandbox 4's
+//                 dome?, props?, clock },   which world (./worlds.js) and where in it; dome and props are a dome cell's
 //     seconds, fps: 30, aspect: '1:1',          the shot's length, frame rate, and the shape it was composed for
-//     camera:   maia/content/game/film/camera.js (move · orbit · turn · fly · whip · keys, with a curve; or `world`, the world's
+//     camera:   ./camera.js (move · orbit · turn · fly · whip · keys, with a curve; or `world`, the world's
 //               own camera), its poses in the world's frame or, with `frame`, in one of the world's own (a van, a
 //               pickup: the world says where that stands at each moment, so the camera rides with it),
 //     lens:     { fov, fovTo?, near? },         vertical field of view in degrees (for `aspect`), zooming to fovTo; the
@@ -31,6 +31,7 @@
 // A shot's time t is in seconds from its first frame; its progress is t / seconds. The world's own clock (animals,
 // water, the trucks of a set) runs at world.clock + t, so the same shot always sees the same world.
 // Plain JavaScript, shared by the browser (film mode), the API, the worker and the scripts.
+import { isHash } from '../../../kernel/hash.js';
 import { checkCamera, fovOf, pathOf } from './camera.js';
 import { DEFAULT_SANDBOX, WORLDS } from './worlds.js';
 
@@ -64,12 +65,10 @@ import { DEFAULT_SANDBOX, WORLDS } from './worlds.js';
 export const SHAPES = /** @type {Record<Shape, number>} */ ({ '1:1': 1, '16:9': 16 / 9, '9:16': 9 / 16, '4:5': 4 / 5 });
 /** The lights a shot can set, over what the hour gives them. */
 export const LIGHTS = /** @type {LightId[]} */ (['sun', 'fill', 'glow', 'lamps', 'sky', 'glass', 'cb60']);
-/** The sets a shot can build into the world (scripts/film/props.mjs). */
-export const SETS = ['tired-land'];
 /** The looks a shot may suggest (vault-render `grade::PRESETS`). */
-export const LOOKS = ['neutral', 'cold', 'dip', 'bright', 'night', 'warm'];
+const LOOKS = ['neutral', 'cold', 'dip', 'bright', 'night', 'warm'];
 
-export class ShotError extends Error {}
+class ShotError extends Error {}
 
 const finite = (/** @type {unknown} */ v) => typeof v === 'number' && Number.isFinite(v);
 const lerp = (/** @type {number} */ a, /** @type {number} */ b, /** @type {number} */ t) => a + (b - a) * t;
@@ -110,13 +109,13 @@ export function normalize(s) {
 	if (w.build) {
 		const commit = String(w.build.commit ?? ''), hash = String(w.build.hash ?? '');
 		if (!/^[0-9a-f]{7,64}$/.test(commit) || !/^[0-9a-z]{8,80}$/.test(hash)) bad('world.build names the game build: { commit, hash, file? }.');
-		if (w.build.file !== undefined && !/^[0-9a-f]{64}$/.test(String(w.build.file))) bad('world.build.file is the build in the vault, by its hash.');
+		if (w.build.file !== undefined && !isHash(String(w.build.file))) bad('world.build.file is the build in the vault, by its hash.');
 		build = { commit, hash, ...(w.build.file ? { file: String(w.build.file) } : {}) };
 	}
 	// a world of play's group worlds is named by its asset's UUID and its version's recipe hash (play/SPEC.md §4.7, §4.11)
 	if (sandbox === 'worlds') {
 		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(w.asset ?? ''))) bad('world.asset is the world asset\'s UUID.');
-		if (!/^[0-9a-f]{64}$/.test(String(w.recipe ?? ''))) bad('world.recipe is the hash of the world version\'s recipe.');
+		if (!isHash(String(w.recipe ?? ''))) bad('world.recipe is the hash of the world version\'s recipe.');
 	}
 	if (w.props !== undefined && !(where.sets ?? []).includes(w.props)) bad(where.sets ? `world.props is one of ${where.sets.join(', ')}.` : `${sandbox} has no sets.`);
 	const world = {
@@ -174,7 +173,7 @@ export function normalize(s) {
 	const cues = (s.cues ?? []).map((/** @type {any} */ c, /** @type {number} */ i) => {
 		const at = num(c?.at, `cues[${i}].at`, -1e6, 1e6);
 		if (c.kind === 'sound') {
-			if (!/^[0-9a-f]{64}$/.test(String(c.hash))) bad(`cues[${i}] names a sound by its hash.`);
+			if (!isHash(String(c.hash))) bad(`cues[${i}] names a sound by its hash.`);
 			return { at, kind: 'sound', hash: String(c.hash), level: num(c.level, `cues[${i}].level`, 0, 4, 1) };
 		}
 		if (c.kind === 'event') {
@@ -220,7 +219,7 @@ export function normalize(s) {
 }
 
 /** A curve's value at shot time t. */
-export const valueAt = (/** @type {Curve} */ c, /** @type {number} */ t) => {
+const valueAt = (/** @type {Curve} */ c, /** @type {number} */ t) => {
 	if (!Array.isArray(c)) return c;
 	if (t <= c[0][0]) return c[0][1];
 	for (let i = 1; i < c.length; i++) if (t < c[i][0]) return lerp(c[i - 1][1], c[i][1], (t - c[i - 1][0]) / (c[i][0] - c[i - 1][0]));
@@ -233,7 +232,7 @@ export const valueAt = (/** @type {Curve} */ c, /** @type {number} */ t) => {
  * more above and below) — never a centre crop. A shape's own `framing.fov` overrides the rule.
  * @param {number} fov  the composed vertical fov, degrees @param {Shape} from @param {Shape} to
  */
-export function fovFor(fov, from, to) {
+function fovFor(fov, from, to) {
 	const a = SHAPES[from], b = SHAPES[to];
 	if (b >= a) return fov;
 	return (2 * Math.atan(Math.tan((fov * Math.PI) / 360) * (a / b)) * 180) / Math.PI;
@@ -279,13 +278,6 @@ export function evaluate(spec, t, shape) {
 		clock: spec.world.clock + t,
 		progress: p
 	};
-}
-
-/** The times (shot seconds) a frame's shutter samples: `samples` instants spread over angle/360 of the frame. */
-export function shutterTimes(/** @type {Spec} */ spec, /** @type {number} */ t) {
-	const n = spec.shutter.samples, open = spec.shutter.angle / 360 / spec.fps;
-	if (n <= 1 || open <= 0) return [t];
-	return Array.from({ length: n }, (_, i) => t + (open * i) / n);
 }
 
 // ── fingerprints ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -346,69 +338,4 @@ export function sha256(/** @type {string} */ text) {
 export function fingerprint(spec, extra = {}) {
 	const { look: _l, meta: _m, cues, ...rest } = spec;
 	return sha256(stable({ v: 1, spec: { ...rest, cues: cues.filter((c) => c.kind !== 'sound') }, extra }));
-}
-
-/** Two specs the same shot (as the shots table decides whether a save is a new version). */
-export const sameSpec = (/** @type {Spec} */ a, /** @type {Spec} */ b) => stable(a) === stable(b);
-
-// ── the shot lists written before shots were data (.mjs files of camera.mjs moves) ──────────────────────────────────
-
-/**
- * How far over or under middle grey a legacy shot is metered, in stops: grade.mjs's per-hour brightness targets
- * (mean display luma of the lower 60% of the frame: 108 by day) as offsets. Luma is display-referred (gamma ≈ 2.4),
- * so a luma ratio r is 2.4·log2(r) stops. Night is deliberately under; the dip dull and heavy.
- * @param {{ hour: number, mood?: string, bright?: number }} shot
- */
-export function legacyStops(shot) {
-	const DAY = 108;
-	const target = shot.bright ?? (shot.mood === 'dip' ? 86 : shot.mood === 'bright' ? 118 : shot.hour < 5.2 ? 100 : shot.hour < 6.2 ? 106 : shot.hour >= 20.2 ? 72 : shot.hour >= 19.5 ? 88 : DAY);
-	return Math.round(2.4 * Math.log2(target / DAY) * 100) / 100;
-}
-
-/** The look a legacy shot was graded with (its mood, its `grade`), as a preset name — a suggestion, never baked. */
-export function legacyLook(/** @type {{ mood?: string, grade?: string, extra?: string }} */ shot) {
-	if (shot.mood === 'dip') return 'dip'; // COLD + DIP: the world as it was
-	if (shot.mood === 'bright') return 'bright';
-	const g = `${shot.grade ?? ''}`;
-	if (/saturation=0\.45/.test(g)) return 'cold';
-	if (/saturation=1\.08/.test(g)) return 'night';
-	return undefined;
-}
-
-/**
- * A shot of a legacy shot list (a .mjs of camera.mjs moves: name, size, hour, hourTo, fov, fovTo, stand, dome, props,
- * exposure, blur, mood, grade, extra, sfx, path built with camera.mjs, start, seconds) as a spec.
- *   · its path's `.spec` (camera.mjs attaches it) becomes the camera;
- *   · `start` (its place on the film's clock) becomes world.clock: the trucks of a set drive on the same clock;
- *   · `blur: n` (n poses averaged over a whole frame) becomes a 360° shutter with n samples;
- *   · `exposure` (the lens opened for grade.mjs's 8-bit pre-grade) is not needed in log: the meter exposes, and
- *     grade.mjs's per-hour brightness target becomes a stop offset (legacyStops);
- *   · `mood` / `grade` / `extra` become a `look` preset name (legacyLook) — never baked;
- *   · `sfx` (['<hash>.mp3', level]) become sound cues at the shot's first frame.
- * `opts.seconds` / `opts.clock` give its length and place when the list itself has no timing (no library/).
- * @param {any} shot @param {{ seconds?: number, clock?: number, fps?: number, aspect?: Shape, build?: Build, seed?: number }} [opts]
- * @returns {Spec}
- */
-export function fromLegacy(shot, opts = {}) {
-	if (!shot?.path?.spec) throw new ShotError(`${shot?.name ?? 'a shot'}: its path is not data (build it with maia/content/scripts/film/camera.mjs)`);
-	const seconds = opts.seconds ?? shot.seconds;
-	if (!finite(seconds)) throw new ShotError(`${shot.name}: how long is it? (give opts.seconds)`);
-	const sfx = /** @type {[string, number][]} */ (shot.sfx ?? []);
-	return normalize({
-		world: { sandbox: 'sandbox-4', build: opts.build ?? null, seed: opts.seed ?? 1, stand: shot.stand, ...(shot.dome !== undefined ? { dome: shot.dome } : {}), ...(shot.props ? { props: shot.props } : {}), clock: opts.clock ?? shot.start ?? 0 },
-		seconds,
-		fps: opts.fps ?? 30,
-		aspect: opts.aspect ?? '1:1',
-		camera: shot.path.spec,
-		lens: { fov: shot.fov ?? 45, ...(shot.fovTo !== undefined ? { fovTo: shot.fovTo } : {}) },
-		time: { hour: shot.hour, ...(shot.hourTo !== undefined ? { hourTo: shot.hourTo } : {}) },
-		// a time-lapse through sunrise follows the light (ramp); everything else is metered once and held
-		exposure: { meter: shot.hourTo !== undefined && Math.abs(shot.hourTo - shot.hour) > 0.05 ? 'ramp' : 'lock', stops: legacyStops(shot) },
-		lights: [],
-		cues: sfx.map(([file, level]) => ({ at: 0, kind: 'sound', hash: String(file).replace(/\.[a-z0-9]+$/, ''), level })),
-		shutter: shot.blur ? { angle: 360, samples: shot.blur } : { angle: 180, samples: 1 },
-		framing: {},
-		look: legacyLook(shot),
-		meta: { name: shot.name, ...(shot.size ? { size: shot.size } : {}), ...(shot.scene ? { scene: shot.scene } : {}), ...(shot.exposure !== undefined ? { legacyExposure: shot.exposure } : {}) }
-	});
 }

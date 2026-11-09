@@ -42,8 +42,8 @@
 	import { onMount, tick } from 'svelte';
 	import VaultAsset from './VaultAsset.svelte';
 	import { AssetBox } from './box/host.js';
-	import { LATEST, RECIPE_HEAD, recipeFile } from './engines.js';
-	import { hashText } from './builds.js';
+	import { LATEST, RECIPE_HEAD, recipeFile } from './box/engines.js';
+	import { hashText } from '$lib/kernel/hash.js';
 	import { admitHanded } from './catalog.js';
 	import { handPiece, handedPieces } from './box/pieces.js';
 

@@ -1,7 +1,7 @@
 // @ts-nocheck — plain JS, in the kit's own style (./kit.js)
 /*
  * THE LIFETRAC LINE'S MACHINES AND WHAT IT CARRIES — our additions to the factory kit (./kit.js), at their real size in
- * metres, for the line that builds the LifeTrac (./lifetrac-line.js). AirSup's kit machines are readable stand-ins
+ * metres, for the line that builds the LifeTrac (play/api/import/factories/lifetrac-line/line.js). AirSup's kit machines are readable stand-ins
  * of two to three metres; the machines a tractor line needs are bigger, and the line is fully automated, so these
  * have robots where theirs have people:
  *

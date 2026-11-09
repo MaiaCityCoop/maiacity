@@ -1,23 +1,23 @@
 // @ts-nocheck — plain JS, runs in the page
 /*
  * THE CATALOG — play's one source of assets (play/SPEC.md §4). Every accepted version and variant of Maia City's
- * assets, by the BLAKE3 hash of its recipe file, from play's API (/api/catalog); each file read from /api/files/<hash>,
- * held to that hash and kept on this device by it (./cache.js).
+ * assets, by the BLAKE3 hash of its recipe file, from play's API (/api/catalog); each file read from play's files,
+ * held to that hash and kept on this device by it (./cache/files.js).
  *
- * An asset is named only by a hash: a build, `<hash>?values` (./builds.js), or a slot of its sandbox's pins,
+ * An asset is named only by a hash: a build, `<hash>?values` (../../kernel/builds.js), or a slot of its sandbox's pins,
  * `pin:<sandbox>/<slot>?values`, which the sandbox's config (play's database, ../game/code/index.js) maps to a build.
  * Nothing is looked up by a readable name: a version's number, an asset's id and a label are only shown.
  */
-import { holds } from '../game/hash.js';
-import { configAt } from '../game/code/index.js';
-import { buildOf, hashText, parseBuild } from './builds.js';
-import * as cache from './cache.js';
-import { LATEST } from './engines.js';
-import { queryOf } from './params.js';
+import { hashText, holds } from '../../kernel/hash.js';
+import { configAt, configKey, loadConfig } from '../game/code/index.js';
+import { BUILD_START, buildOf, parseBuild } from '../../kernel/builds.js';
+import { playFile } from './cache/files.js';
+import { LATEST } from './box/engines.js';
 import { handedPieces } from './box/pieces.js';
 import { lodOf } from './lodcard.js';
 
-export { buildOf, checked, hashText, parseBuild } from './builds.js';
+// the names of a build, which render/index.js and sandbox-4/scene.ts (held) take from here
+export { buildOf, parseBuild };
 
 /** a build the catalog can't give: a hash it doesn't hold, a slot its sandbox doesn't pin, or a name that is no hash */
 export class NotInCatalog extends Error {}
@@ -98,14 +98,29 @@ export function loadRecipes() {
 	return (loading ??= load());
 }
 
+/**
+ * What a world waits for before its first build: play's catalog and its sandbox's config (by the sandbox's UUID). A
+ * failure says why, on the world's loading screen.
+ * @param {string} [sandbox]
+ */
+export async function catalogReady(sandbox) {
+	const [r] = await Promise.all([loadRecipes(), sandbox ? loadConfig(sandbox) : null]);
+	if (r.phase !== 'ready') throw new Error(r.error || 'The asset catalog could not be loaded.');
+	return r;
+}
+
 /** a slot of a sandbox's pins, `pin:<sandbox>/<slot>[?values]` */
 export const SLOT = /^pin:([a-z0-9][a-z0-9-]*)\/([a-zA-Z0-9][a-zA-Z0-9/-]*)(?:\?([^#\s]*))?$/;
 
-/** a sandbox's slot, with the values it is built with @param {string} sandbox @param {string} slot @param {Record<string, unknown>} [values] */
-export const assetIn = (sandbox, slot, values = {}) => {
-	const q = queryOf(values);
-	return `pin:${sandbox}/${slot}${q ? `?${q}` : ''}`;
-};
+/** a name with more values after its own (`query`, as text) @param {string} name @param {string} query */
+export const withQuery = (name, query) => `${name}${name.includes('?') ? '&' : '?'}${query}`;
+
+/**
+ * A slot of a sandbox's pins, by the sandbox's UUID (./sandboxes.js), with the values it is built with (`query`, as
+ * text, in the order given)
+ * @param {string} sandbox @param {string} slot @param {string} [query]
+ */
+export const slotRef = (sandbox, slot, query = '') => `pin:${sandbox}/${slot}${query ? `?${query}` : ''}`;
 
 /**
  * A name as the build it is: a build as it is; a slot as the build its sandbox pins there, the slot's own values
@@ -116,14 +131,14 @@ export function resolve(name) {
 	if (typeof name !== 'string') throw new NotInCatalog(`not a build: ${JSON.stringify(name)}`);
 	const slot = SLOT.exec(name);
 	if (!slot) {
-		if (!/^[0-9a-f]{64}(\?|$)/.test(name)) throw new NotInCatalog(`${name}: an asset is named by its hash (a build, <hash>?values) or a sandbox's slot`);
+		if (!BUILD_START.test(name)) throw new NotInCatalog(`${name}: an asset is named by its hash (a build, <hash>?values) or a sandbox's slot`);
 		return parseBuild(name);
 	}
 	const [, sandbox, key, query = ''] = slot;
-	const pins = configAt(`configs/${sandbox}/assets`);
+	const pins = configAt(configKey(sandbox, 'assets'));
 	const pinned = pins && Object.hasOwn(pins, key) ? pins[key] : undefined;
 	if (typeof pinned !== 'string') throw new NotInCatalog(`${name}: ${sandbox} pins no asset in slot ${key}`);
-	return parseBuild(query ? `${pinned}${pinned.includes('?') ? '&' : '?'}${query}` : pinned);
+	return parseBuild(query ? withQuery(pinned, query) : pinned);
 }
 
 /** the hash a build or a slot names, held by the catalog @param {string} name */
@@ -183,14 +198,10 @@ export async function recipeAt(hash) {
 	await loadRecipes();
 	heldAt(hash);
 	if ((sizes.get(hash) ?? 0) > MOST) throw new NotInCatalog(`${nameOf(hash)}: its file is larger than a page reads`);
-	let bytes = await Promise.resolve(cache.fileAt(hash)).catch(() => undefined);
-	if (!bytes || !holds(bytes, hash)) {
-		const res = await fetch(`/api/files/${hash}`, { credentials: 'same-origin' });
-		if (!res.ok) throw new NotInCatalog(`${nameOf(hash)}: its file could not be read (HTTP ${res.status})`);
-		bytes = new Uint8Array(await res.arrayBuffer());
-		if (!holds(bytes, hash)) throw new NotInCatalog(`${nameOf(hash)}: its file does not hash to its name`);
-		Promise.resolve(cache.keepFile(hash, bytes)).catch(() => {});
-	}
+	const unread = (status) => new NotInCatalog(`${nameOf(hash)}: its file could not be read (HTTP ${status})`);
+	const bytes = await playFile(hash, unread);
+	if (!bytes) throw unread(404);
+	if (!holds(bytes, hash)) throw new NotInCatalog(`${nameOf(hash)}: its file does not hash to its name`);
 	return { hash, code: new TextDecoder().decode(bytes), pieces };
 }
 

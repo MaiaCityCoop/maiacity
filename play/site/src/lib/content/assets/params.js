@@ -1,8 +1,8 @@
 /*
- * AN ASSET'S PARAMETERS — what its recipe is built with, declared by the recipe itself (a plant's stage and seed,
- * $content/plants), so a world, a viewer or the asset box can name any build of it by one ref:
+ * AN ASSET'S PARAMETERS — what its recipe is built with, declared by the recipe itself (a plant's stage and seed), so a
+ * world, a viewer or the asset box can name any build of it by one name (../../kernel/builds.js):
  *
- *   plants/apple@2?seed=maia&stage=9
+ *   <recipe hash>?seed=maia&stage=9
  *
  * A recipe's arguments are its declared parameters in the order it declares them; one it is not given takes its
  * `value`. What a ref says is checked here against the declaration (a number in its range, a string no longer than it
@@ -21,9 +21,7 @@
 /** @typedef {Record<string, number | string>} Values */
 
 /** how long a string parameter may be when its recipe does not say */
-export const MAX_LENGTH = 80;
-/** the shape of a parameter's id, the same as the card's keys */
-export const KEY = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/;
+const MAX_LENGTH = 80;
 
 /**
  * One parameter's value, checked: from the text of a ref or from a recipe's argument.
@@ -60,36 +58,4 @@ export function valuesOf(params, given = {}, args = []) {
 		out[p.id] = valueOf(p, raw);
 	});
 	return out;
-}
-
-/** A recipe's arguments, its parameters' values in their order. @param {Param[]} params @param {Values} values */
-export const argsOf = (params, values) => params.map((p) => values[p.id]);
-
-/**
- * The query of a ref: its parameters, sorted by id, as text (`seed=maia&stage=9`), so the same values always read the
- * same; empty for none.
- * @param {Record<string, unknown> | undefined} values
- */
-export function queryOf(values) {
-	if (!values) return '';
-	const q = new URLSearchParams();
-	for (const k of Object.keys(values).sort()) q.append(k, String(values[k]));
-	return q.toString();
-}
-
-/**
- * The parameters a ref's query names, as text; undefined for none. Throws for an id out of shape or one named twice.
- * @param {string | undefined} query
- * @returns {Record<string, string> | undefined}
- */
-export function paramsIn(query) {
-	if (!query) return undefined;
-	/** @type {Record<string, string>} */
-	const out = {};
-	for (const [k, v] of new URLSearchParams(query)) {
-		if (!KEY.test(k)) throw new Error(`not a parameter: ${k.slice(0, 40)}`);
-		if (Object.hasOwn(out, k)) throw new Error(`parameter ${k} named twice`);
-		out[k] = v;
-	}
-	return Object.keys(out).length ? out : undefined;
 }

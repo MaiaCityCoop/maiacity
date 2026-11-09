@@ -22,7 +22,7 @@
  * Nothing here loads the renderer: a dome's inside (./interior.ts) is handed the flora it plants in by whoever builds it.
  */
 import * as THREE from 'three';
-import { NotInCatalog } from '../../assets/catalog.js';
+import { NotInCatalog, withQuery } from '../../assets/catalog.js';
 
 /** @typedef {import('./sandbox5.js').Kind} Kind */
 /**
@@ -61,7 +61,7 @@ export const keyOf = (k) => `${k.id}@${k.v}:${k.stage}:${k.seed}`;
 export const refOf = (k) => {
 	// play: the garden names each plant by the build of its slot (Sandbox 1's garden config), a hash
 	if (!k.asset) throw new NotInCatalog(`the garden names no asset for ${k.id} (Sandbox 1's garden config)`);
-	return `${k.asset}${k.asset.includes('?') ? '&' : '?'}stage=${k.stage}&seed=${encodeURIComponent(k.seed)}`;
+	return withQuery(k.asset, `stage=${k.stage}&seed=${encodeURIComponent(k.seed)}`);
 };
 
 /** the side of a cell of the ground the small plants are filed in, metres */
@@ -361,7 +361,7 @@ export function createForest(o) {
 			const k = st.k, X = /** @type {Float32Array} */ (st.x), Y = /** @type {Float32Array} */ (st.y), Z = /** @type {Float32Array} */ (st.z);
 			const sc = /** @type {Float32Array} */ (st.scale)[i];
 			// its finest shape here, as it is drawn near you (its coarsest built where the finest let go of its corners: a
-			// phone's budget, ../../../render/budget.js)
+			// phone's budget, ../../render/budget.js)
 			const level = (k.levels[0].state === 'ready' && !k.levels[0].released ? k.levels[0] : k.levels[k.base]).level;
 			M.compose(_p.set(X[i], Y[i], Z[i]), _q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, /** @type {Float32Array} */ (st.turn)[i]), _s.setScalar(sc));
 			for (const dr of level.draws) {

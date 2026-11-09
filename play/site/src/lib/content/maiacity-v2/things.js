@@ -6,14 +6,15 @@
  *
  * A measure is a number an asset's builder decides (where the pickup's tailgate hangs, how long the ramp runs, where
  * the bell tent's fire place stands): the world needs them before anything is built, to lay out where a machine rolls
- * up the ramp or where the newcomer kneels to pitch the tent. So they are written down here, and ./things.test.js holds
- * each to what its builder hands back (and to the build's own nodes), as Sandbox 2's walk is held (#790).
+ * up the ramp or where the newcomer kneels to pitch the tent. So they are written down here; no test holds them to
+ * what the builders hand back today (its test is gone).
  */
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { slotRef } from '$lib/content/assets/catalog.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 
 /** the library's assets the world puts in, each by its slot of Sandbox 3's pins: play's database pins each slot to
  *  the build of the version V2 drew (its hash), ../assets/catalog.js `resolve` */
-const slot = (key) => `pin:${SANDBOX.three}/${key}`;
+const slot = (key) => slotRef(SANDBOX.three, key);
 export const THINGS = {
 	water: slot('water'),
 	busStop: slot('busStop'),
@@ -106,7 +107,7 @@ export const FIRE_CATCHES = [0.86, 1];
  *  pole's foot, a wall pole or peg going in, a guy's peg, the door, a thing being put down. Its builder's `work`, read
  *  off its places: the pegs and guys each at its turn round the ring (the n-th of `of` round, the door's left out) */
 const round = (of, r, from, to) => Array.from({ length: to - from + 1 }, (_, j) => (((from + j + 0.5) / of) * Math.PI * 2)).map((a) => ({ a, x: Math.sin(a) * r, z: Math.cos(a) * r }));
-export const TENT_WORK = {
+const TENT_WORK = {
 	sheetPegs: round(14, BELL_TENT.R + 0.03, 1, 12),
 	wallPegs: round(22, BELL_TENT.R + 0.04, 1, 20),
 	guys: round(12, 1, 1, 10).map((p) => p.a),
@@ -151,7 +152,7 @@ export const BOTTLE_MOUTH = 0.268;
 
 /** the people: the rigged stand-in (actors/stand-in@11), built with how tall they are and their look (./van.js PEOPLE,
  *  the players in their seat's colours), its moves played from the tables the box wrote down ($content/assets/clips.js) */
-export const STAND_IN = slot('stand-in');
+const STAND_IN = slot('stand-in');
 /** the elder woman of seat C */
 export const ELDER_WOMAN = slot('elder-woman');
 /** a person's ref: their height (m) and what of their look is not the stand-in's, by name, in a steady order */

@@ -2,7 +2,7 @@
  * A BIOME FROM THE MAIA CITY VAULT — the floor a world lays (its surfaces, its density, its cover, each kind the asset
  * it is), read off the card the vault keeps beside the biome's recipe ($content/biomes/card.js `biomeOfCard`), never off
  * the repo's list of them: a biome changed in the vault (a new version its owners accepted) is the floor every world
- * lays from then on. Only once the vault's recipes are in (../vault.js `loadRecipes`, which every world's page waits
+ * lays from then on. Only once play's catalog is in (../catalog.js `loadRecipes`, which every world's page waits
  * for).
  */
 import { biomeOfCard } from '$lib/content/biomes/card.js';
@@ -11,10 +11,10 @@ import { cardOf, hashOf } from '../catalog.js';
 /**
  * The biome a ref names in the vault (`biomes/food-forest`, its newest version; `biomes/food-forest@2`, that one; or a
  * pin): its numbers as its card says them. Throws NotInVault naming it where the vault holds none (told as every
- * missing asset is, ../vault.js `recipes.missed`), or BiomeCardError where its card is no floor's.
+ * missing asset is), or BiomeCardError where its card is no floor's.
  * @param {string | { entry: string, at: string[] }} ref
  */
-export function biomeAt(ref) {
+function biomeAt(ref) {
 	const hash = hashOf(ref);
 	return biomeOfCard(cardOf(hash) ?? { ref: typeof ref === 'string' ? ref : JSON.stringify(ref) });
 }

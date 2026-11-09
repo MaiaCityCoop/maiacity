@@ -8,7 +8,7 @@
 import * as THREE from 'three'
 import type { Mats } from './interior'
 
-export type TentCtx = {
+type TentCtx = {
 	scene: THREE.Scene
 	R: number
 	m: Mats
@@ -16,7 +16,7 @@ export type TentCtx = {
 	bake: (g: THREE.Group, shadows?: boolean) => THREE.Group
 }
 
-export const TENT = { wall: 0.75, pole: 3, doorHalf: 0.55, doorTop: 1.8 }
+const TENT = { wall: 0.75, pole: 3, doorHalf: 0.55, doorTop: 1.8 }
 
 const adiff = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b))
 

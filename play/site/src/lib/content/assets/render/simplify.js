@@ -54,7 +54,7 @@ import { STRETCH } from './lod.js';
 export const ready = MeshoptSimplifier.ready;
 
 /**
- * This simplifier's version: part of the key every level it made is kept by on this device (../cache.js
+ * This simplifier's version: part of the key every level it made is kept by on this device (../cache/levels.js
  * `levelKeyOf`). Raised whenever what it makes of a build changes (its weights, its passes, its error), so no level made
  * the old way is drawn again.
  */
@@ -68,33 +68,33 @@ export const LEFT = new Set(['skinIndex', 'skinWeight']);
  * 1 in the attribute as much as one of the size of the drawing it is on, `weighed`): a normal turned the most, a
  * colour less, a picture's place least (a texture's tiling runs to many units).
  */
-export const WEIGHTS = { normal: 0.5, color: 0.25, uv: 0.02 };
+const WEIGHTS = { normal: 0.5, color: 0.25, uv: 0.02 };
 
 /**
  * How much a change of a picture's place weighs on a drawing a picture is painted on (its colour map: a van's two
  * colours, a tent's canvas), as a normal does: a corner moved across it shows another colour, not a texture's tiling.
  */
-export const PAINTED = 0.5;
+const PAINTED = 0.5;
 
 /**
  * How many times more a normal weighs in a level's first making: its shading kept as it was (a van's panels, a
  * pickup's lamps, a hutch's round struts). A level that cannot come to its share so is made again with WEIGHTS as they
  * are, lighter (`lowerDraws`); and so is every level of a kind smooth all through (EDGED).
  */
-export const SHADED = 4;
+const SHADED = 4;
 
 /**
  * A drawing with at least this share of its places a hard edge (a panel's rim, a box's corners) has edges to keep lit.
  * A kind none of whose drawings has (a goat's coat, a person's skin) has no panels: its outline is what shows, and it
  * is weighed as WEIGHTS are from the first.
  */
-export const EDGED = 0.01;
+const EDGED = 0.01;
 
 /**
  * a drawing this light (triangles) or lighter, drawn once, is kept as it is: there is nothing in a box or a card to
  * take away worth the trouble. One drawn many times (a tent's poles, a pickup's wheel nuts) is weighed by all its copies.
  */
-export const TINY = 24;
+const TINY = 24;
 
 const maxOf = (A) => (A instanceof Uint8Array ? 255 : A instanceof Uint16Array ? 65535 : A instanceof Int8Array ? 127 : A instanceof Int16Array ? 32767 : 1);
 
@@ -117,7 +117,7 @@ export const BOX = 12;
 export const SEEN = { px: 384, sides: 42 };
 
 /** a level this much over its share (a times) has its never seen pieces looked for, and left out */
-export const OVER = 1.05;
+const OVER = 1.05;
 
 /**
  * A shape's corners welded where they are the same, near enough: every attribute it keeps, rounded to its grain, the
@@ -126,7 +126,7 @@ export const OVER = 1.05;
  * @param {{ attributes: Record<string, { array: ArrayLike<number>, itemSize: number, normalized?: boolean }>, index: ArrayLike<number> }} shape
  * @returns {{ attributes: Record<string, { array: any, itemSize: number, normalized: boolean }>, index: Uint32Array, count: number, place: Int32Array, places: number }}
  */
-export function weldCorners(shape) {
+function weldCorners(shape) {
 	const names = Object.keys(shape.attributes).filter((k) => !LEFT.has(k));
 	const P = shape.attributes.position;
 	const n = P.array.length / P.itemSize;
@@ -332,7 +332,7 @@ function compact(welded, index) {
 }
 
 /** how sharply two faces may meet and still be shaded as one smooth surface, once a shape is shaded again (radians) */
-export const CREASE = (50 * Math.PI) / 180;
+const CREASE = (50 * Math.PI) / 180;
 
 /**
  * The places of a shape that are a hard edge: two of their corners' normals more than CREASE apart (a box's corners, a
@@ -364,7 +364,7 @@ function hardPlaces(normal, place, places) {
  * their area. The corners of one welded corner with the same normal are one corner again, keeping its colour and
  * picture's place.
  */
-export function reshade(welded, index) {
+function reshade(welded, index) {
 	const P = floats(welded.attributes.position);
 	const n = welded.count, faces = index.length / 3;
 	// each corner's place: the corners of the welded shape that stand at the same point (its seams) are one place

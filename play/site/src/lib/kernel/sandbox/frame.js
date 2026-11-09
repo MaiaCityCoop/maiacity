@@ -1,12 +1,11 @@
 // @ts-nocheck — plain JS
 import { base } from '$app/paths';
-import { hashBytes } from '$lib/content/game/hash.js';
-import { enginesOf, latestOf, pathOf } from './engines.js';
+import { hashBytes } from '../hash.js';
+import { enginesOf, latestOf, pathOf } from '../engines.js';
 import { BUDGETS, DENY, SANDBOX, SHELL_SCRIPT, frameCsp } from './policy.js';
 /*
  * THE SHELL — where code we cannot trust runs in a page: a worker inside a frame with no origin. One shell for every
- * host: the asset box (recipes, ../../../maia/content/assets/box/host.js), the logic host (rules, view logic, functions, ./logic-host.js)
- * and the view host. Each runs a frozen engine of ours in the worker, and nothing else ever starts there.
+ * host: the asset box (recipes, ../../content/assets/box/host.js), the only one today. Each runs a frozen engine of ours in the worker, and nothing else ever starts there.
  *
  * - The frame: sandbox="allow-scripts" and NOT allow-same-origin, so its origin is opaque ("null"): it reaches no
  *   cookie, storage, OPFS, passkey or page of ours. A Permissions Policy turns every device feature off
@@ -15,7 +14,7 @@ import { BUDGETS, DENY, SANDBOX, SHELL_SCRIPT, frameCsp } from './policy.js';
  *   connection of any kind, no script but the frame's own and the worker's blob (and WebAssembly, for a host whose
  *   engine is one), no images, styles, frames or forms.
  * - The worker is a frozen engine, its bytes checked against its BLAKE3 hash before it starts, and handed in whole:
- *   the shell can load nothing. Its first act is the second lock (./lockdown.js): every way out a worker has is
+ *   the shell can load nothing. Its first act is the second lock (the engine's own lockdown): every way out a worker has is
  *   taken off its global scope.
  * - The frame does nothing but start workers and pass messages, so code that never stops cannot freeze the page, not
  *   even in Safari, where a sandboxed frame shares the page's thread.
@@ -33,7 +32,7 @@ import { BUDGETS, DENY, SANDBOX, SHELL_SCRIPT, frameCsp } from './policy.js';
  */
 
 /** The frame's policy: nothing in or out but its own script, its worker's blob and, if `wasm`, WebAssembly. */
-export const csp = ({ wasm = false } = {}) => frameCsp({ script: `'unsafe-inline' blob:${wasm ? " 'wasm-unsafe-eval'" : ''}` });
+const csp = ({ wasm = false } = {}) => frameCsp({ script: `'unsafe-inline' blob:${wasm ? " 'wasm-unsafe-eval'" : ''}` });
 
 // the frame: its policy, and its one script (./policy.js SHELL_SCRIPT), which the page's own policy names by its hash
 const frameOf = (policy) => `<!doctype html><meta http-equiv="Content-Security-Policy" content="${policy}"><script>${SHELL_SCRIPT}<\/script>`;
@@ -56,7 +55,7 @@ export async function frozen(path, hash, what) {
 const engines = new Map();
 
 /**
- * Frozen engine `v` of `kind` (the latest where none is given: ./engines.js), its bytes checked against its hash
+ * Frozen engine `v` of `kind` (the latest where none is given: ../engines.js), its bytes checked against its hash
  * (`frozen`), fetched once a page; a fetch that failed is tried again by the next ask.
  * @param {string} kind @param {number} [v] @returns {Promise<string>}
  */

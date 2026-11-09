@@ -1,7 +1,7 @@
 // @ts-nocheck — plain JS
 /*
  * AN ASSET'S PARTS TREE, from its card's catalog alone (./schemas/card.v1.json `catalog`): what every viewer that lists
- * an asset's parts lists (./AssetViewer.svelte's panel, an asset's view in its side, ./Parts.svelte). Its own
+ * an asset's parts lists (an asset's view in its side, ./Parts.svelte). Its own
  * parts by assembly, then each whole asset it carries (a Power Cube on a pickup's bed, its `ref`) as one entry of its
  * own, that asset's parts by its assemblies under it.
  */

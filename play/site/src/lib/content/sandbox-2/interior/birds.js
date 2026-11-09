@@ -15,7 +15,7 @@ import { seeded } from './plants';
 import { villageAsset } from './things.js';
 
 /** the five kinds, in the Actors' order */
-export const SONGBIRDS = /** @type {const} */ (['robin', 'blackbird', 'greattit', 'sparrow', 'chaffinch']);
+const SONGBIRDS = /** @type {const} */ (['robin', 'blackbird', 'greattit', 'sparrow', 'chaffinch']);
 
 /** @typedef {{ x: number, z: number, height: number, reach: number }} Tree a tree a bird can sit in */
 /** @typedef {{ kind: 'perch' | 'ground' | 'fly', t0: number, t1: number, from: THREE.Vector3, to: THREE.Vector3, act: string, yaw: number }} Leg one stretch of a bird's round */

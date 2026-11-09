@@ -1,20 +1,19 @@
 /*
- * SANDBOX 5 — Sandbox 4's dome cell (./village.ts), its food forest grown from our own plants ($content/plants) through
+ * THE DOME CELL'S GARDEN — play's Sandbox 1 (./village.ts), its food forest grown from our own plants through
  * ./flora.js: each plant at a stage of its life, from the young tree to the ripe fruit, so the forest is never all one
  * age. Outside, under the open sky, the plants of a middle-European forest garden; inside the domes, under the glass,
  * the ones that need the warmth — the mango, the banana, the coconut palm, the coffee and the cacao.
  *
- * Its garden is kept in the Maia City COOP's vault (A3, Samuel 2026-10-19), the repo's maia/content/code/configs/sandbox-4/garden its
- * seed: `sandbox5()` reads it there.
+ * Its garden is a config of Sandbox 1's layout in play's database (`GARDEN`): `sandbox5()` reads it there.
  *
  * Every plant is anchored to the version it was planted with: its pin, the plant's legacy entry and the heads of that
  * version (`pin`; Samuel 2026-10-20), or, in a garden not pinned yet, the
  * version its card numbers (`v`). A plant changed later is a new version of its entry, and Sandbox 5 keeps growing the
  * one written here until it is planted again on purpose.
  */
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 
-import { configAt, loadConfig } from '../../game/code/index.js';
+import { configAt, configKey, loadConfig } from '../../game/code/index.js';
 
 /**
  * @typedef {{ id: string, v: number, asset?: string, stages: number[], weight?: number }} Planting a plant of the library at its
@@ -32,19 +31,13 @@ import { configAt, loadConfig } from '../../game/code/index.js';
 /** A planting's plant as a kind is anchored to it: its pin where it has one. @param {{ asset?: string }} p */
 export const assetOf = (p) => (p.asset ? { asset: p.asset } : {});
 
-/**
- * How finely Sandbox 4 has always grown its plants (DETAIL in $content/plants/grow.js: `detailAt` of each level is these):
- * near you, further off, and one alone in the picked plant's card (./PlantLook.svelte), finer than any in the forest.
- * Its forest asks the asset box for its plants at these levels, as their `detail` (./flora.js `DETAILS`).
- */
+/** how finely the picked plant's card (./PlantLook.svelte) grows its one plant, finer than any in the forest */
 export const TIERS = {
-	near: { level: 0.25, roots: false, thin: 0.45, fill: 1.3, finest: 0.0016 },
-	mid: { level: 0.1, roots: false, thin: 0.12, fill: 1.6, finest: 0.006 },
 	look: { level: 0.5, roots: false, thin: 0.6, fill: 1.2, finest: 0.0008 }
 };
 
-/** where Sandbox 4's garden is kept: the Maia City COOP's vault (A3), else the repo's seed (maia/content/code/configs/sandbox-4/garden) */
-export const GARDEN = `configs/${SANDBOX.one}/garden`;
+/** where Sandbox 1's garden is kept: a config of its layout */
+const GARDEN = configKey(SANDBOX.one, 'garden');
 
 /**
  * The garden a config holds as Sandbox 4 grows it. Outside: a temperate forest garden planted for the most it can give,
@@ -107,8 +100,3 @@ export function stageOf(p, r, seed) {
 	const k = Math.min(p.stages.length - 1, Math.floor(Math.pow(r(), 0.8) * p.stages.length));
 	return { id: p.id, v: p.v, ...assetOf(p), stage: p.stages[k], seed };
 }
-
-
-/** every plant a garden can grow, as kinds (for growing them all ahead) @param {Garden} garden @param {string} seed */
-export const kindsOf = (garden, seed) =>
-	Object.values(garden).flatMap((layer) => layer.flatMap((/** @type {Planting} */ p) => p.stages.map((stage) => ({ id: p.id, v: p.v, ...assetOf(p), stage, seed }))));

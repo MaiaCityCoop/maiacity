@@ -1,5 +1,5 @@
 /*
- * ARRAY TEXTURES FROM PLAY'S FILES — KTX2 files (each a picture, by its BLAKE3 hash: /api/files/<hash>) made into one
+ * ARRAY TEXTURES FROM PLAY'S FILES — KTX2 files (each a picture, by its BLAKE3 hash: play's file, ../../kernel/files.js) made into one
  * array texture, a layer each, so a shader picks its layer by a number (`texture(t, uv).depth(layer)`): nine surfaces
  * of three maps each would be more textures than a shader stage may sample (16).
  *
@@ -8,6 +8,7 @@
  * placeholder they start as.
  */
 import * as THREE from 'three';
+import { fileUrl } from '../../kernel/files.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 
 /** @type {KTX2Loader | null} */
@@ -29,7 +30,7 @@ export function useRenderer(renderer) {
 /** @param {string} file `<hash>.ktx2` */
 const read = (file) => {
 	let p = files.get(file);
-	if (!p) files.set(file, (p = /** @type {KTX2Loader} */ (loader).loadAsync(`/api/files/${file.replace(/\.ktx2$/, '')}`)));
+	if (!p) files.set(file, (p = /** @type {KTX2Loader} */ (loader).loadAsync(fileUrl(file.replace(/\.ktx2$/, '')))));
 	return p;
 };
 

@@ -11,14 +11,14 @@
  * as it was: one that takes a `detail` (every plant until now) was drawn at the details Sandbox 4 drew its forest at,
  * and is read here as declaring them (`OLD_DETAILS`), so its look, its cost and its builds' cache keys stay as they were.
  * No world chooses them (intent 6295a650): every world draws every asset by its card's levels and the one selector.
- * Those are the forest's two (./sandbox-2/interior/sandbox5.js TIERS near and mid), never the whole plant at detail 1,
+ * Those are the forest's two (the dome cell's forest, near and further off), never the whole plant at detail 1,
  * which no forest drew (half a million triangles a tree; the Mac's Metal run of intent 6295a650 measured five such trees
  * near the eye costing Sandbox 1's mid view 48 % more triangles): a version built at two levels is drawn at the
  * selector's two coarsest thresholds, then its picture (./render/lod.js `thresholdsOf`).
  */
 
 /** the details a version from before the contract that takes a `detail` is built at for its levels, L0 first */
-export const OLD_DETAILS = [0.25, 0.1];
+const OLD_DETAILS = [0.25, 0.1];
 /** the parameter such a version took them by (only here: the renderer never names it) */
 const OLD = 'detail';
 

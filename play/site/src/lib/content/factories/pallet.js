@@ -4,9 +4,10 @@
  * `K.palletLayout`) at its height, EPAL's 144 mm. Where it could not be built the kit draws the EPAL measures itself
  * (`K.palletPieces`).
  */
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { slotRef } from '$lib/content/assets/catalog.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 
 /** our Euro pallet, by its slot of the Factories' pins */
-export const PALLET = `pin:${SANDBOX.factories}/pallet`;
+export const PALLET = slotRef(SANDBOX.factories, 'pallet');
 /** its height (m) */
 export const PALLET_H = 0.144;

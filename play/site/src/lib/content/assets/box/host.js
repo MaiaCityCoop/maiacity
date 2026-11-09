@@ -1,16 +1,16 @@
 // @ts-nocheck — plain JS
-import { LATEST, engineAt } from '../engines.js';
+import { LATEST, engineAt } from './engines.js';
 import { Shell, TIMEOUT, engineCode as frozenCode } from '$lib/kernel/sandbox/frame.js';
 import { budget, buildTurn } from '$lib/content/render/budget.js';
 import { resolved } from './pieces.js';
 /*
- * THE ASSET BOX — where an asset's builder runs when we cannot trust it: the shell (../../../../aven/kernel/sandbox/frame.js, a worker
+ * THE ASSET BOX — where an asset's builder runs when we cannot trust it: the shell (../../../kernel/sandbox/frame.js, a worker
  * inside a frame with no origin, the same for every host of code we cannot trust) running the asset engine.
  *
- * - The worker is a frozen engine (./engine.js, maia/site/static/engines/engine-v<n>.js), its bytes checked against its BLAKE3
- *   hash (aven/kernel/sandbox/engines.json, kind box) before it starts, and handed in whole: the box can load nothing. Each build hands it its
- *   recipe as code (../recipes.js), which the page checked against the recipe's hash as well.
- * - Each recipe runs in a worker of its own (a room of the shell, ../../../../aven/kernel/sandbox/frame.js), one that no other recipe's
+ * - The worker is a frozen engine (static/engines/engine-v<n>.js), its bytes checked against its BLAKE3
+ *   hash (../../../kernel/sandbox/engines.json, kind box) before it starts, and handed in whole: the box can load nothing. Each build hands it its
+ *   recipe as code (../catalog.js `recipeAt`), which the page checked against the recipe's hash as well.
+ * - Each recipe runs in a worker of its own (a room of the shell), one that no other recipe's
  *   code ever ran in: a recipe sees only its own jobs, and the shell takes an answer only from the room its job was
  *   asked in, so no recipe can answer another's build with a model of its own (which the page would then keep under
  *   that recipe's name). A recipe is known by its code, the bytes it runs, so even a caller handing two recipes one
@@ -34,7 +34,7 @@ const rooms = () => Math.min(ROOMS, budget().rooms);
 
 /**
  * A frozen box engine's code, its bytes checked against its hash (once a page: the boxes that run it share the checked
- * text, ../../../../aven/kernel/sandbox/frame.js `engineCode`). @param {number} v
+ * text, ../../../kernel/sandbox/frame.js `engineCode`). @param {number} v
  * @returns {Promise<string>}
  */
 export function engineCode(v) {
@@ -114,7 +114,7 @@ export class AssetBox extends Shell {
 
 	/**
 	 * A recipe built in the box: `{ data, card, ms }`, its plain data (./serialize.js) and its card, unchecked.
-	 * @param {{ hash: string, code: string, pieces?: string[] }} recipe checked against its hash (../recipes.js), and the
+	 * @param {{ hash: string, code: string, pieces?: string[] }} recipe checked against its hash (../catalog.js), and the
 	 *   pieces its manifest names, which it is handed with (./pieces.js: read from play's files, each held to its hash)
 	 * @param {Record<string, string>} [given] its parameters' values, as text
 	 */
@@ -125,7 +125,7 @@ export class AssetBox extends Shell {
 	}
 
 	/**
-	 * A build kept running in the box (engine 4 on, ./live.js): `{ session, nodes }`. `nodes` is how many nodes the page
+	 * A build kept running in the box (engine 4 on): `{ session, nodes }`. `nodes` is how many nodes the page
 	 * built of it, which the box's build must have too; `session` the page's handle on it, which knows its room.
 	 * @param {{ hash: string, code: string }} recipe @param {Record<string, string> | undefined} given @param {number} nodes
 	 */

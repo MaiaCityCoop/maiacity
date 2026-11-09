@@ -22,12 +22,13 @@
  * `light:window` cells fall into WINDOW_SETS sets by their order, and each copy lights some of them by its seed. A
  * `light:sign` (a shop's lit sign) is lit always, unless its guest's `state:sign` says otherwise.
  */
+import { HASH, HEX } from '../../kernel/hash.js';
 
-/** a recording's or a recipe's hash */
-const HASH = /^[0-9a-f]{64}$/;
+/** a recording's sound node: `sound:<hash>?its=values` */
+const SOUND = new RegExp(`^sound:(${HEX})(?:\\?(.*))?$`);
 
 /** the moods a world may be in, each its sky's numbers; a world's keys are laid over its preset */
-export const MOODS = {
+const MOODS = {
 	'smog-dusk': { sun: 6, az: 250, fog: 0.0026, haze: '8e9396', lamps: 1, shadows: 0, zenith: '5d636b', horizon: 'b0a682', sunColor: 'd8b088', light: 0.85 },
 	overcast: { sun: 30, az: 200, fog: 0.003, haze: 'a7a9a8', lamps: 0, shadows: 0, zenith: '7d8389', horizon: 'b9bbb8', sunColor: 'e6e3dc', light: 0.9 },
 	'clear-day': { sun: 40, az: 220, fog: 0.0012, haze: 'd4e0ea', lamps: 0, shadows: 1, zenith: '5a8ccc', horizon: 'dde7ee', sunColor: 'fff1d6', light: 1.2 },
@@ -35,7 +36,7 @@ export const MOODS = {
 	// inside (a shop, a checkout): no sky, no sun, no fog, a flat soft light from everywhere, its lamps and signs lit
 	indoor: { sun: -90, az: 0, fog: 0, haze: 'd8d8d4', lamps: 1, shadows: 0, zenith: 'e8e8e4', horizon: 'd8d8d4', sunColor: 'ffffff', light: 0.9, indoor: 1 }
 };
-export const DEFAULT_MOOD = 'overcast';
+const DEFAULT_MOOD = 'overcast';
 
 /** the lights a guest's parts may be named for, and the state each follows */
 export const LIGHTS = {
@@ -55,9 +56,9 @@ export const LIGHTS = {
 /** how many sets a building's windows fall into, each lit or dark by the guest's seed (so no two blocks are lit alike) */
 export const WINDOW_SETS = 4;
 /** a signal head's lamps */
-export const LAMPS = ['red', 'amber', 'green'];
+const LAMPS = ['red', 'amber', 'green'];
 /** the lights lit by the mood where a guest says nothing of them */
-export const BY_MOOD = new Set(['head', 'tail', 'lamp', 'window']);
+const BY_MOOD = new Set(['head', 'tail', 'lamp', 'window']);
 /** the lights lit whatever the mood, unless a guest's state says otherwise: a shop's sign */
 export const ALWAYS = new Set(['sign']);
 
@@ -105,7 +106,7 @@ export function moodOf(name) {
 
 /** a sound node's name read: `{ hash, for, gain }`, or null */
 export function soundOf(name) {
-	const m = /^sound:([0-9a-f]{64})(?:\?(.*))?$/.exec(String(name ?? ''));
+	const m = SOUND.exec(String(name ?? ''));
 	if (!m) return null;
 	const q = query(m[2]);
 	const what = /^[a-z][a-z0-9-]{0,23}$/.test(q.for ?? '') ? q.for : 'bed';
@@ -168,8 +169,8 @@ export function statesOf(node, out = { on: new Map(), heads: new Map() }) {
 }
 
 /** how fast the page blinks and flashes (Hz): an indicator, a beacon's two colours turn about */
-export const BLINK = 1.5;
-export const FLASH = 2.5;
+const BLINK = 1.5;
+const FLASH = 2.5;
 
 /**
  * Whether one light of a guest is lit now: by its state where the guest has one, else by the mood; an indicator

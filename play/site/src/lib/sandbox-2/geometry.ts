@@ -1,4 +1,5 @@
-import type {V3, Quaternion} from './simulation';
+export type V3 = { x: number; y: number; z: number };
+export type Quaternion = V3 & { w: number };
 export const v=(x=0,y=0,z=0):V3=>({x,y,z});
 export const add=(a:V3,b:V3):V3=>v(a.x+b.x,a.y+b.y,a.z+b.z);
 export const sub=(a:V3,b:V3):V3=>v(a.x-b.x,a.y-b.y,a.z-b.z);

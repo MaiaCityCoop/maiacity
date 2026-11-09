@@ -43,8 +43,8 @@ const round = (w: number, h: number, d: number, r = 0.08) => {
 	return geo
 }
 
-export type Room = { a0: number; span: number; rIn: number; rOut: number; y: number; seed: number }
-export type RoomColliders = { x: number; z: number; r: number; y: number }[]
+type Room = { a0: number; span: number; rIn: number; rOut: number; y: number; seed: number }
+type RoomColliders = { x: number; z: number; r: number; y: number }[]
 
 /** Furnishes one room; returns its pieces (to be baked by the caller) and what stands in the way. */
 export function furnish(room: Room): { group: THREE.Group; colliders: RoomColliders } {
@@ -270,7 +270,7 @@ export function furnish(room: Room): { group: THREE.Group; colliders: RoomCollid
  * A balcony door: a round-headed timber frame at the glass, its glazed leaf
  * standing open onto the terrace. Built facing +z (outward), standing on y 0.
  */
-export function balconyDoor(): THREE.Group {
+function balconyDoor(): THREE.Group {
 	const g = new THREE.Group()
 	const w = 0.95, h = 2.1
 	for (const sx of [-1, 1]) g.add(new THREE.Mesh(round(0.12, h, 0.14, 0.04), M.wood()).translateX(sx * (w / 2 + 0.06)).translateY(h / 2))

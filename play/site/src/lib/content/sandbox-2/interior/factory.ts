@@ -29,14 +29,14 @@ import type { Mats } from './interior'
 import { stageParts } from './parts'
 
 type Collider = { x: number; z: number; r: number; y?: number }
-export type FactoryCtx = {
+type FactoryCtx = {
 	scene: THREE.Scene
 	R: number
 	m: Mats
 	box: (w: number, h: number, d: number, mat: THREE.Material, x?: number, y?: number, z?: number, rotY?: number) => THREE.Mesh
 	bake: (g: THREE.Group, shadows?: boolean) => THREE.Group
 }
-export type FactoryWalk = {
+type FactoryWalk = {
 	colliders: Collider[]
 	floorAt: (x: number, z: number, feet: number) => number
 	blocked: (x: number, z: number, here: number) => boolean

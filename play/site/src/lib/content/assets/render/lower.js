@@ -23,7 +23,7 @@ const through = (m) => !!(m.transparent || m.opacity < 1 || m.transmission > 0 |
  * that is than it is made (`scale`), where it is drawn (`locals`), on which side, whether it is seen through, and
  * whether a picture is painted on it (`painted`, its colour map).
  */
-export function plainOf(d) {
+function plainOf(d) {
 	const g = d.geometry;
 	const attributes = {};
 	for (const [k, a] of Object.entries(g.attributes)) {

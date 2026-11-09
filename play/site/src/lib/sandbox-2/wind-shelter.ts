@@ -1,7 +1,7 @@
 import type RAPIER from '@dimforge/rapier3d-compat';
 import type { V3 } from './simulation';
 
-export type WindBlocker = { collider: RAPIER.Collider; center: V3; radius: number; min: V3; max: V3 };
+type WindBlocker = { collider: RAPIER.Collider; center: V3; radius: number; min: V3; max: V3 };
 type Node = { min: V3; max: V3; children?: [Node, Node]; blockers?: WindBlocker[] };
 const axes = ['x', 'y', 'z'] as const;
 
