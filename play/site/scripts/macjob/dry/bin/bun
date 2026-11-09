@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# The dry run's `bun` (intent cb52fbd9): `bun install` in a job's tree links this checkout's node_modules (as the census
+# does for `--at`); everything else is bun.
+if [ "${1:-}" = install ] || [ "${1:-}" = i ]; then
+  [ -e node_modules ] || ln -s "$DRY_SITE/node_modules" node_modules
+  exit 0
+fi
+exec "$DRY_BUN" "$@"
