@@ -2,6 +2,10 @@
 
 ## SMOKE (newest first)
 - **smoke 4417092b7: OK** ([090168c8] Real grass: blades you could walk through, near to far (#2183); 292 s). 16 pages; all drawn. Frames: near 29.1 ms · mid 38.4 ms · far 16.7 ms.
+  Looks: the blades show at Sandbox 1's near and mid views (green tufts over the soil and in the path's verges, where
+  there were sparse clumps); the far view's field beyond the river is bare soil, as before. GPU +3 ms at near and mid
+  (21.9 / 30.7 ms against 19.0 / 27.1). The one 401 every page logs is the aside's `/api/docs/<uuid>(/history)`, which
+  the read-only token can't open: the harness's, not the site's.
 - **smoke 1698a55f5: OK** ([602a8849] Every other shader in TSL: water, glass, glows, the plant look, factories, the ; 431 s). 17 pages; all drawn. Frames: near 26.1 ms · mid 34.3 ms · far 16.7 ms.
 - **smoke 3b19a5f99: OK** (0b4c007b live, neutral daylight; 18:13–18:18, 325 s). Every page up and drawn; no error but
   the harness's 401 and the old ambience one (fb220a9c). Frames: near 26.7 ms, mid 34.9, far 16.7. Looks (not breaks):
