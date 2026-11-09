@@ -1,0 +1,11 @@
+== settle (quiet by play/site/scripts/quiet.js)
+cold: Sandbox 1's first load up and quiet after 97 s (106 pictures taken)
+warm: Sandbox 1's first load up and quiet after 92 s (108 pictures taken)
+warm: Sandbox 1's measured load up and quiet after 34 s (0 pictures taken)
+== frames
+cold sandbox-1 near: 27.3 ms/frame (p95 33.4), 3,406,546 tris drawn (max 3,406,546)
+cold sandbox-1 mid: 37.8 ms/frame (p95 50.0), 5,315,465 tris drawn (max 5,351,797)
+cold sandbox-1 far: 18.1 ms/frame (p95 33.3), 1,529,320 tris drawn (max 1,529,320)
+warm sandbox-1 near: 29.5 ms/frame (p95 33.4), 3,406,546 tris drawn (max 3,406,546)
+warm sandbox-1 mid: 34.3 ms/frame (p95 50.0), 5,305,525 tris drawn (max 5,305,525)
+warm sandbox-1 far: 18 ms/frame (p95 33.3), 1,529,320 tris drawn (max 1,529,320)

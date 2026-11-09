@@ -1,0 +1,148 @@
+[
+ {
+  "site": "warm",
+  "world": "sandbox-1",
+  "view": "near",
+  "settled": true,
+  "frames": 271,
+  "frameMs": 29.5,
+  "frameP95": 33.400000000001455,
+  "tris": 3406546,
+  "trisMax": 3406546,
+  "assets": {
+   "out": {
+    "tris": 277820,
+    "calls": 68,
+    "levels": [
+     1,
+     102
+    ],
+    "pictures": 2575,
+    "copies": 6995
+   },
+   "in": {
+    "tris": 6318,
+    "calls": 4,
+    "levels": [
+     0,
+     1
+    ],
+    "pictures": 611,
+    "copies": 671
+   },
+   "library": {
+    "tris": 173589,
+    "calls": 118,
+    "levels": [
+     0,
+     0,
+     689
+    ],
+    "pictures": 0,
+    "copies": 5168
+   }
+  },
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/s7af6e162-render/intent-work/7af6e162-render/out/warm/warm-sandbox-1-near.png"
+ },
+ {
+  "site": "warm",
+  "world": "sandbox-1",
+  "view": "mid",
+  "settled": true,
+  "frames": 232,
+  "frameMs": 34.3,
+  "frameP95": 50,
+  "tris": 5305525,
+  "trisMax": 5305525,
+  "assets": {
+   "out": {
+    "tris": 2408963,
+    "calls": 103,
+    "levels": [
+     14,
+     61
+    ],
+    "pictures": 4079,
+    "copies": 7153
+   },
+   "in": {
+    "tris": 90,
+    "calls": 1,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 45,
+    "copies": 45
+   },
+   "library": {
+    "tris": 179371,
+    "calls": 37,
+    "levels": [
+     0,
+     1,
+     628
+    ],
+    "pictures": 0,
+    "copies": 11078
+   }
+  },
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/s7af6e162-render/intent-work/7af6e162-render/out/warm/warm-sandbox-1-mid.png"
+ },
+ {
+  "site": "warm",
+  "world": "sandbox-1",
+  "view": "far",
+  "settled": true,
+  "frames": 444,
+  "frameMs": 18,
+  "frameP95": 33.30000000000291,
+  "tris": 1529320,
+  "trisMax": 1529320,
+  "assets": {
+   "out": {
+    "tris": 47552,
+    "calls": 4,
+    "levels": [
+     0,
+     4
+    ],
+    "pictures": 6174,
+    "copies": 7028
+   },
+   "in": {
+    "tris": 0,
+    "calls": 0,
+    "levels": [
+     0,
+     0
+    ],
+    "pictures": 0,
+    "copies": 0
+   },
+   "library": {
+    "tris": 41980,
+    "calls": 25,
+    "levels": [
+     0,
+     0,
+     11
+    ],
+    "pictures": 0,
+    "copies": 11
+   }
+  },
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/s7af6e162-render/intent-work/7af6e162-render/out/warm/warm-sandbox-1-far.png"
+ },
+ {
+  "site": "warm",
+  "world": "sandbox-3",
+  "view": "open",
+  "tris": 458075,
+  "meter": null,
+  "png": "/Users/samuelandert/Documents/Development/s7af6e162-render/intent-work/7af6e162-render/out/warm/warm-sandbox-3-open.png"
+ }
+]
