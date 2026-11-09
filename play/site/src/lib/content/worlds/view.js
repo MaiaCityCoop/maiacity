@@ -26,7 +26,7 @@ import { heroOf, runner } from '../assets/hero.js';
 import { vaultBuild } from '../assets/sources/viewer.js';
 import { rebuild } from '../assets/box/rebuild.js';
 import { filmDraws, worldTime } from '../render/film.js';
-import { createControls, createRenderer, disposeObject, disposeRenderer, lowPower, topPixelRatio } from '../render/core.js';
+import { createControls, createRenderer, disposeObject, disposeRenderer, lowPower, ready, topPixelRatio } from '../render/core.js';
 import { AssetBox } from '../assets/box/host.js';
 import { createWalker } from '../sandbox-kit/walker.js';
 import { worldOf } from './contract.js';
@@ -412,7 +412,8 @@ export function createWorldView(el, o) {
 	open.add(view);
 	let running = true;
 	let last = performance.now(), frames = 0, since = last;
-	renderer.setAnimationLoop((now) => {
+	// drawn once the renderer is ready (WebGPU's device asked for; a WebGLRenderer at once), unless left before
+	void ready(renderer).then(() => running && renderer.setAnimationLoop((now) => {
 		if (!running || paused) return;
 		const dt = Math.min(0.1, (now - last) / 1000);
 		last = now;
@@ -423,6 +424,6 @@ export function createWorldView(el, o) {
 			frames = 0;
 			since = now;
 		}
-	});
+	}));
 	return view;
 }

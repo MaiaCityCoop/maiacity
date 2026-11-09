@@ -116,6 +116,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	}
 	// the canvas, the camera and the sky are every sandbox's own ($content/sandbox-kit)
 	const stage = createWorldRenderer(container)
+	// nothing is drawn before the renderer may draw (WebGPU's device asked for; a WebGLRenderer at once)
+	await stage.ready
 	const { renderer, scene, camera } = stage
 	// where the eye is (the walker's, or the film camera's): the animals near it move every bone
 	const eye = () => camera.position

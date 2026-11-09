@@ -17,7 +17,7 @@ import { hashText } from '../content/game/hash.js';
 import { withPieces } from '../content/assets/box/pieces.js';
 import { heroOf } from '../content/assets/hero.js';
 import { Stage } from '../content/assets/stage.js';
-import { createRenderer } from '../content/render/core.js';
+import { makeRenderer } from '../content/render/core.js';
 import { createSky } from '../content/sandbox-kit/sky.js';
 import { cameraAt, stepAt, worldAt, type CameraKey, type World } from './live';
 import { blobWorker, buildWorld, built, engineOf, type WorldBuildSpec } from './world-build';
@@ -105,7 +105,7 @@ function shot(tl: any, id: string, spec: Spec) {
 				const got = built(await engine.build(Object.keys(given ?? {}).length ? given : undefined), spec.recipe);
 				builds.push({ obj: got.obj, hero: heroOf(got) });
 			}
-			const renderer = createRenderer({ canvas, pixelRatio: 1, shadows: 'pcf', preserve: true });
+			const renderer = await makeRenderer({ canvas, pixelRatio: 1, shadows: 'pcf', preserve: true });
 			renderer.setSize(w, h, false);
 			camera = new THREE.PerspectiveCamera(40, w / h, 0.05, 2000);
 			stage = new Stage(renderer, camera, { sky: true });
@@ -148,7 +148,7 @@ function world(tl: any, spec: WorldSpec) {
 			if (x.isLight && !x.isDirectionalLight && !x.isHemisphereLight) lamps.push({ light: x, k: x.intensity });
 		});
 		const gl = document.createElement('canvas');
-		renderer = createRenderer({ canvas: gl, pixelRatio: 1, toneMapping: 'agx', shadows: 'pcf', preserve: true });
+		renderer = await makeRenderer({ canvas: gl, pixelRatio: 1, toneMapping: 'agx', shadows: 'pcf', preserve: true });
 		renderer.setSize(w, h, false);
 		camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 20000);
 		sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 } });

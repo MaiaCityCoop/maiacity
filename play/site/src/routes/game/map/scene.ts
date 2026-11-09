@@ -7,7 +7,7 @@
 
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { createRenderer } from '$lib/content/render/core.js';
+import { createRenderer, ready } from '$lib/content/render/core.js';
 import { FILL, RIM, terrain, type Biome, type Feature, type FeatureKind, type P, type Plot, type WorldMap } from './map';
 import { buildCity, type City, type Dome } from './city';
 
@@ -17,6 +17,8 @@ const WATER = '#4f8a8b';
 const PLOT_TOP = 1.6; // m above the ground
 
 export interface World {
+	/** settles once the renderer may draw (WebGPU's device asked for, intent c1bee1f8; a WebGLRenderer at once) */
+	ready: Promise<unknown>;
 	/** outline and tint a plot as the picked one, or none */
 	select(id: number | null): void;
 	/** show the map built up as a city (./city.ts), or empty again; resolves once it is drawn (grown the first time) */
@@ -244,7 +246,9 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 	canvas.addEventListener('pointermove', move);
 	canvas.addEventListener('pointerleave', leave);
 
-	if (!film) renderer.setAnimationLoop(() => {
+	// drawn once the renderer may draw, unless left before
+	const made = ready(renderer);
+	if (!film) void made.then(() => !disposed && renderer.setAnimationLoop(() => {
 		if (pending) {
 			const p = plotAt(pending);
 			pending = null;
@@ -258,10 +262,12 @@ export function createWorld(canvas: HTMLCanvasElement, map: WorldMap, on: { hove
 		followSun();
 		if (city?.group.visible) city.near(camera.position);
 		renderer.render(scene, camera);
-	});
+	}));
 
 	return {
-		city: showCity,
+		ready: made,
+		// the city shown only once the renderer may draw (a film waits for it before its first frame)
+		city: (on) => made.then(() => showCity(on)),
 		frame(eye, at, fov) {
 			controls.target.set(at[0], at[1] ?? 0, at[2]);
 			camera.position.set(eye[0], eye[1], eye[2]);

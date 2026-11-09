@@ -252,4 +252,46 @@ describe('the switch to WebGPU', async () => {
 		expect(shaders.some((s) => /skinIndex/.test(s ?? ''))).toBe(true);
 		expect(shaders.some((s) => /discard/.test(s ?? ''))).toBe(true);
 	});
+
+	// WebGLRenderer's own shadow switch (`shadowMap.autoUpdate`, `needsUpdate`) kept on WebGPU: the sky keys its
+	// shadows by it, and WebGPU's ShadowNode reads only each light's
+	test('the renderer’s shadow switch holds on WebGPU: off draws none, needsUpdate draws one frame', async () => {
+		const { ShadowNode } = await import('three/webgpu');
+		const r = /** @type {any} */ (await makeRenderer({ backend: 'webgl2', pixelRatio: 1, canvas: canvas().c, shadows: 'pcf' }));
+		r.setSize(32, 32, false);
+		const scene = new THREE.Scene();
+		const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+		camera.position.set(0, 2, 4);
+		camera.lookAt(0, 0, 0);
+		const sun = new THREE.DirectionalLight('#fff', 2);
+		sun.castShadow = true;
+		sun.position.set(2, 4, 1);
+		scene.add(sun);
+		const box = new THREE.Mesh(new THREE.BoxGeometry(), new MeshStandardNodeMaterial());
+		box.castShadow = box.receiveShadow = true;
+		scene.add(box);
+		const drawn = vi.spyOn(ShadowNode.prototype, 'updateShadow');
+		// a frame as three's own loop makes one (its node frame moved on), then drawn
+		const frames = (/** @type {number} */ n) => {
+			for (let i = 0; i < n; i++) {
+				r._nodes.nodeFrame.update();
+				r.render(scene, camera);
+			}
+		};
+		frames(3);
+		expect(drawn).toHaveBeenCalledTimes(3);
+		drawn.mockClear();
+		r.shadowMap.autoUpdate = false;
+		frames(3);
+		expect(drawn).toHaveBeenCalledTimes(0);
+		r.shadowMap.needsUpdate = true;
+		frames(3);
+		expect(drawn).toHaveBeenCalledTimes(1);
+		expect(r.shadowMap.needsUpdate).toBe(false);
+		r.shadowMap.autoUpdate = true;
+		drawn.mockClear();
+		frames(2);
+		expect(drawn).toHaveBeenCalledTimes(2);
+		drawn.mockRestore();
+	});
 });

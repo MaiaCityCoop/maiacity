@@ -25,7 +25,7 @@
  */
 import * as THREE from 'three';
 import { CAST, SECOND_HOME } from './cast.js';
-import { createControls } from '$lib/content/render/core.js';
+import { createControls, ready } from '$lib/content/render/core.js';
 import { worldRenderer } from '$lib/content/render/world.js';
 import { blend } from '$lib/content/assets/clips.js';
 import { SPEED } from '$lib/content/models/units.js';
@@ -3705,7 +3705,10 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 			if (r.on !== roamSeen.on || r.near !== roamSeen.near || r.driving !== roamSeen.driving || r.waterNear !== roamSeen.waterNear || r.waterDistance !== roamSeen.waterDistance || r.treeNear !== roamSeen.treeNear) ((roamSeen = r), onRoam(r));
 		}
 	}
-	if (own) loop();
+	// its own frames once the renderer is ready (WebGPU's device asked for; a WebGLRenderer at once), unless left before
+	let left = false;
+	const made = ready(renderer);
+	if (own) void made.then(() => !left && loop());
 
 	/** the film's hold on the world (./film.js): the world brought back to how a moment of the story starts, whatever
 	 *  came before it, so the same moment always plays the same way */
@@ -3795,7 +3798,7 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 		},
 		/** settles once every library asset asked for so far is there to draw (or failed) */
 		get ready() {
-			return drawn.ready();
+			return made.then(() => drawn.ready());
 		},
 		/** settles once every library asset in the camera's view (as the next frame is drawn) is there to draw (or
 		 *  failed): what the shot on screen shows, the rest perhaps still coming */
@@ -3805,6 +3808,7 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 		/** what the renderer draws of the library */
 		stats: () => drawn.stats(),
 		dispose() {
+			left = true;
 			cancelAnimationFrame(raf);
 			drawn.dispose();
 			ro.disconnect();

@@ -21,7 +21,7 @@
 import * as THREE from 'three';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createControls, createRenderer, disposeObject, disposeRenderer, fitTo, lowPower } from '$lib/content/render/core.js';
+import { createControls, createRenderer, disposeObject, disposeRenderer, fitTo, lowPower, ready } from '$lib/content/render/core.js';
 import { INDEX, buildOf, loadRecipes, parseBuild, recipeInfo } from '$lib/content/assets/catalog.js';
 import { loadAsset } from '$lib/content/assets/load.js';
 import { poserOf } from '$lib/content/assets/controls.js';
@@ -612,7 +612,10 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void, onI
 		tell();
 		raf = requestAnimationFrame(loop);
 	};
-	raf = requestAnimationFrame(loop);
+	// the first frame once the renderer is ready (WebGPU's device asked for; a WebGLRenderer at once)
+	void ready(renderer).then(() => {
+		if (!disposed) raf = requestAnimationFrame(loop);
+	});
 	say();
 
 	return {

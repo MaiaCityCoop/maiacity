@@ -23,7 +23,7 @@
  * its canvas; and a phone drew at twice its pixels with the desktop's shadows, occlusion and multisampling.
  */
 import * as THREE from 'three';
-import { WebGPURenderer } from 'three/webgpu';
+import { ShadowNode, WebGPURenderer } from 'three/webgpu';
 import { install } from './nodes/index.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { reopenOnRestore } from './budget.js';
@@ -169,6 +169,37 @@ export function createRenderer(o = {}) {
 	return renderer;
 }
 
+/** the frame in which a renderer's keyed shadows (`shadowMap.needsUpdate`) were last let through, per renderer */
+const keyedAt = new WeakMap();
+let shadowsKeyed = false;
+/**
+ * The renderer's own shadow switch kept on WebGPU (intent c1bee1f8). WebGLRenderer draws its shadow maps only while
+ * `shadowMap.autoUpdate`, or in the one render after `shadowMap.needsUpdate` is set; WebGPU's ShadowNode reads only
+ * each light's `shadow.autoUpdate`/`needsUpdate`, so the sky's keyed shadows (../sandbox-kit/sky.js: drawn as the sun
+ * moves) and the stage's settled ones (../assets/stage.js) would be drawn every frame. Installed once: with
+ * `autoUpdate` off, a ShadowNode updates only in the frame `needsUpdate` was seen in (every light's in it, as
+ * WebGLShadowMap draws them all in one pass), and the flag is let go as WebGL lets it go. A light's own switch is
+ * three's, as before.
+ */
+function keepShadowSwitch() {
+	if (shadowsKeyed) return;
+	shadowsKeyed = true;
+	const proto = /** @type {any} */ (ShadowNode.prototype);
+	const update = proto.updateBefore;
+	proto.updateBefore = function (/** @type {any} */ frame) {
+		const r = frame.renderer, sm = r?.shadowMap;
+		// a precompile draws no shadow (three's own rule): the flag is kept for the frame that draws
+		if (sm && sm.autoUpdate === false && r._precompilationState == null) {
+			if (sm.needsUpdate === true) {
+				sm.needsUpdate = false;
+				keyedAt.set(r, frame.frameId);
+			}
+			if (keyedAt.get(r) !== frame.frameId) return;
+		}
+		return update.call(this, frame);
+	};
+}
+
 /**
  * A WebGPURenderer set as createRenderer sets a WebGLRenderer. Node materials are its own (no handler); the sun lights
  * them by SunLightNode (./nodes/index.js registers it); a lost device is `onDeviceLost`, never a context event.
@@ -176,6 +207,7 @@ export function createRenderer(o = {}) {
  * @returns {WebGPURenderer}
  */
 function createWebGPU(o, forceWebGL) {
+	keepShadowSwitch();
 	const renderer = new WebGPURenderer({ canvas: o.canvas, antialias: o.antialias ?? true, alpha: o.alpha, powerPreference: o.power, forceWebGL });
 	renderer.setPixelRatio(o.pixelRatio ?? Math.min(o.maxPixelRatio ?? 2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
 	if (o.colorSpace) renderer.outputColorSpace = o.colorSpace;
