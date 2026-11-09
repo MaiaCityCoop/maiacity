@@ -77,3 +77,62 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    unchanged; the bench is run by hand (`/render/?load=`).
 9. **`ParityWindow` no longer exported** (dead: 1 → 0). The held `story-parity.ts`, now main's, no longer imports the
    type the sweep exported for it from `story-parity-page.ts`, which alone uses it.
+10. **Comments that restate the code** (comments only, one folder a commit): site/intents (24), stories, scripts,
+    lib/app, routes and routes/game/map (the map's header retold its generator's steps), content/game/film,
+    content/assets (box, cache), content/sandbox-2/interior, content/factories (ours; AirSup's world, kit and des
+    untouched), sandbox-kit, lib and site/app: docs naming a constant or a function again, section dividers that only
+    say what the functions under them are called, CSS comments saying what their media query says. Kept: decisions
+    with dates, browsers' and libraries' behaviour, measured numbers, SPEC pointers, the physics labs' notes, format and
+    contract docs, the shot scripts' usage. Each changed file compiles to the same code (Bun's transpiler, whitespace
+    minified; `.svelte` and `.mjs` by their text without comments), a JSDoc type never dropped (a script of this
+    branch checked both before each commit).
+
+## Re-audit of play/site (untangle step 4), with the moves above
+
+Fixed here: the census test's re-exports (4), the Library shots' copied scratch play (5), the seeded randoms (6), a
+document's version type drifted between api and site (7), the bench's `fetch(` (8), a dead export the restore left (9).
+Still worth fixing, each blocked or another area's:
+
+- **`lib/recipes.ts`, `content/assets/{sandboxes,seeded,cache}.js`, `content/game/hash.js`, `biomes/noise.js` `rng`**:
+  one-line re-exports, each kept for held importers (census/run.ts by a computed path; sandbox-2/interior things.ts,
+  plants.ts, sandbox-4/scene.ts; render/levels.js; stories compose and live-runtime; biomes/stream.js). Each goes with
+  its last held importer.
+- **`site/app/versions.js`** is the biomes' versioning (its one importer `content/biomes/index.js`, held): content
+  imported by the app shell's folder in reverse; it belongs in `content/biomes`.
+- **`render/budget.js`'s `small`** is read by `assets/cache/store.js` (`quiet`'s waits): the device budget is kernel
+  matter living in `content/render` (held); in `kernel` it would take `box → cache` out of the layers.
+- **AssetLibrary and the Worlds page** each write `/api/assets`'s `Listed` and `Version` out themselves (the API has no
+  named type for that answer); AssetLibrary is also `lib/app → content/assets`, which wants the render kit below both
+  (VaultAsset.svelte, render/index.js held).
+- **Copies of an LCG** left: `sandbox-2/interior/factory.ts` (two inline), `textures.ts` and `maiacity-v2/world.js`
+  (held). `noise.js` keeps its mulberry32 until `biomes` is stabler than `content/assets`.
+- **The Library shots scripts fail today**: play's Library lists KTX2 pictures among its newest images, which
+  `add_story_frame` refuses; `withLibrary` should take only JPEG, PNG and WebP (behaviour, not this untangle's).
+- **`scripts/render.mjs`** (held) names the bench at its old path.
+
+## Where the bounds stand (`measure.ts all`, with today's held set)
+
+| | before | after | asked |
+|---|---|---|---|
+| folder cycles a held file does not close | 2 | 0 | ≤ 1 |
+| layers (whole repo) | 11 | 11 | ≤ 10 |
+| comment lines (whole repo) | 9,495 | 9,190 | ≤ 9,400 |
+| comments naming a file that is gone | 3 | 0 | 0 |
+| every other bound | ok | ok | |
+
+**Layers, 11**, each held or not play/site's: `api/src → api/src/docs` (the api's); `lib/app → $wire` (fix 2's
+design); `lib/app → content/assets` (AssetLibrary: VaultAsset and render/index.js held); `lib → content/assets`
+(recipes.ts, for the held census/run.ts); `content/assets → assets/render` (plantings.js held) and `→ assets/sources`
+(VaultAsset.svelte held); `box → cache` (cache/store.js reads render/budget.js, held: moved to kernel it goes);
+`content/render → film` and `→ render/nodes` (render/film.js, core.js held); `render/nodes → biomes`
+(render/nodes/ground.js held); `stories → scripts` (old-city.test.ts held). Moving the TSL test out of render/nodes
+traded its own `render/nodes → content/assets` for the held ground.js's `render/nodes → biomes`. Of the comment lines,
+about 200 went with this branch's cuts and the rest with the held scripts restored to main's.
+
+## Next untangles
+
+- `kernel` takes the device budget (`render/budget.js`): `box → cache` goes.
+- The render kit below `lib/app` and `content/assets` (VaultAsset, render/index.js free): `lib/app → content/assets` goes.
+- Each re-export above with its last held importer; `noise.js`'s own `rng` once `biomes` is stabler.
+- `versions.js` into `content/biomes` once `biomes/index.js` is free.
+- `scripts/render.mjs`: the bench is `src/routes/render/RenderBench.svelte`.
