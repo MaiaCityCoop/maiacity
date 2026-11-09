@@ -11,7 +11,7 @@
  *   renderer draws that copy as its own tree, its parts where the numbers the box wrote down put them
  *   ($content/assets/controls.js), and with the others again once every control is back at rest.
  * - `load`: the build itself, as the box made it (its nodes, its materials, its controls as numbers), put into an
- *   anchor; `cast`: that, kept running in the box ($content/assets/hero.js, $content/assets/box/live.js) for what moves by
+ *   anchor; `cast`: that, kept running in the box ($content/assets/hero.js) for what moves by
  *   itself (a machine's clip: the ElectroCube humming), each frame's step asked of the box and followed here, from the
  *   first frame it is seen (what never comes into view runs nothing in the box: a second visit to the opening runs no
  *   recipe at all).
@@ -206,7 +206,7 @@ export function createDrawn({ renderer, camera, scene }) {
 					return assets.load(m.buildAt(ref), { rank: () => rankOf(anchor) });
 				})
 				.then((got) => {
-					// its controls played on it (./controls.js), its nodes walked before the world adds any of its own
+					// its controls played on it ($content/assets/controls.js), its nodes walked before the world adds any of its own
 					got.poser = mods.poserOf(got.obj);
 					got.named = new Map();
 					got.obj.traverse((c) => {

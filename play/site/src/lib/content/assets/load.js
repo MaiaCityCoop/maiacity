@@ -4,9 +4,8 @@
  * anyone's would be got: from this device's cache (./cache/builds.js) when it was built here before, else from the asset box
  * (./box/host.js), which runs the recipe on the frozen engine it was made for. Either way it is checked (its card
  * against the card's schema, its data by ./box/rebuild.js) and built into three.js objects by our own code. The recipe
- * is the only truth, and it is the Maia City vault's (./vault.js): its index names the hash, Maia City's own signed edits
- * prove it (./vault.js `provenAt`), and its entry's file, read from play's files and held to that hash, is what the box
- * runs. A build waits for that proof, from the box or the cache alike. What it made stays on this device, so a page
+ * is the only truth, and it is play's (./catalog.js): its catalog names the hash, and its file, read from play's files
+ * and held to that hash, is what the box runs. What it made stays on this device, so a page
  * that finds it in the cache reads no recipe's file and starts no box.
  *
  * What a recipe's entry declares is held (H4, `heldTo`): it runs on the box engine its card names (`engineOf`), in a
@@ -35,7 +34,7 @@ export const boxOf = (v = INDEX.engine) => {
 };
 const running = new Map();
 /**
- * The page's box for builds kept running (./box/live.js), an engine's second worker: building the next asset never
+ * The page's box for builds kept running , an engine's second worker: building the next asset never
  * holds up the steps of the one running, nor the reverse. @param {number} [v]
  */
 export const liveBoxOf = (v = INDEX.engine) => {
@@ -94,9 +93,7 @@ export function heldTo(code, declared, engine) {
 /**
  * A build of one of the vault's recipes, named as it is kept: its hash and every value it takes, its own where not
  * given, so two names of one build are one; and the engine it runs on. Throws for a value its recipe does not take,
- * and NotInVault for a hash the vault doesn't hold (or while its recipes aren't in: ./vault.js `loadRecipes`). A build
- * named is one the page is about to make: its recipe's proof is asked for, with the others named meanwhile (./vault.js
- * `wants`).
+ * and NotInCatalog for a hash the catalog doesn't hold (or while it isn't in: ./catalog.js `loadRecipes`).
  * @param {string} name `<hash>?its=values`
  */
 export function canonical(name) {

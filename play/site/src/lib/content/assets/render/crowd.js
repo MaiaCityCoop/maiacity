@@ -30,7 +30,7 @@ export const FAR = 0.2;
 export const SEEN = 300;
 
 /** the loader and the boxes crowds are built in, a few side by side (one for each spare core, up to three), and the
- *  Maia City vault's recipes they are built from (../vault.js): fetched when a crowd first builds, so a world's module
+ *  play's recipes they are built from (../catalog.js): fetched when a crowd first builds, so a world's module
  *  can be read where there is no page (a test, a recipe's library) */
 let loader = null;
 let turn = 0;

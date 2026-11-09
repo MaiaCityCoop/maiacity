@@ -6,8 +6,8 @@
  *
  * A measure is a number an asset's builder decides (where the pickup's tailgate hangs, how long the ramp runs, where
  * the bell tent's fire place stands): the world needs them before anything is built, to lay out where a machine rolls
- * up the ramp or where the newcomer kneels to pitch the tent. So they are written down here, and ./things.test.js holds
- * each to what its builder hands back (and to the build's own nodes), as Sandbox 2's walk is held (#790).
+ * up the ramp or where the newcomer kneels to pitch the tent. So they are written down here; no test holds them to
+ * what the builders hand back today (its test is gone).
  */
 import { slotRef } from '$lib/content/assets/catalog.js';
 import { SANDBOX } from '$lib/kernel/sandboxes.js';

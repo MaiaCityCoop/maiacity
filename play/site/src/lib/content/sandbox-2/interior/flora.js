@@ -361,7 +361,7 @@ export function createForest(o) {
 			const k = st.k, X = /** @type {Float32Array} */ (st.x), Y = /** @type {Float32Array} */ (st.y), Z = /** @type {Float32Array} */ (st.z);
 			const sc = /** @type {Float32Array} */ (st.scale)[i];
 			// its finest shape here, as it is drawn near you (its coarsest built where the finest let go of its corners: a
-			// phone's budget, ../../../render/budget.js)
+			// phone's budget, ../../render/budget.js)
 			const level = (k.levels[0].state === 'ready' && !k.levels[0].released ? k.levels[0] : k.levels[k.base]).level;
 			M.compose(_p.set(X[i], Y[i], Z[i]), _q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, /** @type {Float32Array} */ (st.turn)[i]), _s.setScalar(sc));
 			for (const dr of level.draws) {

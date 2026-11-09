@@ -122,7 +122,7 @@ export function withPieces(code, pieces) {
 
 /**
  * A recipe ready for the box: its code with its pieces before it, held as above. Its `pieces` (the manifest's) go with
- * it from the catalog (./catalog.js `recipeAt`).
+ * it from the catalog (../catalog.js `recipeAt`).
  * @param {{ hash: string, code: string, pieces?: string[] }} recipe
  * @param {Parameters<typeof piecesFor>[2]} [o]
  * @returns {Promise<{ hash: string, code: string }>}

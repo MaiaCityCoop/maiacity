@@ -11,7 +11,7 @@
  * hung and draped as its pole goes up, a bag's cover laid open), its positions and normals at each step (`shapes`),
  * as many vertices as it was built with; a material's colour, glow, opacity, roughness and metalness (`looks`, `MAT`
  * numbers a step); a light's colour, brightness, reach and fall-off (`lights`, `LIGHT` numbers). The page puts them
- * back as it does the rest (../controls.js), and so does a build kept running (./live.js), step by step.
+ * back as it does the rest (../controls.js), and so does a build kept running in the box, step by step.
  *
  * The controls it knows, by the function on the object's userData (engine 3, the first that bakes them):
  *   setPitch → pitch, setBuild → build, explode → explode, setOpen → open, setTailgate → tailgate,

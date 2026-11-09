@@ -1,7 +1,7 @@
 /*
  * THE BOX'S ENGINES AND RECIPE FILES — the frozen box engines (kind `box` of the kernel's one list,
- * ../../../../kernel/engines.js: each version's BLAKE3 hash and size, its file static/engines/engine-v<n>.js, made by
- * scripts/freeze-engine.ts from ./engine.js), and the shape of a recipe file of ours, so its BLAKE3 hash names the same
+ * ../../../kernel/engines.js: each version's BLAKE3 hash and size, its file static/engines/engine-v<n>.js, made by
+ * scripts/freeze-engine.ts), and the shape of a recipe file of ours, so its BLAKE3 hash names the same
  * bytes wherever it is written.
  *
  * One of our recipe files is its asset's library (its builders, every version's, and what they share with other
@@ -27,7 +27,7 @@ export const LATEST = ENGINES[ENGINES.length - 1];
 export const engineAt = (v) => /** @type {Engine | undefined} */ (/** @type {unknown} */ (frozenAt('box', v)));
 
 /**
- * The start of every recipe file of ours: a script that hands the engine (./engine.js) one function, which runs
+ * The start of every recipe file of ours: a script that hands the frozen engine one function, which runs
  * its library (strict, as the modules it was made of were) and gives back the asset's recipe.
  */
 export const RECIPE_HEAD = 'defineRecipe(function (require) {\n"use strict";\nvar module = { exports: {} }, exports = module.exports;\n';

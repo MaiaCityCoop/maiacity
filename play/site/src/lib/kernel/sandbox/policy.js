@@ -21,12 +21,11 @@ export const SANDBOX = 'allow-scripts';
 /**
  * How long and how much the page lets code we cannot trust have, in one place (the page's side; what a frozen engine
  * holds code to inside its worker is frozen with it and changes only with a new version: the logic core's ticks and
- * memory, ./logic.js LIMITS; a view script's 4 s hold and its work budget, ./view/engine.js and ./view/watch.js; a
- * formula's size and a batch's work, ./math.js LIMITS).
+ * memory; a view script's hold and its work budget; a formula's size and a batch's work).
  * - job: how long one job may hold a shell (the asset box) before its room, or the shell, is ended (ms)
  * - logicJob: the same for the logic host, far past the logic core's own limits (ms)
  * - mathJob: how long one batch of a doc's formulas may hold the math host's shell before its worker is ended, past
- *   the math engine's own budget for a batch (./math.js LIMITS) (ms)
+ *   the math engine's own budget for a batch (ms)
  * - message: the most a view may send the page in one message (characters of JSON)
  */
 export const BUDGETS = { job: 20000, logicJob: 10000, mathJob: 6000, message: 4000 };
@@ -38,7 +37,7 @@ const SHUT = ['connect-src', 'img-src', 'style-src', 'font-src', 'media-src', 'f
 export const NEVER = ['connect-src', 'frame-src', 'object-src', 'manifest-src', 'form-action', 'base-uri'];
 
 /**
- * A frame's Content Security Policy, one way for every kind (the shell's, ./frame.js; a view's, ./view-host.js): it
+ * A frame's Content Security Policy, one way for every kind (the shell's, ./frame.js; a view's): it
  * starts from nothing (default-src 'none'), runs the scripts `script` names, makes workers and children only from blob:
  * URLs, and shuts every directive in SHUT but those `open` names. A directive in NEVER cannot be opened.
  * @param {{ script: string, children?: boolean, open?: Record<string, string> }} o

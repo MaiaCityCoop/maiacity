@@ -109,3 +109,8 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
     85 exports used only in their own file lose `export` (content, the kernel, the lab's buildings, the dome cell's
     non-held files); the box's engine sources (`box/bake.js`, `box/clips.js`) and `schemas/` are left as they are (the
     engine is frozen from them; the schema list waits on a decision). Exports nothing else uses, repo-wide: 263 → 146.
+14. **Comments that name files point at files** (site-assets#30; fix 7 within these files). 44 references in content,
+    the kernel and the box to files that are gone (`aven/kernel/…`, `maia/…`, `./vault.js`, `./recipes.js`,
+    `./AssetViewer.svelte`, `./live.js`, `./engine.js`, the logic and view hosts, removed tests) now name the file that
+    does the job, or the reference goes; comments only. The legacy vault's proof (`provenAt`, `wants`) is no longer
+    described in `load.js`. `maiacity-v2/things.js` says plainly that no test holds its measures (site-worlds#11).
