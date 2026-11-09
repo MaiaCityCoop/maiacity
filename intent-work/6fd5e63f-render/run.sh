@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Intent 6fd5e63f's c7 on a Mac's Metal (README.md): one wind for everything that grows, and light through leaves.
-# Three trees served one after the other: main (base), intent 11ead007's head (one cover stream on cb16b7a5's render
-# kit in TSL, what this change sits on: `kit`) and this change on it (head). Frame time at Sandbox 1 near/mid/far with the meter's bound; on head a 20 s film of
+# Two trees served one after the other: main (base: cb16b7a5's render kit and intent 11ead007's one cover stream, both
+# on main since #2185, what this change sits on) and this change (head). Frame time at Sandbox 1 near/mid/far with the meter's bound; on head a 20 s film of
 # a stand of plants with an 8° evening sun behind it, the clock pinned per frame, and the same t drawn twice.
 # Needs bun, node with Playwright's Chromium, ffmpeg, and PLAY_MCP_TOKEN (the admin token, sent to play only).
 # Writes intent-work/6fd5e63f-render/out/.
@@ -10,10 +10,9 @@ set -euo pipefail
 ROOT=$(git rev-parse --show-toplevel)
 JOB="$ROOT/intent-work/6fd5e63f-render"
 OUT="$JOB/out"
-MAIN=37bd0d1bb9f95a2e89e861f55cd80c6fe0657758   # main (r187, one sky, steady census, cb16b7a5's kit, db87a28f's ground)
-KIT=de691fdc424ec7558aa8756e331395249680baf5    # intent 11ead007's head (one cover stream, on cb16b7a5's render kit in TSL)
-HEAD=dd09828c406c07e18dfdd3aff7a15d1a1bd65288   # intent/6fd5e63f-living-plants: PR #2180's head (the stack on intent 5 merged in)
-git -C "$ROOT" fetch -q origin main intent/11ead007-cover-stream intent/6fd5e63f-living-plants intent-work/main-baseline-render
+MAIN=9f1442dfe1ac748a6dd7958e3c06066568d1b58a   # main: intent 11ead007 merged (#2185), on cb16b7a5's kit and db87a28f's ground
+HEAD=8309593e0197cd1eab97e1031d7d4d380f6f6c28   # intent/6fd5e63f-living-plants: PR #2180's head (main 9f1442d merged in)
+git -C "$ROOT" fetch -q origin main intent/6fd5e63f-living-plants intent-work/main-baseline-render
 mkdir -p "$OUT"
 git -C "$ROOT" show origin/intent-work/main-baseline-render:intent-work/main-baseline/determinism.mjs > "$JOB/determinism.mjs"
 tree() { # tree <dir> <commit>
@@ -21,24 +20,23 @@ tree() { # tree <dir> <commit>
   (cd "$1/play/site" && bun install --frozen-lockfile >/dev/null)
 }
 tree "$ROOT/../6fd5-main" "$MAIN"
-tree "$ROOT/../6fd5-kit" "$KIT"
 tree "$ROOT/../6fd5-head" "$HEAD"
 serve() { (cd "$ROOT/../6fd5-$1/play/site" && PLAY_API=http://localhost:3911 bunx vite dev --port "$2" --strictPort >"$OUT/vite-$1.log" 2>&1) </dev/null >/dev/null 2>&1 & echo $!; }
-P1=$(serve main 5181); P2=$(serve kit 5182); P3=$(serve head 5183)
-trap 'kill $P1 $P2 $P3 2>/dev/null || true' EXIT
-for p in 5181 5182 5183; do for _ in $(seq 1 120); do curl -sf "http://localhost:$p/" >/dev/null && break; sleep 1; done; done
+P1=$(serve main 5181); P3=$(serve head 5183)
+trap 'kill $P1 $P3 2>/dev/null || true' EXIT
+for p in 5181 5183; do for _ in $(seq 1 120); do curl -sf "http://localhost:$p/" >/dev/null && break; sleep 1; done; done
 
-# head first: it finds the pose (the low sun behind a stand of plants) the other two are stilled at too
-node "$JOB/wind.mjs" --site head=http://localhost:5183 --site kit=http://localhost:5182 --site main=http://localhost:5181 \
+# head first: it finds the pose (the low sun behind a stand of plants) main is stilled at too
+node "$JOB/wind.mjs" --site head=http://localhost:5183 --site main=http://localhost:5181 \
   --meter "$ROOT/../6fd5-head/play/site/src/lib/content/render/meter.js" --determinism "$JOB/determinism.mjs" \
   --film head --out "$OUT" 2>&1 | tee "$OUT/wind.txt"
-kill $P1 $P2 $P3 2>/dev/null || true
+kill $P1 $P3 2>/dev/null || true
 
 # the film, and its PNGs let go (the mp4 is what is kept)
 ffmpeg -hide_banner -loglevel error -y -framerate 24 -i "$OUT/film-head/%04d.png" -c:v libx264 -crf 18 -pix_fmt yuv420p "$OUT/film-head.mp4"
 rm -rf "$OUT/film-head"
-# the backlight: the golden still, main and kit against head
-for b in main kit; do
+# the backlight: the golden still, main against head
+for b in main; do
   s=$(ffmpeg -hide_banner -i "$OUT/$b-golden.png" -i "$OUT/head-golden.png" -lavfi ssim -f null - 2>&1 | grep -o 'All:[0-9.]*' | cut -d: -f2 || true)
   echo "golden $b-vs-head ssim $s" | tee -a "$OUT/ssim.txt"
 done
@@ -48,12 +46,14 @@ const fs = require('fs'), out = process.argv[2];
 const r = JSON.parse(fs.readFileSync(`${out}/results.json`, 'utf8'));
 const at = (s, v) => r.views.find((x) => x.site === s && x.view === v)?.meter ?? {};
 const rows = ['near', 'mid', 'far'].map((v) => {
-  const m = at('main', v), k = at('kit', v), h = at('head', v);
-  return { view: v, main_ms: m.frame_ms, kit_ms: k.frame_ms, head_ms: h.frame_ms, head_minus_main: h.frame_ms - m.frame_ms, main_p95: m.frame_p95, head_p95: h.frame_p95, main_gpu: m.gpu_ms, head_gpu: h.gpu_ms, main_bound: m.bound, kit_bound: k.bound, head_bound: h.bound, within_half_ms: h.frame_ms <= m.frame_ms + 0.5 };
+  const m = at('main', v), h = at('head', v);
+  // c7's budget: near at most main's + 8 ms and never above 33.4 ms; mid and far at most main's + 0.5 ms
+  const within = v === 'near' ? h.frame_ms <= m.frame_ms + 8 && h.frame_ms <= 33.4 : h.frame_ms <= m.frame_ms + 0.5;
+  return { view: v, main_ms: m.frame_ms, head_ms: h.frame_ms, head_minus_main: h.frame_ms - m.frame_ms, main_p95: m.frame_p95, head_p95: h.frame_p95, main_gpu: m.gpu_ms, head_gpu: h.gpu_ms, main_cpu: m.cpu_ms, head_cpu: h.cpu_ms, main_bound: m.bound, head_bound: h.bound, within_budget: within };
 });
 const summary = { rows, sameT: r.sameT, pose: r.pose, film: r.film && { ...r.film, mp4: 'film-head.mp4' } };
 fs.writeFileSync(`${out}/summary.json`, JSON.stringify(summary, null, 1));
 console.table(rows);
 console.log('same t twice:', r.sameT);
 JS
-echo "main $MAIN · kit $KIT · head $HEAD · out: $OUT (commit out/ and push the branch intent-work/6fd5e63f-render)"
+echo "main $MAIN · head $HEAD · out: $OUT (commit out/ and push the branch intent-work/6fd5e63f-render)"

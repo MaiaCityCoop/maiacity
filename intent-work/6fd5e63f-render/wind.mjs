@@ -2,7 +2,7 @@
 /*
  * Intent 6fd5e63f's c7 on a Mac's Metal (README.md): one wind for everything that grows, and light through leaves.
  *
- *   node wind.mjs --site main=http://localhost:5181 --site kit=http://localhost:5182 --site head=http://localhost:5183 \
+ *   node wind.mjs --site main=http://localhost:5181 --site head=http://localhost:5183 \
  *        --meter <head tree>/play/site/src/lib/content/render/meter.js --determinism determinism.mjs --out out [--film head]
  *
  * For each --site, one after the other (never side by side), in Sandbox 1 with Math.random seeded and every view settled

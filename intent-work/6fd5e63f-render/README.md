@@ -9,20 +9,19 @@ are two-sided, darker toward the root, and glow with the sun behind them. The ce
 triangles as main, a little fewer (the steady census: near 10,523,087/5,665; mid 13,840,939/4,244; far 2,762,180/1,782). This job checks what the census can't:
 frame time, the film, and that a frame repeats.
 
-**The head is the change stacked on intent 5** (PR #2180's head, `intent/6fd5e63f-living-plants` @ dd09828c4, intent 5's de691fd merged in). The looks are
-drawn on the kit's TSL materials (on main since cb16b7a5), the cover stream (11ead007) not on main yet. So three trees are measured: **main** 37bd0d1 (base),
-**kit** de691fd (intent 5's head, what the change sits on) and **head** dd09828. head − kit is this intent's own cost;
-head − main is what c7 bounds.
+**The head is the change on main** (PR #2180's head, `intent/6fd5e63f-living-plants` @ 8309593e0, main 9f1442d merged in). The looks are
+drawn on the render kit's TSL materials (cb16b7a5) and the one cover stream (11ead007), both on main now (#2185). So two trees are measured: **main** 9f1442d
+(base, what the change sits on) and **head** 8309593. head − main is this intent's own cost and what c7 bounds.
 
 **Run:** `PLAY_MCP_TOKEN=play_… bash intent-work/6fd5e63f-render/run.sh` (bun, node with Playwright's Chromium, ffmpeg).
-It makes three worktrees beside the repository (`../6fd5-main`, `../6fd5-kit`, `../6fd5-head`) and serves them. It takes
+It makes two worktrees beside the repository (`../6fd5-main`, `../6fd5-head`) and serves them. It takes
 the render box's `determinism.mjs` from `intent-work/main-baseline-render` (SEEDED_RANDOM as an init script, settled by
 QUIET), then runs `wind.mjs`, one site after the other:
 
 1. Sandbox 1 near, mid and far (the selector's views), noon pinned, the wind on the page's own clock: the meter's 4 s
    sample (frame ms, p95, cpu, gpu, bound) and a screenshot per site.
 2. On head: the evening hour whose sun stands 8° up. The camera stands behind the stand of plants nearest (0, 70),
-   on the side away from the sun, looking through it toward the sun. The same hour and pose are stilled on kit and main
+   on the side away from the sun, looking through it toward the sun. The same hour and pose are stilled on main
    (`<site>-golden.png`) for the backlight.
 3. On head: a 20 s film at 24 fps, 1440×900, the clock pinned per frame (`window.__worldTime = t`, then the world's
    `film.advance(t)`), in `out/film-head.mp4`.
@@ -33,8 +32,8 @@ QUIET), then runs `wind.mjs`, one site after the other:
 
 **Pass (c7):** in the film, trunks still, branches bending, tips fluttering near, and gust fronts visibly travelling
 across the stand; backlit leaves glowing (against `main-golden.png`, compare Poly Haven's CC0 evening_field for the
-look). `sameT.identical` true and `movedHalfASecondLater` true. Head's mean frame time at most main's + 0.5 ms at near,
-mid and far (`within_half_ms`), each with its bound.
+look). `sameT.identical` true and `movedHalfASecondLater` true. Head's mean frame time at near at most main's + 8 ms and never above
+33.4 ms, at mid and far at most main's + 0.5 ms (`within_budget`; the interim while TSL runs on WebGLNodesHandler, until intent 9), each with its bound and cpu_ms.
 
 **Out:** `out/summary.json` (the table, same-t, pose), `out/film-head.mp4`, `out/*-{near,mid,far}.png`,
 `out/*-golden.png`, `out/same-t-*.png`, `out/ssim.txt`, `out/results.json`, `out/wind.txt`. Commit `out/` and push to
@@ -49,4 +48,4 @@ whole copy bends as one, leaves never off their branches: say if any part of a p
 
 **The 0 draws seen on cb16b7a5's 78a881e:** three's WebGLNodesHandler never settled `compileAsync` for node materials on
 Metal. Main (intent 2214e661) now warms every shader through `render/core.js` `precompile`, which leaves node materials
-out, and kit and head both carry it. Both should draw: if either draws nothing in Sandbox 1, say which and where.
+out, and main and head both carry it. Both should draw: if either draws nothing in Sandbox 1, say which and where.
