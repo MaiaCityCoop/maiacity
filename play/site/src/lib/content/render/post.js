@@ -6,7 +6,7 @@
  * made black (`FINITE`): a NaN from one bad surface (a normal of no length, a bump picture on a triangle of no area, on
  * Apple's GPUs) would otherwise be blurred by ambient occlusion and bloom over the whole frame, and the frame goes black. The asset stage (../assets/stage.js) draws through it; the
  * Factories' look (../factories/look.js, AirSup's, line for line) lays its own passes on the composer made here
- * (`createComposer`, its `T.EffectComposer`); the film camera's darkroom (../film/pipeline.js) is the film's own.
+ * (`createComposer`, its `T.EffectComposer`); the film has no darkroom of its own (deleted with its GLSL, intent 602a8849).
  *
  * On a WebGPURenderer (the switch, intent c1bee1f8) the same stack is a RenderPipeline of TSL nodes: the scene pass
  * (multisampled, half float) with its view normals and an occlusion mask beside its colour (MRT), GTAO and its denoise,
@@ -20,29 +20,59 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FullScreenQuad, Pass } from 'three/addons/postprocessing/Pass.js';
+import { OwnNode } from './tsl.js';
+import { abs, all, select, texture, uv, vec3, vec4 } from 'three/tsl';
 import { RenderPipeline } from 'three/webgpu';
-import { pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample } from 'three/tsl';
+import { pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample, convertToTexture, screenUV } from 'three/tsl';
 import { ao as gtao } from 'three/addons/tsl/display/GTAONode.js';
 import { denoise } from 'three/addons/tsl/display/DenoiseNode.js';
 import { bloom as bloomNode } from 'three/addons/tsl/display/BloomNode.js';
 import { isWebGPU } from './core.js';
 
-export { ShaderPass };
+/**
+ * A full-screen pass whose picture is a TSL node (a grade, a tilt shift, `FINITE`): `make(at, p)` gets `at(q)`,
+ * the picture before it read at `q`, and `p`, where this pixel is (both in the GL way, (0, 0) bottom left), and gives
+ * back its colour; `uniforms` are its own, each with its `value`. Its colour is written as it is
+ * ($content/render/tsl.js `raw`): after the output pass nothing tones or encodes it again. three's GLSL node builder
+ * reads a target flipped (WebGPU's way), so `at` flips `q` for it.
+ */
+export class NodePass extends Pass {
+	/** @param {Record<string, { value: unknown }>} uniforms @param {(at: (q: any) => any, p: any) => any} make */
+	constructor(uniforms, make) {
+		super();
+		this.input = texture(new THREE.Texture());
+		this.uniforms = { tDiffuse: this.input, ...uniforms };
+		const m = new OwnNode();
+		m.userData.raw = true;
+		m.depthTest = m.depthWrite = false;
+		m.fragmentNode = make((q) => this.input.sample(q.flipY()), uv());
+		/** the pass as a function of the picture, for the WebGPU post stack (createPost on a WebGPURenderer: intent c1bee1f8) */
+		this.make = make;
+		this.quad = new FullScreenQuad(m);
+	}
+	/** @param {THREE.WebGLRenderer} renderer @param {THREE.WebGLRenderTarget} writeBuffer @param {THREE.WebGLRenderTarget} readBuffer */
+	render(renderer, writeBuffer, readBuffer) {
+		this.input.value = readBuffer.texture;
+		renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+		if (this.clear) renderer.clear();
+		this.quad.render(renderer);
+	}
+	dispose() {
+		this.quad.material.dispose();
+		this.quad.dispose();
+	}
+}
 
-/** a pixel that is not a finite number (NaN, ±∞) made black, so it stays one pixel and is not blurred over the frame */
-const FINITE = {
-	uniforms: { tDiffuse: { value: null } },
-	vertexShader: /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-	fragmentShader: /* glsl */ `
-		uniform sampler2D tDiffuse;
-		varying vec2 vUv;
-		void main() {
-			vec4 c = texture2D(tDiffuse, vUv);
-			bool bad = isnan(c.r) || isnan(c.g) || isnan(c.b) || isinf(c.r) || isinf(c.g) || isinf(c.b);
-			gl_FragColor = bad ? vec4(0.0, 0.0, 0.0, 1.0) : c;
-		}`,
-};
+/**
+ * a pixel that is not a finite number (NaN, ±∞) made black, so it stays one pixel and is not blurred over the frame: a
+ * NaN fails every comparison, an infinity every bound, so a pixel is kept only where |c| ≤ 1e30 holds for each channel
+ */
+const FINITE = () =>
+	new NodePass({}, (at, p) => {
+		const c = at(p);
+		return select(all(abs(c.rgb).lessThanEqual(vec3(1e30))), c, vec4(0, 0, 0, 1));
+	});
 
 /**
  * The one EffectComposer: `renderer` drawing through `target` (the composer's own when not given).
@@ -85,7 +115,7 @@ export function createPost(renderer, scene, camera, o = {}) {
 		composer.addPass(ao);
 	}
 	// what is not a number stops here, before anything blurs it over the frame
-	if (o.ao || o.bloom) composer.addPass(new ShaderPass(FINITE));
+	if (o.ao || o.bloom) composer.addPass(FINITE());
 	let bloom = null;
 	if (o.bloom) {
 		bloom = new UnrealBloomPass(new THREE.Vector2(...(o.bloom.size ?? [w / 2, h / 2])), o.bloom.strength, o.bloom.radius, o.bloom.threshold);
@@ -127,8 +157,8 @@ const OFF = mrt({ [MASK]: float(0) });
 /**
  * The post stack on WebGPU: createPost's options and handle, its passes TSL nodes on one RenderPipeline. `o.ao` is handed
  * the occlusion as the WebGL pass is (`blendIntensity`, `updateGtaoMaterial`, `updatePdMaterial`), `o.after` the
- * page's passes as functions of the picture (node in, node out), drawn after the output as on WebGL; a WebGL pass
- * there is left out (a ShaderPass is GLSL), said once.
+ * page's passes as functions of the picture (node in, node out) or NodePasses, drawn after the output as on WebGL; a
+ * GLSL pass there is left out, said once.
  * @param {any} renderer @param {THREE.Scene} scene @param {THREE.Camera} camera @param {PostOptions} [o]
  */
 function createPipelinePost(renderer, scene, camera, o = {}) {
@@ -186,9 +216,14 @@ function createPipelinePost(renderer, scene, camera, o = {}) {
 	let warned = false;
 	for (const p of o.after ?? []) {
 		if (typeof p === 'function') color = p(color);
+		// a NodePass (a TSL pass of the WebGL stack) drawn here as it is there: its function of the picture, sampled
+		else if (typeof p?.make === 'function') {
+			const picture = convertToTexture(color);
+			color = p.make((/** @type {any} */ q) => picture.sample(q), screenUV);
+		}
 		else if (!warned) {
 			warned = true;
-			console.warn('play: a WebGL pass was left out of the WebGPU post stack (a ShaderPass is GLSL)');
+			console.warn('play: a GLSL pass was left out of the WebGPU post stack');
 		}
 	}
 	const pipeline = new RenderPipeline(renderer, color);
