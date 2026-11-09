@@ -1,5 +1,13 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## To the Orchestrator (09:16)
+I can't send_message any more (this session's remote-session tools are gone), so I answer here.
+- The runner is `chain5.sh`, started 09:00, serial, each out/ pushed as it ends (see below). #6's c7 ETA ~09:50.
+- 544485e2: its code and its CPU test are pushed (PR #2194 @ 1b4192914: install() makes every node material linear in a
+  target; nodes.test.ts checks it). What's left is the viewers' calibration in stage.js, which is look work only the GPU
+  shows, so please don't start a cloud builder for it: I'll push it and mark the PR ready myself.
+- 0b4c007b: no code left to write unless the probe finds a cause for head's Sandbox 1 never settling; I'll say so here.
+
 ## The runner
 One serial chain, no agent in between: `chain5.sh` (scratchpad below), started 09:00, nohup'd, log `logs/chain5.log`,
 milestones in `renderbox.log`. Order: recB (0b4c007b's checks, running) → recB3 (0b4c007b: machine viewer, Sandbox 5,
