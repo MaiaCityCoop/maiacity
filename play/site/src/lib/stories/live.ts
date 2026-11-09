@@ -77,16 +77,14 @@ export function buildsOf(live: Live): Record<string, string>[] {
 	return stepTimes(live).map((t) => Object.fromEntries(Object.entries(valuesAt(live, t)).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => [k, String(v)])));
 }
 
-// ---- A WORLD SHOT (intent 65d04790): a whole world, an asset of the group `worlds` (play/SPEC.md §4.11), played in the
-// shot. Its camera is a live shot's; its hour, exposure and lights are each a number held over the shot or [[t, v], …]
-// keys (t in s into the shot, linear between, the ends held). Checked by play (play/api/src/stories.ts `worldOf`).
+// ---- A WORLD SHOT (intent 65d04790): a whole asset of group `worlds` played in the shot, its camera a live shot's, its
+// hour, exposure and lights numbers or [[t, v], …] keys; checked by play/api/src/stories.ts `worldOf`.
 //
 //   world: { asset: <its UUID>, version: <its version's id>, camera: CameraKey[],
 //            hour?: Curve (0 … 24: the sun's place, over the world's mood), exposure?: Curve (stops over the mood),
 //            lights?: { sun?, sky?, lamps?: Curve } (multipliers over the mood) }
 //
-// A world that moves (its own tick, seeded) is stepped through every frame of the shot before the shot is ready, each
-// frame's places kept; a moment t shows frame frameOf(t): the same t, the same picture.
+// A moving world is stepped through every frame before the shot is ready: the same t, the same picture.
 
 export type Curve = number | [number, number][];
 export type World = { asset: string; version: string; camera: CameraKey[]; hour?: Curve; exposure?: Curve; lights?: { sun?: Curve; sky?: Curve; lamps?: Curve } };
@@ -115,9 +113,7 @@ export function sunAt(hour: number): { sun: number; az: number } {
 	return { sun, az };
 }
 
-/** everything a world shot shows at t seconds into it, by t alone: its frame on the world's own clock (`since`: how long
- *  after the world's first frame the shot begins, so every shot of one world runs on one clock, intent 4f7a2178), its
- *  camera, its hour (null: none of its own), the sun (null: the mood's), its exposure in stops and its lights' multipliers */
+/** everything a world shot shows at t, by t alone (`since`: where the shot starts on the world's one clock, intent 4f7a2178) */
 export function worldAt(w: Pick<World, 'camera' | 'hour' | 'exposure' | 'lights'>, t: number, fps: number, frames: number, since = 0) {
 	return {
 		frame: frameOf(since + t, fps, frames),

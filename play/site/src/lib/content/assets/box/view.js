@@ -3,16 +3,12 @@
  * WHAT A VIEWER NEEDS OF A BUILD, AS DATA — read in the box off what a builder left on its object (in the frozen engine), so
  * the page can show any asset the way the stage shows a machine (../stage.js) without one of its functions:
  *
- *   parts    each part a mechanic would name, by its node (its place in the walk of the tree, ./bake.js): a sealed
- *            asset's (a whole carried asset `unit`), a thing's own (`userData.parts`), or a rigged one's,
- *            by the groups of its skinned mesh (`rig.parts`); what each is, is in the card's catalog
+ *   parts    each part a mechanic would name, by its node (./bake.js): a sealed asset's, a thing's or a rig's
  *   labels   the names pinned on parts: the node, the point on it, the text, which side, whether it has a live reading
  *   shells   the casings the x-ray looks through, by node
  *   cut      where its section planes sweep from; `size` its largest measure (m)
- *   lab      a machine's solver as data: its hero number and reading, how it is computed, its break's name, and its own
- *            moves played 0 to 1 and written as its sliders' values (the sliders are on its card)
- *   clips    a rigged actor's clips, held poses (as data), the first shown and its bones; every clip written as tables
- *            (`motion`, ./clips.js) for the page to play any number of copies, each at its own time (engine 5)
+ *   lab      a machine's solver as data, and its own moves written as its sliders' values
+ *   clips    a rigged actor's clips, poses and bones, every clip as tables (`motion`, ./clips.js; engine 5)
  *   ticks    whether it moves by itself (a solver, a clip, a flame): the page then asks the box to tick it
  *   roof     the nodes a building's roof is made of; `walk` where it is walked in from, and its lamps
  *   note     what it says of itself, when it shows nothing (a fruit that has not set yet)

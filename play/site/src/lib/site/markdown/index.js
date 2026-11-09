@@ -134,11 +134,7 @@ function mathBlock(src, at = 0) {
 	return t ? { type: 'math', display: true, raw: src.slice(at, d.end + t[0].length), text: d.tex } : undefined;
 }
 
-/**
- * marked's way in for maths (Lexer extensions and hooks): a block, inline maths, where each may start (a paragraph ends
- * before a block, looked for up to its first blank line; a text run before a `$`), and a text run's maths masked so a
- * `*` or `_` in it ends no emphasis. A math token is `{ type: 'math', display, text }`, its text the LaTeX.
- */
+/** marked's way in for maths (Lexer extensions and hooks), a run's maths masked so a `*` or `_` in it ends no emphasis. */
 const MATH = {
 	extensions: {
 		block: [(src) => mathBlock(src)],
@@ -206,12 +202,9 @@ export const slug = (s) =>
  *   figures?: boolean,
  *   math?: boolean
  * }} [o]
- *   picture: the address a picture is shown from (none = its words are shown instead); `name` adds data-picture,
- *     and `{ src: '', name }` draws a named picture whose address isn't known yet.
- *   link: rewrites a safe address (this site's base path, say); never called for a refused one.
- *   ids: headings get ids from their words (or from `ids(text)`). figures: a picture alone in its paragraph is a figure with a caption.
- *   math: `$$…$$` and `$…$` are maths, each left as a placeholder holding its source (`placeholder`), a figure's
- *     caption's among them; off (as for every caller but the docs), a `$` is only a dollar.
+ *   picture: the address a picture is shown from (none: its words); `{ src: '', name }` a named one not yet known.
+ *   link: rewrites a safe address; never called for a refused one. ids: headings get ids. figures: a lone picture is
+ *   a figure with a caption. math: `$$…$$` and `$…$` left as placeholders; off, a `$` is only a dollar.
  */
 export function markdown(md, o = {}) {
 	const { picture = () => null, link = (h) => h, ids = false, figures = true, math = false } = o;
