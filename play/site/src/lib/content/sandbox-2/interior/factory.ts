@@ -69,8 +69,6 @@ const smooth = (x: number) => x * x * (3 - 2 * x)
 const col = (c: string, rough = 0.6, metal = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: rough, metalness: metal })
 const glow = (c: string, i = 1.4) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: i, roughness: 0.4 })
 
-/* ── materials ────────────────────────────────────────────────────────── */
-
 const M = {
 	white: col('#eceff1', 0.45),
 	grey: col('#9aa2a8', 0.5, 0.2),
@@ -104,8 +102,6 @@ const M = {
 	rubber: col('#1f2123', 0.9)
 }
 
-/* ── textures: a triangle at each stage, and the signs ───────────────── */
-
 /** A sign: the step's number, its name, and a line of what happens there. */
 function sign(step: string, name: string, note = ''): THREE.MeshStandardMaterial {
 	const c = document.createElement('canvas')
@@ -129,8 +125,6 @@ function sign(step: string, name: string, note = ''): THREE.MeshStandardMaterial
 	t.colorSpace = THREE.SRGBColorSpace
 	return new THREE.MeshStandardMaterial({ map: t, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: 0.35, side: THREE.DoubleSide })
 }
-
-/* ── building blocks ──────────────────────────────────────────────────── */
 
 type Part = { group: THREE.Group; colliders: Collider[]; update?: (t: number) => void }
 
@@ -294,8 +288,6 @@ function flashBooth(ctx: FactoryCtx): Part {
 	}
 	return { group: g, colliders: [{ x: -1.5, z: 0.6, r: 1.6 }, { x: 1.5, z: 0.6, r: 1.6 }], update }
 }
-
-/* ── the people and the robots ────────────────────────────────────────── */
 
 type Walker = { level: number; r: number; a: number; speed: number; working: boolean; phase: number; kind: 'robot' | 'person' }
 
@@ -475,8 +467,6 @@ function drums(ctx: FactoryCtx, blink: THREE.Mesh[]): Part {
 	stackLight(ctx, g, 1, 1.4, -1.3, blink)
 	return { group: g, colliders: [{ x: -1.5, z: 0.4, r: 1.5 }, { x: 1.5, z: 0.4, r: 1.5 }], update: (t) => reels.forEach((r, i) => (r.rotation.z = t * (0.6 + i * 0.15))) }
 }
-
-/* ── the works ────────────────────────────────────────────────────────── */
 
 type Station = { name: string; note: string; make: (ctx: FactoryCtx, blink: THREE.Mesh[]) => Part; arm?: boolean }
 

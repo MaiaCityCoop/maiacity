@@ -1,4 +1,4 @@
-// The gate before a push (play/avenbox/gate.sh, ./select.ts; intent aa59f248): only what a change touched — play/api's
+// The gate before a push (play/avenbox/gate.sh and select.ts; intent aa59f248): only what a change touched — play/api's
 // tests that import a changed file or name it, all of them when it can't tell — its plan shown without running, and the
 // workflows' lint. CI and main always run everything (./workflows.test.ts holds that).
 import { describe, expect, test } from "bun:test";

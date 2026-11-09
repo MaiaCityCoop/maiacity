@@ -5,21 +5,11 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { seededRandom as seeded } from '../../kernel/random.js';
 
 /** @typedef {{ x: number, z: number, r: number }} Collider */
 /** @typedef {{ group: THREE.Group, colliders: Collider[] }} Space */
 
-/** a small seeded random (mulberry32) */
-function seeded(/** @type {number} */ seed) {
-	let s = seed >>> 0 || 1;
-	return () => {
-		s = (s + 0x6d2b79f5) >>> 0;
-		let t = s;
-		t = Math.imul(t ^ (t >>> 15), t | 1);
-		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
-}
 
 const col = (/** @type {string} */ c, rough = 0.8) => new THREE.MeshStandardMaterial({ color: c, roughness: rough });
 const MAT = {

@@ -1,18 +1,16 @@
 // The game's world map, grown from a seed: a river, a few lakes, five biomes, and the plots (Grundstücke) people will
 // build on, in a valley ringed by hills and mountains.
 //
-// The plots are the cells of a jittered hex grid cut by Voronoi (each one a soft, slightly irregular hexagon), inset so
-// that roads run between them and with rounded corners. A cell's biome comes from two noise fields (height and
-// wetness) and its distance to water; the outer ring of cells and the cells under the river and the lakes stay wild
-// land, and a plot by the water ends at its shore. What stands on the land (trees, rocks, peaks) is a list of
-// features. The same seed always gives the same map, and the game has one (SEED). Nothing here touches the DOM or
-// three.js: ./scene.ts draws it.
+// The same seed always gives the same map, and the game has one (SEED). Nothing here touches the DOM or three.js:
+// ./scene.ts draws it.
 //
 // Geometry is in map units (x runs east, y runs south, 6720 × 4470 of them); the map's real size follows from its
 // people: PEOPLE inhabitants with M2_PER_PERSON each, so every map's buildable land is exactly PEOPLE × M2_PER_PERSON
 // m² and one map unit is `scale` metres (about 11). The map holds
 // exactly PLOTS plots (villages, about 1500 people and 2.25 km² each), all buildable (shore, forest, grassland,
 // sand): mountains are no plots but wild land, raised into real hills (terrain); the water itself is no land at all.
+
+import { seededRandom } from '$lib/kernel/random.js';
 
 export type P = [number, number];
 export type Biome = 'grass' | 'forest' | 'sand' | 'mountain' | 'river';
@@ -100,8 +98,6 @@ const GAP = 7; // half a road
 const BANK = 42; // half the river with its banks
 const SHORE = 24; // a lake's shore, beyond its water
 
-// ── randomness ──────────────────────────────────────────────────────────────
-
 export function hashSeed(s: string): number {
 	let h = 2166136261;
 	for (let i = 0; i < s.length; i++) {
@@ -109,15 +105,6 @@ export function hashSeed(s: string): number {
 		h = Math.imul(h, 16777619);
 	}
 	return h >>> 0;
-}
-
-export function mulberry32(a: number) {
-	return () => {
-		a = (a + 0x6d2b79f5) | 0;
-		let t = Math.imul(a ^ (a >>> 15), 1 | a);
-		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
 }
 
 /** smooth value noise in [0,1], summed over a few octaves */
@@ -150,8 +137,6 @@ export function fbmNoise(rand: () => number) {
 		return sum / norm;
 	};
 }
-
-// ── geometry ────────────────────────────────────────────────────────────────
 
 /** keep the part of a convex polygon where nx·x + ny·y ≤ c */
 function clip(poly: P[], nx: number, ny: number, c: number): P[] {
@@ -247,8 +232,6 @@ function scatter(poly: P[], count: number, gap: number, rand: () => number): P[]
 	return out;
 }
 
-// ── the map ─────────────────────────────────────────────────────────────────
-
 interface Cell {
 	c: P;
 	full: P[];
@@ -266,7 +249,7 @@ interface Cell {
 export const SEED = 'one-world';
 
 export function generateMap(seed: string): WorldMap {
-	const rand = mulberry32(hashSeed(seed));
+	const rand = seededRandom(hashSeed(seed));
 	const height = fbmNoise(rand), wet = fbmNoise(rand), wobble = fbmNoise(rand);
 
 	// the river: from the top edge to the bottom, meandering
@@ -414,7 +397,6 @@ export function generateMap(seed: string): WorldMap {
 		k.inner = voronoi(cells.indexOf(k), 10);
 	}
 
-	// ── what stands on the land, on each cell, wild or plot ──
 	const features: Feature[] = [];
 	let onPlot = false;
 	const put = (kind: FeatureKind, x: number, y: number, s: number, extra: Partial<Feature> = {}) =>
@@ -514,7 +496,7 @@ export const RIM = 700;
 
 /** the ground's height (m) at a point: flat in the valley, rising into hills and mountains beyond its edges */
 export function terrain(seed: string, river: P[], massif: Massif): (x: number, y: number) => number {
-	const rand = mulberry32(hashSeed(`${seed}/terrain`));
+	const rand = seededRandom(hashSeed(`${seed}/terrain`));
 	const hills = fbmNoise(rand), ridges = fbmNoise(rand);
 	const smooth = (a: number, b: number, v: number) => {
 		const t = Math.max(0, Math.min(1, (v - a) / (b - a)));

@@ -250,8 +250,6 @@ export function evaluate(spec, t, shape) {
 	};
 }
 
-// ── fingerprints ─────────────────────────────────────────────────────────────────────────────────────────────────
-
 export function stable(/** @type {unknown} */ v) {
 	/** @returns {string} */
 	const go = (/** @type {any} */ x) => {

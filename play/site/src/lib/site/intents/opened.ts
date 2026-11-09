@@ -15,7 +15,6 @@ export type Listed = {
 	retires?: string;
 };
 
-/** the address of one document of an intent's work */
 export const docPath = (intent: string, d: Pick<Listed, 'doc' | 'variant'>) =>
 	`/intents/${intent}/docs/${d.doc?.id}${d.variant != null ? `?variant=${d.variant}` : ''}`;
 

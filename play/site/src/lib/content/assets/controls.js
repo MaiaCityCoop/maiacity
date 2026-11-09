@@ -148,7 +148,6 @@ export function poserOf(root, controls = root.userData.controls ?? [], { own = f
 	return {
 		/** its controls: each its id, its name, its ends, its rest, whether it is a choice */
 		list: controls.map((c) => ({ id: c.id, label: labelOf(c.id), from: c.from, to: c.to, rest: c.rest, choice: c.choice })),
-		/** a control's value now */
 		get: (id) => values.get(id),
 		/** a control set to `v` (kept between its ends); its parts moved */
 		set(id, v) {
@@ -160,7 +159,6 @@ export function poserOf(root, controls = root.userData.controls ?? [], { own = f
 			for (const [id, v] of given instanceof Map ? given : Object.entries(given)) any = put(id, v) || any;
 			if (any) apply();
 		},
-		/** every control back at its rest */
 		reset() {
 			for (const c of controls) values.set(c.id, c.rest);
 			apply();

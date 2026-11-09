@@ -48,7 +48,6 @@
 		of: Intent | undefined;
 		opened: ReturnType<typeof createOpened<any>>;
 		busy?: Verdict | null;
-		/** a refused decision's reason */
 		error?: string;
 		ondecide: (verdict: Verdict) => void;
 		onclose: () => void;

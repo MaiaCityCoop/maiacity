@@ -10,7 +10,6 @@
 import { HASH, hashBytes, holds } from '../../../kernel/hash.js';
 import { playFile } from '../cache/files.js';
 
-/** a piece's name: its BLAKE3 hash */
 export const PIECE = HASH;
 /** the longest chain of pieces a recipe may require: the recipe's own, and three more beneath it */
 export const MOST_DEEP = 4;
@@ -22,7 +21,7 @@ export const piecesOf = (code) => requiresOf(code).filter((n) => PIECE.test(n));
 
 const short = (h) => `${h.slice(0, 12)}…`;
 
-/** pieces handed to the page by hand, by their hashes (the render bench's, in development: ../RenderBench.svelte) */
+/** pieces handed to the page by hand, by their hashes (the render bench's, in development: routes/render/RenderBench.svelte) */
 const handed = new Map();
 /** a piece's readable source handed to the page (the render bench): gives the hash a recipe requires it by @param {string} code */
 export function handPiece(code) {
@@ -31,7 +30,6 @@ export function handPiece(code) {
 	handed.set(hash, bytes);
 	return hash;
 }
-/** every piece handed to the page, by hash */
 export const handedPieces = () => [...handed.keys()];
 
 /**

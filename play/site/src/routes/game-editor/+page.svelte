@@ -18,10 +18,11 @@
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
+	import type { DocVersion } from '$wire';
 	import { euros, ledger, pct, short, whole, type Levelling, type Row } from './levels';
 
 	type Item = { id: string; label: string; schema: string; note: string; number: number; versions: number };
-	type Version = { number: number; note: string; at: string; acceptedBy: string | null };
+	type Version = DocVersion;
 	type Config = { id: string; json: any; number: number; version?: number; edit?: number; versions: Version[]; intent?: { id: string; status: string; note: string } };
 
 	const admin = $derived(isAdmin());
@@ -58,7 +59,6 @@
 	const levelling = $derived(config?.json.schema === 'levels/1' ? (config.json as Levelling) : null);
 	const rows = $derived(levelling ? ledger(levelling) : []);
 	const last = $derived(rows.at(-1));
-	/** the phases in order, each with its rows */
 	const phases = $derived.by(() => {
 		const out: { phase: string; rows: Row[] }[] = [];
 		for (const r of rows) {

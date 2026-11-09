@@ -12,8 +12,6 @@ import { K } from './kit.js'
 const V = (x, y, z) => new T.Vector3(x, y, z)
 const ease = (x) => 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, Math.min(1, x)))
 
-/* ── machines ─────────────────────────────────────────────────────────────── */
-
 /** robot arms turning busily about a pose while a machine works; the kit's arm (K.arm) */
 function swing(arm, s, k = 0, rest = [0, 0.2, 1.9, 0, 1.2, 0]) {
   if (s.state !== 'busy') return arm.pose(...rest)
@@ -368,8 +366,6 @@ K.def('saw', (o) => {
     anim(s) { const busy = s.state === 'busy'; blade.rotation.y = busy ? s.t * 30 : 0; head.position.y = 1.35 - (busy ? Math.max(0, Math.sin(s.t * 1.5)) * 0.3 : 0) },
   }, o, [0.9, 1.25, -0.5])
 })
-
-/* ── what the line carries ─────────────────────────────────────────────────── */
 
 const GREEN = '#1f5e50', TEAL = '#45b58f', STEEL = '#8d9396', DARK = '#2b2d2f', ORANGE = '#ef9a1c', CHROME = '#dcdcd8', YELLOW = '#e9c21b', TYRE = '#1b1c1e', RIM = '#c9cbc6', BLUE = '#2f6fb5', GREY = '#9aa0a6'
 

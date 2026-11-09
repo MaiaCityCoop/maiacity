@@ -41,7 +41,6 @@
 		doc?: string | null;
 		edit?: number | null;
 		variant?: number | null;
-		/** the version it grew from, to name in its heading */
 		seed?: number | null;
 		heading?: string;
 		/** paths shown elsewhere (an asset's source, beside its build) */

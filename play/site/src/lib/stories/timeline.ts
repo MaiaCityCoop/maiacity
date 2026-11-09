@@ -165,7 +165,6 @@ function at<C extends Clip>(clips: C[], t: number): { clip: C | null; index: num
 	return found >= 0 ? { clip: clips[found], index: found } : { clip: null, index: last };
 }
 
-/** the clip of a kind on screen at t, or null */
 export const clipAt = <C extends Clip = Clip>(story: StoryBody | null | undefined, kind: string, t: number): C | null => at(clipsOf<C>(story, kind), t).clip;
 
 /** what a lane shows over time: spans of the timeline, each the clip on screen through it (a clip broken where a later
@@ -219,7 +218,6 @@ export function shotEdge(story: StoryBody | null, t: number, dir: 1 | -1): numbe
 
 // ---- linked stories (Samuel 2026-11-04: the trailer its own story, in every film), each played in its place (./compose.ts)
 
-/** the kind of track whose clips link other stories in */
 export const LINK = 'story';
 /** how deep links nest (play's API refuses deeper ones) */
 export const MOST_LINK_DEPTH = 4;
@@ -240,11 +238,9 @@ export const slotsOf = (story: StoryBody & { links?: Links | null }): Slot[] =>
 export const linkName = (s: Slot) => (s.title ? `${s.title} · v${s.number}` : 'A story that can no longer be read');
 /** a newer accepted version of the linked story, if there is one: only shown (moving to it is a proposal on this story) */
 export const newerOf = (s: Slot) => (s.newest != null && s.number != null && s.newest > s.number ? s.newest : null);
-/** the Stories page at the linked story (by its UUID), at the version this link plays */
 export const linkHref = (s: Slot) => storyHref(s.story, s.number);
 
 const PALETTE = ['#8fae8b', '#d9a441', '#c96f53', '#7c9cb8', '#a98bb5', '#6f9e95', '#c4a27a', '#9aa35c'];
-/** a calm colour for each section, the same every time */
 export const colourOf = (s: string) => PALETTE[[...(s ?? '')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % PALETTE.length];
 
 export const clock = (s: number) => {

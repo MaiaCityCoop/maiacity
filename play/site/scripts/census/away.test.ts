@@ -40,8 +40,8 @@ const at = (x: number, z: number) => new THREE.Matrix4().makeTranslation(x, 0, z
 beforeAll(async () => {
 	setup({ inputs: join(HERE, 'inputs') });
 	THREE = await import('three');
-	const { catalogReady } = await import(lib('recipes'));
-	const { SANDBOX } = await import(lib('content/assets/sandboxes.js'));
+	const { catalogReady } = await import(lib('content/assets/catalog.js'));
+	const { SANDBOX } = await import(lib('kernel/sandboxes.js'));
 	await catalogReady(SANDBOX.one);
 	const { INDEX } = await import(lib('content/assets/catalog.js'));
 	const { createAssets } = await import(lib('content/assets/render/index.js'));

@@ -89,7 +89,6 @@ export async function worldAssets(bodies: StoryBody[], told: (text: string) => v
 	return out;
 }
 
-/** everything compose needs besides the story and its links */
 export async function inputsOf(s: StoryBody, links: Links, told?: (text: string) => void) {
 	const bodies = bodiesOf(s, links);
 	const [comps, assets, worlds] = await Promise.all([compositions(s, links), liveAssets(bodies), worldAssets(bodies, told)]);

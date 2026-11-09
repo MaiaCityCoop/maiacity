@@ -22,7 +22,10 @@ function text(v: unknown, what: string, most: number): string {
   return v.trim();
 }
 
-async function versionsNamed(db: Queryable, docId: string) {
+/** a version of a document as the API lists it (GET /api/docs/<uuid>, its history) */
+export type DocVersion = { number: number; note: string; at: string; acceptedBy: string | null; contentHash: string };
+
+async function versionsNamed(db: Queryable, docId: string): Promise<DocVersion[]> {
   const versions = await docs.versionsOf(db, docId);
   const names = await namesOf(db, versions.map((v) => v.author));
   return versions.map((v) => ({ number: v.number, note: v.note, at: iso(v.created), acceptedBy: v.author ? names.get(v.author) ?? null : null, contentHash: v.contentHash }));

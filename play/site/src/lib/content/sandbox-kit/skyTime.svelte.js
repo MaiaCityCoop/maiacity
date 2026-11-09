@@ -6,7 +6,6 @@
  */
 import { gameHour } from '../game/time';
 
-/** the hour a hand-set sky starts at: noon */
 const NOON = 12;
 
 export const skyTime = $state({

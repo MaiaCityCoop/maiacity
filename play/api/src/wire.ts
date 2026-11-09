@@ -8,3 +8,4 @@ export type { Clip, Track, StoryBody } from "./storydocs";
 export type { Linked, Links, LinkedBy, Story, StoryItem, Change as StoryChange, StoryDiff } from "./stories";
 export type { Change as DocChange } from "./docs/core";
 export type { LibraryFile, Use, StoryUse, SheetUse } from "./library";
+export type { DocVersion } from "./versioned";

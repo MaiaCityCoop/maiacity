@@ -18,7 +18,6 @@ export const figuresDay = (iso: string) => new Date(iso).toLocaleDateString('en-
 /** a day of the calendar with its weekday, in the reader's way: "Wed 4 Nov" */
 export const weekday = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 
-/** a day as the reader writes one */
 export const localDay = (iso: string) => new Date(iso).toLocaleDateString();
 
 /** a date of the calendar (`2026-11-04`, no time of day): "4 Nov 2026", the same in every time zone */

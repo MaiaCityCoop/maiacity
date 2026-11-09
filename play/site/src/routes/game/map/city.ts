@@ -6,7 +6,8 @@
 // (its 180 m foot and height), the master dome 12 across, the others 10, 7.5, 5.5 and 4.5 (`DOMES`). Nothing here
 // touches the DOM or three.js: ./scene.ts draws it.
 
-import { hashSeed, inside, mulberry32, nearLine, terrain, type Feature, type P, type WorldMap } from './map';
+import { hashSeed, inside, nearLine, terrain, type Feature, type P, type WorldMap } from './map';
+import { seededRandom } from '$lib/kernel/random.js';
 
 export type DomeKind = 'tower' | 'master' | 'dome';
 /** a dome or a tower on a plot: where its centre stands and its radius at the foot (map units) */
@@ -45,7 +46,7 @@ const GAP = 3;
 const TREE_GAP = 4;
 
 export function buildCity(map: WorldMap): City {
-	const rand = mulberry32(hashSeed(`${map.seed}:city`));
+	const rand = seededRandom(hashSeed(`${map.seed}:city`));
 	const domes: Dome[] = [], trees: Feature[] = [], jungle: Feature[] = [];
 
 	for (const p of map.plots) {
@@ -105,7 +106,6 @@ export function buildCity(map: WorldMap): City {
 	return { domes, trees, jungle };
 }
 
-/** whether a point is in the river or on its banks */
 export function byRiver(map: WorldMap, x: number, y: number): boolean {
 	const reach = map.bank + 4;
 	let near = rivers.get(map);

@@ -24,8 +24,6 @@ const Y_BRK = 0.155251141552511;
 const A = 10.5402377416545;
 const B = 0.0729055341958355;
 
-/** Linear AP1 → ACEScct. */
 export const toCct = (/** @type {number} */ lin) => (lin <= X_BRK ? A * lin + B : (Math.log2(lin) + 9.72) / 17.52);
-/** ACEScct → linear AP1. */
 export const fromCct = (/** @type {number} */ cct) =>
 	cct <= Y_BRK ? (cct - B) / A : cct < (Math.log2(65504) + 9.72) / 17.52 ? Math.pow(2, cct * 17.52 - 9.72) : 65504;

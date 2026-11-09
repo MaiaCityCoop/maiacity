@@ -35,7 +35,6 @@
 		onopenintent
 	}: {
 		intent: Intent;
-		/** the title of the intent it was proposed for, if any */
 		cameWith?: string | null;
 		/** the schemas' labels by their UUIDs, to name its declared work (only shown) */
 		schemaNames?: Map<string, string>;
@@ -77,7 +76,6 @@
 	let review = $state<{ id: string; builds: { hash: string; variant: string | null; label: string; first: boolean }[] | null; story: ComponentProps<typeof StoryPlayer>['story'] | null; docs: ReviewedDoc[] } | null>(null);
 	/** each document its work changes (the review's docs, play/api/src/versioned.ts reviewDoc; intent 7c8986c5: any number) */
 	type ReviewedDoc = Listed;
-	/** the documents its work changes, as the detail lists them, once read for this intent */
 	const docs = $derived(review?.id === i.id ? review.docs : []);
 	let drawn = $state<{ id: string; hash: string } | null>(null);
 	let viewer: Promise<any> | null = null;

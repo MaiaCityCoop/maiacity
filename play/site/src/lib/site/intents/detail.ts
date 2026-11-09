@@ -4,8 +4,6 @@
  * and everything else kept whole in tabs. One pure function, `detailOf`, decides it for every stage; ./IntentDetail.svelte
  * only draws what it says (no `{#if stage === …}` chain decides the layout). Nothing on top is a run command, a hash, a
  * check's evidence or the brief: those are the agents', in the tabs.
- *
- * The intent as the board and the detail read it, of play's API's own types ($wire, play/api/src/wire.ts).
  */
 import type { Check, Dep, IntentKind, IntentStage, PrSeen, Result, Ship, ShipStep, Spec, Sub } from '$wire';
 
@@ -14,7 +12,6 @@ export type Work = { kind: string; what: string | null; doc: string | null; doc_
 export type Kind = IntentKind;
 export type Stage = IntentStage;
 export type { Check, Dep, Ship, ShipStep, Spec, Sub };
-/** where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit */
 export type Results = Record<string, Result>;
 /** a step back an agent took over MCP, or a document withdrawn from its work (`doc`, play/api/src/withdraw.ts) */
 type StepBack = { at: string; by: string | null; via: 'mcp' | 'site'; from: Stage; to: Stage; reason: string; doc?: string };
@@ -40,9 +37,6 @@ export const decidable = (i: Intent) => i.sub?.state === 'waiting' || shipsAgain
 /** the reconcile's flag (play/api/src/ship.ts reconcile): its commit not in what play runs */
 export const notLive = (i: Intent) => (i.ship?.live === false && i.ship.commit ? `not live: production runs ${i.ship.commit.slice(0, 7)}` : '');
 
-// ---- what goes on top
-
-/** a check as a chip: its id and its last result, nothing else */
 type Chip = { id: string; must: boolean; state: 'pass' | 'fail' | 'none'; text: string };
 /** one part of the top, drawn by ./IntentDetail.svelte in the order given */
 export type Part =
@@ -102,21 +96,17 @@ const plain = (s: string) =>
 		.replace(/^\s{0,3}(#+|[-*+]|\d+\.|>)\s+/gm, '')
 		.replace(/\s+/g, ' ')
 		.trim();
-/** at most `n` characters, cut at a word */
 const clip = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n).replace(/\s+\S*$/, '')}…`);
-/** a text's first sentence */
 const firstSentence = (s: string) => {
 	const p = plain(s);
 	const m = p.match(/^.+?[.!?](?=\s|$)/);
 	return clip(m ? m[0] : p, 240);
 };
-/** a check's headline: its statement up to its first colon where it has one ("The board and the detail are apart: …") */
 export const headline = (s: string) => {
 	const p = plain(s);
 	const colon = p.indexOf(': ');
 	return clip(colon > 12 && colon < 140 ? p.slice(0, colon) : (p.match(/^.+?[.!?](?=\s|$)/)?.[0] ?? p), 140);
 };
-/** what is wanted: the note's first lines (its first paragraph), else nothing */
 const wantOf = (note: string) => {
 	const first = (note ?? '').split(/\n\s*\n/).find((x) => x.trim()) ?? '';
 	return first ? clip(plain(first), 280) : '';
@@ -130,7 +120,6 @@ const progressOf = (i: Intent, label: string): Part | null => {
 };
 const depsOf = (i: Intent): Part | null => (i.depends_on?.length ? { part: 'deps', deps: i.depends_on, held: !!i.held_by?.length } : null);
 const goalOf = (i: Intent): Part | null => (i.spec?.goal ? { part: 'goal', text: firstSentence(i.spec.goal) } : null);
-/** its pull request in words: its number and how GitHub last saw it (draft, ready, merged, closed) */
 const prText = (i: Intent) => {
 	const seen = i.pr_seen && i.pr_seen.pr === i.pull_request ? i.pr_seen : null;
 	const state = seen ? (seen.merged ? ', merged' : seen.state === 'closed' ? ', closed' : seen.draft ? ', a draft' : ', ready') : '';

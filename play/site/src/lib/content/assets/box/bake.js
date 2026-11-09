@@ -42,7 +42,6 @@ export const MAT = 10;
 export const LIGHT = 6;
 const num = (x, or = 0) => (typeof x === 'number' && Number.isFinite(x) ? x : or);
 
-/** a material's look as numbers, into `out` at `at` */
 export function lookOf(m, out, at) {
 	const c = m?.color?.isColor ? m.color : null, e = m?.emissive?.isColor ? m.emissive : null;
 	out[at] = c ? c.r : 0;
@@ -57,7 +56,6 @@ export function lookOf(m, out, at) {
 	out[at + 9] = num(m?.metalness);
 }
 
-/** a light as numbers, into `out` at `at` */
 export function lightOf(l, out, at) {
 	out[at] = l.color?.isColor ? l.color.r : 1;
 	out[at + 1] = l.color?.isColor ? l.color.g : 1;
@@ -78,7 +76,6 @@ export function putLook(m, v, at) {
 	if (typeof m.metalness === 'number') m.metalness = v[at + 9];
 }
 
-/** a light set to numbers */
 export function putLight(l, v, at) {
 	if (l.color?.isColor) l.color.setRGB(v[at], v[at + 1], v[at + 2]);
 	if (typeof l.intensity === 'number') l.intensity = v[at + 3];
@@ -122,7 +119,6 @@ export function reshaped(o, was) {
 	return { p: pa, n: na };
 }
 
-/** a mesh put back in its shape as built */
 export function reshape(o, was) {
 	if (!was) return;
 	if (o.geometry !== was.g) o.geometry = was.g;
@@ -196,7 +192,6 @@ function snapshot(nodes) {
 	return { trs, visible, morph, instances, looks, lights, shapes };
 }
 
-/** the object put back as it stood */
 function restore(nodes, s) {
 	nodes.forEach((o, i) => {
 		const t = s.trs, a = i * 10;

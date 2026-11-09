@@ -19,6 +19,7 @@
 -->
 <script lang="ts" module>
 	import type { Edit } from './Changes.svelte';
+	import type { DocVersion } from '$wire';
 	export type { Edit };
 	export type Variant = {
 		id: number;
@@ -62,11 +63,8 @@
 		failed = '',
 		onPick
 	}: {
-		/** the document's UUID (the asset's, the story's, the factory's …) */
 		doc: string;
-		/** the version the view shows */
 		shown?: number | null;
-		/** what the thing is called, in its captions */
 		label?: string;
 		/** the view's own list of versions (else Main's, from the history) */
 		versions?: ChainVersion[] | null;
@@ -80,7 +78,7 @@
 		onPick: (p: Pick | null) => void | Promise<void>;
 	} = $props();
 
-	type Version = { number: number; note: string; at: string; acceptedBy?: string | null };
+	type Version = DocVersion;
 	const admin = $derived(isAdmin());
 	const edits = $derived(h?.edits ?? []);
 	const mainVersions = $derived(h?.versions ?? []);

@@ -11,6 +11,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { blend } from '$lib/content/assets/clips.js';
 import { standInRef } from './things.js';
+import { seededLcg as seeded } from '../../kernel/random.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -25,11 +26,6 @@ export const ME_SEAT = V(0.45, FLOOR, ROW.middle);
 /** a smooth material: cloth, vinyl, plastic, steel */
 const m = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...o });
 
-/** a seeded random, so every van is packed alike */
-function seeded(seed) {
-	let s = seed >>> 0;
-	return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-}
 
 /** worn bus moquette: a warm ground with stripes down it and a fleck through it */
 function moquette(ground, stripe, thin, seed) {

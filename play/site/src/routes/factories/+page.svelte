@@ -26,6 +26,7 @@
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
+	import type { DocVersion } from '$wire';
 	import { lineOf } from '$lib/content/factories/index.js';
 	import '$lib/content/factories/hud.css';
 
@@ -33,7 +34,7 @@
 	type Part = { id: string; label: string; assembly?: string; qty: number; raw?: { stock?: string; size?: string; kg?: number; bought?: string; also?: string[] }; ops: Op[] };
 	type App = { dispose: () => void; select: (id: string | null) => void; showRoute: (ids: string[] | null) => void; camTo: (v: object, s?: number) => void; stationCenter: (id: string) => unknown };
 	type Item = { id: string; label: string; note: string; number: number; versions: number };
-	type Version = { number: number; note: string; at: string; acceptedBy: string | null };
+	type Version = DocVersion;
 	type Factory = { id: string; json: any; number: number; version?: number; edit?: number; versions: Version[]; intent?: { id: string; status: string; note: string } };
 
 	let host = $state<HTMLDivElement>();

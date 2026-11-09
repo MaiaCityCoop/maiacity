@@ -1,6 +1,6 @@
 <!--
 	THE RENDER BENCH's page (/render): a recipe file on this machine built and shown as play shows any asset
-	($lib/content/assets/RenderBench.svelte), driven by scripts/render.mjs. A developer's tool: in a production build it
+	(RenderBench.svelte, beside it), driven by scripts/render.mjs. A developer's tool: in a production build it
 	is an empty page, the bench's code not even loaded.
 -->
 <script>
@@ -10,7 +10,7 @@
 	/** @type {any} */
 	let Bench = $state(null);
 	onMount(async () => {
-		if (dev) Bench = (await import('$lib/content/assets/RenderBench.svelte')).default;
+		if (dev) Bench = (await import('./RenderBench.svelte')).default;
 	});
 </script>
 

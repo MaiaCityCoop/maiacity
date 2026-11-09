@@ -1,13 +1,13 @@
 <!--
 	THE RENDER BENCH — a recipe file on this machine shown exactly as play shows an asset, for a developer or an agent
-	to look at what it is making, stage by stage, before it is proposed: the same asset box (./box/host.js, the
-	sandboxed frame running the frozen engine), the same checks and rebuild (./sources/viewer.js `vaultBuild`), the same
-	viewer and paper studio (./VaultAsset.svelte, ./stage.js). Only where the recipe comes from differs: handed in by the
-	page's caller (`scripts/render.mjs`) instead of read from play's catalog, and held to its own hash like any other.
+	to look at what it is making, stage by stage, before it is proposed: the same asset box (content/assets/box/host.js,
+	the sandboxed frame running the frozen engine), the same checks and rebuild (content/assets/sources/viewer.js
+	`vaultBuild`), the same viewer and paper studio (content/assets/VaultAsset.svelte, stage.js). Only where the recipe
+	comes from differs: handed in by the page's caller (`scripts/render.mjs`) instead of read from play's catalog, and held to its own hash like any other.
 
 	Driven from outside through `window.__render`:
 	  load({ code, id, v, variant?, label? })   a readable source (wrapped into its recipe file as play wraps one,
-	                                            ./engines.js `recipeFile`) or a recipe file; shown; gives its hash,
+	                                            box/engines.js `recipeFile`) or a recipe file; shown; gives its hash,
 	                                            card and params
 	  piece({ code })                           a piece's readable source (play/SPEC.md §4.5), handed to the page as
 	                                            play's files would hand it: gives the hash a recipe requires it by; a
@@ -23,13 +23,13 @@
 	                                            too): then the caller takes its picture of the canvas; gives what was
 	                                            shown (size, triangles, ms, what it plants)
 	  motion({ values?, plan, fps? })           a rigged build moving: its clips as the box wrote them down, played by
-	                                            the page's own player (./clips.js, as crowds play them) along `plan`
+	                                            the page's own player (content/assets/clips.js, as crowds play them) along `plan`
 	                                            ([{ clip, seconds, speed?, speedTo?, turn?, carry?, blend?, hold? }],
 	                                            each blended into the next; `carry`: a clip that travels by itself
 	                                            hands its place on) on a copy carried on at each one's speed: every frame's feet
 	                                            and hips (their bones' world matrices), for measuring a foot's slide
 	  filmStart({ … as motion, camera? })       the same, drawn frame by frame (filmAt(i)), the camera following
-	Only in development (../../../routes/render/+page.svelte).
+	Only in development (+page.svelte beside it).
 
 	Opened by a person: `/render/?load=<manifest.json>` loads a recipe and the assets it names by itself, for walking it
 	in a browser before it is proposed (a building with its plants, things and floor). The manifest:
@@ -40,14 +40,15 @@
 <script>
 	// @ts-nocheck — plain JS
 	import { onMount, tick } from 'svelte';
-	import VaultAsset from './VaultAsset.svelte';
-	import { AssetBox } from './box/host.js';
-	import { LATEST, RECIPE_HEAD, recipeFile } from './box/engines.js';
+	import VaultAsset from '$lib/content/assets/VaultAsset.svelte';
+	import { AssetBox } from '$lib/content/assets/box/host.js';
+	import { LATEST, RECIPE_HEAD, recipeFile } from '$lib/content/assets/box/engines.js';
 	import { hashText } from '$lib/kernel/hash.js';
-	import { admitHanded } from './catalog.js';
-	import { handPiece, handedPieces } from './box/pieces.js';
+	import { siteBlob } from '$lib/api';
+	import { admitHanded } from '$lib/content/assets/catalog.js';
+	import { handPiece, handedPieces } from '$lib/content/assets/box/pieces.js';
 
-	/** the recipes handed in, as the viewer reads a catalog (./catalog.js `source`) */
+	/** the recipes handed in, as the viewer reads a catalog (content/assets/catalog.js `source`) */
 	const index = { engine: LATEST.v, recipes: {} };
 	const files = new Map();
 	const cards = new Map();
@@ -123,8 +124,8 @@
 		if (!at) return;
 		try {
 			const base = new URL(at, location.href);
-			const m = await (await fetch(base)).json();
-			const text = async (f) => (await fetch(new URL(f, base))).text();
+			const text = async (f) => (await siteBlob(new URL(f, base).href)).text();
+			const m = JSON.parse(await text(base.href));
 			const here = {};
 			for (const p of m.pieces ?? []) {
 				const got = window.__render.piece({ code: await text(p.file) });
@@ -149,7 +150,7 @@
 
 	/**
 	 * A rigged build moving as a world moves it: its clips as the box wrote them down, played back by the page's own
-	 * player (./clips.js, as a crowd plays them, none of the asset's code) on a copy of its skinned mesh, along a plan
+	 * player (content/assets/clips.js, as a crowd plays them, none of the asset's code) on a copy of its skinned mesh, along a plan
 	 * of clips, each blended into the next; the copy carried on by how fast each goes, turned when a quarter turn ends.
 	 */
 	let moving = null;
@@ -160,7 +161,7 @@
 		await settled(view, view.wanted);
 		const THREE = await import('three');
 		const { clone } = await import('three/addons/utils/SkeletonUtils.js');
-		const { playerOf, blend, poser } = await import('./clips.js');
+		const { playerOf, blend, poser } = await import('$lib/content/assets/clips.js');
 		const hero = view.hero;
 		const clips = hero?.view?.clips;
 		if (!clips?.motion) throw new Error('this build has no clips written down');
@@ -251,14 +252,14 @@
 			return { frames: out, clips: Object.keys(m.view.hero.view.clips.motion.clips) };
 		},
 		/**
-		 * A crowd of one build, as a world draws one (./render/crowd.js): `n` of them in a grid `spacing` m apart,
+		 * A crowd of one build, as a world draws one (content/assets/render/crowd.js): `n` of them in a grid `spacing` m apart,
 		 * walking on at `speed` (each its own time), the nearest `max` within `near` m rigged, the rest drawn from afar;
 		 * timed: how long until their builds and clips are here, what posing them costs a frame, the frames a second.
 		 */
 		async crowd({ hash, n = 200, clip = 'walk', speed = 1.4, seconds = 6, near = 20, max = 50, spacing = 1.6, eye = [0, 1.7, -6], at = [0, 1, 12] }) {
 			const view = await viewer();
 			const THREE = await import('three');
-			const { crowd: make, settled: built } = await import('./render/crowd.js');
+			const { crowd: make, settled: built } = await import('$lib/content/assets/render/crowd.js');
 			const c = make([hash], [n], { near, max });
 			if (view.hero) view.hero.root.visible = false;
 			moving?.actor.removeFromParent();
