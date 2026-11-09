@@ -15,7 +15,7 @@ import { enginesOf } from '../src/lib/kernel/engines.js';
 import { piecesOf, withPieces } from '../src/lib/content/assets/box/pieces.js';
 import { RECIPE_HEAD, recipeTail } from '../src/lib/content/assets/engines.js';
 import { rebuild } from '../src/lib/content/assets/box/rebuild.js';
-import { engineOf } from '../src/lib/stories/world-build';
+import { built, engineOf } from '../src/lib/stories/world-build';
 import { GLOW } from '../src/lib/content/assets/box/graph.examples.js';
 
 const latest = enginesOf('box').at(-1) as { v: number; blake3: string };
@@ -102,6 +102,23 @@ describe('box engine 6', () => {
 			} finally {
 				e.end();
 			}
+		}
+	}, 60_000);
+
+	test('the test asset (c5): the glowing mushroom builds, its card fits, its cap carries its graph', async () => {
+		const source = readFileSync(new URL('../src/lib/content/assets/box/fixtures/glow-mushroom.js', import.meta.url), 'utf8');
+		const c = RECIPE_HEAD + source + recipeTail('glow-mushroom', 1, null);
+		const r = { hash: hashText(c), code: c };
+		const e = on(6, r);
+		try {
+			const m = await e.build(undefined);
+			const { obj } = built(m, r.hash);
+			const mats: any[] = [];
+			obj.traverse((o: any) => o.material && mats.push(o.material));
+			expect(mats.filter((x) => x.userData.graph).length).toBe(1);
+			expect(mats.find((x) => x.userData.graph).userData.graph.out).toEqual({ position: 11, color: 18, emissive: 25 });
+		} finally {
+			e.end();
 		}
 	}, 60_000);
 });
