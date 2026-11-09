@@ -2,7 +2,7 @@
  * AN ASSET'S CARD — what a world, a viewer or a film needs to know of an asset without building it: its name and
  * version (its ref, with the values it was built with), the hash of the recipe that built it and the engine it ran
  * on, its real size and weight in triangles, what its recipe is built with (./params.js), its parts (the catalog its
- * kit sealed), the sliders its solver reads. Read off a built object and what its recipe says of it (./recipe.js), by
+ * kit sealed), the sliders its solver reads. Read off a built object and what its recipe says of it, by
  * the box's engine (./box/engine.js) and by the page's tests alike, and always checked against the card's schema
  * (./schemas/card.v1.json) before it is used.
  */
@@ -30,7 +30,7 @@ export function trianglesOf(obj) {
  * @typedef {{
  *   group: string, id: string, version: number, variant?: string, label: string, note?: string,
  *   params?: import('./params.js').Param[]
- * }} Meta what a recipe says of the asset it builds (./recipe.js `metaOf`)
+ * }} Meta what a recipe says of the asset it builds
  */
 
 /**
