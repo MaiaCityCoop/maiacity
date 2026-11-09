@@ -17,7 +17,7 @@
 import * as THREE from 'three';
 import { NodeMaterial } from 'three/webgpu';
 import { Fn, If, Loop, acos, atan, attribute, cameraPosition, cameraProjectionMatrix, cameraViewMatrix, clamp, cos, dot, exp, float, floor, fract, length, log2, max, min, mix, modelViewProjection, modelWorldMatrix, normalize, positionGeometry, positionWorld, pow, sin, smoothstep, sub, uniform, uv, varying, vec2, vec3, vec4 } from 'three/tsl';
-import { seededMinStd } from './random.js';
+import { seededMinStd } from '../../kernel/random.js';
 import { withTone } from '../render/core.js';
 
 /** Where the worlds stand on their planet: the celestial pole stands this high in the north (+z on the ground). */

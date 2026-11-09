@@ -114,3 +114,9 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
     `./AssetViewer.svelte`, `./live.js`, `./engine.js`, the logic and view hosts, removed tests) now name the file that
     does the job, or the reference goes; comments only. The legacy vault's proof (`provenAt`, `wants`) is no longer
     described in `load.js`. `maiacity-v2/things.js` says plainly that no test holds its measures (site-worlds#11).
+15. **One seeded random, in the kernel** (site-assets#10, #22; site-worlds#14 part; site-assets F7). `sandbox-kit/random.js`
+    → `kernel/random.js`; its `seededLcg` takes a seed of 0 as 1, which makes it `assets/seeded.js`'s exact sequence
+    (it had no caller, so nothing else moves). `models/timber.v1.js` and `sandbox-kit/universe.js` import the kernel's;
+    `assets/seeded.js` is a one-line re-export for `interior/plants.ts` (held). `models` no longer imports a less
+    stable folder (less-stable imports 15 → 14). Census: Sandbox 1 (whose timber this draws) and Worlds same, Sandbox 3
+    its noise. Held, left: the copies in `maiacity-v2/world.js`, `interior/textures.ts`, `biomes/noise.js`.
