@@ -143,8 +143,8 @@ export const PLACES = [
 	},
 	{
 		id: "sandbox-4",
-		route: "/app/games/sandbox-4/",
-		label: "Sandbox 4",
+		route: "/sandbox-1/",
+		label: "Sandbox 1",
 		note: "The dome cell, its food forest grown from our plants",
 		gameOrder: 3,
 		navigation: {
@@ -237,7 +237,7 @@ export const PLACES = [
 	},
 	{
 		id: "sandbox-6",
-		route: "/app/games/sandbox-6/",
+		route: "/sandbox-6/",
 		label: "Sandbox 6",
 		note: "One village at its real size round the Tower180 hex",
 		gameOrder: 5,
@@ -245,14 +245,14 @@ export const PLACES = [
 			group: "PLAY",
 			order: 5,
 			icon: "play",
-			note: "One village at its real size: six living hexes of terraced Dome40 and Dome80 homes and Dome120s round the Tower180 hex, in tonnes, euros and hectares",
+			note: "One village at its real size: six living hexes of Dome40 and Dome80 homes and Dome120s round the tower hex, every number from its sources",
 			cover: "46e52e9e393b192c0a6db481e95fbf623e8d12d2753a3e1d15d1663292d2c716.jpg"
 		},
 		version: 1
 	},
 	{
 		id: "maiacity-v2",
-		route: "/app/maiacity-v2/",
+		route: "/sandbox-3/",
 		label: "MaiaCity V2",
 		note: "Three players, two COOPs, two tents, one shared world",
 		gameOrder: 6,
@@ -417,27 +417,14 @@ export const PLACES = [
 	},
 	{
 		id: "sandbox-7",
-		route: "/app/games/sandbox-7/",
-		label: "Sandbox 7",
+		route: "/sandbox-2/",
+		label: "Sandbox 2",
 		note: "The physical world lab: buildings assembled from their parts, with rigid-body physics, fixings, wind and damage",
 		navigation: {
 			group: "PLAY",
 			order: 6,
 			icon: "play",
 			note: "The physical world lab: buildings assembled from their parts, with rigid-body physics, fixings, wind and damage"
-		},
-		version: 1
-	},
-	{
-		id: "sandbox-8",
-		route: "/app/games/sandbox-8/",
-		label: "Sandbox 8",
-		note: "Constructible City: a settlement built by people with their hands, tools and machines, in real weather",
-		navigation: {
-			group: "PLAY",
-			order: 7,
-			icon: "play",
-			note: "Constructible City: a settlement built by people with their hands, tools and machines, in real weather"
 		},
 		version: 1
 	},
