@@ -18,19 +18,19 @@ export const SANDBOX = {
   five: "ac154784-c938-47ee-ac74-d61fc91583b3",
 } as const;
 
-/** the factories' first versions, made by the deploy's import (../import/factories.ts): each uuidOf("factory:<its first name>") */
+/** the factories' first versions, made by the deploy's import (../../import/factories.ts): each uuidOf("factory:<its first name>") */
 export const FACTORY = {
   /** the LifeTrac line (once 'lifetrac-line') */
   lifetrac: "bb437f73-48c6-8dd9-82c6-07ce2630e43e",
 } as const;
 
-/** the game's configs (the Game editor, ../import/gameconfigs.ts), each made with a random UUID when it was first written */
+/** the game's configs (the Game editor, ../../import/gameconfigs.ts), each made with a random UUID when it was first written */
 export const GAME_CONFIG = {
   /** the levelling: how a village grows, level by level (Samuel 2026-11-04) */
   levelling: "a392ce93-f60e-4d67-8f96-19ba866c7710",
 } as const;
 
-/** the skills (../import/skills.ts, play/SPEC.md §4.14): what play teaches its agents, kept once in Postgres, each made with a
+/** the skills (../../import/skills.ts, play/SPEC.md §4.14): what play teaches its agents, kept once in Postgres, each made with a
  * random UUID when it was first written (Samuel 2026-11-06). The two system skills make the system prompt, in this order. */
 export const SKILL = {
   /** avenMAIA: who every MCP agent is and what it does on play */
@@ -44,7 +44,7 @@ export const SKILL = {
 export const AVENMAIA = "86090f35-1937-8d5d-bd28-194b80430f25";
 
 /** the schemas (play/SPEC.md "Version control", Samuel 2026-11-06): each a document `schema:<uuid>` of the meta-schema, in
- * play's Postgres, its v1 seeded from ../migrations/schemas by ensureSchemas (./docs/schemas.ts); each made with a random
+ * play's Postgres, its v1 seeded from ../../migrations/schemas by ensureSchemas (../docs/schemas.ts); each made with a random
  * UUID when it became a document. Their labels and old names (story/1 …) are only shown. */
 export const SCHEMA = {
   /** the meta-schema: what every schema is, itself included */
