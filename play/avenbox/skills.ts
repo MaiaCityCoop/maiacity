@@ -23,7 +23,7 @@ const at = argv.indexOf("--out");
 const OUT = resolve(at >= 0 && argv[at + 1] ? argv[at + 1] : join(import.meta.dir, "../../.claude/skills"));
 const endpoint = process.env.PLAY_MCP_URL || "https://play.maia.city/api/mcp";
 const token = process.env.PLAY_MCP_TOKEN;
-/** an intent's stages in their order (play/api/src/skills.ts SKILL_STAGES) */
+/** an intent's stages in their order (play/api/src/intents.ts INTENT_STAGES) */
 const STAGES = ["idea", "specify", "build", "proposal", "ship", "accepted", "archived"];
 const say = (s: string) => console.log(`skills: ${s}`);
 

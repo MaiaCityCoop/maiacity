@@ -132,3 +132,7 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
     `startsWith("propose_")` and two names. mcp.ts 75.3 → 47.4 KB. Pinned: toolschemas.test, needsintent.test (every
     work tool requires `intent`; an artifact's makes its own), intents.test (the intent tools' descriptions),
     artifacts.test, the whole suite.
+16. **Skills read the intents' stages and rows from intents.ts** (api-flow #9, #25): `SKILL_STAGES`, a copy of
+    `INTENT_STAGES` its comment owned up to, goes; `promptOf` reads the intent itself instead of taking `intentRow` as
+    a parameter (possible now that intents.ts no longer imports skills.ts: the brief is review.ts'). Tests import the
+    list from intents.ts. Pinned: skills.test (prompts), build.test, the whole suite.

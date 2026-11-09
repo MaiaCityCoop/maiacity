@@ -14,7 +14,7 @@ import { folderStore } from "../src/blobs";
 import { MIGRATIONS, migrate } from "../src/migrations";
 import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import { SKILL_STAGES } from "../src/skills";
+import { INTENT_STAGES as SKILL_STAGES } from "../src/intents";
 import { SKILL } from "../src/kit/ids";
 import { seedDoc } from "../src/versioned";
 import { avenmaia, intents } from "../import/skills";

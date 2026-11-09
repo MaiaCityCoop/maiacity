@@ -26,7 +26,7 @@ import { assetOf, listAssets } from "./assets";
 import { docAt, docEdit, docHistory, listDocs, proposeDocVersion } from "./versioned";
 import { formatOf, kinds, syncKinds } from "./kinds";
 import { NO_INTENT } from "./held";
-import { getIntent, intentReady, TITLE_MOST, noSuchIntent } from "./intents";
+import { getIntent, intentReady, noSuchIntent } from "./intents";
 import { autoMove } from "./decide";
 import { instructionsOf, promptOf, promptsOf } from "./skills";
 import { adminByToken } from "./tokens";
@@ -514,7 +514,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
         return reply(msg.id, { prompts: await promptsOf(db) });
       case "prompts/get":
         try {
-          return reply(msg.id, await promptOf(db, msg.params?.name, msg.params?.arguments, (q, id) => getIntent(q, id)));
+          return reply(msg.id, await promptOf(db, msg.params?.name, msg.params?.arguments));
         } catch (e) {
           if (statusOf(e) !== null) return fail(msg.id, -32602, (e as Error).message);
           throw e;

@@ -10,10 +10,8 @@ import type { Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import { SKILL } from "./kit/ids";
 import { HttpError } from "./kit/errors";
+import { intentRow, INTENT_STAGES, type IntentStage } from "./intents";
 
-/** an intent's stages, each a part of the Intents skill (./intents.ts INTENT_STAGES, the same list; the skill schema names them) */
-export const SKILL_STAGES = ["idea", "specify", "build", "proposal", "ship", "accepted", "archived"] as const;
-export type SkillStage = (typeof SKILL_STAGES)[number];
 export const docIdOf = (skill: string) => `skill:${skill}`;
 /** the skills whose `system` makes the system prompt, in this order: who the agent is, then the intents */
 export const SYSTEM_SKILLS = [SKILL.avenmaia, SKILL.intents];
@@ -51,7 +49,7 @@ const SKILL_PROMPT = /^skill:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 /** a skill's whole text as one prompt: its description, its body (or its system part and stages, avenMAIA's and the
  *  Intents skill's), and the index of its references, each read whole with doc_at (a file by its hash from play's files) */
 export function skillText(id: string, s: any): string {
-  const body = `${s.body ?? ""}`.trim() || [`${s.system ?? ""}`.trim(), ...SKILL_STAGES.filter((st) => `${s.stages?.[st] ?? ""}`.trim()).map((st) => `## At ${st}\n\n${`${s.stages[st]}`.trim()}`)].filter(Boolean).join("\n\n");
+  const body = `${s.body ?? ""}`.trim() || [`${s.system ?? ""}`.trim(), ...INTENT_STAGES.filter((st) => `${s.stages?.[st] ?? ""}`.trim()).map((st) => `## At ${st}\n\n${`${s.stages[st]}`.trim()}`)].filter(Boolean).join("\n\n");
   const refs = (s.references ?? []).map((r: any) => `- ${r.path}: ${typeof r.text === "string" ? `text, ${r.text.length} characters` : `file ${r.file}${r.type ? ` (${r.type})` : ""}`}`);
   const parts = [`# ${s.label}`, `${s.description ?? s.note ?? ""}`.trim(), body];
   if (refs.length) parts.push(`## References\n\nSkill ${id}'s references, each whole in doc_at's json.references (a file by its hash from play's files):\n\n${refs.join("\n")}`);
@@ -63,7 +61,7 @@ export function skillText(id: string, s: any): string {
  *  id; then every skill, named `skill:<its UUID>`, its whole text */
 export async function promptsOf(db: Queryable) {
   const s = await accepted(db, SKILL.intents);
-  const stages = SKILL_STAGES.filter((st) => `${s?.stages?.[st] ?? ""}`.trim()).map((st) => ({
+  const stages = INTENT_STAGES.filter((st) => `${s?.stages?.[st] ?? ""}`.trim()).map((st) => ({
     name: `intent_${st}`,
     title: `An intent at ${st[0].toUpperCase()}${st.slice(1)}`,
     description: `What to do with an intent at the ${st} stage (the Intents skill's ${st} part, ${SKILL.intents}), for the intent named by its id.`,
@@ -80,8 +78,8 @@ export async function promptsOf(db: Queryable) {
 }
 
 /** One prompt: a skill's whole text (`skill:<id>`), or for intent `intent` the Intents skill's text for its stage,
- *  filled (`intentRow` reads the intent as the board does). */
-export async function promptOf(db: Queryable, name: unknown, args: any, intentRow: (db: Queryable, id: string) => Promise<{ id: string; title: string; stage: string }>) {
+ *  filled. */
+export async function promptOf(db: Queryable, name: unknown, args: any) {
   const k = SKILL_PROMPT.exec(`${name ?? ""}`);
   if (k) {
     const s = await accepted(db, k[1]);
@@ -89,7 +87,7 @@ export async function promptOf(db: Queryable, name: unknown, args: any, intentRo
     return { description: `The skill ${s.label} (${k[1]})`, messages: [{ role: "user", content: { type: "text", text: skillText(k[1], s) } }] };
   }
   const m = STAGE_PROMPT.exec(`${name ?? ""}`);
-  if (!m || !SKILL_STAGES.includes(m[1] as SkillStage)) throw new HttpError(`There is no prompt ${name} (prompts/list).`, 404);
+  if (!m || !INTENT_STAGES.includes(m[1] as IntentStage)) throw new HttpError(`There is no prompt ${name} (prompts/list).`, 404);
   const i = await intentRow(db, `${args?.intent ?? ""}`);
   const brief = await briefOf(db, i, m[1]);
   if (!brief) throw new HttpError(`The Intents skill says nothing for the ${m[1]} stage.`, 404);
