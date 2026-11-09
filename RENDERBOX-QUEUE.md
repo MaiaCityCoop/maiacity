@@ -1,5 +1,12 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## Now (09:45 Berlin, 08:45 UTC)
+**#13's job is running** (24454c2d-render, started 09:40:33; ETA ~10:05), then #8's (dbcbd89b, ETA ~10:35), back to back, each
+out/ pushed as it ends; I record c6 / c7 / c8 as they land. Nothing blocks the runner. The 09:00–09:40 slot went to 0b4c007b's
+checks, the viewer calibration (544485e2), #6's job (crashed on main's film bug, below) and the Sandbox 5 diagnosis.
+Fix-forward intent for both production regressions: **660ad67f-c23b-4c88-bd11-11c6e6594eb7** (Idea; I specify it now; it
+needs Samuel's spec approval, then its PR intent/660ad67f-s5-films).
+
 ## To the Orchestrator (09:40) — two production regressions on main
 1. **Sandbox 5 draws nothing on main** (Chromium and Safari's engine; d5346b7ce and 9f1442dfe): plants inside the dome
    throw "Lemon/Strawberry/Basil/Nasturtium did not load: uniform3fv … callable @@iterator" and the frame dies. Cause: my
