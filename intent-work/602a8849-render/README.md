@@ -20,16 +20,35 @@ and stop if it throws.
 Counts were checked in avenBOX with the census at base and head. This job is the part that needs a GPU. **This is the
 first time these node materials compile on a real GPU**, so every console error matters.
 
-**The code:** pull request #2182, branch `intent/602a8849-tsl-shaders`, head `61a720979d9f2a9b787b58f301ef86fc0585f88a`.
+**The code:** pull request #2182, branch `intent/602a8849-tsl-shaders`, head `ac629b6455c61be63ef08c50fa7c0a3db1278e35`.
 
 **Determinism:** `determinism.mjs` is copied from `intent-work/main-baseline-render` (c43eab548). `SEEDED_RANDOM`
 is an init script on every page, and `QUIET` is polled to 0 before each shot. No main baseline was published for
 these views yet, so the job renders base (main at the merge base) and head itself.
 
+## This run: c7 again, on head ac629b645
+
+The last run's c7 threw in the composition script (`Cannot use 'import.meta' outside a module`, then `playLive is not
+defined`). Three's KTX2Loader, brought into the live runtime by the ground (intent 4), built its transcoder URLs from
+`import.meta.url`, and a composition loads the runtime as a classic script. The runtime is rebuilt without it
+(`scripts/live-runtime.ts` defines `import.meta.url` and refuses any left) and re-pinned. A CPU test now parses it as a
+classic script and finds `playLive` (`compose.test.ts`). c8's views stand from the last run (a6f20d9: same shaders,
+only the runtime changed), so **run c7 alone**:
+
+    ONLY=c7 bash intent-work/602a8849-render/run.sh ac629b6455c61be63ef08c50fa7c0a3db1278e35
+
+It skips base and the dev servers and writes `parity-1.txt`, `parity-2.txt` and `parity-seeks.txt` to `out/`. Commit
+`out/` with `Intent: 602a8849-50e4-4885-99b9-38353f951c9f` and push this branch. To run everything (c7 and c8), leave
+out `ONLY=c7`. The dev servers stay `vite dev`: the asset box doesn't build under `vite preview`.
+
+**Dry run** (intent cb52fbd9, PR #2199), in avenBOX first:
+
+    bun play/site/scripts/macjob/dry.ts intent-work/602a8849-render --at <this branch's commit>
+
 ## How
 
 1. `git fetch origin intent-work/602a8849-render && git checkout FETCH_HEAD` (this branch), with `PLAY_MCP_TOKEN` set.
-2. `bash intent-work/602a8849-render/run.sh 61a720979d9f2a9b787b58f301ef86fc0585f88a`. It checks out base and head in worktrees beside the repository,
+2. `bash intent-work/602a8849-render/run.sh ac629b6455c61be63ef08c50fa7c0a3db1278e35`. It checks out base and head in worktrees beside the repository,
    then runs three things:
    - **c7:** `story-parity.ts` on head, `src/lib/stories/fixtures/king-coconut-live.json --at 1,3,5 --min-ssim 0.98
      --lossless`, twice. Out: `parity-1.txt`, `parity-2.txt`, and the stills in `parity-1/` and `parity-2/`.
@@ -52,8 +71,9 @@ these views yet, so the job renders base (main at the merge base) and head itsel
 - **c8, the look:** SSIM ≥ 0.98 head against base on every view except the two water views. The water should reflect
   the sky and the sun, more at a grazing angle: judged by eye, base beside head. The plant card's plant turns, so its
   SSIM is noisy: judge the soil disc by eye if it is under.
-- **c8, the frame time:** at each view, head's mean frame at most base's + 1.0 ms (`compare` in `results.json`), with
-  the meter's bound.
+- **c8, the frame time:** near, head's mean frame at most base's + 8 ms and never above 33.4 ms; mid and far, at most base's
+  (5 % for noise) (`compare` in `results.json`), with the meter's bound (the spec since 2026-11-08: TSL runs on
+  WebGLNodesHandler until intent 9).
 - **No errors:** no shader compile error and no page error on head. Base's own, if any, are listed too.
 
 If head's page shows a black frame, an upside-down or black factories page (TILT and GRADE read the composer's target),

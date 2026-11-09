@@ -4,6 +4,7 @@
 # inside the repository; needs bun, node with Playwright's Chromium, ffmpeg and PLAY_MCP_TOKEN (the admin token, sent
 # to play only). Writes intent-work/602a8849-render/out/.
 #   bash run.sh [head commit]   (default: the pull request's branch as it is now)
+#   ONLY=c7 bash run.sh [head commit]   (c7 alone: story parity on head, no dev servers)
 set -euo pipefail
 : "${PLAY_MCP_TOKEN:?PLAY_MCP_TOKEN: the admin token the read-only proxy reads play with}"
 ROOT=$(git rev-parse --show-toplevel)
@@ -21,6 +22,7 @@ for side in base head; do
   C=$([ $side = base ] && echo "$BASE_COMMIT" || echo "$HEAD_COMMIT")
   if [ -d "$TREE" ]; then git -C "$TREE" checkout -q --detach "$C"; else git -C "$ROOT" worktree add -q --detach "$TREE" "$C"; fi
   (cd "$TREE/play/site" && bun install --frozen-lockfile >/dev/null)
+  [ "${ONLY:-}" = c7 ] && [ $side = base ] && continue
 done
 
 # c7: story parity on head (its rebuilt live runtime), twice, so the same t is seen by two seeks
@@ -37,6 +39,8 @@ done
 } | tee "$OUT/parity-seeks.txt"
 # keep the stills only (the renderer's frames are large)
 for run in 1 2; do find "$OUT/parity-$run" -mindepth 1 -not -name 'player-*.png' -not -name 'render-*.png' -prune -exec rm -rf {} + 2>/dev/null || true; done
+
+if [ "${ONLY:-}" = c7 ]; then echo "out: $OUT (c7 only; commit out/ and push the branch intent-work/602a8849-render)"; exit 0; fi
 
 # c8: the looks and frame times, base then head
 PIDS=()
