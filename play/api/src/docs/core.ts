@@ -148,6 +148,12 @@ export type Edit =
 
 export class EditError extends Error {}
 
+export class DocError extends Error {
+  constructor(message: string, public status = 400, public extra: Record<string, unknown> = {}) {
+    super(message);
+  }
+}
+
 /** the container the path leads into (all but its last step), and that last step */
 function parentOf(d: LoroDoc, path: Path): [LoroMap | LoroMovableList, string | number] {
   if (!path.length) throw new EditError("an edit names a field: its path is empty");

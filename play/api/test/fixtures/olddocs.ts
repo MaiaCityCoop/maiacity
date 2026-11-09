@@ -4,7 +4,7 @@
 import type { LoroDoc } from "loro-crdt";
 import type { Queryable } from "../../src/kit/pg";
 import { applyEdits, contentHash, fromBytes, jsonOf, newDoc, patchTo, seed, type Edit, type Frontiers } from "../../src/docs/core";
-import { seedType } from "../../src/docs/schemas";
+import { seedType } from "../../src/docs/seed";
 import { SCHEMA } from "../../src/kit/ids";
 
 /** a type as play's code wrote it then, by its old name: the seed's v1 */
