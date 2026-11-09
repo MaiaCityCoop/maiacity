@@ -233,3 +233,19 @@ comment in its area names a gone file. Swallowed errors in tools/avenbox 4 → 2
 look-ups where a failing try is the design, each saying so). Three now say what failed: pr-intent.ts notes a pull
 request it can't read as "unread: <why>" (was "closed"), ground-sets warns on an unreadable AO map (output unchanged),
 plant/organ.mjs throws saying where it looked for Playwright.
+
+### Merged: api-tests (fix 8 for play/api), 10:55Z
+
+10 commits (`log/api-tests.md`); one conflict (ship.ts: the builder's code, the sweep's comments); gate green (all, 60
+s; 354 API tests, none skipped). `measure.ts tests` passes all six: one `test/kit.ts` (databases made in 2 files: the
+kit and the held assetdocs.test), no copied call/tool helpers, a suite without TEST_DATABASE_URL fails instead of
+skipping, one bounded poll as the tests' only wait, the gone MCP tools' shims replaced by fixtures calling doc_edit
+and propose_doc_version, no test reading src's text (`app()` exposes its route table). Pinning tests first: limits
+(429, X-Forwarded-For), site.ts, session expiry and forgery, /api/founders, bucketStore/blobStore against a fake S3,
+tobucket and verify as subprocesses (329 → 355 tests; one removed, board.test's "no LIMIT 500" grep). Ship's queue
+orders Accepts by decided_at to the microsecond, then id (JS Dates compared to the millisecond: why ship.test slept).
+The `shipWork.store` global is gone (the store a parameter); seeding moved out of `migrate()` into `src/seed.ts`.
+`special` and the dead-file bound pass. Kept: import/plan.ts (sandboxes.ts and the held assetdocs.ts import it).
+Left in the log: the intent lifecycle fixture still copied in ~25 files (F2), tests by subject (F5). **Noted for
+Samuel:** versioned.ts's "Give edits or the whole document, not both." is reachable only with a `variant`; without
+one, both given answers "neither". api.test now pins the real answer.
