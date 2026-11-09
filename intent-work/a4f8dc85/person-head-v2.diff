@@ -1,0 +1,192 @@
+--- a/Person head v1 (7f6d4149…)
++++ b/Person head v2 (a4f8dc85)
+@@ -8,6 +8,10 @@
+  * only its long data lines are wrapped. `headPieces(look, v)`: the parts, as a rig takes them; `crownOf(face)`: the
+  * top of the head (m) in the 1.80 m it is measured for; `skin(roughness)`: the skin's material; `CATCHLIGHT()`: the
+  * eyes' glint's.
++ * A person's own face (v2 of this piece, intent a4f8dc85): `look.shape`, offsets of the base head's vertices (Int16 in
++ * 1e-5 m, base64; from a fit to their photos), and `look.colours`, the smoothed skin's colours (sRGB bytes, base64);
++ * both optional, so every look without them is built exactly as before. And `blink`, a third expression: both eyes
++ * closed by MakeHuman's eye-closure units (the lashes following the lids), beside `joy` and `friendly`.
+  */
+ const three = require('three');
+ 
+@@ -2509,6 +2513,9 @@
+ 	}
+ };
+ 
++/** a blink: both eyes shut by MakeHuman's eye-closure units */
++const BLINK = { units: { "eye-left-closure": 1, "eye-right-closure": 1 } };
++
+ const FRIENDLY = {
+ 	units: {
+ 		"eye-left-slit": .25,
+@@ -2585,10 +2592,27 @@
+ 
+ const BUILT = {};
+ 
+-function build(face, smile) {
++function build(face, smile, own) {
+ 	const who = HEAD_PEOPLE[KEY[face]];
+ 	const raw = i16(who.pos), n = HEAD_MESH.n;
+ 	const pos = Float32Array.from(raw, (x, k) => x * HEAD_Q + HEAD_MID[k % 3]);
++	let eyes = who.eyes;
++	if (own) {
++		// a person's own face: their offsets on the base head, before it is smoothed; each eye moved with the skin
++		// round it (the mean offset within 22 mm), so it sits in its own socket
++		const d = i16(Array.isArray(own) ? own.join("") : own);
++		const moved = (e) => {
++			const s = [0, 0, 0];
++			let c = 0;
++			for (let i = 0; i < n; i++) if (Math.hypot(pos[3 * i] - e.at[0], pos[3 * i + 1] - e.at[1], pos[3 * i + 2] - e.at[2]) < .022) {
++				for (let k = 0; k < 3; k++) s[k] += d[3 * i + k] * HEAD_Q;
++				c++;
++			}
++			return { ...e, at: e.at.map((x, k) => x + (c ? s[k] / c : 0)) };
++		};
++		eyes = { l: moved(who.eyes.l), r: moved(who.eyes.r) };
++		for (let k = 0; k < pos.length; k++) pos[k] += d[k] * HEAD_Q;
++	}
+ 	const region = bytes(HEAD_REGION);
+ 	/** a shape's offsets: its units' added up, and the cheeks lifted (up and forward round each cheek's apple, under
+ 	*  the eye and out from the nose's wing, on the face's front only)
+@@ -2603,7 +2627,7 @@
+ 		}
+ 		const ch = recipe.cheeks;
+ 		if (ch) {
+-			const [ex, ey, ez] = who.eyes.l.at;
++			const [ex, ey, ez] = eyes.l.at;
+ 			for (let i = 0; i < n; i++) {
+ 				if (region[i] !== 0) continue;
+ 				const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+@@ -2614,19 +2638,20 @@
+ 		}
+ 		return d3;
+ 	};
+-	const joy = shape(SMILES[smileOf(smile)]), kind = shape(FRIENDLY);
+-	const marks = new Float32Array(n * 6);
++	const joy = shape(SMILES[smileOf(smile)]), kind = shape(FRIENDLY), shut = shape(BLINK);
++	const marks = new Float32Array(n * 9);
+ 	for (let i = 0; i < n; i++) {
+-		marks[i * 6] = region[i] === 1 ? 1 : 0, marks[i * 6 + 1] = region[i] === 2 ? 1 : 0, marks[i * 6 + 2] = region[i] === 4 ? 1 : 0;
+-		for (let c = 0; c < 3; c++) marks[i * 6 + 3 + c] = kind[i * 3 + c];
++		marks[i * 9] = region[i] === 1 ? 1 : 0, marks[i * 9 + 1] = region[i] === 2 ? 1 : 0, marks[i * 9 + 2] = region[i] === 4 ? 1 : 0;
++		for (let c = 0; c < 3; c++) marks[i * 9 + 3 + c] = kind[i * 3 + c], marks[i * 9 + 6 + c] = shut[i * 3 + c];
+ 	}
+-	const skin = piece("skin", pos, joy, 1, marks, 6);
++	const skin = piece("skin", pos, joy, 1, marks, 9);
+ 	const carried = skin.extra;
+-	const mark = (c) => Float32Array.from({ length: skin.n }, (_, i) => carried[i * 6 + c]);
+-	const friendly = Float32Array.from({ length: skin.n * 3 }, (_, k) => carried[(k / 3 | 0) * 6 + 3 + k % 3]);
++	const mark = (c) => Float32Array.from({ length: skin.n }, (_, i) => carried[i * 9 + c]);
++	const friendly = Float32Array.from({ length: skin.n * 3 }, (_, k) => carried[(k / 3 | 0) * 9 + 3 + k % 3]);
++	const blink = Float32Array.from({ length: skin.n * 3 }, (_, k) => carried[(k / 3 | 0) * 9 + 6 + k % 3]);
+ 	const inside = mark(0), socket = mark(1), ears = mark(2);
+ 	const P = skin.geo.attributes.position, N = skin.geo.attributes.normal, m = skin.n;
+-	const eyes = who.eyes, E = {
++	const E = {
+ 		x: eyes.l.at[0],
+ 		y: eyes.l.at[1],
+ 		z: eyes.l.at[2],
+@@ -2784,6 +2809,7 @@
+ 	return {
+ 		skin,
+ 		friendly,
++		blink,
+ 		hollow,
+ 		dist,
+ 		inside,
+@@ -2805,7 +2831,7 @@
+ 	};
+ }
+ 
+-const headOf = (face = "man", v = 10) => BUILT[`${face}:${smileOf(v)}`] ??= build(face, smileOf(v));
++const headOf = (face = "man", v = 10, shape) => BUILT[`${face}:${smileOf(v)}${shape ? `:${Array.isArray(shape) ? shape.join("") : shape}` : ""}`] ??= build(face, smileOf(v), shape);
+ 
+ const crownOf = (face = "man") => HEAD_PEOPLE[KEY[face]].crown;
+ 
+@@ -2859,7 +2885,7 @@
+ }
+ 
+ function headPieces(k, ver = 10) {
+-	const h = headOf(k.face ?? "man", ver);
++	const h = headOf(k.face ?? "man", ver, k.shape);
+ 	const weights = (p) => headWeights(p, ver);
+ 	const kind = ver >= 9;
+ 	const { skin, E } = h;
+@@ -2890,6 +2916,11 @@
+ 		c.multiplyScalar(1 - Math.min(.5, Math.max(0, h.hollow[i] * 2.4)));
+ 		return c;
+ 	});
++	if (k.colours) {
++		// a person's own skin, baked from their photos onto the smoothed head (sRGB bytes, one per vertex)
++		const c8 = bytes(Array.isArray(k.colours) ? k.colours.join("") : k.colours);
++		for (let i = 0; i < m && 3 * i + 2 < c8.length; i++) colours[i] = new three.Color().setRGB(c8[3 * i] / 255, c8[3 * i + 1] / 255, c8[3 * i + 2] / 255, three.SRGBColorSpace);
++	}
+ 	/** @type {Piece[]} */
+ 	const out = [{
+ 		geo: skin.geo.clone(),
+@@ -2897,7 +2928,8 @@
+ 		weights,
+ 		morph: kind ? {
+ 			joy: skin.joy,
+-			friendly: h.friendly
++			friendly: h.friendly,
++			blink: h.blink
+ 		} : { joy: skin.joy }
+ 	}];
+ 	const iris = new three.Color(k.iris), rim = iris.clone().multiplyScalar(.5), inner = iris.clone().lerp(new three.Color("#c9a25a"), .25);
+@@ -3015,7 +3047,7 @@
+ const rng = (seed) => () => ((seed = seed * 16807 % 2147483647) - 1) / 2147483646;
+ 
+ function lashes(h, kind = false) {
+-	const pos = [], idx = [], joy = [], gaze = [];
++	const pos = [], idx = [], joy = [], gaze = [], shut = [];
+ 	const rand = rng(5);
+ 	for (const side of ["l", "r"]) {
+ 		const e = h.eyes[side], R = e.r, [cx, cy, cz] = e.at, sx = Math.sign(cx);
+@@ -3043,6 +3075,7 @@
+ 			const count = strand(pos, idx, edge.p.clone().add(new three.Vector3(0, 1e-4, 1e-4)), dir, curl, face, len, 11e-5 + 4e-5 * rand(), 5);
+ 			joy.push(...follow(h.skin.joy, edge.tri, edge.bary, count));
+ 			gaze.push(...follow(h.friendly, edge.tri, edge.bary, count));
++			shut.push(...follow(h.blink, edge.tri, edge.bary, count));
+ 		}
+ 	}
+ 	const g = new three.BufferGeometry();
+@@ -3056,7 +3089,8 @@
+ 		mat: 2,
+ 		morph: kind ? {
+ 			joy: new Float32Array(joy),
+-			friendly: new Float32Array(gaze)
++			friendly: new Float32Array(gaze),
++			blink: new Float32Array(shut)
+ 		} : { joy: new Float32Array(joy) }
+ 	}];
+ }
+@@ -3066,7 +3100,7 @@
+ 	const out = [];
+ 	for (const sx of [-1, 1]) {
+ 		const rand = rng(sx > 0 ? 7 : 11);
+-		const pos = [], idx = [], joy = [], gaze = [];
++		const pos = [], idx = [], joy = [], gaze = [], shut = [];
+ 		for (let s = 0; s < 240; s++) {
+ 			const u = Math.pow(rand(), .8);
+ 			const x = sx * (E.x * .4 + E.x * 1.3 * u);
+@@ -3083,6 +3117,7 @@
+ 			const count = strand(pos, idx, at.p.clone().addScaledVector(at.n, 25e-5), dir.clone().addScaledVector(at.n, .25).normalize(), curl, at.n, len, 2e-4);
+ 			joy.push(...follow(h.skin.joy, at.tri, at.bary, count));
+ 			gaze.push(...follow(h.friendly, at.tri, at.bary, count));
++			shut.push(...follow(h.blink, at.tri, at.bary, count));
+ 		}
+ 		const g = new three.BufferGeometry();
+ 		g.setAttribute("position", new three.Float32BufferAttribute(pos, 3));
+@@ -3096,7 +3131,8 @@
+ 			mat: 2,
+ 			morph: kind ? {
+ 				joy: new Float32Array(joy),
+-				friendly: new Float32Array(gaze)
++				friendly: new Float32Array(gaze),
++				blink: new Float32Array(shut)
+ 			} : { joy: new Float32Array(joy) }
+ 		});
+ 	}
