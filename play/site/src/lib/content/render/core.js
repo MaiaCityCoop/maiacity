@@ -224,8 +224,47 @@ function createWebGPU(o, forceWebGL) {
 		if (o.onLost) o.onLost();
 		else console.error('play: the graphics device was lost', info?.message ?? '');
 	};
+	// its uploads tell the attribute, as WebGL's do (the phone's memory release: ./budget.js `dropOnUpload`)
+	const init = renderer.init.bind(renderer);
+	renderer.init = async () => {
+		await init();
+		tellUploads(renderer);
+		return renderer;
+	};
 	o.container?.appendChild(renderer.domElement);
 	return renderer;
+}
+
+/** the WebGPURenderers whose uploads are told (`tellUploads`) */
+const told = new WeakSet();
+/**
+ * A WebGPURenderer's attribute uploads call the attribute's `onUploadCallback`, as WebGLRenderer's do (WebGPU never
+ * does): once its data reaches the graphics card, first or again, so what lets go of its array then
+ * (./budget.js `dropOnUpload`, a dome's baked shapes) does so on WebGPU too. Its internal Attributes (r187) wrapped once.
+ * @param {any} renderer
+ */
+function tellUploads(renderer) {
+	const attributes = renderer._attributes;
+	if (told.has(renderer) || typeof attributes?.update !== 'function') return;
+	told.add(renderer);
+	const update = attributes.update.bind(attributes);
+	attributes.update = (/** @type {any} */ a, /** @type {any} */ type) => {
+		const before = attributes.has(a) ? attributes.get(a).version : undefined;
+		update(a, type);
+		const after = attributes.has(a) ? attributes.get(a).version : undefined;
+		if (after !== undefined && after !== before) a.onUploadCallback?.();
+	};
+}
+
+/**
+ * The largest picture a renderer takes, pixels a side: WebGL's `capabilities`, WebGPU's device limit (8192, WebGPU's
+ * least, before it is initialised), or its WebGL 2 backend's own.
+ * @param {any} renderer
+ */
+export function maxTextureSize(renderer) {
+	if (!isWebGPU(renderer)) return renderer.capabilities.maxTextureSize;
+	const b = renderer.backend;
+	return b?.device?.limits?.maxTextureDimension2D ?? b?.gl?.getParameter?.(b.gl.MAX_TEXTURE_SIZE) ?? 8192;
 }
 
 /**
