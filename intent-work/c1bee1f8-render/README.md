@@ -3,9 +3,7 @@
 Run 1 (5f829ca, head a1c2823) found WebGPU's own shader errors (fixed in the pull request, 817fe84); this job then
 names the URL of every failed request, keeps the job's own errors apart, and smokes a production build (run 2).
 
-MAC JOB READY: intent-work/c1bee1f8-render@fe6490ee intent-work/c1bee1f8-render/README.md, run 4, on the pull request's head
-`baf1338a27127c8d6e70796a26f9b05105e91616` (`HEAD_COMMIT=baf1338a27127c8d6e70796a26f9b05105e91616`; main's untangle 5884ade4 merged in), a production build.
-Dry run: DRY RUN PASSED at c28ad3d (23.2 s; only this line changed since).
+Not ready: run 4 (head baf1338) is withdrawn; c8 is recorded from run 3 (d9628c7, out/ at 21529e3c).
 
 Intent c1bee1f8-e738-4ff3-aace-4aea1d7e74ae (GPU 9/14), pull request #2186, branch `intent/c1bee1f8-webgpu-switch`.
 Every page draws with `WebGPURenderer`: WebGPU where the browser has it, its own WebGL 2 backend where not. The
