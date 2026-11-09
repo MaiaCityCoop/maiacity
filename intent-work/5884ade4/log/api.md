@@ -124,3 +124,11 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
     change) is served from then on, with no deploy. A tool's description may be a function of the formats, resolved
     at each tools/list. mcp.ts 84.4 → 75.3 KB. Pinned: toolschemas.test, needsintent.test (descriptions),
     schemas.test (the seed schemas still validate as meta-schema documents), the whole suite.
+15. **MCP's tools by what they work on; propose tools say so** (api-flow F, #35). `mcptool.ts` holds what a tool is
+    (`Tool`, `Formats`, `ToolCtx`); the intents' ten tools are `intenttools.ts`, the artifacts' and authors' seven
+    `artifacttools.ts`, each a function of the tools' context spread into mcp.ts' list in its old place (the order
+    of tools/list unchanged); mcp.ts keeps the protocol, the documents', assets', stories', files' and sandboxes'
+    tools and the propose wrapper. A tool that proposes says `proposes: "required" | "own"` instead of being picked by
+    `startsWith("propose_")` and two names. mcp.ts 75.3 → 47.4 KB. Pinned: toolschemas.test, needsintent.test (every
+    work tool requires `intent`; an artifact's makes its own), intents.test (the intent tools' descriptions),
+    artifacts.test, the whole suite.
