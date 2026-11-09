@@ -18,3 +18,7 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
    state, as `pill.svelte.js` and `back.svelte.js` beside it. In `site/app` the stabler folder no longer leans on the
    board's; `site/intents` rises to I=0.73, above `content/worlds` (0.67), so BuildView's and IntentDetail's
    WorldStage are no longer an upward import. Pinned: the same module, moved; gate site, `src/lib/site` tests (56).
+3. **Each dome-cell page pinned beside itself** (layers: `routes/sandbox-1 → content/sandbox-2/interior`). Sandbox 5's
+   test imported Sandbox 1's page, which made `routes/sandbox-1` a folder something leans on (I=0.80, below the
+   interior's 0.83). Each page's served-HTML snapshot now sits in its own route's `page.test.ts`; the two snapshots are
+   byte-identical to the one file's before.
