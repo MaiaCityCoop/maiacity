@@ -46,12 +46,12 @@ export function grassUniforms(/** @type {THREE.Texture} */ mask) {
 
 /* ── the hash: grass.js's `pcg`, `seedOf`, `draw` ── */
 
-const pcgU = Fn(([v]) => {
+export const pcgU = Fn(([v]) => {
 	const state = uint(v).mul(uint(747796405)).add(uint(2891336453));
 	const word = state.shiftRight(state.shiftRight(uint(28)).add(uint(4))).bitXor(state).mul(uint(277803737));
 	return word.shiftRight(uint(22)).bitXor(word);
 }).setLayout({ name: 'grassPcg', type: 'uint', inputs: [{ name: 'v', type: 'uint' }] });
-const drawU = (/** @type {any} */ seed, /** @type {number} */ k) => float(pcgU(seed.add(uint(Math.imul(k, 0x9e3779b9) >>> 0)))).mul(1 / 4294967296);
+export const drawU = (/** @type {any} */ seed, /** @type {number} */ k) => float(pcgU(seed.add(uint(Math.imul(k, 0x9e3779b9) >>> 0)))).mul(1 / 4294967296);
 
 /* ── the biomes' value noise (noise.js `vn`) ── */
 const h21 = Fn(([p]) => {
@@ -88,6 +88,47 @@ const clumpCentreT = (/** @type {any} */ g, /** @type {any} */ size) => {
 };
 
 /**
+ * Blade j of a cell (grass.js `bladeOf`): its seed, where it stands, its rank among the cell's `perCell`, and its own
+ * numbers. The one TSL twin of `bladeOf`, for the material and the compute that chooses the blades (./grass-compute.js).
+ * @param {any} cell the cell (vec2 of whole numbers) @param {any} j its number in it (uint) @param {any} perCell
+ */
+export function bladeT(cell, j, perCell) {
+	const seed = pcgU(pcgU(pcgU(int(cell.x).toUint()).add(int(cell.y).toUint())).add(j));
+	return {
+		seed,
+		foot: cell.add(vec2(drawU(seed, 0), drawU(seed, 1))).mul(CELL),
+		rank: float(j).add(drawU(seed, 2)).div(perCell),
+		ownH: drawU(seed, 3).mul(2).sub(1),
+		ownLean: drawU(seed, 4),
+		facing: drawU(seed, 5).mul(Math.PI * 2),
+		ownW: drawU(seed, 6).mul(0.6).add(0.7),
+		shade: drawU(seed, 7),
+		dry: drawU(seed, 8),
+		end: drawU(seed, 9).mul(0.1).add(0.9)
+	};
+}
+
+/**
+ * The two nearest clump centres of four round a foot (grass.js `clumpAt`): A the nearer (x, z, height, shade) and B,
+ * and their distances. @param {any} foot @param {any} size
+ */
+export function clumpsT(foot, size) {
+	const g0 = floor(foot.div(size).sub(0.5));
+	const A = vec4(0, 0, 0, 0).toVar(), Bc = vec4(0, 0, 0, 0).toVar(), dA = float(1e9).toVar(), dB = float(1e9).toVar();
+	for (let dx = 0; dx <= 1; dx++)
+		for (let dz = 0; dz <= 1; dz++) {
+			const cc = clumpCentreT(g0.add(vec2(dx, dz)), size);
+			const dc = distance(foot, cc.xy);
+			const nearer = dc.lessThan(dA);
+			Bc.assign(select(nearer, A, select(dc.lessThan(dB), cc, Bc)));
+			dB.assign(select(nearer, dA, select(dc.lessThan(dB), dc, dB)));
+			A.assign(select(nearer, cc, A));
+			dA.assign(select(nearer, dc, dA));
+		}
+	return { A, Bc, dA, dB };
+}
+
+/**
  * @param {{
  *   level: 0 | 1 | 2,
  *   uniforms: ReturnType<typeof grassUniforms>,
@@ -114,11 +155,7 @@ export function grassMaterial(o) {
 		const i = uint(instanceIndex);
 		const c = i.mod(uint(k * k)), j = i.div(uint(k * k));
 		const cell = tile.add(vec2(float(c.mod(uint(k))), float(c.div(uint(k)))));
-		const seed = pcgU(pcgU(pcgU(int(cell.x).toUint()).add(int(cell.y).toUint())).add(j));
-		const foot = cell.add(vec2(drawU(seed, 0), drawU(seed, 1))).mul(CELL);
-		const rank = float(j).add(drawU(seed, 2)).div(U.perCell);
-		const ownH = drawU(seed, 3).mul(2).sub(1), ownLean = drawU(seed, 4), facing = drawU(seed, 5).mul(Math.PI * 2);
-		const ownW = drawU(seed, 6).mul(0.6).add(0.7), shade = drawU(seed, 7), dry = drawU(seed, 8), end = drawU(seed, 9).mul(0.1).add(0.9);
+		const { seed, foot, rank, ownH, ownLean, facing, ownW, shade, dry, end } = bladeT(cell, j, U.perCell);
 
 		/* the mask: how much grass, how much of it tall, the ground's height */
 		const m = texture(U.mask, fract(foot.div(U.maskWidth))).level(0);
@@ -135,18 +172,7 @@ export function grassMaterial(o) {
 
 		/* clumps: grass.js `clumpAt`, the two nearest of four */
 		const size = float(P.clump);
-		const fp = foot.div(size), g0 = floor(fp.sub(0.5));
-		const A = vec4(0, 0, 0, 0).toVar(), Bc = vec4(0, 0, 0, 0).toVar(), dA = float(1e9).toVar(), dB = float(1e9).toVar();
-		for (let dx = 0; dx <= 1; dx++)
-			for (let dz = 0; dz <= 1; dz++) {
-				const cc = clumpCentreT(g0.add(vec2(dx, dz)), size);
-				const dc = distance(foot, cc.xy);
-				const nearer = dc.lessThan(dA);
-				Bc.assign(select(nearer, A, select(dc.lessThan(dB), cc, Bc)));
-				dB.assign(select(nearer, dA, select(dc.lessThan(dB), dc, dB)));
-				A.assign(select(nearer, cc, A));
-				dA.assign(select(nearer, dc, dA));
-			}
+		const { A, Bc, dA, dB } = clumpsT(foot, size);
 		const w = smoothstep(0.5, 0.75, dB.div(max(dA.add(dB), 1e-6))).mul(0.5).add(0.5);
 		const cH = mix(Bc.z, A.z, w), cShade = mix(Bc.w, A.w, w);
 		const out = min(dA.div(size.mul(0.6)), 1);
