@@ -64,6 +64,15 @@ export const refOf = (k) => {
 	return `${k.asset}${k.asset.includes('?') ? '&' : '?'}stage=${k.stage}&seed=${encodeURIComponent(k.seed)}`;
 };
 
+/**
+ * A plant of a forest that did not grow: its kind's key and why (a setting its recipe refuses, a version play has not
+ * got). Never only a warning (intent 4a199916): every forest's are kept here, in the order they failed, and `grown()`
+ * gives its own back, so the census counts and reports them (scripts/census/run.ts `didNotGrow`).
+ * @typedef {{ kind: string, error: string }} DidNotGrow
+ */
+/** @type {DidNotGrow[]} every plant of every forest that did not grow since the page (or the census) began */
+export const didNotGrow = [];
+
 /** the side of a cell of the ground the small plants are filed in, metres */
 const CELL = 8;
 /** a cell's key @param {number} ix @param {number} iz */
@@ -167,11 +176,15 @@ export function createForest(o) {
 
 	/**
 	 * Builds every kind of the forest (in the asset box, its coarsest shape first, side by side) and puts its trees down;
-	 * `onKind` hears each kind as it is ready.
+	 * `onKind` hears each kind as it is ready. A kind that will not build leaves its places empty and the rest grow, and
+	 * it is a counted failure: given back, and kept in `didNotGrow`.
 	 * @param {(done: number, of: number) => void} [onKind]
+	 * @returns {Promise<DidNotGrow[]>} the kinds of this forest that did not grow
 	 */
 	async function grown(onKind) {
 		const list = [...stands.values()];
+		/** @type {DidNotGrow[]} */
+		const failed = [];
 		let done = 0;
 		await Promise.all(
 			list.map(async (st) => {
@@ -187,8 +200,12 @@ export function createForest(o) {
 				}
 				if (gone) return;
 				if (k.error) {
-					// a kind that will not build (a plant or a version the library has not got) leaves its places empty
-					console.warn(`flora: ${keyOf(st.kind)} did not grow: ${k.error}`);
+					// a kind that will not build (a setting its recipe refuses, a plant or a version the library has not got)
+					// leaves its places empty: a failure, counted
+					const f = { kind: keyOf(st.kind), error: k.error };
+					failed.push(f);
+					didNotGrow.push(f);
+					console.error(`flora: ${f.kind} did not grow: ${f.error}`);
 					onKind?.(++done, list.length);
 					return;
 				}
@@ -226,6 +243,7 @@ export function createForest(o) {
 			})
 		);
 		dirty = true;
+		return failed;
 	}
 
 	/** the plants of a stand within `far` of x, z, by their cells @param {Stand} st @param {number} x @param {number} z @param {number} far @param {(i: number) => void} each */

@@ -64,6 +64,8 @@ export type ViewCensus = {
 	copies: Copy[];
 	/** triangles in shapes per renderer: every copy drawn at a level (not a picture), as the Mac's census adds them */
 	shapeTris: Record<string, number>;
+	/** every plant of the world's forests that did not grow by this view (flora.js `didNotGrow`, intent 4a199916): a failure counted, not a warning */
+	didNotGrow: { kind: string; error: string }[];
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -201,6 +203,9 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 	const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
 	if (o.views?.some((v) => !views.includes(v))) throw new Error(`census: ${o.world} has the views ${VIEWS_OF[o.world].join(', ')}`);
 	const t0 = performance.now();
+	// the plants that did not grow, as the forests count them (a tree from before intent 4a199916 counts none)
+	const flora = await import(lib('content/sandbox-2/interior/flora.js'));
+	const didNotGrow = (): { kind: string; error: string }[] => [...(flora.didNotGrow ?? [])];
 	await mount(o.world, { asset: o.asset, log });
 	// Sandbox 1 where it opens, all streamed in round the eye, the domes' insides built ahead too (each copy it ever put
 	// down stays held by its renderer, put away: `Copy`'s ghosts)
@@ -244,7 +249,7 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 		const copies = v ? copiesAt(v) : [];
 		const shapeTris: Record<string, number> = {};
 		for (const c of copies) if (typeof c.level === 'number') shapeTris[c.renderer] = (shapeTris[c.renderer] ?? 0) + (c.tris ?? 0);
-		out.push({ world: o.world, view: name, settled: settled && stable, settleMs: Math.round(performance.now() - ts), frames: frames.map(({ tris, calls, shadowTris }) => ({ tris, calls, shadowTris })), totals, renderers: { out: of(s.out), in: of(s.in), library: of(s.library) }, copies, shapeTris });
+		out.push({ world: o.world, view: name, settled: settled && stable, settleMs: Math.round(performance.now() - ts), frames: frames.map(({ tris, calls, shadowTris }) => ({ tris, calls, shadowTris })), totals, renderers: { out: of(s.out), in: of(s.in), library: of(s.library) }, copies, shapeTris, didNotGrow: didNotGrow() });
 		log(`census: ${o.world} ${name}: ${Math.round(med.tris).toLocaleString('en')} triangles a frame (${Math.round(t.tris).toLocaleString('en')} main, ${Math.round(t.shadowTris).toLocaleString('en')} shadow), ${med.calls} draws${settled ? '' : ', still building'}`);
 	}
 	if (refusedContexts.length) throw new Error(`census: a WebGL context was asked for (${refusedContexts.join(', ')})`);
