@@ -320,7 +320,9 @@ describe("the site's tests on every pull request and on main", () => {
   const lines = (s: any) => String(s.run).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
   const site = JSON.parse(text("play/site/package.json")).scripts;
   test("the site's tests: the fast suite is every file but Sandbox 2's physics, then the *.bun.test.ts with Bun; the physics apart", () => {
-    expect(site.test).toBe("vitest run --exclude 'src/lib/sandbox-2/tests/**' && bun test .bun.test.ts");
+    expect(site.test).toBe("bun run test:vitest && bun run test:bun");
+    expect(site["test:vitest"]).toBe("vitest run --exclude 'src/lib/sandbox-2/tests/**'");
+    expect(site["test:bun"]).toBe("bun test .bun.test.ts");
     expect(site["test:physics"]).toBe("vitest run src/lib/sandbox-2/tests");
     expect(text("play/site/vite.config.ts")).toContain("'src/**/*.bun.test.ts'");
   });
@@ -333,12 +335,13 @@ describe("the site's tests on every pull request and on main", () => {
     expect(lines(started)).toEqual([
       "bun install --frozen-lockfile",
       "bunx svelte-kit sync",
-      `nohup nice -n 19 bash -c 'bun run test > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &`,
+      `nohup nice -n 19 bash -c 'bun run test:vitest --maxWorkers=1 > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &`,
     ]);
     const awaited = steps[at("The site's tests")];
     expect(awaited.if).toBe("steps.tested.outputs.skip != 'true'");
     expect(awaited.run).toContain('until [ -f "$RUNNER_TEMP/site-tests.exit" ]');
-    expect(awaited.run).toContain('exit "$(cat "$RUNNER_TEMP/site-tests.exit")"');
+    expect(awaited["working-directory"]).toBe("play/site");
+    expect(lines(awaited).slice(-2)).toEqual(['[ "$(cat "$RUNNER_TEMP/site-tests.exit")" = 0 ] || exit 1', "bun run test:bun"]);
     expect(at("The site's tests, started")).toBeGreaterThan(at("Postgres"));
     expect(at("The site's tests, started")).toBeLessThan(at("The API"));
     expect(at("The site")).toBeGreaterThan(at("The API"));

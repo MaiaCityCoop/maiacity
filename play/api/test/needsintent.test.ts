@@ -118,9 +118,7 @@ suite("no work without an intent", () => {
     const s = await tool("propose_story", { title: "The film", body: BODY, note: "v1", intent: await readyIntent("The film") });
     expect((await call("ada", "POST", `/api/intents/${s.intent}/accept`)).status).toBe(200);
     story = s.story;
-    // a fresh database migrated and three intents accepted over MCP: ~3 s alone, past the 5 s default when the job's
-    // cores are shared (CI runs the site's tests beside the API's, intent 417af727)
-  }, 30_000);
+  });
   afterAll(async () => {
     await sql?.close();
     await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);

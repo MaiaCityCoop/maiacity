@@ -1,7 +1,9 @@
 # play's checks, called by main.yml: the API's tests against a real Postgres (play/api/test), its types, and the site's
 # build (play/site), which also holds the copied modules to resolving, and its tests (intent 417af727): the site's fast
-# suite (`bun run test`: every file but Sandbox 2's physics) starts at the job's beginning, in the background beside
-# the API's tests and the build, and is awaited at its end. Sandbox 2's physics (`bun run test:physics`, about ten
+# suite (`bun run test`: every file but Sandbox 2's physics) in two parts. Its vitest part starts at the job's beginning,
+# in the background beside the API's tests and the build, on one worker at the lowest priority (the API's tests time out
+# at 5 s when the cores are shared more), and is awaited at the job's end; its Bun part (`bun run test:bun`, the Old City
+# film's world on Bun's workers, ~95 s on every core) runs then. Sandbox 2's physics (`bun run test:physics`, about ten
 # minutes) is its own job, not a required check: on a pull request that touches play/site/src/lib/sandbox-2/, and on
 # every push to main.
 #
@@ -47,15 +49,15 @@ jobs:
         if: steps.tested.outputs.skip != 'true'
         with:
           bun-version: 1.4.4
-      # the site's fast suite, in the background: its output and exit code kept for "The site's tests" to await. At the
-      # lowest priority, so the API's tests beside it keep the cores they need (their hooks time out at 5 s otherwise)
+      # the site's fast suite's vitest part, in the background: its output and exit code kept for "The site's tests" to
+      # await. One worker at the lowest priority, so the API's tests beside it keep the cores they need
       - name: The site's tests, started
         if: steps.tested.outputs.skip != 'true'
         working-directory: play/site
         run: |
           bun install --frozen-lockfile
           bunx svelte-kit sync
-          nohup nice -n 19 bash -c 'bun run test > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &
+          nohup nice -n 19 bash -c 'bun run test:vitest --maxWorkers=1 > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &
       - name: The API
         if: steps.tested.outputs.skip != 'true'
         working-directory: play/api
@@ -77,12 +79,14 @@ jobs:
           bun run build
       - name: The site's tests
         if: steps.tested.outputs.skip != 'true'
+        working-directory: play/site
         run: |
           start=$SECONDS
           until [ -f "$RUNNER_TEMP/site-tests.exit" ]; do sleep 2; done
           cat "$RUNNER_TEMP/site-tests.log"
-          echo "the site's tests: awaited $((SECONDS - start)) s after the build"
-          exit "$(cat "$RUNNER_TEMP/site-tests.exit")"
+          echo "the site's vitest part: awaited $((SECONDS - start)) s after the build"
+          [ "$(cat "$RUNNER_TEMP/site-tests.exit")" = 0 ] || exit 1
+          bun run test:bun
       - name: Tested tree
         if: steps.tested.outputs.skip != 'true'
         run: echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"

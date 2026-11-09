@@ -7,7 +7,9 @@
     "build": "svelte-kit sync && vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "test": "vitest run --exclude 'src/lib/sandbox-2/tests/**' && bun test .bun.test.ts",
+    "test": "bun run test:vitest && bun run test:bun",
+    "test:vitest": "vitest run --exclude 'src/lib/sandbox-2/tests/**'",
+    "test:bun": "bun test .bun.test.ts",
     "test:physics": "vitest run src/lib/sandbox-2/tests"
   },
   "devDependencies": {
