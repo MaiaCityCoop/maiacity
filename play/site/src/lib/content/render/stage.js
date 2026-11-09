@@ -10,7 +10,7 @@ import { adaptiveResolution, createControls, createRenderer, disposeRenderer, fi
 
 /**
  * @typedef {object} StageRenderer
- * @property {THREE.WebGLRenderer} renderer
+ * @property {import('three/webgpu').WebGPURenderer} renderer
  * @property {Promise<unknown>} ready settles once the renderer may draw (WebGPU's device asked for, intent c1bee1f8;
  *   on WebGL at once): the viewer's first frame waits for it
  * @property {THREE.PerspectiveCamera} camera

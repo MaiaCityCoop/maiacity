@@ -5,7 +5,7 @@
  * copy one card, its three nearest views blended and lit as the scene is (../../render/nodes/index.js).
  */
 import * as THREE from 'three';
-import { bake, bakeOf, cardMaterials, castsAsNode, cutOf } from '../../render/nodes/index.js';
+import { bake, bakeOf, cardMaterials, cutOf } from '../../render/nodes/index.js';
 import { budget } from '../../render/budget.js';
 import { isWebGPU, maxTextureSize } from '../../render/core.js';
 
@@ -55,7 +55,7 @@ function hull() {
 
 /**
  * The pictures of a renderer's kinds, page by page: `views` × `views` views of `px` pixels a kind, on pages of `page`.
- * @param {THREE.WebGLRenderer} renderer @param {{ px?: number, page?: number, views?: number }} [o]
+ * @param {import('three/webgpu').WebGPURenderer} renderer @param {{ px?: number, page?: number, views?: number }} [o]
  */
 export function createImpostors(renderer, o = {}) {
 	const B = budget().picture;
@@ -100,7 +100,6 @@ export function createImpostors(renderer, o = {}) {
 		mesh.frustumCulled = false;
 		mesh.castShadow = mesh.receiveShadow = true;
 		mesh.customDepthMaterial = depth;
-		castsAsNode(mesh, renderer);
 		group.add(mesh);
 		const page = { targets, geo, material, depth, mesh, kinds: 0, n: 0, cap: 0, attrs: null, stale: false };
 		return grow(page, 64), page;

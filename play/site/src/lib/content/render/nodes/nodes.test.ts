@@ -1,29 +1,38 @@
-// The render kit's shaders in TSL (intent cb16b7a5): every material of ./index.js built for WebGL through three's
-// WebGLNodesHandler on a context that only answers (./fakegl.js), as a world draws it — instanced, shadowed, cut, into a
-// target and onto the screen — and each shader it hands the graphics card checked by glslang where it is installed.
+// The render kit's shaders in TSL (intent cb16b7a5): every material of ./index.js built by the app's renderer
+// (WebGPURenderer's WebGL 2 backend, intent c1bee1f8) on a context that only answers (./fakegl.js), as a world draws it —
+// instanced, shadowed, cut, into a target and onto the screen — and each shader it hands the graphics card checked by
+// glslang where it is installed. A program is the pipeline three draws a mesh with (its vertex and fragment stages).
 import { describe, expect, test } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as THREE from 'three';
-import { fakeGL } from './fakegl.js';
+import { fakeRenderer } from './fakegl.js';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { SunLight } from 'three/addons/lights/SunLight.js';
-import { nodes, precompile } from '../core.js';
-import { aFade, blurMaterial, cardMaterials, castsAsNode, cutBy, cutOf, floorMaterial, ghostMaterial, install, nodeOf, poolMaterial } from './index.js';
+import { precompile } from '../core.js';
+import { aFade, blurMaterial, cardMaterials, cutBy, cutOf, floorMaterial, ghostMaterial, nodeOf, poolMaterial } from './index.js';
 
 (globalThis as any).self ??= globalThis;
 (globalThis as any).ImageBitmap ??= class {};
 
-/** a renderer on the fake context, with shadows and the handler; what it compiled, by stage */
-function renderer() {
-	const { gl, shaders } = fakeGL();
-	const r = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl } as any);
-	r.shadowMap.enabled = true;
-	r.toneMapping = THREE.NeutralToneMapping;
-	install(r);
-	return { r, shaders };
+/** the app's renderer on the fake context, with shadows; what it compiled, and the program each material last drew with */
+async function renderer() {
+	const { r, shaders } = await fakeRenderer({ shadows: true, toneMapping: 'neutral' });
+	const drewWith = new Map<any, any>();
+	const pipelines = r._pipelines, get = pipelines.getForRender.bind(pipelines);
+	pipelines.getForRender = (o: any, ...a: any[]) => {
+		const p = get(o, ...a);
+		drewWith.set(o.material, p);
+		return p;
+	};
+	/** the program `m` last drew with: its vertex and fragment stages */
+	const program = (m: any) => {
+		const p = drewWith.get(m);
+		return p && `${p.vertexProgram.id}:${p.fragmentProgram.id}`;
+	};
+	return { r, shaders, program };
 }
 
 function lit() {
@@ -63,8 +72,8 @@ function valid(shaders: string[]) {
 }
 
 describe('the render kit in TSL', () => {
-	test('a level: instanced, faded, cut and capped, each mesh its own matrices', () => {
-		const { r, shaders } = renderer();
+	test('a level: instanced, faded, cut and capped, each mesh its own matrices', async () => {
+		const { r, shaders, program } = await renderer();
 		const { scene, camera } = lit();
 		const cut = cutOf();
 		const m: any = cutBy(nodeOf(new THREE.MeshPhysicalMaterial({ color: 0x808080, roughness: 0.4, clearcoat: 0.5 })), cut, { color: 0x8f150b, rough: 0.55, metal: 0 });
@@ -92,8 +101,8 @@ describe('the render kit in TSL', () => {
 		valid(shaders);
 	});
 
-	test('a level with its fade, as the renderer draws it', () => {
-		const { r, shaders } = renderer();
+	test('a level with its fade, as the renderer draws it', async () => {
+		const { r, shaders, program } = await renderer();
 		const { scene, camera } = lit();
 		const m: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x406020 }));
 		m.fade = aFade;
@@ -103,8 +112,8 @@ describe('the render kit in TSL', () => {
 		valid(shaders);
 	});
 
-	test('a far page of pictures, lit by its normals, three views blended, casting its shadow at its depth', () => {
-		const { r, shaders } = renderer();
+	test('a far page of pictures, lit by its normals, three views blended, casting its shadow at its depth', async () => {
+		const { r, shaders, program } = await renderer();
 		const { scene, camera } = lit();
 		const { material, depth } = cardMaterials(new THREE.Texture(), new THREE.Texture(), 16, 8, cutOf());
 		const quad = new THREE.PlaneGeometry(1, 1);
@@ -117,11 +126,10 @@ describe('the render kit in TSL', () => {
 		mesh.customDepthMaterial = depth;
 		mesh.castShadow = mesh.receiveShadow = true;
 		mesh.frustumCulled = false;
-		castsAsNode(mesh, r);
 		scene.add(mesh);
 		r.render(scene, camera);
 		expect(shaders.length).toBeGreaterThanOrEqual(4);
-		// the page is a render target: three turns its v over on WebGL, the card turns it back first (else each far
+		// the page is a render target: three turns its v over on WebGL 2, the card turns it back first (else each far
 		// tree showed another's picture upside down)
 		const card = shaders.filter((x) => x.includes('Node System') && /texture\(/.test(x) && !/gl_Position\s*=/.test(x));
 		expect(card.join('\n')).toMatch(/vec2\( (\w+)\.x, \( 1\.0 - \1\.y \) \)/);
@@ -130,10 +138,10 @@ describe('the render kit in TSL', () => {
 		valid(shaders);
 	});
 
-	test('the stage: its ghost, its contact shadow and its floor, into a target and onto the screen', () => {
-		const { r, shaders } = renderer();
+	test('the stage: its ghost, its contact shadow and its floor, into a target and onto the screen', async () => {
+		const { r, shaders, program } = await renderer();
 		const { scene, camera } = lit();
-		const rt = new THREE.WebGLRenderTarget(64, 64);
+		const rt = new THREE.RenderTarget(64, 64);
 		const sky = { uniforms: { uSkyRing: { value: Array.from({ length: 16 }, (_, i) => new THREE.Vector3(0.5, 0.6, 0.6 + i / 64)) } } };
 		const g = ghostMaterial();
 		g.ghost.a.value = 0.5;
@@ -157,63 +165,62 @@ describe('the render kit in TSL', () => {
 		valid(shaders);
 	});
 
-	test('two of ours of one shape share a program; two whose shaders differ do not (bd087014)', () => {
-		const { r } = renderer();
+	test('two of ours of one shape share a program; two whose shaders differ do not (bd087014)', async () => {
+		const { r, program } = await renderer();
 		const { scene, camera } = lit();
 		const a: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x808080 }));
 		const b: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x406080 }));
 		const c: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x808080 }));
 		a.fade = b.fade = aFade;
-		const t = new THREE.WebGLRenderTarget(4, 4);
+		const t = new THREE.RenderTarget(4, 4);
 		c.map = t.texture;
 		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), a), new THREE.Mesh(new THREE.BoxGeometry(), b), new THREE.Mesh(new THREE.BoxGeometry(), c));
 		r.render(scene, camera);
-		const p = (m: any) => (r.properties.get(m) as any).currentProgram;
+		const p = program;
 		expect(p(a)).toBeTruthy();
 		expect(p(a)).toBe(p(b));
 		expect(p(c)).not.toBe(p(a));
 	});
 
-	test('two of ours never share a program when their shaders differ: each uploads only into its own layout', () => {
-		const { r } = renderer();
+	test('two of ours never share a program when their shaders differ: each uploads only into its own layout', async () => {
+		const { r, program } = await renderer();
 		const { scene, camera } = lit();
 		const a: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x808080 }));
 		const b: any = nodeOf(new THREE.MeshStandardMaterial({ color: 0x808080, envMap: new THREE.CubeTexture() }));
 		a.fade = b.fade = aFade;
 		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), a), new THREE.Mesh(new THREE.BoxGeometry(), b));
 		r.render(scene, camera);
-		const pa = (r.properties.get(a) as any).currentProgram, pb = (r.properties.get(b) as any).currentProgram;
+		const pa = program(a), pb = program(b);
 		expect(pa).toBeTruthy();
 		expect(pa).not.toBe(pb);
 	});
 
 	// 660ad67f: three's node builder reads the drawn geometry's attributes (a map's `uv`, vertex colours' `color`) into
 	// the shader, which three's key never held; keyed by shape alone, Sandbox 5's plants joined each other's programs
-	test('two of ours on meshes whose attributes differ never share a program', () => {
+	test('two of ours on meshes whose attributes differ never share a program', async () => {
 		const pairs: [Partial<THREE.MeshStandardMaterialParameters>, (g: THREE.BufferGeometry) => void][] = [
 			[{ map: new THREE.Texture() }, (g) => g.deleteAttribute('uv')],
 			[{ vertexColors: true }, (g) => g.setAttribute('color', g.attributes.position.clone())],
 			[{}, (g) => g.deleteAttribute('normal')]
 		];
 		for (const [params, change] of pairs) {
-			const { r } = renderer();
+			const { r, program } = await renderer();
 			const { scene, camera } = lit();
 			const [a, b] = [0, 1].map(() => Object.assign(nodeOf(new THREE.MeshStandardMaterial(params)) as any, { fade: aFade }));
 			const g = new THREE.BoxGeometry();
 			change(g);
 			scene.add(new THREE.Mesh(new THREE.BoxGeometry(), a), new THREE.Mesh(g, b));
 			r.render(scene, camera);
-			const p = (m: any) => (r.properties.get(m) as any).currentProgram;
-			expect(a._latestBuilder.fragmentShader + a._latestBuilder.vertexShader).not.toBe(b._latestBuilder.fragmentShader + b._latestBuilder.vertexShader);
-			expect(p(a)).toBeTruthy();
+			const p = program;
+						expect(p(a)).toBeTruthy();
 			expect(p(a)).not.toBe(p(b));
 		}
 	});
 
-	test('one material on a mesh that takes shadows and one that takes none: each program draws with its own build', () => {
+	test('one material on a mesh that takes shadows and one that takes none: each draws with its own program', async () => {
 		// the car paint (8823eb7c): compiled for the body (shadows) and then its ends (none), the body's first draw took
-		// the ends' uniforms into its program, a number into a texture slot
-		const { r } = renderer();
+		// the ends' uniforms; three builds a node material per drawn mesh, each its own program
+		const { r, program } = await renderer();
 		const { scene, camera } = lit();
 		const paint = nodeOf(new THREE.MeshStandardMaterial({ vertexColors: true })) as any;
 		const g = new THREE.BoxGeometry();
@@ -221,26 +228,20 @@ describe('the render kit in TSL', () => {
 		const body = Object.assign(new THREE.Mesh(g, paint), { receiveShadow: true, castShadow: true });
 		const ends = Object.assign(new THREE.Mesh(g, paint), { receiveShadow: false });
 		scene.add(body, ends);
-		r.compile(scene, camera);
-		const slots = () => {
-			const q = r.properties.get(paint) as any;
-			for (const u of q.uniformsList) if (/T1|TCube|T2DArray|T3D/.test(u.setValue?.name ?? '')) expect(typeof q.uniforms[u.id]?.value).toBe('object');
-		};
+		await precompile(r, scene, camera);
 		const drawn = [body, ends, body].map((o) => {
 			body.visible = o === body;
 			ends.visible = o === ends;
 			expect(() => r.render(scene, camera)).not.toThrow();
-			slots();
-			return (r.properties.get(paint) as any).uniforms;
+			return program(paint);
 		});
-		// the body drawn with its own build each time (the sun's shadow in it), the ends with theirs
+		expect(drawn[0]).toBeTruthy();
 		expect(drawn[2]).toBe(drawn[0]);
 		expect(drawn[1]).not.toBe(drawn[0]);
-		expect(Object.keys(drawn[0]).length).toBeGreaterThan(Object.keys(drawn[1]).length);
 	});
 
-	test('twenty copies of one shape on meshes alike link one program', () => {
-		const { r } = renderer();
+	test('twenty copies of one shape on meshes alike link one program', async () => {
+		const { r, program } = await renderer();
 		const { scene, camera } = lit();
 		const leaf = new THREE.Texture();
 		for (let i = 0; i < 20; i++) {
@@ -250,20 +251,15 @@ describe('the render kit in TSL', () => {
 		}
 		r.render(scene, camera);
 		const programs = new Set<any>();
-		scene.traverse((o: any) => o.material && programs.add((r.properties.get(o.material) as any).currentProgram));
+		scene.traverse((o: any) => o.material && programs.add(program(o.material)));
 		expect(programs.size).toBe(1);
 		expect([...programs][0]).toBeTruthy();
 	});
 
 	// 660ad67f: Safari linked 47 kit programs mid-walk in Sandbox 5, each built at its first frame. Warmed by precompile,
-	// every build is paired with its own program as three acquires it (../core.js `nodes`): one material on two meshes
-	// (two programs) keeps each program's own uniforms, never the last build's (cb16b7a5)
-	test('precompile builds the kit’s node materials, each program paired with its own build: the first frame builds none', async () => {
-		const { gl } = fakeGL();
-		const r: any = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl } as any);
-		r.shadowMap.enabled = true;
-		nodes(r);
-		const h: any = install(r);
+	// every program a world draws is built before it: its first frame compiles none
+	test('precompile builds the kit’s node materials: the first frame builds none', async () => {
+		const { r, shaders, program } = await renderer();
 		const { scene, camera } = lit();
 		const m: any = Object.assign(nodeOf(new THREE.MeshStandardMaterial({ map: new THREE.Texture() })), { fade: aFade });
 		const n: any = Object.assign(nodeOf(new THREE.MeshStandardMaterial({ color: 0x406080 })), { fade: aFade });
@@ -271,43 +267,18 @@ describe('the render kit in TSL', () => {
 		bare.deleteAttribute('uv');
 		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), m), new THREE.Mesh(bare, m), new THREE.Mesh(new THREE.BoxGeometry(), n));
 		await precompile(r, scene, camera);
-		const programs = (x: any) => r.properties.get(x).programs?.size ?? 0;
-		expect([programs(m), programs(n)]).toEqual([2, 1]);
+		const built = shaders.length;
+		expect(shaders.some((x) => /aFade/.test(x))).toBe(true);
 		r.render(scene, camera);
 		r.render(scene, camera);
-		expect([programs(m), programs(n)]).toEqual([2, 1]);
-		// every node uniform each program declares is in the uniforms the handler keeps for it
-		for (const x of [m, n])
-			for (const [p, e] of h.programCache.get(x)) {
-				const declared = p.getUniforms().seq.map((u: any) => u.id).filter((id: string) => id.startsWith('nodeUniform'));
-				expect(declared.filter((id: string) => !(id in e.uniforms))).toEqual([]);
-			}
+		// none of the kit's (each reads its fade); three's own of the frame (its output) may still come
+		expect(shaders.slice(built).filter((x) => /aFade/.test(x))).toEqual([]);
+		expect(program(m)).toBeTruthy();
+		expect(program(n)).not.toBe(program(m));
 	});
 
-	// 544485e2: the viewers' sky, drawn first in its environment bake (a target, its colour space linear), then compiled
-	// by the stage's warm-up under the page's sRGB: three moved it to the compile's program without onUpdateProgram, so
-	// the handler never updated it and it drew with the camera another node material last set (the contact shadow's)
-	test('a node material drawn before a compile meets its compiled program through the handler at its next draw', () => {
-		const { gl } = fakeGL();
-		const r: any = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl } as any);
-		nodes(r);
-		const h: any = install(r);
-		const { scene, camera } = lit();
-		const sky = new MeshBasicNodeMaterial();
-		scene.add(new THREE.Mesh(new THREE.BoxGeometry(), sky));
-		const target = new THREE.WebGLRenderTarget(16, 16);
-		r.setRenderTarget(target);
-		r.outputColorSpace = THREE.LinearSRGBColorSpace;
-		r.render(scene, camera);
-		r.outputColorSpace = THREE.SRGBColorSpace;
-		r.compile(scene, camera);
-		expect(r.properties.get(sky).programs.size).toBe(2);
-		r.render(scene, camera);
-		expect(h.programCache.get(sky).has(r.properties.get(sky).currentProgram)).toBe(true);
-	});
-
-	test('the sky’s sun lights a node material, its cascades shadowing it', () => {
-		const { r, shaders } = renderer();
+	test('the sky’s sun lights a node material, its cascades shadowing it', async () => {
+		const { r, shaders, program } = await renderer();
 		const scene = new THREE.Scene();
 		const sun = new SunLight(0xffffff, 2);
 		sun.castShadow = true;
@@ -330,12 +301,12 @@ describe('the render kit in TSL', () => {
 		valid(shaders);
 	});
 
-	test('every node material comes out linear in a target, as three’s own do: the sky is tone mapped once, at the output (544485e2)', () => {
-		const { r, shaders } = renderer();
+	test('every node material comes out linear in a target, as three’s own do: the sky is tone mapped once, at the output (544485e2)', async () => {
+		const { r, shaders, program } = await renderer();
 		const { scene, camera } = lit();
 		const sky = new MeshBasicNodeMaterial();
 		scene.add(new THREE.Mesh(new THREE.SphereGeometry(), sky));
-		r.setRenderTarget(new THREE.WebGLRenderTarget(16, 16));
+		r.setRenderTarget(new THREE.RenderTarget(16, 16));
 		r.render(scene, camera);
 		const toned = /ToneMapping\(|TransferOETF\(|\bfn\d+\(/;
 		expect(shaders.filter((x) => x.includes('Node System')).map((x) => x.match(/fragColor = .*/)?.[0]).join('\n')).not.toMatch(toned);

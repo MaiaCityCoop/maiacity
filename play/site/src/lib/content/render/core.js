@@ -1,14 +1,12 @@
 /*
  * THE RENDER CORE — the plumbing under every three.js canvas of the app, written once (plan C5, section 4.4 of
  * code-architecture/plan.md). The purpose renderers beside it (./world.js, ./stage.js, ./preview.js, ./film.js) add
- * only what their job needs; a page mounts one of them and never makes a WebGLRenderer itself (a lint test,
- * ./lint.test.js, holds every `new WebGLRenderer`, `new OrbitControls` and `new EffectComposer` to this file and
- * ./post.js, and every tone mapping and exposure to this file).
+ * only what their job needs; a page mounts one of them and never makes a renderer itself (a lint test, ./lint.test.js,
+ * holds every `new WebGPURenderer` and `new OrbitControls` to this file, and every tone mapping and exposure to it).
  *
- *   createRenderer   the one way to make a renderer: its canvas, pixels, colour space, tone mapping, shadows, clipping,
- *                    and three's WebGLNodesHandler, so TSL node materials draw on it (intent b03f9fb4); or, behind the
- *                    switch (`backend`, intent c1bee1f8), a WebGPURenderer, its WebGL 2 backend the fallback
- *   ready, makeRenderer   a renderer initialised before its first draw (`await renderer.init()` on WebGPU)
+ *   createRenderer   the one way to make a renderer: three's WebGPURenderer (intent c1bee1f8), its own WebGL 2 backend
+ *                    where the browser has no WebGPU; its canvas, pixels, colour space, tone mapping, shadows, clipping
+ *   ready, makeRenderer   a renderer initialised before its first draw (`await renderer.init()`): every page waits for it
  *   setTone, setExposure, withTone   the picture's response changed later (a sky's hour, a stage's shot): only here
  *   lowPower, topPixelRatio, adaptiveResolution, precompile   how much a device draws, and keeping it smooth
  *   fitTo            a canvas kept to its element's size (and the camera's aspect)
@@ -24,11 +22,11 @@
  */
 import * as THREE from 'three';
 import { PMREMGenerator as NodePMREMGenerator, ShadowNode, WebGPURenderer } from 'three/webgpu';
-import { install } from './nodes/index.js';
-import { screenOutputs } from './tsl.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { reopenOnRestore } from './budget.js';
+import { released } from './budget.js';
 import { useRenderer } from './arrays.js';
+
+/** @typedef {WebGPURenderer} Renderer every renderer of the app (createRenderer's) */
 
 /** tone mappings by name. Every page's picture is formed by PICTURE: Khronos PBR Neutral, which keeps a colour's hue
  *  (0b4c007b: AgX, chosen by 2214e661, cast every noon sepia and darkened the viewers' sky; the films keep their own
@@ -94,22 +92,20 @@ export function untonemap(target, exposure = 1) {
 	return new THREE.Color(x[0], x[1], x[2]);
 }
 /** shadow map kinds by name (`true` keeps three's default, PCF; three has had no PCF-soft since r186: asked for, it
- *  drew PCF). VSM is not drawn by node materials (WebGLNodesHandler): a page with them keeps to PCF or basic. */
+ *  drew PCF). */
 export const SHADOWS = /** @type {const} */ ({ pcf: THREE.PCFShadowMap, basic: THREE.BasicShadowMap, vsm: THREE.VSMShadowMap });
 
 /**
- * THE SWITCH (intent c1bee1f8, GPU 9/14). Which renderer a page draws with:
- * - `webgl`: three's WebGLRenderer, TSL through WebGLNodesHandler (every page until the GLSL left goes, intents 4–8);
- * - `webgpu`: three's WebGPURenderer, which falls back to its own WebGL 2 backend where the browser has no WebGPU;
- * - `webgl2`: WebGPURenderer on its WebGL 2 backend alone (`forceWebGL`), the fallback forced, to test it.
+ * THE SWITCH (intent c1bee1f8, GPU 9/14). Every page draws with three's WebGPURenderer; which backend it draws on:
+ * - `webgpu`: WebGPU where the browser has it, else WebGPURenderer's own WebGL 2 backend (the default);
+ * - `webgl2`: the WebGL 2 backend alone (`forceWebGL`), the fallback forced, to test it or to compare.
  * Chosen by the page (`backend` in createRenderer's options), else the address's `?renderer=`, else
- * `localStorage['play.renderer']`, else DEFAULT_BACKEND. The default moves to `webgpu`, and `webgl` goes, once nothing
- * hand-written in GLSL is left (check c1).
+ * `localStorage['play.renderer']`, else DEFAULT_BACKEND.
  */
-export const BACKENDS = /** @type {const} */ (['webgl', 'webgpu', 'webgl2']);
+export const BACKENDS = /** @type {const} */ (['webgpu', 'webgl2']);
 /** @typedef {typeof BACKENDS[number]} Backend */
 /** @type {Backend} */
-export const DEFAULT_BACKEND = 'webgl';
+export const DEFAULT_BACKEND = 'webgpu';
 
 /**
  * The backend a renderer is made with: the page's, else the address's, else the browser's choice kept, else the default.
@@ -137,7 +133,7 @@ export function backend(asked) {
 	return DEFAULT_BACKEND;
 }
 
-/** a renderer of the switch's (WebGPURenderer, on WebGPU or its WebGL 2 backend) @param {unknown} r */
+/** a WebGPURenderer (on WebGPU or its WebGL 2 backend), as every renderer of the app is @param {unknown} r */
 export const isWebGPU = (r) => !!(/** @type {any} */ (r)?.isWebGPURenderer);
 
 /**
@@ -147,65 +143,40 @@ export const isWebGPU = (r) => !!(/** @type {any} */ (r)?.isWebGPURenderer);
  * @property {boolean} [antialias] multisampling (default true)
  * @property {boolean} [alpha] a see-through canvas
  * @property {WebGLPowerPreference} [power] the GPU asked for
- * @property {boolean} [preserve] keep the drawing buffer (to read it back; WebGL only: WebGPU reads back by readRenderTargetPixelsAsync)
+ * @property {boolean} [preserve] kept for the pages that ask it (WebGPU has no preserved drawing buffer: a picture is read
+ *   back by readRenderTargetPixelsAsync, or drawn and taken in the same task)
  * @property {number} [pixelRatio] pixels per CSS pixel, as given
  * @property {number} [maxPixelRatio] else the device's, at most this (default 2)
  * @property {THREE.ColorSpace} [colorSpace] the output's (three's default: sRGB)
- * @property {keyof typeof TONE} [toneMapping] none (default) or agx
+ * @property {keyof typeof TONE} [toneMapping] none (default), agx or neutral
  * @property {number} [exposure] the tone mapping's exposure (default 1)
  * @property {boolean | keyof typeof SHADOWS} [shadows] shadow maps on (true: three's default kind) and of which kind
- * @property {boolean} [clipping] clipping planes per material on WebGL, and the kit's cuts on either (WebGPU clips
- *   plain materials only by ClippingGroup)
- * @property {() => void} [onLost] the graphics card took the canvas back (the default reaction prevented)
+ * @property {boolean} [clipping] the kit's cuts on (WebGPU takes no clipping planes on a material: a plain one is cut by
+ *   a ClippingGroup)
+ * @property {() => void} [onLost] the graphics device was lost (`onDeviceLost`)
  * @property {Backend} [backend] the switch's choice for this page (see BACKENDS); else `backend()`'s
  */
 
 /**
- * The one way to make a renderer: every renderer of the app is this one. On `webgl` a WebGLRenderer drawing TSL node
- * materials (three's WebGLNodesHandler, r184+) beside the classic ones, which it draws exactly as before; on `webgpu`
- * or `webgl2` a WebGPURenderer, which must be initialised before its first draw (`await ready(renderer)`, or
- * `makeRenderer`; its `setAnimationLoop` waits by itself).
+ * The one way to make a renderer: every renderer of the app is this one, three's WebGPURenderer, which must be
+ * initialised before its first draw (`await ready(renderer)`, or `makeRenderer`; its `setAnimationLoop` waits by itself).
  * @param {RendererOptions} [o]
- * @returns {THREE.WebGLRenderer}
+ * @returns {Renderer}
  */
 export function createRenderer(o = {}) {
-	const which = backend(o.backend);
-	if (which !== 'webgl') return /** @type {THREE.WebGLRenderer} */ (/** @type {unknown} */ (createWebGPU(o, which === 'webgl2')));
-	const renderer = new THREE.WebGLRenderer({ canvas: o.canvas, antialias: o.antialias ?? true, alpha: o.alpha, powerPreference: o.power, preserveDrawingBuffer: o.preserve });
-	useRenderer(renderer);
-	renderer.setPixelRatio(o.pixelRatio ?? Math.min(o.maxPixelRatio ?? 2, window.devicePixelRatio || 1));
-	if (o.colorSpace) renderer.outputColorSpace = o.colorSpace;
-	setTone(renderer, o.toneMapping, o.exposure);
-	if (o.shadows) {
-		renderer.shadowMap.enabled = true;
-		if (o.shadows !== true) renderer.shadowMap.type = SHADOWS[o.shadows];
-	}
-	if (o.clipping) renderer.localClippingEnabled = true;
-	nodes(renderer);
-	// a phone that let go of its shapes' and pictures' copies once they were drawn (./budget.js `release`) opens the page
-	// anew when its context comes back, rather than draw without them
-	reopenOnRestore(renderer.domElement);
-	if (o.onLost) {
-		const lost = o.onLost;
-		renderer.domElement.addEventListener('webglcontextlost', (e) => {
-			e.preventDefault();
-			lost();
-		});
-	}
-	o.container?.appendChild(renderer.domElement);
-	return renderer;
+	return createWebGPU(o, backend(o.backend) === 'webgl2');
 }
 
 /** the frame in which a renderer's keyed shadows (`shadowMap.needsUpdate`) were last let through, per renderer */
 const keyedAt = new WeakMap();
 let shadowsKeyed = false;
 /**
- * The renderer's own shadow switch kept on WebGPU (intent c1bee1f8). WebGLRenderer draws its shadow maps only while
- * `shadowMap.autoUpdate`, or in the one render after `shadowMap.needsUpdate` is set; WebGPU's ShadowNode reads only
+ * The renderer's own shadow switch (intent c1bee1f8): shadow maps drawn only while `shadowMap.autoUpdate`, or in the
+ * one render after `shadowMap.needsUpdate` is set, as three's classic renderer drew them; WebGPU's ShadowNode reads only
  * each light's `shadow.autoUpdate`/`needsUpdate`, so the sky's keyed shadows (../sandbox-kit/sky.js: drawn as the sun
  * moves) and the stage's settled ones (../assets/stage.js) would be drawn every frame. Installed once: with
  * `autoUpdate` off, a ShadowNode updates only in the frame `needsUpdate` was seen in (every light's in it, as
- * WebGLShadowMap draws them all in one pass), and the flag is let go as WebGL lets it go. A light's own switch is
+ * the classic renderer drew them all in one pass), and the flag is let go after it. A light's own switch is
  * three's, as before.
  */
 function keepShadowSwitch() {
@@ -228,7 +199,7 @@ function keepShadowSwitch() {
 }
 
 /**
- * A WebGPURenderer set as createRenderer sets a WebGLRenderer. Node materials are its own (no handler); the sun lights
+ * A WebGPURenderer set up for the app. Node materials are its own; the sun lights
  * them by SunLightNode (./nodes/index.js registers it); a lost device is `onDeviceLost`, never a context event.
  * @param {RendererOptions} o @param {boolean} forceWebGL its WebGL 2 backend, WebGPU or not
  * @returns {WebGPURenderer}
@@ -243,14 +214,16 @@ function createWebGPU(o, forceWebGL) {
 		renderer.shadowMap.enabled = true;
 		if (o.shadows !== true) renderer.shadowMap.type = SHADOWS[o.shadows];
 	}
-	// WebGPU has no clipping switch of its own: the kit's cut reads this one, as on WebGL (./nodes/index.js `clipping`)
+	// WebGPU has no clipping switch of its own: the kit's cut reads this one (./nodes/index.js `clipping`)
 	/** @type {any} */ (renderer).localClippingEnabled = !!o.clipping;
-	// the device taken back: the page's reaction, else three's own (it logs); a page is opened anew as on WebGL
+	// the device taken back: the page's reaction, else a page that let go of its shapes' and pictures' copies once drawn
+	// (./budget.js `release`) is opened anew rather than drawn without them, and any other logs it
 	renderer.onDeviceLost = (info) => {
 		if (o.onLost) o.onLost();
+		else if (released.any && typeof location !== 'undefined') location.reload();
 		else console.error('play: the graphics device was lost', info?.message ?? '');
 	};
-	// its uploads tell the attribute, as WebGL's do (the phone's memory release: ./budget.js `dropOnUpload`)
+	// its uploads tell the attribute, as three's classic renderer's did (the phone's memory release: ./budget.js `dropOnUpload`)
 	const init = renderer.init.bind(renderer);
 	renderer.init = async () => {
 		await init();
@@ -264,8 +237,8 @@ function createWebGPU(o, forceWebGL) {
 /** the WebGPURenderers whose uploads are told (`tellUploads`) */
 const told = new WeakSet();
 /**
- * A WebGPURenderer's attribute uploads call the attribute's `onUploadCallback`, as WebGLRenderer's do (WebGPU never
- * does): once its data reaches the graphics card, first or again, so what lets go of its array then
+ * A WebGPURenderer's attribute uploads call the attribute's `onUploadCallback`, as the classic renderer's did (three's
+ * WebGPU never does): once its data reaches the graphics card, first or again, so what lets go of its array then
  * (./budget.js `dropOnUpload`, a dome's baked shapes) does so on WebGPU too. Its internal Attributes (r187) wrapped once.
  * @param {any} renderer
  */
@@ -286,15 +259,15 @@ function tellUploads(renderer) {
 const compiling = new WeakMap();
 
 /**
- * The PMREM generator a renderer takes (intent c1bee1f8): three's classic one on WebGL, three/webgpu's on a
- * WebGPURenderer (which bakes only once it is initialised: `environmentFrom` waits for it).
+ * The PMREM generator a renderer takes (intent c1bee1f8): three/webgpu's, which bakes only once the renderer is
+ * initialised (`environmentFrom` waits for it).
  * @param {any} renderer
  */
-export const pmremFor = (renderer) => (isWebGPU(renderer) ? new NodePMREMGenerator(renderer) : new THREE.PMREMGenerator(renderer));
+export const pmremFor = (renderer) => new NodePMREMGenerator(renderer);
 
 /**
- * A scene's light baked into an environment (PMREM, blurred by `sigma`) and handed to `set`: a moment later on WebGL,
- * once the renderer may draw on WebGPU (a page that bakes as it is made). The generator let go of after.
+ * A scene's light baked into an environment (PMREM, blurred by `sigma`) and handed to `set` once the renderer may draw
+ * (a page that bakes as it is made). The generator let go of after.
  * @param {any} renderer @param {THREE.Scene} source @param {number} sigma @param {(texture: THREE.Texture) => void} set
  * @returns {Promise<void>} settled once it is set
  */
@@ -305,95 +278,48 @@ export function environmentFrom(renderer, source, sigma, set) {
 		pm.dispose();
 		set(rt.texture);
 	};
-	// never during the call (a page made in one go hands `set` what it declares after): a microtask on, or once ready
-	return (isWebGPU(renderer) ? ready(renderer) : Promise.resolve()).then(bake);
+	// never during the call (a page made in one go hands `set` what it declares after): once ready
+	return ready(renderer).then(bake);
 }
 
 /**
- * The largest picture a renderer takes, pixels a side: WebGL's `capabilities`, WebGPU's device limit (8192, WebGPU's
- * least, before it is initialised), or its WebGL 2 backend's own.
+ * The largest picture a renderer takes, pixels a side: WebGPU's device limit (8192, WebGPU's least, before it is
+ * initialised), or its WebGL 2 backend's own.
  * @param {any} renderer
  */
 export function maxTextureSize(renderer) {
-	if (!isWebGPU(renderer)) return renderer.capabilities.maxTextureSize;
 	const b = renderer.backend;
 	return b?.device?.limits?.maxTextureDimension2D ?? b?.gl?.getParameter?.(b.gl.MAX_TEXTURE_SIZE) ?? 8192;
 }
 
 /**
- * A renderer ready to draw: WebGPU's device asked for (`init`) before the first frame; a WebGLRenderer is ready as made.
- * Never throws for a WebGLRenderer; a WebGPURenderer whose init fails rejects (no WebGPU and no WebGL 2).
- * @template {THREE.WebGLRenderer | WebGPURenderer} R
+ * A renderer ready to draw: WebGPU's device asked for (`init`) before the first frame. Rejects where init fails (no
+ * WebGPU and no WebGL 2).
+ * @template {WebGPURenderer} R
  * @param {R} renderer
  * @returns {Promise<R>}
  */
 export async function ready(renderer) {
 	const r = /** @type {any} */ (renderer);
 	if (isWebGPU(r) && !r.initialized) await r.init();
-	// which backend drew, for a job's evidence (scripts/selector-shots.mjs, story-parity): webgpu, its webgl2 fallback, or webgl
-	if (typeof window !== 'undefined') /** @type {any} */ (window).__rendererBackend = isWebGPU(r) ? (r.backend?.isWebGPUBackend ? 'webgpu' : 'webgl2') : 'webgl';
+	// the page's array textures read for this renderer's formats (./arrays.js), now its device is known
+	if (isWebGPU(r)) useRenderer(r);
+	// which backend drew, for a job's evidence (scripts/selector-shots.mjs, story-parity): webgpu or its webgl2 fallback
+	if (typeof window !== 'undefined') /** @type {any} */ (window).__rendererBackend = isWebGPU(r) ? (r.backend?.isWebGPUBackend ? 'webgpu' : 'webgl2') : 'none';
 	return renderer;
 }
 
 /**
  * createRenderer, initialised: what a page awaits before its first draw.
  * @param {RendererOptions} [o]
- * @returns {Promise<THREE.WebGLRenderer>}
+ * @returns {Promise<Renderer>}
  */
 export const makeRenderer = (o) => ready(createRenderer(o));
 
 /**
- * three's WebGLNodesHandler installed on a renderer, so a NodeMaterial (TSL) is built into GLSL and drawn by it. With a
- * handler, three's `compile` draws the shadow maps first (node materials read them as they are built); a compile is
- * held from that extra shadow pass. The kit's node materials are compiled with the rest (`precompile`), so their programs
- * link while a level loads, not mid-walk (ed6694c3): each build meets its own program through the handler
- * (./nodes/index.js `install`), whether a frame or a warm-up made it.
- * @param {THREE.WebGLRenderer} renderer
- */
-export function nodes(renderer) {
-	const r = /** @type {any} */ (renderer);
-	if (typeof r.setNodesHandler !== 'function') return;
-	// three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light; ./tsl.js:
-	// on the screen, `toneMapped: false` and `raw` honoured)
-	const h = screenOutputs(r, install(r));
-	const compile = r.compile;
-	if (typeof compile !== 'function') return;
-	r.compile = function (scene, camera, target = null) {
-		const sm = this.shadowMap, auto = sm.autoUpdate, need = sm.needsUpdate;
-		sm.autoUpdate = sm.needsUpdate = false;
-		/** @type {Set<any> | undefined} */
-		let made;
-		try {
-			return (made = compile.call(this, scene, camera, target));
-		} finally {
-			sm.autoUpdate = auto;
-			sm.needsUpdate = need;
-			unpaired(this, h, made);
-		}
-	};
-}
-
-/**
- * A node material three's compile moved to a program the handler has not paired with a build: its next draw made to
- * meet onUpdateProgram, where install()'s rule pairs it. A material drawn before the compile (the viewers' sky, drawn
- * first in its environment bake) keeps its `__version`, so three would draw the compile's program without telling the
- * handler, whose updates it then skips for good: the sky drawn with whatever camera another node material last set,
- * the contact shadow's from under the floor, black over a goat or a forklift (544485e2).
- * @param {any} r @param {any} h the renderer's node handler @param {Set<any> | undefined} materials what the compile built
- */
-function unpaired(r, h, materials) {
-	if (!h?.programCache || typeof r.properties?.get !== 'function') return;
-	for (const m of materials ?? []) {
-		if (!m?.isNodeMaterial) continue;
-		const q = r.properties.get(m);
-		if (q?.currentProgram && !h.programCache.get(m)?.has(q.currentProgram)) q.__version = undefined;
-	}
-}
-
-/**
  * The picture's response set: a tone mapping by name (left as it is when not given) and its exposure. The only place
  * outside createRenderer that sets either.
- * @param {THREE.WebGLRenderer} renderer
+ * @param {Renderer} renderer
  * @param {keyof typeof TONE} [toneMapping]
  * @param {number} [exposure]
  */
@@ -402,14 +328,14 @@ export function setTone(renderer, toneMapping, exposure) {
 	if (exposure !== undefined) setExposure(renderer, exposure);
 }
 
-/** the tone mapping's exposure (a sky's hour, a film's lens) @param {THREE.WebGLRenderer} renderer @param {number} exposure */
+/** the tone mapping's exposure (a sky's hour, a film's lens) @param {Renderer} renderer @param {number} exposure */
 export function setExposure(renderer, exposure) {
 	renderer.toneMappingExposure = exposure;
 }
 
 /**
  * The tone mapping changed for a while (a stage drawing its shots Neutral on a page's renderer): returns the way back.
- * @param {THREE.WebGLRenderer} renderer
+ * @param {Renderer} renderer
  * @param {keyof typeof TONE} toneMapping
  * @returns {() => void}
  */
@@ -437,7 +363,7 @@ export const topPixelRatio = (low = lowPower()) => Math.min(low ? 1.5 : 2, windo
  * A resolution that follows the frame rate: call it once a frame. Slow frames lower the pixel ratio a step (never under
  * `floor`), quick ones raise it again (never over the device's top); `onChange` is told, to resize what depends on it.
  * While `hold()` says so (a model being built) frames are not counted: a long build is not a slow device.
- * @param {THREE.WebGLRenderer} renderer
+ * @param {Renderer} renderer
  * @param {{ top?: number, floor?: number, hold?: () => boolean, onChange?: () => void }} [o]
  */
 export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1, hold, onChange } = {}) {
@@ -464,57 +390,29 @@ export function adaptiveResolution(renderer, { top = topPixelRatio(), floor = 1,
 	};
 }
 
-/** how long a warm-up waits at most on the driver's links (ms): what is not linked by then is waited on at its first draw */
-const LINKED = 4000;
-
 /**
- * Compile a model's shaders before it is first drawn, linked off the page's thread where the browser can
- * (KHR_parallel_shader_compile), so the page never stalls on the first frame; a browser that cannot simply links them
- * now. Never throws: a model that fails here is still drawn the usual way. The one warm-up of the app: nothing else
- * compiles ahead (./lint.test.js). The kit's node materials too, each paired with its program as it is built (`nodes`):
- * walking Sandbox 5, Safari linked 47 of them mid-walk when they were left to their first frame (660ad67f). Waits as
- * three's `compileAsync` does, on each program's completion, but never past LINKED.
- * @param {THREE.WebGLRenderer} renderer
+ * Compile a model's shaders before it is first drawn (three's `compileAsync`, which builds node materials and their
+ * pipelines and settles once they are made), so the page never stalls on the first frame. Never throws: a model that
+ * fails here is still drawn the usual way. The one warm-up of the app: nothing else compiles ahead (./lint.test.js).
+ * three keeps its state on the renderer while it yields to the page, so two at once on one renderer clash (r187: the
+ * second's state gone under the first, "Cannot destructure property 'useFrameBufferTarget'"): one at a time, in order.
+ * @param {Renderer} renderer
  * @param {THREE.Object3D} object
  * @param {THREE.Camera} camera
  * @param {THREE.Scene} [scene]
  * @returns {Promise<void>}
  */
 export function precompile(renderer, object, camera, scene) {
-	// WebGPU builds node materials itself, and its compileAsync settles for them: nothing is left out. But it keeps its
-	// state on the renderer while it yields to the page, so two at once on one renderer clash (three r187: the second's
-	// state gone under the first, "Cannot destructure property 'useFrameBufferTarget'"): one at a time, in order
-	if (isWebGPU(renderer)) {
-		const turn = (compiling.get(renderer) ?? Promise.resolve()).then(() => /** @type {any} */ (renderer).compileAsync(object, camera, scene)).then(() => {}, () => {});
-		compiling.set(renderer, turn);
-		return turn;
-	}
-	/** @type {Set<THREE.Material>} */
-	let left;
-	try {
-		left = renderer.compile(object, camera, scene);
-	} catch {
-		return Promise.resolve(); // drawn as usual
-	}
-	const end = performance.now() + LINKED;
-	return new Promise((done) => {
-		const check = () => {
-			for (const m of left) {
-				const p = /** @type {any} */ (renderer.properties.get(m)).currentProgram;
-				if (!p || p.isReady()) left.delete(m);
-			}
-			if (!left.size || performance.now() > end) return done();
-			setTimeout(check, 10);
-		};
-		check();
-	});
+	const turn = (compiling.get(renderer) ?? Promise.resolve()).then(() => /** @type {any} */ (renderer).compileAsync(object, camera, scene)).then(() => {}, () => {});
+	compiling.set(renderer, turn);
+	return turn;
 }
 
 /**
  * A renderer's canvas kept to an element's size: at once, whenever the element changes size (and the window, for a
  * phone's bars that settle the element only after it), the drawing buffer, the camera's aspect (or `fit`), then
  * `onResize`.
- * @param {THREE.WebGLRenderer} renderer
+ * @param {Renderer} renderer
  * @param {HTMLElement} el
  * @param {{ camera?: THREE.PerspectiveCamera, fit?: (camera: THREE.PerspectiveCamera, w: number, h: number) => void, style?: boolean, window?: boolean, now?: boolean, onResize?: (w: number, h: number) => void }} [o]
  *   style: set the canvas's CSS size too (default true); now: fit at once (default true)
@@ -621,16 +519,14 @@ export function disposeObject(root, { materials = true, textures = true, keep } 
  * keeps a context's memory on the graphics card until the canvas is collected, and a tablet opening one viewer after
  * another (a proposal's world, then the next) ran out of it before that came (iPad Safari: "A problem repeatedly
  * occurred").
- * @param {THREE.WebGLRenderer} renderer
+ * @param {Renderer} renderer
  */
 export function disposeRenderer(renderer) {
 	renderer.dispose();
-	if (isWebGPU(renderer)) {
-		// WebGPU: its device destroyed; its WebGL 2 backend: its context lost, as below
-		const b = /** @type {any} */ (renderer).backend;
-		if (b?.device) b.device.destroy?.();
-		else b?.gl?.getExtension?.('WEBGL_lose_context')?.loseContext();
-	} else renderer.forceContextLoss();
+	// WebGPU: its device destroyed; its WebGL 2 backend: its context lost
+	const b = /** @type {any} */ (renderer).backend;
+	if (b?.device) b.device.destroy?.();
+	else b?.gl?.getExtension?.('WEBGL_lose_context')?.loseContext();
 	renderer.domElement.remove();
 }
 
