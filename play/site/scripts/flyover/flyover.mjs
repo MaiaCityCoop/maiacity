@@ -86,24 +86,26 @@ async function server(url) {
 	dev.stdout.on('data', (d) => (log += d));
 	dev.stderr.on('data', (d) => (log += d));
 	const gone = new Promise((ok) => dev.on('close', ok));
-	const stop = async () => {
+	// the group may be gone already (ESRCH): nothing left to stop
+	const kill = (signal) => {
 		try {
-			process.kill(-dev.pid, 'SIGTERM');
-		} catch {}
-		const late = setTimeout(() => {
-			try {
-				process.kill(-dev.pid, 'SIGKILL');
-			} catch {}
-		}, 5000);
+			process.kill(-dev.pid, signal);
+		} catch (e) {
+			if (e?.code !== 'ESRCH') throw e;
+		}
+	};
+	const stop = async () => {
+		kill('SIGTERM');
+		const late = setTimeout(() => kill('SIGKILL'), 5000);
 		await gone;
 		clearTimeout(late);
 	};
 	const at = `http://localhost:${port}`;
 	for (let i = 0; i < 240; i++) {
 		await new Promise((r) => setTimeout(r, 500));
-		try {
-			if ((await fetch(`${at}/game/map/film/`)).ok) return { url: at, stop };
-		} catch {}
+		// refused (a TypeError) until the server listens
+		const up = await fetch(`${at}/game/map/film/`).then((r) => r.ok, (e) => (e instanceof TypeError ? false : Promise.reject(e)));
+		if (up) return { url: at, stop };
 		if (dev.exitCode !== null) break;
 	}
 	await stop();

@@ -83,3 +83,13 @@ committed before and as now, every call they make logged and diffed):
   the `./moved.js` that went.
 - Pinned: tsc (play/api's gate includes play/avenbox through its tests), workflows.test.ts runs pr-intent.ts;
   website check and build.
+
+## 5. Errors no longer swallowed in the dev-server scripts (measure `special`; infra#50)
+
+- play/site/scripts/flyover/flyover.mjs: stopping the dev server's process group ignores only ESRCH (the group gone
+  already), any other error is thrown; waiting for it ignores only fetch's TypeError (refused until it listens).
+  render.mjs: the same wait. Same behaviour wherever the old one worked; an unexpected error now shows.
+- Left as they are: the Playwright and Chromium look-ups that try one place after another (flyover, render,
+  tools/plant/organ.mjs, tools/motion/boxtime.mjs): the failure of each try is the point; tools/sheet/allow.ts's
+  body parse (an unreadable body is asked as one image).
+- Pinned: `node --check` on each; nothing runs them in CI (they film and render by hand).
