@@ -19,6 +19,25 @@ import { SURFACE, SURFACES } from './surfaces.js';
 /** the specs' names, as the card shows them to people and a world reads them back */
 const WEIGHT = 'Weight', DENSITY = 'Plants a square metre', SHARE = 'Share', COLONY = 'Colony across', SPREAD = 'Ground its colonies take', FILL = 'How full its colonies are', ON = 'Grows on';
 const ROWS = 'Rows apart', ALONG = 'Along the row', JITTER = 'Off its line', EVERY = 'Every', GAUGE = 'Gauge', TYRE = 'Tyre';
+/** a kind's masks (./masks.js `KindMasks`): each spec's name, its unit and the range it is checked against */
+const KIND_MASKS = /** @type {const} */ ([
+	['footprint', 'Footprint', ' m', 0.05, 20],
+	['shade', 'Shade', '', -1, 1],
+	['edge', 'At the edge', '', 0, 4],
+	['clear', 'Keeps clear', ' m', 0, 10],
+	['wet', 'Wet', '', -1, 1],
+	['steep', 'Steepest', '°', 0, 90]
+]);
+const RING_FROM = 'Ring from', RING_TO = 'Ring to', RING_GAIN = 'Ring gain';
+/** a biome's masks (./masks.js `Masks`), the same */
+const MASK_SPECS = /** @type {const} */ ([
+	['band', 'Edge band', ' m', 0.1, 20],
+	['skew', 'Size skew', '', 0.25, 6],
+	['tilt', 'Tilt', '°', 0, 5],
+	['sink', 'Sunk', ' m', 0, 0.2],
+	['drift', 'Colour drift', '', 0, 0.3],
+	['across', 'Colour regions', ' m', 1, 500]
+]);
 
 /** a number as a spec writes it: as it is, so it reads back the same @param {number} n */
 const num = (n) => String(Number(n));
@@ -49,9 +68,15 @@ export function biomeCatalog(recipe, kinds) {
 			[SPREAD, num(c.spread)],
 			...(c.fill === undefined ? [] : [[FILL, num(c.fill)]]),
 			...(c.on ? [[ON, c.on]] : []),
-			...(c.rows ? [[ROWS, `${num(c.rows.spacing)} m`], [ALONG, `${num(c.rows.along)} m`], ...(c.rows.jitter === undefined ? [] : [[JITTER, `${num(c.rows.jitter)} m`]])] : [])
+			...(c.rows ? [[ROWS, `${num(c.rows.spacing)} m`], [ALONG, `${num(c.rows.along)} m`], ...(c.rows.jitter === undefined ? [] : [[JITTER, `${num(c.rows.jitter)} m`]])] : []),
+			...KIND_MASKS.filter(([key]) => c[key] !== undefined).map(([key, name, unit]) => [name, `${num(/** @type {number} */ (c[key]))}${unit}`]),
+			...(c.ring ? [[RING_FROM, `${num(c.ring[0])} m`], [RING_TO, `${num(c.ring[1])} m`], [RING_GAIN, num(c.ring[2])]] : [])
 		]
 	}));
+	const mk = recipe.masks;
+	const masks = mk
+		? [{ id: 'masks', label: 'Where it gathers', assembly: 'masks', what: 'How its cover is placed: the canopy’s edge band, how its sizes lean small, how far a plant tilts and is sunk, and how its colour drifts from place to place.', specs: MASK_SPECS.filter(([key]) => mk[key] !== undefined).map(([key, name, unit]) => [name, `${num(/** @type {number} */ (mk[key]))}${unit}`]) }]
+		: [];
 	const t = recipe.tramlines;
 	const field = t
 		? [{ id: 'tramlines', label: 'Tramlines', assembly: 'field', what: 'A pair of wheel tracks along the rows, one pair every working width of the sprayer.', specs: [[EVERY, `${num(t.every)} m`], [GAUGE, `${num(t.gauge)} m`], [TYRE, `${num(t.tyre)} m`]] }]
@@ -60,13 +85,15 @@ export function biomeCatalog(recipe, kinds) {
 		assemblies: [
 			{ id: 'ground', label: 'The ground', note: 'The surfaces it is painted with, each in patches of its own size.' },
 			{ id: 'cover', label: 'The cover', note: 'What grows and lies on it, kind by kind, each in its colonies.' },
-			...(field.length ? [{ id: 'field', label: 'The field', note: 'Its tramlines, along its rows.' }] : [])
+			...(field.length ? [{ id: 'field', label: 'The field', note: 'Its tramlines, along its rows.' }] : []),
+			...(masks.length ? [{ id: 'masks', label: 'Where it gathers', note: 'Its cover placed by masks: under crowns or in the sun, at the canopy’s edge, off the paths, in the hollows, round the trunks.' }] : [])
 		],
 		parts: [
 			...ground,
 			{ id: 'density', label: 'How dense the cover stands', assembly: 'cover', what: 'How many plants (or things) of the cover stand on a square metre inside their colonies.', specs: [[DENSITY, num(recipe.density)]] },
 			...cover,
-			...field
+			...field,
+			...masks
 		]
 	};
 }
@@ -116,7 +143,17 @@ export function biomeOfCard(card) {
 			const fill = number(p, FILL, 0, 1, true);
 			const spacing = number(p, ROWS, 0.02, 10, true);
 			const rows = spacing === undefined ? undefined : { spacing, along: /** @type {number} */ (number(p, ALONG, 0.02, 10)), ...(spec(p, JITTER) === undefined ? {} : { jitter: number(p, JITTER, 0, 1) }) };
+			/** @type {Record<string, number>} */
+			const own = {};
+			for (const [key, name, , lo, hi] of KIND_MASKS) {
+				const v = number(p, name, lo, hi, true);
+				if (v !== undefined) own[key] = v;
+			}
+			const from = number(p, RING_FROM, 0, 50, true);
+			const ring = from === undefined ? undefined : [from, /** @type {number} */ (number(p, RING_TO, from, 50)), /** @type {number} */ (number(p, RING_GAIN, 0, 20))];
 			return {
+				...own,
+				...(ring ? { ring } : {}),
 				kind: /** @type {import('./index.js').Cover} */ (kind),
 				ref: /** @type {string} */ (p.ref),
 				share: /** @type {number} */ (number(p, SHARE, 0, 1000)),
@@ -130,5 +167,15 @@ export function biomeOfCard(card) {
 	if (!cover.length) no('no cover');
 	const tp = parts.find((p) => p.assembly === 'field' && p.id === 'tramlines');
 	const tramlines = tp ? { every: /** @type {number} */ (number(tp, EVERY, 1, 1000)), gauge: /** @type {number} */ (number(tp, GAUGE, 0.5, 10)), tyre: /** @type {number} */ (number(tp, TYRE, 0.1, 2)) } : undefined;
-	return { id: card.id, version: card.version, label: card.label, note: card.note ?? '', from: '', surface, density, cover, ...(tramlines ? { tramlines } : {}) };
+	const mp = parts.find((p) => p.assembly === 'masks' && p.id === 'masks');
+	/** @type {Record<string, number> | undefined} */
+	let masks;
+	if (mp) {
+		masks = {};
+		for (const [key, name, , lo, hi] of MASK_SPECS) {
+			const v = number(mp, name, lo, hi, true);
+			if (v !== undefined) masks[key] = v;
+		}
+	}
+	return { id: card.id, version: card.version, label: card.label, note: card.note ?? '', from: '', surface, density, cover, ...(tramlines ? { tramlines } : {}), ...(masks ? { masks } : {}) };
 }
