@@ -23,7 +23,7 @@
  * /api/… only, to play.maia.city with PLAY_MCP_TOKEN, sent to play and nowhere else).
  */
 import { createServer } from 'node:http';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
@@ -92,12 +92,24 @@ async function open(site, path, errors) {
 const QUIET_MAX = 3.5 * 60e3;
 async function quiet(page, t) {
 	t = Math.min(t, QUIET_MAX);
+	const log = [];
+	const t0 = Date.now();
 	for (const end = Date.now() + t; Date.now() < end; await page.waitForTimeout(2000)) {
 		const q = await page.evaluate(QUIET).catch(() => null);
-		if (q === 0) return true;
+		// what keeps it busy: each part's building (and its parts: queue, loads, compiling, lowering), keeping, taken
+		const busy = await page.evaluate(BUSY).catch((e) => String(e));
+		log.push({ s: Math.round((Date.now() - t0) / 1000), q, busy });
+		if (q === 0) return { settled: true, log };
 	}
-	return false;
+	return { settled: false, log };
 }
+const BUSY = `(() => {
+	const s = window.__assets?.stats?.();
+	if (!s) return null;
+	const parts = Object.fromEntries(['out', 'in', 'library'].filter((k) => s[k]).map((k) => [k, s[k]]));
+	const all = Object.keys(parts).length ? parts : { all: s };
+	return Object.fromEntries(Object.entries(all).map(([k, p]) => [k, { building: p.building, busy: p.busy, keeping: p.keeping, taken: p.taken, kinds: p.kinds, loaded: p.loaded, pages: p.pages }]));
+})()`;
 
 async function sample(page) {
 	return page.evaluate(async (sec) => {
@@ -136,7 +148,9 @@ for (const site of sites) {
 		// Sandbox 1: the water, two domes inside, near/mid/far, at noon
 		const { ctx, page } = await open(site, '/sandbox-1/', err);
 		await page.waitForFunction(() => window.__walker && window.__assets && window.__village, null, { timeout: 10 * 60e3 });
-		await quiet(page, 10 * 60e3);
+		// the first settle's log kept whole (out/quiet-<site>.json): which counter stays busy where it never settles
+		const first = await quiet(page, 10 * 60e3);
+		writeFileSync(resolve(OUT, `quiet-${site.name}.json`), JSON.stringify(first, null, 1));
 		await page.evaluate(() => (window.__interiorHour = 12));
 		const places = await page.evaluate(() => {
 			const v = window.__village;
@@ -157,8 +171,8 @@ for (const site of sites) {
 		for (const [view, v, target] of shots) {
 			await page.evaluate((v) => window.__walker.place(v.x, v.z, v.yaw, v.pitch), v);
 			await page.waitForTimeout(1500);
-			const settled = await quiet(page, 3 * 60e3);
-			await measure(page, site, view, { settled, at: [v.x, v.z, v.yaw, v.pitch], target });
+			const { settled, log } = await quiet(page, 3 * 60e3);
+			await measure(page, site, view, { settled, quiet: [log[0], ...log.slice(-3)], at: [v.x, v.z, v.yaw, v.pitch], target });
 		}
 		await ctx.close();
 	} catch (e) {
@@ -206,14 +220,12 @@ for (const site of sites) {
 	for (const e of err.slice(0, 30)) console.log(`    ${e}`);
 }
 
-// SSIM head against base per view (ffmpeg), and the frame time: head's mean at most base's + 1.0 ms
+// SSIM head against base per view (ffmpeg), and the frame time as the spec has it (c8, Samuel 2026-11-08): at near,
+// head's mean at most base's + 8 ms and never above 33.4 ms; at every other view at most base's + 5 % (noise)
 const ssim = (a, b) => {
-	try {
-		const o = execFileSync('ffmpeg', ['-hide_banner', '-i', a, '-i', b, '-lavfi', 'ssim', '-f', 'null', '-'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-		return Number(/All:([0-9.]+)/.exec(o)?.[1]);
-	} catch (e) {
-		return Number(/All:([0-9.]+)/.exec(String(e.stderr))?.[1] ?? NaN);
-	}
+	// ffmpeg prints its summary on stderr, whether it exits 0 or not (stdout alone gave NaN on the 09:41 run)
+	const p = spawnSync('ffmpeg', ['-hide_banner', '-i', a, '-i', b, '-lavfi', 'ssim', '-f', 'null', '-'], { encoding: 'utf8' });
+	return Number(/All:([0-9.]+)/.exec(`${p.stderr}${p.stdout}`)?.[1] ?? NaN);
 };
 const base = Object.fromEntries(views.filter((v) => v.site === 'base').map((v) => [v.view, v]));
 const compare = views
@@ -222,9 +234,9 @@ const compare = views
 		const b = base[v.view];
 		const s = existsSync(resolve(OUT, b.png)) && existsSync(resolve(OUT, v.png)) ? ssim(resolve(OUT, b.png), resolve(OUT, v.png)) : NaN;
 		const water = v.view.startsWith('s1-water');
-		return { view: v.view, ssim: s, ssim_ok: water || s >= 0.98, water, base_ms: b.frame_ms, head_ms: v.frame_ms, delta_ms: v.frame_ms - b.frame_ms, base_bound: b.bound, head_bound: v.bound, within: v.frame_ms <= b.frame_ms + 1.0 };
+		return { view: v.view, ssim: s, ssim_ok: water || s >= 0.98, water, base_ms: b.frame_ms, head_ms: v.frame_ms, delta_ms: v.frame_ms - b.frame_ms, base_bound: b.bound, head_bound: v.bound, within: v.view === 's1-near' ? v.frame_ms <= b.frame_ms + 8 && v.frame_ms <= 33.4 : v.frame_ms <= b.frame_ms * 1.05 };
 	});
-for (const c of compare) console.log(`${c.view}: SSIM ${c.ssim?.toFixed(4)}${c.water ? ' (water: judged by eye)' : c.ssim_ok ? '' : ' UNDER 0.98'} · base ${ms(c.base_ms)} (${c.base_bound}) → head ${ms(c.head_ms)} (${c.head_bound}) · Δ ${ms(c.delta_ms)} ms ${c.within ? 'within' : 'OVER'} +1.0`);
+for (const c of compare) console.log(`${c.view}: SSIM ${c.ssim?.toFixed(4)}${c.water ? ' (water: judged by eye)' : c.ssim_ok ? '' : ' UNDER 0.98'} · base ${ms(c.base_ms)} (${c.base_bound}) → head ${ms(c.head_ms)} (${c.head_bound}) · Δ ${ms(c.delta_ms)} ms ${c.within ? 'within' : 'OVER'} ${c.view === 's1-near' ? '+8 ms, ≤ 33.4' : '+5 %'}`);
 writeFileSync(resolve(OUT, 'results.json'), JSON.stringify({ intent: '602a8849-50e4-4885-99b9-38353f951c9f', commits: { base: process.env.BASE_COMMIT ?? null, head: process.env.HEAD_COMMIT ?? null }, gpu, viewport: [W, H], sample_s: SAMPLE, at: new Date().toISOString(), views, compare, errors }, null, 1));
 console.log(`done in ${Math.round((Date.now() - t0) / 1000)} s: ${resolve(OUT, 'results.json')}`);
 await browser.close();

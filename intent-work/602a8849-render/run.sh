@@ -54,6 +54,9 @@ for side in base head; do
   port=$((port + 1))
 done
 cd "$ROOT/../602a-head/play/site"
-BASE_COMMIT="$BASE_COMMIT" HEAD_COMMIT="$HEAD_COMMIT" node "$JOB/look.mjs" --site base=http://localhost:5191 --site head=http://localhost:5192 \
+# head first (ORDER=base-first for the old order): on 09:41's run base settled every view and head none; if base is the
+# one that never settles when it goes second, the order did it, not the code
+if [ "${ORDER:-head-first}" = base-first ]; then SITES=(--site base=http://localhost:5191 --site head=http://localhost:5192); else SITES=(--site head=http://localhost:5192 --site base=http://localhost:5191); fi
+BASE_COMMIT="$BASE_COMMIT" HEAD_COMMIT="$HEAD_COMMIT" node "$JOB/look.mjs" "${SITES[@]}" \
   --meter "$ROOT/../602a-head/play/site/src/lib/content/render/meter.js" --out "$OUT" 2>&1 | tee "$OUT/stdout.txt"
 echo "out: $OUT (commit out/ and push the branch intent-work/602a8849-render)"
