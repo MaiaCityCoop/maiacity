@@ -1,0 +1,50 @@
+head 6a4c572ee63ec86ad052b59dc62ed2848efdf7f7 (base: the same code, play's pinned v1 biome cards)
+[base] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[base] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+base: Sandbox 1 settled after 94 s
+base: trees shot [{"x":-6.643236323097408,"z":84.51613010782158,"r":3.3187429657103986},{"x":-40.65678031708707,"z":114.99975963546389,"r":3.1467399262550573}]
+base walk-near: {"frames":206,"frame_ms":29.3,"frame_p95":33.4,"cpu_ms":22,"gpu_ms":20.2,"calls":1786,"triangles":3541648,"bound":"cpu"}
+base walk-edge: {"frames":186,"frame_ms":32.5,"frame_p95":33.4,"cpu_ms":17.3,"gpu_ms":24.5,"calls":1042,"triangles":3994036,"bound":"gpu"}
+base top-trunk-8: {"frames":323,"frame_ms":18.6,"frame_p95":33.3,"cpu_ms":7.4,"gpu_ms":15.1,"calls":558,"triangles":1592644,"bound":"gpu"}
+base top-trunk-10: {"frames":361,"frame_ms":16.7,"frame_p95":16.8,"cpu_ms":7.9,"gpu_ms":9.9,"calls":738,"triangles":3266565,"bound":"vsync"}
+base walk-canopy-edge: {"frames":183,"frame_ms":33.1,"frame_p95":50,"cpu_ms":21.6,"gpu_ms":24.3,"calls":1762,"triangles":3461070,"bound":"gpu"}
+base top-95: {"frames":361,"frame_ms":16.7,"frame_p95":16.7,"cpu_ms":8.8,"gpu_ms":12,"calls":867,"triangles":2462967,"bound":"vsync"}
+base walk-30m: {"frames":296,"frame_ms":39,"frame_p95":66.7,"cpu_ms":34.8,"gpu_ms":23.1,"calls":1499,"triangles":3414892,"bound":"cpu"}
+[head] Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[proxy 3912] catalog: 2 biome card(s) swapped for the drafted ones
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] pageerror TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+[head] Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+head: Sandbox 1 settled after 354 s
+head: trees shot [{"x":-6.643236323097408,"z":84.51613010782158,"r":3.3187429657103986},{"x":-40.65678031708707,"z":114.99975963546389,"r":3.1467399262550573}]
+head walk-near: {"frames":213,"frame_ms":28.5,"frame_p95":33.4,"cpu_ms":18,"gpu_ms":20.6,"calls":1788,"triangles":3486212,"bound":"gpu"} (still building)
+head walk-edge: {"frames":215,"frame_ms":28,"frame_p95":33.4,"cpu_ms":13.4,"gpu_ms":22.1,"calls":1055,"triangles":3949749,"bound":"gpu"} (still building)
+[head] Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+head top-trunk-8: {"frames":309,"frame_ms":19.5,"frame_p95":33.4,"cpu_ms":11.8,"gpu_ms":14.1,"calls":584,"triangles":1574461,"bound":"vsync"}
+head top-trunk-10: {"frames":349,"frame_ms":17.3,"frame_p95":16.8,"cpu_ms":13.3,"gpu_ms":10.3,"calls":723,"triangles":3169291,"bound":"vsync"}
+head walk-canopy-edge: {"frames":178,"frame_ms":34,"frame_p95":50,"cpu_ms":23.1,"gpu_ms":24.6,"calls":1756,"triangles":3403030,"bound":"gpu"}
+head top-95: {"frames":328,"frame_ms":18.4,"frame_p95":33.3,"cpu_ms":12.6,"gpu_ms":12.8,"calls":869,"triangles":2404347,"bound":"vsync"}
+head walk-30m: {"frames":317,"frame_ms":36.5,"frame_p95":66.7,"cpu_ms":31.4,"gpu_ms":23.7,"calls":1489,"triangles":3444688,"bound":"cpu"}
+┌───┬──────────────────┬─────────┬─────────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┬───────┬───────┐
+│   │ view             │ base_ms │ head_ms │ base_p95 │ head_p95 │ base_cpu │ head_cpu │ base_gpu │ head_gpu │ bound │ worse │
+├───┼──────────────────┼─────────┼─────────┼──────────┼──────────┼──────────┼──────────┼──────────┼──────────┼───────┼───────┤
+│ 0 │ walk-near        │ 29.3    │ 28.5    │ 33.4     │ 33.4     │ 22       │ 18       │ 20.2     │ 20.6     │ gpu   │ false │
+│ 1 │ walk-edge        │ 32.5    │ 28      │ 33.4     │ 33.4     │ 17.3     │ 13.4     │ 24.5     │ 22.1     │ gpu   │ false │
+│ 2 │ top-trunk-8      │ 18.6    │ 19.5    │ 33.3     │ 33.4     │ 7.4      │ 11.8     │ 15.1     │ 14.1     │ vsync │ true  │
+│ 3 │ top-trunk-10     │ 16.7    │ 17.3    │ 16.8     │ 16.8     │ 7.9      │ 13.3     │ 9.9      │ 10.3     │ vsync │ true  │
+│ 4 │ walk-canopy-edge │ 33.1    │ 34      │ 50       │ 50       │ 21.6     │ 23.1     │ 24.3     │ 24.6     │ gpu   │ true  │
+│ 5 │ top-95           │ 16.7    │ 18.4    │ 16.7     │ 33.3     │ 8.8      │ 12.6     │ 12       │ 12.8     │ vsync │ true  │
+│ 6 │ walk-30m         │ 39      │ 36.5    │ 66.7     │ 66.7     │ 34.8     │ 31.4     │ 23.1     │ 23.7     │ cpu   │ false │
+└───┴──────────────────┴─────────┴─────────┴──────────┴──────────┴──────────┴──────────┴──────────┴──────────┴───────┴───────┘
+head 6a4c572ee63ec86ad052b59dc62ed2848efdf7f7 · out: /Users/samuelandert/Documents/Development/s2445-render/intent-work/24454c2d-render/out (commit out/ and push the branch intent-work/24454c2d-render)

@@ -1,0 +1,104 @@
+
+  VITE v8.3.5  ready in 1271 ms
+
+  ➜  Local:   http://localhost:5182/
+  ➜  Network: use --host to expose
+2:47:04 PM [vite-plugin-svelte] src/lib/site/app/NavPill.svelte:167:1 Unused CSS selector ".avatar img"
+https://svelte.dev/e/css_unused_selector
+2:47:09 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+2:47:09 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+2:47:09 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+2:47:09 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+2:47:10 PM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+2:47:10 PM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+2:47:10 PM [vite] (client) [console.warn] flora: chestnut@5:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+2:47:10 PM [vite] (client) [console.warn] flora: chestnut@5:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+2:47:10 PM [vite] (client) [console.warn] flora: walnut@4:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+2:47:10 PM [vite] (client) [console.warn] flora: chestnut@5:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+2:47:10 PM [vite] (client) [console.warn] flora: walnut@4:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+2:47:10 PM [vite] (client) [console.warn] flora: hazel@4:12:sandbox-5 did not grow: stage: 12 is out of 0–9
+2:47:10 PM [vite] (client) [console.warn] flora: hazel@4:10:sandbox-5 did not grow: stage: 10 is out of 0–9
+2:47:10 PM [vite] (client) [console.warn] flora: hazel@4:11:sandbox-5 did not grow: stage: 11 is out of 0–9
+2:47:17 PM [vite] (client) [console.warn] THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+2:47:34 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+2:47:34 PM [vite] (client) [Unhandled error] TypeError: Failed to set the 'currentTime' property on 'HTMLMediaElement': The provided double value is non-finite.
+ > el.addEventListener.once src/lib/content/sandbox-2/interior/ambience.ts:84:51
+    82 |  			ctx.createMediaElementSource(el).connect(gain).connect(name === 'inside' || name === 'factory' || name === 'machin...
+    83 |  			// every loop starts somewhere else, so two visits never sound the same
+    84 |  			el.addEventListener('loadedmetadata', () => (el.currentTime = Math.random() * Math.max(0, el.duration - 1)), { onc...
+       |                                                     ^
+    85 |  			tracks.set(name, { el, gain })
+    86 |  		}
+
+2:48:09 PM [vite] http proxy error: /api/files/f3ebbb41045f0a45d3a27d6782beb71973fa539e9640d1c7d1b9434b02351575
+Error: read ECONNRESET
+    at close (node:net:676:40)
+2:52:54 PM [vite] (client) [console.warn] assets: Biome cover: Red clover did not load: Biome cover: Red clover v1: its file could not be read (HTTP 502)
+2:53:01 PM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+2:53:01 PM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: moringa@2:9:sandbox-5 did not grow: plants/moringa takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: mango@3:12:sandbox-5 did not grow: stage: 12 is out of 0–10
+2:53:01 PM [vite] (client) [console.warn] flora: moringa@2:5:sandbox-5 did not grow: plants/moringa takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+2:53:01 PM [vite] (client) [console.warn] flora: cassava@2:4:sandbox-5 did not grow: plants/cassava takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: moringa@2:6:sandbox-5 did not grow: plants/moringa takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+2:53:01 PM [vite] (client) [console.warn] flora: moringa@2:8:sandbox-5 did not grow: plants/moringa takes no parameters
+2:53:17 PM [vite] (client) [console.warn] flora: yam@2:5:sandbox-5 did not grow: plants/yam takes no parameters
+2:53:17 PM [vite] (client) [console.warn] flora: cassava@2:6:sandbox-5 did not grow: plants/cassava takes no parameters
+2:53:17 PM [vite] (client) [console.warn] flora: mango@3:13:sandbox-5 did not grow: stage: 13 is out of 0–10
+2:53:17 PM [vite] (client) [console.warn] flora: yam@2:7:sandbox-5 did not grow: plants/yam takes no parameters
+2:53:17 PM [vite] (client) [console.warn] flora: yam@2:6:sandbox-5 did not grow: plants/yam takes no parameters
+2:53:17 PM [vite] (client) [console.warn] flora: yam@2:4:sandbox-5 did not grow: plants/yam takes no parameters
+2:53:17 PM [vite] (client) [console.warn] flora: cassava@2:7:sandbox-5 did not grow: plants/cassava takes no parameters
+2:53:17 PM [vite] (client) [console.warn] flora: cassava@2:5:sandbox-5 did not grow: plants/cassava takes no parameters
+2:53:17 PM [vite] (client) [console.warn] flora: mango@3:11:sandbox-5 did not grow: stage: 11 is out of 0–10
+2:54:27 PM [vite] http proxy error: /api/files/b6713600778441dab6c5232fa418af56a85209b17308e16975684fafd6bd3f84
+Error: read ECONNRESET
+    at close (node:net:676:40)
+2:58:54 PM [vite] (client) [console.warn] assets: Biome cover: Red clover did not load: Biome cover: Red clover v1: its file could not be read (HTTP 502)
