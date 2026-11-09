@@ -126,7 +126,6 @@ suite("private to its owner", () => {
       // B can't relabel it: as for a file never kept
       expect((await call(B, "POST", `/api/library/${h}/label`, { label: "mine now", library: "personal" })).status).toBe(404);
       expect((await call(B, "POST", `/api/library/${h}/label`, { label: "mine now" })).status).toBe(404);
-      // A relabels it in their own library
       expect((await call(A, "POST", `/api/library/${h}/label`, { label: "Ada, side, 2", library: "personal" })).data.label).toBe("Ada, side, 2");
     }, 60_000);
 
@@ -252,7 +251,6 @@ suite("private to its owner", () => {
     test("board: an intent whose work is private is shown to and decided by its owner alone", async () => {
       const { asset, intent } = await character("Ada, for the board", false);
       const ids = (list: any) => (Array.isArray(list) ? list : []).map((i: any) => i.id);
-      // A sees it, its work and its review
       expect(ids(await tool(A, "list_intents", { stage: "all" }))).toContain(intent);
       const mine = await tool(A, "get_intent", { intent });
       expect(mine.work.asset_id).toBe(asset);

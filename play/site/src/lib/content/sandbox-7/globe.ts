@@ -206,7 +206,6 @@ export function buildGlobe(o: GlobeOptions): Tile[] {
 	});
 }
 
-/** how many cards of each biome */
 export function census(tiles: Tile[]): Record<Biome, number> {
 	const out = Object.fromEntries(BIOMES.map((b) => [b, 0])) as Record<Biome, number>;
 	for (const t of tiles) out[t.biome]++;

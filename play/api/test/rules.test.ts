@@ -221,7 +221,6 @@ suite("auto-accept rules", () => {
         expect((await tool("doc_history", { doc: r.id })).versions.map((v: any) => v.number)).toEqual([1, 2]);
       }
     }
-    // nothing waits on the board
     expect(await waiting()).toBe(0);
     // named with an intent, held to that intent's gate as before
     const idea = await tool("add_intent", { title: "Named, at Idea" });
@@ -239,7 +238,6 @@ suite("auto-accept rules", () => {
       const i = await tool("add_intent", { title: "Declares more", ...(declared ? { work_kind: declared } : {}) });
       expect([declared, (await tool("specify_intent", { intent: i.id, ...SPEC })).stage]).toEqual([declared, "specify"]);
     }
-    // a kind no schema is: refused
     expect((await tool("add_intent", { title: "Declares a colour", work_kind: ["red"] })).error).toMatch(/schema's UUID or code/);
     // its checks passed: at Proposal, no work yet (no rule accepts it: its work is no artifact yet)
     await tool("check_intent", { intent: only.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });

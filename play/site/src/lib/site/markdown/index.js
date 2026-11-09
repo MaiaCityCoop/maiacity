@@ -29,7 +29,6 @@ const TAGS = {
 };
 
 const ESCAPED = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-/** Text as HTML text or an attribute's value. */
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ESCAPED[c]);
 
 const NAMED = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", colon: ':', tab: '\t', newline: '\n', sol: '/', lpar: '(', rpar: ')' };

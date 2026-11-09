@@ -12,7 +12,6 @@ import * as THREE from 'three';
 /** @typedef {import('./sandbox5.js').Kind} Kind */
 /** @typedef {import('./flora.js').Reach} Reach */
 
-/** the herbs a tuft of herbs becomes */
 const HERBS = ['basil', 'parsley', 'chives', 'thyme', 'oregano', 'mint', 'coriander', 'lemon-balm'];
 /** a crop of the stand-in beds, as the library has it; and how close it is sown (metres), in how many rows */
 const CROPS = /** @type {Record<string, { id: string, gap: number, rows: number[], reach: Reach }>} */ ({

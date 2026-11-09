@@ -22,7 +22,6 @@ const ARRAYS = Object.fromEntries(
 		.filter((k) => typeof globalThis[k] === 'function')
 		.map((k) => [k, globalThis[k]])
 );
-/** `n` up to the next multiple of 8 */
 const eight = (n) => Math.ceil(n / 8) * 8;
 /** the numbers no JSON holds, as they are marked */
 const NUMBERS = ['NaN', 'Infinity', '-Infinity', '-0'];

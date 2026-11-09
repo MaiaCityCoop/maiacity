@@ -325,7 +325,6 @@ suite("accept ships it", () => {
     gh.checks.set(r.head, [green("play / API and site"), { ...green("website / build"), conclusion: "failure", html_url: "https://github.test/checks/red" }]);
     await watchShips(db, gh.gh, store);
     await back(r, `'website / build' is failure on #${r.pr}'s head`, "https://github.test/checks/red");
-    // Accept there again: still red, refused at once
     expect((await call("ada", "POST", `/api/intents/${r.id}/accept`)).status).toBe(409);
     // its head moves
     const h = await waiting("Its head moves");

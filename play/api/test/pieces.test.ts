@@ -84,7 +84,6 @@ suite("pieces", () => {
     // a piece requiring a hash that is no accepted piece version's
     const none = hashText("no piece");
     await expect(proposeDocVersion(ctx(), await me(), { kind: "piece", whole: { schema: "piece/1", label: "Lost", source: `module.exports = require("${none}");\n` }, note: "lost", intent: await building("Lost") })).rejects.toThrow(/no accepted version of a piece/);
-    // nothing of a refused new piece is kept
     expect((await listDocs(db, await me(), "piece")).map((d: any) => d.label)).not.toContain("Min");
   });
 

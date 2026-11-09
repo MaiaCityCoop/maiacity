@@ -8,7 +8,6 @@ import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 
 /** a hash as text: 64 lower-case hex digits, for a pattern that holds one among other text */
 export const HEX = '[0-9a-f]{64}';
-/** a hash, and nothing else */
 export const HASH = new RegExp(`^${HEX}$`);
 /** whether `x` is a hash @param {unknown} x */
 export const isHash = (x) => typeof x === 'string' && HASH.test(x);

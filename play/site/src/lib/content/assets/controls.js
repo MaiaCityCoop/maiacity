@@ -159,7 +159,6 @@ export function poserOf(root, controls = root.userData.controls ?? [], { own = f
 			for (const c of controls) values.set(c.id, c.rest);
 			apply();
 		},
-		/** whether any control is away from its rest */
 		get moved() {
 			return controls.some((c) => values.get(c.id) !== c.rest);
 		}

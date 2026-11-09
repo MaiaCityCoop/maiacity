@@ -371,7 +371,6 @@ export function packedVan(drawn, pick) {
 		lift(v) {
 			her.userData.lift = v;
 		},
-		/** her face (world) */
 		herFace: () => her.userData.cast.rig.bones.head?.localToWorld(V(0, 0.075, 0.08)) ?? her.localToWorld(V(0, 1.2, 0.08))
 	};
 	return van;

@@ -120,7 +120,6 @@ suite("the stage Build (migration 0033-build)", () => {
     expect(await tool("get_intent", { intent: partly })).toMatchObject({ stage: "build", pull_request: 2107 });
     expect((await tool("list_intents", { stage: "build" })).map((i: any) => i.id).sort()).toEqual([...prototyped].sort());
     expect((await tool("list_intents", { stage: "prototype" })).error).toBeTruthy();
-    // the board's REST too
     expect((await call("ada", "GET", "/api/intents?stage=build")).data.map((i: any) => i.id).sort()).toEqual([...prototyped].sort());
 
     // and on from Build as the flow goes: every must passing, to Proposal

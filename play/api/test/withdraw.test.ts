@@ -83,7 +83,6 @@ suite("withdraw a document from an intent's work", () => {
     const not = await tool("withdraw_doc", { intent: id, doc: stray.story, reason: "again" });
     expect(not.error).toContain("has no open or proposed variant");
     expect(not.error).toContain(`story:${film.story}`);
-    // no reason, refused
     expect((await tool("withdraw_doc", { intent: id, doc: film.story, reason: "  " })).error).toContain("needs its reason");
 
     // its checks recorded again: to Proposal, and Accept keeps only the film

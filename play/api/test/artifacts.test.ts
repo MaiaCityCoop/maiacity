@@ -317,7 +317,6 @@ suite("artifacts", () => {
     const listed = await tool("list_authors", { q: "sam same" });
     expect(listed).toHaveLength(2);
     expect(listed.every((x: any) => x.artifacts === 1)).toBe(true);
-    // an author named twice in one artifact is refused
     expect((await keep(ARTIFACT({ url: "https://example.org/twice", authors: [{ id: lab.id }, { id: lab.id }] }))).error).toMatch(/named twice/);
   });
 

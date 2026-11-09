@@ -64,7 +64,6 @@ export function connectWorldFilm(view, o) {
 			world: { asset: o.asset, recipe: o.recipe },
 			/** resolves once the world reached its moment (every owed step answered), or after `stall` ms (60 s) with none */
 			settle: (stall) => view.settle(stall),
-			/** whether what it stands is still being built */
 			building: () => view.building()
 		}
 	});

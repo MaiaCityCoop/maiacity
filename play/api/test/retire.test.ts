@@ -97,7 +97,6 @@ suite("retire a document by an intent", () => {
     expect((await tool("retire_doc", { intent: id, doc: draft.story, reason: "never on Main" })).error).toContain("no accepted version");
     const idea = (await tool("add_intent", { title: "Only an idea" })).id;
     expect((await tool("retire_doc", { intent: idea, doc: a.story, reason: "too soon" })).error).toContain("stage");
-    // nothing retired before the Accept
     expect((await retired(a.story)).retired_at).toBeNull();
     expect((await listed()).api).toContain(a.story);
   });

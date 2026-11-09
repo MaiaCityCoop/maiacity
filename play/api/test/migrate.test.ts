@@ -522,7 +522,6 @@ suite("migration 202611070120-7c8085db-breeds", () => {
         expect(b.json.card).toEqual(x.card);
       }
     }
-    // a second import changes nothing
     expect((await ensureAssetDocs(db, store, mkdtempSync(join(tmpdir(), "play-history-")))).breeds).toBe(0);
     // every frozen version, its variants' rows and the pin as they were
     expect(await frozen()).toEqual(before);

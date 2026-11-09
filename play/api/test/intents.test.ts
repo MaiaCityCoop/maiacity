@@ -531,7 +531,6 @@ suite("intents", () => {
       await db.query(`UPDATE play.intents SET stage = $2 WHERE id = $1`, [x.id, stage]);
       expect((await back(x.id, "x")).error).toContain(`at the ${stage} stage`);
     }
-    // no admin's Back to Specify is left
     expect((await call("ada", "POST", `/api/intents/${p.id}/respecify`)).status).toBe(404);
   });
 
@@ -637,7 +636,6 @@ suite("intents", () => {
     const moved = await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 m" }] });
     expect(moved.stage).toBe("proposal");
     expect(await tool("get_intent", { intent: i.id })).toMatchObject({ stage: "proposal", sub: { state: "waiting", tag: "Accept" }, work: { docs: 3, status: "proposal" } });
-    // its one Accept applies all three together
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted" } });
     for (const [n, doc] of skills.entries()) {
       const at = await tool("doc_at", { doc });

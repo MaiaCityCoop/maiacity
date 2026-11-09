@@ -676,7 +676,6 @@ suite("play API", () => {
     expect((await call("ada", "GET", `/api/stories/${S.seed}`)).status).toBe(404); // not a story until it is accepted
     const open = (await waiting()).find((p: any) => p.id === proposed.out.intent);
     expect(open).toMatchObject({ kind: "story_version", grp: "stories", story_id: S.seed, slug: null, label: "Seed to fruit", number: 1, via: "mcp", author: "ada" });
-    // a story's proposals are the admins' alone
     expect((await call("cit", "GET", "/api/intents")).status).toBe(403);
     expect((await call("cit", "GET", `/api/intents/${proposed.out.intent}`)).status).toBe(403);
     const review = (await call("ada", "GET", `/api/intents/${proposed.out.intent}`)).data.review;
@@ -946,7 +945,6 @@ suite("play API", () => {
     expect((await call("ada", "GET", `/api/library?q=${clip.out.hash.slice(0, 12)}`)).data.files[0].label).toBe("The first fly-over");
     expect((await call("ada", "POST", `/api/library/${clip.out.hash}/label`, { label: "x".repeat(201) })).status).toBe(400);
     expect((await call("ada", "GET", "/api/library?kind=text")).status).toBe(400);
-    // nobody else opens it
     expect((await call("cit", "GET", "/api/library")).status).toBe(403);
     expect((await call(null, "GET", "/api/library")).status).toBe(401);
   });
@@ -1158,7 +1156,6 @@ suite("play API", () => {
     // a step that breaks the story is refused and leaves the draft as it was
     expect((await editStory({ story: S.seed, variant: draft, message: "overlap", edits: [{ op: "set_clip", track: "voice", clip: "v1", fields: { duration: 30 } }] })).error).toContain("before clip");
     expect((await editStory({ story: S.seed, variant: draft, message: "range", edits: [{ op: "edit_text", track: "voice", clip: "v1", field: "line", index: 999, insert: "x" }] })).error).toContain("outside");
-    // nobody sees a draft as the story
     expect((await call("ada", "GET", `/api/stories/${S.seed}`)).data.version).toBe(head.version);
     const own = (await tool("doc_history", { doc: S.seed, variant: draft })).out;
     expect(own.edits.map((s: any) => s.message)).toEqual(["a word in the hook", "a longer last shot", "a callout"]);
@@ -1176,7 +1173,6 @@ suite("play API", () => {
     // and through the intent's variant, as the board opens it
     expect((await tool("get_story", { story: S.seed, intent: proposed.out.intent })).out.tracks.some((t: any) => t.id === "titles")).toBe(true);
     expect(review.diff.tracks.find((t: any) => t.id === "titles").state).toBe("added");
-    // a proposed draft takes no more steps
     expect((await editStory({ story: S.seed, variant: draft, message: "late", title: "x" })).error).toContain("proposed already");
     const accepted = await decided(proposed.out.intent, "accept");
     expect(accepted).toMatchObject({ status: "accepted", number: head.number + 1 });
@@ -1360,9 +1356,7 @@ suite("play API", () => {
     expect(await refused(F, linkTrack(unaccepted.out.story, unaccepted.out.version))).toContain("never accepted");
     expect(await refused(F, linkTrack(T, unaccepted.out.version))).toContain("not a version of story");
     expect(await refused(F, linkTrack(T, t1, 12, { duration: 7 }))).toContain("holds its whole version");
-    // two links on one track never overlap
     expect(await refused(F, [{ op: "add_clip", track: "trailer", clip: { id: "again", at: 6, story: T, version: t1 } }])).toContain("before clip trailer ends");
-    // a draft's step is checked the same
     expect((await editStory({ story: F, message: "x", edits: linkTrack(T) })).error).toContain("names no version");
   });
 

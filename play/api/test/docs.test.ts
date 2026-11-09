@@ -99,7 +99,6 @@ suite("documents in Loro", () => {
     same((await readDoc(db, DOC)).json, target);
     const changes = diff(await stateAt(db, DOC, { version: 1 }), await stateAt(db, DOC, { edit: s!.seq }));
     expect(changes.map((c) => c.path).sort()).toEqual(["$.note", "$.title", "$.tracks[id=notes].clips[id=n1].mood", "$.tracks[id=voice].clips[id=b].duration", "$.tracks[id=voice].clips[id=b].line"]);
-    // the same body again changes nothing and is no step
     expect(await commit(db, DOC, { target, message: "nothing", author: mcp })).toBeNull();
   });
 

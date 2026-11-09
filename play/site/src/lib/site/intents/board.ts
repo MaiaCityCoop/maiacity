@@ -60,7 +60,6 @@ const SUBS = [['failed', 'Failed'], ['waiting', 'Waiting'], ['working', 'Working
 export const bySub = <T extends { sub?: { state: string } | null }>(cards: T[]) =>
 	[...SUBS.map(([k, name]) => ({ k, name, cards: cards.filter((i) => i.sub?.state === k) })), { k: '', name: '', cards: cards.filter((i) => !i.sub) }].filter((g) => g.cards.length);
 
-/** what an empty column says */
 export const EMPTY: Record<string, string> = {
 	idea: 'None. Agents add intents over MCP.',
 	specify: 'None. Agents specify an intent over MCP.',

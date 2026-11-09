@@ -15,7 +15,6 @@ export const skyTime = $state({
 	hour: NOON
 });
 
-/** Follow the in-game clock again. */
 export function automatic() {
 	skyTime.auto = true;
 }

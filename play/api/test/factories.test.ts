@@ -76,9 +76,7 @@ suite("the Factories on Loro", () => {
     expect((await tool("doc_edit", { doc: LT, intent: ready, variant: one.variant, message: "x", edits: [{ op: "set", path: ["parts", { id: "nope" }, "qty"], value: 1 }] })).error).toContain("no item nope");
     const proposed = await tool("propose_doc_version", { doc: LT, intent: ready, variant: one.variant, note: "a second weld cell and a faster floor cut: about 41 a day" });
     expect(proposed).toMatchObject({ doc: LT, number: 2, variant: one.variant, edits: 2, changes: 2 });
-    // proposed, the draft takes no more steps
     expect((await tool("doc_edit", { doc: LT, intent: ready, variant: one.variant, message: "late", edits: [{ op: "set", path: ["label"], value: "x" }] })).error).toContain("proposed already");
-    // nothing changed is no proposal
     expect((await tool("propose_doc_version", { doc: LT, intent: await readyIntent("Nothing changed"), note: "same", edits: [{ op: "set", path: ["label"], value: "LifeTrac line" }] })).error).toContain("nothing changed");
 
     // the intents' board: an intent at Proposal holding the factory's work, reviewed field by field, opened as it would be

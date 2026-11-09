@@ -231,7 +231,6 @@ export function breakIt(id, on) {
 	return {};
 }
 
-/** a session ended: its build let go of */
 export function end(id) {
 	const s = sessions.get(id);
 	if (!s) return {};

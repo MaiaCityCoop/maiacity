@@ -204,7 +204,6 @@ describe("the workflows", () => {
     const server = p.jobs.server.steps.map((s: any) => s.name ?? s.uses);
     expect(server).not.toContain("Back up play");
     expect(server).not.toContain("Copy play's files");
-    // nothing goes on past a failure
     expect(text(".github/workflows/production.yml")).not.toContain("continue-on-error");
     expect(text(".github/actions/main-green/action.yml")).not.toContain("continue-on-error");
   });

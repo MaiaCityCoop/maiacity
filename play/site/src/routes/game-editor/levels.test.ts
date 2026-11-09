@@ -137,9 +137,7 @@ describe('the levelling worked out', () => {
 		expect(b).toMatchObject({ beds: 2, housed: false, ready: false });
 		const [c, d] = levels([3, 1]);
 		expect(c).toMatchObject({ beds: 3, housed: true, ready: true });
-		// the last level is ready when it is housed
 		expect(d).toMatchObject({ beds: 4, housed: true, ready: true });
-		// an unlock without beds houses no one
 		expect(ledger(config())[0]).toMatchObject({ beds: 0, housed: false });
 	});
 

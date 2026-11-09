@@ -214,7 +214,6 @@ suite("intents depend on intents", () => {
     expect((await intent(d.id)).needed_by.map((x: any) => x.id).sort()).toEqual([b.id, c.id].sort());
     // and D on A would close it
     expect((await depend(d.id, a.id)).error).toContain("nothing waits on itself");
-    // the same edge twice is one
     expect((await depend(a.id, b.id)).depends_on).toHaveLength(2);
   });
 

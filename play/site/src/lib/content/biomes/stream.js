@@ -86,7 +86,6 @@ export function coverStream(o) {
 			hidden = !on;
 			if (hidden) for (const key of [...tiles.keys()]) drop(key);
 		},
-		/** how many plants are put down now */
 		count: () => [...tiles.values()].reduce((a, t) => a + t.copies.length, 0),
 		dispose() {
 			hidden = true;

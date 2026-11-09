@@ -182,7 +182,6 @@ describe("results across play's main merges", () => {
     expect(of(row(seen({ head: B })))).toMatchObject({ state: "working", tag: "head moved" });
     // parents not read (GitHub refused): nothing carried
     expect(carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B })).merged_in).toBeUndefined();
-    // a conflict with main: failed
     expect(of(row({ ...made, mergeable: false }))).toMatchObject({ state: "failed", tag: "conflicts with main" });
     // a red required check on the merged head: failed, nothing kept
     expect(of(row({ ...made, checks: { ...GREEN, "play / API and site": "failure" } }))).toMatchObject({ state: "failed", tag: "check red" });
@@ -287,7 +286,6 @@ suite("sub-states on the board", () => {
     } finally {
       sub.of = real;
     }
-    // nothing moved, nothing merged
     expect((await intent(atSpecify.id)).stage).toBe("specify");
     for (const i of [toAccept, withWork, toShip]) expect((await intent(i.id)).stage).toBe("proposal");
     expect(gh.calls.filter((c) => c.method === "PUT")).toEqual([]);

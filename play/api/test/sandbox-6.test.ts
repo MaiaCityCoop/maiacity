@@ -18,7 +18,6 @@ test("Sandbox 6's row comes from one migration of its own, under the UUID ids.ts
   expect(mine).toHaveLength(1);
   expect(mine[0]).toMatch(/^\d{12}-67f0404a-sandbox-6\.sql$/);
   expect(SANDBOX.six).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-  // no other sandbox shares it
   expect(Object.values(SANDBOX).filter((id) => id === SANDBOX.six)).toHaveLength(1);
 });
 

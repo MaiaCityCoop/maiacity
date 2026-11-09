@@ -88,11 +88,9 @@ export type LandKind = 'water' | 'grass' | 'earth' | 'forest' | 'taiga' | 'snow'
 export function mapsOf(files: PlanetMaps) {
 	const land = decodeGrid(files.land), kinds = decodeGrid(files.biomes), depth = decodeGrid(files.depth), mountains = decodeGrid(files.mountains);
 	return {
-		/** whether a point is land (the coastline) */
 		isLand: (p: Vec3) => land.sample(p) === 'land',
 		/** what kind of land a point is; at a coast the climate grid draws as sea, the nearest land it knows (3 cells round) */
 		kindOf: (p: Vec3) => (kinds.near(p, (v) => v !== 'water', 3, 'ring') ?? 'water') as LandKind,
-		/** whether a point is in a mountain range */
 		isMountain: (p: Vec3) => mountains.sample(p) === 'mountain',
 		/** how deep the sea is: its layer, 0 (the shelf) to 11; at a coast the nearest sea the grid knows (2 cells round), else the shelf */
 		depthOf: (p: Vec3) => (depth.near(p, (v) => (v as number) >= 0, 2, 'square') ?? 0) as number

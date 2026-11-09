@@ -133,7 +133,6 @@ suite("breeds", () => {
     const review = (await call("GET", `/api/intents/${p.intent}`)).data.review;
     expect(review.doc).toMatchObject({ id: papaya, breed: "male" });
     expect((await call("GET", `/api/intents/${p.intent}/docs/${papaya}`)).data.changes.map((c: any) => c.path)).toEqual(["$.source"]);
-    // Main stays as it was until it is accepted
     expect((await breed("male")).source).not.toContain("stronger");
     expect((await accept(p.intent)).decision).toMatchObject({ status: "accepted", number: was.number + 1 });
     const v = await head();
@@ -163,7 +162,6 @@ suite("breeds", () => {
     const v = await head();
     expect(Object.keys(v.variants)).toEqual(["female", "hermaphrodite", "male"]);
     expect(v.variants.hermaphrodite.card.card.label).toBe("Papaya: Hermaphrodite");
-    // a name a breed has is taken
     expect((await tool("doc_edit", { doc: papaya, intent: await readyIntent("A second male"), new_breed: "male", message: "again", edits: [{ op: "set", path: ["card", "card", "label"], value: "x" }] })).error).toContain("breed male already");
     // Main moves: the new breed takes it, keeping its own label
     const q = await tool("propose_doc_version", { doc: papaya, intent: await readyIntent("Taller still"), note: "taller still", edits: [{ op: "replace", find: "a taller papaya", replace: "a tallest papaya" }] });

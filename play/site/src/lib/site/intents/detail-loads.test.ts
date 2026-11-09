@@ -36,7 +36,6 @@ describe('detail loads', () => {
 	test('detail loads: opening a document fetches that document alone, once', async () => {
 		const get = vi.fn(async (path: string) => ({ path }));
 		const opened = createOpened(get);
-		// nothing is read until one is opened
 		expect(get).not.toHaveBeenCalled();
 		expect(await opened.read(ID, listed[1])).toEqual({ path: `/intents/${ID}/docs/${SKELETON}?variant=19` });
 		expect(get).toHaveBeenCalledTimes(1);
@@ -87,7 +86,6 @@ describe('detail loads', () => {
 		const d = createDecider({ post, read: vi.fn(), onchange: (b) => states.push(b) });
 		const first = d.decide(waiting, 'accept');
 		expect(d.busy).toEqual({ id: ID, verdict: 'accept' });
-		// a second press while it runs does nothing
 		expect(await d.decide(waiting, 'accept')).toBeNull();
 		expect(await d.decide(waiting, 'reject')).toBeNull();
 		expect(post).toHaveBeenCalledTimes(1);

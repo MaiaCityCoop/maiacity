@@ -215,13 +215,11 @@ export function windNodes(tsl, o) {
 		strength,
 		positionOf,
 		copyOf,
-		/** the field changed (a world's own wind) */
 		set(next) {
 			const n = windOf(next);
 			for (const k of Object.keys(LIMITS)) u[k].value = n[k];
 			u.direction.value = n.direction;
 		},
-		/** the clock moved: the world's seconds */
 		tick(t = worldSeconds()) {
 			u.time.value = t;
 		}

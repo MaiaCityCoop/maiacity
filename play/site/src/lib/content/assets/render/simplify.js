@@ -1005,7 +1005,6 @@ export async function lowerDraws(draws, plans, pause) {
 						if (h.pass && h.index.length < g.index.length) g = h;
 					}
 				}
-				// back into the drawings
 				if (g) {
 					const parts = apart(g);
 					once.forEach((i, j) => got.set(i, { index: parts[j], error: g.error, pass: g.pass }));
@@ -1041,7 +1040,6 @@ export async function lowerDraws(draws, plans, pause) {
 				result[i] = tris === 0 ? null : tris >= draws[i].tris ? 'same' : { ...(h.pass > 1 && r.welded.attributes.normal ? reshade(r.welded, h.index) : compact(r.welded, h.index)), tris };
 			}
 		}
-		// the copies never seen left out
 		if (seen)
 			for (const i of open) {
 				if (!result[i] || drawn[i] === draws[i].n) continue;

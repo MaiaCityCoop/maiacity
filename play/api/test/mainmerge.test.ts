@@ -139,7 +139,6 @@ suite("main merged into open intent pull requests", () => {
     await watchTick(db, gh.gh, store, Date.now(), null, state);
     await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(updates(from)).toEqual([]);
-    // never a merge, never the status 'Intent accepted'
     expect(merges(0)).toEqual([]);
     expect(gh.calls.filter((c) => c.method === "POST" && c.path.startsWith("/statuses/") && c.body.context !== MERGES_CONTEXT)).toEqual([]);
     // main merged in: its head is GitHub's merge commit, main's head in it
@@ -264,7 +263,6 @@ suite("main merged into open intent pull requests", () => {
     expect(mergesStatuses(from).map((x) => [x.path, x.body.state])).toEqual([[`/statuses/${resolved}`, "success"]]);
     expect(updates(from)).toEqual([]);
     expect((await intent(c.id)).sub.state).toBe("working");
-    // never a merge
     expect(merges(0)).toEqual([]);
   });
 });
