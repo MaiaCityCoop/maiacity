@@ -11,23 +11,14 @@
 // skill each edited twice in an intent variant, proposed, reviewed field by field, accepted as Main's next version (an
 // asset's and a story's frozen rows written), archived, and a clash on a moved seed archived; get_asset and get_story
 // read an intent's variant too.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createHuman } from "../src/auth";
 import { createDoc } from "../src/docs";
 import { COOP, SCHEMA } from "../src/kit/ids";
-import { Rate } from "../src/limits";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
 import { register, unregister } from "../src/kinds";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 /** the test's own kind: a gadget, a label, a count of cogs and a note */
 /** the gadget's schema: a document of the meta-schema like every schema, made here as its test's setup */
@@ -60,30 +51,23 @@ const SPEC = {
 };
 
 suite("one version control", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
 
   beforeAll(async () => {
-    name = `play_versioned_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     // c1's kind: its row table and its entry, here and nowhere else
     await db.query(`CREATE TABLE play.gadgets (id UUID PRIMARY KEY, coop_id UUID NOT NULL REFERENCES play.coops(id), label TEXT NOT NULL, created TIMESTAMPTZ NOT NULL DEFAULT now())`);
     await db.query(`INSERT INTO play.records (id, coop_id, kind, label) VALUES ($1, $2, 'schema', 'Gadget')`, [GADGET_SCHEMA, COOP]);
     await createDoc(db, { id: `schema:${GADGET_SCHEMA}`, schema: SCHEMA.meta, json: GADGET, author: { human: null, via: "import" }, version: "v1" });
     register({ name: "gadget", prefix: "gadget", schema: GADGET_SCHEMA, check: gadgetCheck, work: "gadget_version", table: "play.gadgets", label: "gadget", group: "gadgets", item: (j) => ({ cogs: j.cogs }) });
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    api = appOn(db);
     for (const n of ["ada", "cit"]) {
       const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
+      who[n] = { id: h.id, cookie: cookieFor(h.id) };
     }
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
@@ -91,32 +75,12 @@ suite("one version control", () => {
   });
   afterAll(async () => {
     unregister("gadget");
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string | null, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = {};
-    if (as) headers.cookie = who[as].cookie;
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
+  const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** an intent in Build, its spec approved, its one must check passed: ready to take work */
   const readyIntent = async (title: string) => {
     const i = await tool("add_intent", { title });
@@ -134,7 +98,7 @@ suite("one version control", () => {
     expect(await seedDoc(db, "gadget", { id: G, json: { schema: "gadget/1", label: "Again", cogs: 1 }, note: "x" })).toBe(false);
 
     // listed, by its kind; read at Main's newest version
-    const tools = (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) }))).json()).result.tools;
+    const tools = (await kitRpc(api, token, "tools/list")).json.result.tools;
     expect(tools.find((t: any) => t.name === "list_docs").inputSchema.properties.kind.enum).toContain("gadget");
     expect(await tool("list_docs", { kind: "gadget" })).toEqual([expect.objectContaining({ id: G, kind: "gadget", label: "A gadget", number: 1, versions: 1, cogs: 3 })]);
     expect((await call("ada", "GET", "/api/docs?kind=gadget")).data).toEqual([expect.objectContaining({ id: G, kind: "gadget" })]);

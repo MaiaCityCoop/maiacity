@@ -1,36 +1,27 @@
 // Migration 0017-uuids (Samuel 2026-11-04: every reference is a UUID or a hash; a name is only shown): a database as
 // production had it before, its coop, sandboxes and stories named by readable ids and its story documents by them, is
 // moved onto UUIDs whole, every row that names one with it, and nothing of a story's kept history is lost.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { MIGRATIONS, migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import { COOP, SANDBOX } from "../src/kit/ids";
 import { UUID, uuidOf } from "../src/kit/uuid";
 import { storyVersionId } from "../src/versions";
 import { history, readDoc } from "../src/docs";
 import { oldCommit, oldCreate } from "./fixtures/olddocs";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Fresh, freshDb, suite } from "./kit";
 
 const body = (line: string) => ({ schema: "story/1", format: "9:16", fps: 30, duration: 4, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line }] }] });
 
 suite("every reference a UUID (migration 0017)", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
+  let f: Fresh, db: Db;
 
   beforeAll(async () => {
-    name = `play_uuids_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
+    f = await freshDb({ prefix: "play_uuids", migrate: false });
+    db = f.db;
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("the ids play's code names are the ones the migration gives", () => {
@@ -45,8 +36,7 @@ suite("every reference a UUID (migration 0017)", () => {
 
   test("a database named by slugs is moved onto UUIDs whole, its stories' documents and history with it", async () => {
     // the database as production had it before 0017
-    await db.exec(`CREATE SCHEMA IF NOT EXISTS play; CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now());`);
-    for (const m of MIGRATIONS.filter((m) => m.id < "0017")) await db.transaction(async (tx) => (await tx.query(m.sql), await tx.query(`INSERT INTO play.migrations (id) VALUES ($1)`, [m.id])));
+    await migrate(db, { until: MIGRATIONS.filter((m) => m.id < "0017").at(-1)!.id });
     const ada = { id: crypto.randomUUID() };
     await db.query(`INSERT INTO play.humans (id, name) VALUES ($1, 'ada')`, [ada.id]);
     await db.query(`INSERT INTO play.memberships (coop_id, human_id, level) VALUES ('maia-city', $1, 'admin')`, [ada.id]);

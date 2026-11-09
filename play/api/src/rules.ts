@@ -47,7 +47,7 @@ export const RULES_V1 = {
   rules: [FIRST_RULE],
 };
 
-/** The end of migrate(), after ensureSchemas: the rule set's v1, made only where absent (one at a time: play-api and the import migrate at once on a deploy). */
+/** Play's seed (./seed.ts), after ensureSchemas: the rule set's v1, made only where absent (one at a time: play-api and the import migrate at once on a deploy). */
 export async function ensureRules(db: Db): Promise<boolean> {
   return db.transaction(async (q) => {
     await q.query(lockSql(LOCK.rulesSeed));

@@ -2,26 +2,19 @@
 // goes, read from what play keeps on it, against a real Postgres (TEST_DATABASE_URL) and a fake GitHub
 // (./fixtures/github.ts): the time at each stage (an agent's, a person's, CI's) and each ship step's, each day's
 // numbers, CI minutes and each run's slowest steps, play's main merges counted, the budgets, and who may read it.
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
-import { COOP } from "../src/access";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { BUDGETS, daysOf, delivery, NO_GITHUB } from "../src/delivery";
-import { Rate } from "../src/limits";
+import type { Me } from "../src/access";
+import { COOP } from "../src/kit/ids";
+import { createHuman } from "../src/auth";
+import { BUDGETS, daysOf, delivery, NO_GITHUB, type Timeline } from "../src/delivery";
 import { carrySeen, mainMergeState } from "../src/mainmerge";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import { watchTick } from "../src/watcher";
 import { newId } from "../src/kit/uuid";
 import { fakeGitHub, job, REPO, run, sha } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tempStore } from "./kit";
 
 const MIN = 60_000;
 const NOW = Date.parse("2026-11-07T18:00:00Z");
@@ -32,38 +25,31 @@ const res = (t: string, more: Record<string, unknown> = {}) => ({ pass: true, ev
 const step = (key: string, a: string, b?: string, state = "green") => ({ key, name: key, state, started: a, ...(b ? { finished: b } : {}) });
 
 suite("delivery", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   let ada = "", cookie = "", travelerCookie = "", token = "";
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     await seedSkills(db);
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
     const h = await createHuman(db, "ada");
     ada = h.id;
-    cookie = `play_session=${tokenFor(h.id)}`;
+    cookie = cookieFor(h.id);
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
     const t = await createHuman(db, "tom");
-    travelerCookie = `play_session=${tokenFor(t.id)}`;
+    travelerCookie = cookieFor(t.id);
     const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
     token = made.token;
   });
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   beforeEach(async () => {
@@ -74,23 +60,8 @@ suite("delivery", () => {
     gh.jobs.clear();
   });
 
-  async function call(method: string, path: string, body?: unknown, c = cookie) {
-    const headers: Record<string, string> = c ? { cookie: c } : {};
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  }
-  let n = 0;
-  const rpc = async (method: string, params: unknown) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method, params }),
-      }),
-    );
-    return r.json();
-  };
+  const call = (method: string, path: string, body?: unknown, c = cookie) => request(api, { cookie: c }, method, path, body);
+  const rpc = async (method: string, params: unknown) => (await kitRpc(api, token, method, params)).json;
 
   /** an intent as play keeps it, its times and records as given */
   async function intent(f: Record<string, unknown>) {
@@ -106,7 +77,7 @@ suite("delivery", () => {
     );
     return id;
   }
-  const me = { id: "", level: "admin" } as any;
+  const me = { id: "", level: "admin" } as Me;
   const read = (o: { days?: unknown; ci?: unknown } = {}, g: any = gh.gh) => delivery(db, { ...me, id: ada }, g, { ...o, now: NOW });
   const of = (d: Awaited<ReturnType<typeof read>>, id: string) => d.intents.find((t) => t.id === id)!;
 
@@ -200,12 +171,12 @@ suite("delivery", () => {
     const s = (name: string, a: string, b: string) => ({ name, status: "completed", conclusion: "success", started_at: at(a), completed_at: at(b) });
     gh.jobs.set(21, [job(1, "play / API and site", "completed", "success", [s("checkout", "11:00", "11:01"), s("The API", "11:01", "11:09"), s("The site", "11:09", "11:12")]), job(2, "website / build", "completed", "success", [s("build", "11:00", "11:02"), s("check", "11:02", "11:02")])]);
     const d = await read({ ci: true });
-    const ci = of(d, id).ci as any;
+    const ci = of(d, id).ci as Exclude<Timeline["ci"], { error: string } | undefined>;
     expect(ci.runs).toBe(4);
     expect(ci.minutes).toBe(19);
     expect(ci.cancelled).toBe(1);
     expect(ci.cancelled_share).toBe(0.25);
-    const r21 = ci.list.find((r: any) => r.id === 21);
+    const r21 = ci.list.find((r) => r.id === 21)!;
     expect(r21.ms).toBe(12 * MIN);
     expect(r21.over).toBe(true);
     expect(r21.slowest).toEqual([{ job: "play / API and site", step: "The API", ms: 8 * MIN }, { job: "play / API and site", step: "The site", ms: 3 * MIN }, { job: "website / build", step: "build", ms: 2 * MIN }]);
@@ -229,15 +200,15 @@ suite("delivery", () => {
     const id = await intent({ stage: "build", created: at("17:00"), specified_at: at("17:05"), approved_at: at("17:10"), pull_request: pr });
     gh.pulls.set(pr, { number: pr, state: "open", merged: false, merge_commit_sha: null, mergeable: true, draft: true, base: { ref: "main" }, head: { sha: head, ref: "intent/x" }, html_url: `https://github.test/${REPO}/pull/${pr}`, title: "x" });
     const state = mainMergeState();
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(of(await read(), id).main_merges).toBe(0);
     gh.commit(sha(9002), "main moves", [gh.main.head], true);
-    await watchTick(db, gh.gh, Date.now(), null, state);
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(of(await read(), id).main_merges).toBe(1);
     gh.commit(sha(9003), "main moves again", [gh.main.head], true);
-    await watchTick(db, gh.gh, Date.now(), null, state);
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(of(await read(), id).main_merges).toBe(2);
     // carried to a new head (a builder's push), dropped for another pull request
     const was = { pr, head: "a", draft: false, mergeable: true, state: "open", merged: false, base: "main", checks: {}, at: at("17:00"), main_merges: 2 };

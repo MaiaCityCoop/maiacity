@@ -3,18 +3,9 @@
 // (specify_intent was, its depends_on items' `type` a description), so a new tool with a bad schema fails here.
 // Against a real Postgres (TEST_DATABASE_URL), the tools listed for an admin's token.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { createHuman } from "../src/auth";
+import { type Db } from "../src/kit/pg";
+import { agentToken, type Api, appOn, cookieFor, type Fresh, freshDb, rpc as kitRpc, suite } from "./kit";
 
 const TYPES = new Set(["string", "number", "integer", "boolean", "object", "array", "null"]);
 
@@ -67,37 +58,26 @@ describe("the schema check", () => {
 });
 
 suite("every MCP tool's inputSchema", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   let cookie = "";
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db);
     const h = await createHuman(db, "ada");
-    cookie = `play_session=${tokenFor(h.id)}`;
+    cookie = cookieFor(h.id);
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
   });
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("is valid JSON Schema, an object at its top", async () => {
-    const made = await api.fetch(new Request("http://play.test/api/tokens", { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify({ name: "agent" }) }));
-    const token = ((await made.json()) as { token: string }).token;
-    const r = await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) }));
-    const tools = ((await r.json()) as { result: { tools: { name: string; inputSchema: Record<string, unknown> }[] } }).result.tools;
+    const { token } = await agentToken(api, cookie);
+    const tools = (await kitRpc(api, token, "tools/list")).json.result.tools as { name: string; inputSchema: Record<string, unknown> }[];
     expect(tools.length).toBeGreaterThan(20);
     const bad: string[] = [];
     for (const t of tools) {
@@ -106,6 +86,6 @@ suite("every MCP tool's inputSchema", () => {
     }
     expect(bad).toEqual([]);
     const spec = tools.find((t) => t.name === "specify_intent")!;
-    expect((spec.inputSchema as any).properties.depends_on.items).toEqual({ type: "string" });
+    expect((spec.inputSchema as { properties: Record<string, { items?: unknown }> }).properties.depends_on.items).toEqual({ type: "string" });
   });
 });

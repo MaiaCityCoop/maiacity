@@ -5,24 +5,16 @@
 // done, never a merge; a builder's push wins (422); the new head is working until its checks are recorded on it, then
 // waiting; a conflict is failed with its files, the status 'Merges with main' failure on its head, success once it
 // merges again.
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+import { createHuman } from "../src/auth";
 import { mainMergeState, mergeMain } from "../src/mainmerge";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
+import { type Db } from "../src/kit/pg";
 import { watchPulls, watchTick } from "../src/watcher";
 import { type Pull, MERGES_CONTEXT } from "../src/github";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tempStore, tool as mcpTool } from "./kit";
 
 const SPEC = {
   goal: "Something of play's is made.",
@@ -35,27 +27,22 @@ const SPEC = {
 };
 
 suite("main merged into open intent pull requests", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   let cookie = "";
   let token = "";
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     await seedSkills(db);
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
     const h = await createHuman(db, "ada");
-    cookie = `play_session=${tokenFor(h.id)}`;
+    cookie = cookieFor(h.id);
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
     const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
     token = made.token;
@@ -63,9 +50,7 @@ suite("main merged into open intent pull requests", () => {
   });
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   // each test on its own: every intent of an earlier one is archived, and play's own pull requests forgotten
@@ -75,26 +60,8 @@ suite("main merged into open intent pull requests", () => {
     gh.refuseUpdate(null);
   });
 
-  const call = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const j = await r.json();
-    if (j.error) return { error: j.error.message as string };
-    const text = j.result.content[0].text;
-    return j.result.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   const intent = async (id: string) => (await call("GET", `/api/intents/${id}`)).data;
   let k = 0;
   const built = async () => {
@@ -156,7 +123,7 @@ suite("main merged into open intent pull requests", () => {
     openPull(nameless, branch(), "names no intent");
     // a first look: nothing is behind main yet
     let from = gh.calls.length;
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(updates(from)).toEqual([]);
     // main moves: the two behind it are updated, each once, from the head read
     const behindToo = await codeAtProposal();
@@ -164,7 +131,7 @@ suite("main merged into open intent pull requests", () => {
     // one opened after main moved is up to date
     const fresh = await codeAtProposal();
     from = gh.calls.length;
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     const made = updates(from);
     expect(made.map((c) => c.path).sort()).toEqual([`/pulls/${atProposal.pr}/update-branch`, `/pulls/${inBuild.pr}/update-branch`, `/pulls/${behindToo.pr}/update-branch`].sort());
     for (const c of made) {
@@ -174,8 +141,8 @@ suite("main merged into open intent pull requests", () => {
     for (const pr of [...Object.values(others), closed.pr, merged.pr, elsewhere.pr, nameless, fresh.pr]) expect(made.some((c) => c.path === `/pulls/${pr}/update-branch`)).toBe(false);
     // looked at again, main where it was: nothing more
     from = gh.calls.length;
-    await watchTick(db, gh.gh, Date.now(), null, state);
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(updates(from)).toEqual([]);
     // never a merge, never the status 'Intent accepted'
     expect(merges(0)).toEqual([]);
@@ -204,7 +171,7 @@ suite("main merged into open intent pull requests", () => {
     expect(after.pr_seen.main_merged).toBeUndefined();
     // the next tick: the pull request read first, then main merged into the head it read
     from = gh.calls.length;
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     const mine = gh.calls.slice(from).filter((x) => x.path.startsWith(`/pulls/${c.pr}`));
     expect(mine[0]).toMatchObject({ method: "GET", path: `/pulls/${c.pr}` });
     expect(updates(from).map((x) => x.body)).toEqual([{ expected_head_sha: pushed }]);
@@ -214,19 +181,19 @@ suite("main merged into open intent pull requests", () => {
     mainMoves();
     gh.refuseUpdate({ status: 500, message: "GitHub is down" });
     from = gh.calls.length;
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     gh.refuseUpdate(null);
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(updates(from).filter((x) => x.path === `/pulls/${d.pr}/update-branch`).length).toBe(2);
   });
 
   test("working, then waiting: after the update the intent is working, main merged in, until every must check is recorded on the new head, then waiting", async () => {
     const state = mainMergeState();
     const c = await codeAtProposal();
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
     mainMoves();
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     // GitHub has made the new head, read on the same tick's next look
     const head = gh.pulls.get(c.pr)!.head.sha;
     expect(head).not.toBe(c.head);
@@ -240,20 +207,20 @@ suite("main merged into open intent pull requests", () => {
     expect(refused.status).toBe(409);
     // the new head read: working, its checks run on it
     gh.checks.set(head, [green("play / API and site"), green("website / build")]);
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     s = (await intent(c.id)).sub;
     expect(s.state).toBe("working");
     expect(s.why).toContain(`main merged in: its checks run on ${head.slice(0, 7)}`);
     expect((await intent(c.id)).stage).toBe("proposal");
     // the box's run records every must on the new head: waiting
     expect((await tool("check_intent", { intent: c.id, pr: c.pr, results: [{ check: "c1", pass: true, evidence: "0 fail", commit: head }] })).stage).toBe("proposal");
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
     // and a builder's push after it is the head moved, as before (not main merged in)
     const pushed = gh.commit(sha(++commits), "the builder's push", [head], false);
     gh.pulls.get(c.pr)!.head.sha = pushed;
     gh.checks.set(pushed, [green("play / API and site"), green("website / build")]);
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect((await intent(c.id)).sub.why).toContain("moved past the checked commit");
   });
 
@@ -268,7 +235,7 @@ suite("main merged into open intent pull requests", () => {
     gh.pulls.get(c.pr)!.mergeable = false;
     gh.pulls.get(b.pr)!.mergeable = false;
     let from = gh.calls.length;
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(updates(from)).toEqual([]);
     const line = "conflicts with main: play/SPEC.md, play/api/src/ship.ts";
     expect((await intent(c.id)).sub).toEqual({ state: "failed", tag: "conflicts with main", why: line });
@@ -285,7 +252,7 @@ suite("main merged into open intent pull requests", () => {
     expect(refused.data.error).toContain("conflicts with main");
     // read again, nothing changed: posted once
     from = gh.calls.length;
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(mergesStatuses(from)).toEqual([]);
     expect(updates(from)).toEqual([]);
     // its builder resolves it (main merged by hand, pushed): success on the new head, and nothing more to update
@@ -293,7 +260,7 @@ suite("main merged into open intent pull requests", () => {
     Object.assign(gh.pulls.get(c.pr)!, { mergeable: true, head: { sha: resolved, ref: `claude/${c.pr}` } });
     gh.checks.set(resolved, [green("play / API and site"), green("website / build")]);
     from = gh.calls.length;
-    await watchTick(db, gh.gh, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(mergesStatuses(from).map((x) => [x.path, x.body.state])).toEqual([[`/statuses/${resolved}`, "success"]]);
     expect(updates(from)).toEqual([]);
     expect((await intent(c.id)).sub.state).toBe("working");

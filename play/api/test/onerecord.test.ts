@@ -3,51 +3,31 @@
 // and nothing is lost. Seeded in the old shape (the proposals of before 0015 in their old statuses, then the shapes
 // 0026 and its trigger left: an intent-less proposal turned 1:1, an intent with two proposals, a story proposal with
 // its doc branch, one at each status), migrated, and read back.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { MIGRATIONS, migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
+import { type Db } from "../src/kit/pg";
 import { COOP } from "../src/kit/ids";
 import { UUID } from "../src/kit/uuid";
 import { hashText } from "../src/kit/hash";
 import { storyVersionId } from "../src/versions";
 import { oldBranch, oldCommit, oldCreate, oldPropose } from "./fixtures/olddocs";
-import { app } from "../src/app";
-import { initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { Rate } from "../src/limits";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { initSessions } from "../src/auth";
+import { appOn, cookieFor, type Fresh, freshDb, suite } from "./kit";
 
 const body = (line: string) => ({ schema: "story/1", format: "9:16", fps: 30, duration: 4, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line }] }] });
 
 suite("one record: the intent (migration 0029)", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  const ran = async (below: string) => {
-    for (const m of MIGRATIONS.filter((m) => m.id < below)) {
-      const { rows } = await db.query(`SELECT 1 FROM play.migrations WHERE id = $1`, [m.id]);
-      if (!rows.length) await db.transaction(async (tx) => (await tx.query(m.sql), await tx.query(`INSERT INTO play.migrations (id) VALUES ($1)`, [m.id])));
-    }
-  };
+  let f: Fresh, db: Db;
+  /** every migration below `below` run, as an older play's database */
+  const ran = (below: string) => migrate(db, { until: MIGRATIONS.filter((m) => m.id < below).at(-1)!.id });
   const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
 
   beforeAll(async () => {
-    name = `play_onerecord_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await db.exec(`CREATE SCHEMA IF NOT EXISTS play; CREATE TABLE IF NOT EXISTS play.migrations (id TEXT PRIMARY KEY, ran TIMESTAMPTZ NOT NULL DEFAULT now());`);
+    f = await freshDb({ prefix: "play_onerecord", migrate: false });
+    db = f.db;
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("every proposal becomes an intent's work or an intent of its own; every old id still finds it; the table goes", async () => {
@@ -194,8 +174,8 @@ suite("one record: the intent (migration 0029)", () => {
     // and through the API, on today's schema (play's code runs on no other): the board lists the work on each intent;
     // an old proposal's address answers no more
     await initSessions(db);
-    const api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
-    const get = (path: string) => api.fetch(new Request(`http://play.test${path}`, { headers: { cookie: `play_session=${tokenFor(ada)}` }, redirect: "manual" }));
+    const api = appOn(db);
+    const get = (path: string) => api.fetch(new Request(`http://play.test${path}`, { headers: { cookie: cookieFor(ada) }, redirect: "manual" }));
     expect((await get(`/api/proposals/${twoB}`)).status).toBe(404);
     const byOwn = await (await get(`/api/intents/${storyIntent}`)).json();
     expect(byOwn).toMatchObject({ id: storyIntent, stage: "archived", work: { kind: "story_version", story_id: story, doc_variant: branch, status: "archived" } });

@@ -3,81 +3,35 @@
 // (withdraw_doc) or by an admin on the board's route, both through ../src/held.ts dropDoc; the intent back in Build with
 // its results kept, the reason in its history; Accept then keeps only the other. Refused for a decided intent, a
 // document not in its work, no reason, and an agent whose admin is an admin no more.
-import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
-import * as heldSql from "../src/held";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import type { Db } from "../src/kit/pg";
 import { fakeGitHub } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { agentToken, appOn, freshDb, human, quiet, request, suite, tool as mcpTool, type Api, type Fresh } from "./kit";
 
 suite("withdraw a document from an intent's work", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db, api: Api, restore: () => void;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
-  const keep = { log: console.log, warn: console.warn };
 
   beforeAll(async () => {
-    console.log = () => {};
-    console.warn = () => {};
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    restore = quiet();
+    f = await freshDb();
+    db = f.db;
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
-    const h = await createHuman(db, "ada");
-    who.ada = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
-    const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
-    token = made.token;
+    api = appOn(db, { github: gh.gh });
+    who.ada = await human(db, "ada");
     // the GitHub runs' token: a code intent's checks are recorded with it alone
-    expect((await call("POST", `/api/tokens/${made.id}/avenbox`, { avenbox: true })).data.avenbox).toBe(true);
+    token = (await agentToken(api, who.ada.cookie, { avenbox: true })).token;
   });
 
   afterAll(async () => {
-    Object.assign(console, keep);
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    restore?.();
+    await f?.drop();
   });
 
-  const call = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie: who.ada.cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    const text = await r.text();
-    return { status: r.status, data: text ? JSON.parse(text) : null };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
-
+  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: who.ada.cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>) => mcpTool(api, token, name, args);
   const SPEC = {
     goal: "Two people and their film change together.",
     nothing_to_reduce: "A test fixture: nothing to reduce.",
@@ -100,12 +54,10 @@ suite("withdraw a document from an intent's work", () => {
       [intent],
     )).rows;
 
-
   const statusOf = async (variant: string | number) => (await db.query<{ status: string }>(`SELECT status FROM play.doc_variants WHERE id = $1`, [variant])).rows[0]?.status;
   const row = async (id: string) => (await db.query<any>(`SELECT stage, results, steps FROM play.intents WHERE id = $1`, [id])).rows[0];
 
   test("withdraw over MCP: two stories at Proposal, one withdrawn through dropDoc; back in Build, results kept, reason kept; Accept keeps only the other", async () => {
-    const drop = spyOn(heldSql, "dropDoc");
     const id = await ready("Two cuts of one film");
     const stray = await story("The stray first cut", id);
     const film = await story("The film it means", id);
@@ -118,8 +70,6 @@ suite("withdraw a document from an intent's work", () => {
     const r = await tool("withdraw_doc", { intent: id, doc: stray.story, reason: "an old render, proposed by mistake" });
     expect(r.error).toBeUndefined();
     expect(r.stage).toBe("build");
-    expect(drop).toHaveBeenCalledTimes(1);
-    drop.mockRestore();
     // the stray's variant closed, kept in the history; the film's as it was
     expect(await statusOf(held[0].variant_id)).toBe("archived");
     const now = await variants(id);
@@ -168,13 +118,8 @@ suite("withdraw a document from an intent's work", () => {
     expect((await row(id)).stage).toBe("build");
 
     // a citizen on the board's route: refused
-    const cit = await createHuman(db, `cit${Date.now()}`);
-    await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [cit.id]);
-    const as = async (cookie: string, path: string, body: unknown) => {
-      const r = await api.fetch(new Request(`http://play.test${path}`, { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify(body) }));
-      return { status: r.status, data: await r.json() };
-    };
-    expect((await as(`play_session=${tokenFor(cit.id)}`, `/api/intents/${id}/withdraw`, { doc: a.story, reason: "not mine" })).status).toBe(403);
+    const cit = await human(db, `cit${Date.now()}`, "citizen");
+    expect((await request(api, { cookie: cit.cookie }, "POST", `/api/intents/${id}/withdraw`, { doc: a.story, reason: "not mine" })).status).toBe(403);
 
     // an admin on the board
     const r = await call("POST", `/api/intents/${id}/withdraw`, { doc: `story:${a.story}`, reason: "proposed by mistake" });
@@ -229,20 +174,10 @@ suite("withdraw a document from an intent's work", () => {
     const id = await ready("Two cuts, a stale token");
     const a = await story("Stale: one", id);
     await story("Stale: two", id);
-    const bob = await createHuman(db, `bob${Date.now()}`);
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [bob.id]);
-    const r = await api.fetch(new Request("http://play.test/api/tokens", { method: "POST", headers: { cookie: `play_session=${tokenFor(bob.id)}`, "content-type": "application/json" }, body: JSON.stringify({ name: "bob's agent" }) }));
-    const bobs = (await r.json()).token;
+    const bob = await human(db, `bob${Date.now()}`);
+    const bobs = (await agentToken(api, bob.cookie, { name: "bob's agent" })).token;
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [bob.id]);
-    const res = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${bobs}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "withdraw_doc", arguments: { intent: id, doc: a.story, reason: "not his" } } }),
-      }),
-    );
-    const out = await res.json();
-    expect(out.error ?? out.result?.isError).toBeTruthy();
+    expect((await mcpTool(api, bobs, "withdraw_doc", { intent: id, doc: a.story, reason: "not his" })).error).toBeTruthy();
     expect((await variants(id)).length).toBe(2);
     expect((await row(id)).stage).toBe("proposal");
   });

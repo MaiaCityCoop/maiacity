@@ -4,75 +4,36 @@
 // GET /api/stories, list_docs, the Library's uses), its history kept by its UUID and marked retired, no new version, and
 // nothing naming it by hash broken (a story linking its frozen version, its files); Archive leaves it as it was.
 // Refused: no reason, a document never accepted, one retired already, an intent not in Build or at Proposal.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-import { Rate } from "../src/limits";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { type Db } from "../src/kit/pg";
 import { fakeGitHub } from "./fixtures/github";
+import { type Api, appOn, type Fresh, freshDb, human, quiet, request, suite, tool as mcpTool } from "./kit";
 
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 suite("retire a document by an intent", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
-  const keep = { log: console.log, warn: console.warn };
+  let restore = () => {};
 
   beforeAll(async () => {
-    console.log = () => {};
-    console.warn = () => {};
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: fakeGitHub().gh });
-    const h = await createHuman(db, "ada");
-    who.ada = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    restore = quiet();
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db, { github: fakeGitHub().gh });
+    who.ada = await human(db, "ada");
     token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
   });
 
   afterAll(async () => {
-    Object.assign(console, keep);
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    restore();
+    await f?.drop();
   });
 
-  const call = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie: who.ada.cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    const text = await r.text();
-    return { status: r.status, data: text ? JSON.parse(text) : null };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: who.ada.cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
 
   const SPEC = {
     goal: "A stray copy leaves the lists.",
@@ -125,7 +86,7 @@ suite("retire a document by an intent", () => {
     const one = await call("GET", `/api/intents/${id}/docs/${a.story}`);
     expect(one.status).toBe(200);
     expect([one.data.retires, one.data.changes]).toEqual(["an identical stray copy", []]);
-    // to Proposal with its work, as any
+    // to Proposal with its work, like any other
     expect(await pass(id)).toBe("proposal");
 
     // refused: no reason; a document no intent ever accepted; an intent at Idea

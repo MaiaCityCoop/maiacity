@@ -5,20 +5,11 @@
 // `characters` by its own document (an intent variant's edit of its card's group, proposed naming the intent and
 // accepted with it) lists under characters and no longer under actors, never by a migration; an unknown group is
 // still refused, by list_assets, by propose_asset and by a move.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { createHuman } from "../src/auth";
 import { GROUPS } from "../src/groups";
-import { Rate } from "../src/limits";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/kit/pg";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Db } from "../src/kit/pg";
+import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 const SPEC = {
   goal: "A person moves to the characters.",
@@ -29,35 +20,16 @@ const SPEC = {
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
 
 suite("characters", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   let cookie = "";
   let token = "";
   let person = "";
   let goat = "";
 
-  const call = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
+  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: cookie }, method, path, body);
   /** a tool called over MCP by the admin's token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const j = await r.json();
-    if (j.error) return { error: j.error.message as string };
-    const res = j.result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** an intent in Build, its spec approved, its one must check passed: ready to take work */
   const readyIntent = async (title: string) => {
     const i = await tool("add_intent", { title });
@@ -67,25 +39,18 @@ suite("characters", () => {
     return i.id as string;
   };
   const accept = async (intent: string) => (await call("POST", `/api/intents/${intent}/accept`)).data;
-  const ids = async (group: string) => ((await tool("list_assets", { group })) as any[]).map((a) => a.id);
+  const ids = async (group: string) => (await tool("list_assets", { group })).map((a: { id: string }) => a.id);
   /** an asset's group as the asset library has it (play.assets) and as its head version's card names it */
   const groupOf = async (asset: string) =>
     (await db.query<any>(`SELECT a.grp, v.card->'card'->>'group' AS card FROM play.assets a JOIN play.asset_versions v ON v.id = a.head WHERE a.id = $1`, [asset])).rows[0];
 
   beforeAll(async () => {
-    name = `play_characters_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db);
     const h = await createHuman(db, "ada");
     await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
-    cookie = `play_session=${tokenFor(h.id)}`;
+    cookie = cookieFor(h.id);
     token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
 
     // a person and a goat, both filed among the actors, as Stand-in and Elder woman were
@@ -97,17 +62,13 @@ suite("characters", () => {
     }
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("characters is one of the API's groups, named in one list", async () => {
     expect(GROUPS).toContain("characters");
     expect(GROUPS).toContain("actors");
-    const { result } = await (
-      await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/list" }) }))
-    ).json();
+    const { result } = (await kitRpc(api, token, "tools/list")).json;
     const enumOf = (t: string) => result.tools.find((x: any) => x.name === t).inputSchema.properties.group.enum;
     expect(enumOf("list_assets")).toEqual([...GROUPS]);
     expect(enumOf("propose_asset")).toEqual([...GROUPS]);

@@ -1,20 +1,19 @@
 // An intent shaped like the heavy ones on play (intent 2df30a21): 99b612ec (8 pieces in dependency order, some in several
 // versions, motion-capture data in them, and 2 assets requiring them) and 873c6ef2 (31 documents, pieces and hosts).
-// Used by the detail's size measure (./detail-size.ts), the "accept answers" tests (../test/detailfast.test.ts) and the
-// dev server's seed for a look (./seed-heavy.ts). Every document is made the one way play makes them: proposed over the
-// same calls MCP's tools make, naming the intent.
-import { proposeAsset } from "../src/assetdocs";
-import type { BlobStore } from "../src/blobs";
-import { meOf } from "../src/access";
-import { hashText } from "../src/kit/hash";
-import type { Db } from "../src/kit/pg";
-import { proposeDocVersion } from "../src/versioned";
-import "../src/allkinds";
+// Used by the "accept answers" tests (../detailfast.test.ts). Every document is made the one way play makes them:
+// proposed over the same calls MCP's tools make, naming the intent.
+import { proposeAsset } from "../../src/assetdocs";
+import type { BlobStore } from "../../src/blobs";
+import { meOf } from "../../src/access";
+import { COOP } from "../../src/kit/ids";
+import { hashText } from "../../src/kit/hash";
+import type { Db } from "../../src/kit/pg";
+import { proposeDocVersion } from "../../src/versioned";
+import "../../src/allkinds";
 
-const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
 
 /** about `kb` KB of motion-capture-like data, as readable lines (a frame a line) */
-export function motion(seed: number, kb: number) {
+function motion(seed: number, kb: number) {
   const lines: string[] = [];
   let x = seed;
   const next = () => ((x = (x * 1103515245 + 12345) % 2147483648) / 2147483648).toFixed(4);
@@ -23,15 +22,15 @@ export function motion(seed: number, kb: number) {
 }
 
 /** a piece's source: requiring those below it, with `kb` KB of data */
-export const pieceSource = (label: string, below: string[], kb: number, n = 0) =>
+const pieceSource = (label: string, below: string[], kb: number, n = 0) =>
   `// ${label}, a piece (version ${n + 1})\n${below.map((h, i) => `const below${i} = require("${h}");\n`).join("")}module.exports.frames = [\n${motion(label.length * 31 + n, kb)}\n];\nmodule.exports.depth = ${below.length ? `Math.max(${below.map((_, i) => `below${i}.depth`).join(", ")}) + 1` : 1};\n`;
 
 /** a host's source: an asset requiring pieces by hash */
-export const hostSource = (label: string, pieces: string[], kb: number) =>
+const hostSource = (label: string, pieces: string[], kb: number) =>
   `// ${label}\n${pieces.map((p, i) => `const p${i} = require("${p}");\n`).join("")}const pose = [\n${motion(label.length * 7, kb)}\n];\nmodule.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant }, build() { return pose.length + ${pieces.length ? "p0.depth" : "0"}; } };\n};\n`;
 
 /** an intent in Build, its spec approved and its one must check passed: what takes work */
-export async function building(db: Db, author: string, title: string) {
+async function building(db: Db, author: string, title: string) {
   const id = crypto.randomUUID();
   const spec = { goal: "It changes.", scope: "A heavy intent.", checks: [{ id: "c1", check: "It holds", how: "test", by: "true", run: "true", must: true, step: "mvp" }] };
   const results = { c1: { pass: true, evidence: "exit 0", by: null, at: new Date().toISOString() } };

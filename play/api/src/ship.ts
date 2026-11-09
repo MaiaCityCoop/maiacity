@@ -14,9 +14,6 @@ import { closeWork, workOf } from "./held";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
 
-/** set by ./app.ts */
-export const shipWork: { store?: BlobStore } = {};
-
 /** how long a step may wait for its run to appear before the ship is red */
 const START_WITHIN_MS = 15 * 60_000;
 /** how long a ship first in line waits for its pull request's checks or for GitHub before it is red */
@@ -167,7 +164,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
 export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now()) {
   return db.transaction(async (tx) => {
     await tx.query(lockSql(LOCK.shipQueue));
-    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, decided_at, spec, results FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
+    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, COALESCE((extract(epoch FROM decided_at) * 1000000)::bigint, 0)::text AS turn, spec, results FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
     const was: Ship | undefined = row?.ship;
     if (!was?.pending) return;
     const ship: Ship = { ...was, steps: was.steps.map((s) => ({ ...s })) };
@@ -195,13 +192,14 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
     const no = await gate.mayMove(tx, id, "merge");
     if (no) return no.wait ? wait(no.why, false) : red(no.why);
 
-    const { rows: others } = await tx.query<any>(`SELECT id, title, ship, decided_at FROM play.intents WHERE stage = 'ship' AND id <> $1 AND coop_id = $2`, [id, COOP]);
-    const time = (d: string | number | Date) => new Date(d).getTime();
+    const { rows: others } = await tx.query<any>(`SELECT id, title, ship, COALESCE((extract(epoch FROM decided_at) * 1000000)::bigint, 0)::text AS turn FROM play.intents WHERE stage = 'ship' AND id <> $1 AND coop_id = $2`, [id, COOP]);
+    // the order accepted: decided_at to the microsecond (a millisecond holds two Accepts one after the other), then id
+    const turn = (o: { turn: string }) => BigInt(o.turn);
     // one ended (green, waiting for the reconcile to find it live) runs no more
     const running = others.find((o) => o.ship && !o.ship.pending && !o.ship.outcome);
     const ahead = others
-      .filter((o) => o.ship?.pending && (time(o.decided_at) < time(row.decided_at) || (time(o.decided_at) === time(row.decided_at) && o.id < id)))
-      .sort((a, b) => time(b.decided_at) - time(a.decided_at))[0];
+      .filter((o) => o.ship?.pending && (turn(o) < turn(row) || (turn(o) === turn(row) && o.id < id)))
+      .sort((a, b) => (turn(b) > turn(a) ? 1 : turn(b) < turn(a) ? -1 : 0))[0];
     // named for the one just before it: the last waiting ahead of it, else the one shipping
     const blocker = ahead ?? running;
     if (blocker) return wait(`Queued · behind ${blocker.title}`, false);
@@ -397,7 +395,7 @@ function trailersOf(main: Map<string, string>) {
 type Reconciled = { commit: string; accepted: string[]; flagged: string[]; cleared: string[] };
 
 /** The one place a code intent becomes Accepted: its merge commit in what play runs (intent 9876ef00); else flagged, not moved. */
-export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Reconciled> {
+export async function reconcile(db: Db, gh: GitHub, store: BlobStore, commit: string): Promise<Reconciled> {
   const live = await history(gh, commit);
   const trailers = trailersOf(await history(gh, "main"));
   const { rows } = await db.query<{ id: string; stage: string; pull_request: number | null; ship: Ship | null }>(
@@ -434,7 +432,7 @@ export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Rec
             WHERE id = $1 AND stage = $2 RETURNING id`,
           [i.id, i.stage, patch({ live: true, commit, note })],
         );
-        if (done.length) await acceptWorkLive(tx, i.id);
+        if (done.length) await acceptWorkLive(tx, store, i.id);
         return done;
       });
       if (done.length) {
@@ -458,7 +456,7 @@ export async function reconcile(db: Db, gh: GitHub, commit: string): Promise<Rec
 }
 
 /** Work of play's accepted as its code is seen live (intent 7c8986c5); where it does not go in, closed: a new intent proposes it again. */
-async function acceptWorkLive(tx: Queryable, id: string) {
+async function acceptWorkLive(tx: Queryable, store: BlobStore, id: string) {
   const p = await workOf(tx, id, true);
   if (!p?.kind || !p.variants?.some((v: any) => v.doc_variant != null)) return;
   const { rows: open } = await tx.query(`SELECT 1 FROM play.intent_variants iv JOIN play.doc_variants v ON v.id = iv.variant_id WHERE iv.intent_id = $1 AND v.status IN ('open', 'proposed')`, [id]);
@@ -475,9 +473,8 @@ async function acceptWorkLive(tx: Queryable, id: string) {
     console.warn(`reconcile: intent ${id}'s work of play's not accepted: ${text}`);
   };
   if (me?.level !== "admin") return why("no admin to accept its work of play's: its code is live, propose its work again in an intent of its own");
-  if (!shipWork.store) return why("play holds no store to accept its work with");
   await tx.query(`SAVEPOINT work_live`);
-  const out: any = await decideWork(tx, { db: tx as Db, store: shipWork.store }, me, p, "accept").catch((e) => ({ status: "failed", message: (e as Error).message }));
+  const out: any = await decideWork(tx, { db: tx as Db, store }, me, p, "accept").catch((e) => ({ status: "failed", message: (e as Error).message }));
   if (out?.status === "accepted") {
     // its decision left it Accepted by whoever decided it; the reconcile's own note stands on its ship
     await tx.query(`RELEASE SAVEPOINT work_live`);
@@ -488,7 +485,7 @@ async function acceptWorkLive(tx: Queryable, id: string) {
 }
 
 /** An Accept of an intent whose code is on main by its trailer: the reconcile's, not a person's; null where it names none. */
-export async function acceptCode(db: Db, gh: GitHub | null, who: Me | null, id: string, commit: string | null = runningCommit()) {
+export async function acceptCode(db: Db, gh: GitHub | null, store: BlobStore, who: Me | null, id: string, commit: string | null = runningCommit()) {
   const me = admin(who, INTENT_ADMINS);
   const intent = await getIntent(db, id);
   if (intent.work || intent.pull_request || !gh) return null;
@@ -496,7 +493,7 @@ export async function acceptCode(db: Db, gh: GitHub | null, who: Me | null, id: 
   const on = trailersOf(await history(gh, "main")).get(intent.id);
   if (!on?.length) return null;
   if (!commit) refuse("Its code is on main, and play knows no commit of its own (PLAY_COMMIT) to find it in: it is Accepted once play runs it.");
-  await reconcile(db, gh, commit!);
+  await reconcile(db, gh, store, commit!);
   const now = await getIntent(db, intent.id);
   if (now.stage !== "accepted")
     refuse(`Its code is on main (${on.map((s) => s.slice(0, 7)).join(", ")}), not yet in what play runs (${commit!.slice(0, 7)}): it is Accepted by itself once production runs it.`);
