@@ -16,16 +16,21 @@
 // default); what a coop puts into its own (its insides, an energy plant: `owner` 'coop', `coop` its name) is counted
 // beside it, never taken from it (Samuel 2026-11-09). And an unlock may house people (`beds`): a level is housed while
 // its beds cover its villagers, and ready while they cover the next level's, for a newcomer moves in only to a bed.
+// The cost is what the village pays building it itself (Samuel 2026-11-09: "Self-built, but the villagers still can get
+// paid in minds"): an unlock's `contractor` price stands beside it, and `minds.labourShare` of the difference, the work
+// the villagers did, is paid to them in minds at the level's price; those minds are the villagers', counted in their share.
 
 /** cost: what it costs the way the village builds it (self-built); contractor: what a contractor would charge, shown beside */
-export type Unlock = { label: string; cost: number; contractor?: number; kind?: string; note?: string; owner?: 'village' | 'coop'; coop?: string; beds?: number };
+/** pending: its size or cost is still being worked out (its cost then stands for nothing yet) */
+export type Unlock = { label: string; cost: number; contractor?: number; kind?: string; note?: string; owner?: 'village' | 'coop'; coop?: string; beds?: number; pending?: boolean };
 export type Level = { id: string; villagers: number; phase: string; investor: number; unlocks: Unlock[]; note?: string };
 export type Levelling = {
 	schema: 'levels/1';
 	label: string;
 	note?: string;
 	villager: { euros: number; hearts: number };
-	minds: { heartsPerMind: number; step: number; heartsPerEuro: number; villagersMin?: number };
+	/** labourShare: the share of the work's value (what contractors would have charged above the self-built cost) the villagers who build are paid in minds */
+	minds: { heartsPerMind: number; step: number; heartsPerEuro: number; villagersMin?: number; labourShare?: number };
 	investor?: { maxPerVillager?: number };
 	levels: Level[];
 };
@@ -46,6 +51,8 @@ export type Row = {
 	/** each new villager: what they bring and the minds it buys; and all of this level's new villagers together */
 	villager: { euros: number; hearts: number; minds: number };
 	villagers: { euros: number; hearts: number; minds: number };
+	/** the villagers' work on the village's own: what contractors would have charged above the self-built cost, and the minds a share of it pays */
+	labour: { value: number; minds: number };
 	investor: {
 		euros: number;
 		/** the multiple of the villagers' euros it brought: the level's, or less where the cap held it */
@@ -105,12 +112,14 @@ export function ledger(c: Levelling): Row[] {
 		const all = { euros: joined * each.euros, hearts: joined * each.hearts, minds: joined * each.minds };
 		const asked = all.euros * level.investor;
 		const inv = Math.min(asked, joined * most);
-		villagerMinds += all.minds;
+		const value = level.unlocks.reduce((t, u) => t + (isCoop(u) || u.contractor === undefined ? 0 : Math.max(0, u.contractor - u.cost)), 0);
+		const labour = { value, minds: ((c.minds.labourShare ?? 0) * value) / pe };
+		villagerMinds += all.minds + labour.minds;
 		// the investors' minds so far may reach (1 − least) of all: v · (1 − least) / least
 		const room = Math.max(0, (villagerMinds * (1 - least)) / least - investorMinds);
 		const invMinds = Math.min(inv / pe, room);
 		investorMinds += invMinds;
-		const minted = all.minds + invMinds;
+		const minted = all.minds + labour.minds + invMinds;
 		const cost = level.unlocks.reduce((t, u) => t + (isCoop(u) ? 0 : u.cost), 0);
 		const own = level.unlocks.reduce((t, u) => t + (isCoop(u) ? u.cost : 0), 0);
 		const contractor = level.unlocks.reduce((t, u) => t + (isCoop(u) ? 0 : (u.contractor ?? u.cost)), 0);
@@ -132,6 +141,7 @@ export function ledger(c: Levelling): Row[] {
 			price: { hearts: ph, euros: pe },
 			villager: each,
 			villagers: all,
+			labour,
 			investor: { euros: inv, multiple: all.euros ? inv / all.euros : 0, capped: inv < asked, minds: invMinds, share: minted ? invMinds / minted : 0, paid, premium: paid / pe },
 			minted,
 			cost,

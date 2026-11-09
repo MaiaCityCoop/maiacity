@@ -102,7 +102,7 @@
 						<h1>How a village grows</h1>
 						{#if levelling.note}<p class="lead">{levelling.note}</p>{/if}
 						<p class="rules">
-							Every villager brings <b>{euros(levelling.villager.euros)}</b> and <b>{short(levelling.villager.hearts)} hearts</b>. A mind costs {short(levelling.minds.heartsPerMind)} hearts at level 1 and {short(levelling.minds.step)} more at every level, or that in euros at {levelling.minds.heartsPerEuro} hearts a euro. At each level an investor adds a multiple of the new villagers' euros{#if levelling.investor?.maxPerVillager}, at most <b>€{whole(levelling.investor.maxPerVillager)}</b> a new villager{/if}; the villagers always hold at least <b>{pct(levelling.minds.villagersMin ?? VILLAGERS_MIN)}</b> of the minds, so the investor pays more for a mind than a villager. The treasury pays only the village's own (land, domes, the tower, infrastructure); what a coop puts into its own is counted beside it.
+							Every villager brings <b>{euros(levelling.villager.euros)}</b> and <b>{short(levelling.villager.hearts)} hearts</b>. A mind costs {short(levelling.minds.heartsPerMind)} hearts at level 1 and {short(levelling.minds.step)} more at every level, or that in euros at {levelling.minds.heartsPerEuro} hearts a euro. At each level an investor adds a multiple of the new villagers' euros{#if levelling.investor?.maxPerVillager}, at most <b>€{whole(levelling.investor.maxPerVillager)}</b> a new villager{/if}; the villagers always hold at least <b>{pct(levelling.minds.villagersMin ?? VILLAGERS_MIN)}</b> of the minds{#if levelling.minds.labourShare}, the minds paid to those who build among them (<b>{pct(levelling.minds.labourShare)}</b> of what contractors would have charged for their work){/if}, so the investor pays more for a mind than a villager. The treasury pays only the village's own (land, domes, the tower, infrastructure); what a coop puts into its own is counted beside it.
 						</p>
 					</header>
 
@@ -140,11 +140,11 @@
 											<td><b>{whole(r.level.villagers)}</b><small>+{whole(r.joined)} new</small></td>
 											<td class="wide">
 												<ul class="unlocks">
-													{#each r.level.unlocks as u, i (i)}<li class:coop={isCoop(u)}>{u.label}{#if isCoop(u)}<span class="who">{u.coop ?? 'a coop'}'s own</span>{/if}{#if u.beds}<span class="who">{u.beds} beds</span>{/if}<em>{euros(u.cost)}{#if u.contractor}<small>{euros(u.contractor)} by contractors</small>{/if}</em></li>{/each}
+													{#each r.level.unlocks as u, i (i)}<li class:coop={isCoop(u)}>{u.label}{#if isCoop(u)}<span class="who">{u.coop ?? 'a coop'}'s own</span>{/if}{#if u.beds}<span class="who">{u.beds} beds</span>{/if}{#if u.pending}<span class="who pending">pending</span>{/if}<em>{euros(u.cost)}{#if u.contractor}<small>{euros(u.contractor)} by contractors</small>{/if}</em></li>{/each}
 												</ul>
 											</td>
 											<td class="num"><b>{euros(r.cost)}</b>{#if r.contractor !== r.cost}<small>{euros(r.contractor)} by contractors</small>{/if}{#if r.coops}<small>+ {euros(r.coops)} the coops' own</small>{/if}</td>
-											<td class="num"><b>{whole(r.villager.minds)} minds</b><small>a mind {short(r.price.hearts)} hearts or {euros(r.price.euros)}</small><small>{short(r.minted)} minted at this level</small></td>
+											<td class="num"><b>{whole(r.villager.minds)} minds</b><small>a mind {short(r.price.hearts)} hearts or {euros(r.price.euros)}</small>{#if r.labour.minds}<small>+ {short(r.labour.minds)} minds to the builders, for {euros(r.labour.value)} of work</small>{/if}<small>{short(r.minted)} minted at this level</small></td>
 											<td class="num"><b>{euros(r.investor.euros)}</b><small>{times(r.investor.multiple)} the villagers'{#if r.investor.capped} (held to the cap, {times(r.level.investor)} asked){/if}</small><small>{short(r.investor.minds)} minds · {pct(r.investor.share)}</small><small>a mind {euros(r.investor.paid)}, {times(r.investor.premium)} a villager's</small></td>
 											<td class="num"><b class:low={!r.housed}>{whole(r.beds)}</b><small>for {whole(r.level.villagers)} villagers</small><small class:low={!r.ready}>{r.ready ? 'ready for the next' : r.housed ? 'short for the next level' : 'short'}</small></td>
 											<td class="num tre"><b>{euros(r.treasury.raised)}</b><small class:low={r.treasury.left < 0}>{euros(r.treasury.left)} left after building</small>{#if r.treasury.contractor.spent !== r.treasury.spent}<small class:low={r.treasury.contractor.left < 0}>{euros(r.treasury.contractor.left)} by contractors</small>{/if}<small>{short(r.treasury.hearts)} hearts · {short(r.treasury.minds)} minds</small><small>villagers hold {pct(r.treasury.villagers)}</small>{#if r.treasury.coops}<small>{euros(r.treasury.coops)} the coops' own</small>{/if}</td>
@@ -191,6 +191,7 @@
 	td small { display: block; font-size: 0.72rem; color: var(--muted); }
 	td small.low, .low { color: #c23a22; }
 	.unlocks li.coop { color: var(--muted); }
+	.who.pending { background: #f3d9a4; }
 	.who { padding: 0 0.35rem; border-radius: 999px; background: var(--sage-soft); color: var(--ink); font-size: 0.68rem; white-space: nowrap; }
 	.tre { background: rgb(168 184 138 / 0.12); }
 	tr.phase th { padding: 0.45rem 0.65rem; background: var(--sage-soft); color: var(--ink); font-family: var(--font-display); font-size: 0.95rem; font-weight: 500; letter-spacing: 0; text-transform: none; }

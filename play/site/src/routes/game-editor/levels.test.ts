@@ -106,6 +106,28 @@ describe('the levelling worked out', () => {
 		expect(two).toMatchObject({ cost: 0, contractor: 0, coops: 500 });
 	});
 
+	it('builders paid in minds', () => {
+		const unlocks: Unlock[][] = [
+			[{ label: 'Dome', cost: 1000000, contractor: 3000000 }, { label: 'Lines', cost: 500000, contractor: 900000, owner: 'coop' }, { label: 'Road', cost: 100000 }],
+			[]
+		];
+		const base = config([4, 4], unlocks);
+		const paid: Levelling = { ...base, minds: { ...base.minds, labourShare: 0.1 } };
+		const [none] = ledger(base);
+		const [one, two] = ledger(paid);
+		// a tenth of the €2M the dome's builders saved, at €2.50 a mind; nothing for a coop's or an unlock without a contractor price
+		expect(one.labour).toEqual({ value: 2000000, minds: 80000 });
+		expect(none.labour).toEqual({ value: 2000000, minds: 0 });
+		expect(two.labour).toEqual({ value: 0, minds: 0 });
+		// the builders' minds are the villagers': the 51 % kept, the investors given more room and paying less a mind
+		expect(one.treasury.villagers).toBeGreaterThanOrEqual(0.51 - 1e-12);
+		expect(one.investor.minds).toBeGreaterThan(none.investor.minds);
+		expect(one.investor.paid).toBeLessThan(none.investor.paid);
+		expect(one.minted).toBeCloseTo(one.villagers.minds + 80000 + one.investor.minds);
+		// what the treasury pays stays the self-built cost
+		expect(one.cost).toBe(none.cost);
+	});
+
 	it('beds house the villagers', () => {
 		const levels = (beds: number[]) =>
 			ledger(config([2, 2], beds.map((b) => [{ label: 'Home', cost: 0, beds: b }])));
