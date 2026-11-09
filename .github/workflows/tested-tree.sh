@@ -1,10 +1,11 @@
 #!/bin/bash
 # The tested tree (intent 5ab64b8e), for play-checks.yml and website-checks.yml on a push to main: whether the pushed
 # commit's tree is the very tree a successful pull_request run of this repository's .github/workflows/main.yml tested,
-# for the pull request merged as that commit, in the job named CHECK. That job, on a pull request, ends by printing the
-# tree it tested as a notice titled "Tested tree" (its check run's annotation); GitHub's API is asked for it here.
+# for the pull request merged as that commit, in the job of the required check PART names (../required-checks.json).
+# That job, on a pull request, ends by printing the tree it tested as a notice titled "Tested tree" (its check run's
+# annotation); GitHub's API is asked for it here.
 #
-#   EVENT=push REPO=<owner/name> SHA=<pushed commit> CHECK='play / API and site' GH_TOKEN=… bash tested-tree.sh
+#   EVENT=push REPO=<owner/name> SHA=<pushed commit> PART=play|website GH_TOKEN=… bash tested-tree.sh
 #
 # Writes skip=true to $GITHUB_OUTPUT only when the trees are equal: the same bytes passed already, so the job passes
 # without running them again. Anything else (another event, no merged pull request, a run that failed, was cancelled
@@ -14,6 +15,7 @@ set -uo pipefail
 API=${GITHUB_API_URL:-https://api.github.com}
 OUT=${GITHUB_OUTPUT:-/dev/stdout}
 WORKFLOW=.github/workflows/main.yml
+CHECK=$(jq -r --arg p "${PART:-}" '.[$p] // empty' "$(dirname "$0")/../required-checks.json" 2> /dev/null)
 
 decide() {
   echo "skip=$1" >> "$OUT"
@@ -27,7 +29,7 @@ get() {
 
 [ "${EVENT:-}" = push ] || decide false "not a push (${EVENT:-none}): the checks run"
 [[ "${SHA:-}" =~ ^[0-9a-f]{40}$ ]] || decide false "no commit ('${SHA:-}'): the checks run"
-[ -n "${REPO:-}" ] && [ -n "${CHECK:-}" ] || decide false "no repository or check named: the checks run"
+[ -n "${REPO:-}" ] && [ -n "${CHECK:-}" ] || decide false "no repository or required check named: the checks run"
 
 tree=$(get "git/commits/$SHA" | jq -er '.tree.sha') || decide false "the pushed commit's tree could not be read: the checks run"
 pull=$(get "commits/$SHA/pulls" | jq -er --arg s "$SHA" \

@@ -1,4 +1,4 @@
 export const prerender = true;
 
-// Bunny storage serves index.html per directory, so every route gets its own folder.
+// Caddy serves each route's index.html from its own folder (site/current on the server).
 export const trailingSlash = 'always';

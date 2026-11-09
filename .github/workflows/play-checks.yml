@@ -32,22 +32,23 @@ jobs:
           EVENT: ${{ github.event_name }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
-          CHECK: play / API and site
+          PART: play
           GH_TOKEN: ${{ github.token }}
         run: bash .github/workflows/tested-tree.sh
       - name: Postgres
         if: steps.tested.outputs.skip != 'true'
-        # room for the tests in parallel (intent aa59f248): each test file's pool and each play-api a test starts take up to 20
-        run: docker run -d --name postgres -e POSTGRES_PASSWORD=play -p 5432:5432 postgres:17-alpine -c max_connections=500
+        # avenBOX's version, password, port and room for the tests in parallel (play/avenbox/box.env)
+        run: |
+          . play/avenbox/box.env
+          docker run -d --name postgres -e POSTGRES_PASSWORD="$PG_PASSWORD" -p "$PG_PORT:5432" "postgres:$PG_VERSION-alpine" -c "max_connections=$PG_MAX_CONNECTIONS"
+          echo "TEST_DATABASE_URL=$BOX_DATABASE_URL" >> "$GITHUB_ENV"
       - uses: oven-sh/setup-bun@v2
         if: steps.tested.outputs.skip != 'true'
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - name: The API
         if: steps.tested.outputs.skip != 'true'
         working-directory: play/api
-        env:
-          TEST_DATABASE_URL: postgres://postgres:play@localhost:5432/postgres
         run: |
           bun install --frozen-lockfile
           bunx tsc --noEmit -p .

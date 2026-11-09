@@ -12,13 +12,13 @@
 // consolidate into, or to close this one. It reads GitHub (GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_TOKEN: read only)
 // and play (get_intent over its MCP: PLAY_MCP_URL, PLAY_MCP_TOKEN). It runs from main, in
 // .github/workflows/intent-named.yml and intents-pr.yml: it reads the pull request, never checks it out.
+import { call, PLAY_MCP } from "./play";
 
-export const UUID_IN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const LINE = /^\s*Intent:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/gim;
 const LIVE = ["build", "proposal", "ship"];
 
 /** the intents a text names on its `Intent: <uuid>` lines, lower case */
-export const intentsIn = (text: string | null | undefined) => [...`${text ?? ""}`.matchAll(LINE)].map((m) => m[1].toLowerCase());
+const intentsIn = (text: string | null | undefined) => [...`${text ?? ""}`.matchAll(LINE)].map((m) => m[1].toLowerCase());
 
 export type Verdict = { ok: boolean; intent?: string; why: string; notes: string[] };
 type Env = { github: string; repo: string; ghToken?: string; play: string; playToken?: string };
@@ -50,15 +50,9 @@ export async function judge(n: number, env: Env): Promise<Verdict> {
   if (!intentsIn(pull.body).includes(intent)) notes.push(`its body does not carry \`Intent: ${intent}\`: only its commits do`);
   if (!`${pull.title ?? ""}`.includes(`[${intent.slice(0, 8)}]`)) notes.push(`its title does not show [${intent.slice(0, 8)}] (only shown)`);
 
-  const r = await fetch(env.play, {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...(env.playToken ? { authorization: `Bearer ${env.playToken}` } : {}) },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_intent", arguments: { intent } } }),
-  });
-  if (!r.ok) throw new Error(`play answered ${r.status}`);
-  const res = ((await r.json()) as any).result;
-  if (!res || res.isError) return { ok: false, intent, why: `#${n} names intent ${intent}, which play does not know: ${res?.content?.[0]?.text ?? "no answer"}.`, notes };
-  const it = JSON.parse(res.content[0].text);
+  const res = await call("get_intent", { intent }, { endpoint: env.play, token: env.playToken });
+  if (res.isError) return { ok: false, intent, why: `#${n} names intent ${intent}, which play does not know: ${res.text || "no answer"}.`, notes };
+  const it = JSON.parse(res.text);
   if (!LIVE.includes(it.stage))
     return { ok: false, intent, why: `#${n} names intent ${intent}, which is at the ${it.stage} stage: a pull request is the work of an intent at Build, Proposal or Ship.`, notes };
   const active = it.pull_request as number | null;
@@ -78,7 +72,7 @@ if (import.meta.main) {
     console.error("bun play/avenbox/pr-intent.ts <pull request number> [--id]");
     process.exit(2);
   }
-  const { GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_TOKEN, PLAY_MCP_URL, PLAY_MCP_TOKEN } = process.env;
+  const { GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_TOKEN, PLAY_MCP_TOKEN } = process.env;
   if (!GITHUB_REPOSITORY) {
     console.error("GITHUB_REPOSITORY is not set (owner/name).");
     process.exit(2);
@@ -87,7 +81,7 @@ if (import.meta.main) {
     github: GITHUB_API_URL || "https://api.github.com",
     repo: GITHUB_REPOSITORY,
     ghToken: GITHUB_TOKEN,
-    play: PLAY_MCP_URL || "https://play.maia.city/api/mcp",
+    play: PLAY_MCP,
     playToken: PLAY_MCP_TOKEN,
   }).catch((e) => ({ ok: false, why: `Intent named could not read it: ${(e as Error).message}`, notes: [] }) as Verdict);
   if (args.includes("--id")) {

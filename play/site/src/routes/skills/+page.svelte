@@ -8,10 +8,12 @@
 	`&intent=<id>` the skill as an intent's work at Proposal would make it. Admins only.
 -->
 <script lang="ts">
+	import type { IntentStage } from '$wire';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
@@ -19,9 +21,10 @@
 
 	type Item = { id: string; label: string; group: string; note: string; stages: string[]; number: number; versions: number };
 	type Skill = { id: string; json: { label: string; group: string; note?: string; system: string; stages?: Record<string, string> }; number: number; version?: number; edit?: number; intent?: { id: string; status: string; note: string } };
-	const STAGES = ['idea', 'specify', 'prototype', 'proposal', 'ship', 'accepted', 'archived'];
+	const STAGES: IntentStage[] = ['idea', 'specify', 'build', 'proposal', 'ship', 'accepted', 'archived'];
 
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let skill = $state<Skill | null>(null);
 	let error = $state('');
@@ -30,7 +33,7 @@
 	const wantV = $derived(params.get('v'));
 	const wantIntent = $derived(params.get('intent'));
 	$effect(() => {
-		if (!admin) return void (session.me && goto('/', { replaceState: true }));
+		if (!admin) return;
 		api<Item[]>('/docs?kind=skill').then((l) => (list = l), (e) => (error = e.message));
 	});
 	const query = () => (wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '');

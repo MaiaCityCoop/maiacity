@@ -6,14 +6,14 @@
 #   clean   frees what nothing uses: Docker's unused images (older than a day; a rollback pulls its image again),
 #           stopped containers, its build cache and dangling volumes are NOT touched (no volume is removed); the
 #           journal past 200 MB; apt's cache; the leftovers of backups and restores. Then mends play's broken files:
-#           each one's good bytes from the backups in the bucket (streamed, never stored whole), checked against its
-#           hash and put back; one no backup holds is moved aside (kept beside the files), so play writes it anew the
-#           next time it is made; first from the folders kept when play's files moved into the bucket. A file whose
+#           each one's good bytes, first from the folders kept when play's files moved into the bucket, then from the
+#           backups in the bucket (streamed, never stored whole), checked against its hash and put back. A file whose
 #           bytes are lost everywhere and that nothing in play's data names but its own row is forgotten (its row in
 #           play.files removed); one that anything names is kept and reported. Then reports again.
-# Access to the bucket for the mending comes from ../backup.env, as for deploy/backup.sh.
+# Access to the bucket for the mending comes from ../backup.env (deploy/bucket-keys.sh), as for deploy/backup.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. deploy/lib.sh
 MODE="${1:-report}"
 set -a
 [ -f backup.env ] && . ./backup.env
@@ -24,13 +24,11 @@ DATA="${PLAY_DATA_PATH:-}"
 # play's store, whatever play.env already says
 if [ -n "$DATA" ] && [ -d "$DATA/blobs" ]; then PLAY_BUCKET=""; fi
 
-C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml"
-
 broken() {
   # every file play's database names that its store (the folder or the bucket, as play.env sets it) cannot hand back
   # whole: missing, or its bytes not hashing to its name (a write cut short by a full disk); asked of play's own code,
   # in a one-off container of its image on the compose network, so it works while play itself is down
-  $C run --rm -T --no-deps -e PLAY_BUCKET="${PLAY_BUCKET:-}" play-api bun -e '
+  compose run --rm -T --no-deps -e PLAY_BUCKET="${PLAY_BUCKET:-}" play-api bun -e '
     import { connect } from "/app/api/src/pg.ts";
     import { blobStore } from "/app/api/src/blobs.ts";
     const db = connect(), store = blobStore();
@@ -66,7 +64,7 @@ report() {
   if [ -n "$B" ]; then
     echo "## Files play's database names that its store cannot hand back whole, and what they are"
     for h in $B; do
-      docker exec maia-city-db psql -U maiacity -d maiacity -Atc \
+      docker exec "$DB_CONTAINER" psql -U maiacity -d maiacity -Atc \
         "SELECT hash, size, media_type, coalesce(label, ''), created FROM play.files WHERE hash = '$h'" </dev/null | sed 's/^/    /' || true
     done
   else
@@ -74,11 +72,8 @@ report() {
   fi
 }
 
-aws() {
-  docker run --rm -i -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION="$BACKUP_REGION" \
-    -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
-    amazon/aws-cli --endpoint-url "$BACKUP_ENDPOINT" --cli-connect-timeout 20 --cli-read-timeout 300 "$@"
-}
+# the backups' bucket, a large file streamed: no bound on the whole call
+aws() { S3_TIMEOUT=0 S3_READ_TIMEOUT=300 s3 backup -- "$@"; }
 
 # whether a file's bytes hash to its name (by play's own hash, in a container of its image)
 whole_file() {
@@ -89,10 +84,7 @@ whole_file() {
 put_back() {
   local h=$1 f=$2
   if [ -n "${PLAY_BUCKET:-}" ]; then
-    docker run --rm -v "$f:/f:ro" -e AWS_ACCESS_KEY_ID="$PLAY_BUCKET_ACCESS_KEY" -e AWS_SECRET_ACCESS_KEY="$PLAY_BUCKET_SECRET_KEY" \
-      -e AWS_DEFAULT_REGION="${PLAY_BUCKET_REGION:-$BACKUP_REGION}" \
-      -e AWS_REQUEST_CHECKSUM_CALCULATION=when_required -e AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
-      amazon/aws-cli --endpoint-url "$PLAY_BUCKET_ENDPOINT" s3 cp /f "s3://$PLAY_BUCKET/blobs/${h:0:2}/$h" --only-show-errors </dev/null
+    S3_TIMEOUT=0 s3 play -v "$f:/f:ro" -- s3 cp /f "s3://$PLAY_BUCKET/blobs/${h:0:2}/$h" --only-show-errors
   else
     sudo install -D -o 1000 -g 1000 -m 0644 "$f" "$DATA/blobs/blobs/${h:0:2}/$h.mended" && sudo mv "$DATA/blobs/blobs/${h:0:2}/$h.mended" "$DATA/blobs/blobs/${h:0:2}/$h"
   fi
@@ -156,13 +148,13 @@ forget_lost() {
   local lost; lost=$(broken || true)
   [ -n "$lost" ] || { echo "forget-lost: every file is whole"; return 0; }
   local dump; dump=$(mktemp /opt/maia-city/backups-tmp/play-data-XXXX.sql)
-  docker exec maia-city-db pg_dump -U maiacity -d maiacity -n play --data-only --inserts </dev/null > "$dump"
+  docker exec "$DB_CONTAINER" pg_dump -U maiacity -d maiacity -n play --data-only --inserts </dev/null > "$dump"
   for h in $lost; do
     local n; n=$(grep -o "$h" "$dump" | wc -l)
     # its own row names it twice (its hash and its bucket key); a foreign key from any other row also stops the delete
     local own; own=$(grep "^INSERT INTO play.files " "$dump" | grep -o "$h" | wc -l)
     if [ "$n" -le "$own" ]; then
-      docker exec maia-city-db psql -U maiacity -d maiacity -v ON_ERROR_STOP=1 -Atc "DELETE FROM play.files WHERE hash = '$h'" </dev/null >/dev/null
+      docker exec "$DB_CONTAINER" psql -U maiacity -d maiacity -v ON_ERROR_STOP=1 -Atc "DELETE FROM play.files WHERE hash = '$h'" </dev/null >/dev/null
       echo "forget-lost: $h: its bytes are lost and nothing names it; its row in play.files is removed"
     else
       echo "forget-lost: $h: its bytes are lost, and $((n - own)) other places in play's data name it: kept, to be put again"

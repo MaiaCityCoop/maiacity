@@ -5,37 +5,28 @@
  * only draws what it says (no `{#if stage === …}` chain decides the layout). Nothing on top is a run command, a hash, a
  * check's evidence or the brief: those are the agents', in the tabs.
  *
- * The intent's types, as play's API serves them (play/api/src/intents.ts), are kept here too, for the board and the detail.
+ * The intent as the board and the detail read it, of play's API's own types ($wire, play/api/src/wire.ts).
  */
+import type { Check, Dep, IntentKind, IntentStage, PrSeen, Result, Ship, ShipStep, Spec, Sub } from '$wire';
 
 /** an intent's work, as the board lists it: what it changes, the version it would be, who proposed it and how, its status */
 export type Work = { kind: string; what: string | null; doc: string | null; doc_variant: number | null; docs?: number; asset_id: string | null; label: string; grp: string; slug: string | null; version_label: string | null; number: number | null; status: string; note: string; author: string | null; decided_by: string | null; created: string; decided_at?: string | null; via?: 'web' | 'mcp' };
-export type Kind = 'idea' | 'fix' | 'improve';
-export type Stage = 'idea' | 'specify' | 'build' | 'proposal' | 'ship' | 'accepted' | 'archived';
-/** its way to production once merged (play/api/src/ship.ts): each step's state, when, its link; a red one's report */
-export type ShipStep = { key: string; name: string; state: 'queued' | 'running' | 'green' | 'red' | 'skipped'; started?: string; finished?: string; link?: string; note?: string };
-export type Ship = { pr: number; head: string; merge: string; by: string; round: number; started: string; steps: ShipStep[]; report?: { step: string; why: string; link?: string; log: string; at: string } | null; ended?: string; outcome?: 'green' | 'red'; again?: 'main' | 'release'; pending?: { kind: 'merge' | 'main' | 'release'; head?: string } | null; accepted?: string; live?: boolean; commit?: string; note?: string };
-/** run: the command that decides a check in avenBOX; step: reduce first, then the MVP (specs from before have none: mvp) */
-export type Check = { id: string; check: string; how: 'test' | 'measure' | 'look'; by: string; run?: string; must: boolean; step?: 'reduce' | 'mvp' };
-export type Spec = { goal: string; scope: string; checks: Check[]; nothing_to_reduce?: string };
+export type Kind = IntentKind;
+export type Stage = IntentStage;
+export type { Check, Dep, Ship, ShipStep, Spec, Sub };
 /** where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit */
-export type Results = Record<string, { pass: boolean; evidence: string; by: string | null; at: string; where?: 'avenBOX' | 'main'; commit?: string }>;
-/** one step back an agent took over MCP, with its reason (play/api/src/stepback.ts) */
-/** a step back, or a document withdrawn from its work (`doc`, play/api/src/withdraw.ts) */
-export type StepBack = { at: string; by: string | null; via: 'mcp' | 'site'; from: Stage; to: Stage; reason: string; doc?: string };
+export type Results = Record<string, Result>;
+/** a step back an agent took over MCP, or a document withdrawn from its work (`doc`, play/api/src/withdraw.ts) */
+type StepBack = { at: string; by: string | null; via: 'mcp' | 'site'; from: Stage; to: Stage; reason: string; doc?: string };
 /** a decision a rule made (play/SPEC.md §4.12 "Auto-accept rules"): the rule, the rule set's version, its reason */
-export type AutoEntry = { rule: string; label: string; rules: string; reason: string; at: string };
-/** an intent it depends on, or one that depends on it (play/api/src/intents.ts heldBy), by its UUID */
-export type Dep = { id: string; title: string; stage: Stage };
-/** its sub-state (play/api/src/substate.ts): a person needed (failed, waiting) or not (working, idle), and why */
-export type Sub = { state: 'failed' | 'waiting' | 'working' | 'idle'; tag: string; why: string };
-/** what GitHub last said of its pull request (play/api/src/substate.ts PrSeen), as far as the detail reads it */
-export type PrSeen = { pr: number; draft: boolean; state?: string; merged?: boolean; mergeable?: boolean | null };
+type AutoEntry = { rule: string; label: string; rules: string; reason: string; at: string };
+/** what GitHub last said of its pull request, as far as the detail reads it */
+type PrRead = Pick<PrSeen, 'pr' | 'draft'> & Partial<Pick<PrSeen, 'state' | 'merged' | 'mergeable'>>;
 export type Intent = {
 	id: string; kind: Kind; title: string; note: string; stage: Stage; via: 'web' | 'mcp'; created: string; author: string | null;
 	spec: Spec | null; results: Results | null; specified_at: string | null; specified_by: string | null; approved_at: string | null; approved_by: string | null;
 	decided_at: string | null; decided_by: string | null; came_with: string | null; work: Work | null; pull_request: number | null; ship: Ship | null; sub: Sub | null;
-	auto?: { approve?: AutoEntry; accept?: AutoEntry }; work_kind?: string[] | null; steps?: StepBack[]; depends_on?: Dep[]; held_by?: Dep[]; needed_by?: Dep[]; pr_seen?: PrSeen | null;
+	auto?: { approve?: AutoEntry; accept?: AutoEntry }; work_kind?: string[] | null; steps?: StepBack[]; depends_on?: Dep[]; held_by?: Dep[]; needed_by?: Dep[]; pr_seen?: PrRead | null;
 };
 
 export const STAGE_NAME: Record<Stage, string> = { idea: 'Idea', specify: 'Specify', build: 'Build', proposal: 'Proposal', ship: 'Ship', accepted: 'Accepted', archived: 'Archived' };
@@ -52,7 +43,7 @@ export const notLive = (i: Intent) => (i.ship?.live === false && i.ship.commit ?
 // ---- what goes on top
 
 /** a check as a chip: its id and its last result, nothing else */
-export type Chip = { id: string; must: boolean; state: 'pass' | 'fail' | 'none'; text: string };
+type Chip = { id: string; must: boolean; state: 'pass' | 'fail' | 'none'; text: string };
 /** one part of the top, drawn by ./IntentDetail.svelte in the order given */
 export type Part =
 	/** what is wanted (Idea): the note's first lines */
@@ -114,7 +105,7 @@ const plain = (s: string) =>
 /** at most `n` characters, cut at a word */
 const clip = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n).replace(/\s+\S*$/, '')}…`);
 /** a text's first sentence */
-export const firstSentence = (s: string) => {
+const firstSentence = (s: string) => {
 	const p = plain(s);
 	const m = p.match(/^.+?[.!?](?=\s|$)/);
 	return clip(m ? m[0] : p, 240);

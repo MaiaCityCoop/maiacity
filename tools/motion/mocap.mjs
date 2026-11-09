@@ -2,9 +2,8 @@
 // A source: { name, fps, joints: [{ name, parent (index or -1), offset: Vector3 (cm or m as given), rest: Quaternion }],
 //             frames: [{ root: Vector3, q: Quaternion[] (local, per joint) }], unit (metres per source unit) }
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-const require = createRequire(new URL('../../play/site/x.js', import.meta.url));
-export const THREE = require('three');
+import { siteRequire } from '../site.cjs';
+export const THREE = siteRequire('three');
 const { Vector3, Quaternion, Euler } = THREE;
 
 export function readBVH(file, unit = 0.01) {
@@ -159,11 +158,6 @@ export function fk(src, frame, out) {
 	return out;
 }
 
-/** the rest pose (every channel zero: a BVH's T-pose; a glTF's bind) as a frame */
-export function restFrame(src) {
-	if (src.gltf) return { root: src.joints[0].offset.clone(), q: src.joints.map((j) => j.rest.clone()), tr: src.joints.map((j) => j.offset.clone()) };
-	return { root: src.joints[0].offset.clone(), q: src.joints.map(() => new Quaternion()) };
-}
 export const jointIndex = (src, name) => {
 	const k = src.joints.findIndex((j) => j.name === name);
 	if (k < 0) throw new Error(`${src.name}: no joint ${name}`);

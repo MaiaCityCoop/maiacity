@@ -21,7 +21,8 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
@@ -43,7 +44,8 @@
 
 	// admins only for now (Samuel 2026-11-03): anyone else is taken back to the dashboard, and the API hands the
 	// factories and the Factories' pins to admins alone
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 
 	// the factories, and the one picked by the address: at a version, or as an intent's work would make it
 	let list = $state<Item[]>([]);
@@ -124,7 +126,7 @@
 
 	// the line, built and booted in its host; again whenever another factory, version or intent's work is shown
 	$effect(() => {
-		if (!admin) return void goto('/', { replaceState: true });
+		if (!admin) return;
 		const line = L, el = host;
 		if (!line || !el) return;
 		let gone = false;

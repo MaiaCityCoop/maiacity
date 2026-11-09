@@ -1,5 +1,5 @@
 <!--
-	play's app shell, as legacy's (maia/site/routes/app/+layout.svelte): no bar across the top — each page is its own,
+	play's app shell, as legacy's (maia/site/routes/app/+layout.svelte on SNAPSHOT_2611101): no bar across the top — each page is its own,
 	the sandboxes full screen with their own top bars — and at the foot of every page the nav pill ($lib/site/app/NavPill
 	.svelte): back, the intents (a star: their board in a modal over the page, $lib/site/intents, admins only), and
 	you, whose menu switches whom you act as (yourself, or Maia City for its admins) and signs out. A visitor sees only
@@ -25,7 +25,8 @@
 	import { closeIntents, intentsModal, openIntents } from '$lib/site/intents/intents.svelte';
 	import { pillContext } from '$lib/site/app/pill.svelte.js';
 	import { footHost } from '$lib/site/app/foot.js';
-	import { loadMe, session, signOut } from '$lib/session.svelte';
+	import { initialsOf } from '$lib/format';
+	import { loadMe, session, signOut, isAdmin } from '$lib/session.svelte';
 	import { acting, actAs } from '$lib/acting.svelte';
 	import SignIn from '$lib/SignIn.svelte';
 	import { dev } from '$app/environment';
@@ -111,14 +112,13 @@
 		};
 	});
 
-	const initials = (s: string) => s.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 	// whom you act as, in the You menu: yourself, and for an admin Maia City, the coop that owns every asset
 	$effect(() => {
 		const me = session.me;
 		if (!me) return;
 		const list = [
-			{ id: 'me', label: me.name, sub: `Your account · ${me.level}`, text: initials(me.name), colour: '#c8744f', shape: 'human' as const },
-			...(me.level === 'admin' ? [{ id: 'maia-city', label: 'Maia City', sub: 'The coop · its admins act for it', text: 'MC', colour: '#24452f', shape: 'coop' as const }] : [])
+			{ id: 'me', label: me.name, sub: `Your account · ${me.level}`, text: initialsOf(me.name), colour: '#c8744f', shape: 'human' as const },
+			...(isAdmin() ? [{ id: 'maia-city', label: 'Maia City', sub: 'The coop · its admins act for it', text: 'MC', colour: '#24452f', shape: 'coop' as const }] : [])
 		];
 		return pillContext({
 			title: 'Act as',
@@ -147,8 +147,8 @@
 		<div class="app-dock">
 			<!-- what floats over the pill (its account menu, a toast) is moved here, so the pill keeps its size -->
 			<div class="foot-stack" use:footHost></div>
-			<NavPill founder={session.me.founder == null ? null : { number: session.me.founder }} name={session.me.name} onsignout={signOut} intents={session.me.level === 'admin'} />
+			<NavPill founder={session.me.founder == null ? null : { number: session.me.founder }} name={session.me.name} onsignout={signOut} intents={isAdmin()} />
 		</div>
-		{#if intentsModal.open && session.me.level === 'admin'}<IntentsModal />{/if}
+		{#if intentsModal.open && isAdmin()}<IntentsModal />{/if}
 	</div>
 {/if}

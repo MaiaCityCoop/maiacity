@@ -27,20 +27,28 @@ export const summaryText = (d: Listed) => {
 	return s.fields.length ? `${n}: ${s.fields.join(', ')}` : n;
 };
 
-/** Makes a reader of an intent's documents over `get` (the site's api): each read once, a second ask the same answer. */
+/** Makes a reader of an intent's documents over `get` (the site's api): each read once, a second ask the same answer.
+ *  `intent` reads the intent whole (GET /api/intents/:id: its brief and its review, the documents listed in brief), once
+ *  for each stage it is at, for the board and the detail alike. */
 export function createOpened<R>(get: (path: string) => Promise<R>) {
 	const kept = new Map<string, Promise<R>>();
+	const once = (key: string, path: string) => {
+		let got = kept.get(key);
+		if (!got) {
+			got = get(path);
+			kept.set(key, got);
+			// a failure is not kept: opened again, it is asked again
+			got.catch(() => kept.delete(key));
+		}
+		return got;
+	};
 	return {
 		read(intent: string, d: Pick<Listed, 'doc' | 'variant'>): Promise<R> {
 			const path = docPath(intent, d);
-			let got = kept.get(path);
-			if (!got) {
-				got = get(path);
-				kept.set(path, got);
-				// a failure is not kept: opened again, it is asked again
-				got.catch(() => kept.delete(path));
-			}
-			return got;
+			return once(path, path);
+		},
+		intent(id: string, stage: string): Promise<R> {
+			return once(`/intents/${id}@${stage}`, `/intents/${id}`);
 		},
 		forget() {
 			kept.clear();

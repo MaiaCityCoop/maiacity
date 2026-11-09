@@ -37,7 +37,7 @@ const WAIT_MOST_MS = 30 * 60_000;
 const LOG_LINES = 60;
 const LOG_MOST = 12_000;
 
-type StepState = "queued" | "running" | "green" | "red" | "skipped";
+export type StepState = "queued" | "running" | "green" | "red" | "skipped";
 export type Step = { key: string; name: string; state: StepState; started?: string; finished?: string; link?: string; note?: string };
 export type Report = { step: string; why: string; link?: string; log: string; at: string };
 export type Ship = {

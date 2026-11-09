@@ -1,6 +1,6 @@
 <!--
 	Postgres: the admins' window into play's Postgres, read only (play/api/src/tables.ts, ported from legacy's
-	maia/site/routes/app/postgres), laid out as the asset viewer is (routes/assets, its Frame): the tables down the left
+	maia/site/routes/app/postgres on SNAPSHOT_2611101), laid out as the asset viewer is (its Frame): the tables down the left
 	like the asset shelf, a table's rows in the middle as tall and as wide as it is, and down the right what is opened —
 	a row whole, titled by its table and its first value, or, none opened, the table's columns. A column that keeps a
 	secret or a credential is never sent, only that it is there. Maia City's admins alone (the API says so too); anyone
@@ -8,11 +8,11 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 
 	const PAGE = 50;
 
@@ -28,7 +28,8 @@
 	let busy = $state(false);
 	/** the row opened whole, by its place on the page */
 	let open = $state(-1);
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	const found = $derived(tables.filter((t) => t.name.includes(query.trim().toLowerCase())));
 	const table = $derived(tables.find((t) => t.name === chosen));
 	const row = $derived(data && open >= 0 ? data.rows[open] : null);
@@ -48,7 +49,7 @@
 	}
 
 	onMount(() => {
-		if (!admin) return void goto('/', { replaceState: true });
+		if (!admin) return;
 		void load();
 	});
 

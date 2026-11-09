@@ -2,8 +2,6 @@
 <script lang="ts">
 	import Manifesto from '$lib/Manifesto.svelte';
 	import { PLAY } from '$lib/play';
-
-	let { data } = $props();
 </script>
 
 <svelte:head>
@@ -12,7 +10,7 @@
 </svelte:head>
 
 <main class="wrap">
-	<Manifesto banner={data.banner} />
+	<Manifesto />
 </main>
 
 <div class="signup-float">

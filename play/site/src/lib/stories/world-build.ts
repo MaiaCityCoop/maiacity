@@ -29,7 +29,7 @@ export const blobWorker = (hash: string, code: () => string) => (): WorkerLike =
 	return new Worker(urls.get(hash)!) as unknown as WorkerLike;
 };
 /** how many recipes' workers build guests at once */
-export const FEW = 4;
+const FEW = 4;
 /** a step of the build, for the player: what it is doing, and how far along */
 export type Progress = { step: 'world' | 'guests' | 'frames' | 'ready'; done: number; of: number; text: string };
 export type Engine = ReturnType<typeof engineOf>;

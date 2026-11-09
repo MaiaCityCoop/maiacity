@@ -7,7 +7,7 @@
 //   normal  the scan's OpenGL normal: UASTC, linear, zstd
 //   ar      R ambient occlusion, G roughness: UASTC, linear, zstd
 //
-//   cd tools/ground-sets && npm i && node make.mjs <download dir>
+//   cd tools/ground-sets && bun install && node make.mjs <download dir>
 import { mkdirSync, existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

@@ -12,10 +12,11 @@
 	green "+" between the intents and You that opens its main sheet, and the accounts it can be looked at as, listed in the You
 	menu ($lib/app/pill.svelte.js: MaiaCity V1's wallet and its COOPs).
 
-	Where it floats and the room it takes are said once, in maia/site/app.css (--nav-foot, --nav-height, --nav-room): full-screen
+	Where it floats and the room it takes are said once, in src/app.css (--nav-foot, --nav-height, --nav-room): full-screen
 	pages keep what they show at their foot above it with --nav-room.
 -->
 <script>
+	import { initialsOf } from '$lib/format';
 	import { foot, FOOT } from './foot.js';
 	import { tick } from 'svelte';
 	import { base } from '$app/paths';
@@ -50,11 +51,10 @@
 	let hash = $state(typeof location === 'undefined' ? '' : location.hash);
 	afterNavigate(() => (hash = location.hash));
 	const up = $derived(upFrom(path.slice(base.length), hash));
-	const initials = $derived(name ? name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase() : '·');
+	const initials = $derived(name ? initialsOf(name) : '·');
 	const who = $derived(name || 'You');
 	// looking at another account than one's own (a COOP's wallet): the avatar and accessible name say whose
-	const acting = $derived(pill.accounts ? pill.accounts.list.find((a) => a.id === pill.accounts?.current && a !== pill.accounts.list[0]) : null);
-	const identityLabel = $derived(acting ? `${who}, as ${acting.label}` : here ? `${who}: ${here.label}` : who);
+	const identityLabel = $derived(here ? `${who}: ${here.label}` : who);
 
 	function close(restoreFocus = false) {
 		open = false;
@@ -115,14 +115,8 @@
 	<button class="item star" class:on={intents && intentsModal.open} onclick={toggleIntents} disabled={!intents} aria-expanded={intents ? intentsModal.open : undefined} title={intents ? (intentsModal.open ? 'Close the intents' : 'Intents') : "Intents: Maia City's admins only, for now"} aria-label="Intents">
 		<Icon name="star" size={30} />
 	</button>
-	{#if pill.center}
-		<button class="item plus" class:on={pill.center.on} onclick={() => pill.center?.go()} title={pill.center.label} aria-label={pill.center.label} aria-expanded={pill.center.on}>
-			<span class="ring"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></span><span>{pill.center.label}</span>
-		</button>
-	{/if}
 	<button bind:this={trigger} class="item identity" class:on={open} onclick={toggle} aria-expanded={open} aria-haspopup="menu" aria-controls={menuId} aria-label={identityLabel + (elsewhere ? `, ${elsewhere} waiting in your other vaults` : '')} title={identityLabel}>
-		{#if acting}<span class="avatar {acting.shape ?? 'human'}" aria-hidden="true" style="background:{acting.colour}; color:#fff; {shaped(acting.shape)}">{acting.text}</span>
-		{:else if here}<span class="avatar {here.shape ?? 'human'}" aria-hidden="true" style="background:{here.colour}; color:#fff; {shaped(here.shape)}">{here.text}</span>
+		{#if here}<span class="avatar {here.shape ?? 'human'}" aria-hidden="true" style="background:{here.colour}; color:#fff; {shaped(here.shape)}">{here.text}</span>
 		{:else}<span class="avatar" aria-hidden="true">{initials}</span>{/if}
 		{#if elsewhere}<span class="bubble" title="{elsewhere} waiting in your other vaults">{elsewhere}</span>{/if}
 	</button>
@@ -142,18 +136,6 @@
 				{#if pill.context.add}
 					<button role="menuitem" onclick={() => (pill.context?.add?.go(), (open = false))}>{pill.context.add.label}</button>
 				{/if}
-				<hr />
-			{/if}
-			{#if pill.accounts}
-				<p class="group">{pill.accounts.title}</p>
-				{#each pill.accounts.list as a (a.id)}
-					<button role="menuitemradio" class="acct" aria-checked={a.id === pill.accounts.current} onclick={() => (pill.accounts?.pick(a.id), close(true))}>
-						<span class="avatar {a.shape ?? 'human'}" style="background:{a.colour}; color:#fff; {shaped(a.shape)}">{a.text}</span>
-						<span class="acct-name">{a.label}{#if a.sub}<small>{a.sub}</small>{/if}</span>
-					{#if a.badge}<span class="bubble" title="{a.badge} waiting">{a.badge}</span>{/if}
-						{#if a.id === pill.accounts.current}<span class="tick" aria-hidden="true">✓</span>{/if}
-					</button>
-				{/each}
 				<hr />
 			{/if}
 			<a role="menuitem" href="/profile/" onclick={() => close()}>Your profile</a>
@@ -258,28 +240,6 @@
 	.star:disabled:hover {
 		background: var(--brand-green);
 		filter: grayscale(1);
-	}
-
-	/* the page's "+": a round, brand green button in the middle of the pill */
-	.plus .ring {
-		display: grid;
-		place-items: center;
-		width: 24px;
-		height: 24px;
-		border-radius: 50%;
-		background: var(--brand-green);
-		color: #fff;
-		box-shadow: 0 2px 8px rgb(36 69 47 / 0.35);
-	}
-	.plus.on {
-		color: var(--ink);
-		background: rgb(36 69 47 / 0.1);
-	}
-	.plus.on .ring {
-		transform: rotate(45deg);
-	}
-	.plus .ring {
-		transition: transform 160ms ease;
 	}
 
 	.avatar {
@@ -420,7 +380,7 @@
 	}
 
 	/* a phone, upright or on its side, and a narrow window: icons only, each as wide as a finger, the pill 52px tall
-	   (--nav-height, maia/site/app.css) */
+	   (--nav-height, src/app.css) */
 	@media (max-width: 760px), (max-height: 500px) {
 		.pill {
 			gap: 0;
@@ -441,13 +401,6 @@
 			width: 56px;
 			height: 56px;
 			margin: -8px 3px;
-		}
-		.item.plus {
-			padding: 0.2rem 0;
-		}
-		.plus .ring {
-			width: 36px;
-			height: 36px;
 		}
 	}
 </style>

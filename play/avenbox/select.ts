@@ -17,7 +17,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-export type Plan = {
+type Plan = {
   steps: string[]; // in the gate's order: api-types, api-tests, site-build, website-check, website-build, lint
   tests: string[] | "all"; // play/api's test files (relative to play/api), or every one
   why: string[];
@@ -28,7 +28,7 @@ const CODE = /\.(ts|js|mjs|cjs|tsx|jsx|json)$/;
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
 
 /** every play/api test file, relative to play/api */
-export function allTests(root: string): string[] {
+function allTests(root: string): string[] {
   const dir = join(root, "play/api/test");
   return readdirSync(dir).filter((f) => f.endsWith(".test.ts")).map((f) => `test/${f}`).sort();
 }
@@ -40,7 +40,7 @@ function resolveSpec(from: string, spec: string): string | null {
   for (const p of [base, `${base}.ts`, `${base}.js`, `${base}.mjs`, `${base}.json`, join(base, "index.ts"), join(base, "index.js")]) {
     if (existsSync(p) && statSync(p).isFile()) return p;
   }
-  // `./x.js` written for `./x.ts`
+  // a `.js` specifier written for its `.ts` file
   const ts = base.replace(/\.js$/, ".ts");
   return existsSync(ts) ? ts : null;
 }

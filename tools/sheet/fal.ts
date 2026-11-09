@@ -44,7 +44,7 @@ export async function dataUrl(file: string, max = 2048): Promise<string> {
 }
 
 /** The fal key: FAL_API_KEY (or FAL_KEY). In avenBOX the proxy puts the real key on queue.fal.run; any value will do. */
-export function falKey(): string {
+function falKey(): string {
   const key = process.env.FAL_API_KEY ?? process.env.FAL_KEY;
   if (!key) throw new Error("FAL_API_KEY is not set (in avenBOX any value: the proxy sends the real key to queue.fal.run).");
   return key;

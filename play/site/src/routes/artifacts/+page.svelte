@@ -11,13 +11,14 @@
 	($lib/app/Aside.svelte: Info and History), and opens as an intent would make it (?intent=<uuid>, from the intents' board).
 -->
 <script lang="ts">
+	import { calendarDay, day as when } from '$lib/format';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
-	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { api, fileUrl } from '$lib/api';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import { markdown } from '$lib/site/markdown/index.js';
 
 	const PAGE = 50;
@@ -66,7 +67,8 @@
 	let busy = $state(false);
 	let error = $state('');
 	let side = $state<'' | 'nav' | 'aside'>('');
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 
 	const host = (u: string) => {
 		try {
@@ -75,8 +77,7 @@
 			return u;
 		}
 	};
-	const date = (d: string | null) => (d ? new Date(`${d}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '');
-	const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+	const date = (d: string | null) => (d ? calendarDay(d) : '');
 	const names = (a: AuthorRef[]) => a.map((x) => x.name).join(', ');
 
 	/** the page's address from what it shows: an artifact or an author opened, and the filters */
@@ -178,7 +179,7 @@
 	const all = () => go(() => ((artifactId = ''), (authorId = ''), (kind = ''), (tag = ''), (origin = ''), (query = '')));
 
 	onMount(() => {
-		if (!admin) return void goto('/', { replaceState: true });
+		if (!admin) return;
 		fromAddress();
 		void show();
 		void loadAuthors();
@@ -286,7 +287,7 @@
 							</div>
 							<p class="actions">
 								<a class="go" href={view.url} target="_blank" rel="noopener noreferrer">Open the link ↗ <small>{host(view.url)}</small></a>
-								{#if view.text_hash}<a class="chip" href="/api/files/{view.text_hash}" target="_blank" rel="noopener">The page as it was kept</a>{/if}
+								{#if view.text_hash}<a class="chip" href={fileUrl(view.text_hash)} target="_blank" rel="noopener">The page as it was kept</a>{/if}
 							</p>
 							{#if view.tags.length}
 								<p class="tags">{#each view.tags as t (t)}<button class="tagchip" onclick={() => filter(() => (tag = t))}>{t}</button>{/each}</p>

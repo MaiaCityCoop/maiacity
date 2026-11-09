@@ -9,7 +9,7 @@ export const RUN = 'cd play/site && bunx vitest run src/lib/site/intents/detail.
 export const HEAD = '3f1c9a7be0d24c6a8f15e2b7c9d04a1e6b8f2c35';
 export const MERGE = '9e2b7d41c0a35f86b1d2e4c7a9f03b5d8e6c1a27';
 export const LIVE = '1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d';
-export const EVIDENCE = 'vitest: 14 passed (14) in detail.test.ts, 0 skipped';
+const EVIDENCE = 'vitest: 14 passed (14) in detail.test.ts, 0 skipped';
 export const BRIEF = 'Build Maia City\'s intent 00000000-… on play in avenBOX. Read it with get_intent, build what its goal and scope say, then run `bun play/avenbox/intent.ts <id>`.';
 
 const CHECKS: Check[] = [

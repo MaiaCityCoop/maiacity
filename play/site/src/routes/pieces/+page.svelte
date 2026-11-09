@@ -9,7 +9,9 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { pieceAddress } from '$lib/app/address';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import History, { type Pick } from '$lib/app/History.svelte';
 
@@ -17,16 +19,17 @@
 	type Item = { id: string; label: string; note: string; number: number; bytes: number; versions: Kept[] };
 	type Piece = { id: string; json: { label?: string; note?: string; source?: string }; number: number; version?: number; edit?: number };
 
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let piece = $state<Piece | null>(null);
 	let error = $state('');
 	const params = $derived(page.url.searchParams);
-	const id = $derived(params.get('piece') ?? list[0]?.id ?? '');
-	const wantV = $derived(params.get('v'));
+	const id = $derived(pieceAddress(params).piece ?? list[0]?.id ?? '');
+	const wantV = $derived(pieceAddress(params).v);
 	const item = $derived(list.find((p) => p.id === id) ?? null);
 	$effect(() => {
-		if (!admin) return void (session.me && goto('/', { replaceState: true }));
+		if (!admin) return;
 		api<Item[]>('/docs?kind=piece').then((l) => (list = l), (e) => (error = e.message));
 	});
 	$effect(() => {

@@ -45,9 +45,10 @@
 </script>
 
 <script lang="ts">
+	import { figuresDay, shortWhen } from '$lib/format';
 	import { untrack, type Snippet } from 'svelte';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Changes from './Changes.svelte';
 
 	let {
@@ -80,7 +81,7 @@
 	} = $props();
 
 	type Version = { number: number; note: string; at: string; acceptedBy?: string | null };
-	const admin = $derived(session.me?.level === 'admin');
+	const admin = $derived(isAdmin());
 	const edits = $derived(h?.edits ?? []);
 	const mainVersions = $derived(h?.versions ?? []);
 	const variants = $derived(h?.variants ?? []);
@@ -101,8 +102,8 @@
 			playing = false;
 		});
 	});
-	const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
-	const day = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString('en-GB') : '');
+	const when = (iso: string | null | undefined) => (iso ? shortWhen(iso) : '');
+	const day = (iso: string | null | undefined) => (iso ? figuresDay(iso) : '');
 	const index = $derived(at ? edits.findIndex((e) => e.seq === at!.seq) : -1);
 	/** the chain: the view's versions, else Main's, newest first */
 	const chain = $derived<ChainVersion[]>(

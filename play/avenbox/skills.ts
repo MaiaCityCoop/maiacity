@@ -17,11 +17,11 @@
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { hashBytes, HASH } from "../api/src/kit/hash";
+import { PLAY_MCP as endpoint, tool } from "./play";
 
 const argv = Bun.argv.slice(2);
 const at = argv.indexOf("--out");
 const OUT = resolve(at >= 0 && argv[at + 1] ? argv[at + 1] : join(import.meta.dir, "../../.claude/skills"));
-const endpoint = process.env.PLAY_MCP_URL || "https://play.maia.city/api/mcp";
 const token = process.env.PLAY_MCP_TOKEN;
 /** an intent's stages in their order (play/api/src/intents.ts INTENT_STAGES) */
 const STAGES = ["idea", "specify", "build", "proposal", "ship", "accepted", "archived"];
@@ -30,22 +30,6 @@ const say = (s: string) => console.log(`skills: ${s}`);
 if (!token) {
   say("no PLAY_MCP_TOKEN: no skills written (play's database is their one source).");
   process.exit(0);
-}
-
-let rpcId = 0;
-/** a play MCP tool: its result as JSON, or it throws with the tool's own words */
-async function tool(name: string, args: Record<string, unknown>) {
-  const r = await fetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method: "tools/call", params: { name, arguments: args } }),
-  });
-  if (!r.ok) throw new Error(`${name}: play answered ${r.status} ${await r.text()}`);
-  const body = (await r.json()) as any;
-  if (body.error) throw new Error(`${name}: ${body.error.message}`);
-  const text = body.result?.content?.[0]?.text ?? "";
-  if (body.result?.isError) throw new Error(`${name}: ${text}`);
-  return JSON.parse(text);
 }
 
 /** a file of play's, by its hash, held to it */

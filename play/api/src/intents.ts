@@ -17,7 +17,7 @@ import { LOCK, lockSql } from "./kit/locks";
 export { unmetOn };
 
 export const INTENT_KINDS = ["idea", "fix", "improve"] as const;
-type IntentKind = (typeof INTENT_KINDS)[number];
+export type IntentKind = (typeof INTENT_KINDS)[number];
 export const INTENT_STAGES = ["idea", "specify", "build", "proposal", "ship", "accepted", "archived"] as const;
 export type IntentStage = (typeof INTENT_STAGES)[number];
 /** the intents still to be taken further: not yet done (Ship: accepted, on its way to production) */

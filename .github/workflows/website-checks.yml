@@ -32,13 +32,13 @@ jobs:
           EVENT: ${{ github.event_name }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
-          CHECK: website / build
+          PART: website
           GH_TOKEN: ${{ github.token }}
         run: bash .github/workflows/tested-tree.sh
       - uses: oven-sh/setup-bun@v2
         if: steps.tested.outputs.skip != 'true'
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - if: steps.tested.outputs.skip != 'true'
         run: bun install --frozen-lockfile
       - if: steps.tested.outputs.skip != 'true'

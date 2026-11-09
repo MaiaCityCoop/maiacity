@@ -158,3 +158,36 @@ play/site's 56 test files, run by nothing today, run and green.
 
 Pinning tests first (8's pinning part), then 1 (the API core, the largest lever), 2, 3, 6, 4, 5, then 7, and 8's
 clean-up last. One move per commit, the gate green after each; the held set rechecked (`held.sh`) before each commit.
+
+## Build (approved by Samuel 2026-11-09 08:29Z; draft PR #2198)
+
+Four area builders in parallel, each on its own branch from this one, merged in here as they finish:
+`intent/5884ade4-u-api` (fix 1), `-u-site-app` (fix 2), `-u-site-content` (fix 3), `-u-infra` (fix 6). Each keeps its
+moves' log in `log/<area>.md`. After them: the tests builder (fix 8: the test kit, last), then sweeps for 4, 5 and 7
+across what is left, then the re-audit. The held set is refreshed from every other intent in Build, Proposal or Ship
+(`held-intents.txt`), 143 files at 08:33Z.
+
+### Merged: infra (fix 6), 09:20Z
+
+13 moves (`log/infra.md`), gate green on the merge (all parts, 129 s); `measure.ts infra` passes once CLAUDE.md and
+SPEC name the required checks by their list. Deploy changes were shown identical by running old and new against
+stand-ins that log every call (backup.sh byte-identical; dns.sh 27 scenarios; server-up.sh 4), except where the old
+was wrong or weaker: the old heredoc cut a bucket key holding `$` (now written as given); restore.sh and server-care.sh
+gain the toolkit's retry flags; server-care runs without `-i` under `timeout 0`. The image wasn't built here (no
+Docker daemon). Kept: `deploy/deploy-time.ts` (the `run` of 5ab64b8e's c12, not dead). Left: `.claude/settings.json`'s
+SessionStart hook, intent.ts's own database URL, play/site scripts' MCP clients, the tools/motion mirror (waits for
+b9e6ad45), F4 (Samuel's).
+- 09:30Z: four new intents started (660ad67f, 7af6e162, cb52fbd9; f63774a3 already landed); 175 files held. This PR
+  touched two of them after they became held, and one (play/SPEC.md, held by a5faafad) by my mistake: both restored
+  to main's. Pending their landing: SPEC names the required checks by `.github/required-checks.json` (infra's last
+  bound, 2 → 1 files), setup.sh reads `play/avenbox/box.env`.
+
+### Merged: site-app (fix 2), 09:40Z
+
+16 moves (`log/site-app.md`), gate green on the merge (all, 90 s). `measure.ts site` 6 of 7: the board 716 → 398
+lines, the player 655 → 418, the turntable 660 → 408, `fetch(` outside the client 7 → 0, admin checks 25 → 1, the
+Skills page's `'prototype'` gone (Skills shows Build again; the Rules tile draws its icon). `/api/files/` 13 → 6: the
+rest are the content builder's (pieces.js, catalog.js, biomes/sets.js, render/arrays.js, worlds/sound.js), to import
+`fileUrl` from `lib/api.ts`. `play/api/src/wire.ts` holds the API's answer types, imported as `$wire`. IntentDetail.svelte
+left as the merge base has it (96206162 held it then); its untangle is in the log's Next untangles, with DocPage for
+the seven document pages, the layout's route regexes and one icon set (no bound).
