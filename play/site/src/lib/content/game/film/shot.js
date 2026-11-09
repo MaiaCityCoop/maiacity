@@ -1,9 +1,8 @@
-// A world shot as data: everything the film camera needs to render one shot of a sandbox, as a plain record (`Spec`
-// below; the `shots` table keeps it, versioned). The world renders it on demand, live in the studio or as a 4K log
-// plate. A shot's time t is seconds from its first frame, and the world's own clock runs at world.clock + t, so the same
-// shot always sees the same world. `lens.fov` is vertical, in degrees, for `aspect`; `exposure` is metered as a camera
-// meters (middle grey 18%); `lights` are multipliers (`cb60`: the Neewer CB60 of the room world, since removed, kept so
-// its old shots still read); `look` names the grade it was lit for, never applied here.
+// A world shot as data: everything the film camera needs to render one shot of a sandbox (`Spec`; the `shots` table
+// keeps it, versioned), live in the studio or as a 4K log plate. t is seconds from its first frame, the world's clock at
+// world.clock + t, so a shot always sees the same world. `lens.fov` is vertical degrees for `aspect`; `exposure` metered
+// as a camera meters (18% grey); `lights` are multipliers (`cb60`: the room world's Neewer CB60, since removed, kept so
+// old shots read); `look` names the grade it was lit for, never applied here.
 import { isHash } from '../../../kernel/hash.js';
 import { checkCamera, fovOf, pathOf } from './camera.js';
 import { DEFAULT_SANDBOX, WORLDS } from './worlds.js';
@@ -44,11 +43,7 @@ class ShotError extends Error {}
 const finite = (/** @type {unknown} */ v) => typeof v === 'number' && Number.isFinite(v);
 const lerp = (/** @type {number} */ a, /** @type {number} */ b, /** @type {number} */ t) => a + (b - a) * t;
 
-/**
- * A spec checked and completed: defaults filled in, every number finite and in range, unknown fields dropped.
- * Throws a ShotError naming the first thing wrong.
- * @param {any} s @returns {Spec}
- */
+/** A spec checked and completed (defaults, every number finite and in range, unknown fields dropped); throws a ShotError. @param {any} s @returns {Spec} */
 export function normalize(s) {
 	/** @type {(m: string) => never} */
 	const bad = (m) => {
@@ -197,9 +192,8 @@ const valueAt = (/** @type {Curve} */ c, /** @type {number} */ t) => {
 };
 
 /**
- * The vertical field of view for a shape. A shot is composed for its `aspect`; every other shape sees at least that
- * whole frame: a wider shape keeps the height (and shows more to the sides), a taller one keeps the width (and shows
- * more above and below) — never a centre crop. A shape's own `framing.fov` overrides the rule.
+ * The vertical fov for a shape: every shape sees at least the `aspect` it was composed for (wider keeps the height,
+ * taller the width), never a centre crop; a shape's `framing.fov` overrides.
  * @param {number} fov  the composed vertical fov, degrees @param {Shape} from @param {Shape} to
  */
 function fovFor(fov, from, to) {
@@ -209,11 +203,9 @@ function fovFor(fov, from, to) {
 }
 
 /**
- * Everything about a shot at time t (seconds from its first frame), for one delivery shape.
- * @param {Spec} spec @param {number} t @param {Shape} [shape]
- * `own`: the camera is the world's own (camera kind `world`: the pose and the lens are the world's, not these);
- * `frame`: the pose is in that frame of the world's (camera `frame`), not the world's; `near`: the lens's, if it says.
- * `parts`: each moving part the shot moves, its channels' values at t (the world's own moves for the rest).
+ * A shot at time t for one delivery shape. @param {Spec} spec @param {number} t @param {Shape} [shape]
+ * `own`: the world's own camera (kind `world`); `frame`: the pose is in that frame of the world's; `near`: the lens's;
+ * `parts`: each moving part's channels at t (the world moves the rest).
  * @returns {{ pose: Pose, fov: number, near?: number, own: boolean, frame?: string, hour: number, stops: number, lights: { id: LightId, intensity: number, color?: string }[], parts: Record<string, Record<string, number>>, cues: Cue[], clock: number, progress: number }}
  */
 export function evaluate(spec, t, shape) {
@@ -296,10 +288,8 @@ export function sha256(/** @type {string} */ text) {
 }
 
 /**
- * A stable hash of what a shot's pixels depend on — the world, its build and seed, the camera, lens, hour, exposure,
- * lights, events, shutter and framing — plus whatever the render adds (`extra`: from, to, shape, size, transform
- * ids…). Notes, the suggested look and sound cues do not change a frame and are left out, so editing them never
- * throws a plate away.
+ * A stable hash of what a shot's pixels depend on (world, build, seed, camera, lens, hour, exposure, lights, events,
+ * shutter, framing) and the render's `extra`; notes, the look and sound cues are left out, so editing them keeps plates.
  * @param {Spec} spec @param {Record<string, unknown>} [extra]
  */
 export function fingerprint(spec, extra = {}) {

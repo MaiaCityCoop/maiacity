@@ -9,10 +9,9 @@
  *                         the whole copy's, the same for all its materials, so leaves stay on their branches
  *   flutter        0…1    how much its tips shake in the wind on their own (a leaf, a petal; a fruit none)
  *
- * A recipe sets it on a material's `userData.look` (`{ kind: 'leaf' }`, numbers left out take the kind's), and box
- * format 5 (engine 6) carries it out; the page checks it (`lookOf`: an unknown kind or a number out of its range is
- * refused) and draws it. A build of an older engine carries none: its materials take a look from their names, as
- * plant-skill names them (`lookByName`: `leaf`, `bark`, `twig` …), or none, and are drawn as before.
+ * A recipe sets it on `userData.look` (`{ kind: 'leaf' }`, missing numbers the kind's); box format 5 (engine 6) carries
+ * it out; the page checks it (`lookOf`) and draws it. An older engine's build carries none: its materials take a look
+ * from their plant-skill names (`lookByName`: `leaf`, `bark`, `twig` …), or none, drawn as before.
  */
 
 /** the kinds of look, each with its numbers where a recipe gives none */
@@ -33,9 +32,8 @@ export const RANGES = Object.freeze({ translucency: [0, 1], stiffness: [0.1, 10]
 export const THIN = Object.freeze(['leaf', 'grass', 'petal']);
 
 /**
- * A look checked: `{ kind, translucency, stiffness, flutter }`, its numbers the kind's where not given; throws on an
- * unknown kind, a number out of its range or anything not a number. `null`/`undefined` is no look (null).
- * @param {unknown} x @param {string} [where] what it belongs to, for the error
+ * A look checked, its numbers the kind's where not given; throws on an unknown kind or a number out of range or not a
+ * number; `null`/`undefined` is none. @param {unknown} x @param {string} [where] what it belongs to, for the error
  * @returns {{ kind: keyof typeof KINDS, translucency: number, stiffness: number, flutter: number } | null}
  */
 export function lookOf(x, where = 'look') {
@@ -53,11 +51,7 @@ export function lookOf(x, where = 'look') {
 	return out;
 }
 
-/**
- * What leaves the box of a material's `userData.look`: only the plain fields, as given (the page checks them); none
- * where there is nothing that could be one.
- * @param {unknown} x
- */
+/** What leaves the box of a material's `userData.look`: only its plain fields, unchecked (the page checks). @param {unknown} x */
 export function plainLook(x) {
 	if (!x || typeof x !== 'object' || typeof (/** @type {any} */ (x).kind) !== 'string') return undefined;
 	const out = { kind: String(/** @type {any} */ (x).kind).slice(0, 40) };
@@ -65,10 +59,7 @@ export function plainLook(x) {
 	return out;
 }
 
-/**
- * The names plant-skill gives its materials, read as looks: for a build that carries none (every accepted version,
- * made before format 5). The first that matches wins; a name that matches none has no look and is drawn as before.
- */
+/** plant-skill's material names read as looks, for builds before format 5: the first match wins, none means no look */
 const NAMES = /** @type {[RegExp, keyof typeof KINDS][]} */ ([
 	[/petal|flower|blossom|bloom|sepal|corolla|bract|tepal/, 'petal'],
 	[/grass|sedge|turf|reed|blade/, 'grass'],
@@ -83,10 +74,9 @@ const NAMES = /** @type {[RegExp, keyof typeof KINDS][]} */ ([
 const STILL = /deadwood|leaves and twigs|litter|twig|moss|mushroom|stone|rock|pebble/i;
 
 /**
- * The look a material of an accepted build is drawn with where its recipe said none (made before engine 6): its name's
- * (`lookByName`), else, on a plant or a biome's living cover (`group` plants or biomes), what the material itself
- * shows: a two-sided one is a leaf (grass on a grass), a one-sided one bark (it moves only with its copy's lean, its tips
- * still); nothing on anything else, nor on the cover that lies still (litter, deadwood, stones, moss, mushrooms).
+ * A look for an accepted build's material without one (before engine 6): its name's (`lookByName`), else on a plant or
+ * a biome's living cover what it shows (two-sided a leaf, grass on a grass; one-sided bark, moving only with its copy);
+ * nothing on anything else, nor on cover that lies still.
  * @param {{ name?: string, side?: number, alphaTest?: number }} m @param {{ group?: string, label?: string }} kind
  */
 export function lookOfBuilt(m, kind) {
@@ -100,11 +90,7 @@ export function lookOfBuilt(m, kind) {
 	return { kind: k, ...KINDS[k] };
 }
 
-/**
- * A material's look by its name, as plant-skill names materials (`leaf`, `leafBack`, `bark`, `twig`, `pod` …); null
- * for a name that says nothing.
- * @param {unknown} name
- */
+/** A material's look by its plant-skill name (`leaf`, `leafBack`, `bark`, `twig`, `pod` …); null for one that says nothing. @param {unknown} name */
 export function lookByName(name) {
 	if (typeof name !== 'string' || !name) return null;
 	const n = name.toLowerCase();
