@@ -104,18 +104,27 @@ async function open(site) {
 async function lowSun(page, deg) {
 	return page.evaluate((deg) => {
 		const w = window.__world, T = w.THREE;
+		// the sky's sun: three's SunLight since the one sky (its direction its position, no target), else a directional light
 		let sun = null;
-		w.scene.traverse((o) => { if (o.isDirectionalLight && (!sun || o.intensity > sun.intensity)) sun = o; });
+		w.scene.traverse((o) => { if ((o.isSunLight || o.isDirectionalLight) && (!sun || o.intensity > sun.intensity)) sun = o; });
 		const at = (h) => {
 			window.__interiorHour = h;
-			w.sun(h);
-			const d = new T.Vector3().subVectors(sun.position, sun.target.position).normalize();
+			w.sun?.(h);
+			if (!sun) return null;
+			const d = sun.target ? new T.Vector3().subVectors(sun.position, sun.target.position) : sun.position.clone();
+			if (d.lengthSq() === 0) return null;
+			d.normalize();
 			return { h, up: (Math.asin(d.y) * 180) / Math.PI, x: d.x, z: d.z };
 		};
 		let best = null;
 		for (let h = 15; h <= 21; h += 1 / 60) {
 			const s = at(h);
-			if (s.up > 0 && (!best || Math.abs(s.up - deg) < Math.abs(best.up - deg))) best = s;
+			if (s && s.up > 0 && (!best || Math.abs(s.up - deg) < Math.abs(best.up - deg))) best = s;
+		}
+		// no sun found on the page: a fixed evening (19:30, the sun in the west, `deg` up), said so in the summary
+		if (!best) {
+			const r = (deg * Math.PI) / 180;
+			best = { h: 19.5, up: deg, x: -Math.cos(r), z: 0, fallback: sun ? 'the sun never stood up between 15 and 21' : 'no sun light in the scene' };
 		}
 		at(best.h);
 		return best;
