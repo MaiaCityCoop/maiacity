@@ -64,6 +64,8 @@ export function fakeGitHub() {
     let m: RegExpMatchArray | null;
     if (method === "GET" && (m = p.match(/^\/pulls\/(\d+)$/))) return pulls.has(+m[1]) ? reply(200, pulls.get(+m[1])) : reply(404, { message: "Not Found" });
     if (method === "GET" && (m = p.match(/^\/commits\/([0-9a-f]{40})\/check-runs$/))) return reply(200, { check_runs: checks.get(m[1]) ?? [] });
+    if (method === "GET" && (m = p.match(/^\/commits\/([0-9a-f]{40})$/)))
+      return graph.has(m[1]) ? reply(200, { sha: m[1], commit: { message: graph.get(m[1])!.message }, parents: graph.get(m[1])!.parents.map((x) => ({ sha: x })) }) : reply(422, { message: `No commit found for SHA: ${m[1]}` });
     if (method === "POST" && p.startsWith("/statuses/")) return reply(201, { id: 1, ...body });
     if (method === "GET" && p === "/commits") {
       const from = q.get("sha") === "main" ? main.head : q.get("sha")!;

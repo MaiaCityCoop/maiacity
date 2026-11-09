@@ -7,7 +7,7 @@ import type { Db, Queryable } from "./kit/pg";
 import { canonical } from "./kit/hash";
 import { ACCEPTED_CONTEXT, intentLink, keepSeen, readPull, type GitHub, type Job, type Pull, type Run } from "./github";
 import { INTENT_ADMINS, byOf, decisions, gate, getIntent, mustMove } from "./intents";
-import { carrySeen } from "./mainmerge";
+import { carried } from "./mainmerge";
 import { decidable, prBlock, short, sub } from "./substate";
 import type { BlobStore } from "./blobs";
 import { decideWork } from "./versioned";
@@ -114,7 +114,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
   const read = await readPull(gh!, first.pull_request).catch((e) => refuse(`Pull request #${first.pull_request} could not be read: ${(e as Error).message}.`));
   const pr = read.pr;
   // what play keeps of its main merge goes on (./mainmerge.ts): main merged in and GitHub not done yet is working
-  const seen = carrySeen(first.pr_seen, read.seen);
+  const seen = await carried(gh!, first.pr_seen, read.seen);
   await keepSeen(db, first.id, seen);
   await db.transaction(async (tx) => {
     // one Accept at a time: a second press waits here, then finds it in Ship
@@ -165,7 +165,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
 export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now()) {
   return db.transaction(async (tx) => {
     await tx.query(lockSql(LOCK.shipQueue));
-    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, COALESCE((extract(epoch FROM decided_at) * 1000000)::bigint, 0)::text AS turn, spec, results FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
+    const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, COALESCE((extract(epoch FROM decided_at) * 1000000)::bigint, 0)::text AS turn, spec, results, pr_seen FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
     const was: Ship | undefined = row?.ship;
     if (!was?.pending) return;
     const ship: Ship = { ...was, steps: was.steps.map((s) => ({ ...s })) };
@@ -222,7 +222,10 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
     }
 
     // a merge: GitHub ready, the head as checked, its checks green (./substate.ts prBlock, at the head it was accepted on)
-    const { pr, seen, runs } = await readPull(gh, ship.pr, at);
+    const read = await readPull(gh, ship.pr, at);
+    const { pr, runs } = read;
+    // play's main merges carried on (./mainmerge.ts): results kept across them count at the head it was accepted on
+    const seen = await carried(gh, row.pr_seen, read.seen);
     await keepSeen(tx, id, seen);
     const block = prBlock(row, seen, pending.head);
     if (block?.state === "failed") return red(block.why, (block.why.startsWith("'") && runs.get(block.why.split("'")[1])?.html_url) || pr.html_url);
