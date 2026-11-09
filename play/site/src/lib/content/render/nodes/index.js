@@ -36,8 +36,9 @@ import {
 const handlers = new WeakMap();
 
 /**
- * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: one of the kit's (`isKit`)
- * drawn into a target comes out linear and untoned, as three's own do; every other as the handler draws it.
+ * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: every node material drawn
+ * into a target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for the
+ * screen), the sky's and the environment three bakes from it too.
  * @param {THREE.WebGLRenderer} r
  */
 export function install(r) {
@@ -46,17 +47,14 @@ export function install(r) {
 	r.setNodesHandler(h);
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
-	// only the kit's own are drawn linear and untoned into a target (keyed apart as 'target'); every other node material
-	// keeps the handler's key and output (cb16b7a5)
-	let keying = null;
+	// the object being keyed, for the kit's shapes (shapeOf)
 	const keyOf = h.customProgramCacheKeyCallback;
 	h.customProgramCacheKeyCallback = function () {
-		keying = this;
 		drawing = h.nodeFrame.object;
 		try {
 			return keyOf.call(this);
 		} finally {
-			keying = drawing = null;
+			drawing = null;
 		}
 	};
 	// three builds a node material once per program (a mesh's shadows, a target) but keeps only its last build. Its
@@ -74,8 +72,12 @@ export function install(r) {
 		if (own) (q.uniforms = own.uniforms), (m._latestBuilder = own.builder);
 		meet(m, p, q);
 	};
-	h.getOutputCallback = (node, builder) => (onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node);
-	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
+	// in a target three's own materials come out linear and untoned, the screen alone tone mapped and encoded: so do
+	// ours, every node material, the sky's too (544485e2: the viewers' sky, toned in its own shader and again at the
+	// post stack's output, came out a dark olive under AgX, a washed cream under Neutral). Keyed apart, the screen's
+	// program by the renderer's tone and colour space, a target's as one.
+	h.getOutputCallback = (node, builder) => (onScreen() ? screen(node, builder) : node);
+	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
 	handlers.set(r, h);
 	return h;
 }

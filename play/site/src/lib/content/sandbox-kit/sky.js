@@ -26,7 +26,7 @@ import { SunLight } from 'three/addons/lights/SunLight.js';
 import { airOf, createUniverse, groundStars, horizonRing, skyAt } from './universe.js';
 import { skyHour, skyTime } from './skyTime.svelte.js';
 import { budget } from '../render/budget.js';
-import { agx, setExposure, untonemap } from '../render/core.js';
+import { setExposure, tonemap, untonemap } from '../render/core.js';
 import { SUN as GRAPH_SUN } from '../render/nodes/graph.js';
 
 /**
@@ -118,13 +118,14 @@ export const sunFrom = (/** @type {number} */ elevation, /** @type {number} */ a
 	return new THREE.Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
 };
 
-const HORIZON = new THREE.Color(0xff7a2f), OVERHEAD = new THREE.Color(0xfff2e0), MOON = new THREE.Color('#8ea6dc');
+const HORIZON = new THREE.Color(0xff7a2f), OVERHEAD = new THREE.Color(0xf4f7ff), MOON = new THREE.Color('#8ea6dc');
 const lum = (/** @type {number[]} */ c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 
 /**
  * The sky's light on a surface facing up (its irradiance: the dome without its disc, summed over the sky, cosine
- * weighted), white-balanced as a camera would: Preetham's sky is bluer than the eye sees it, and a third of its blue is
- * kept, so the shadows stay cool and not cyan. `gain` is that balance, laid on the environment.
+ * weighted), white-balanced as a camera would: Preetham's sky is bluer than the eye sees it, and three quarters of
+ * its blue is kept, so the shadows stay cool and not cyan (0b4c007b: at 0.85 kept, Sandbox 1's shade under the trees came
+ * out navy; at 0.35, every noon sepia). `gain` is that balance, laid on the environment.
  * @param {THREE.Vector3} sun
  */
 export function skyIrradiance(sun) {
@@ -137,7 +138,7 @@ export function skyIrradiance(sun) {
 			for (let k = 0; k < 3; k++) e[k] += c[k] * w;
 		}
 	}
-	const y = lum(e), gain = e.map((v) => Math.pow(y / Math.max(v, 1e-9), 0.65));
+	const y = lum(e), gain = e.map((v) => Math.pow(y / Math.max(v, 1e-9), 0.25));
 	return { e: e.map((v, k) => v * gain[k]), gain };
 }
 
@@ -344,7 +345,7 @@ vec3 skyHorizon(vec3 dir) {
 		// the haze: the horizon all round, through the lens, encoded (three lays fog on after it)
 		const r = horizonRing(l.dir);
 		r.forEach((c, i) => horizonColours[i].set(c.r, c.g, c.b));
-		ring = r.map((c) => new THREE.Color().fromArray(agx(c.toArray(), shown)).convertLinearToSRGB().toArray());
+		ring = r.map((c) => new THREE.Color().fromArray(tonemap(c.toArray(), shown)).convertLinearToSRGB().toArray());
 		light = { hour, e: l.e, day: l.day, low: l.low, night: l.night };
 		if (rebake(envAt, l.dir, film()) || baked !== mood) {
 			envAt = l.dir.clone();
