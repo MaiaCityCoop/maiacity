@@ -34,6 +34,8 @@ base on 5181 through the proxy on 3911, head on 5182 through the swapping proxy 
    with `SEEDED_RANDOM` in every page (`determinism.mjs`, copied from `intent-work/main-baseline/`).
    - At walking height: `walk-near` (z 95), `walk-160`, `walk-edge` (x 40, z 120, looking along the forest's edge).
    - From above: `top-95` and `top-160` (18 m up, straight down), `above-140` (40 m up at a slant).
+   - Settling is capped: 4 min for Sandbox 1 to come up, 2 min a view. Since intent 2, Sandbox 1 keeps taking far pictures for
+     minutes and never reads as quiet, so a view that doesn't settle is shot anyway and marked `(still building)`.
    - For each view, a still at 1440×900 and the meter over 6 s. Then a 30 m walk in from z = 160 over 12 s, filmed
      with the meter.
 2. **Side by side:** `out/pair-<view>.jpg` (base left, head right) and `out/walk.mp4`.

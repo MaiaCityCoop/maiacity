@@ -83,12 +83,12 @@ for (const site of sites) {
 	const t0 = Date.now();
 	await page.goto(`${site.url}/sandbox-1/`, { waitUntil: 'domcontentloaded' });
 	await page.waitForFunction(() => window.__walker && window.__assets, null, { timeout: 10 * 60e3 });
-	const up = await settle(page, 10 * 60e3);
+	const up = await settle(page, 4 * 60e3);
 	console.log(`${site.name}: Sandbox 1 ${up ? 'settled' : 'still building'} after ${Math.round((Date.now() - t0) / 1000)} s`);
 	for (const v of VIEWS) {
 		await page.evaluate((v) => (v.fly ? window.__walker.fly(...v.fly) : window.__walker.place(...v.place)), v);
 		await page.waitForTimeout(1500);
-		const ok = await settle(page, 3 * 60e3);
+		const ok = await settle(page, 2 * 60e3);
 		await page.waitForTimeout(3000);
 		const m = meter ? await page.evaluate(() => window.__meter.sample(6)) : null;
 		const png = `${out}/${site.name}-${v.name}.png`;
@@ -99,7 +99,7 @@ for (const site of sites) {
 	}
 	// a 12 s walk at walking height, 30 m in from z = 160 (filmed: no plant pops, no tile edges in the cover)
 	await page.evaluate(() => window.__walker.place(0, 160, 0, -0.18));
-	await settle(page, 3 * 60e3);
+	await settle(page, 2 * 60e3);
 	await page.waitForTimeout(2000);
 	const walk = page.evaluate(() => new Promise((ok) => { const t0 = performance.now(); const step = (now) => { const t = Math.min(1, (now - t0) / 12000); window.__walker.place(0, 160 - 30 * t, 0, -0.18); if (t < 1) requestAnimationFrame(step); else ok(); }; requestAnimationFrame(step); }));
 	const m = meter ? await page.evaluate(() => window.__meter.sample(11.5)) : null;
