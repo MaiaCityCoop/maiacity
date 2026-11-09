@@ -1,9 +1,18 @@
 # Mac render box: queue and handover
 
-## THE QUEUE I HOLD (15:38 Berlin)
-1. **0b4c007b** c3–c5 — running since 15:35 (head 8fb07d1fd vs main 12837b65e).
-2. Then each round: the first `MAC JOB READY` job (ed6694c3, #6 …), else the manual queue: #8 run 3, then 544485e2's
-   viewer test.
+## SMOKE (newest first)
+- smoke 53f3bada9 (7af6e162 live): running since 15:58.
+
+## THE ROLE NOW (Samuel 2026-11-09: the Mac watches GPU work, it doesn't gate it)
+1. A smoke run on main after every GPU deploy (`GET /api/version` moves and the merged commit names a GPU intent): every
+   sandbox and eight asset viewers, the factories and the map in Chromium on Metal, one warm profile
+   (`scripts/mac-page.mjs`), one kept worktree of main (`~/Documents/Development/smoke-main`), the console's errors, a
+   screenshot each, a blank check, Sandbox 1's frame times at near/mid/far (logged). The line above: "smoke <commit>: OK"
+   or what broke; a break becomes a fix intent.
+2. #9's (c1bee1f8) smoke on its PR head when its builder says ready: every page on WebGPU in Chrome and Safari.
+3. Nice checks only when idle. Gating jobs stopped at 15:45 (#6 c7, #8 c7/c8, ed6694c3 c5, 0b4c007b, 544485e2).
+- Handed over: `HANDOVER-0b4c007b.md` and `HANDOVER-544485e2.md` beside this file. 544485e2's bloom fix pushed
+  (`bc2884817`); I won't push to either branch again.
 
 ## 15:38 Berlin — **7af6e162 c7 recorded: PASS → at Proposal (Accept and ship)**
 Quiet re-run on PR head 088efc1f5 (out/ 68942f926): warm load quiet after **21 s, 0 pictures taken** (bound < 30 s);
