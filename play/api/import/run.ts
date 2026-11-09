@@ -18,6 +18,7 @@ import { seedStories, type StoriesReport } from "./stories";
 import { ensureAssetDocs, type AssetDocsReport } from "../src/assetdocs";
 import { seedFactories } from "./factories";
 import { seedGameConfigs } from "./gameconfigs";
+import { seedSandboxLayouts, type SandboxLayoutsReport } from "./sandboxes";
 import { seedSkills } from "./skills";
 import type { SeedReport } from "./seeddocs";
 import "../src/allkinds";
@@ -41,6 +42,8 @@ export type Report = {
   gameConfigs: SeedReport;
   /** the skills kept in the repo (what play teaches its agents), each written once into play's Postgres as its document's v1 (./skills.ts) */
   skills: SeedReport;
+  /** the sandboxes' layouts kept in the repo, each written once as its layout document's v1 (./sandboxes.ts) */
+  sandboxLayouts: SandboxLayoutsReport;
   /** every asset's Loro document, made from its history where it has none (../src/assetdocs.ts) */
   assetDocs: AssetDocsReport;
   /** when the legacy import ran (play.imports), or null where it never did (a database not restored from play's) */
@@ -60,6 +63,7 @@ export async function runImport(db: Db, store: BlobStore, opts: { media?: boolea
     factories: { seeded: [], present: [], errors: [] },
     gameConfigs: { seeded: [], present: [], errors: [] },
     skills: { seeded: [], present: [], errors: [] },
+    sandboxLayouts: { seeded: [], present: [], errors: [] },
     assetDocs: { made: 0, variants: 0, kept: 0, breeds: 0, edits: 0, versions: 0, bytes: 0, errors: [] },
     legacy: { ran: await legacyRan(db) },
     ok: false,
@@ -72,12 +76,13 @@ export async function runImport(db: Db, store: BlobStore, opts: { media?: boolea
   report.factories = await seedFactories(db);
   report.gameConfigs = await seedGameConfigs(db);
   report.skills = await seedSkills(db);
+  report.sandboxLayouts = await seedSandboxLayouts(db);
   log("making every asset's document from its history…");
   report.assetDocs = await ensureAssetDocs(db, store);
   // no sweep of the store here (intent 5ab64b8e): the deploy's file check is the backup's, one listing of the store
   // before anything changes (deploy/backup.sh stops the deploy if a file is missing), and play mends a file its
   // bucket lacks from that second copy on read (blobs.ts mirroredStore). Reading every file again is server.yml's.
-  report.ok = !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.factories.errors.length && !report.gameConfigs.errors.length && !report.skills.errors.length && !report.assetDocs.errors.length;
+  report.ok = !report.verified.mediaErrors.length && !report.sources.errors.length && !report.stories.errors.length && !report.factories.errors.length && !report.gameConfigs.errors.length && !report.skills.errors.length && !report.sandboxLayouts.errors.length && !report.assetDocs.errors.length;
   return report;
 }
 

@@ -26,11 +26,12 @@ suite("every reference a UUID (migration 0017)", () => {
 
   test("the ids play's code names are the ones the migration gives", () => {
     expect(COOP).toBe(uuidOf("coop:maia-city"));
-    const { four, five, ...renamed } = SANDBOX;
+    const { four, five, six, ...renamed } = SANDBOX;
     expect({ ...renamed } as Record<string, string>).toEqual({ one: uuidOf("sandbox:sandbox-1"), two: uuidOf("sandbox:sandbox-2"), three: uuidOf("sandbox:sandbox-3"), factories: uuidOf("sandbox:factories") });
     // a sandbox made after 0017 has a random UUID, the one its own migration writes
     expect(MIGRATIONS.find((m) => m.id === "0021-sandbox-4")?.sql).toContain(`'${four}'`);
     expect(MIGRATIONS.find((m) => m.id === "0022-sandbox-5")?.sql).toContain(`'${five}'`);
+    expect(MIGRATIONS.find((m) => /^\d{12}-67f0404a-sandbox-6$/.test(m.id))?.sql).toContain(`'${six}'`);
     for (const id of [COOP, ...Object.values(SANDBOX)]) expect(id).toMatch(UUID);
   });
 
