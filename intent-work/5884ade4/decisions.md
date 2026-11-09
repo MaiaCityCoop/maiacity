@@ -219,3 +219,7 @@ held village.ts types the film name), places.js gone (film registry by UUID), ge
 file reader: kernel/files.js `fileUrl`, cache/files.js `playFile` (content can't import lib/api.ts without a cycle
 through lib/recipes.ts). Not looked at by hand: Sandbox 2's labs, Sandbox 4, the Factories (no census; pinned by
 SSR and unit tests where moved).
+- 10:12Z: play/site's svelte-check has no error outside held files (3 fixed; held: levels.test.ts, nodes.test.ts,
+  village.ts). **Found, not fixed (a behaviour change):** the pieces page (`routes/pieces/+page.svelte`) has passed
+  its piece head and history snippets to Frame as `asideHead`/`history`, props Frame doesn't take, since c47c5a1 (the
+  one-aside change), so a piece's Info and History aside never shows there. Its own fix, for Samuel to decide.
