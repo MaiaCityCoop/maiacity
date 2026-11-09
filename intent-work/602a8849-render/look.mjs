@@ -193,6 +193,12 @@ for (const site of sites) {
 			await page.waitForTimeout(wait * 1000);
 			await quiet(page, 60e3);
 			await measure(page, site, view);
+			// the world lights' glows show only after dark: the Old City again at 22:00
+			if (view === 'world-oldcity') {
+				await page.evaluate(() => (window.__interiorHour = 22));
+				await page.waitForTimeout(5000);
+				await measure(page, site, 'world-oldcity-night');
+			}
 			await ctx.close();
 		} catch (e) {
 			err.push(`${view}: ${e}`);

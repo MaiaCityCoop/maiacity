@@ -5,11 +5,12 @@
 # to play only). Writes intent-work/602a8849-render/out/.
 #   bash run.sh [head commit]   (default: the pull request's branch as it is now)
 #   ONLY=c7 bash run.sh [head commit]   (c7 alone: story parity on head, no dev servers)
+#   ONLY=c8 bash run.sh [head commit]   (c8 alone: the looks, base against head; avenBOX's Chromium draws by SwiftShader)
 set -euo pipefail
 : "${PLAY_MCP_TOKEN:?PLAY_MCP_TOKEN: the admin token the read-only proxy reads play with}"
 ROOT=$(git rev-parse --show-toplevel)
 JOB="$ROOT/intent-work/602a8849-render"
-OUT="$JOB/out"
+OUT="${OUT_DIR:-$JOB/out}"
 mkdir -p "$OUT"
 
 git -C "$ROOT" fetch -q origin main intent/602a8849-tsl-shaders
@@ -26,6 +27,7 @@ for side in base head; do
 done
 
 # c7: story parity on head (its rebuilt live runtime), twice, so the same t is seen by two seeks
+if [ "${ONLY:-}" != c8 ]; then
 FIX=src/lib/stories/fixtures/king-coconut-live.json
 for run in 1 2; do
   (cd "$ROOT/../602a-head/play/site" && bun scripts/story-parity.ts "$FIX" --at 1,3,5 --min-ssim 0.98 --lossless --keep "$OUT/parity-$run") 2>&1 | tee "$OUT/parity-$run.txt" || true
@@ -39,6 +41,8 @@ done
 } | tee "$OUT/parity-seeks.txt"
 # keep the stills only (the renderer's frames are large)
 for run in 1 2; do find "$OUT/parity-$run" -mindepth 1 -not -name 'player-*.png' -not -name 'render-*.png' -prune -exec rm -rf {} + 2>/dev/null || true; done
+
+fi
 
 if [ "${ONLY:-}" = c7 ]; then echo "out: $OUT (c7 only; commit out/ and push the branch intent-work/602a8849-render)"; exit 0; fi
 
