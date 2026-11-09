@@ -1,7 +1,6 @@
-// A LIVE SHOT (play/SPEC.md §12; intent f270269e): a story's shot that draws the real asset, built by the asset box's own
-// frozen engine inside the story's composition, instead of a still or a video. Pure: what compose.ts writes into the
-// composition and what the live runtime (./live-runtime.ts) reads back out of it, and the two maths both share: which
-// build a moment shows and where the camera stands then. No clock, no chance: the same t is always the same picture.
+// A LIVE SHOT (play/SPEC.md §12; intent f270269e): a story's shot drawing the real asset, built by the box's frozen engine
+// in the composition, not a still or a video. Pure: what compose.ts writes and the live runtime (./live-runtime.ts) reads,
+// and their shared maths (which build a moment shows, where the camera stands): the same t, the same picture.
 //
 //   live: { asset: <its UUID>, version: <its version's id>, variant?: <a variant's name>,
 //           values?: { stage: 10, ... },              the asset's parameters, held over the shot
@@ -9,15 +8,14 @@
 //           camera: [{ at: s, eye: [x, y, z], target: [x, y, z], fov: degrees, ease?: 'smooth' | 'linear' }],
 //           steps?: how many builds a keyed change is drawn in (2 … 24; 8) }
 //
-// A parameter is a build's: a palm's stage can't move inside one build, so a keyed change is drawn as `steps` builds
-// made before the shot is ready, the one nearest each moment shown then. The camera moves on every frame.
+// A parameter is a build's (a palm's stage can't move in one build), so a keyed change is `steps` builds made before the
+// shot is ready, the nearest shown each moment; the camera moves every frame.
 
 /** a camera keyframe: where the eye is and what it looks at, in metres, its field of view in degrees */
 export type CameraKey = { at: number; eye: [number, number, number]; target: [number, number, number]; fov: number; ease?: 'smooth' | 'linear' };
 export type Values = Record<string, number | string | boolean>;
 export type Live = { asset: string; version: string; variant?: string; values?: Values; keys?: { at: number; values: Values }[]; camera: CameraKey[]; steps?: number };
-/** what play knows of an asset's version, for compose: its recipe file and pieces by hash, its box engine, its parameters,
- *  and its variants' recipes */
+/** what play knows of an asset's version for compose: recipe and pieces by hash, box engine, parameters, variants' recipes */
 export type LiveAsset = { asset: string; version: string; recipe: string; pieces?: string[]; engine: number; params?: { id: string | number; name?: string }[]; variants?: Record<string, { recipe: string; pieces?: string[] }> };
 
 export const STEPS = 8;
@@ -33,16 +31,14 @@ function between<K extends { at: number }>(keys: K[], t: number): [K, K, number]
 	return [end, end, 0];
 }
 
-/** the camera at t seconds into the shot: eye, target and fov from its keys, eased per segment ('smooth' unless the
- *  key it moves to says 'linear') */
+/** the camera at t s into the shot from its keys, eased per segment ('smooth' unless the key it moves to says 'linear') */
 export function cameraAt(camera: CameraKey[], t: number) {
 	const [a, b, u0] = between(camera, t);
 	const u = b.ease === 'linear' ? u0 : smooth(u0);
 	return { eye: a.eye.map((x, i) => lerp(x, b.eye[i], u)) as [number, number, number], target: a.target.map((x, i) => lerp(x, b.target[i], u)) as [number, number, number], fov: lerp(a.fov, b.fov, u) };
 }
 
-/** the parameters at t seconds into the shot: its values, each key's over them from its moment; a number between two
- *  keys moves linearly, anything else holds until the next key */
+/** the parameters at t: its values, each key's over them from its moment; numbers between keys linear, the rest held */
 export function valuesAt(live: Pick<Live, 'values' | 'keys'>, t: number): Values {
 	const keys = live.keys ?? [];
 	const out: Values = { ...(live.values ?? {}) };
@@ -58,8 +54,7 @@ export function valuesAt(live: Pick<Live, 'values' | 'keys'>, t: number): Values
 	return out;
 }
 
-/** the moments a keyed change is built at (s into the shot), `steps` of them evenly from the first key to the last;
- *  one, at 0, when nothing is keyed */
+/** the moments (s) a keyed change is built at: `steps` evenly from first key to last; one, at 0, when nothing is keyed */
 export function stepTimes(live: Pick<Live, 'keys' | 'steps'>): number[] {
 	const keys = live.keys ?? [];
 	if (!keys.length) return [0];
@@ -77,8 +72,7 @@ export function stepAt(times: number[], t: number): number {
 	return Math.min(times.length - 1, Math.max(0, Math.round((t - times[0]) / span)));
 }
 
-/** every build a live shot needs: the parameters at each step, as text (a build is named by its values as text, as the
- *  asset library names one) */
+/** every build a live shot needs: the parameters at each step as text (a build is named by its values as text) */
 export function buildsOf(live: Live): Record<string, string>[] {
 	return stepTimes(live).map((t) => Object.fromEntries(Object.entries(valuesAt(live, t)).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => [k, String(v)])));
 }
@@ -96,8 +90,7 @@ export function buildsOf(live: Live): Record<string, string>[] {
 
 export type Curve = number | [number, number][];
 export type World = { asset: string; version: string; camera: CameraKey[]; hour?: Curve; exposure?: Curve; lights?: { sun?: Curve; sky?: Curve; lamps?: Curve } };
-/** what play knows of a world's version, for compose: its recipe file, pieces and engine, and every guest it plants
- *  (`use:` nodes) by its recipe's hash, with that recipe's pieces */
+/** what play knows of a world's version for compose: recipe, pieces, engine, and each guest (`use:` nodes) by recipe hash with its pieces */
 export type WorldAsset = { asset: string; version: string; recipe: string; pieces?: string[]; engine: number; guests: Record<string, string[]> };
 
 /** a curve's value at t: its number, or its keys' (linear between, the ends held); `or` where it has none */
@@ -114,8 +107,7 @@ export const framesOf = (duration: number, fps: number) => Math.max(1, Math.roun
 /** the frame a moment shows: t's nearest, within the shot */
 export const frameOf = (t: number, fps: number, frames: number) => Math.min(frames - 1, Math.max(0, Math.round(t * fps)));
 
-/** the sun at an hour (0 … 24) on a day's arc: up at 6 in the east (az 90°), highest at noon (50° in the south, 180°),
- *  down at 18 in the west (270°), under the horizon at night; degrees, as a world's mood names them (`sun`, `az`) */
+/** the sun at an hour (0 … 24): up at 6 in the east (az 90°), at noon 50° in the south (180°), down at 18 in the west (270°), under the horizon at night; degrees (`sun`, `az`) */
 export function sunAt(hour: number): { sun: number; az: number } {
 	const h = ((hour % 24) + 24) % 24;
 	const sun = Math.round(50 * Math.sin((Math.PI * (h - 6)) / 12) * 1e4) / 1e4;
