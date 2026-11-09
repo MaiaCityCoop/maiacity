@@ -1,10 +1,9 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * The device's asset cache: builds (./builds.js), what was made from them (./levels.js) and play's files (./files.js),
- * in the origin private file system (OPFS), a folder of its own (DIR), bounded at LIMIT bytes. Never the truth (the
- * recipe is): it may be emptied at any time. Written in its own worker (./cache.worker.js) once the builds stop coming
- * in (`quiet`), so a loading world has the graphics card for its frames. Nothing in IndexedDB (Samuel 2026-10-20): the
- * old database there is deleted once on each device (`OLD`).
+ * The device's asset cache (builds ./builds.js, levels ./levels.js, play's files ./files.js) in OPFS, a folder of its own
+ * (DIR) bounded at LIMIT bytes. Never the truth (the recipe is): it may be emptied any time. Written in its own worker
+ * (./cache.worker.js) once builds stop coming in (`quiet`), so a loading world has the GPU for its frames. Nothing in
+ * IndexedDB (Samuel 2026-10-20): the old database is deleted once on each device (`OLD`).
  */
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { HEX } from '../../../kernel/hash.js';
@@ -12,8 +11,7 @@ import { budget } from '../../render/budget.js';
 
 export const LIMIT = 512 * 1024 * 1024;
 const DIR = 'asset-cache';
-/** a build's file is named BUILD and its key, a file of play's FILE and its hash, a level made from a build LEVEL and
- *  its key */
+/** a build's file is named BUILD + its key, one of play's files FILE + its hash, a level LEVEL + its key */
 export const BUILD = 'build-', FILE = 'recipe-', LEVEL = 'level-';
 const ENTRY = new RegExp(`^(build|recipe|level)-${HEX}$`);
 /** the file where when each entry was last used is noted, by its file's name */
@@ -63,10 +61,7 @@ export const ask = (w, message, moved) =>
 	});
 
 let opened;
-/**
- * The cache's folder, or null where this browser keeps none (a private window, storage turned off). The first time a
- * page opens it, the database the cache was kept in before is deleted (`OLD`; nothing, where there is none).
- */
+/** The cache's folder, or null where none (a private window, storage off); first opened, the old database (`OLD`) is deleted. */
 export function folder() {
 	return (opened ??= (async () => {
 		try {
@@ -96,10 +91,8 @@ export async function read(d, name) {
 const CAN = 'can';
 let writer;
 /**
- * How this page writes the cache's files, learnt once by writing one: 'worker', in the cache's worker, where it has
- * OPFS's synchronous files; else 'page', here, where this browser writes a file from the page; else null, where it can
- * do neither (no folder of the cache, or a WebKit with no OPFS in its workers and no file it writes from the page): it
- * keeps nothing, and every asset builds.
+ * How this page writes the cache's files, learnt once by writing one: 'worker' (OPFS's synchronous files there), else
+ * 'page', else null (no folder, or a WebKit with OPFS in neither): it keeps nothing and every asset builds.
  */
 function writerOf() {
 	return (writer ??= (async () => {
@@ -122,16 +115,10 @@ function writerOf() {
 	})());
 }
 
-/**
- * Whether this device keeps builds at all: a folder of the cache, and a way to write its files (`writerOf`). Where it
- * doesn't, nothing is kept, nothing is found, and every asset builds in the box.
- */
+/** Whether this device keeps builds at all (a folder and a writer, `writerOf`); else nothing is kept and every asset builds in the box. */
 export const keeps = async () => !!(await writerOf());
 
-/**
- * Writes `bytes` as the file `name` of the folder `d`, whole: in the cache's worker (handed over to it, so the caller
- * keeps no use of them), else here where this browser can write a file from the page (`writerOf`).
- */
+/** Writes `bytes` as file `name` of folder `d`, whole: in the worker (handed over, so the caller keeps no use of them), else here. */
 export async function write(d, name, bytes) {
 	const how = await writerOf();
 	const w = how === 'worker' && workerOf();
@@ -196,10 +183,7 @@ async function note() {
 	await write(d, USED, utf8ToBytes(JSON.stringify(used)));
 }
 
-/**
- * What the cache could not do, settled as not done (false): nothing is lost but a copy, as the cache is never the truth
- * (a page that finds nothing builds). Every failure the cache keeps to itself goes through here.
- */
+/** What the cache could not do, settled as not done (false): only a copy is lost, as the cache is never the truth. Every kept failure goes here. */
 export const lost = (p) => Promise.resolve(p).then(undefined, () => false);
 
 let line = Promise.resolve();
@@ -213,8 +197,7 @@ export function inLine(work) {
 	return turn;
 }
 
-/** how long no build has to come in before those that came are kept (ms), and how long one waits for that at most: on a
- *  small device (../../render/budget.js) a little only, as every build waiting holds its whole data in the page */
+/** how long no build must come in before they are kept (ms), and the longest wait: a little on a small device (../../render/budget.js), each build waiting holds its data */
 const QUIET = 2000, LATEST = 20000;
 const waits = () => (budget().small ? { quiet: 300, latest: 2000 } : { quiet: QUIET, latest: LATEST });
 let calm = [], timer = 0;
@@ -231,12 +214,10 @@ export function quiet() {
 	});
 }
 
-/** the bytes the cache holds as this page last counted them, and what it kept since (more, if one was kept again);
- *  null: to be counted */
+/** the bytes the cache holds as this page last counted, plus what it kept since; null: to be counted */
 let held = null;
 
-/** `bytes` more were written: the entries used longest ago go once the cache may be over LIMIT (counted once a visit,
- *  then by what is added) */
+/** `bytes` more written: the entries used longest ago go once it may be over LIMIT (counted once a visit, then by what is added) */
 export async function added(d, bytes) {
 	if (held !== null) held += bytes;
 	if (held === null || held > LIMIT) held = await trim(d);

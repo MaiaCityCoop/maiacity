@@ -11,8 +11,8 @@ import * as THREE from 'three';
 /**
  * @typedef {{ draws: Draw[], tris: number, box: THREE.Box3, center: THREE.Vector3, radius: number, height: number,
  *   bottom: number, reach: number, colour: THREE.Color, left: { lines: number, points: number }, same?: boolean,
- *   made?: { error: number, passes: number[] } }} Level a level made from another by simplifying it (./lower.js) keeps
- *   that one's measure, and says how far it strays (`made.error`, m) and whether nothing was taken away (`same`)
+ *   made?: { error: number, passes: number[] } }} Level one made by simplifying (./lower.js) keeps its source's measure,
+ *   saying how far it strays (`made.error`, m) and whether nothing was taken (`same`)
  */
 
 const IDENTITY = new THREE.Matrix4().toArray();
@@ -29,9 +29,8 @@ const indexOf = (g) => (g.index ? g.index.array : Uint32Array.from({ length: g.a
 let renumber = new Int32Array(0);
 
 /**
- * The part of a shape one of its groups draws, as a shape of its own with only the corners it uses: a machine built
- * as one shape of half a million corners in two hundred materials is two hundred small shapes, not two hundred copies
- * of the whole (welded again by material below, they would be a hundred million corners).
+ * The part of a shape one group draws, as a shape with only its corners: a machine of half a million corners in two
+ * hundred materials becomes two hundred small shapes, not two hundred copies (a hundred million corners welded).
  */
 function groupOf(g, group) {
 	const idx = indexOf(g);
@@ -137,10 +136,9 @@ function weld(list) {
 }
 
 /**
- * One level of an asset, from its built object, its materials made the renderer's (`presets.of`).
- * @param {THREE.Object3D} root a build as ../box/rebuild.js made it, at its real size, its foot at y = 0
- * @param {{ of: (m: THREE.Material) => THREE.Material }} presets
- * @returns {Level}
+ * One level of an asset from its built object, its materials the renderer's (`presets.of`).
+ * @param {THREE.Object3D} root a build as ../box/rebuild.js made it, real size, foot at y = 0
+ * @param {{ of: (m: THREE.Material) => THREE.Material }} presets @returns {Level}
  */
 export function prepare(root, presets) {
 	root.updateMatrixWorld(true);

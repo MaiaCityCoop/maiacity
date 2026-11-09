@@ -84,8 +84,7 @@ export function furnish(room: Room): { group: THREE.Group; colliders: RoomCollid
 	// ── a curved built-in bench of plaster by the door, with felt cushions, a round table and two stools
 	{
 		const arc = along(3.4)
-		// a curved slab of plaster: its front face, its seat, its back, following the wall
-		// (open-ended curves only: a closed one would fan out to the middle of the dome)
+		// a curved plaster slab (front, seat, back) following the wall; open-ended curves only (a closed one fans to the dome's middle)
 		const aS = a0 + span * fBench, aL = span * arc
 		const front = new THREE.Mesh(new THREE.CylinderGeometry(rIn + 0.8, rIn + 0.8, 0.45, 24, 1, true, aS, aL), plaster)
 		front.position.y = y + 0.225
@@ -259,10 +258,7 @@ export function furnish(room: Room): { group: THREE.Group; colliders: RoomCollid
 	return { group: g, colliders }
 }
 
-/**
- * A balcony door: a round-headed timber frame at the glass, its glazed leaf
- * standing open onto the terrace. Built facing +z (outward), standing on y 0.
- */
+/** A balcony door: a round-headed timber frame at the glass, its glazed leaf open onto the terrace; facing +z, on y 0. */
 function balconyDoor(): THREE.Group {
 	const g = new THREE.Group()
 	const w = 0.95, h = 2.1
@@ -281,11 +277,7 @@ function balconyDoor(): THREE.Group {
 	return g
 }
 
-/**
- * The terraces' furniture: rounded, handmade, and never twice the same in a row.
- * Built in a local frame: +z points out over the balustrade, the set centred on
- * the origin; kind 0..3 picks which.
- */
+/** The terraces' furniture, rounded, handmade, never twice the same in a row: local frame, +z out over the balustrade; kind 0..3. */
 export function terraceSet(kind: number, seed: number): THREE.Group {
 	const r = seeded(seed)
 	const g = new THREE.Group()

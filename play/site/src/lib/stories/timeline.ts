@@ -12,8 +12,7 @@ export interface Track extends W.Track {
 	name?: string;
 }
 export type StoryBody = Omit<W.StoryBody, 'tracks'> & { tracks: Track[] };
-/** a linked version as play reads it (play/api/src/stories.ts `linksOf`): its story's UUID, title, number and id, its
- *  length and timeline, and its story's newest accepted number (only shown: a link plays its own version) */
+/** a linked version as play reads it (play/api/src/stories.ts `linksOf`), with its story's newest accepted number (only shown) */
 export type Linked = Omit<W.Linked, 'newest' | 'body'> & { newest?: number | null; body: StoryBody };
 /** every version a timeline links, to any depth, by the version's id */
 export type Links = Record<string, Linked>;
@@ -21,8 +20,7 @@ export type Links = Record<string, Linked>;
 export type LinkedBy = W.LinkedBy;
 export type Story = StoryBody & { id: string; title: string; number?: number | null; version?: string; note?: string; links?: Links; linked_by?: LinkedBy[]; versions?: { number: number; id: string; note: string; created: string; author: string | null; approved_by?: string | null }[] };
 
-/** a shot: its still (frame), how it goes into the next (transition), and its moving picture if it has one: a video
- *  (played muted from video_in seconds into it, the story's own sound under it) or a composition (readable HTML by hash) */
+/** a shot: its still, its transition, and its moving picture if any: a video (muted from video_in s, the story's sound under it) or a composition (readable HTML by hash) */
 export type Shot = Clip & { frame: string | null; transition: string; video?: string | null; video_in?: number; composition?: string | null };
 /** a subtitle the clip sets itself: `at` seconds into the clip it comes on, until the next; `em` sets it alone, large */
 type SetCue = { at: number; text: string; em?: boolean };
@@ -32,8 +30,7 @@ export type Notes = Clip & { section: string; camera: string; retention: string;
 /** what a clip of a sound track says it is, sounding or still to be made: its note (a planned cue, an effect, a bed) or its name */
 export const cueOf = (c: Clip) => String((c as { note?: unknown }).note ?? (c as { name?: unknown }).name ?? '');
 
-/** one subtitle line: its text and which of the narration's words it holds (from, and how many); `em` when the clip
- *  set it to stand alone, emphasized (a number the film wants seen: "100x") */
+/** one subtitle line: its text and the narration words it holds (from, how many); `em` when set alone, emphasized ("100x") */
 export type Cue = { text: string; from: number; words: number; em?: boolean };
 
 /** about how many characters one subtitle line holds at the film's size (the player's .line: 5.6% of the frame's width) */
@@ -44,8 +41,7 @@ const GLUE = new Set('a an the of to in on at for with by from and or but nor so
 const OPENS = new Set('and but or so that which who how to of in on at for with from than as when while because until'.split(' '));
 const bare = (w: string | undefined) => (w ?? '').toLowerCase().replace(/[^a-z']/g, '');
 
-/** a run of words cut into `n` lines of about even length, breaking where a reader would pause: never after a small
- *  word, gladly before a new phrase (the cheapest cut points, found by trying them all) */
+/** a run of words cut into `n` even lines at a reader's pauses: never after a small word, gladly before a phrase (cheapest cuts, all tried) */
 function evenly(words: string[], max: number): string[][] {
 	const len = words.join(' ').length;
 	const n = Math.ceil(len / max);
@@ -82,8 +78,7 @@ function evenly(words: string[], max: number): string[][] {
 
 const cueCache = new Map<string, Cue[]>();
 
-/** the subtitles a voice clip sets itself (Samuel 2026-11-04: "100x" on its own, emphasized, while "a hundred times" is
- *  said), in time order; none when it sets none, and then its line is cut evenly (cuesOf) */
+/** the subtitles a voice clip sets itself (Samuel 2026-11-04: "100x" alone, emphasized, while "a hundred times" is said), in order; none: cut evenly (cuesOf) */
 export function setCuesOf(v: Voice | null | undefined): (SetCue & Cue)[] {
 	const given = Array.isArray(v?.cues) ? v!.cues : [];
 	const cues = given
@@ -93,8 +88,7 @@ export function setCuesOf(v: Voice | null | undefined): (SetCue & Cue)[] {
 	return cues.map((c, i) => ({ ...c, from: i, words: 1 }));
 }
 
-/** a narration line cut into subtitles of one line each, as a film shows them (Samuel 2026-11-04: large, one line at a
- *  time, never the whole paragraph): at its sentences, then its commas, then evenly by words */
+/** a narration line as one-line subtitles (Samuel 2026-11-04: large, one line at a time, never the paragraph): at sentences, commas, then evenly */
 export function cuesOf(line: string, max = CUE_CHARS): Cue[] {
 	const key = max + '|' + line;
 	const known = cueCache.get(key);
@@ -150,9 +144,8 @@ export const clipsOf = <C extends Clip = Clip>(s: StoryBody | null | undefined, 
 };
 
 /**
- * The clip of a lane at t. Of the clips that cover t, the one that started last (two tracks of a kind may overlap: the
- * later one is the one just begun); two that start together, the first. None covering t, the last that started holds the
- * index (the first, before any starts).
+ * The clip of a lane at t: of those covering t, the one started last (two tracks of a kind may overlap), the first of
+ * two started together; none covering t, the last started holds the index (the first, before any).
  */
 function at<C extends Clip>(clips: C[], t: number): { clip: C | null; index: number } {
 	let found = -1, last = -1;
@@ -167,8 +160,7 @@ function at<C extends Clip>(clips: C[], t: number): { clip: C | null; index: num
 
 export const clipAt = <C extends Clip = Clip>(story: StoryBody | null | undefined, kind: string, t: number): C | null => at(clipsOf<C>(story, kind), t).clip;
 
-/** what a lane shows over time: spans of the timeline, each the clip on screen through it (a clip broken where a later
- *  one lies over it, and whole again after) */
+/** what a lane shows over time: spans each with the clip on screen (one broken where a later lies over it, whole again after) */
 export function spansOf<C extends Clip = Clip>(story: StoryBody | null | undefined, kind: string): { clip: C; at: number; end: number }[] {
 	const clips = clipsOf<C>(story, kind);
 	const edges = [...new Set(clips.flatMap((c) => [c.at, c.at + c.duration]))].sort((a, b) => a - b);
@@ -192,8 +184,7 @@ export const moodLevel = (m: string | undefined) => {
 	return up && down ? 0 : up - down;
 };
 
-/** consecutive notes of one section, as spans of the timeline, each with the primary emotion it should leave (the first
- * its notes name) */
+/** consecutive notes of one section as spans, each with the primary emotion it should leave (its first note's) */
 export function sectionsOf(story: StoryBody | null): { section: string; at: number; end: number; emotion: string }[] {
 	const out: { section: string; at: number; end: number; emotion: string }[] = [];
 	for (const { clip: n, at, end } of spansOf<Notes>(story, 'notes')) {

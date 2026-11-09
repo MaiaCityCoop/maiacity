@@ -4,28 +4,23 @@ import { Shell, TIMEOUT, engineCode as frozenCode } from '$lib/kernel/sandbox/fr
 import { budget, buildTurn } from '$lib/content/render/budget.js';
 import { resolved } from './pieces.js';
 /*
- * The asset box: where an asset's builder runs when we cannot trust it, the shell (../../../kernel/sandbox/frame.js)
- * running a frozen engine (static/engines/engine-v<n>.js), its bytes checked against its BLAKE3 hash
- * (../../../kernel/sandbox/engines.json) and handed in whole: the box can load nothing.
- * - Each recipe runs in a worker no other recipe's code ran in, and an answer is taken only from the room its job was
- *   asked in, so no recipe can answer another's build; a recipe is known by its code, not by the hash it is handed with.
+ * The asset box: an untrusted builder run in the shell (../../../kernel/sandbox/frame.js) on a frozen engine
+ * (static/engines/engine-v<n>.js), its bytes checked against its BLAKE3 hash (../../../kernel/sandbox/engines.json) and
+ * handed in whole: the box can load nothing.
+ * - Each recipe runs in a worker no other recipe's code ran in, answers taken only from the room its job was asked in,
+ *   so no recipe can answer another's build; a recipe is known by its code, not by the hash it is handed with.
  * - It holds only what the device's budget lets it (../../render/budget.js), and lets its frame go when idle.
  * - Out comes plain data only (./serialize.js), checked and rebuilt by the page (./rebuild.js).
- * - A recipe dies alone (the shell's `apart`): its room, its worker and its running builds go, every other room goes on.
+ * - A recipe dies alone (the shell's `apart`): its room, worker and running builds go, every other room goes on.
  */
 
 export { TIMEOUT };
 
-/** how many recipes' rooms a box keeps at once, the last asked of it (one with a job open, or a build kept running in
- *  it, is always kept): the device's budget, four on a desktop */
+/** how many recipes' rooms a box keeps, the last asked (one with a job open or a running build always kept): the budget's, four on a desktop */
 export const ROOMS = 4;
 const rooms = () => Math.min(ROOMS, budget().rooms);
 
-/**
- * A frozen box engine's code, its bytes checked against its hash (once a page: the boxes that run it share the checked
- * text, ../../../kernel/sandbox/frame.js `engineCode`). @param {number} v
- * @returns {Promise<string>}
- */
+/** A frozen box engine's code checked against its hash, once a page (../../../kernel/sandbox/frame.js `engineCode`). @param {number} v @returns {Promise<string>} */
 export function engineCode(v) {
 	if (!engineAt(v)) return Promise.reject(new Error(`no engine ${v}`));
 	return frozenCode('box', v);
@@ -48,9 +43,8 @@ export class AssetBox extends Shell {
 	}
 
 	/**
-	 * A build's job run once the builds asked of the box before it are done, holding one of the page's few turns
-	 * (../../render/budget.js `buildTurn`) only while it runs, never while it waits behind its own box. One asked before
-	 * the box's owner stopped it fails with the stop, as if it had been open then.
+	 * A build's job, run once the box's earlier builds are done, holding one of the page's few turns (../../render/budget.js
+	 * `buildTurn`) only while it runs; one asked before the owner's stop fails with it.
 	 * @template T @param {() => Promise<T>} job @returns {Promise<T>}
 	 */
 	#turned(job) {
@@ -74,9 +68,8 @@ export class AssetBox extends Shell {
 	}
 
 	/**
-	 * The room a recipe runs in, by its code, named when its job's turn comes: its own, else a new one, the oldest past
-	 * ROOMS let go (but one with a job open or a build kept running: a running machine is never stopped for another).
-	 * @param {string} code
+	 * A recipe's room by its code, named when its turn comes: its own, else a new one, the oldest past ROOMS let go
+	 * (never one with a job open or a running build). @param {string} code
 	 */
 	#roomOf(code) {
 		const i = this.rooms.findIndex((r) => r.code === code);
@@ -102,9 +95,9 @@ export class AssetBox extends Shell {
 	}
 
 	/**
-	 * A recipe built in the box: `{ data, card, ms }`, its plain data (./serialize.js) and its card, unchecked.
-	 * @param {{ hash: string, code: string, pieces?: string[] }} recipe checked against its hash (../catalog.js), and the
-	 *   pieces its manifest names, which it is handed with (./pieces.js: read from play's files, each held to its hash)
+	 * A recipe built in the box: `{ data, card, ms }`, plain data (./serialize.js) and card, unchecked.
+	 * @param {{ hash: string, code: string, pieces?: string[] }} recipe checked against its hash (../catalog.js), with the
+	 *   pieces its manifest names (./pieces.js: read from play's files, each held to its hash)
 	 * @param {Record<string, string>} [given] its parameters' values, as text
 	 */
 	async build(recipe, given, o) {
@@ -114,8 +107,8 @@ export class AssetBox extends Shell {
 	}
 
 	/**
-	 * A build kept running in the box (engine 4 on): `{ session, nodes }`. `nodes` is how many nodes the page
-	 * built of it, which the box's build must have too; `session` the page's handle on it, which knows its room.
+	 * A build kept running in the box (engine 4 on): `{ session, nodes }`, `nodes` how many the page built (the box's
+	 * must match), `session` the page's handle, which knows its room.
 	 * @param {{ hash: string, code: string }} recipe @param {Record<string, string> | undefined} given @param {number} nodes
 	 */
 	async live(recipe, given, nodes, o) {
@@ -146,10 +139,7 @@ export class AssetBox extends Shell {
 		return ended;
 	}
 
-	/**
-	 * A job, as the shell's (`Shell.ask`), and when the box has nothing left to do (no job open, no build kept running
-	 * in it) it lets its frame and workers go after the budget's `idle` time: the next job starts it again.
-	 */
+	/** A job (`Shell.ask`); with nothing left to do, the box lets its frame and workers go after the budget's `idle` time. */
 	ask(op, payload, o) {
 		clearTimeout(this.resting);
 		const done = super.ask(op, payload, o);

@@ -35,8 +35,7 @@ export function connectWorldFilm(view, o) {
 				scene.environmentIntensity = base.hemi;
 			}
 			lit.k = 1;
-			// what it plants where its nodes stand now, drawn for the camera where the shot has put it (a cut far away
-			// draws what stands there in this frame, not in the next the page happens to run)
+			// what it plants where its nodes stand now, drawn where the shot put the camera (a cut draws this frame's world)
 			view.drawn();
 		},
 		lights: {
@@ -63,8 +62,7 @@ export function connectWorldFilm(view, o) {
 		progress: () => (view.state.phase === 'building' ? { label: 'Building the world in the asset box' } : view.building() > 0 ? { label: 'Building what it stands', done: view.state.kinds, total: view.state.kinds + view.building() } : null),
 		extra: {
 			world: { asset: o.asset, recipe: o.recipe },
-			/** resolves once the world has come to the moment it was brought to (its box has answered every step owed),
-			 *  or once `stall` ms (default 60 s) went by with no step answered (the box gone or stuck) */
+			/** resolves once the world reached its moment (every owed step answered), or after `stall` ms (60 s) with none */
 			settle: (stall) => view.settle(stall),
 			/** whether what it stands is still being built */
 			building: () => view.building()

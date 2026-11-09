@@ -8,11 +8,10 @@
 //   Proposal  → decided_at                       a person: Accept
 //   Ship      decided_at → ship.ended            CI: its turn and GitHub ("Ready to merge"), then each ship step
 //
-// Per day over a window (`days`, 7 by default, 1 to 30): the intents accepted, their median and longest Idea→Accepted
-// and each stage's median. Each intent is held to the budgets (BUDGETS), an open stage counted to now. With play's
-// GitHub (SHIP_TOKEN, ./ship.ts) and `ci`, each intent's CI: the runs of its pull request's branch and its ship's
-// main, release and deploy runs, their minutes, the share cancelled, each run's three slowest steps, those over 10
-// minutes flagged. Served as GET /api/delivery and the MCP tool delivery (admins only), shown on /delivery/.
+// Per day over a window (`days`, 7 by default, 1–30): intents accepted, their median and longest Idea→Accepted and each
+// stage's median; each intent held to BUDGETS, an open stage counted to now. With GitHub (SHIP_TOKEN) and `ci`, each
+// intent's CI runs, minutes, share cancelled and three slowest steps, those over 10 minutes flagged. Served as GET
+// /api/delivery and the MCP tool delivery (admins only), shown on /delivery/.
 import { admin, COOP, type Me } from "./access";
 import { INTENT_ADMINS } from "./intents";
 import { intentSeen } from "./owners";
@@ -245,10 +244,7 @@ async function ciOf(gh: GitHub, r: Pick<Row, "pull_request" | "ship">, now: numb
 
 export const NO_GITHUB = "play has no GitHub token (SHIP_TOKEN): CI minutes are unavailable";
 
-/**
- * Delivery over the last `days` (admins only): every intent open now or accepted in the window (never archived ones),
- * its timeline and the budgets it went over, each day's numbers, and with `ci` each intent's CI from GitHub.
- */
+/** Delivery over the last `days` (admins): every intent open or accepted in the window, its timeline, budgets over, each day's numbers, and with `ci` its CI. */
 export async function delivery(db: Queryable, me: Me | null, gh: GitHub | null, o: { days?: unknown; ci?: unknown; now?: number } = {}) {
   admin(me, INTENT_ADMINS);
   const now = o.now ?? Date.now();

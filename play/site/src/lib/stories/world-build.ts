@@ -1,15 +1,11 @@
 // A WORLD SHOT'S BUILD (intent 90de96fb; ./live-runtime.ts draws it, scripts/world-shot.ts checks it on the CPU): the
 // world, its guests and every frame's places, made once for all of a world's shots before they are ready (intent
-// 4f7a2178), by the frozen box engine started as workers. No DOM, no WebGL: the same code runs in the composition's frame and in Bun in avenBOX, only the worker it is
-// handed differs. Drawn by time, never by a clock: no step here reads a clock, chance or the environment.
-//
-// - A build asks its engine with no `given` where its ref holds no values (an engine refuses values for a recipe that
-//   takes none).
-// - The guests are built by recipe, FEW at a time, each recipe in its own worker (one recipe a worker, as the asset box
-//   keeps them), ended as soon as its builds are made.
-// - Every ask fails, never hangs: on its worker's crash, and after the box's job time (BUDGETS.job). A moving world whose
-//   run won't start, or whose steps stop, fails saying so.
-// - What it does is told as it goes (`progress`), for the player's caption.
+// 4f7a2178) by the frozen box engine as workers. No DOM, no WebGL: the same code runs in the composition's frame and in
+// Bun in avenBOX, only the worker differs; no step reads a clock, chance or the environment.
+// - A build asks with no `given` where its ref holds no values (an engine refuses values for a recipe taking none).
+// - Guests are built by recipe, FEW at a time, one recipe a worker (as the asset box keeps them), ended once built.
+// - Every ask fails, never hangs: on its worker's crash and after BUDGETS.job; a moving world whose run won't start or
+//   whose steps stop fails saying so. What it does is told as it goes (`progress`), for the player's caption.
 import * as THREE from 'three';
 import { withPieces } from '../content/assets/box/pieces.js';
 import { rebuild } from '../content/assets/box/rebuild.js';
@@ -107,9 +103,9 @@ export type WorldBuildSpec = { engine: { v: number; hash: string }; recipe: stri
 export type Host = { code: (hash: string) => string; worker: () => WorkerLike; progress?: (p: Progress) => void; timeout?: number; few?: number };
 
 /**
- * A world made whole, once for every shot of it in a composition: its world (its own copy, run in its own worker where
- * it moves), its guests' copies where each stands, and every frame's places for them (16 numbers each, a scale of 0
- * where one is not shown), the world brought to each frame's moment in turn by its own seeded steps. Throws why it can't.
+ * A world made whole once for every shot of it in a composition: its own copy (run in its own worker where it moves),
+ * its guests' copies, and every frame's places (16 numbers each, scale 0 where not shown), brought to each frame's
+ * moment by its own seeded steps. Throws why it can't.
  */
 export async function buildWorld(spec: WorldBuildSpec, host: Host) {
 	const say = host.progress ?? (() => {});

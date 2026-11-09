@@ -80,8 +80,7 @@ export function folderStore(dir: string, publicBase = "/api/files"): BlobStore {
   };
 }
 
-/** whether a failed call to a bucket is worth asking again: a timeout, a dropped connection, a 5xx or "slow down" is;
- *  a missing key, refused access, or bytes not hashing to their name are not */
+/** whether a failed bucket call is worth asking again (timeout, dropped connection, 5xx, "slow down"); never a missing key, refusal or bad hash */
 export function transient(e: unknown): boolean {
   const x = e as { code?: unknown; name?: unknown; message?: unknown } | null;
   const code = String(x?.code ?? "");
@@ -160,9 +159,8 @@ export function bucketStore(env = process.env, root = "blobs", hold: Steady = {}
 }
 
 /**
- * Every file in two places: `primary` (play's own store) and `mirror` (a second copy, written through on every put).
- * A file the primary doesn't hand back whole (missing, cut short, not hashing to its name, or not answering after its
- * tries) is read from the mirror, checked against its hash, and put back into the primary.
+ * Every file in two places, `primary` and `mirror` (written through on every put): one the primary can't hand back whole
+ * (missing, cut short, misnamed, silent after its tries) is read from the mirror, checked, and put back.
  */
 export function mirroredStore(primary: BlobStore, mirror: BlobStore, log: (s: string) => void = (s) => console.warn(s)): BlobStore {
   async function healed(h: string, why: string): Promise<Uint8Array | null> {
@@ -238,9 +236,8 @@ export function cachedStore(inner: BlobStore, maxBytes: number): BlobStore {
 }
 
 /**
- * The bucket where PLAY_BUCKET is set, else the folder PLAY_BLOBS (default ./blobs). In the bucket, with
- * PLAY_MIRROR_ROOT (the backups' store, BACKUPS/play-files/blobs) every file is kept twice and mended from its second
- * copy; and the files handed out are kept in memory, PLAY_CACHE_MB of them (default 256, 0: none).
+ * The bucket where PLAY_BUCKET is set, else the folder PLAY_BLOBS (./blobs); in the bucket, with PLAY_MIRROR_ROOT (the
+ * backups' store) every file kept twice and mended from its second copy, and PLAY_CACHE_MB in memory (256; 0 none).
  */
 export function blobStore(env = process.env): BlobStore {
   if (!env.PLAY_BUCKET) return folderStore(env.PLAY_BLOBS || "blobs");

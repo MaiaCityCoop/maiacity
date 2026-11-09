@@ -39,10 +39,7 @@ export type Use = { id: string; label: string; use: 'communal' | 'commercial' | 
 /** a tower of the old bell's shape scaled by `k` (its foot, height and dome top; storeys stay their height) */
 export const scaled = (T: Kind, k: number): Kind => ({ ...T, D: T.D * k, H: T.H! * k, top: T.top! * k });
 
-/**
- * The tower sized from what the village needs: its programme's floor (each use's need) over the share of a storey that
- * is usable (the rest core, stairs and walls), then the bell scaled until its storeys hold that much.
- */
+/** The tower sized from its programme's floor (each use's need) over a storey's usable share, the bell scaled until its storeys hold it. */
 function towerOf(v: Village, a: Audit, residents: number | null) {
 	const T = v.kinds.tower180, programme = (v.plans.tower.programme ?? []) as Use[];
 	const need = programme.map((u) => {

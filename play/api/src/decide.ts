@@ -1,7 +1,5 @@
 // An admin's decision on an intent, whatever its stage, and a rule's in a person's place (play/SPEC.md §4.12): the one
-// place an intent is decided. Work of play's at Proposal is accepted or archived by ./versioned.ts decide, code is
-// shipped (./ship.ts), anything else is the intent's own decision (./intents.ts decideIntent); an auto-accept rule
-// (./rules.ts) takes the same path, written as who decided, and every Accept asks the intents it held again.
+// place an intent is decided; an auto-accept rule (./rules.ts) takes the same path, written as who decided.
 import { meOf, type AutoBy, type Me } from "./access";
 import type { GitHub } from "./github";
 import type { Ctx } from "./kinds";
@@ -14,11 +12,10 @@ import { decide } from "./versioned";
 import { answerOf } from "./fault";
 
 /**
- * An admin's decision on an intent, whatever its stage (the one place an intent is decided; play/SPEC.md §4.12): at
- * Proposal with work of play's, accepting applies it and archiving archives it (decide); anything else is the intent's
- * own decision (./intents.ts decideIntent), except that accepting an intent whose code is a pull request ships it
- * (./ship.ts acceptAndShip), and one whose code is on main by its trailer is the reconcile's (./ship.ts acceptCode,
- * Accepted once play runs it). Gives back the intent, with the decision's message where it has one.
+ * An admin's decision on an intent, whatever its stage: work of play's at Proposal accepted or archived (decide); code in
+ * a pull request shipped (./ship.ts acceptAndShip), on main by its trailer the reconcile's (./ship.ts acceptCode,
+ * Accepted once play runs it); anything else the intent's own (./intents.ts decideIntent). Gives back the intent and
+ * the decision's message where it has one.
  */
 export async function decideAny(ctx: Ctx, me: Me | null, id: string, verdict: IntentVerdict | "archive", gh: GitHub | null = null, commit = runningCommit(), by?: AutoBy) {
   const db = ctx.db;
@@ -56,12 +53,10 @@ async function decideOne(ctx: Ctx, me: Me | null, w: any, verdict: IntentVerdict
 type AutoMoved = { gate: "approve" | "accept"; rule: string; refused?: string };
 
 /**
- * Intent `id` decided by a rule where one matches: at Specify its spec approved (Approve spec), at Proposal accepted
- * (its work accepted and applied, its code into Ship, else Accepted), exactly by a person's path (decideAny,
- * above) with the rule as who decided. Only where the gate (mayMove) allows the move (its stage, its reduce step,
- * its must checks, held by its dependencies) and matchRule gives a rule; a refusal on that path (a pull request not
- * ready) leaves it where it is, saying why. Accepted, the intents it held are asked again. `me` is the admin whose
- * request it is (else the intent's author, an admin); `gh` Ship's GitHub for code. Null where no rule decides.
+ * Intent `id` decided by a matching rule: at Specify its spec approved, at Proposal accepted, by a person's path
+ * (decideAny) with the rule as who decided; only where the gate (mayMove) allows and matchRule gives a rule. A refusal on
+ * that path (a pull request not ready) leaves it, saying why; accepted, the intents it held are asked again. `me` the
+ * admin whose request it is (else its author); `gh` Ship's GitHub for code. Null where no rule decides.
  */
 export async function autoMove(ctx: Ctx, id: string, o: { me?: Me | null; gh?: GitHub | null; commit?: string | null } = {}): Promise<AutoMoved | null> {
   const db = ctx.db;

@@ -12,8 +12,7 @@ import { STREAMS } from './flora.js';
  * A renderer of assets in `scene`, its copies kept for the next that wants one.
  * @param {{
  *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void
- * }} o `boxes` how many build side by side; `shadows`: told when what casts a shadow changed, instead of the shadows
- *   drawn again
+ * }} o `boxes` how many build side by side; `shadows`: told when a caster changed, instead of redrawing the shadows
  */
 export function createDrawn(o) {
 	const assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes: o.boxes, onShadows: o.shadows });
@@ -21,15 +20,13 @@ export function createDrawn(o) {
 	return {
 		assets,
 		/**
-		 * A kind: its shadows cast at every level (true), at none (false), or as the renderer casts them; and its picture
-		 * taken, for far off (unless `picture` is false: a kind never drawn so small).
-		 * @param {string} ref @param {boolean} [shadows] @param {boolean} [picture]
+		 * A kind: shadows at every level (true), none (false) or as the renderer casts them; its picture taken for far
+		 * off unless `picture` is false. @param {string} ref @param {boolean} [shadows] @param {boolean} [picture]
 		 */
 		use: (ref, shadows, picture) => assets.use(ref, { shadows, picture }),
 		/**
-		 * a copy of kind k standing at `at` (a place or a whole matrix): one put away if there is one; `cover`: grown as
-		 * a biome's cover ($content/biomes/stream.js)
-		 * @param {any} k @param {{ x: number, y: number, z: number, turn: number, scale: number } | THREE.Matrix4} at
+		 * a copy of kind k at `at` (place or matrix), a put-away one where there is; `cover`: grown as a biome's cover
+		 * ($content/biomes/stream.js) @param {any} k @param {{ x: number, y: number, z: number, turn: number, scale: number } | THREE.Matrix4} at
 		 * @param {{ rank: number, near: number, reach: number, thin: number } | null} [cover]
 		 */
 		take: (k, at, cover) => assets.take(k, at, cover),
@@ -52,9 +49,8 @@ export function createDrawn(o) {
 const tanOf = (camera) => Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (camera.zoom || 1);
 
 /**
- * The renderer a world's plants are drawn by (./flora.js). Its boxes as many as the workers Sandbox 4 always grew its
- * forest in.
- * `streams`: how far off its small plants are put down at all (./flora.js STREAMS: the village's, or under a dome's glass).
+ * The renderer a world's plants are drawn by (./flora.js), as many boxes as Sandbox 4 always grew its forest in;
+ * `streams`: how far off small plants are put down (./flora.js STREAMS: the village's, or under a dome).
  * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void, streams?: import('./flora.js').Streams }} o
  * @returns {import('./flora.js').FloraDrawn & ReturnType<typeof createDrawn>}
  */

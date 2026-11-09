@@ -1,11 +1,8 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * Builds kept on this device (./store.js), so a page shows an asset it showed before without running its recipe again;
- * each is read back through the same checks as a box's answer (../load.js), so a spoiled entry is dropped and built
- * again. Each is kept by
- *
+ * Builds kept on this device (./store.js), so a page shows an asset again without running its recipe; each read back
+ * through a box answer's checks (../load.js), a spoiled entry dropped and built again. Each kept by
  *   key = BLAKE3 in its key-derivation mode, context CONTEXT, of [engine, recipe, values]
- *
  * (the frozen engine's hash, the recipe file's hash, and the values sorted: `seed=maia&stage=9`).
  */
 import { blake3 } from '@noble/hashes/blake3.js';
@@ -17,10 +14,7 @@ import { BUILD, LIMIT, added, ask, folder, inLine, keeps, lost, quiet, read, rec
 
 const CONTEXT = 'maiaCITY 2026-10-15 asset cache';
 
-/**
- * The cache key of a build. @param {{ engine: string, recipe: string, params?: Record<string, unknown> }} build
- * @returns {string} 64 hex digits
- */
+/** The cache key of a build. @param {{ engine: string, recipe: string, params?: Record<string, unknown> }} build @returns {string} 64 hex digits */
 export function keyOf({ engine, recipe, params }) {
 	if (!isHash(engine)) throw new Error('no engine hash');
 	if (!isHash(recipe)) throw new Error('no recipe hash');
@@ -38,10 +32,7 @@ function canvasOf(bitmap) {
 /** where a build's pictures are: on its textures in format 0 (engine 1), in `images` from format 1 on */
 const LISTS = ['textures', 'images'];
 
-/**
- * A build's data with every picture the box handed over as an ImageBitmap as `picture`: as `encode` makes it of the
- * picture. Undefined where this browser has no canvas off the page.
- */
+/** A build's data with every box-handed ImageBitmap as `picture` (as `encode` makes it); undefined without an offscreen canvas. */
 async function pictures(data, encode) {
 	const lists = LISTS.filter((k) => Array.isArray(data[k]) && data[k].some((t) => t?.bitmap));
 	if (!lists.length) return data;
@@ -105,9 +96,8 @@ async function revive(data) {
 }
 
 /**
- * A build kept under `key`, its pictures ImageBitmaps again; undefined if there is none (or no cache). Not yet
- * checked: ../load.js checks it as it checks a box's.
- * @param {string} key @returns {Promise<{ data: any, card: any } | undefined>}
+ * A build kept under `key`, its pictures ImageBitmaps again; undefined if none. Unchecked: ../load.js checks it as a
+ * box's. @param {string} key @returns {Promise<{ data: any, card: any } | undefined>}
  */
 export async function get(key) {
 	if (!isHash(key)) return undefined;
@@ -122,8 +112,7 @@ export async function get(key) {
 	}
 	if (!file) return undefined;
 	touch(BUILD + key);
-	// a file that doesn't read, or a picture that will not open, is a spoiled entry, refused like any other (../load.js
-	// drops it)
+	// a file that doesn't read, or a picture that will not open, is spoiled, refused like any other (../load.js drops it)
 	let got;
 	try {
 		got = unpacked(file);
@@ -139,11 +128,9 @@ export async function get(key) {
 }
 
 /**
- * Keeps a build under `key`, then lets the entries used longest ago go until the cache fits. False if it was not kept
- * (no cache, a picture it cannot read, or a build larger than the cache alone). Its pictures are written once the
- * builds stop coming in (`quiet`), beside those of the builds before it; the builds are kept one at a time, in the
- * order they were handed in.
- * @param {string} key @param {{ data: any, card: any }} build
+ * Keeps a build under `key`, the entries used longest ago going until it fits; false if not kept (no cache, an
+ * unreadable picture, larger than the cache). Pictures written once builds stop coming (`quiet`), one build at a time
+ * in order handed in. @param {string} key @param {{ data: any, card: any }} build
  */
 export function put(key, { data, card }) {
 	const plain = quiet()

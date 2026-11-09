@@ -25,8 +25,7 @@
  * @property {() => void} dispose
  */
 
-/** The sandboxes' pace, walking and hurrying (m/s): every world walks at it unless it says otherwise (Sandbox 3's
- *  domes and village, the Buildings viewer's tents, domes and containers). */
+/** The sandboxes' pace, walking and hurrying (m/s), unless a world says otherwise (Sandbox 3's domes, the Buildings viewer). */
 export const PACE = { walk: 6.45, hurry: 14.6 };
 
 const KEYS = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'];

@@ -1,11 +1,10 @@
 // @ts-nocheck — plain JS, runs in the page
 /*
- * Pieces (play/SPEC.md §4.5; intent 5a15e468): a recipe requires a shared piece by its BLAKE3 hash,
- * `require('<64 hex>')`, and lists it in its manifest's `pieces`, so a frozen version always builds the pieces it was
- * accepted with. They are resolved here from play's files alone (../cache/files.js), held to the hash, and handed to the
- * worker as one script with the recipe: the frozen engine is unchanged, and the worker still loads nothing. Refused,
- * saying which: a piece not in the manifest, one play's files don't hold, one whose bytes are not its hash, a cycle,
- * and a chain more than MOST_DEEP deep.
+ * Pieces (play/SPEC.md §4.5; intent 5a15e468): a recipe requires a shared piece by its BLAKE3 hash, `require('<64 hex>')`,
+ * listed in its manifest's `pieces`, so a frozen version always builds the pieces it was accepted with. Resolved here
+ * from play's files alone (../cache/files.js), held to the hash, and handed to the worker in one script with the recipe
+ * (the engine unchanged, the worker loading nothing). Refused, saying which: a piece not in the manifest, not held, not
+ * its hash, a cycle, a chain past MOST_DEEP.
  */
 import { HASH, hashBytes, holds } from '../../../kernel/hash.js';
 import { playFile } from '../cache/files.js';
@@ -32,19 +31,13 @@ export function handPiece(code) {
 }
 export const handedPieces = () => [...handed.keys()];
 
-/**
- * A piece's bytes by its hash: one handed to the page (the bench), else play's file (../cache/files.js). Null when
- * play doesn't hold it.
- * @param {string} hash @returns {Promise<Uint8Array | null>}
- */
+/** A piece's bytes by hash: one handed to the page (the bench), else play's file; null where play has none. @param {string} hash @returns {Promise<Uint8Array | null>} */
 const pieceFile = (hash) =>
 	handed.has(hash) ? Promise.resolve(handed.get(hash)) : playFile(hash, (status) => new Error(`refused: piece ${short(hash)} could not be read from play's files (HTTP ${status})`));
 
 /**
- * The pieces a recipe's code requires, and the pieces they require, each read and held to its hash: `{ hash, code,
- * depth }` in the order a build first needs them. Throws why one is refused.
- * @param {string} code the recipe's file
- * @param {string[]} named the pieces its manifest names
+ * The pieces a recipe requires, and theirs, each read and held to its hash: `{ hash, code, depth }` in the order a build
+ * first needs them; throws why one is refused. @param {string} code the recipe's file @param {string[]} named its manifest's pieces
  * @param {{ fileAt?: (hash: string) => Promise<Uint8Array | null>, held?: (bytes: Uint8Array, hash: string) => boolean }} [o]
  *   where a piece's bytes come from (play's files) and how they are held to its hash (a test's stand-ins)
  */
@@ -65,8 +58,7 @@ export async function piecesFor(code, named = [], { fileAt = pieceFile, held = h
 			);
 		return reads.get(hash);
 	};
-	/** every path down from `from` held to the manifest, the depth and no cycle, a level's pieces read together (a
-	 *  piece met again on another path is held to them from there too, read only once) */
+	/** every path from `from` held to the manifest, depth and no cycle, each level read together (a piece met again is held, read once) */
 	const walk = async (from, path) => {
 		const next = piecesOf(from);
 		for (const hash of next) {
@@ -93,10 +85,7 @@ export async function piecesFor(code, named = [], { fileAt = pieceFile, held = h
 	return out;
 }
 
-/**
- * The script the worker runs for a recipe: its file alone when it requires no piece; else its pieces, then its file.
- * @param {string} code @param {{ hash: string, code: string }[]} pieces
- */
+/** The worker's script for a recipe: its file alone without pieces, else its pieces then its file. @param {string} code @param {{ hash: string, code: string }[]} pieces */
 export function withPieces(code, pieces) {
 	if (!pieces.length) return code;
 	const each = pieces.map((p) => `${JSON.stringify(p.hash)}: function (require, module, exports) {\n"use strict";\n${p.code}\n}`).join(',\n');
@@ -112,10 +101,8 @@ export function withPieces(code, pieces) {
 }
 
 /**
- * A recipe ready for the box: its code with its pieces before it, held as above. Its `pieces` (the manifest's) go with
- * it from the catalog (../catalog.js `recipeAt`).
- * @param {{ hash: string, code: string, pieces?: string[] }} recipe
- * @param {Parameters<typeof piecesFor>[2]} [o]
+ * A recipe ready for the box, its pieces before it, held as above (its manifest's `pieces` from ../catalog.js `recipeAt`).
+ * @param {{ hash: string, code: string, pieces?: string[] }} recipe @param {Parameters<typeof piecesFor>[2]} [o]
  * @returns {Promise<{ hash: string, code: string }>}
  */
 export async function resolved(recipe, o) {

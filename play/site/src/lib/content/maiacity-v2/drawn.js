@@ -1,12 +1,9 @@
 // @ts-nocheck — plain JS, kept loose on purpose
 /*
- * What MaiaCity V1 draws of the library: every asset by its ref (./things.js), built in the asset box (or read from this
- * device's cache), never by calling a builder. `follow`: drawn by the universal renderer ($content/assets/render), one
- * copy wherever an anchor of the world's stands, moved part by part by its controls (`pose`); `load`: the build itself
- * put into an anchor; `cast`: that, kept running in the box ($content/assets/hero.js) from the first frame it is seen
- * (what never comes into view runs nothing in the box). Every build goes through the renderer's few boxes, the most
- * wanted first (what the camera sees, then what is shown elsewhere, then what is hidden), and the same build asked for
- * twice is built once.
+ * What MaiaCity V1 draws of the library: every asset by its ref (./things.js), built in the asset box (or this device's
+ * cache), never by calling a builder. `follow`: a renderer copy wherever an anchor stands, posed by its controls; `load`:
+ * the build put into an anchor; `cast`: that, kept running in the box ($content/assets/hero.js) from the first frame it
+ * is seen. Builds go through the renderer's few boxes, most wanted first (in view, shown elsewhere, hidden), each once.
  */
 import * as THREE from 'three';
 
@@ -14,8 +11,7 @@ import * as THREE from 'three';
 const AWAY = new THREE.Matrix4().makeScale(0, 0, 0);
 /** what a tap finds a copy by: never drawn */
 const PICK = new THREE.MeshBasicMaterial({ visible: false });
-/** how far round where an anchor stands what goes into it may reach (m): it is in view if that ball is, and as large
- *  on screen as that ball; and how large it must be to be seen there (px, its radius) */
+/** the reach (m) round an anchor of what goes into it (in view and as large on screen as that ball), and px to be seen */
 const REACH = 8;
 const SEEN = 6;
 /** how many boxes build side by side: one for each core the page leaves, two to four */
@@ -38,13 +34,11 @@ const modules = () =>
 		playerOf: k.playerOf,
 		bonePoser: k.poser
 	})));
-// in a page, fetched as soon as the world's code is: the box is asked for the first builds before the world's first
-// frame (its shaders compiled, seconds on a slow machine) holds the page up; a failure is said where a build asks
+// fetched with the world's code: the box gets the first builds before the first frame (shaders compiled, seconds on a
+// slow machine) holds the page up; a failure is said where a build asks
 if (typeof window !== 'undefined' && window.document?.createElement) modules().catch(() => {});
 
-/**
- * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Scene }} o
- */
+/** @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Scene }} o */
 export function createDrawn({ renderer, camera, scene }) {
 	let assets = null;
 	let gone = false;
@@ -64,8 +58,7 @@ export function createDrawn({ renderer, camera, scene }) {
 	const loads = [];
 	/** the builds kept running in the box (`cast`) */
 	const heroes = [];
-	/** everything asked for: where it goes, and when it is there (or failed) */
-	/** @type {{ anchor: THREE.Object3D, done: Promise<unknown> }[]} */
+	/** everything asked for: where it goes, and when it is there (or failed) @type {{ anchor: THREE.Object3D, done: Promise<unknown> }[]} */
 	const asks = [];
 	/** whether an anchor is in the scene and shown, and everything it is in */
 	const shown = (o) => {
@@ -75,8 +68,7 @@ export function createDrawn({ renderer, camera, scene }) {
 		}
 		return false;
 	};
-	/** the camera's view as the last frame was drawn: where it is, what it takes in, and how many pixels a metre at a
-	 *  metre's distance covers */
+	/** the camera's view as last drawn: where it is, what it takes in, pixels a metre covers at a metre */
 	const frustum = new THREE.Frustum(), _vp = new THREE.Matrix4(), _ball = new THREE.Sphere(), _eye = new THREE.Vector3();
 	let perMetre = 1;
 	const look = () => {
@@ -85,8 +77,7 @@ export function createDrawn({ renderer, camera, scene }) {
 		_eye.setFromMatrixPosition(camera.matrixWorld);
 		perMetre = (renderer.domElement.clientHeight || 720) / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
 	};
-	/** how large what goes into an anchor stands on screen (px, its radius), 0 where it is hidden or out of the view
-	 *  (past the fog's end too) */
+	/** how large an anchor's content stands on screen (px radius), 0 hidden or out of view (past the fog's end too) */
 	const onScreen = (o) => {
 		if (!shown(o)) return 0;
 		o.getWorldPosition(_ball.center);
@@ -98,8 +89,7 @@ export function createDrawn({ renderer, camera, scene }) {
 	};
 	/** whether an anchor is shown and stands in the camera's view, large enough to be seen */
 	const inView = (o) => onScreen(o) >= SEEN;
-	/** how much what goes into an anchor is wanted: in view 2 and more the larger it stands there, shown elsewhere 1,
-	 *  hidden 0 */
+	/** how much an anchor's content is wanted: in view 2 and more the larger, shown elsewhere 1, hidden 0 */
 	const rankOf = (o) => {
 		const px = onScreen(o);
 		return px >= SEEN ? 2 + Math.min(1, px / 400) : shown(o) ? 1 : 0;
@@ -121,11 +111,9 @@ export function createDrawn({ renderer, camera, scene }) {
 	};
 	return {
 		/**
-		 * A copy of `ref` drawn by the renderer wherever `anchor` is, hidden with it.
-		 * @param {string} ref @param {THREE.Object3D} anchor @param {{ pick?: string, receive?: boolean }} [o] `pick`: the
-		 *   name a tap finds it by; `receive`: whether a shadow falls on it (as its builder has it: none by default)
-		 * @returns {{ ready: Promise<THREE.Box3 | null> }} `ready`: the box round it as built, once it is there (null if it
-		 *   did not come)
+		 * A copy of `ref` drawn wherever `anchor` is, hidden with it. @param {string} ref @param {THREE.Object3D} anchor
+		 * @param {{ pick?: string, receive?: boolean }} [o] `pick`: the name a tap finds it by; `receive`: shadows on it
+		 * @returns {{ ready: Promise<THREE.Box3 | null> }} `ready`: the box round it as built (null if it did not come)
 		 */
 		follow(ref, anchor, { pick, receive = false } = {}) {
 			let built;
@@ -153,11 +141,7 @@ export function createDrawn({ renderer, camera, scene }) {
 			asks.push(c.ask);
 			return c;
 		},
-		/**
-		 * A control of a copy `follow` put down set to `v` (a tailgate's `tailgate`, a door's `door.<name>`: 0 … 1), kept
-		 * until its kind is here if it is not yet.
-		 * @param {any} c @param {string} id @param {number} v
-		 */
+		/** A `follow` copy's control set to `v` (`tailgate`, `door.<name>`: 0 … 1), kept until its kind is here. @param {any} c @param {string} id @param {number} v */
 		pose(c, id, v) {
 			if (c.values.get(id) === v) return;
 			c.values.set(id, v);
@@ -173,12 +157,10 @@ export function createDrawn({ renderer, camera, scene }) {
 			if (c.copy) assets.remove(c.copy);
 		},
 		/**
-		 * The build of `ref` (with its values, if any) put into `anchor` as the box made it: `{ obj, card, data, named,
-		 * poser }` ($content/assets/load.js; `named`: its first node of each name, as its builder named them; `poser`: its
-		 * controls, played from the numbers the box wrote down: $content/assets/controls.js), once it is there.
+		 * The build of `ref` put into `anchor` as the box made it, once there: `{ obj, card, data, named, poser }`
+		 * ($content/assets/load.js; `named` its first node of each name; `poser` its controls, $content/assets/controls.js).
 		 * @param {string} ref @param {THREE.Object3D} anchor @param {{ pick?: string, cast?: boolean }} [o]
-		 *   `pick`: every part of it named so (its bones keep their names); `cast`: every part casting a shadow (false: as
-		 *   built)
+		 *   `pick`: every part named so (bones keep their names); `cast`: every part casting a shadow (false: as built)
 		 */
 		load(ref, anchor, { pick, cast = true } = {}) {
 			let mods;
@@ -206,13 +188,11 @@ export function createDrawn({ renderer, camera, scene }) {
 			return p;
 		},
 		/**
-		 * The build of `ref` put into `anchor` (as `load`) and kept running in the box: what the stage calls a hero
-		 * ($content/assets/hero.js `heroOf`): `play(clip)`, `hold(pose)`, and `tick(dt)` each frame it moves. It is started
-		 * there on the first frame it stands in the camera's view (a world that never looks at it runs no recipe for it,
-		 * on a first visit or a second); until the box has it running, it stands as built, its controls played here.
-		 * @param {string} ref @param {THREE.Object3D} anchor @param {{ pick?: string, cast?: boolean }} [o]
-		 * @param {(got: any) => void} [then] what is done with the build once it is ready to run (its parts found by
-		 *   name; anything the world hangs on it is added only now, so its nodes stay the box's, one for one)
+		 * `load`, kept running in the box: a hero ($content/assets/hero.js `heroOf`: `play(clip)`, `hold(pose)`, `tick(dt)`),
+		 * started on the first frame it is in view (a world that never looks at it runs no recipe for it); until then it
+		 * stands as built. @param {string} ref @param {THREE.Object3D} anchor @param {{ pick?: string, cast?: boolean }} [o]
+		 * @param {(got: any) => void} [then] done once it is ready to run (what the world hangs on it only now, so its
+		 *   nodes stay the box's, one for one)
 		 */
 		cast(ref, anchor, o, then) {
 			return this.load(ref, anchor, o).then(async (got) => {
@@ -230,12 +210,10 @@ export function createDrawn({ renderer, camera, scene }) {
 			});
 		},
 		/**
-		 * A rigged actor of `ref` (a person: the stand-in, with their height and look) put into `anchor` as the box built
-		 * it, moved as its builder's cast was, by our own code: `rig.bones` by name and `rig.pose(p)` its bones set to a
-		 * pose ($content/assets/clips.js `poser`); `clips` by name, (t) → pose, played from the tables the box wrote down
-		 * (`playerOf`), each named in `cycles` played within one round of it (s); `poses` its poses as data (its view's
-		 * held ones); `face` the skinned mesh its blend shapes are on (`joy`, `friendly`). `ready` once it is here (a pose
-		 * asked for before is set then); `loaded` settles then.
+		 * A rigged actor of `ref` (a person: the stand-in) put into `anchor` as the box built it, moved by our own code:
+		 * `rig.bones`, `rig.pose(p)` ($content/assets/clips.js `poser`); `clips` (t) → pose from the box's tables
+		 * (`playerOf`), each in `cycles` within one round of it (s); `poses` as data; `face` the skinned mesh with its blend
+		 * shapes (`joy`, `friendly`). `ready` once here (a pose asked before is set then); `loaded` settles then.
 		 * @param {string} ref @param {THREE.Object3D} anchor
 		 * @param {{ pick?: string, shadow?: boolean, receive?: boolean, cycles?: Record<string, number> }} [o] `pick`: the
 		 *   name a tap finds it by; `shadow`: whether it casts one; `receive`: whether one falls on it
@@ -292,8 +270,7 @@ export function createDrawn({ renderer, camera, scene }) {
 		},
 		/** everything asked for so far, there to draw (or failed) */
 		ready: () => up.then(() => Promise.all([assets?.ready(), ...loads])).then(() => true),
-		/** everything asked for that stands in the camera's view as the next frame is drawn, there to draw (or failed):
-		 *  what the shot on screen shows, while the rest may still be coming */
+		/** everything asked for in view as the next frame is drawn, there (or failed): what the shot shows, the rest may come */
 		inView: () =>
 			up
 				.then(() => new Promise((ok) => frames.push(ok)))

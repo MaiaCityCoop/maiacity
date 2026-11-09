@@ -9,12 +9,10 @@
  *   labels   the names pinned on parts: the node, the point on it, the text, which side, whether it has a live reading
  *   shells   the casings the x-ray looks through, by node
  *   cut      where its section planes sweep from; `size` its largest measure (m)
- *   lab      a machine's solver as data: its hero number and how it reads now, how it is computed, the name of its
- *            break, and its own moves, each played here from 0 to 1 and written down as its sliders' values (the
- *            sliders themselves are on its card)
- *   clips    a rigged actor's clips and held poses, by name, the one it shows first, the poses as data and its bones;
- *            and every clip played here and written down as tables (`motion`, ./clips.js), for the page to play its
- *            copies by, any number of them, each at its own time (engine 5)
+ *   lab      a machine's solver as data: its hero number and reading, how it is computed, its break's name, and its own
+ *            moves played 0 to 1 and written as its sliders' values (the sliders are on its card)
+ *   clips    a rigged actor's clips, held poses (as data), the first shown and its bones; every clip written as tables
+ *            (`motion`, ./clips.js) for the page to play any number of copies, each at its own time (engine 5)
  *   ticks    whether it moves by itself (a solver, a clip, a flame): the page then asks the box to tick it
  *   roof     the nodes a building's roof is made of; `walk` where it is walked in from, and its lamps
  *   note     what it says of itself, when it shows nothing (a fruit that has not set yet)
@@ -73,8 +71,7 @@ function radiusOf(rig) {
 }
 
 /**
- * A build's view.
- * @param {import('three').Object3D} root as its builder made it (and put back after its controls were played)
+ * A build's view. @param {import('three').Object3D} root as built (and put back after its controls were played)
  * @param {any} [cast] the rig it came in, for an actor (`{ rig, clips, poses, first }`, $content/actors/rig.ts)
  */
 export function viewOf(root, cast) {
@@ -156,10 +153,7 @@ export function viewOf(root, cast) {
 	return view;
 }
 
-/**
- * A machine's own moves, each played from the start of its loop to its end and written down as the sliders it sets.
- * @param {Record<string, any>} [moves] @param {Record<string, any>} controls
- */
+/** A machine's own moves, each played through its loop and written as the sliders it sets. @param {Record<string, any>} [moves] @param {Record<string, any>} controls */
 function movesOf(moves, controls) {
 	if (!moves || typeof moves !== 'object') return undefined;
 	const out = {};

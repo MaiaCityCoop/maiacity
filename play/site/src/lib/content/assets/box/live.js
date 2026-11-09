@@ -28,9 +28,8 @@ const sessions = new Map();
 let next = 1;
 
 /**
- * Keeps a build running. `obj` as its builder made it (`cast` its rig, if it came in one); `nodes` how many nodes the
- * page built of it, which must be this one's (the same recipe, the same values, the same tree).
- * @returns {{ session: number, nodes: number }}
+ * Keeps a build running: `obj` as built (`cast` its rig), `nodes` how many the page built of it, which must match (same
+ * recipe, values, tree). @returns {{ session: number, nodes: number }}
  */
 export function open(obj, cast, nodes) {
 	const list = walk(obj);
@@ -86,8 +85,7 @@ const sessionOf = (id) => sessions.get(id) ?? (() => {
 })();
 
 /**
- * One step: what the page asks set, the build stepped, and what changed since the last step.
- * @param {number} id
+ * One step: what the page asks set, the build stepped, and what changed since the last. @param {number} id
  * @param {{ dt?: number, env?: object, sliders?: Record<string, number>, controls?: Record<string, number>, explode?: number, build?: number, clip?: string, t?: number, pose?: string, edits?: Record<string, number[]> }} ask
  */
 export function tick(id, ask = {}) {

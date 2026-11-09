@@ -852,9 +852,8 @@ async function outlinesOf(draws, rs, sets, smallest, pause) {
  *   by ./lod.js (`most` its ceiling); `every` keeps every piece (a crown thinned shows)
  * @param {() => Promise<void>} [pause] waited for between two steps (in the page, a frame's room)
  * @returns {Promise<{ draws: ('same' | null | { attributes?: Record<string, any>, index?: Uint16Array | Uint32Array, tris: number, copies?: Uint32Array })[], tris: number, error: number, passes: number[] }[]>}
- *   'same' a drawing kept as it is, null one left out, and otherwise its shape made lighter, or its copies that are
- *   ever seen (`copies`, their numbers among its places), or both; `passes` how many drawings came from each pass (0
- *   none taken away, 1 to 3 the passes above, 4 one allowed further for its level's ceiling)
+ *   'same' kept as it is, null left out, else its shape lighter, its ever-seen `copies` (numbers among its places), or
+ *   both; `passes` how many drawings came from each pass (0 none, 1–3 the passes above, 4 one further for its ceiling)
  */
 export async function lowerDraws(draws, plans, pause) {
 	await ready;

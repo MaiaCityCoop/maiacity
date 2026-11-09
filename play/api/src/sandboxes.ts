@@ -1,11 +1,7 @@
-// A sandbox's layout (play/SPEC.md §4.6, Samuel 2026-11-04 and 2026-11-06): what it draws (its pins: each slot an
-// asset's accepted version, its variant and its values) and how it lays them out (its configs by name: Sandbox 1's
-// garden, its plantings, spacing, drifts and fields; where a thing stands) is a document, `sandbox:<uuid>` (type
-// sandbox/1, ./docs/schemas.ts), versioned like every other through ./versioned.ts: changed by an intent variant
-// (doc_edit, propose_doc_version), its pin, pin_latest, unpin, set and delete the sandbox's own edit helpers; shown on
-// the intents' board with each pin before and after, by its asset's label and version, and openable in the sandbox as
-// it would be; accepted by an admin there. Accepting merges it into Main and writes Main's pins and configs to
-// play.sandbox_pins and play.sandbox_configs, which the worlds read (/api/sandboxes/<uuid>/config) as before.
+// A sandbox's layout (play/SPEC.md §4.6, Samuel 2026-11-04 and 2026-11-06): its pins (each slot an asset's accepted
+// version, variant and values) and its configs by name is a document, `sandbox:<uuid>` (./docs/schemas.ts), versioned
+// through ./versioned.ts with its own edit helpers (pin, pin_latest, unpin, set, delete). Accepting writes Main's pins
+// and configs to play.sandbox_pins and play.sandbox_configs, which the worlds read (/api/sandboxes/<uuid>/config).
 import type { Db, Queryable } from "./kit/pg";
 import { admin, must, type Me } from "./access";
 import { canonical } from "./kit/hash";
@@ -74,10 +70,7 @@ function slotsNamed(configs: Record<string, unknown>): { slot: string; config: s
   return out;
 }
 
-/**
- * What the sandbox layout's schema (sandbox/1, migrations/schemas/sandbox.json) can't say, its hook: a pin's fields,
- * variant and values; a slot's and a config's names; a config at most 1 MB; every slot a config names pinned.
- */
+/** The layout schema's hook for what it can't say: a pin's fields, variant, values; names; a config ≤ 1 MB; every named slot pinned. */
 export function sandboxCheck(doc: any): string[] {
   const out: string[] = [];
   for (const [slot, p] of Object.entries<any>(doc?.pins ?? {})) {
@@ -314,7 +307,6 @@ export async function listSandboxes(db: Queryable, me: Me | null) {
 
 // ---- the layout as a document (./versioned.ts's kind `sandbox`)
 
-/** a sandbox's layout document: sandbox:<its uuid> */
 const layoutDoc = (sandbox: string) => `sandbox:${sandbox}`;
 
 /** a sandbox's layout as its rows hold it, as the document's state */
@@ -355,9 +347,8 @@ const HELPERS = new Set(["pin", "pin_latest", "unpin"]);
 const isHelper = (e: any) => !!e && typeof e === "object" && (HELPERS.has(e.op) || ((e.op === "set" || e.op === "delete") && typeof e.config === "string"));
 
 /**
- * An edit of a layout as the document's own: the sandbox's edit helpers applied to it as it stands (each pin checked
- * against the asset's accepted versions and variants), a document's edits (set, insert, delete, move by path), or the
- * whole layout; what it would hold that play does not is refused.
+ * An edit of a layout: its helpers applied as it stands (each pin checked against the asset's accepted versions and
+ * variants), a document's edits by path, or the whole layout; what play does not hold is refused.
  */
 export async function layoutWrite(q: Queryable, cur: any, input: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
   let target: any;
@@ -421,9 +412,8 @@ export async function layoutShown(q: Queryable, before: any, after: any) {
 type Kept = { edits: unknown; diff: Change[] | null; holds?: boolean; why?: string };
 
 /**
- * A layout's intent variant as people review it, beside its changes field by field (./review.ts reviewDoc): each pin
- * before and after by its asset's label and version, whether it still holds on the layout as it is now (accepting
- * would merge it so), and the sandbox to open as it would be.
+ * A layout's intent variant as reviewed beside its field diff (./review.ts reviewDoc): each pin before and after, whether
+ * it still holds on the layout now, and the sandbox to open as accepting would make it.
  */
 export async function layoutReview(q: Queryable, p: any) {
   const docId = p.doc_id as string, sandbox = docId.split(":")[1];
@@ -476,10 +466,8 @@ export async function writeRows(tx: Queryable, sandbox: string, json: any) {
 }
 
 /**
- * What a layout's Accept holds it to first (./kinds.ts before), in the Accept's transaction, its sandbox's row locked:
- * one that no longer holds on the layout as it is (a pin of a version or variant play no longer keeps; one kept from
- * before layouts were documents that no longer held then) is archived, saying why. Accepted, Main's pins and configs
- * are written to the rows the worlds read (writeRows, its accepted hook).
+ * What a layout's Accept holds it to first (./kinds.ts before), its row locked: one that no longer holds (a pin play no
+ * longer keeps) is archived, saying why. Accepted, Main is written to the worlds' rows (writeRows).
  */
 export async function layoutBefore(tx: Queryable, docId: string, v: number, merged: any): Promise<string | null> {
   await tx.query(`SELECT 1 FROM play.sandboxes WHERE id = $1 FOR UPDATE`, [docId.split(":")[1]]);
@@ -500,10 +488,7 @@ export async function layoutAt(db: Queryable, me: Me | null, sandbox: string, at
   return { pins: json.pins ?? {}, configs: json.configs ?? {} };
 }
 
-/**
- * The sandbox as an intent's change at Proposal would make it, to open it so before deciding (admins; `?intent=` on its
- * config): its intent variant merged into the layout as it is now, as accepting would make it.
- */
+/** The sandbox as an intent at Proposal would make it, opened before deciding (admins; `?intent=` on its config). */
 export async function proposedState(db: Queryable, me: Me | null, sandbox: string, id: string): Promise<SandboxState> {
   admin(me, SANDBOX_ADMINS);
   const intent = await intentIdOf(db, id);
@@ -518,11 +503,10 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
 
 /**
  * play's seed (./seed.ts), after ensureSchemas (migration 202611070115-d2f50bf1-sandbox-layouts kept what SQL can't
- * write): every sandbox with pins, configs or a change kept gets its layout document, its v1 its pins and configs as
- * they are, and every kept change (play.sandbox_changes_kept) becomes an intent variant of it, each intent keeping its
- * stage. One at Proposal is its edits made again on v1 and proposed (kept, to be archived on Accept, where they no
- * longer hold); an accepted or archived one a closed variant that keeps what it changed as its review. Each change is
- * moved once, in its own transaction under one advisory lock (play-api and the import migrate at once on a deploy).
+ * write): each sandbox with pins, configs or a kept change gets its layout document (v1 as they are), each kept change
+ * (play.sandbox_changes_kept) an intent variant keeping its intent's stage: at Proposal its edits made again on v1 and
+ * proposed; accepted or archived a closed variant keeping its review. Each moved once, in its own transaction under one
+ * advisory lock (play-api and the import migrate at once on a deploy).
  */
 export async function ensureLayouts(db: Db): Promise<number> {
   const { rows: has } = await db.query(`SELECT to_regclass('play.sandbox_changes_kept') AS t`);

@@ -1,14 +1,8 @@
 // The game's world map, grown from a seed: a river, a few lakes, five biomes, and the plots (Grundstücke) people will
-// build on, in a valley ringed by hills and mountains.
-//
-// The same seed always gives the same map, and the game has one (SEED). Nothing here touches the DOM or three.js:
-// ./scene.ts draws it.
-//
-// Geometry is in map units (x runs east, y runs south, 6720 × 4470 of them); the map's real size follows from its
-// people: PEOPLE inhabitants with M2_PER_PERSON each, so every map's buildable land is exactly PEOPLE × M2_PER_PERSON
-// m² and one map unit is `scale` metres (about 11). The map holds
-// exactly PLOTS plots (villages, about 1500 people and 2.25 km² each), all buildable (shore, forest, grassland,
-// sand): mountains are no plots but wild land, raised into real hills (terrain); the water itself is no land at all.
+// build on, in a valley ringed by hills and mountains. One seed, one map (SEED); nothing here touches the DOM or three.js
+// (./scene.ts draws it). Map units: x east, y south, 6720 × 4470; its real size follows from its people (PEOPLE ×
+// M2_PER_PERSON m² buildable, one unit `scale` m, about 11). Exactly PLOTS plots (villages, ~1500 people and 2.25 km²
+// each), all buildable (shore, forest, grassland, sand); mountains are wild land raised into hills, water no land at all.
 
 import { seededRandom } from '$lib/kernel/random.js';
 
@@ -38,7 +32,6 @@ export const FILL: Record<Biome, string> = {
 export interface Plot {
 	id: number;
 	biome: Biome;
-	/** its outline, corners rounded */
 	outline: P[];
 	centre: P;
 	/** real m² */
@@ -84,8 +77,7 @@ export interface Massif {
 	land: P[];
 }
 
-/** how many plots the map holds: 1,346,269 (the Fibonacci number F31, a coop's whole supply of minds at its thirtieth
- * milestone) divided by 1500 */
+/** how many plots the map holds: 1,346,269 (F31, a coop's whole supply of minds at its thirtieth milestone) / 1500 */
 export const PEOPLE = 1346269;
 /** the land each inhabitant has, m² */
 export const M2_PER_PERSON = 1500;
@@ -386,8 +378,7 @@ export function generateMap(seed: string): WorldMap {
 	}
 	const massif: Massif = { peaks: cells.filter((k) => k.biome === 'mountain').map((k) => k.c), land: cells.filter((k) => k.biome !== 'mountain').map((k) => k.c) };
 
-	// exactly PLOTS plots: beyond that count the outermost (by their distance from the centre, as an oval) go back to
-	// the wild, so the settled land ends in a soft round edge
+	// exactly PLOTS plots: past that the outermost (by oval distance from the centre) go wild, so settled land ends round
 	const settled = cells.filter((k) => !k.wild);
 	const outer = (k: Cell) => Math.hypot(k.c[0] / WIDTH - 0.5, k.c[1] / HEIGHT - 0.5);
 	settled.sort((a, b) => outer(b) - outer(a));
@@ -406,8 +397,7 @@ export function generateMap(seed: string): WorldMap {
 		if (k.wild) continue;
 		plotList.push({ id: plotList.length + 1, biome: k.biome, outline: rounded(k.plot, 18), centre: centroid(k.plot), area: area(k.plot), people: 0 });
 	}
-	// the real scale: all buildable land is PEOPLE × M2_PER_PERSON; each plot's people by its share of it (largest
-	// remainders, so they add up to PEOPLE exactly)
+	// the real scale: buildable land is PEOPLE × M2_PER_PERSON; each plot's people by its share (largest remainders: exact)
 	const units = plotList.reduce((t, p) => t + p.area, 0);
 	const scale = Math.sqrt((PEOPLE * M2_PER_PERSON) / units);
 	const shares = plotList.map((p) => (p.area / units) * PEOPLE);
@@ -525,8 +515,7 @@ export function terrain(seed: string, river: P[], massif: Massif): (x: number, y
 	};
 }
 
-/** the distance from a point to a line (its pieces' nearest), or `reach` if it is farther: only the pieces whose grid
- * cells come within reach of the point are measured */
+/** the distance from a point to a line's nearest piece, or `reach` if farther (only pieces whose grid cells come within reach) */
 export function nearLine(line: P[], reach: number): (x: number, y: number) => number {
 	const S = 150, key = (gx: number, gy: number) => (gx + 1000) * 4096 + gy + 1000, grid = new Map<number, number[]>();
 	for (let i = 1; i < line.length; i++) {

@@ -1,9 +1,6 @@
-// Intents (src/intents.ts, play/SPEC.md §4.12) against a real Postgres: set TEST_DATABASE_URL, as for ./api.test.ts.
-// Everything on the board is an intent, Idea → Specify → Build → Proposal → Accepted or Archived: added and specified
-// over MCP only, its spec (a goal, a scope, checks: test, measure or look, must or nice) approved by an admin before it
-// is built, its checks' results recorded while it is being built, and a proposal for it taken only once every must check
-// passes. Every proposal is an intent's: one made without an intent gets one of its own, and the intent follows its
-// proposals as they are decided.
+// Intents (src/intents.ts, play/SPEC.md §4.12) against a real Postgres (as ./api.test.ts): Idea → Specify → Build →
+// Proposal → Accepted or Archived, added and specified over MCP only, the spec approved by an admin before it is built,
+// checks recorded while building, a proposal taken only once every must passes.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { MIGRATIONS } from "../src/migrations";
 import { type Db } from "../src/kit/pg";
@@ -45,10 +42,7 @@ suite("intents", () => {
   const rpc = async (method: string, params?: unknown, bearer = token) => (await kitRpc(api, bearer, method, params)).json.result;
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
   const tool = (name: string, args: Record<string, any>, bearer = token): Promise<any> => mcpTool(api, bearer, name, args);
-  /**
-   * An asset's next version for `intent`: its source set on the asset's document and proposed (propose_doc_version).
-   * The assets it is used on have no accepted version yet, so no card to carry their levels of detail on.
-   */
+  /** An asset's next version for `intent` (propose_doc_version); the assets it is used on have no accepted card for its levels yet. */
   const proposeSource = ({ asset, source, note, intent }: { asset: string; source: string; note: string; intent: string }) =>
     tool("propose_doc_version", { doc: asset, note, edits: [{ op: "set", path: ["source"], value: source }, { op: "set", path: ["card"], value: { card: { lod: { levels: "derived" } } } }], intent });
   /** a tool called by avenBOX's token, as the GitHub runs call it */
@@ -284,8 +278,7 @@ suite("intents", () => {
     // Accepted, the same
     await db.query(`UPDATE play.intents SET stage = 'accepted' WHERE id = $1`, [i.id]);
     expect((await box("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5 on main", where: "main" }] })).stage).toBe("accepted");
-    // work of play's beside code ships with it (intent 7c8986c5): the database takes an intent holding work in Ship,
-    // its work waiting there (test/allwork.test.ts)
+    // work of play's beside code ships with it (intent 7c8986c5), waiting in Ship (test/allwork.test.ts)
     const w = await intentAt("Work in Ship", "build");
     await box("check_intent", { intent: w.id, results: all });
     expect((await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Shipped with its code", source: SOURCE, note: "x", intent: w.id })).error).toBeUndefined();
@@ -345,7 +338,7 @@ suite("intents", () => {
     expect((await call("ada", "GET", `/api/intents/${i.id}`)).data.results).toBeNull();
     // a look it still records by hand
     expect((await tool("check_intent", { intent: i.id, results: [look] })).results.c3).toMatchObject({ pass: true, by: "ada" });
-    // the box's run: a red must keeps it in Prototype, its pull request named; recorded with the run's link, marked the box's
+    // the box's run: a red must keeps it in Build, its pull request named; recorded with the run's link, marked the box's
     const link = "https://github.com/maia/city/actions/runs/9";
     const red = await box("check_intent", { intent: i.id, pr: 30, results: [{ check: "c1", pass: true, evidence: "exit 0", commit: sha, link }, { check: "c2", pass: false, evidence: "0.7", commit: sha, link }] });
     expect(red).toMatchObject({ stage: "build", pull_request: 30, results: { c1: { pass: true, box: true, link, commit: sha }, c2: { pass: false, box: true } } });
@@ -353,7 +346,7 @@ suite("intents", () => {
     expect((await box("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "x", link: "javascript:alert(1)" }] })).error).toContain("link is the https link");
     // once its pull request is named, no other token records a test or measure, even with no commit
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5" }] })).error).toContain(SAYS);
-    // all green from the box: to Proposal; a red must from it there: back to Prototype
+    // all green from the box: to Proposal; a red must from it there: back to Build
     const green = await box("check_intent", { intent: i.id, results: [{ check: "c2", pass: true, evidence: "0.5", commit: sha, link }] });
     expect(green.stage).toBe("proposal");
     const sha2 = "2".repeat(40);
@@ -455,8 +448,7 @@ suite("intents", () => {
     expect(made.error).toBeUndefined();
     expect((await tool("step_back_intent", { intent: i.id, reason: "x" })).error).toContain("waits for a decision");
     expect((await tool("check_intent", { intent: i.id, results: all })).error).toContain("no work of it waits there");
-    // other work made on the same base goes in first: its work is archived by itself, and an intent with an approved
-    // spec goes back to Build, its results cleared, to be built on the new head
+    // other work on the same base goes in first: its work archived by itself, the approved intent back to Build, results cleared
     const first = await proposeSource({ asset: made.asset, source: SOURCE + "// first\n", note: "first in", intent: await readyIntent("First in") });
     expect((await call("ada", "POST", `/api/intents/${first.intent}/accept`)).data.stage).toBe("accepted");
     expect(await tool("get_intent", { intent: i.id })).toMatchObject({ stage: "build", results: null, decided_by: null, work: { status: "archived", version: made.version } });

@@ -1,8 +1,7 @@
-// Auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules"; intent de24f1c5, Samuel 2026-11-07) against a real
-// Postgres: set TEST_DATABASE_URL, as for ./api.test.ts. The rule set is a document, rules:<RULES> of its own schema,
-// changed only by a person's Accept; matchRule says which rule meets an intent at Approve spec or Accept, and
-// autoMove takes the move a person would, through the one decision path (../src/intents.ts decided), the rule written as
-// who decided. Each test is one check of the intent's spec (c1–c9), named as its run names it.
+// Auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules"; intent de24f1c5, Samuel 2026-11-07) against a real Postgres
+// (as ./api.test.ts): the rule set rules:<RULES>, changed only by a person's Accept; matchRule says which rule meets an
+// intent at Approve spec or Accept, autoMove takes a person's move through the one decision path (../src/intents.ts
+// decided), the rule written as who decided. Each test is one check of the intent's spec (c1–c9), named as its run names it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import * as docs from "../src/docs";
@@ -300,8 +299,8 @@ suite("auto-accept rules", () => {
     }
     expect((await call("ada", "POST", `/api/intents/${schema.id}/accept`)).data.decision.status).toBe("accepted");
     expect((await call("ada", "POST", `/api/intents/${back.id}/accept`)).data).toMatchObject({ stage: "accepted", decided_by: "ada" });
-    // one declaring nothing whose work is the rules, under a rule that names the rules' own schema at accept: its spec
-    // passes by the rule (nothing says yet what it changes), its work waits for ada
+    // one declaring nothing whose work is the rules, under a rule naming their schema at accept: its spec passes by the
+    // rule (nothing says yet what it changes), its work waits for ada
     await setRules([rule("Every spec", ["approve"], {}), rule("The rules pass", ["accept"], { schemas: [SCHEMA.rules, SCHEMA.meta] })]);
     const sly = await readyIntent("Declares nothing, changes the rules");
     expect(await intent(sly)).toMatchObject({ stage: "proposal", approved_by: null, auto: { approve: { label: "Every spec" } } });

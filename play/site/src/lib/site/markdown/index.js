@@ -1,21 +1,18 @@
 // @ts-nocheck — plain JS
 /*
- * THE MARKDOWN ENGINE — the one way Markdown becomes HTML anywhere on our pages, whoever wrote it: a person, an
- * agent, an aven, a vault we follow, a web page copied into the repo. Its output goes into `{@html}`, so it is part of
- * the kernel: nothing it hands back can run, load or lead anywhere we did not allow.
+ * THE MARKDOWN ENGINE — the one way Markdown becomes HTML on our pages, whoever wrote it (a person, an agent, a vault, a
+ * copied web page). Its output goes into `{@html}`, so it is part of the kernel: nothing it hands back can run, load or
+ * lead anywhere we did not allow.
  *
- * - Only marked's tokenizer is used; every token is written by our own renderer below, never by marked's.
- * - Text is always escaped. Raw HTML in the Markdown (a block or inline) never becomes markup: its tags and comments
- *   are dropped and the words between them shown as text.
- * - A link goes only to the web (http, https), mail, this site (a path, from the root or relative) or a place on the
- *   page (#): anything naming another scheme is refused.
- *   Its address is decoded the way a browser would read it (entities, hidden spaces) before it is judged, so
- *   `&#106;avascript:` or `java\tscript:` is refused. Links to the web open in a new tab, without a referrer.
+ * - Only marked's tokenizer is used; every token is written by our own renderer below.
+ * - Text is always escaped. Raw HTML never becomes markup: its tags and comments are dropped, its words shown as text.
+ * - A link goes only to the web (http, https), mail, this site (a path) or the page (#), judged on its address decoded
+ *   as a browser reads it (entities, hidden spaces), so `&#106;avascript:` or `java\tscript:` is refused. Links to the
+ *   web open in a new tab, without a referrer.
  * - A picture is shown only where the caller's `picture(name, alt)` gives it an address; otherwise its words are.
- * - Maths, only where a caller asks for it (`math`): `$$…$$` and `$…$` are found as pandoc finds them, before any other
- *   rule reads them, and each is written as a placeholder holding its LaTeX source as text (`MATH`). This engine never
- *   typesets it: the math host does, off the page ($kernel/sandbox/math-host.js), and until it has, or where it can't, the
- *   source is what a reader sees.
+ * - Maths only where a caller asks (`math`): `$$…$$` and `$…$` found as pandoc finds them, before any other rule, each
+ *   written as a placeholder holding its LaTeX as text (`MATH`), typeset off the page by the math host
+ *   ($kernel/sandbox/math-host.js); until it has, or where it can't, the source is what a reader sees.
  * - Every tag and attribute that can come out is in `TAGS` (markdown.test.js checks hostile Markdown against it).
  */
 
@@ -54,27 +51,25 @@ const words = (html) => String(html ?? '').replace(/<!--[\s\S]*?(-->|$)/g, '').r
 
 /** Where a link may go, judged on the decoded address. */
 const SAFE = /^(https?:\/\/|mailto:|\/(?![/\\])|#|\?|[^:/?#\\]*(?:[/?#]|$))/i;
-/** Whether `href` is an address a link may lead to. */
 const safeHref = (href) => SAFE.test(decoded(href));
 /** An address from a record or a vault, as a link's href: itself when a link may lead there, else none (no link). */
 export const linkHref = (href) => (href && safeHref(href) ? href : undefined);
-/** Where a picture may be shown from: the web over https, this site, a page-made blob or an
- * inline picture, an SVG among them (in an image a browser runs none of its scripts and loads nothing for it, and a
- * data URL never opens as a page of this site). */
+/**
+ * Where a picture may be shown from: https, this site, a page-made blob or an inline picture, SVG among them (in an
+ * image a browser runs none of its scripts, and a data URL never opens as a page of this site).
+ */
 const PICTURE_SRC = /^(https:\/\/|\/(?![/\\])|blob:|data:image\/(png|jpe?g|gif|webp|avif|svg\+xml);)/i;
-/** Whether `href` leads off this site. */
 const away = (href) => /^https?:/i.test(decoded(href));
 
 /**
- * MATHS, AS PANDOC FINDS IT (its tex_math_dollars), read from the Markdown as written, before marked's own rules (so
- * `\,` stays a thin space and `m^{*}` no emphasis):
- * - `$$…$$` is display maths: anything up to the next `$$`, but no blank line. Standing alone at a block's start (the
- *   closing `$$` ending its line) it is a block of its own; within a paragraph it is display maths in it.
- * - `$…$` is inline maths: the opening `$` is followed by a non-space, the closing `$` is preceded by a non-space and
- *   not followed by a digit, and `\` takes the character after it with it (`\$` closes nothing; `\text{…}` may hold a
- *   `$`). The first `$` that may close it does, or nothing does: so "$5 and $10" stays words.
- * - A `\$` outside maths is a dollar, as always; maths never pairs across a paragraph or a table cell, nor reaches
- *   into code.
+ * MATHS, AS PANDOC FINDS IT (tex_math_dollars), read before marked's own rules (so `\,` stays a thin space and `m^{*}`
+ * no emphasis):
+ * - `$$…$$` is display maths up to the next `$$`, no blank line: alone at a block's start (its `$$` ending the line) a
+ *   block of its own, else display maths in its paragraph.
+ * - `$…$` is inline: the opening `$` before a non-space, the closing after a non-space and not before a digit, `\`
+ *   taking the next character with it (`\$` closes nothing; `\text{…}` may hold a `$`); the first `$` that may close it
+ *   does, else none: "$5 and $10" stays words.
+ * - A `\$` outside maths is a dollar; maths never pairs across a paragraph or table cell, nor reaches into code.
  */
 const BLANK = /\n[ \t]*\n/;
 const SPACE = /\s/;
@@ -125,7 +120,7 @@ function balanced(src, at, stop) {
 	return -1;
 }
 
-/** Maths at `src[at]`, display or inline. @param {string} src @param {number} [at] */
+/** @param {string} src @param {number} [at] */
 const mathAt = (src, at = 0) => displayAt(src, at) ?? inlineAt(src, at);
 
 /** Display maths standing alone at a block's start (`src[at]`): `$$…$$`, nothing after it on its line. */
@@ -141,10 +136,9 @@ function mathBlock(src, at = 0) {
 }
 
 /**
- * marked's way in for maths (its Lexer's extensions and hooks): a block; inline maths; where each may start, so a
- * paragraph ends before a block (looked for only up to the paragraph's first blank line) and a run of text before a
- * `$`; and a run of text's maths masked for marked's emphasis, so a `*` or `_` in maths ends no emphasis. A math
- * token is `{ type: 'math', display, text }`, its text the LaTeX.
+ * marked's way in for maths (Lexer extensions and hooks): a block, inline maths, where each may start (a paragraph ends
+ * before a block, looked for up to its first blank line; a text run before a `$`), and a text run's maths masked so a
+ * `*` or `_` in it ends no emphasis. A math token is `{ type: 'math', display, text }`, its text the LaTeX.
  */
 const MATH = {
 	extensions: {

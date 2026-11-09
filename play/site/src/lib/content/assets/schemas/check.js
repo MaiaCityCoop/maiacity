@@ -23,11 +23,7 @@ const WAY_OUT = /:\/\/|^\s*(data|blob|javascript|file|about|ws|wss):/i;
 
 /** @typedef {{ ok: true, value: any } | { ok: false, errors: string[] }} Verdict */
 
-/**
- * A JSON text read and checked against `schema`.
- * @param {object} schema @param {string} text
- * @returns {Verdict}
- */
+/** A JSON text read and checked against `schema`. @param {object} schema @param {string} text @returns {Verdict} */
 export function checkText(schema, text) {
 	if (typeof text !== 'string') return { ok: false, errors: ['not JSON text'] };
 	if (text.length > LIMITS.bytes) return { ok: false, errors: [`${text.length} bytes, more than ${LIMITS.bytes}`] };
@@ -40,11 +36,7 @@ export function checkText(schema, text) {
 	return check(schema, value);
 }
 
-/**
- * A value checked against `schema`.
- * @param {object} schema @param {unknown} value
- * @returns {Verdict}
- */
+/** A value checked against `schema`. @param {object} schema @param {unknown} value @returns {Verdict} */
 export function check(schema, value) {
 	/** @type {string[]} */
 	const errors = [];
@@ -58,9 +50,8 @@ export function check(schema, value) {
 }
 
 /**
- * Whether `v` is plain JSON within the depth, with no forbidden key; what is wrong goes to `errors`.
- * @param {unknown} v @param {string} at @param {number} depth @param {string[]} errors
- * @returns {boolean}
+ * Whether `v` is plain JSON within the depth, no forbidden key; what is wrong goes to `errors`.
+ * @param {unknown} v @param {string} at @param {number} depth @param {string[]} errors @returns {boolean}
  */
 function plainJson(v, at, depth, errors) {
 	const no = (/** @type {string} */ why) => (errors.push(`${at || 'it'} ${why}`), false);

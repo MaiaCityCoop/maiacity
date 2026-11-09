@@ -1,9 +1,8 @@
-// Artifacts (play/SPEC.md §4.13): every link from the net Maia City keeps, kept over MCP by avenMAIA for the admin whose
-// token connected it, pasted by them (origin 'human', "Added by") or found in its research (origin 'agent', "Sourced by
-// avenMAIA"), with three texts held to their form here (a title of at most 70 characters, a description of at most
-// 280, a summary of 500–1,500 words in its sections) and its authors (play.authors, by their UUIDs, in order). One link,
-// one artifact (urlOf). An artifact is a document like any other (artifact:<uuid>, ./versioned.ts): every change of it
-// waits at Proposal as an intent's work, and its row is what its accepted version says. Admins only.
+// Artifacts (play/SPEC.md §4.13): every link from the net Maia City keeps, over MCP by avenMAIA for its token's admin,
+// pasted (origin 'human', "Added by") or found in research ('agent', "Sourced by avenMAIA"), its three texts held to
+// their form here (title ≤ 70 characters, description ≤ 280, summary 500–1,500 words in sections) and its authors
+// (play.authors, by UUID, in order). One link, one artifact (urlOf). A document (artifact:<uuid>, ./versioned.ts): every
+// change waits at Proposal as an intent's work, its row what its accepted version says. Admins only.
 import { keepFile } from "./owners";
 import { admin, COOP, type Me } from "./access";
 import { AVENMAIA, SCHEMA } from "./kit/ids";
@@ -45,10 +44,9 @@ const ARTIFACT_ADMINS = "Only Maia City's admins open the Artifacts.";
 const TRACKING = (k: string) => /^utm_/i.test(k) || /^(fbclid|gclid)$/i.test(k);
 
 /**
- * A link as Maia City keeps it, so the same page is one artifact: http(s) only; its scheme and host lower-cased; its
- * #fragment, utm_* , fbclid and gclid dropped, the rest of its query kept as written; a trailing slash dropped; and a
- * YouTube video named one way (youtu.be/<id>, /shorts/<id>, /embed/<id>, /live/<id> and m.youtube.com are all
- * https://www.youtube.com/watch?v=<id>).
+ * A link as Maia City keeps it, so one page is one artifact: http(s) only; scheme and host lower-cased; #fragment,
+ * utm_*, fbclid and gclid dropped, the rest of the query as written; no trailing slash; a YouTube video one way
+ * (youtu.be/<id>, /shorts/, /embed/, /live/ and m.youtube.com all https://www.youtube.com/watch?v=<id>).
  */
 export function urlOf(raw: unknown): string {
   const s = `${raw ?? ""}`.trim();
@@ -294,8 +292,8 @@ export async function artifactOf(db: Queryable, me: Me | null, id: unknown) {
 type ArtifactQuery = { q?: string | null; author?: string | null; tag?: string | null; kind?: string | null; origin?: string | null; offset?: number; limit?: number };
 
 /**
- * The artifacts, newest first, a page at a time, with how many match: `q` in a title, description, summary, link or an
- * author's name; an author (their id), a tag, a kind and an origin narrow them. Each without its summary (get_artifact).
+ * The artifacts, newest first, a page at a time, with how many match `q` (title, description, summary, link, an author's
+ * name), narrowed by author id, tag, kind and origin; without their summaries (get_artifact).
  */
 export async function listArtifacts(db: Queryable, me: Me | null, o: ArtifactQuery = {}) {
   admin(me, ARTIFACT_ADMINS);
@@ -401,8 +399,8 @@ type ArtifactGiven = {
   kind?: unknown; tags?: unknown; published?: unknown; origin?: unknown; text?: unknown;
 };
 
-// ---- no tap for an artifact (play/SPEC.md §4.12 "Auto-accept rules", intent de24f1c5): added or corrected with no
-// intent named, it makes its own through the intent flow's own functions, in one transaction, and the rules decide it
+// ---- no tap for an artifact (play/SPEC.md §4.12 "Auto-accept rules", intent de24f1c5): with no intent named, it makes
+// its own through the intent flow's functions, in one transaction, and the rules decide it
 
 /** the caller's transaction as a Db: every transaction asked of it is that one (the whole request is one) */
 const flat = (tx: Queryable): Db => ({ query: (t, p) => tx.query(t, p), exec: async (t) => void (await tx.query(t)), transaction: (fn) => fn(tx) });
@@ -413,10 +411,9 @@ type Own = { kind: "idea" | "improve"; title: string; goal: string; evidence: st
 const OWN_CHECK = { check: "The artifact holds to the artifacts' form (three texts, authors, one link)", how: "look", by: "the form checks add_artifact and update_artifact make: its link, title, description, summary and authors", must: true };
 
 /**
- * An intent of the artifact's own (author the admin, via mcp, declaring the artifact schema), specified with play's
- * spec and asked of the rules (Approve spec); in Build, its check recorded (it is at Proposal) and its work proposed
- * (`propose`, naming it), then asked of the rules again (Accept). Where no rule decides, it waits for a person, at
- * Specify (nothing proposed yet) or at Proposal. Gives back the intent's id and stage and what `propose` gave.
+ * An intent of the artifact's own (author the admin, via mcp, the artifact schema), specified with play's spec and asked
+ * of the rules (Approve spec); in Build its check recorded and its work proposed, asked of the rules again (Accept).
+ * Where no rule decides it waits for a person, at Specify or at Proposal. Gives back its id, stage and what `propose` gave.
  */
 async function ownIntent<R>(db: Db, store: BlobStore, who: Me, o: Own, propose: (intent: string) => Promise<R>): Promise<{ intent: string; stage: string; auto: unknown; proposed: R | null }> {
   const i = await addIntent(db, who, { kind: o.kind, title: o.title, note: "Made by play for the artifact's change, with no intent named (play/SPEC.md §4.12, Auto-accept rules).", work_kind: [SCHEMA.artifact] });
@@ -438,7 +435,7 @@ const formEvidence = (j: any) =>
 
 /**
  * Keep an artifact (its first version proposed); a link kept already answers with it (`kept`), one waiting with its
- * intent. With no intent named it makes its own (ownIntent), in one transaction: kept at once where the rules accept it.
+ * intent. Without an intent it makes its own (ownIntent), kept at once where the rules accept it.
  */
 export async function addArtifact(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven, intent?: string) {
   if (intent) return addIn(db, store, me, b, intent);
@@ -519,8 +516,7 @@ async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unkno
   return { ...now, waiting: true, intent: r.intent, stage: r.stage, number: "number" in r ? r.number : undefined, changes: "changes" in r ? r.changes : undefined };
 }
 
-/** an artifact's row is what its accepted version says; one kept before artifacts were documents gets its document
- *  made from its row, as its v1, the first time it is read (./allkinds.ts's ensure) */
+/** an artifact's row is its accepted version's; one kept before artifacts were documents gets its v1 when first read (./allkinds.ts ensure) */
 const ARTIFACT_ROW = `url, title, description, summary, kind, tags, to_char(published, 'YYYY-MM-DD') AS published, text_hash, origin, agent_id AS agent, operator_id AS operator, token_id AS token, author_ids AS authors`;
 export async function ensureArtifactDoc(q: Queryable, id: string) {
   const { rows } = await q.query<any>(`SELECT ${ARTIFACT_ROW}, created FROM play.artifacts WHERE id = $1`, [id]);

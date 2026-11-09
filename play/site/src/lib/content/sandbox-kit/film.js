@@ -30,10 +30,7 @@ import * as THREE from 'three';
 // the three rules of a world under the film camera are the film renderer's
 export { filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/render/film.js';
 
-/**
- * A pose in a frame (an object of the world: its place and its turn now) as a pose in the world.
- * @param {THREE.Object3D} frame @param {Pose | number[]} p @returns {Pose}
- */
+/** A pose in a frame (its place and turn now) as a pose in the world. @param {THREE.Object3D} frame @param {Pose | number[]} p @returns {Pose} */
 export function poseIn(frame, p) {
 	frame.updateMatrixWorld(true);
 	const at = frame.localToWorld(new THREE.Vector3(p[0], p[1], p[2]));
@@ -42,19 +39,13 @@ export function poseIn(frame, p) {
 	return [at.x, at.y, at.z, Math.atan2(-d.x, -d.z), Math.asin(Math.max(-1, Math.min(1, d.y)))];
 }
 
-/**
- * A camera put at a pose, as the film flies it (yaw about y, then pitch).
- * @param {THREE.Camera} camera @param {Pose | number[]} p
- */
+/** A camera put at a pose (yaw about y, then pitch). @param {THREE.Camera} camera @param {Pose | number[]} p */
 export function aim(camera, p) {
 	camera.position.set(p[0], p[1], p[2]);
 	camera.rotation.set(p[4], p[3], 0, 'YXZ');
 }
 
-/**
- * The pose of a camera as the film flies it, in the world or (frame) in one of its frames.
- * @param {THREE.Camera} camera @param {THREE.Object3D} [frame] @returns {Pose}
- */
+/** A camera's pose, in the world or in `frame`. @param {THREE.Camera} camera @param {THREE.Object3D} [frame] @returns {Pose} */
 export function poseOf(camera, frame) {
 	camera.updateMatrixWorld(true);
 	const at = camera.getWorldPosition(new THREE.Vector3());
@@ -67,11 +58,7 @@ export function poseOf(camera, frame) {
 	return [at.x, at.y, at.z, Math.atan2(-d.x, -d.z), Math.asin(Math.max(-1, Math.min(1, d.y)))];
 }
 
-/**
- * A bare hold on a camera, for a world whose camera controls are its own (the planet's).
- * @param {THREE.Camera} camera
- * @returns {CameraHold}
- */
+/** A bare hold on a camera, for a world whose controls are its own (the planet's). @param {THREE.Camera} camera @returns {CameraHold} */
 export function createCameraHold(camera) {
 	/** @type {Pose | null} */
 	let pose = null;
@@ -156,8 +143,7 @@ export function connectFilm(o) {
 				camera.updateMatrixWorld();
 				o.animate?.(t);
 				o.parts?.(parts);
-				// a pose in one of the world's frames, put where that frame stands now; and held again over whatever the
-				// world's own moves did to the camera as it came to t
+				// a pose in one of the world's frames, put where it stands now, held over what the world's moves did to it
 				const fr = framed, f = fr && o.frames?.[fr.frame]?.();
 				if (fr && f) hold.fly(...poseIn(f, fr.pose));
 				hold.apply();
@@ -180,8 +166,7 @@ export function connectFilm(o) {
 			holds: o.holds ?? (() => true),
 			/** @param {FilmWorldSpec[]} ws */
 			keep: o.keep ?? (() => {}),
-			/** whether `holds` is exact for any shot, wherever it stands (a world that streams by view): a cut to a shot it
-			 *  holds is then only a move of the camera, never a staging */
+			/** whether `holds` is exact for any shot wherever it stands: a cut to a held shot is only a camera move */
 			streams: o.streams ?? false,
 			/** stand where shot `w` is, at once, what it sees already built (`streams`) @param {FilmWorldSpec} w */
 			move: o.move ?? ((w) => place(w.stand[0], w.stand[1], 0, 0)),

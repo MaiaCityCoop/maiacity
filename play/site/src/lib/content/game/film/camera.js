@@ -50,10 +50,8 @@ const cr = (/** @type {number[]} */ p0, /** @type {number[]} */ p1, /** @type {n
 	p1.map((_, i) => 0.5 * (2 * p1[i] + (-p0[i] + p2[i]) * u + (2 * p0[i] - 5 * p1[i] + 4 * p2[i] - p3[i]) * u * u + (-p0[i] + 3 * p1[i] - 3 * p2[i] + p3[i]) * u * u * u));
 
 /**
- * The camera's path: a function of the shot's progress (0 at its first frame, 1 at its end) giving a pose.
- * `seconds` is the shot's length (only keyframed cameras, whose keys are in seconds, need it).
- * @param {Camera} cam @param {number} [seconds]
- * @returns {(t: number) => Pose}
+ * The camera's path: progress (0 first frame, 1 end) to a pose; `seconds` the shot's length (keyframed cameras need it).
+ * @param {Camera} cam @param {number} [seconds] @returns {(t: number) => Pose}
  */
 export function pathOf(cam, seconds = 1) {
 	switch (cam.kind) {
@@ -136,10 +134,7 @@ function sampleKeys(/** @type {{ t: number, v: number[] }[]} */ keys, /** @type 
 	return { pose: /** @type {Pose} */ (v.slice(0, 5)), fov: Number.isFinite(v[5]) ? v[5] : undefined };
 }
 
-/**
- * The lens a keyframed camera sets at progress t (keys may carry fov), else undefined.
- * @param {Camera} cam @param {number} t @param {number} seconds
- */
+/** The lens a keyframed camera sets at progress t (keys may carry fov), else undefined. @param {Camera} cam @param {number} t @param {number} seconds */
 export function fovOf(cam, t, seconds) {
 	if (cam.kind === 'whip') return fovOf(cam.path, t, seconds);
 	if (cam.kind !== 'keys' || !cam.keys.some((k) => Number.isFinite(k.fov))) return undefined;
@@ -150,10 +145,7 @@ export function fovOf(cam, t, seconds) {
 const finite = (/** @type {unknown} */ v) => typeof v === 'number' && Number.isFinite(v);
 const vec = (/** @type {unknown} */ v, /** @type {number} */ n) => Array.isArray(v) && v.length === n && v.every(finite);
 
-/**
- * A camera checked: the right fields, every number finite. Throws an Error naming what is wrong.
- * @param {any} cam @param {string} [where] @returns {Camera}
- */
+/** A camera checked (fields, every number finite); throws naming what is wrong. @param {any} cam @param {string} [where] @returns {Camera} */
 export function checkCamera(cam, where = 'camera') {
 	const bad = (/** @type {string} */ s) => {
 		throw new Error(`${where}: ${s}`);

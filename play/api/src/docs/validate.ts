@@ -29,9 +29,8 @@ export type Node = {
 };
 
 /**
- * A document type as the store checks it: the schema's UUID and the version of it in force (its Main's newest), the
- * documents' id prefix (`type`), the schema's old name (only shown), its node, and what its kind says in code beside
- * it (../versioned.ts's hooks, by the schema's UUID): a whole-document `check`, and `build` for code.
+ * A document type as the store checks it: its schema's UUID and version in force, the documents' prefix (`type`), the
+ * schema's old name (only shown), its node, and its kind's code hooks by UUID (../versioned.ts): `check`, `build`.
  */
 export type DocType = {
   id: string;
@@ -108,10 +107,7 @@ export function problemsOf(t: Pick<DocType, "schema" | "check">, doc: unknown): 
 
 const KEYS = new Set(["type", "const", "enum", "properties", "required", "additionalProperties", "items", "minItems", "maxItems", "minimum", "maximum", "minLength", "maxLength", "pattern", "x-loro", "description"]);
 
-/**
- * The problems of a node as a node: only the words this subset knows, its children nodes in turn, its pattern one that
- * compiles. What the meta-schema can't say of itself (it has no $ref), said in code by the meta-schema's hook.
- */
+/** A node's problems as a node: only this subset's words, its children in turn, a compiling pattern (the meta-schema's hook, having no $ref). */
 export function nodeProblems(n: unknown, path = "$.node", out: string[] = []): string[] {
   if (out.length > 50) return out;
   if (!n || typeof n !== "object" || Array.isArray(n)) return out.push(`${path}: a node is an object`), out;

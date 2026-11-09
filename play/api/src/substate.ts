@@ -1,11 +1,9 @@
-// Sub-states (play/SPEC.md §4.12 "Sub-states"; intent 2bf8af96, Samuel 2026-11-07), said by one pure function.
-// It imports nothing of play's at run time (only .github/required-checks.json, read as it loads), so every path
-// (./intents.ts, ./ship.ts, ./versioned.ts) asks it.
+// Sub-states (play/SPEC.md §4.12 "Sub-states"; intent 2bf8af96, Samuel 2026-11-07), said by one pure function importing
+// nothing of play's at run time (only .github/required-checks.json), so every path (intents, ship, versioned) asks it.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-/** the checks main.yml runs on a pull request, required green on its head before Accept merges it: named once, in
- * .github/required-checks.json (the image copies it to the same place under PLAY_REPO) */
+/** the checks main.yml runs on a pull request, required green on its head before Accept merges it (.github/required-checks.json, copied under PLAY_REPO) */
 const REQUIRED_CHECKS: string[] = Object.values(JSON.parse(readFileSync(resolve(process.env.PLAY_REPO ?? resolve(import.meta.dir, "../../.."), ".github/required-checks.json"), "utf8")));
 const SEEN_MOST_MS = 60_000;
 
@@ -18,9 +16,8 @@ type CheckState = "queued" | "running" | "success" | "failure" | "skipped" | "ca
 export type PrSeen = {
   pr: number; head: string; draft: boolean; mergeable: boolean | null; state: string; merged: boolean; base: string; checks: Record<string, CheckState>; at: string;
   /**
-   * play's own clean main merges in a row (./mainmerge.ts, GitHub's update-branch), the last one's `to` the head: each
-   * from the head `from`, main at `main`, the merge commit GitHub made of them `to` (none yet while GitHub makes it).
-   * A head that came any other way (a builder's push) ends it. A result on any `from` counts on the head (countsOn).
+   * play's clean main merges in a row (./mainmerge.ts), each from head `from` with main at `main` into `to` (none while
+   * GitHub makes it); a head that came another way ends it. A result on any `from` counts on the head (countsOn).
    */
   merged_in?: PlayMerge[];
   /** how many times play merged main into it, its checks run again each time (./delivery.ts) */
@@ -65,19 +62,18 @@ function mergedFrom(seen: Pick<PrSeen, "head" | "merged_in">) {
 }
 
 /**
- * The commits a result counts on at the pull request's head as `seen` (play/SPEC.md §4.12; intent b17a4980): the head
- * itself, and, while the required checks are green on it, every commit play's own clean main merges in a row made it
- * from (main merged in changes nothing the intent's checks were about, and main's checks ran the whole suite on it).
+ * The commits a result counts on at the head as `seen` (play/SPEC.md §4.12; intent b17a4980): the head, and while its
+ * required checks are green, every commit play's clean main merges in a row made it from (main merged in changes
+ * nothing the intent's checks were about, and main's checks ran the whole suite on it).
  */
 export function countsOn(seen: Pick<PrSeen, "head" | "checks" | "merged_in">) {
   return new Set([seen.head, ...(greenOn(seen) ? mergedFrom(seen) : [])]);
 }
 
 /**
- * The must checks with a `run` that did not last pass on a commit that counts on the pull request's head (countsOn),
- * as people read them: what is merged is what was checked. Named by id only (their statements are in the spec),
- * grouped by what they lack: "c1, c2 passed on 233b24d, not yet on the head 7fbf99b", "c4 no result yet";
- * `kept`: those that passed on a commit before play's main merges, grouped by it ("c1, c2 passed on 233b24d").
+ * The must checks with a `run` that did not last pass on a commit counting on the head (countsOn), by id, grouped by
+ * what they lack ("c1, c2 passed on 233b24d, not yet on the head 7fbf99b", "c4 no result yet"); `kept`: those passed on
+ * a commit before play's main merges ("c1, c2 passed on 233b24d").
  */
 function resultsOn(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head" | "checks" | "merged_in">) {
   const head = seen.head;

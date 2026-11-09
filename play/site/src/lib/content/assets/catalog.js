@@ -1,12 +1,9 @@
 // @ts-nocheck — plain JS, runs in the page
 /*
- * THE CATALOG — play's one source of assets (play/SPEC.md §4). Every accepted version and variant of Maia City's
- * assets, by the BLAKE3 hash of its recipe file, from play's API (/api/catalog); each file read from play's files,
- * held to that hash and kept on this device by it (./cache/files.js).
- *
- * An asset is named only by a hash: a build, `<hash>?values` (../../kernel/builds.js), or a slot of its sandbox's pins,
- * `pin:<sandbox>/<slot>?values`, which the sandbox's config (play's database, ../game/code/index.js) maps to a build.
- * Nothing is looked up by a readable name: a version's number, an asset's id and a label are only shown.
+ * THE CATALOG — play's one source of assets (play/SPEC.md §4): every accepted version and variant by its recipe file's
+ * BLAKE3 hash (/api/catalog), each file read from play's files, held to that hash and kept on this device (./cache/files.js).
+ * An asset is named only by a hash: a build, `<hash>?values` (../../kernel/builds.js), or a pin, `pin:<sandbox>/<slot>?values`,
+ * which the sandbox's config (../game/code/index.js) maps to a build. A version's number, an id and a label are only shown.
  */
 import { hashText, holds } from '../../kernel/hash.js';
 import { configAt, configKey, loadConfig } from '../game/code/index.js';
@@ -25,10 +22,7 @@ export class NotInCatalog extends Error {}
 /** the largest recipe file a page reads */
 export const MOST = 16_000_000;
 
-/**
- * What the page knows of each recipe by its hash: its asset's group and id, its version, its variant, its label and
- * the values it takes (for showing and for the box's details), and the engine every build runs on by default.
- */
+/** What the page knows of each recipe by hash (group, id, version, variant, label, values) and the default engine. */
 export const INDEX = { engine: LATEST.v, recipes: {} };
 const records = new Map();
 const sizes = new Map();
@@ -71,11 +65,9 @@ const keep = (r) => {
 };
 
 /**
- * A proposed version's builds (play's /api/intents/:id `review.builds`), held beside the accepted ones so the intents' board
- * can build it to be seen before anyone decides. It builds the way every recipe does: its file read from play by its
- * hash and held to it, then run in the asset box (./box/host.js), the sandboxed frame with no origin, on the frozen
- * engine its record names. Nothing else names a proposed hash, so no sandbox ever draws one.
- * @param {any[]} rows
+ * A proposed version's builds (/api/intents/:id `review.builds`), held beside the accepted ones so the board can build
+ * it before anyone decides, as every recipe builds: held to its hash, run in the asset box (./box/host.js) on its frozen
+ * engine. Nothing else names a proposed hash, so no sandbox ever draws one. @param {any[]} rows
  */
 export async function admitProposed(rows) {
 	await loadRecipes();
@@ -94,11 +86,7 @@ export function loadRecipes() {
 	return (loading ??= load());
 }
 
-/**
- * What a world waits for before its first build: play's catalog and its sandbox's config (by the sandbox's UUID). A
- * failure says why, on the world's loading screen.
- * @param {string} [sandbox]
- */
+/** What a world waits for before its first build: play's catalog and its sandbox's config (failure said on its loading screen). @param {string} [sandbox] */
 export async function catalogReady(sandbox) {
 	const [r] = await Promise.all([loadRecipes(), sandbox ? loadConfig(sandbox) : null]);
 	if (r.phase !== 'ready') throw new Error(r.error || 'The asset catalog could not be loaded.');
@@ -110,17 +98,12 @@ export const SLOT = /^pin:([a-z0-9][a-z0-9-]*)\/([a-zA-Z0-9][a-zA-Z0-9/-]*)(?:\?
 /** @param {string} name @param {string} query */
 export const withQuery = (name, query) => `${name}${name.includes('?') ? '&' : '?'}${query}`;
 
-/**
- * A slot of a sandbox's pins, by the sandbox's UUID (./sandboxes.js), with the values it is built with (`query`, as
- * text, in the order given)
- * @param {string} sandbox @param {string} slot @param {string} [query]
- */
+/** A pin by sandbox UUID (./sandboxes.js) and slot, with its values (`query`, as given). @param {string} sandbox @param {string} slot @param {string} [query] */
 export const slotRef = (sandbox, slot, query = '') => `pin:${sandbox}/${slot}${query ? `?${query}` : ''}`;
 
 /**
- * A name as the build it is: a build as it is; a slot as the build its sandbox pins there, the slot's own values
- * after the pin's. Anything else is refused: an asset is named by its hash.
- * @param {string} name @returns {{ hash: string, params?: Record<string, string> }}
+ * A name as its build: a build as it is; a pin as the build its sandbox pins, its own values after the pin's; anything
+ * else refused. @param {string} name @returns {{ hash: string, params?: Record<string, string> }}
  */
 export function resolve(name) {
 	if (typeof name !== 'string') throw new NotInCatalog(`not a build: ${JSON.stringify(name)}`);
@@ -178,10 +161,7 @@ export const declaredOf = (hash) => {
 	return r ? { manifest: r.manifest, contract: r.contract } : undefined;
 };
 
-/**
- * A recipe by its hash: `{ hash, code, pieces }`, its file from this device's cache or play's API, held to the hash.
- * @param {string} hash @returns {Promise<{ hash: string, code: string }>}
- */
+/** A recipe by its hash, from this device's cache or play, held to it. @param {string} hash @returns {Promise<{ hash: string, code: string }>} */
 export async function recipeAt(hash) {
 	// the pieces its manifest names go with it: the box reads them from play's files (./box/pieces.js)
 	const pieces = records.get(hash)?.manifest?.pieces ?? [];
@@ -201,17 +181,15 @@ export async function recipeAt(hash) {
  *  recipe by its hash, its name */
 export const source = { index: INDEX, recipeAt, nameOf, hashOf, cardOf };
 
-/** what play's database says of a plant version (its record's `plant`): its Latin name, layer, origin, note and
- *  stages; undefined for anything else */
+/** a plant version's record (`plant`): Latin name, layer, origin, note, stages; undefined for anything else */
 export const plantOf = (hash) => (recipeInfo(hash) ? records.get(hash)?.plant : undefined);
 
 const handed = new Map();
 /** and their rows, kept over play's catalog when it is read after them */
 const handedRows = new Map();
 /**
- * Recipes handed to this page by hand: the render bench's guests (the plants a dome names, made on this machine from
- * their readable sources), each `{ hash, code, group, id, v, variant, label, params }`, held to its hash and kept beside
- * the catalog for this page alone. A page that never reads play's catalog (the bench) takes them as its catalog.
+ * Recipes handed to this page by hand (the render bench's guests, made on this machine from readable sources), held to
+ * their hashes beside the catalog for this page alone; a page that never reads play's catalog takes them as its catalog.
  * @param {{ hash: string, code: string, group: string, id: string, v: number, variant?: string | null, label: string, params?: any[], card?: any }[]} rows
  */
 export function admitHanded(rows) {

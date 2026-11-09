@@ -18,9 +18,8 @@ export const CALM = Object.freeze({ direction: 0.35, strength: 0.45, gust: 0.55,
 const LIMITS = { strength: [0, 1.5], gust: [0, 1], scale: [4, 400], speed: [0, 40] };
 
 /**
- * A world's wind, its numbers held to their ranges: `direction` the way it blows to, in radians from +x toward +z;
- * `strength` 0 still … 1 a strong breeze; `gust` how much the gusts raise and lower it (0…1); `scale` how far apart
- * gust fronts are, in metres; `speed` how fast they travel, in metres a second.
+ * A world's wind held to its ranges: `direction` it blows to (radians from +x toward +z); `strength` 0 still … 1 a
+ * strong breeze; `gust` 0…1; `scale` metres between gust fronts; `speed` theirs, m/s.
  * @param {{ direction?: number, strength?: number, gust?: number, scale?: number, speed?: number } | null | undefined} [o]
  */
 export function windOf(o) {
@@ -40,8 +39,7 @@ const smooth = (x) => x * x * (3 - 2 * x);
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 
 /**
- * The gust at (x, z) at time t, 0 a lull … 1 a gust's front: two octaves of waves along the wind, their crests bent a
- * little across it so fronts are not straight lines, travelling at the wind's speed.
+ * The gust at (x, z) at t, 0 a lull … 1 a front: two octaves of waves along the wind, crests bent a little across it.
  * @param {ReturnType<typeof windOf>} w @param {number} x @param {number} z @param {number} t seconds
  */
 export function gustAt(w, x, z, t) {
@@ -64,8 +62,8 @@ export const phaseOf = (x, z) => TAU * fract(Math.sin(x * 12.9898 + z * 78.233) 
 const SWAY = 1.4;
 
 /**
- * How far a plant of height `height` (m) leans at its top, in metres, at t: the strength at its foot over its
- * stiffness, swaying ±25 % on its own phase. At most 15 % of its height at strength 1 and stiffness 1.
+ * How far a plant leans at its top (m) at t: the strength at its foot over its stiffness, swaying ±25 % on its phase;
+ * at most 15 % of its height at strength 1 and stiffness 1.
  * @param {ReturnType<typeof windOf>} w @param {{ x: number, z: number, phase: number, height: number }} copy
  * @param {number} stiffness @param {number} t
  */
@@ -74,19 +72,14 @@ export function leanAt(w, copy, stiffness, t) {
 	return (0.15 * copy.height * s * (0.75 + 0.25 * Math.sin(t * SWAY + copy.phase))) / Math.max(0.1, stiffness);
 }
 
-/**
- * A point `h` metres up a plant leaned over by `d` metres along the ground, its distance from the foot kept: how far
- * it comes down. At most 90 % of h leans.
- * @param {number} h @param {number} d
- */
+/** How far a point `h` up a plant leaned `d` along the ground comes down, its length kept (≤ 90 % of h leans). @param {number} h @param {number} d */
 export function keepLength(h, d) {
 	const dd = Math.min(Math.abs(d), 0.9 * Math.max(0, h));
 	return Math.max(0, h) - Math.sqrt(Math.max(0, h * h - dd * dd));
 }
 
 /**
- * The main bend of a point `h` metres up a plant: [dx, dy, dz] in metres, along the wind, growing as (h / height)²,
- * its length from the foot kept.
+ * The main bend of a point `h` up a plant, [dx, dy, dz] m along the wind, as (h / height)², its length kept.
  * @param {ReturnType<typeof windOf>} w @param {{ x: number, z: number, phase: number, height: number }} copy
  * @param {number} h @param {number} stiffness @param {number} t
  */
@@ -109,9 +102,8 @@ const tri = (x) => Math.abs(fract(x + 0.5) * 2 - 1);
 const smoothTri = (x) => smooth(tri(x)) * 2 - 1;
 
 /**
- * A tip's flutter at t, up and down, in metres: the strength at the plant's foot times the material's flutter and the
- * point's height on the plant (`f`, 0 foot … 1 top), smoothed triangle waves on the point's own phase, faded out by
- * the distance from the eye.
+ * A tip's flutter at t (m, up and down): the strength at the foot × the material's flutter × the point's height (`f`,
+ * 0 foot … 1 top), smoothed triangle waves on its own phase, faded with distance from the eye.
  * @param {ReturnType<typeof windOf>} w @param {{ x: number, z: number, phase: number }} copy
  * @param {number} f 0…1 @param {number} flutter 0…1 @param {number} vphase the point's own phase @param {number} t
  * @param {number} distance metres from the eye
@@ -125,10 +117,8 @@ export function flutterAt(w, copy, f, flutter, vphase, t, distance) {
 }
 
 /**
- * What a copy carries for the wind (`aWind`, per instance): where its foot stands and its height in metres; its phase
- * is `phaseOf` its foot, worked out where it is drawn.
- * @param {number} x @param {number} y @param {number} z @param {number} height
- * @returns {[number, number, number, number]}
+ * A copy's `aWind`: its foot and height (m); its phase is `phaseOf` its foot, worked out where drawn.
+ * @param {number} x @param {number} y @param {number} z @param {number} height @returns {[number, number, number, number]}
  */
 export const windOfCopy = (x, y, z, height) => [x, y, z, Math.max(0, height)];
 
@@ -142,10 +132,7 @@ export function windLook(look) {
 
 // ---------------------------------------------------------------- the clock
 
-/**
- * The world's clock for the wind: the film's time when it sets one (`window.__worldTime`, so a shot draws the same frame
- * every time), else seconds since the page began. @param {number} [now] performance.now()
- */
+/** The wind's clock: the film's `window.__worldTime` when set, else seconds since the page began. @param {number} [now] performance.now() */
 export function worldSeconds(now = typeof performance !== 'undefined' ? performance.now() : 0) {
 	const film = typeof window !== 'undefined' ? window.__worldTime : undefined;
 	return Number.isFinite(film) ? film : now / 1000;
@@ -154,9 +141,8 @@ export function worldSeconds(now = typeof performance !== 'undefined' ? performa
 // ---------------------------------------------------------------- the same, in TSL
 
 /**
- * The wind's uniforms and its position nodes, for node materials (three/tsl). One per world: `set(w)` changes its
- * field, `tick(t)` its clock (the world's render loop calls it with `worldSeconds()` once a frame).
- * @param {typeof import('three/tsl')} tsl three/tsl, passed in so the page alone loads it
+ * The wind's uniforms and position nodes for node materials, one per world: `set(w)` its field, `tick(t)` its clock
+ * (once a frame with `worldSeconds()`). @param {typeof import('three/tsl')} tsl passed in so the page alone loads it
  * @param {Parameters<typeof windOf>[0]} [o]
  */
 export function windNodes(tsl, o) {
@@ -185,9 +171,8 @@ export function windNodes(tsl, o) {
 	const smoothTri = (x) => sm(tri(x)).mul(2).sub(1);
 
 	/**
-	 * A copy's wind as nodes, after instancing, in the mesh's own frame: its foot and height (`aWind`: x, y, z, height in
-	 * metres, per instance; unbound it reads 0: no height, no wind), its phase (the same hash as `phaseOf`), and how far
-	 * up it the point is (`f`, 0 foot … 1 top).
+	 * A copy's wind as nodes after instancing: its foot and height (`aWind`; unbound it reads 0, no wind), its phase
+	 * (the same hash as `phaseOf`), and how far up it the point is (`f`, 0 foot … 1 top).
 	 */
 	const copyOf = () => {
 		const a = attribute('aWind', 'vec4');
@@ -197,10 +182,7 @@ export function windNodes(tsl, o) {
 		return { foot, height, phase, f };
 	};
 
-	/**
-	 * A node material's position bent by the wind, after instancing (assigned to `positionLocal`): the main bend by the
-	 * material's stiffness, its length from the foot kept, and the tips' flutter by its flutter, faded beyond 15 m.
-	 */
+	/** A node material's position bent by the wind (`positionLocal`): the main bend, length kept, and the tips' flutter. */
 	const positionOf = ({ stiffness = 1, flutter = 0 }) =>
 		Fn(() => {
 			const { foot, height, phase, f } = copyOf();
@@ -209,9 +191,8 @@ export function windNodes(tsl, o) {
 			const lean = height.mul(0.15).mul(s).mul(sin(u.time.mul(SWAY).add(phase)).mul(0.25).add(0.75)).div(max(float(stiffness), 0.1));
 			const d = min(lean.mul(f).mul(f), h.mul(0.9));
 			const down = h.sub(sqrt(max(h.mul(h).sub(d.mul(d)), 0)));
-			// flutter, faded by the distance from the eye: none compiled where the look has none (x × 0 is not folded
-			// away under IEEE, so a stem's or bark's every vertex would still pay for it), and skipped per copy beyond
-			// FLUTTER_FAR (the branch is the same for every vertex of a copy, so it costs nothing to take)
+			// flutter: none compiled where the look has none (x × 0 is not folded away under IEEE, so every vertex would
+			// pay), skipped per copy beyond FLUTTER_FAR (the branch is uniform across a copy, so it costs nothing)
 			const up = float(0).toVar();
 			if (flutter > 0) {
 				const eye = modelWorldMatrix.mul(vec4(foot, 1)).xyz.sub(cameraPosition).length();

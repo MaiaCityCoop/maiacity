@@ -431,9 +431,8 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     ...artifactTools(c),
   ];
 
-  // to propose is to put an intent at Proposal (play/SPEC.md §4.12): no work without an intent. Work names its intent,
-  // held to its gate first (its spec approved and every must check passed, ./intents.ts intentReady), and replaces any
-  // work it held; without one nothing is taken. Every propose tool gives back the intent (`intent`, at stage proposal)
+  // to propose is to put an intent at Proposal (play/SPEC.md §4.12), held to its gate first (./intents.ts intentReady),
+  // its work replacing any it held; without one nothing is taken. Every propose tool gives back the intent (`intent`, at stage proposal)
   for (const t of tools) {
     if (!t.proposes) continue;
     // an artifact added or corrected without one makes its own (./artifacts.ts): the first rule needs no tap for it
@@ -481,8 +480,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     if (msg.id === undefined) return new Response(null, { status: 202 });
     switch (msg.method) {
       case "initialize":
-        // the system prompt is the system skills' parts as accepted (./skills.ts), read on each request: an accepted
-        // version teaches the next agent that connects, with no deploy
+        // the system prompt is the system skills' parts as accepted (./skills.ts), read each request: no deploy needed
         return reply(msg.id, {
           protocolVersion: PROTOCOL,
           capabilities: { tools: {}, prompts: {} },

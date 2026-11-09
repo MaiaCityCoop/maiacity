@@ -1,8 +1,6 @@
-// The ship watcher (play/SPEC.md §4.12 "Accept ships it"): every 10 s while play-api runs, one look at a time, its
-// state in Postgres (each intent's `ship` and `pr_seen`), so a restarted play goes on where it was. Each look follows
-// every ship to production (./ship.ts), reads every open intent's pull request (so the board asks GitHub nothing) and
-// lets an auto-accept rule take one GitHub now finds ready (./decide.ts autoMove), then merges main into those behind it
-// (./mainmerge.ts).
+// The ship watcher (play/SPEC.md §4.12 "Accept ships it"): every 10 s while play-api runs, one look at a time, its state
+// in Postgres (`ship`, `pr_seen`) so a restarted play goes on. Each look follows every ship (./ship.ts), reads every open
+// intent's pull request, lets a rule take one GitHub finds ready (./decide.ts autoMove), and merges main in (./mainmerge.ts).
 import type { BlobStore } from "./blobs";
 import type { Db } from "./kit/pg";
 import { canonical } from "./kit/hash";
@@ -12,10 +10,8 @@ import { advance, reconcile, runningCommit, saveShip, startIfReady, type Ship } 
 import { autoMove } from "./decide";
 
 /**
- * The ship watcher's one look: every intent in Ship advanced as GitHub has it now; all green, it stays in Ship, ended;
- * any red, back to Proposal with its report. Its state is the intents' `ship`, so a restarted play goes on where it was.
- * As one ends, the reconcile (against `commit`, the commit play runs) decides at once what is Accepted, so the ships
- * after it in this look see it.
+ * The ship watcher's one look: each intent in Ship advanced as GitHub has it (all green, ended; any red, back to
+ * Proposal with its report); as one ends, the reconcile against `commit` decides what is Accepted, so later ships see it.
  */
 export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date.now(), commit: string | null = runningCommit()) {
   const { rows } = await db.query<{ id: string; ship: Ship }>(`SELECT id, ship FROM play.intents WHERE stage = 'ship' AND ship IS NOT NULL ORDER BY decided_at, id`);
@@ -41,10 +37,7 @@ export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date
   }
 }
 
-/**
- * Every open intent's named pull request (Build or Proposal) read as GitHub has it now, kept as its pr_seen: what the
- * board's sub-state (./substate.ts) is told of GitHub, so GET /api/intents asks GitHub nothing.
- */
+/** Every open intent's pull request read as GitHub has it, kept as pr_seen, so GET /api/intents asks GitHub nothing. */
 export async function watchPulls(db: Db, gh: GitHub, store: BlobStore, at = Date.now()) {
   for (const { id, pull_request, pr_seen } of await openPulls(db)) {
     try {
@@ -61,10 +54,7 @@ export async function watchPulls(db: Db, gh: GitHub, store: BlobStore, at = Date
 /** the watcher's own main merge state, kept while play-api runs */
 const MAIN_MERGE = mainMergeState();
 
-/**
- * One tick of the watcher: the ships, then the open intents' pull requests read, then main merged into those behind it
- * and conflicts shown (./mainmerge.ts).
- */
+/** One tick: the ships, the open pull requests read, then main merged into those behind it and conflicts shown (./mainmerge.ts). */
 export async function watchTick(db: Db, gh: GitHub, store: BlobStore, at = Date.now(), commit: string | null = runningCommit(), merging: MainMergeState = MAIN_MERGE) {
   await watchShips(db, gh, store, at, commit);
   await watchPulls(db, gh, store, at);

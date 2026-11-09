@@ -16,11 +16,10 @@
  *   state:<name>               under a `use:` node: one of that guest's states, on while the node is visible
  *                              (STATES); `state:<i>:<colour>` a signal's head i (0-based, its heads in tree order)
  *
- * and the guests name their own parts the page drives: `light:<name>` (LIGHTS) and a signal's `lamp:<colour>`, one
- * set per head, each modelled dark (its lens off): the page draws the lit one over it, copy by copy (./lights.js). The
- * name is on the mesh itself or on a group holding it (every mesh under a named group is that light). A building's
- * `light:window` cells fall into WINDOW_SETS sets by their order, and each copy lights some of them by its seed. A
- * `light:sign` (a shop's lit sign) is lit always, unless its guest's `state:sign` says otherwise.
+ * and the guests name their own parts the page drives: `light:<name>` (LIGHTS) and a signal's `lamp:<colour>`, one set
+ * per head, each modelled dark: the page draws the lit one over it, copy by copy (./lights.js), the name on the mesh or
+ * a group holding it. A building's `light:window` cells fall into WINDOW_SETS sets by order, each copy lighting some by
+ * its seed; a `light:sign` is lit always unless its guest's `state:sign` says otherwise.
  */
 import { HASH, HEX } from '../../kernel/hash.js';
 
@@ -93,8 +92,7 @@ export function moodOf(name) {
 		fog: num(q.fog, 0, 0.05, base.fog),
 		haze: hex(q.haze, base.haze),
 		lamps: num(q.lamps, 0, 1, base.lamps) >= 0.5,
-		// the sun's shadows: none under an overcast or smoggy sky (no sun to cast them, and every caster drawn twice), a
-		// clear day's; `shadows=1` asks for them anyway
+		// the sun's shadows: none under overcast or smog (no sun, and every caster drawn twice); `shadows=1` asks anyway
 		shadows: num(q.shadows, 0, 1, base.shadows) >= 0.5,
 		zenith: hex(q.zenith, base.zenith),
 		horizon: hex(q.horizon, base.horizon),
@@ -129,10 +127,7 @@ export function lightOf(name) {
 	return null;
 }
 
-/**
- * What a world's build says of itself (its root, as rebuilt in the page): its mood, its sounds, and whether it moves.
- * @param {import('three').Object3D} root
- */
+/** What a world's build says of itself (its root, rebuilt in the page): mood, sounds, whether it moves. @param {import('three').Object3D} root */
 export function worldOf(root) {
 	let mood = null;
 	const sounds = [];
@@ -148,9 +143,8 @@ export function worldOf(root) {
 }
 
 /**
- * A guest's states now: by name, on or off; and by signal head, its lamps. Read off its node's `state:` children.
- * @param {import('three').Object3D} node
- * @returns {{ on: Map<string, boolean>, heads: Map<number, Map<string, boolean>> }}
+ * A guest's states now, read off its `state:` children: by name on or off, and each signal head's lamps.
+ * @param {import('three').Object3D} node @returns {{ on: Map<string, boolean>, heads: Map<number, Map<string, boolean>> }}
  */
 export function statesOf(node, out = { on: new Map(), heads: new Map() }) {
 	out.on.clear();
@@ -173,8 +167,8 @@ const BLINK = 1.5;
 const FLASH = 2.5;
 
 /**
- * Whether one light of a guest is lit now: by its state where the guest has one, else by the mood; an indicator
- * blinks and a beacon's two colours turn about, on the page's clock `t` (s), each guest at its own phase.
+ * Whether a guest's light is lit now: by its state, else the mood; an indicator blinks and a beacon's colours turn about
+ * on the page's clock `t` (s), each guest at its own phase.
  * @param {{ light?: string, state?: string, lamp?: string, head?: number, set?: number }} part
  * @param {{ on: Map<string, boolean>, heads: Map<number, Map<string, boolean>> }} states
  * @param {{ lamps: boolean }} mood @param {number} t @param {number} [phase] 0..1
