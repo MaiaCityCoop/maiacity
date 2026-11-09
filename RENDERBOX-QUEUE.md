@@ -1,5 +1,9 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 09:46 Berlin (08:46 UTC): confirmed
+#13's job is running (started 09:40:33, now at head's walk shots); #8's job follows it automatically in the same nohup
+loop; I record c6, then c7/c8, the moment each out/ lands. Nothing blocks. I'm doing nothing else on the GPU until then.
+
 ## Now (09:45 Berlin, 08:45 UTC)
 **#13's job is running** (24454c2d-render, started 09:40:33; ETA ~10:05), then #8's (dbcbd89b, ETA ~10:35), back to back, each
 out/ pushed as it ends; I record c6 / c7 / c8 as they land. Nothing blocks the runner. The 09:00–09:40 slot went to 0b4c007b's
