@@ -7,20 +7,15 @@
 // the legacy people come in: a version with its own source, and a version of variants (breeds).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { COOP } from "../src/kit/ids";
-import { createHuman } from "../src/auth";
 import { type BlobStore, keyOf } from "../src/blobs";
 import { hashText } from "../src/kit/hash";
 import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 import { newId } from "../src/kit/uuid";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tempStore, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
-const SPEC = {
-  goal: "A person moves.",
-  nothing_to_reduce: "A test fixture: nothing to reduce.",
-  scope: "One asset. Nothing else changes.",
-  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
-};
+const SPEC = fx.spec("A person moves.", "One asset. Nothing else changes.");
 /** a 46,925-character line, as Stand-in's embedded mesh is */
 const MESH = "A".repeat(46925 - '  const MESH = "";'.length);
 const LONG = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  const MESH = "${MESH}";\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
@@ -35,13 +30,7 @@ suite("readable", () => {
 
   const call = (method: string, path: string, body?: unknown) => request(api, { cookie: cookie }, method, path, body);
   const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
-  const readyIntent = async (title: string) => {
-    const i = await tool("add_intent", { title });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
-    return i.id as string;
-  };
+  const readyIntent = (title: string) => fx.readyIntent({ tool, approve: (id) => call("POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, strict: true });
   const accept = async (intent: string) => (await call("POST", `/api/intents/${intent}/accept`)).data;
   const groupOf = async (asset: string) => (await db.query<{ grp: string }>(`SELECT grp FROM play.assets WHERE id = $1`, [asset])).rows[0].grp;
 
@@ -87,9 +76,7 @@ suite("readable", () => {
     db = f.db;
     store = tempStore();
     api = appOn(db, { store });
-    const h = await createHuman(db, "ada");
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
-    cookie = cookieFor(h.id);
+    ({ cookie } = await human(db, "ada"));
     token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
   });
   afterAll(async () => {

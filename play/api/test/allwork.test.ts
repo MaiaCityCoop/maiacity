@@ -16,6 +16,7 @@ import type { Rule } from "../src/rules";
 import { seedDoc } from "../src/versioned";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
 import { agentToken, type Api, appOn, type Fresh, freshDb, human, quiet, request, suite, tempStore, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 
@@ -55,13 +56,7 @@ suite("one intent holds all its work", () => {
     checks: [{ check: "It looks right", how: "look", by: "the board beside the sheet" }],
   };
   /** an intent at Proposal, its one must passed, ready to take work */
-  const ready = async (title: string) => {
-    const i = await tool("add_intent", { title, kind: "improve" });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "seen" }] })).stage).toBe("proposal");
-    return i.id as string;
-  };
+  const ready = (title: string) => fx.readyIntent({ tool, approve: (id) => call("POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, add: { kind: "improve" }, evidence: "seen", strict: true });
   const asset = (label: string, intent: string) => tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label, source: SOURCE, note: `${label}, its first version`, intent });
   const story = (title: string, intent: string) =>
     tool("propose_story", { title, note: "its first cut", intent, body: { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] } });
@@ -181,7 +176,7 @@ suite("one intent holds all its work", () => {
     gh.merges.set(pr, sha(++commits));
     return { id: i.id as string, pr, head, merge: gh.merges.get(pr)!, assets: [a, b] };
   };
-  const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
+  const clearShips = () => fx.clearShips(db);
   const intent = async (id: string) => (await call("GET", `/api/intents/${id}`)).data;
 
   test("ship: code and two assets go Accept and ship; the work waits while it ships; the reconcile seeing its merge live accepts it in that step", async () => {

@@ -123,3 +123,20 @@ left for Samuel.
 - Pinned: skills.test, build.test, avenbox.test (the mirror's body: system, then stages in order), the site's
   board.test (vitest, 56 pass); site build green; svelte-check 9 errors, none in a touched file (all in content tests
   and sandbox-2, as before).
+
+## 12. The intent-lifecycle fixture (re-api#12)
+
+- test/fixtures/intents.ts: `spec(goal, scope)` (the one-must spec every suite wrote out), `readyIntent(hands, title,
+  { spec, add?, evidence?, strict? })` (add_intent, specify_intent, an admin's approve, c1 passed; `strict` keeps the
+  two stage assertions the suites that had them made) and `clearShips(db)`.
+- Moved onto it, each keeping its own texts and assertions: readyIntent/ready in allwork, api (stories), artifacts,
+  breeds, characters, factories, gameconfigs, needsintent, nobypass, readable, versioned, withdraw (12); SPEC in
+  breeds, characters, needsintent, nobypass, readable, versioned, rules (7); clearShips in allwork, depends, rules,
+  ship, substate (all 5).
+- The admin bootstrap (`createHuman`, `UPDATE … level = 'admin'`, `cookieFor`) is the kit's `human(db, name, level)` in
+  22 suites (levels as each had them: admins, citizens, a traveler left as made).
+- Left, as they differ in what they do (not copies): rules.test's readyIntent (approves only where a rule did not),
+  intents/skills' intentAt (to any stage), depends/substate's specified, build.test's inPrototype, retire/worldshot's
+  building, ship.test's codeAtProposal and decisionAtProposal, api.test's `ready` (SQL), allwork/withdraw's look spec;
+  migrate.test's admins (made between migrations); the held assetdocs.test.
+- Same 356 tests, all green.

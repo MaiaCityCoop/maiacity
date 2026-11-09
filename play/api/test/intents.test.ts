@@ -5,7 +5,6 @@
 // passes. Every proposal is an intent's: one made without an intent gets one of its own, and the intent follows its
 // proposals as they are decided.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import { MIGRATIONS } from "../src/migrations";
 import { type Db } from "../src/kit/pg";
 import { UUID } from "../src/kit/uuid";
@@ -13,7 +12,7 @@ import { placeholderIn } from "../src/intents";
 import { seedSkills } from "../import/skills";
 import { SANDBOX, SKILL } from "../src/kit/ids";
 import { seedDoc } from "../src/versioned";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 
@@ -30,12 +29,7 @@ suite("intents", () => {
     db = f.db;
     await seedSkills(db); // what the MCP teaches is the skills'
     api = appOn(db);
-    for (const n of ["ada", "bea", "cit"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: cookieFor(h.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = ANY($1)`, [[who.ada.id, who.bea.id]]);
-    await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
+    for (const [n, level] of [["ada", "admin"], ["bea", "admin"], ["cit", "citizen"]] as const) who[n] = await human(db, n, level);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
     // avenBOX's token, the GitHub runs' (play/SPEC.md §4.12): what decides a code intent is recorded with it alone
     const box = (await call("ada", "POST", "/api/tokens", { name: "avenBOX" })).data;

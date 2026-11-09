@@ -9,14 +9,13 @@
 // c3: a test schema added as a document alone, with no code, is a kind: list_docs, doc_at, doc_history, doc_edit,
 // propose_doc_version and Accept over MCP, and /api/docs/<uuid>.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import { problemsOf, readDoc, typeFor } from "../src/docs";
 import { SCHEMA } from "../src/kit/ids";
 import { migrate } from "../src/migrations";
 import { type Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
 import { unregister } from "../src/kinds";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 
 /** a kind that is a schema alone: nothing of it is written in play's code */
 const NOTE_SCHEMA = {
@@ -46,11 +45,8 @@ suite("schemas as documents", () => {
     f = await freshDb();
     db = f.db;
     api = appOn(db);
-    for (const n of ["ada", "cit"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: cookieFor(h.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    who.ada = await human(db, "ada");
+    who.cit = await human(db, "cit", null);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
   });

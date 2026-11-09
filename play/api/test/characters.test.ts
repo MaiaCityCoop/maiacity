@@ -6,17 +6,12 @@
 // accepted with it) lists under characters and no longer under actors, never by a migration; an unknown group is
 // still refused, by list_assets, by propose_asset and by a move.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import { GROUPS } from "../src/groups";
 import { type Db } from "../src/kit/pg";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
-const SPEC = {
-  goal: "A person moves to the characters.",
-  nothing_to_reduce: "A test fixture: nothing to reduce.",
-  scope: "One asset. Nothing else changes.",
-  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
-};
+const SPEC = fx.spec("A person moves to the characters.", "One asset. Nothing else changes.");
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
 
 suite("characters", () => {
@@ -31,13 +26,7 @@ suite("characters", () => {
   /** a tool called over MCP by the admin's token: its result as JSON, or its error's text */
   const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** an intent in Build, its spec approved, its one must check passed: ready to take work */
-  const readyIntent = async (title: string) => {
-    const i = await tool("add_intent", { title });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
-    return i.id as string;
-  };
+  const readyIntent = (title: string) => fx.readyIntent({ tool, approve: (id) => call("POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, strict: true });
   const accept = async (intent: string) => (await call("POST", `/api/intents/${intent}/accept`)).data;
   const ids = async (group: string) => (await tool("list_assets", { group })).map((a: { id: string }) => a.id);
   /** an asset's group as the asset library has it (play.assets) and as its head version's card names it */
@@ -48,9 +37,7 @@ suite("characters", () => {
     f = await freshDb();
     db = f.db;
     api = appOn(db);
-    const h = await createHuman(db, "ada");
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
-    cookie = cookieFor(h.id);
+    ({ cookie } = await human(db, "ada"));
     token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
 
     // a person and a goat, both filed among the actors, as Stand-in and Elder woman were

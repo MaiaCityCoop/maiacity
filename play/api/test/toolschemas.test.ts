@@ -3,9 +3,8 @@
 // (specify_intent was, its depends_on items' `type` a description), so a new tool with a bad schema fails here.
 // Against a real Postgres (TEST_DATABASE_URL), the tools listed for an admin's token.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import { type Db } from "../src/kit/pg";
-import { agentToken, type Api, appOn, cookieFor, type Fresh, freshDb, rpc as kitRpc, suite } from "./kit";
+import { agentToken, type Api, appOn, type Fresh, freshDb, human, rpc as kitRpc, suite } from "./kit";
 
 const TYPES = new Set(["string", "number", "integer", "boolean", "object", "array", "null"]);
 
@@ -66,9 +65,7 @@ suite("every MCP tool's inputSchema", () => {
     f = await freshDb();
     db = f.db;
     api = appOn(db);
-    const h = await createHuman(db, "ada");
-    cookie = cookieFor(h.id);
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    ({ cookie } = await human(db, "ada"));
   });
 
   afterAll(async () => {

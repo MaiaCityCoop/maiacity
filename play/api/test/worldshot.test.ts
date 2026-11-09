@@ -5,11 +5,10 @@
 // doesn't have.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
-import { createHuman } from "../src/auth";
 import { type Db } from "../src/kit/pg";
 import { COOP } from "../src/kit/ids";
 import { fakeGitHub } from "./fixtures/github";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, quiet, request, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, quiet, request, suite, tool as mcpTool } from "./kit";
 
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 const H = (c: string) => c.repeat(64);
@@ -28,9 +27,7 @@ suite("a world shot", () => {
     f = await freshDb();
     db = f.db;
     api = appOn(db, { github: fakeGitHub().gh });
-    const h = await createHuman(db, "ada");
-    cookie = cookieFor(h.id);
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    ({ cookie } = await human(db, "ada"));
     token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
     // a world and a plant as play keeps them: their recipes among the files, their versions, one of the world's not accepted
     for (const [hash] of [[H("1")], [H("2")], [H("3")]]) await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'text/javascript', $1)`, [hash]);

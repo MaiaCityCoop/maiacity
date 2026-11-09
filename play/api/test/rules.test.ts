@@ -4,7 +4,6 @@
 // autoMove takes the move a person would, through the one decision path (./intents.ts decided), the rule written as
 // who decided. Each test is one check of the intent's spec (c1–c9), named as its run names it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { createHuman } from "../src/auth";
 import type { BlobStore } from "../src/blobs";
 import * as docs from "../src/docs";
 import { RULE, RULES, SCHEMA } from "../src/kit/ids";
@@ -16,17 +15,13 @@ import { migrate } from "../src/migrations";
 import { type Db } from "../src/kit/pg";
 import { FIRST_RULE, RULES_DOC, RULES_V1, matchRule, type Rule } from "../src/rules";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, suite, tempStore, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const words = (k: number, w: string) => Array.from({ length: k }, () => w).join(" ");
 const SUMMARY = `## What it is\n\n${words(200, "artifact")}\n\n## Key points\n\n${Array.from({ length: 20 }, () => `- ${words(10, "point")}`).join("\n")}\n\n## The topic\n\n${words(193, "topic")}`;
 const ARTIFACT = (url: string, title = "A page kept with no tap", origin = "human") => ({ url, title, description: "A page Maia City keeps, added over MCP.", summary: SUMMARY, authors: [{ name: "Ann Author", kind: "person" }], kind: "page", origin });
-const SPEC = {
-  goal: "It is done.",
-  nothing_to_reduce: "A test fixture: nothing to reduce.",
-  scope: "A test.",
-  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
-};
+const SPEC = fx.spec("It is done.", "A test.");
 const BODY = { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] };
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
 
@@ -81,7 +76,7 @@ suite("auto-accept rules", () => {
     const r = await tool("check_intent", { intent: i.id, pr: pull.pr, results: [{ check: "c1", pass: true, evidence: "exit 0", commit: checked }] });
     return { id: i.id as string, r };
   };
-  const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
+  const clearShips = () => fx.clearShips(db);
 
   beforeAll(async () => {
     f = await freshDb();
@@ -89,9 +84,7 @@ suite("auto-accept rules", () => {
     gh = fakeGitHub();
     store = tempStore();
     api = appOn(db, { store, github: gh.gh });
-    const made = await createHuman(db, "ada");
-    who.ada = { id: made.id, cookie: cookieFor(made.id) };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    who.ada = await human(db, "ada");
     const t = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data;
     token = t.token;
     // the box's token: what decides a code intent is recorded with it alone

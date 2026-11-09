@@ -12,7 +12,8 @@ import { UUID, uuidOf } from "../src/kit/uuid";
 import { AVENMAIA, COOP } from "../src/kit/ids";
 import { urlOf, wordsOf } from "../src/artifacts";
 import { seedSkills } from "../import/skills";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tempStore, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tempStore, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 /** the tools play's MCP server had before the artifacts: every one must still be there */
 const TOOLS_BEFORE = [
@@ -70,12 +71,7 @@ suite("artifacts", () => {
     await seedSkills(db); // what the MCP teaches is the skills'
     store = tempStore();
     api = appOn(db, { store });
-    for (const n of ["Samuel", "Bea", "cit", "trav"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: cookieFor(h.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = ANY($1)`, [[who.Samuel.id, who.Bea.id]]);
-    await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
+    for (const [n, level] of [["Samuel", "admin"], ["Bea", "admin"], ["cit", "citizen"], ["trav", null]] as const) who[n] = await human(db, n, level);
     tokens.Samuel = (await call("Samuel", "POST", "/api/tokens", { name: "agent" })).data.token;
     tokens.Bea = (await call("Bea", "POST", "/api/tokens", { name: "agent" })).data.token;
   });
@@ -96,13 +92,8 @@ suite("artifacts", () => {
       ? readyIntent(`Keep ${args.url ?? args.artifact}`, as).then((intent) => mcpTool(api, tokens[as], name, { ...args, intent }))
       : mcpTool(api, tokens[as], name, args);
   /** an intent in Build with every must check passed, ready to take work */
-  const readyIntent = async (title: string, as = "Samuel") => {
-    const i = await tool("add_intent", { title }, as);
-    await tool("specify_intent", { intent: i.id, goal: "It is kept.", nothing_to_reduce: "A test fixture: nothing to reduce.", scope: "One link.", checks: [{ check: "It holds", how: "test", by: "true", run: "true" }] }, as);
-    await call("Samuel", "POST", `/api/intents/${i.id}/approve`);
-    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] }, as);
-    return i.id as string;
-  };
+  const readyIntent = (title: string, as = "Samuel") =>
+    fx.readyIntent({ tool: (name, args) => tool(name, args, as), approve: (id) => call("Samuel", "POST", `/api/intents/${id}/approve`) }, title, { spec: fx.spec("It is kept.", "One link.") });
   const count = async () => Number((await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.artifacts WHERE title IS NOT NULL`)).rows[0].n);
   /** an artifact's change accepted on the board by Samuel, an admin: its intent's work goes in like any other's */
   const accepted = async (r: any, id: unknown) => {

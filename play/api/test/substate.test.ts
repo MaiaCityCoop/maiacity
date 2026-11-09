@@ -12,6 +12,7 @@ import { type Pull } from "../src/github";
 import { checksSeen, sub, subStateOf, type PrSeen } from "../src/substate";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
 import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 const SPEC = {
@@ -149,7 +150,7 @@ suite("sub-states on the board", () => {
   const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   const intent = async (id: string) => (await call("GET", `/api/intents/${id}`)).data;
   const decide = (id: string, verdict: string) => call("POST", `/api/intents/${id}/${verdict}`);
-  const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
+  const clearShips = () => fx.clearShips(db);
   let k = 0;
   const add = async (title = "Intent") => (await tool("add_intent", { title: `${title} ${++k}`, kind: "improve" })) as { id: string; title: string };
   const specified = async (title?: string) => {

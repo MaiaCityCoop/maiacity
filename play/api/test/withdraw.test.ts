@@ -7,6 +7,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Db } from "../src/kit/pg";
 import { fakeGitHub } from "./fixtures/github";
 import { agentToken, appOn, freshDb, human, quiet, request, suite, tool as mcpTool, type Api, type Fresh } from "./kit";
+import * as fx from "./fixtures/intents";
 
 suite("withdraw a document from an intent's work", () => {
   let f: Fresh, db: Db, api: Api, restore: () => void;
@@ -39,13 +40,7 @@ suite("withdraw a document from an intent's work", () => {
     checks: [{ check: "It looks right", how: "look", by: "the board beside the sheet" }],
   };
   /** an intent at Proposal, its one must passed, ready to take work */
-  const ready = async (title: string) => {
-    const i = await tool("add_intent", { title, kind: "improve" });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "seen" }] })).stage).toBe("proposal");
-    return i.id as string;
-  };
+  const ready = (title: string) => fx.readyIntent({ tool, approve: (id) => call("POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, add: { kind: "improve" }, evidence: "seen", strict: true });
   const story = (title: string, intent: string) =>
     tool("propose_story", { title, note: "its first cut", intent, body: { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] } });
   const variants = async (intent: string) =>

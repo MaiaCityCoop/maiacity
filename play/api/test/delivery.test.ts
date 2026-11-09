@@ -14,7 +14,7 @@ import { type Db } from "../src/kit/pg";
 import { watchTick } from "../src/watcher";
 import { newId } from "../src/kit/uuid";
 import { fakeGitHub, job, REPO, run, sha } from "./fixtures/github";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tempStore } from "./kit";
+import { type Api, appOn, cookieFor, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tempStore } from "./kit";
 
 const MIN = 60_000;
 const NOW = Date.parse("2026-11-07T18:00:00Z");
@@ -38,10 +38,7 @@ suite("delivery", () => {
     gh = fakeGitHub();
     store = tempStore();
     api = appOn(db, { store, github: gh.gh });
-    const h = await createHuman(db, "ada");
-    ada = h.id;
-    cookie = cookieFor(h.id);
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    ({ id: ada, cookie } = await human(db, "ada"));
     const t = await createHuman(db, "tom");
     travelerCookie = cookieFor(t.id);
     const made = (await call("POST", "/api/tokens", { name: "agent" })).data;

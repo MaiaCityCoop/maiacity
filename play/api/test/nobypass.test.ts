@@ -8,23 +8,18 @@
 // called here too.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { app } from "../src/app";
-import { createHuman } from "../src/auth";
 import * as docs from "../src/docs";
 import { type Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
 import { RULE, SCHEMA } from "../src/kit/ids";
-import { type Api, appOn, cookieFor, type Fresh, freshDb, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 /** the tools that only read: everything else tools/list holds is called below */
 const READS = ["list_assets", "get_asset", "get_file", "list_docs", "doc_at", "doc_history", "doc_changes", "list_sandboxes", "get_sandbox", "list_stories", "get_story", "list_intents", "get_intent", "list_artifacts", "get_artifact", "list_authors", "get_author", "list_library", "delivery"];
 
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
-const SPEC = {
-  goal: "Nothing passes the Accept.",
-  nothing_to_reduce: "A test fixture: nothing to reduce.",
-  scope: "Every write path.",
-  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
-};
+const SPEC = fx.spec("Nothing passes the Accept.", "Every write path.");
 const words = (k: number, w: string) => Array.from({ length: k }, () => w).join(" ");
 const SUMMARY = `## What it is\n\n${words(200, "artifact")}\n\n## Key points\n\n${Array.from({ length: 20 }, () => `- ${words(10, "point")}`).join("\n")}\n\n## The topic\n\n${words(193, "topic")}`;
 const ARTIFACT = (url: string) => ({ url, title: "A page that waits", description: "A page kept only once it is accepted.", summary: SUMMARY, authors: [{ name: "Ann Author", kind: "person" }], kind: "page", origin: "human" });
@@ -40,11 +35,8 @@ suite("no write past an Accept", () => {
     f = await freshDb();
     db = f.db;
     api = appOn(db);
-    for (const h of ["ada", "cit"]) {
-      const made = await createHuman(db, h);
-      who[h] = { id: made.id, cookie: cookieFor(made.id) };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    who.ada = await human(db, "ada");
+    who.cit = await human(db, "cit", null);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
   });
@@ -55,13 +47,7 @@ suite("no write past an Accept", () => {
   const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
   const rpc = async (method: string, params?: unknown) => (await kitRpc(api, token, method, params)).json.result;
   const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
-  const readyIntent = async (title: string) => {
-    const i = await tool("add_intent", { title });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    await call("ada", "POST", `/api/intents/${i.id}/approve`);
-    await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] });
-    return i.id as string;
-  };
+  const readyIntent = (title: string) => fx.readyIntent({ tool, approve: (id) => call("ada", "POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC });
   /** every document's Main: its JSON and how many versions it has named */
   const mains = async () => {
     const out = new Map<string, string>();
