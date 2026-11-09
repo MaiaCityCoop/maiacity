@@ -11,10 +11,10 @@ export type Verdict = 'approve' | 'accept' | 'reject' | 'reopen';
 export type Decidable = { id: string; stage: string; decided_at?: string | null; approved_at?: string | null; ship?: unknown };
 
 /** an answer that isn't play's: its proxy's while the API restarts or is busy, or no network at all */
-export const noAnswer = (e: unknown) => (e instanceof ApiError && NO_ANSWER.has(e.status)) || e instanceof TypeError;
+const noAnswer = (e: unknown) => (e instanceof ApiError && NO_ANSWER.has(e.status)) || e instanceof TypeError;
 
 /** the waits between reading the intent again after no answer, in ms: about a minute and a half in all */
-export const REREAD = [2000, 3000, 5000, 10_000, 15_000, 20_000, 30_000];
+const REREAD = [2000, 3000, 5000, 10_000, 15_000, 20_000, 30_000];
 
 /** whether `now` shows a decision taken since `was` */
 export const moved = (was: Decidable, now: Decidable) =>
@@ -22,7 +22,7 @@ export const moved = (was: Decidable, now: Decidable) =>
 
 const WORD: Record<Verdict, string> = { approve: 'approval', accept: 'Accept', reject: 'rejection', reopen: 'reopening' };
 
-export type Decided<T> = { intent: T; message: string; reread: boolean };
+type Decided<T> = { intent: T; message: string; reread: boolean };
 
 /**
  * Makes the board's decider: `post` sends a decision and gives back the intent (with the decision's message, if any);

@@ -53,7 +53,7 @@ export async function liveAssets(bodies: StoryBody[]): Promise<Record<string, Li
 }
 
 /** every piece a recipe's code requires, to any depth (../content/assets/box/pieces.js MOST_DEEP) */
-export async function piecesDeep(code: string, depth = 0, seen = new Set<string>()): Promise<string[]> {
+async function piecesDeep(code: string, depth = 0, seen = new Set<string>()): Promise<string[]> {
 	const { piecesOf, MOST_DEEP } = await import('$lib/content/assets/box/pieces.js');
 	if (depth >= MOST_DEEP) return [...seen];
 	for (const h of piecesOf(code) as string[]) if (!seen.has(h)) seen.add(h), await piecesDeep(await fileText(h), depth + 1, seen);

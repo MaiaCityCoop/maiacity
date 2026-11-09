@@ -17,9 +17,9 @@ export type { Check, Dep, Ship, ShipStep, Spec, Sub };
 /** where: in avenBOX (the agent's), or on main after the merge (.github/workflows/intents.yml), on which commit */
 export type Results = Record<string, Result>;
 /** a step back an agent took over MCP, or a document withdrawn from its work (`doc`, play/api/src/withdraw.ts) */
-export type StepBack = { at: string; by: string | null; via: 'mcp' | 'site'; from: Stage; to: Stage; reason: string; doc?: string };
+type StepBack = { at: string; by: string | null; via: 'mcp' | 'site'; from: Stage; to: Stage; reason: string; doc?: string };
 /** a decision a rule made (play/SPEC.md §4.12 "Auto-accept rules"): the rule, the rule set's version, its reason */
-export type AutoEntry = { rule: string; label: string; rules: string; reason: string; at: string };
+type AutoEntry = { rule: string; label: string; rules: string; reason: string; at: string };
 /** what GitHub last said of its pull request, as far as the detail reads it */
 type PrRead = Pick<PrSeen, 'pr' | 'draft'> & Partial<Pick<PrSeen, 'state' | 'merged' | 'mergeable'>>;
 export type Intent = {
@@ -43,7 +43,7 @@ export const notLive = (i: Intent) => (i.ship?.live === false && i.ship.commit ?
 // ---- what goes on top
 
 /** a check as a chip: its id and its last result, nothing else */
-export type Chip = { id: string; must: boolean; state: 'pass' | 'fail' | 'none'; text: string };
+type Chip = { id: string; must: boolean; state: 'pass' | 'fail' | 'none'; text: string };
 /** one part of the top, drawn by ./IntentDetail.svelte in the order given */
 export type Part =
 	/** what is wanted (Idea): the note's first lines */
@@ -105,7 +105,7 @@ const plain = (s: string) =>
 /** at most `n` characters, cut at a word */
 const clip = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n).replace(/\s+\S*$/, '')}…`);
 /** a text's first sentence */
-export const firstSentence = (s: string) => {
+const firstSentence = (s: string) => {
 	const p = plain(s);
 	const m = p.match(/^.+?[.!?](?=\s|$)/);
 	return clip(m ? m[0] : p, 240);

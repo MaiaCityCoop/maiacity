@@ -24,7 +24,7 @@ export type Story = StoryBody & { id: string; title: string; number?: number | n
  *  (played muted from video_in seconds into it, the story's own sound under it) or a composition (readable HTML by hash) */
 export type Shot = Clip & { frame: string | null; transition: string; video?: string | null; video_in?: number; composition?: string | null };
 /** a subtitle the clip sets itself: `at` seconds into the clip it comes on, until the next; `em` sets it alone, large */
-export type SetCue = { at: number; text: string; em?: boolean };
+type SetCue = { at: number; text: string; em?: boolean };
 export type Voice = Clip & { who: string; line: string; cues?: SetCue[] };
 export type Notes = Clip & { section: string; camera: string; retention: string; mood: string; pace?: string; sound?: string; emotion?: string };
 

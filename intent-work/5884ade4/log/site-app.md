@@ -76,3 +76,11 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
     History, Changes, Aside and the layout's and nav pill's initials use its functions (each the format it had: the
     reader's, `en-GB`, a calendar day in UTC, a weekday); `versions.js`'s unused `day` goes in move 13. Removes
     site-app#12, #13 (initials). Pinned by the build and svelte-check; each function is the expression it replaces.
+13. **The shell's dead surface out.** The nav pill's `pillCenter`/`pillAccounts` (no page ever called them) and
+    NavPill's "+" and accounts branches with their CSS; `back.svelte.js`'s `onDashboard` and `upFrom`'s assets branch
+    (the library has no sub-paths); `screen-slots.js`'s host machinery (`screenHost`, `screenSize`: never mounted, so
+    `screenSlot` only ever named its node: it now does just that, its two content callers unchanged); `versions.js`
+    down to `versioned`, the one export the (held) biomes use. Exports nothing else uses lose `export` (board's paths,
+    decide's `noAnswer`/`REREAD`/`Decided`, detail's `StepBack`/`AutoEntry`/`Chip`/`firstSentence`, markdown's
+    `TAGS`/`safeHref`, inputs' `piecesDeep`, timeline's `SetCue`, world-build's `FEW`, a fixture's `EVIDENCE`); live.ts's
+    `MOST_STEPS`, used nowhere, goes. Removes site-app#31, the shell part of #34. Pinned by the build and svelte-check.

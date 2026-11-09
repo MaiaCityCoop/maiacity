@@ -13,9 +13,9 @@ export const PAGE = 50;
 
 export const isClosed = (s: string): s is ClosedStage => (CLOSED as readonly string[]).includes(s);
 /** what is asked of play on open: the open columns and every column's count */
-export const openPath = () => `/intents?stage=${OPEN.join(',')}&counts=1`;
+const openPath = () => `/intents?stage=${OPEN.join(',')}&counts=1`;
 /** a closed column's page, the first or the one after `before` */
-export const pagePath = (stage: ClosedStage, before?: string | null) => `/intents?stage=${stage}&limit=${PAGE}${before ? `&before=${encodeURIComponent(before)}` : ''}`;
+const pagePath = (stage: ClosedStage, before?: string | null) => `/intents?stage=${stage}&limit=${PAGE}${before ? `&before=${encodeURIComponent(before)}` : ''}`;
 
 type Card = { id: string; stage: string };
 export type Answer<T> = { intents: T[]; next: string | null; counts?: Record<string, number> };
