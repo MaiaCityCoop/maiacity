@@ -56851,36 +56851,31 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
     r.setNodesHandler(h);
     const screen = h.getOutputCallback;
     const onScreen = () => r.getRenderTarget() === null;
-    let keying = null;
     const keyOf = h.customProgramCacheKeyCallback;
     h.customProgramCacheKeyCallback = function() {
-      keying = this;
       drawing = h.nodeFrame.object;
       try {
         return keyOf.call(this);
       } finally {
-        keying = drawing = null;
+        drawing = null;
       }
     };
-    const src = new WeakMap, meet = h.onUpdateProgram.bind(h);
-    h.onUpdateProgram = (m, p, props) => {
-      const b = m._latestBuilder, s = b && b.vertexShader + b.fragmentShader, first = !h.programCache.get(m)?.has(p);
-      meet(m, p, props);
-      const o = src.get(p);
-      if (!m.isKit || !first || !s || o?.s === s)
-        return;
-      if (!o)
-        return void src.set(p, { s, m });
-      let i = 0;
-      while (s[i] === o.s[i])
-        i++;
-      (globalThis.__clashes ??= []).push({ a: o.m.name, b: m.name, at: s.slice(i - 60, i + 60), was: o.s.slice(i - 60, i + 60) });
-      const e = h.programCache.get(o.m)?.get(p);
-      m.own = m.needsUpdate = true, props.uniforms = e?.uniforms ?? {}, props.uniformsList = e?.uniformsList ?? [], m.uniformsGroups = e?.uniformsGroups ?? [];
+    const made = new WeakMap, build = h.build.bind(h), meet = h.onUpdateProgram.bind(h);
+    h.build = (m, o, q) => {
+      build(m, o, q);
+      if (!made.has(m))
+        made.set(m, []), m.addEventListener("dispose", () => made.delete(m));
+      made.get(m).push({ uniforms: q.uniforms, builder: m._latestBuilder });
     };
-    h.getOutputCallback = (node, builder) => onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node;
+    h.onUpdateProgram = (m, p, q) => {
+      const own = !h.programCache.get(m)?.has(p) && made.get(m)?.[[...q.programs?.values() ?? []].indexOf(p)];
+      if (own)
+        q.uniforms = own.uniforms, m._latestBuilder = own.builder;
+      meet(m, p, q);
+    };
+    h.getOutputCallback = (node, builder) => onScreen() ? screen(node, builder) : node;
     if (h.renderer)
-      h.renderer.getCacheKey = () => onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : "target";
+      h.renderer.getCacheKey = () => onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : "target";
     handlers.set(r, h);
     return h;
   }
@@ -56977,7 +56972,7 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
       return Object.assign(new G, model);
     }
     customProgramCacheKey() {
-      return `${super.customProgramCacheKey()}#${this.own ? this.id : shapeOf(this, drawing)}`;
+      return `${super.customProgramCacheKey()}#${shapeOf(this, drawing)}`;
     }
     copy(source) {
       super.copy(source);
@@ -60717,7 +60712,8 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
   }
 
   // src/lib/content/render/core.js
-  var TONE = { none: NoToneMapping, agx: AgXToneMapping };
+  var TONE = { none: NoToneMapping, agx: AgXToneMapping, neutral: NeutralToneMapping };
+  var PICTURE = "neutral";
   var mul3 = (m, v) => [0, 1, 2].map((i) => m[i] * v[0] + m[i + 3] * v[1] + m[i + 6] * v[2]);
   var TO2020 = [0.6274, 0.0691, 0.0164, 0.3293, 0.9195, 0.088, 0.0433, 0.0113, 0.8956];
   var FROM2020 = [1.6605, -0.1246, -0.0182, -0.5876, 1.1329, -0.1006, -0.0728, -0.0083, 1.1187];
@@ -60731,11 +60727,26 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
     });
     return mul3(FROM2020, mul3(OUTSET, x).map((v) => Math.pow(Math.max(0, v), 2.2))).map((v) => Math.min(1, Math.max(0, v)));
   }
+  function neutral(c, exposure = 1) {
+    const START = 0.8 - 0.04, DESAT = 0.15;
+    let v = c.map((x) => x * exposure);
+    const lo = Math.min(v[0], v[1], v[2]);
+    const offset = lo < 0.08 ? lo - 6.25 * lo * lo : 0.04;
+    v = v.map((x) => x - offset);
+    const peak = Math.max(v[0], v[1], v[2]);
+    if (peak < START)
+      return v.map((x) => Math.min(1, Math.max(0, x)));
+    const d = 1 - START, top = 1 - d * d / (peak + d - START);
+    v = v.map((x) => x * top / peak);
+    const g = 1 - 1 / (DESAT * (peak - top) + 1);
+    return v.map((x) => Math.min(1, Math.max(0, x + (top - x) * g)));
+  }
+  var tonemap = (c, exposure = 1) => PICTURE === "neutral" ? neutral(c, exposure) : agx(c, exposure);
   function untonemap(target, exposure = 1) {
     const want = target.toArray();
     let x = want.map((v) => v / exposure);
     for (let it = 0;it < 80; it++) {
-      const y = agx(x, exposure);
+      const y = tonemap(x, exposure);
       x = x.map((v, i) => Math.max(0, v * Math.pow(Math.max(want[i], 0.000001) / Math.max(y[i], 0.000001), 0.8)));
     }
     return new Color(x[0], x[1], x[2]);
@@ -60771,30 +60782,33 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
     const r = renderer;
     if (typeof r.setNodesHandler !== "function")
       return;
-    screenOutputs(r, install(r));
+    const h = screenOutputs(r, install(r));
     const compile = r.compile;
     if (typeof compile !== "function")
       return;
     r.compile = function(scene, camera, target = null) {
-      const away = [];
-      scene.traverse((o) => {
-        const m = o.material;
-        if (m && (Array.isArray(m) ? m : [m]).some((x) => x.isNodeMaterial && x.isKit)) {
-          away.push([o, m]);
-          o.material = null;
-        }
-      });
       const sm = this.shadowMap, { autoUpdate: auto, needsUpdate: need } = sm;
       sm.autoUpdate = sm.needsUpdate = false;
+      let made;
       try {
-        return compile.call(this, scene, camera, target);
+        return made = compile.call(this, scene, camera, target);
       } finally {
         sm.autoUpdate = auto;
         sm.needsUpdate = need;
-        for (const [o, m] of away)
-          o.material = m;
+        unpaired(this, h, made);
       }
     };
+  }
+  function unpaired(r, h, materials) {
+    if (!h?.programCache || typeof r.properties?.get !== "function")
+      return;
+    for (const m of materials ?? []) {
+      if (!m?.isNodeMaterial)
+        continue;
+      const q = r.properties.get(m);
+      if (q?.currentProgram && !h.programCache.get(m)?.has(q.currentProgram))
+        q.__version = undefined;
+    }
   }
   function setTone(renderer, toneMapping, exposure) {
     if (toneMapping)
@@ -60812,23 +60826,28 @@ fn tsl_biquadraticTexture_array( map : texture_2d_array<f32>, coord : vec2f, iRe
       renderer.toneMapping = was;
     };
   }
+  var LINKED = 4000;
   function precompile(renderer, object, camera, scene) {
-    const off = [];
-    object.traverseVisible((o) => {
-      const m = o.material;
-      if (m && (Array.isArray(m) ? m : [m]).some((x) => x.isNodeMaterial))
-        off.push(o);
-    });
-    for (const o of off)
-      o.visible = false;
-    let made = Promise.resolve();
+    let left;
     try {
-      made = renderer.compileAsync(object, camera, scene);
-    } catch {} finally {
-      for (const o of off)
-        o.visible = true;
+      left = renderer.compile(object, camera, scene);
+    } catch {
+      return Promise.resolve();
     }
-    return made.then(() => {}, () => {});
+    const end = performance.now() + LINKED;
+    return new Promise((done) => {
+      const check = () => {
+        for (const m of left) {
+          const p = renderer.properties.get(m).currentProgram;
+          if (!p || p.isReady())
+            left.delete(m);
+        }
+        if (!left.size || performance.now() > end)
+          return done();
+        setTimeout(check, 10);
+      };
+      check();
+    });
   }
 
   // src/lib/content/sandbox-kit/universe.js
@@ -64778,7 +64797,7 @@ ${component_stack}
     return new Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
   };
   var HORIZON = new Color(16742959);
-  var OVERHEAD = new Color(16773856);
+  var OVERHEAD = new Color(16054271);
   var MOON = new Color("#8ea6dc");
   var lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
   function skyIrradiance(sun) {
@@ -64792,7 +64811,7 @@ ${component_stack}
           e[k] += c[k] * w;
       }
     }
-    const y = lum(e), gain = e.map((v) => Math.pow(y / Math.max(v, 0.000000001), 0.65));
+    const y = lum(e), gain = e.map((v) => Math.pow(y / Math.max(v, 0.000000001), 0.25));
     return { e: e.map((v, k) => v * gain[k]), gain };
   }
   var NOON_EL = MathUtils.degToRad(68);
@@ -64936,7 +64955,7 @@ vec3 skyHorizon(vec3 dir) {
       }
       const r = horizonRing(l.dir);
       r.forEach((c, i) => horizonColours[i].set(c.r, c.g, c.b));
-      ring = r.map((c) => new Color().fromArray(agx(c.toArray(), shown)).convertLinearToSRGB().toArray());
+      ring = r.map((c) => new Color().fromArray(tonemap(c.toArray(), shown)).convertLinearToSRGB().toArray());
       light = { hour, e: l.e, day: l.day, low: l.low, night: l.night };
       if (rebake(envAt, l.dir, film()) || baked !== mood) {
         envAt = l.dir.clone();
@@ -65035,6 +65054,7 @@ vec3 skyHorizon(vec3 dir) {
         this.scene.background = null;
         this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25, ...hour === undefined ? {} : { clock: () => hour } });
         this.sky.stars.visible = false;
+        this.sky.dome.userData.noAO = this.sky.stars.userData.noAO = true;
       }
       const key = new DirectionalLight(16774118, paper ? 2.4 : 2.6);
       key.castShadow = true;
@@ -65067,12 +65087,13 @@ vec3 skyHorizon(vec3 dir) {
         const h = fract(sin(dot(p.mul(u.uRes).add(fract(u.uTime).mul(91.7)), vec2(12.9898, 78.233))).mul(43758.5453));
         return vec4(c.add(h.sub(0.5).mul(u.uGrain)), 1);
       });
+      this.bloomAt = this.sky ? 16 : paper ? 1.6 : 1;
       const post = createPost(r, this.scene, this.camera, {
         target: [size.x, size.y],
         samples: this.low ? 2 : 4,
         size: { pixelRatio: r.getPixelRatio(), width: css.x, height: css.y },
         ao: !this.low && !touchFirst() && ((ao) => this._ao(ao)),
-        bloom: { strength: paper ? 0.22 : 0.42, radius: 0.55, threshold: paper ? 1.6 : 1 },
+        bloom: { strength: paper ? 0.22 : 0.42, radius: 0.55, threshold: this.bloomAt },
         after: [grade]
       });
       this.post = post;
@@ -65557,7 +65578,10 @@ vec3 skyHorizon(vec3 dir) {
         this._gloss();
       const r = this.renderer;
       const was = { tm: withTone(r, "agx"), clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
-      setExposure(r, this.sky ? this.sky.exposure() : 1);
+      const lens = this.sky ? this.sky.exposure() : 1;
+      setExposure(r, lens);
+      if (this.post?.bloom)
+        this.post.bloom.threshold = this.bloomAt / lens;
       r.localClippingEnabled = true;
       this.camera.layers.enable(LAYER_FX);
       this.camera.updateMatrixWorld();
@@ -65754,14 +65778,46 @@ vec3 skyHorizon(vec3 dir) {
     chunks.skinning_vertex = VERTEX;
   }
 
+  // src/lib/content/assets/look.js
+  var KINDS2 = Object.freeze({
+    leaf: Object.freeze({ translucency: 0.6, stiffness: 1, flutter: 0.6 }),
+    grass: Object.freeze({ translucency: 0.5, stiffness: 0.6, flutter: 0.3 }),
+    petal: Object.freeze({ translucency: 0.7, stiffness: 1, flutter: 0.5 }),
+    bark: Object.freeze({ translucency: 0, stiffness: 6, flutter: 0 }),
+    stem: Object.freeze({ translucency: 0.2, stiffness: 2, flutter: 0.1 }),
+    fruit: Object.freeze({ translucency: 0.1, stiffness: 3, flutter: 0 }),
+    stone: Object.freeze({ translucency: 0, stiffness: 10, flutter: 0 })
+  });
+  var RANGES = Object.freeze({ translucency: [0, 1], stiffness: [0.1, 10], flutter: [0, 1] });
+  var THIN = Object.freeze(["leaf", "grass", "petal"]);
+  function lookOf(x, where = "look") {
+    if (x == null)
+      return null;
+    if (typeof x !== "object" || Array.isArray(x))
+      throw new Error(`${where}: not a look`);
+    const kind = x.kind;
+    if (typeof kind !== "string" || !Object.hasOwn(KINDS2, kind))
+      throw new Error(`${where}: no look ${String(kind).slice(0, 40)}`);
+    const out = { kind, ...KINDS2[kind] };
+    for (const [k, [lo, hi]] of Object.entries(RANGES)) {
+      const v = x[k];
+      if (v === undefined)
+        continue;
+      if (typeof v !== "number" || !Number.isFinite(v) || v < lo || v > hi)
+        throw new Error(`${where}: ${k} ${String(v).slice(0, 20)} is not within ${lo}…${hi}`);
+      out[k] = v;
+    }
+    return out;
+  }
+
   // src/lib/content/assets/box/serialize.js
-  var FORMAT = 4;
+  var FORMAT = 5;
   var LIGHTS = { PointLight: "point", SpotLight: "spot", DirectionalLight: "directional", AmbientLight: "ambient", HemisphereLight: "hemisphere" };
   var MATERIALS = ["MeshStandardMaterial", "MeshPhysicalMaterial", "MeshBasicMaterial", "MeshLambertMaterial", "MeshPhongMaterial", "MeshToonMaterial", "LineBasicMaterial", "LineDashedMaterial", "PointsMaterial", "MeshMatcapMaterial", "ShadowMaterial"];
 
   // src/lib/content/assets/box/rebuild.js
   var BUDGET = { nodes: 20000, geometries: 20000, materials: 2000, textures: 2000, images: 64, texturePixels: 4096, tris: 2000000, vertices: 4000000, instances: 1e5, controls: 32, controlNumbers: 8000000, bones: 1024, lights: 64, clipNumbers: 8000000 };
-  var FORMATS = [0, 1, 2, 3, FORMAT];
+  var FORMATS = [0, 1, 2, 3, 4, FORMAT];
   var ARRAYS2 = [Float32Array, Uint8Array, Uint16Array, Uint32Array, Int8Array, Int16Array, Int32Array];
   var fail2 = (why) => {
     throw new Error(`refused: ${why}`);
@@ -65909,7 +65965,7 @@ vec3 skyHorizon(vec3 dir) {
       }
     }
   }
-  function material(x, i, textures) {
+  function material(x, i, textures, format) {
     if (!MATERIALS.includes(x.type))
       fail2(`material ${i}: no kind ${String(x.type).slice(0, 40)}`);
     const m = new exports_three_module[x.type];
@@ -65926,6 +65982,13 @@ vec3 skyHorizon(vec3 dir) {
         m[k] = v;
     }
     m.name = String(x.name ?? "").slice(0, 80);
+    if (format >= 5 && x.look != null) {
+      try {
+        m.userData.look = lookOf(x.look, `material ${i}`);
+      } catch (e) {
+        fail2(e.message);
+      }
+    }
     if (x.custom === true)
       m.userData.custom = true;
     if (x.custom === true && x.cap && typeof x.cap === "object")
@@ -65948,7 +66011,7 @@ vec3 skyHorizon(vec3 dir) {
     const images = listed.map((x, i) => data.format === 0 && x === null ? null : image(x, i));
     const tex = textures.map((t, i) => texture2(data.format === 0 ? { ...t, image: images[i] ? i : null } : t, i, images));
     letPicturesGo(images, tex);
-    const mats = materials.map((x, i) => material(x, i, tex));
+    const mats = materials.map((x, i) => material(x, i, tex, data.format));
     const geos = geometries.map(geometry);
     let vertices = 0;
     for (const g of geos)
@@ -67095,7 +67158,7 @@ vec3 skyHorizon(vec3 dir) {
           lamps.push({ light: x, k: x.intensity });
       });
       const gl = document.createElement("canvas");
-      renderer = createRenderer({ canvas: gl, pixelRatio: 1, toneMapping: "agx", shadows: "pcf", preserve: true });
+      renderer = createRenderer({ canvas: gl, pixelRatio: 1, toneMapping: PICTURE, shadows: "pcf", preserve: true });
       renderer.setSize(w, h, false);
       camera = new PerspectiveCamera(40, w / h, 0.1, 20000);
       sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 }, clock: () => skyHour });

@@ -27,8 +27,12 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { reopenOnRestore } from './budget.js';
 import { useRenderer } from './arrays.js';
 
-/** tone mappings by name: AgX forms every page's picture (intent 2214e661; the films keep their own chain, ../film/) */
-export const TONE = /** @type {const} */ ({ none: THREE.NoToneMapping, agx: THREE.AgXToneMapping });
+/** tone mappings by name. Every page's picture is formed by PICTURE: Khronos PBR Neutral, which keeps a colour's hue
+ *  (0b4c007b: AgX, chosen by 2214e661, cast every noon sepia and darkened the viewers' sky; the films keep their own
+ *  chain, ../film/) */
+export const TONE = /** @type {const} */ ({ none: THREE.NoToneMapping, agx: THREE.AgXToneMapping, neutral: THREE.NeutralToneMapping });
+/** the tone mapping every page's picture is formed by */
+export const PICTURE = /** @type {const} */ ('neutral');
 
 /* AgX as three draws it (its tonemapping_pars_fragment), in JavaScript: a colour's picture without a GPU */
 const mul3 = (/** @type {number[]} */ m, /** @type {number[]} */ v) => [0, 1, 2].map((i) => m[i] * v[0] + m[i + 3] * v[1] + m[i + 6] * v[2]);
@@ -52,15 +56,36 @@ export function agx(c, exposure = 1) {
 }
 
 /**
- * The linear colour AgX turns into `target` at an exposure (a backdrop that must come out as its CSS colour, a mood's
- * look): found by iterating, as AgX has no closed inverse.
+ * A linear colour as Khronos PBR Neutral shows it (three's NeutralToneMapping, in JavaScript), at an exposure.
+ * @param {number[]} c @param {number} [exposure]
+ */
+export function neutral(c, exposure = 1) {
+	const START = 0.8 - 0.04, DESAT = 0.15;
+	let v = c.map((x) => x * exposure);
+	const lo = Math.min(v[0], v[1], v[2]);
+	const offset = lo < 0.08 ? lo - 6.25 * lo * lo : 0.04;
+	v = v.map((x) => x - offset);
+	const peak = Math.max(v[0], v[1], v[2]);
+	if (peak < START) return v.map((x) => Math.min(1, Math.max(0, x)));
+	const d = 1 - START, top = 1 - (d * d) / (peak + d - START);
+	v = v.map((x) => (x * top) / peak);
+	const g = 1 - 1 / (DESAT * (peak - top) + 1);
+	return v.map((x) => Math.min(1, Math.max(0, x + (top - x) * g)));
+}
+
+/** a linear colour as the page's picture shows it (PICTURE), at an exposure @param {number[]} c @param {number} [exposure] */
+export const tonemap = (c, exposure = 1) => (PICTURE === 'neutral' ? neutral(c, exposure) : agx(c, exposure));
+
+/**
+ * The linear colour the page's picture (PICTURE) turns into `target` at an exposure (a backdrop that must come out as
+ * its CSS colour, a mood's look): found by iterating, as neither curve has a closed inverse.
  * @param {THREE.Color} target @param {number} [exposure]
  */
 export function untonemap(target, exposure = 1) {
 	const want = target.toArray();
 	let x = want.map((v) => v / exposure);
 	for (let it = 0; it < 80; it++) {
-		const y = agx(x, exposure);
+		const y = tonemap(x, exposure);
 		x = x.map((v, i) => Math.max(0, v * Math.pow(Math.max(want[i], 1e-6) / Math.max(y[i], 1e-6), 0.8)));
 	}
 	return new THREE.Color(x[0], x[1], x[2]);
@@ -132,19 +157,39 @@ export function nodes(renderer) {
 	if (typeof r.setNodesHandler !== 'function') return;
 	// three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light; ./tsl.js:
 	// on the screen, `toneMapped: false` and `raw` honoured)
-	screenOutputs(r, install(r));
+	const h = screenOutputs(r, install(r));
 	const compile = r.compile;
 	if (typeof compile !== 'function') return;
 	r.compile = function (scene, camera, target = null) {
 		const sm = this.shadowMap, auto = sm.autoUpdate, need = sm.needsUpdate;
 		sm.autoUpdate = sm.needsUpdate = false;
+		/** @type {Set<any> | undefined} */
+		let made;
 		try {
-			return compile.call(this, scene, camera, target);
+			return (made = compile.call(this, scene, camera, target));
 		} finally {
 			sm.autoUpdate = auto;
 			sm.needsUpdate = need;
+			unpaired(this, h, made);
 		}
 	};
+}
+
+/**
+ * A node material three's compile moved to a program the handler has not paired with a build: its next draw made to
+ * meet onUpdateProgram, where install()'s rule pairs it. A material drawn before the compile (the viewers' sky, drawn
+ * first in its environment bake) keeps its `__version`, so three would draw the compile's program without telling the
+ * handler, whose updates it then skips for good: the sky drawn with whatever camera another node material last set,
+ * the contact shadow's from under the floor, black over a goat or a forklift (544485e2).
+ * @param {any} r @param {any} h the renderer's node handler @param {Set<any> | undefined} materials what the compile built
+ */
+function unpaired(r, h, materials) {
+	if (!h?.programCache || typeof r.properties?.get !== 'function') return;
+	for (const m of materials ?? []) {
+		if (!m?.isNodeMaterial) continue;
+		const q = r.properties.get(m);
+		if (q?.currentProgram && !h.programCache.get(m)?.has(q.currentProgram)) q.__version = undefined;
+	}
 }
 
 /**
