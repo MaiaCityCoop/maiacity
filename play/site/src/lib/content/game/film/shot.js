@@ -204,8 +204,6 @@ function fovFor(fov, from, to) {
 
 /**
  * A shot at time t for one delivery shape. @param {Spec} spec @param {number} t @param {Shape} [shape]
- * `own`: the world's own camera (kind `world`); `frame`: the pose is in that frame of the world's; `near`: the lens's;
- * `parts`: each moving part's channels at t (the world moves the rest).
  * @returns {{ pose: Pose, fov: number, near?: number, own: boolean, frame?: string, hour: number, stops: number, lights: { id: LightId, intensity: number, color?: string }[], parts: Record<string, Record<string, number>>, cues: Cue[], clock: number, progress: number }}
  */
 export function evaluate(spec, t, shape) {
@@ -287,11 +285,7 @@ export function sha256(/** @type {string} */ text) {
 	return [...H].map((x) => x.toString(16).padStart(8, '0')).join('');
 }
 
-/**
- * A stable hash of what a shot's pixels depend on (world, build, seed, camera, lens, hour, exposure, lights, events,
- * shutter, framing) and the render's `extra`; notes, the look and sound cues are left out, so editing them keeps plates.
- * @param {Spec} spec @param {Record<string, unknown>} [extra]
- */
+/** A stable hash of what a shot's pixels depend on, and `extra`; notes, look and cues left out. @param {Spec} spec @param {Record<string, unknown>} [extra] */
 export function fingerprint(spec, extra = {}) {
 	const { look: _l, meta: _m, cues, ...rest } = spec;
 	return sha256(stable({ v: 1, spec: { ...rest, cues: cues.filter((c) => c.kind !== 'sound') }, extra }));

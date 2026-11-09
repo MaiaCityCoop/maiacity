@@ -34,8 +34,7 @@ const modules = () =>
 		playerOf: k.playerOf,
 		bonePoser: k.poser
 	})));
-// fetched with the world's code: the box gets the first builds before the first frame (shaders compiled, seconds on a
-// slow machine) holds the page up; a failure is said where a build asks
+// fetched with the world's code, so the first builds don't wait for the first frame's shader compile
 if (typeof window !== 'undefined' && window.document?.createElement) modules().catch(() => {});
 
 /** @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Scene }} o */
@@ -157,8 +156,7 @@ export function createDrawn({ renderer, camera, scene }) {
 			if (c.copy) assets.remove(c.copy);
 		},
 		/**
-		 * The build of `ref` put into `anchor` as the box made it, once there: `{ obj, card, data, named, poser }`
-		 * ($content/assets/load.js; `named` its first node of each name; `poser` its controls, $content/assets/controls.js).
+		 * The build of `ref` put into `anchor` as the box made it ($content/assets/load.js), once there.
 		 * @param {string} ref @param {THREE.Object3D} anchor @param {{ pick?: string, cast?: boolean }} [o]
 		 *   `pick`: every part named so (bones keep their names); `cast`: every part casting a shadow (false: as built)
 		 */
@@ -188,11 +186,9 @@ export function createDrawn({ renderer, camera, scene }) {
 			return p;
 		},
 		/**
-		 * `load`, kept running in the box: a hero ($content/assets/hero.js `heroOf`: `play(clip)`, `hold(pose)`, `tick(dt)`),
-		 * started on the first frame it is in view (a world that never looks at it runs no recipe for it); until then it
-		 * stands as built. @param {string} ref @param {THREE.Object3D} anchor @param {{ pick?: string, cast?: boolean }} [o]
-		 * @param {(got: any) => void} [then] done once it is ready to run (what the world hangs on it only now, so its
-		 *   nodes stay the box's, one for one)
+		 * `load`, kept running in the box as a hero ($content/assets/hero.js `heroOf`), started the first frame it is in
+		 * view (never seen, no recipe runs). @param {string} ref @param {THREE.Object3D} anchor @param {{ pick?: string, cast?: boolean }} [o]
+		 * @param {(got: any) => void} [then] done once ready to run (hang things on it only now, so its nodes stay the box's)
 		 */
 		cast(ref, anchor, o, then) {
 			return this.load(ref, anchor, o).then(async (got) => {
@@ -210,10 +206,8 @@ export function createDrawn({ renderer, camera, scene }) {
 			});
 		},
 		/**
-		 * A rigged actor of `ref` (a person: the stand-in) put into `anchor` as the box built it, moved by our own code:
-		 * `rig.bones`, `rig.pose(p)` ($content/assets/clips.js `poser`); `clips` (t) → pose from the box's tables
-		 * (`playerOf`), each in `cycles` within one round of it (s); `poses` as data; `face` the skinned mesh with its blend
-		 * shapes (`joy`, `friendly`). `ready` once here (a pose asked before is set then); `loaded` settles then.
+		 * A rigged actor of `ref` (a person: the stand-in) put into `anchor` as built, moved by our code
+		 * ($content/assets/clips.js `poser`, `playerOf`); `cycles` keeps each clip within one round (s).
 		 * @param {string} ref @param {THREE.Object3D} anchor
 		 * @param {{ pick?: string, shadow?: boolean, receive?: boolean, cycles?: Record<string, number> }} [o] `pick`: the
 		 *   name a tap finds it by; `shadow`: whether it casts one; `receive`: whether one falls on it

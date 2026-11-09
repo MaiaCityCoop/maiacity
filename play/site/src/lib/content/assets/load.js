@@ -47,11 +47,8 @@ export const CHECKS = {
 };
 
 /**
- * A recipe's file held to what its entry declares (`declared`) on box engine `engine`: its build's time (ms), or throws
- * why refused. Its manifest's `libs` are every module its file names (a computed name reaches only the engine's own),
- * each the engine's; its `pieces` every piece it requires by hash (play/SPEC.md §4.5, ./box/pieces.js). The contract's
- * `invariants` are checks the page runs anyway (`CHECKS`); `budgets.bytes` bounds its file, `budgets.ms` its build (under
- * the box's 20 s); `memory` and `ops` no box can hold, so unread. Declaring nothing, it is held to the engine alone.
+ * A recipe's file held to what its entry declares on box engine `engine` (its `libs` and `pieces`, the contract's
+ * `budgets` where under the box's 20 s; `memory` and `ops` unread): its build's time (ms), or throws why refused.
  * @param {string} code @param {{ manifest?: any, contract?: any } | undefined} declared @param {{ v: number, modules: string[] }} engine
  */
 export function heldTo(code, declared, engine) {
@@ -75,9 +72,8 @@ export function heldTo(code, declared, engine) {
 }
 
 /**
- * A build named as it is kept: its hash and every value it takes (its own where not given, so two names of one build
- * are one), and its engine. Throws for a value it does not take, and NotInCatalog for a hash the catalog doesn't hold
- * (or not yet: ./catalog.js `loadRecipes`). @param {string} name `<hash>?its=values`
+ * A build named as kept (hash and every value, its own where not given) and its engine; throws for a value it does not
+ * take, NotInCatalog for a hash the catalog doesn't hold (yet). @param {string} name `<hash>?its=values`
  */
 export function canonical(name) {
 	const { hash, params } = parseBuild(name);
@@ -117,10 +113,7 @@ export function open({ data, card }, hash, label) {
 	return { obj: rebuild(data), card, data };
 }
 
-/**
- * The cache's build under `key`, checked (`open`), and its read time (ms, `read`); undefined if none; one that fails is
- * dropped, to be built anew. @param {Pick<typeof cache, 'get' | 'drop'>} store @param {string} key @param {string} hash @param {string} [label]
- */
+/** The cache's build under `key`, checked, and its read time; undefined if none, dropped if bad. @param {Pick<typeof cache, 'get' | 'drop'>} store @param {string} key @param {string} hash @param {string} [label] */
 export async function cached(store, key, hash, label) {
 	const t0 = now();
 	const hit = await store.get(key);
@@ -203,9 +196,8 @@ const own = (o, k) => (Object.hasOwn(o, k) ? o[k] : undefined);
 const labelled = (label, e) => new Error(`${label}: ${e instanceof Error ? e.message : String(e)}`);
 
 /**
- * A build of one of play's recipes (`hash`, with the values `given` as text, its own where not given): its file first
- * (`source.recipeAt`, which throws NotInCatalog naming it), then this device's cache under the build's key, else the
- * box (a box of the engine its card names, where `box` runs another). Checked either way (`open`).
+ * A build of one of play's recipes (`hash`, `given` as text): its file, then this device's cache, else the box of the
+ * engine its card names; checked either way.
  * @param {typeof import('./catalog.js').source} source play's recipes
  * @param {string} hash @param {Record<string, string>} [given]
  * @param {{ box: import('./box/host.js').AssetBox, store?: Pick<typeof cache, 'get' | 'put' | 'drop'>, keep?: boolean, phase?: (step: 'file' | 'cache' | 'build') => void }} o
