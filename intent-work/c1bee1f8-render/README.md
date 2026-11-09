@@ -5,7 +5,7 @@ names the URL of every failed request, keeps the job's own errors apart, and smo
 
 MAC JOB READY: intent-work/c1bee1f8-render@{JOB} intent-work/c1bee1f8-render/README.md, run 2, on the pull request's head
 `817fe847abcd2ff12099fced07f99dda54ab5645` (`HEAD_COMMIT=817fe847abcd2ff12099fced07f99dda54ab5645`), a production build.
-Dry run: DRY RUN PASSED at {DRY} (only this line changed since).
+Dry run: DRY RUN PASSED at c28ad3d (23.2 s, 2026-11-09 22:55 UTC; only this line changed since).
 
 Intent c1bee1f8-e738-4ff3-aace-4aea1d7e74ae (GPU 9/14), pull request #2186, branch `intent/c1bee1f8-webgpu-switch`.
 Every page draws with `WebGPURenderer`: WebGPU where the browser has it, its own WebGL 2 backend where not. The
