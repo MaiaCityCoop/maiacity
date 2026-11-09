@@ -11,11 +11,11 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import { SKILL_STAGES } from "../src/skills";
 import { INTENT_STAGES } from "../src/intents";
-import { SCHEMA, SKILL } from "../src/ids";
+import { SCHEMA, SKILL } from "../src/kit/ids";
 import { avenmaia, intents, seedSkills } from "../import/skills";
 
 const URL_ = process.env.TEST_DATABASE_URL;

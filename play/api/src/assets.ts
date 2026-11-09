@@ -1,7 +1,7 @@
 // The asset library, read (play/SPEC.md §4, §7): every asset Maia City owns, each with its versions as a chain, each
 // version's variants, and a ref resolved to the recipe file a sandbox builds. Each read is of what the person asking
 // sees (./owners.ts): the coop's assets and their own; another's private asset is as one that never was.
-import type { Queryable } from "./pg";
+import type { Queryable } from "./kit/pg";
 import type { Me } from "./access";
 import { piecesShown } from "./pieces";
 import { lodOf } from "./lod";

@@ -5,7 +5,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { BlobStore } from "../src/blobs";
-import type { Db } from "../src/pg";
+import type { Db } from "../src/kit/pg";
 import { foldStories, putFrame, seedStory, STORY_ID, type Fold, type FoldReport } from "../src/stories";
 import { ensureStoryDocs } from "../src/storydocs";
 

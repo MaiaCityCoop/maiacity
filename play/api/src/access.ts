@@ -1,9 +1,9 @@
 // What a human may do (play/SPEC.md §1, §3): their level in Maia City, checked against that level's rule as data
 // (play.level_rules). Visitors (no session) may do nothing but sign in or up.
-import type { Queryable } from "./pg";
+import type { Queryable } from "./kit/pg";
 
-export { COOP } from "./ids";
-import { COOP } from "./ids";
+export { COOP } from "./kit/ids";
+import { COOP } from "./kit/ids";
 export type Level = "admin" | "citizen" | "traveler";
 export type Rule = { read?: string[]; propose?: string[]; decide?: string[]; manage?: string[] };
 export type Action = keyof Rule;

@@ -16,7 +16,7 @@
 // was refused.
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
-import { hashBytes, HASH } from "../api/src/hash";
+import { hashBytes, HASH } from "../api/src/kit/hash";
 
 const argv = Bun.argv.slice(2);
 const at = argv.indexOf("--out");

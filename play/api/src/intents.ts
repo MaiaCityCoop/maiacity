@@ -5,12 +5,12 @@
 import { intentSeen, seesIntent } from "./owners";
 import { admin, Denied, COOP, meOf, type Me } from "./access";
 import type { BlobStore } from "./blobs";
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { factsOf, matchRule, ruleSetOf, type AutoBy } from "./rules";
 import type { GitHub } from "./ship";
 import { NOTE_MOST } from "./notes";
 import { briefOf } from "./skills";
-import { newId, UUID } from "./uuid";
+import { newId, UUID } from "./kit/uuid";
 import { closeWork, intentIdOf, WORK_STATUS } from "./work";
 import { decideAny, workKinds, workSql } from "./versioned";
 import { decidable, sub, unmetOn } from "./substate";
@@ -227,7 +227,7 @@ export async function dependIntent(db: Db, me: Me | null, id: string, on: unknow
 export const CODE = "code";
 /**
  * work_kind as given (add_intent, specify_intent): the kinds of work the intent will bring, each a schema's UUID (an
- * artifact, an asset, a story …: ./ids.ts SCHEMA, or one accepted since) or `code`; undefined where not given (left as
+ * artifact, an asset, a story …: ./kit/ids.ts SCHEMA, or one accepted since) or `code`; undefined where not given (left as
  * it is), null for an empty list (it declares nothing: any kind, as before).
  */
 async function workKindOf(q: Queryable, v: unknown): Promise<string[] | null | undefined> {

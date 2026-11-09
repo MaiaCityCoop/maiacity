@@ -13,8 +13,8 @@
 // end of migrate(), only where absent; nothing reads the seed once its document is there.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { COOP, SCHEMA } from "../ids";
-import type { Db, Queryable } from "../pg";
+import { COOP, SCHEMA } from "../kit/ids";
+import type { Db, Queryable } from "../kit/pg";
 import { readDoc, createDoc, DocError } from "./store";
 import type { DocType, Node } from "./validate";
 

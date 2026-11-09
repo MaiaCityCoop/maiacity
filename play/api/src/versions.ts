@@ -1,6 +1,6 @@
 // A version's id (play/SPEC.md §4.3): the BLAKE3 hash of its canonical content. The same content made from the same
 // parents has the same id; a changed byte, card field or parent gives another.
-import { canonical, hashText } from "./hash";
+import { canonical, hashText } from "./kit/hash";
 
 export type VersionContent = {
   asset: string; // '<grp>/<slug>'

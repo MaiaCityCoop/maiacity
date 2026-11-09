@@ -15,7 +15,7 @@ import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { mainMergeState, mergeMain, MERGES_CONTEXT } from "../src/mainmerge";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import { watchPulls, watchTick, type Pull } from "../src/ship";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";

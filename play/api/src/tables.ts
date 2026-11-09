@@ -4,7 +4,7 @@
  * ONLY transaction, a table is named only as the catalog names it, and a column that keeps a secret or a credential is
  * never sent, only that it is there. A row of another's private thing (./owners.ts) is never sent, nor counted.
  */
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { ROWS_SEEN } from "./owners";
 
 /** the rows of table `name` that the admin `me` may see (another's private things left out, ./owners.ts): a WHERE, with `me` as $1 */

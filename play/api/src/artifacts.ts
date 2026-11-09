@@ -6,12 +6,12 @@
 // waits at Proposal as an intent's work, and its row is what its accepted version says. Admins only.
 import { keepFile } from "./owners";
 import { admin, COOP, type Me } from "./access";
-import { AVENMAIA, SCHEMA } from "./ids";
+import { AVENMAIA, SCHEMA } from "./kit/ids";
 import { addIntent, autoMove, intentRow, recordChecks, specifyIntent } from "./intents";
 import { keyOf, type BlobStore } from "./blobs";
-import { hashBytes } from "./hash";
-import type { Db, Queryable } from "./pg";
-import { newId, UUID } from "./uuid";
+import { hashBytes } from "./kit/hash";
+import type { Db, Queryable } from "./kit/pg";
+import { newId, UUID } from "./kit/uuid";
 import * as docs from "./docs";
 import { docAt, proposeDocVersion, proposeNewDoc } from "./versioned";
 

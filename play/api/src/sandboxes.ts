@@ -6,15 +6,15 @@
 // the intents' board with each pin before and after, by its asset's label and version, and openable in the sandbox as
 // it would be; accepted by an admin there. Accepting merges it into Main and writes Main's pins and configs to
 // play.sandbox_pins and play.sandbox_configs, which the worlds read (/api/sandboxes/<uuid>/config) as before.
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { admin, must, type Me } from "./access";
-import { canonical } from "./hash";
-import { UUID } from "./uuid";
+import { canonical } from "./kit/hash";
+import { UUID } from "./kit/uuid";
 import { readableRefs } from "../import/plan";
 import { NotFound } from "./assets";
 import { assetSeen } from "./owners";
 import * as docs from "./docs";
-import { SCHEMA } from "./ids";
+import { SCHEMA } from "./kit/ids";
 import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
 import { closeWork, holdVariant, intentIdOf, settle } from "./work";
 import { resolveEdits, VersionError } from "./versioned";

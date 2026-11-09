@@ -14,7 +14,7 @@
 // that need the new code land only once it runs; a red step brings it back to Proposal with its work still waiting.
 // play only calls GitHub's API with SHIP_TOKEN, which never leaves this server.
 import { admin, COOP, type Me } from "./access";
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { INTENT_ADMINS, autoMove, byOf, decisions, gate, getIntent, IntentError, mustMove } from "./intents";
 import { carrySeen, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
 import { checksSeen, decidable, prBlock, sub, type PrSeen } from "./substate";

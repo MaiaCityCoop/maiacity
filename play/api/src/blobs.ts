@@ -12,7 +12,7 @@
 //                 its hash when it was written), so a deploy no longer reads every file back
 import { mkdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { HASH, hashBytes } from "./hash";
+import { HASH, hashBytes } from "./kit/hash";
 
 export interface BlobStore {
   has(hash: string): Promise<boolean>;

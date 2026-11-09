@@ -12,7 +12,7 @@ import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { gate } from "../src/intents";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import { watchShips, type Pull } from "../src/ship";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";

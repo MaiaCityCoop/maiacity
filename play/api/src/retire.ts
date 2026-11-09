@@ -13,7 +13,7 @@
 // nothing that names it by hash changes: its files, its frozen versions, a story linking one of them.
 import { admin, type Me } from "./access";
 import * as docs from "./docs";
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { INTENT_ADMINS, IntentError, intentRow, LINE_MOST } from "./intents";
 import { seesIntent } from "./owners";
 import { authorOf } from "./storydocs";

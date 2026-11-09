@@ -16,7 +16,7 @@ import { folderStore } from "../src/blobs";
 import * as docs from "../src/docs";
 import { Rate } from "../src/limits";
 import { migrate, MIGRATIONS } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
 
 const URL_ = process.env.TEST_DATABASE_URL;

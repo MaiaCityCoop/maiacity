@@ -11,10 +11,10 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
 import { migrate, MIGRATIONS } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import { UUID, uuidOf } from "../src/uuid";
-import { AVENMAIA, COOP } from "../src/ids";
+import { UUID, uuidOf } from "../src/kit/uuid";
+import { AVENMAIA, COOP } from "../src/kit/ids";
 import { urlOf, wordsOf } from "../src/artifacts";
 import { seedSkills } from "../import/skills";
 

@@ -4,7 +4,7 @@
 // short by a full disk) is named, not copied (it was lost already; deploy/server-care.sh mends what a backup holds). Run
 // again, it copies only what is still missing. Prints what it did as JSON; a copy that fails stops it (exit 1).
 import { bucketStore, folderStore } from "./blobs";
-import { connect } from "./pg";
+import { connect } from "./kit/pg";
 
 const db = connect();
 const folder = folderStore(process.env.PLAY_BLOBS || "blobs");

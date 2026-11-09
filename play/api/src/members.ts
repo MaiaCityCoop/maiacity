@@ -1,7 +1,7 @@
 // Maia City's members (play/SPEC.md §1, §3): sign-up is by invite only, and an invite makes a traveler; becoming a
 // citizen is an admin's doing; admins are the coop's owners. An admin changes levels, and Maia City always keeps one admin.
 import { randomBytes } from "node:crypto";
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { COOP, Denied, must, type Level, type Me } from "./access";
 import { cleanName } from "./auth";
 

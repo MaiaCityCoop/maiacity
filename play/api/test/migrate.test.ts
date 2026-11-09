@@ -7,20 +7,20 @@
 //
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { MIGRATIONS, MIGRATIONS_DIR, badId, loadMigrations, migrate } from "../src/migrations";
-import { fromBunSql } from "../src/pg";
+import { fromBunSql } from "../src/kit/pg";
 import { copyFileSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
-import { hashText } from "../src/hash";
+import { hashText } from "../src/kit/hash";
 import { Rate } from "../src/limits";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 import { storyVersionId } from "../src/versions";
 import { oldAccept, oldBranch, oldCommit, oldCreate, oldPropose } from "./fixtures/olddocs";
 import { problemsOf, readDoc, typeFor } from "../src/docs";
-import { SCHEMA } from "../src/ids";
+import { SCHEMA } from "../src/kit/ids";
 import "../src/versioned";
 
 const URL_ = process.env.TEST_DATABASE_URL;
@@ -532,7 +532,7 @@ suite("migration 202611070120-7c8085db-breeds", () => {
     const kjson = { schema: "asset/1", label: "Kiwi", source: src("a kiwi vine"), engine: 5, card: { card: { label: "kiwi: Female" }, variant: "female" }, defaultVariant: "female", variants: kv.map((x: any) => ({ name: x.name, card: x.card })) };
     // (written by the store before breeds, its variants in Main)
     const { createDoc } = await import("../src/docs");
-    const { SCHEMA } = await import("../src/ids");
+    const { SCHEMA } = await import("../src/kit/ids");
     await createDoc(db, { id: `asset:${kiwi}`, schema: SCHEMA.asset, json: kjson, author: { human: null, via: "import" }, message: "v1", version: "v1", number: 1 });
     // a sandbox pinning a papaya by its variant's name
     await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, variant) SELECT id, 'papaya-tree', $1, 'male' FROM play.sandboxes ORDER BY id LIMIT 1`, [p2]);
@@ -606,7 +606,7 @@ suite(`migration ${SKILLS_RECORDS}`, () => {
     expect((await migrate(db, { until: before_ })).at(-1)).toBe(before_);
     await (await import("../src/docs/schemas")).ensureSchemas(db);
     const docs = await import("../src/docs");
-    const { SKILL } = await import("../src/ids");
+    const { SKILL } = await import("../src/kit/ids");
     const { avenmaia, intents } = await import("../import/skills");
     const seeded = [
       { id: SKILL.avenmaia, json: avenmaia(), at: "2026-11-06T12:00:00Z" },

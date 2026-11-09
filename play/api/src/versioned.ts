@@ -25,12 +25,12 @@ import { admin, Denied, type Me } from "./access";
 import type { BlobStore } from "./blobs";
 import * as docs from "./docs";
 import { randomUUID } from "node:crypto";
-import { SCHEMA } from "./ids";
-import { hashText } from "./hash";
+import { SCHEMA } from "./kit/ids";
+import { hashText } from "./kit/hash";
 import { SKILL_STAGES } from "./skills";
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { NOTE_MOST } from "./notes";
-import { UUID } from "./uuid";
+import { UUID } from "./kit/uuid";
 import { closeWork, NO_INTENT, putAtProposal, settle, stageAfter, WORK_OF, workOf, WorkError } from "./work";
 import { decideLayout, ensureLayoutDoc, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck } from "./sandboxes";
 import { autoAfter, byOf, decideIntent, getIntent, gate, IntentError, mustDecide, type IntentVerdict } from "./intents";
@@ -61,7 +61,7 @@ export type Kind = {
   name: string;
   /** its documents' id prefix: <prefix>:<uuid> */
   prefix: string;
-  /** its schema: a document of the meta-schema, by its UUID (./ids.ts SCHEMA, or a schema accepted since) */
+  /** its schema: a document of the meta-schema, by its UUID (./kit/ids.ts SCHEMA, or a schema accepted since) */
   schema: string;
   /** what its schema can't say: a whole-document check, and that its content is code (built and previewed before it is accepted) */
   check?: (doc: any) => string[];

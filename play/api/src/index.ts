@@ -3,7 +3,7 @@ import { app } from "./app";
 import { initSessions } from "./auth";
 import { blobStore } from "./blobs";
 import { migrate } from "./migrations";
-import { connect } from "./pg";
+import { connect } from "./kit/pg";
 import { siteHandler } from "./site";
 import { reconcile, runningCommit, shipGitHub, startShipWatcher } from "./ship";
 import { syncKinds } from "./versioned";

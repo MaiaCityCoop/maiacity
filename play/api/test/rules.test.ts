@@ -11,11 +11,11 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import * as docs from "../src/docs";
-import { RULE, RULES, SCHEMA } from "../src/ids";
+import { RULE, RULES, SCHEMA } from "../src/kit/ids";
 import { autoMove, decisions } from "../src/intents";
 import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { FIRST_RULE, RULES_DOC, RULES_V1, matchRule, type Rule } from "../src/rules";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
 

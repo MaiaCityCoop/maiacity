@@ -1,5 +1,5 @@
 // Owners (play/SPEC.md "Owners"; intent 732d8a38, the first slice of Ownership 8fc46819; Samuel 2026-11-07): every
-// asset and every file belongs to an account, a person's own (their human's UUID) or the Maia City coop's (./ids.ts
+// asset and every file belongs to an account, a person's own (their human's UUID) or the Maia City coop's (./kit/ids.ts
 // COOP). What a person owns is private to its owner: to anyone else, another admin included, it answers exactly as
 // what never was (404 with the same words, left out of every list). This is the one place that says so: whose library
 // a file is in and who may see it (the only module that reads play.files for people), which assets a person sees, and
@@ -10,9 +10,9 @@
 // (every member reads it, as every file was) while the coop's library holds it or no library row names it; one only in
 // personal libraries is seen by those persons alone. An asset has one owner (play.assets.owner); only one in group
 // `characters` may be a person's for now.
-import { COOP } from "./ids";
+import { COOP } from "./kit/ids";
 import type { Me } from "./access";
-import type { Queryable } from "./pg";
+import type { Queryable } from "./kit/pg";
 
 /** the libraries a person reads: the coop's (Maia City's, its admins'), or their own personal one */
 export const LIBRARIES = ["coop", "personal"] as const;

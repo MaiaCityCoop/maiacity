@@ -12,12 +12,12 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { migrate, MIGRATIONS } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
-import { UUID } from "../src/uuid";
+import { UUID } from "../src/kit/uuid";
 import { placeholderIn } from "../src/intents";
 import { seedSkills } from "../import/skills";
-import { SANDBOX, SKILL } from "../src/ids";
+import { SANDBOX, SKILL } from "../src/kit/ids";
 import { seedDoc } from "../src/versioned";
 
 const URL_ = process.env.TEST_DATABASE_URL;

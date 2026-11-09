@@ -3,9 +3,9 @@
 // Loro document (../src/factories.ts) only when play holds no factory of its id yet. From then on play's Postgres is the
 // source of truth: a factory changes only by proposal (over MCP), and nothing here writes over it. Run with every
 // deploy, by ./run.ts.
-import type { Db } from "../src/pg";
+import type { Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
-import { FACTORY } from "../src/ids";
+import { FACTORY } from "../src/kit/ids";
 import { lifetracLine } from "./factories/lifetrac-line/index.js";
 
 export { lifetracLine };

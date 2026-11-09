@@ -8,7 +8,7 @@ import {
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { COOP } from "./access";
 
 const env = (k: string, d: string) => (process.env[k] ?? d).trim();

@@ -6,12 +6,12 @@
 // is made from its history: each accepted version an edit at its own date, named its number; each intent's work
 // waiting at Proposal an intent variant seeded at its base.
 import type { Me } from "./access";
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import type { StoryBody } from "./stories";
 import { versionAt } from "./versioned";
 import { holdVariant } from "./work";
-import { SCHEMA } from "./ids";
+import { SCHEMA } from "./kit/ids";
 
 export const docIdOf = (story: string) => `story:${story}`;
 export const asDoc = (title: string, body: StoryBody) => ({ ...body, schema: "story/1", title });

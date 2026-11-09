@@ -2,7 +2,7 @@
 // bytes, shown once; only its SHA-256 is kept. Admins alone make them for now (Samuel 2026-11-02), and a token opens
 // nothing once its owner is no longer an admin, or once it is revoked.
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import type { Queryable } from "./pg";
+import type { Queryable } from "./kit/pg";
 import { admin, Denied, meOf, type Me } from "./access";
 
 const PREFIX = "play_";

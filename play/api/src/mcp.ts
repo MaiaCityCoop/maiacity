@@ -19,7 +19,7 @@
 // prompts are the skills', kept once in play's Postgres and changed only by proposal (./skills.ts, play/SPEC.md §4.14,
 // Samuel 2026-11-06); a tool's description says only what it takes, gives back and refuses.
 import type { BlobStore } from "./blobs";
-import type { Db } from "./pg";
+import type { Db } from "./kit/pg";
 import { admin, type Me } from "./access";
 import type { GitHub } from "./ship";
 import { assetOf, listAssets, NotFound } from "./assets";

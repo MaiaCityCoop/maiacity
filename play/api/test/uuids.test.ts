@@ -3,9 +3,9 @@
 // moved onto UUIDs whole, every row that names one with it, and nothing of a story's kept history is lost.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { MIGRATIONS, migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
-import { COOP, SANDBOX } from "../src/ids";
-import { UUID, uuidOf } from "../src/uuid";
+import { fromBunSql, type Db } from "../src/kit/pg";
+import { COOP, SANDBOX } from "../src/kit/ids";
+import { UUID, uuidOf } from "../src/kit/uuid";
 import { storyVersionId } from "../src/versions";
 import { history, readDoc } from "../src/docs";
 import { oldCommit, oldCreate } from "./fixtures/olddocs";

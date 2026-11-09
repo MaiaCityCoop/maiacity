@@ -15,9 +15,9 @@ import { BUDGETS, daysOf, delivery, NO_GITHUB } from "../src/delivery";
 import { Rate } from "../src/limits";
 import { carrySeen, mainMergeState } from "../src/mainmerge";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { watchTick } from "../src/ship";
-import { newId } from "../src/uuid";
+import { newId } from "../src/kit/uuid";
 import { fakeGitHub, job, REPO, run, sha } from "./fixtures/github";
 
 const URL_ = process.env.TEST_DATABASE_URL;

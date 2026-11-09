@@ -16,10 +16,10 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { problemsOf, readDoc, typeFor } from "../src/docs";
-import { SCHEMA } from "../src/ids";
+import { SCHEMA } from "../src/kit/ids";
 import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { seedDoc, unregister } from "../src/versioned";
 
 const URL_ = process.env.TEST_DATABASE_URL;

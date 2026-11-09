@@ -12,8 +12,8 @@
 // stage to which, the document and its reason. Refused for a decided intent (Ship, Accepted, Archived) or one not yet
 // built, a document it holds no open or proposed variant of, and anyone but an admin (or an admin's agent).
 import { admin, type Me } from "./access";
-import type { Db } from "./pg";
-import { UUID } from "./uuid";
+import type { Db } from "./kit/pg";
+import { UUID } from "./kit/uuid";
 import { INTENT_ADMINS, IntentError, intentRow, LINE_MOST } from "./intents";
 import { seesIntent } from "./owners";
 import { closeVariant, dropDoc, variantsOf, workOf } from "./work";

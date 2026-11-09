@@ -4,16 +4,16 @@
 // once its merged result was previewed.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHuman } from "../src/auth";
-import { canonical } from "../src/hash";
+import { canonical } from "../src/kit/hash";
 import { readSource } from "../import/sources";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import {
   accept, close, commit, COMPACT_AFTER, contentHash, createDoc, diff, DocError, history, nameVersion,
   previewMerge, propose, readDoc, SchemaError, stateAt, variant, versionsOf, type Author,
 } from "../src/docs";
 import { EditError } from "../src/docs/core";
-import { SCHEMA } from "../src/ids";
+import { SCHEMA } from "../src/kit/ids";
 // the kinds: what each schema cannot say (a story's clips inside its duration, an asset's source is code), by its UUID
 import "../src/versioned";
 

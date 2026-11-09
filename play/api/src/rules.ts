@@ -9,9 +9,9 @@
 //
 // The rules are always a person's: matchRule gives null, whatever the rules say, for an intent whose work changes the
 // rule set or its schema (or that declares it will), so no rule can open them.
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
-import { COOP, RULE, RULES, SCHEMA } from "./ids";
+import { COOP, RULE, RULES, SCHEMA } from "./kit/ids";
 import { kindOfWork } from "./versioned";
 
 export const GATES = ["approve", "accept"] as const;

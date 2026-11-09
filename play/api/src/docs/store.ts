@@ -7,7 +7,7 @@
 // state is served as JSON.
 import { randomInt } from "node:crypto";
 import type { LoroDoc } from "loro-crdt";
-import type { Db, Queryable } from "../pg";
+import type { Db, Queryable } from "../kit/pg";
 import { applyEdits, contentHash, fromBytes, jsonAt, jsonOf, newDoc, patchTo, sameFrontiers, seed, type Edit, type Frontiers } from "./core";
 import { typeFor } from "./schemas";
 import { problemsOf, SchemaError, type DocType } from "./validate";

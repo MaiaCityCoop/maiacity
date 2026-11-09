@@ -12,7 +12,7 @@
 // Never an intent in Ship, Accepted or Archived, never a pull request into another branch or naming no intent, never
 // a merge into main or production.
 import { COOP } from "./access";
-import type { Db } from "./pg";
+import type { Db } from "./kit/pg";
 import { GitHubError, intentLink, type GitHub } from "./ship";
 import { conflictWhy, type PrSeen } from "./substate";
 

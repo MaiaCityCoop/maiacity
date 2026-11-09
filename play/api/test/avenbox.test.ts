@@ -5,14 +5,14 @@
 // on which commit; a look it leaves to be judged, and no run sees the token.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { hashBytes } from "../src/hash";
+import { hashBytes } from "../src/kit/hash";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 
 const URL_ = process.env.TEST_DATABASE_URL;

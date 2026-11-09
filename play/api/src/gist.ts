@@ -4,8 +4,8 @@
 // proposed (./work.ts holdVariant) and again whenever it has a newer edit. The whole of what it changes is read only
 // when that one document is opened (./versioned.ts reviewHeld, GET /api/intents/:id/docs/:doc).
 import * as docs from "./docs";
-import { hashText } from "./hash";
-import type { Queryable } from "./pg";
+import { hashText } from "./kit/hash";
+import type { Queryable } from "./kit/pg";
 import { piecesOf } from "./pieces";
 
 /** a variant in brief: its label and group, how many fields it changes against its seed and which (at most FIELDS), its source's hash and the pieces its sources require */

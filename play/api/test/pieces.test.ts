@@ -10,10 +10,10 @@ import { meOf } from "../src/access";
 import { proposeAsset } from "../src/assetdocs";
 import { createHuman } from "../src/auth";
 import { folderStore, type BlobStore } from "../src/blobs";
-import { hashText } from "../src/hash";
-import { SCHEMA } from "../src/ids";
+import { hashText } from "../src/kit/hash";
+import { SCHEMA } from "../src/kit/ids";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { MOST_DEEP, piecesShown } from "../src/pieces";
 import { decide, docAt, docHistory, listDocs, proposeDocVersion } from "../src/versioned";
 

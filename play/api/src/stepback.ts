@@ -11,7 +11,7 @@
 // Archived. Each step is kept on the intent (`steps`, migration 0036): when, who (over MCP), from which stage to which,
 // its reason, and the spec it dropped; the board shows them under the intent's note.
 import { admin, type Me } from "./access";
-import type { Queryable } from "./pg";
+import type { Queryable } from "./kit/pg";
 import { INTENT_ADMINS, IntentError, intentRow, LINE_MOST, waiting } from "./intents";
 
 /** one step back, as it is kept on the intent */

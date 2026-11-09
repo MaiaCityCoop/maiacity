@@ -2,9 +2,9 @@
 // play's Postgres as the v1 of its Loro document (../src/skills.ts) only when play holds no skill of its id yet. From
 // then on play's Postgres is the source of truth: a skill changes only by proposal (over MCP), and nothing here writes
 // over it. Run with every deploy, by ./run.ts.
-import type { Db } from "../src/pg";
+import type { Db } from "../src/kit/pg";
 import { seedDoc } from "../src/versioned";
-import { SKILL } from "../src/ids";
+import { SKILL } from "../src/kit/ids";
 import { avenmaia } from "./skills/avenmaia";
 import { intents } from "./skills/intents";
 

@@ -15,7 +15,7 @@
 // no source, only how they are kept.
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { hashText } from "../src/hash";
+import { hashText } from "../src/kit/hash";
 import { pieceFile, rebuild } from "./sources";
 
 // ---- cutting -------------------------------------------------------------------------------------------------------

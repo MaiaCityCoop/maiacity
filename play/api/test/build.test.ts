@@ -12,10 +12,10 @@ import { app } from "../src/app";
 import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { MIGRATIONS, migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { Rate } from "../src/limits";
 import { SKILL_STAGES } from "../src/skills";
-import { SKILL } from "../src/ids";
+import { SKILL } from "../src/kit/ids";
 import { seedDoc } from "../src/versioned";
 import { avenmaia, intents } from "../import/skills";
 

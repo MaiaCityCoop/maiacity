@@ -7,9 +7,9 @@
 // coop's (Maia City's, as before) or their own personal one, private to them (./owners.ts decides who sees what, and
 // reads play.files). Admins only for now: opening it to every member is LIBRARY_OPEN_TO.
 
-import type { Queryable } from "./pg";
+import type { Queryable } from "./kit/pg";
 import { admin, Denied, type Me } from "./access";
-import { HASH } from "./hash";
+import { HASH } from "./kit/hash";
 import { storyListed } from "./listed";
 import { fileLabel, StoryError, type StoryBody } from "./stories";
 import { assetSeen, libraryOf, libraryPage, relabel } from "./owners";

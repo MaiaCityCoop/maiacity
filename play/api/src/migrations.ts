@@ -8,7 +8,7 @@
 // The numbered ids (0001-ownership … up to LAST_NUMBERED) are the ones shipped before, kept as play.migrations names them.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Db } from "./pg";
+import type { Db } from "./kit/pg";
 import { ensureSchemas } from "./docs/schemas";
 import { ensureLayouts } from "./sandboxes";
 import { ensureRules } from "./rules";

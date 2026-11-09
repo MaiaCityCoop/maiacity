@@ -32,7 +32,7 @@ echo "merge-tree: no conflict ($tree), both files kept"
 cd "$here"
 MERGED="$dir" A="$A" B="$B" bun -e '
   import { loadMigrations, migrate } from "./src/migrations";
-  import { fromBunSql } from "./src/pg";
+  import { fromBunSql } from "./src/kit/pg";
   const all = loadMigrations(process.env.MERGED);
   const url = process.env.TEST_DATABASE_URL;
   if (!url) { console.error("FAIL: TEST_DATABASE_URL is not set (bash play/avenbox/up.sh)"); process.exit(1); }

@@ -12,7 +12,7 @@ import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore } from "../src/blobs";
 import { Rate } from "../src/limits";
 import { migrate } from "../src/migrations";
-import { fromBunSql } from "../src/pg";
+import { fromBunSql } from "../src/kit/pg";
 import { OPEN, seedBoard } from "../test/fixtures/board";
 
 const { values } = parseArgs({ options: { "max-ms": { type: "string", default: "300" }, "max-kb": { type: "string", default: "400" }, runs: { type: "string", default: "5" } } });

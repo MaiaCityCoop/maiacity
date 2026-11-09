@@ -2,11 +2,11 @@
 // The site and the API share an origin (play.maia.city, /api behind Caddy), so there is no CORS. A visitor gets 401
 // everywhere but the health check and the passkey ceremonies.
 import type { BlobStore } from "./blobs";
-import { HASH } from "./hash";
-import { UUID } from "./uuid";
-import type { Db } from "./pg";
+import { HASH } from "./kit/hash";
+import { UUID } from "./kit/uuid";
+import type { Db } from "./kit/pg";
 import { admin, COOP, Denied, meOf, must } from "./access";
-import { SANDBOX } from "./ids";
+import { SANDBOX } from "./kit/ids";
 import { assetOf, catalogOf, configOf, listAssets, NotFound, versionOf } from "./assets";
 import { fileFor, maskEdges, OwnerError } from "./owners";
 import { mcp } from "./mcp";

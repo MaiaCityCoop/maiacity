@@ -10,8 +10,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { blobStore, keyOf, type BlobStore } from "../src/blobs";
-import { hashBytes } from "../src/hash";
-import { connect, type Db, type Queryable } from "../src/pg";
+import { hashBytes } from "../src/kit/hash";
+import { connect, type Db, type Queryable } from "../src/kit/pg";
 import { migrate } from "../src/migrations";
 import { importSources, type SourcesReport } from "./sources";
 import { seedStories, type StoriesReport } from "./stories";

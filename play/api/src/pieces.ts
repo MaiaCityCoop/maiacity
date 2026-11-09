@@ -1,5 +1,5 @@
 // Pieces (play/SPEC.md §4.5; intent 5a15e468, Samuel 2026-11-07): a recipe names a shared piece by its hash. A piece is
-// readable source, a document `piece:<uuid>` of its own schema (./ids.ts SCHEMA.piece), changed by an intent variant
+// readable source, a document `piece:<uuid>` of its own schema (./kit/ids.ts SCHEMA.piece), changed by an intent variant
 // like any document; each accepted version's source is kept among play's files by its BLAKE3 hash and listed in
 // play.piece_versions with the pieces it requires and how deep it goes. A recipe (an asset's source) requires one by
 // that hash, `require('<64 hex>')`, and its manifest's `pieces` names it and every piece beneath it, so a frozen
@@ -11,10 +11,10 @@
 import { keepFile } from "./owners";
 import type { BlobStore } from "./blobs";
 import { keyOf } from "./blobs";
-import { hashText } from "./hash";
-import type { Queryable } from "./pg";
+import { hashText } from "./kit/hash";
+import type { Queryable } from "./kit/pg";
 import { readDoc } from "./docs";
-import { UUID } from "./uuid";
+import { UUID } from "./kit/uuid";
 
 /** a piece's name in a require: its BLAKE3 hash */
 export const PIECE = /^[0-9a-f]{64}$/;
