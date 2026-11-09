@@ -20,7 +20,7 @@ import { join, resolve } from 'node:path';
 import { codeOf, compose, filesOf, laid, VENDOR } from '../src/lib/stories/compose';
 import { liveRuntime } from './live-runtime';
 import { enginesOf } from '../src/lib/kernel/engines.js';
-import { hashBytes } from '../src/lib/content/game/hash.js';
+import { HEX, hashBytes } from '../src/lib/kernel/hash.js';
 
 const args = process.argv.slice(2);
 const opt = (name: string) => {
@@ -89,7 +89,7 @@ const server = Bun.serve({
 		if (u.pathname === '/page.js') return new Response(script, { headers: { 'content-type': 'text/javascript' } });
 		if (u.pathname === '/favicon.ico') return new Response(null, { status: 204 });
 		if (u.pathname === '/composition.html') return new Response(html, { headers: { 'content-type': 'text/plain; charset=utf-8' } });
-		const h = u.pathname.match(/^\/api\/files\/([0-9a-f]{64})$/)?.[1];
+		const h = u.pathname.match(new RegExp(`^/api/files/(${HEX})$`))?.[1];
 		if (h) return new Response(Bun.file(join(project, 'api/files', h)), { headers: { 'content-type': type(h) } });
 		return new Response('not here', { status: 404 });
 	}

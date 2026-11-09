@@ -7,15 +7,13 @@
  */
 import { blake3 } from '@noble/hashes/blake3.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
-import { HEX, isHash } from '../../../kernel/hash.js';
+import { BUILD_START } from '../../../kernel/builds.js';
+import { isHash } from '../../../kernel/hash.js';
 import { packed, unpacked } from './packed.js';
 import { LEVEL, LIMIT, added, folder, inLine, keeps, lost, quiet, read, removed, touch, write } from './store.js';
 
 /** the context a level's key is derived in: another than a build's, so no level's key is ever a build's */
 export const LEVELS_CONTEXT = 'maiaCITY 2026-11-07 asset levels';
-
-/** a build's name, `<recipe hash>?values` */
-const BUILD_NAME = new RegExp(`^${HEX}(\\?|$)`);
 
 /**
  * The cache key of what is made from a build on this device (play/SPEC.md §4.5, ../lodcard.js): a level derived from it
@@ -26,7 +24,7 @@ const BUILD_NAME = new RegExp(`^${HEX}(\\?|$)`);
  * @param {{ build: string, level: number | string, plan?: unknown, deriver: number | string }} o @returns {string} 64 hex digits
  */
 export function levelKeyOf({ build, level, plan, deriver }) {
-	if (typeof build !== 'string' || !BUILD_NAME.test(build)) throw new Error('no build');
+	if (typeof build !== 'string' || !BUILD_START.test(build)) throw new Error('no build');
 	if (deriver === undefined || deriver === null) throw new Error("no deriver's version");
 	return bytesToHex(blake3(utf8ToBytes(JSON.stringify([build, level, plan ?? null, deriver])), { context: utf8ToBytes(LEVELS_CONTEXT) }));
 }

@@ -31,6 +31,7 @@
 // A shot's time t is in seconds from its first frame; its progress is t / seconds. The world's own clock (animals,
 // water, the trucks of a set) runs at world.clock + t, so the same shot always sees the same world.
 // Plain JavaScript, shared by the browser (film mode), the API, the worker and the scripts.
+import { isHash } from '../../../kernel/hash.js';
 import { checkCamera, fovOf, pathOf } from './camera.js';
 import { DEFAULT_SANDBOX, WORLDS } from './worlds.js';
 
@@ -110,13 +111,13 @@ export function normalize(s) {
 	if (w.build) {
 		const commit = String(w.build.commit ?? ''), hash = String(w.build.hash ?? '');
 		if (!/^[0-9a-f]{7,64}$/.test(commit) || !/^[0-9a-z]{8,80}$/.test(hash)) bad('world.build names the game build: { commit, hash, file? }.');
-		if (w.build.file !== undefined && !/^[0-9a-f]{64}$/.test(String(w.build.file))) bad('world.build.file is the build in the vault, by its hash.');
+		if (w.build.file !== undefined && !isHash(String(w.build.file))) bad('world.build.file is the build in the vault, by its hash.');
 		build = { commit, hash, ...(w.build.file ? { file: String(w.build.file) } : {}) };
 	}
 	// a world of play's group worlds is named by its asset's UUID and its version's recipe hash (play/SPEC.md §4.7, §4.11)
 	if (sandbox === 'worlds') {
 		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(String(w.asset ?? ''))) bad('world.asset is the world asset\'s UUID.');
-		if (!/^[0-9a-f]{64}$/.test(String(w.recipe ?? ''))) bad('world.recipe is the hash of the world version\'s recipe.');
+		if (!isHash(String(w.recipe ?? ''))) bad('world.recipe is the hash of the world version\'s recipe.');
 	}
 	if (w.props !== undefined && !(where.sets ?? []).includes(w.props)) bad(where.sets ? `world.props is one of ${where.sets.join(', ')}.` : `${sandbox} has no sets.`);
 	const world = {
@@ -174,7 +175,7 @@ export function normalize(s) {
 	const cues = (s.cues ?? []).map((/** @type {any} */ c, /** @type {number} */ i) => {
 		const at = num(c?.at, `cues[${i}].at`, -1e6, 1e6);
 		if (c.kind === 'sound') {
-			if (!/^[0-9a-f]{64}$/.test(String(c.hash))) bad(`cues[${i}] names a sound by its hash.`);
+			if (!isHash(String(c.hash))) bad(`cues[${i}] names a sound by its hash.`);
 			return { at, kind: 'sound', hash: String(c.hash), level: num(c.level, `cues[${i}].level`, 0, 4, 1) };
 		}
 		if (c.kind === 'event') {

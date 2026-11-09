@@ -10,6 +10,7 @@
  * PLAY_MCP_TOKEN (its read-only routes, the header sent to play only).
  */
 import { chromium } from 'playwright';
+import { HEX } from '../src/lib/kernel/hash.js';
 import { ASSETS, BRIEF, FIXTURES, STORIES } from '../src/lib/site/intents/fixtures';
 
 const BASE = process.env.SITE ?? 'http://localhost:5173';
@@ -65,7 +66,7 @@ for (const size of SIZES.filter((x) => !process.env.WIDTH || x.width === +proces
 		const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 		if (path === '/me') return json(ME);
 		if (path === '/catalog') return json(catalogRows);
-		if (/^\/files\/[0-9a-f]{64}$/.test(path)) {
+		if (new RegExp(`^/files/${HEX}$`).test(path)) {
 			const r = await fromPlay(path);
 			return route.fulfill({ status: r.status, contentType: r.headers.get('content-type') ?? 'application/octet-stream', body: Buffer.from(await r.arrayBuffer()) });
 		}

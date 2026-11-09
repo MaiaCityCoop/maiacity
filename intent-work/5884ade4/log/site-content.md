@@ -35,3 +35,15 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
    would close a folder cycle (`lib/recipes.ts` → `content/assets`); `lib/api.ts` may re-export it.
    Found, kept as it was: `putLevel` counts a level's bytes after handing them to the worker (0 there), so levels don't
    count toward the trim until the next recount.
+5. **One build-name grammar, one hash pattern** (site-assets#2 part, #3, #5, #6 hash part, #26; site-assets F4).
+   `content/assets/builds.js` → `kernel/builds.js`, the one grammar of a build's name (`parseBuild`, `buildOf`, and
+   `queryOf`, `paramsIn` from `params.js`, which keeps only the parameters' values); `catalog.js` re-exports only
+   `buildOf` and `parseBuild` (for the held `render/index.js` and `sandbox-4/scene.ts`), not `checked` (dead) or
+   `hashText`. Every hash pattern in content, the kernel, the Worlds page and the scripts (catalog's, the cache's,
+   `uses.js`, `box/pieces.js`, `box/headless.js` with its own BLAKE3 hex, `film/shot.js`, `worlds/contract.js`,
+   `intent-shots`, `propose`, `story-parity`, `live-runtime`) is `kernel/hash.js`'s `HEX`/`HASH`/`isHash`: 21 → 4 (the
+   kernel's, and three in site-app's files: `site/media/url.ts`, `StoryChanges`, `StoryPlayer`). The cache keys stay
+   (golden test); `headless.js`'s `hashOf` keeps its name for the census's setup (held).
+   The census's Sandbox 3 totals vary at one and the same tree (four runs at HEAD: 301, 296, 296, 296 draws; the merge
+   base's runs gave 296, 297 and 303): its `DIFF` here is that noise, not this move. `scripts/live-runtime.ts --check`
+   fails before and after this branch (the pinned runtime is older than the stories' sources; held).

@@ -22,9 +22,10 @@
  * `light:window` cells fall into WINDOW_SETS sets by their order, and each copy lights some of them by its seed. A
  * `light:sign` (a shop's lit sign) is lit always, unless its guest's `state:sign` says otherwise.
  */
+import { HASH, HEX } from '../../kernel/hash.js';
 
-/** a recording's or a recipe's hash */
-const HASH = /^[0-9a-f]{64}$/;
+/** a recording's sound node: `sound:<hash>?its=values` */
+const SOUND = new RegExp(`^sound:(${HEX})(?:\\?(.*))?$`);
 
 /** the moods a world may be in, each its sky's numbers; a world's keys are laid over its preset */
 export const MOODS = {
@@ -105,7 +106,7 @@ export function moodOf(name) {
 
 /** a sound node's name read: `{ hash, for, gain }`, or null */
 export function soundOf(name) {
-	const m = /^sound:([0-9a-f]{64})(?:\?(.*))?$/.exec(String(name ?? ''));
+	const m = SOUND.exec(String(name ?? ''));
 	if (!m) return null;
 	const q = query(m[2]);
 	const what = /^[a-z][a-z0-9-]{0,23}$/.test(q.for ?? '') ? q.for : 'bed';

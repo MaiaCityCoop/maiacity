@@ -14,11 +14,11 @@
  * Refused, saying which: a piece not in the manifest, one play's files don't hold, one whose bytes are not its hash,
  * a piece requiring itself (a cycle), and a chain of pieces more than MOST_DEEP deep.
  */
-import { hashBytes, holds } from '../../../kernel/hash.js';
+import { HASH, hashBytes, holds } from '../../../kernel/hash.js';
 import { playFile } from '../cache/files.js';
 
 /** a piece's name: its BLAKE3 hash */
-export const PIECE = /^[0-9a-f]{64}$/;
+export const PIECE = HASH;
 /** the longest chain of pieces a recipe may require: the recipe's own, and three more beneath it */
 export const MOST_DEEP = 4;
 

@@ -19,7 +19,7 @@
 import { blake3 } from '@noble/hashes/blake3.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import { isHash } from '../../../kernel/hash.js';
-import { queryOf } from '../params.js';
+import { queryOf } from '../../../kernel/builds.js';
 import { packed, unpacked } from './packed.js';
 import { BUILD, LIMIT, added, ask, folder, inLine, keeps, lost, quiet, read, recount, removed, touch, workerOf, write } from './store.js';
 

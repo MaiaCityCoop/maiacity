@@ -10,6 +10,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { isHash } from '$lib/kernel/hash.js';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type ChainVersion, type Pick } from '$lib/app/Aside.svelte';
@@ -30,7 +31,7 @@
 	// the film page: the world a shot names, by its asset's UUID and its version's recipe hash
 	const filmed = typeof location === 'undefined' ? null : new URLSearchParams(location.search);
 	const film = filmed?.has('film') ? { asset: filmed.get('asset') ?? '', recipe: filmed.get('recipe') ?? '' } : null;
-	const filmOk = !!film && /^[0-9a-f-]{36}$/.test(film.asset) && /^[0-9a-f]{64}$/.test(film.recipe);
+	const filmOk = !!film && /^[0-9a-f-]{36}$/.test(film.asset) && isHash(film.recipe);
 	/** the film camera given the world once its view is up */
 	const toFilm = async (view: any) => {
 		const { connectWorldFilm } = await import('$lib/content/worlds/film.js');

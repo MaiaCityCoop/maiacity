@@ -1,6 +1,6 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * LOADING AN ASSET — the one way a page gets a build, by its name, `<recipe hash>?its=values` (./builds.js), as
+ * LOADING AN ASSET — the one way a page gets a build, by its name, `<recipe hash>?its=values` (../../kernel/builds.js), as
  * anyone's would be got: from this device's cache (./cache/builds.js) when it was built here before, else from the asset box
  * (./box/host.js), which runs the recipe on the frozen engine it was made for. Either way it is checked (its card
  * against the card's schema, its data by ./box/rebuild.js) and built into three.js objects by our own code. The recipe

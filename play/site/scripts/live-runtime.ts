@@ -14,7 +14,7 @@
 import { resolve } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { compileModule } from 'svelte/compiler';
-import { hashText } from '../src/lib/content/game/hash.js';
+import { HEX, hashText } from '../src/lib/kernel/hash.js';
 
 const SITE = resolve(import.meta.dir, '..');
 
@@ -55,7 +55,7 @@ if (import.meta.main) {
 	if (args.includes('--pin')) {
 		writeFileSync(KEPT, text);
 		const at = resolve(SITE, 'src/lib/stories/compose.ts');
-		writeFileSync(at, readFileSync(at, 'utf8').replace(/const LIVE_HASH = '[0-9a-f]{64}';/, `const LIVE_HASH = '${hash}';`));
+		writeFileSync(at, readFileSync(at, 'utf8').replace(new RegExp(`const LIVE_HASH = '${HEX}';`), `const LIVE_HASH = '${hash}';`));
 	}
 	if (args.includes('--check')) {
 		const { VENDOR } = await import('../src/lib/stories/compose');

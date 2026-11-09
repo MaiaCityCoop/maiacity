@@ -4,20 +4,20 @@
  * assets, by the BLAKE3 hash of its recipe file, from play's API (/api/catalog); each file read from play's files,
  * held to that hash and kept on this device by it (./cache/files.js).
  *
- * An asset is named only by a hash: a build, `<hash>?values` (./builds.js), or a slot of its sandbox's pins,
+ * An asset is named only by a hash: a build, `<hash>?values` (../../kernel/builds.js), or a slot of its sandbox's pins,
  * `pin:<sandbox>/<slot>?values`, which the sandbox's config (play's database, ../game/code/index.js) maps to a build.
  * Nothing is looked up by a readable name: a version's number, an asset's id and a label are only shown.
  */
-import { holds } from '../../kernel/hash.js';
+import { hashText, holds } from '../../kernel/hash.js';
 import { configAt } from '../game/code/index.js';
-import { buildOf, hashText, parseBuild } from './builds.js';
+import { BUILD_START, buildOf, parseBuild, queryOf } from '../../kernel/builds.js';
 import { playFile } from './cache/files.js';
 import { LATEST } from './box/engines.js';
-import { queryOf } from './params.js';
 import { handedPieces } from './box/pieces.js';
 import { lodOf } from './lodcard.js';
 
-export { buildOf, checked, hashText, parseBuild } from './builds.js';
+// the names of a build, which render/index.js and sandbox-4/scene.ts (held) take from here
+export { buildOf, parseBuild };
 
 /** a build the catalog can't give: a hash it doesn't hold, a slot its sandbox doesn't pin, or a name that is no hash */
 export class NotInCatalog extends Error {}
@@ -116,7 +116,7 @@ export function resolve(name) {
 	if (typeof name !== 'string') throw new NotInCatalog(`not a build: ${JSON.stringify(name)}`);
 	const slot = SLOT.exec(name);
 	if (!slot) {
-		if (!/^[0-9a-f]{64}(\?|$)/.test(name)) throw new NotInCatalog(`${name}: an asset is named by its hash (a build, <hash>?values) or a sandbox's slot`);
+		if (!BUILD_START.test(name)) throw new NotInCatalog(`${name}: an asset is named by its hash (a build, <hash>?values) or a sandbox's slot`);
 		return parseBuild(name);
 	}
 	const [, sandbox, key, query = ''] = slot;
