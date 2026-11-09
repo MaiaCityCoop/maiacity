@@ -73,7 +73,13 @@ const ca = (m: string) => mods.filter((o) => modEdges.get(o)?.has(m)).length;
 const inst = (m: string) => (ce(m) + ca(m) === 0 ? 0 : ce(m) / (ce(m) + ca(m)));
 
 const isTest = (f: string) => /\.test\.|\/test\/|\/tests\/|testkit|fixtures\//.test(f);
-const isEntry = (f: string) =>
+// a file a workflow, script, package or Dockerfile names is run, not imported; tools' mirrors of play's documents and the
+// security auditor's samples are read as data
+const runners = execSync('git ls-files', { encoding: 'utf8' }).split('\n')
+	.filter((f) => /\.(ya?ml|sh|json)$|Dockerfile|Caddyfile/.test(f) && !SKIP.test(f) && existsSync(f))
+	.map((f) => readFileSync(f, 'utf8')).join('\n');
+const named = (f: string) => runners.includes(f) || runners.includes(f.replace(/^play\/(api|site)\//, '')) || runners.includes(f.split('/').slice(-2).join('/'));
+const isEntry = (f: string) => named(f) || /^tools\/[^/]+\/(pieces|assets|baseline|samples)\/|^tools\/security-auditor\/samples\/|\/params\//.test(f) ||
 	/\/routes\/|(^|\/)(scripts|avenbox|deploy|\.github|\.claude)\/|\.config\.|^tools\/[^/]+\/[^/]+\.(ts|js|mjs)$|play\/api\/src\/index\.ts$|\/bin\//.test(f) || isTest(f);
 
 const cmd = process.argv[2] ?? 'summary';
