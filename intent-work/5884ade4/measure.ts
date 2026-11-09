@@ -38,7 +38,7 @@ const families: Record<string, () => Bound[]> = {
 		];
 	},
 	// stable folders import nothing less stable (Martin's instability, ./graph.ts unstable)
-	layers: () => [['imports of a less stable folder', graph().unstable.length, 10]],
+	layers: () => [['imports of a less stable folder a held file does not make', JSON.parse(sh('HELD=intent-work/5884ade4/held.txt bun intent-work/5884ade4/graph.ts json')).unstableHeldFree.length, 10]],
 	// play/api: one version control, one intent core, one error, one lock list
 	api: () => {
 		const src = under('play/api/src/').filter((f) => !isTest(f));

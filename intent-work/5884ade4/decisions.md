@@ -304,3 +304,21 @@ the repo's documents (import/seeddocs.ts). The shared intent fixture took over 1
 `clearShips`; `human()` replaced 22 admin bootstraps. **For Samuel:** pr-intent.ts accepts an indented `Intent:` line
 the reconcile and intents.yml never see, and the JS readers take the UUID on the line after `Intent:` where the
 workflow's grep doesn't (kept as they are: behaviour).
+
+### Merged: site2 (play/site's re-audit fixes), 14:35Z
+
+~30 commits (`log/site2.md`); three conflicts (board.ts: api2's `$stages`; the Library shot scripts: site2's shared
+`library-scratch.ts`, which now calls `prepare()`). Its first gate run found a race in the test template (a losing
+rename answered 23505, not 42P04): fixed, three runs from no template since, 358 pass each (35 s, from ~50). The
+assets ↔ assets/render cycle broken (RenderBench.svelte beside its one page, reading through `lib/api.ts`; a missing
+bench manifest is now refused with its status where a 404 page was read as JSON or code); biomes ↔ render/nodes is
+closed only by `render/nodes/tsl.test.js`, held by ed6694c3. One `seededRandom` in `kernel/random.js` (minidomes,
+the game map, the van); the API's `DocVersion` type through `$wire` (four site copies, two drifted); comments cut by
+~210 lines; no comment names a gone file. census-same `same` ×3; vitest 450 pass, 5 fail (old-city.test.ts, held).
+
+**Layers, counted as the header says.** As for folder cycles (11:10Z): a less-stable import counts when a file that
+isn't held makes it. Main d5346b7 under the same rule: 12 (18 counting held files); this head 5 (11): the bound ≤ 10
+fails on main and passes here. Folder cycles under the rule: main 3, this head 0. The 5 left: play/api/src → docs
+(the folder metric: docs has fewer dependents; src building on docs is the design), lib/app → $wire (types only),
+lib → content/assets and lib/app → content/assets (a render kit below both waits on held files), box → cache (the
+device budget, render/budget.js, held).

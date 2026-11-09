@@ -97,6 +97,11 @@ const modCycles = sccs(mods, (n) => modEdges.get(n)?.keys() ?? []);
 const unstable: string[] = [];
 for (const [a, out] of modEdges) for (const [b, n] of out)
 	if (!isTest(a) && inst(b) > inst(a) + 1e-9) unstable.push(`${a} (I=${inst(a).toFixed(2)}) → ${b} (I=${inst(b).toFixed(2)}) ×${n}`);
+// with HELD=<list>: those a file that isn't held makes (a held file's imports are its intent's to change)
+const unstableHeldFree = unstable.filter((u) => {
+	const [, a, b] = u.match(/^(\S+) \(I=[^)]*\) → (\S+) /)!;
+	return freeEdges.get(a)?.has(b) ?? false;
+});
 const importedBy = new Map<string, number>();
 for (const out of edges.values()) for (const t of out) importedBy.set(t, (importedBy.get(t) ?? 0) + 1);
 const orphans = files.filter((f) => !importedBy.has(f) && !isEntry(f));
@@ -120,7 +125,8 @@ if (cmd === 'cycles') {
 	const freeCycles = sccs(mods, (n) => freeEdges.get(n) ?? []);
 	const modCyclesHeldFree = freeCycles.length;
 	if (process.env.SHOW) for (const c of freeCycles) console.error('held-free folder cycle: ' + c.join('  ↔  '));
-	console.log(JSON.stringify({ files: files.length, fileCycles, modCycles, modCyclesHeldFree, unstable, orphans }, null, 1));
+	if (process.env.SHOW) for (const u of unstableHeldFree) console.error('held-free less-stable import: ' + u);
+	console.log(JSON.stringify({ files: files.length, fileCycles, modCycles, modCyclesHeldFree, unstable, unstableHeldFree, orphans }, null, 1));
 } else {
 	console.log(`files ${files.length}, edges ${[...edges.values()].reduce((s, o) => s + o.size, 0)}, file cycles ${fileCycles.length}, module cycles ${modCycles.length}, less-stable imports ${unstable.length}, orphans ${orphans.length}`);
 }
