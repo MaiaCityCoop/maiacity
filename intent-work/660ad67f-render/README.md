@@ -19,9 +19,10 @@ bash intent-work/660ad67f-render/run.sh      # optional: a commit of the fix; de
   - Sandbox 1's film is advanced over 5 s (`__world.film.advance`).
 - It prints the GPU (it should name Apple / Metal) and ends with `OK`, or `FAILED` (exit 1).
 - **c6 passes when:**
-  - it prints `OK`: no `uniform3fv`, `@@iterator` or `did not load`, and the film advanced;
+  - it prints `OK`: no `uniform3fv`, `@@iterator`, `uniform buffer that is too small` or `did not load`, and the film advanced;
   - `out/*-sandbox-5.png` shows the dome's plants (Lemon, Strawberry, Basil, Nasturtium);
   - WebKit's count of programs linked while walking is reported.
+- **Run 2** (after run 1, `out/` 46306577f: plants drawn, film fine, but 14 "uniform buffer that is too small" per engine from the guard's frame): the guard's frame now draws with the program owner's uniforms and buffers. The job also prints the clashes it caught (`window.__clashes`: both materials and where their sources first differ), to pin what the key still misses. The run-1 outputs in `out/` are overwritten.
 - **Out:** `out/` (screenshots, `results-<browser>.json`, `stdout-<browser>.txt`). Commit it to this branch and push.
 
 **Dry run** (intent cb52fbd9; it passed in avenBOX before this was reported ready): `bun play/site/scripts/macjob/dry.ts intent-work/660ad67f-render --at <this branch's commit>`, from a checkout holding cb52fbd9's `scripts/macjob`. It builds Sandbox 1 on the CPU. Sandbox 5's route is an empty page there, so its waits time out, and the job tolerates that.

@@ -26,7 +26,7 @@ const counting = () => {
 		};
 	}
 };
-const BAD = /uniform\dfv|@@iterator|did not load|cannot be converted to a sequence|is not an object \(evaluating 'sky\.sun|reading 'position'/;
+const BAD = /uniform\dfv|@@iterator|did not load|cannot be converted to a sequence|uniform buffer that is too small|is not an object \(evaluating 'sky\.sun|reading 'position'/;
 const results = [];
 let failed = false, finished = false;
 // a job that ends before its results are written failed, whatever its exit code says
@@ -58,7 +58,9 @@ for (const [name, type, opts] of [
 	const walked = (await ev(() => window.__links ?? 0, 0)) - before;
 	const gpu = await ev(() => { const g = document.querySelector('canvas')?.getContext('webgl2'); const e = g?.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'unknown'; }, 'unknown');
 	await page.screenshot({ path: `${out}/${name}-sandbox-5.png` });
-	const s5 = { said: said.splice(0) };
+	// the guard's clashes (index.js `install`): which materials met a program built from other source, and where
+	const clashes = await ev(() => window.__clashes ?? [], []);
+	const s5 = { said: said.splice(0), clashes };
 	// Sandbox 1: its film stepped
 	step(`${name}: Sandbox 1`);
 	await page.goto(`${site}/sandbox-1/`, { waitUntil: 'load' });
@@ -75,12 +77,13 @@ for (const [name, type, opts] of [
 		}
 	});
 	await page.screenshot({ path: `${out}/${name}-sandbox-1-film.png` });
-	const r = { browser: name, gpu, sandbox5: { builtSeconds: built, programsLinkedWhileWalking: walked, programsLinkedTotal: await ev(() => window.__links ?? 0, 0), errors: s5.said }, sandbox1: { film, errors: said.splice(0) } };
+	const r = { browser: name, gpu, sandbox5: { builtSeconds: built, programsLinkedWhileWalking: walked, programsLinkedTotal: await ev(() => window.__links ?? 0, 0), clashes: s5.clashes, errors: s5.said }, sandbox1: { film, errors: said.splice(0) } };
 	const bad = [...r.sandbox5.errors, ...r.sandbox1.errors].filter((t) => BAD.test(t));
 	if (bad.length || film.startsWith('threw')) failed = true;
 	r.bad = bad;
 	results.push(r);
-	console.log(`${name} (${gpu}): Sandbox 5 built in ${built.toFixed(0)} s, ${walked} programs linked walking, ${bad.length} uniform/load errors; Sandbox 1's film ${film}`);
+	console.log(`${name} (${gpu}): Sandbox 5 built in ${built.toFixed(0)} s, ${walked} programs linked walking, ${bad.length} uniform/load errors, ${s5.clashes.length} clashes caught; Sandbox 1's film ${film}`);
+	for (const c of s5.clashes.slice(0, 5)) console.log(`  clash ${c.a} ~ ${c.b}:\n    was …${c.was}…\n    is  …${c.at}…`);
 	await browser.close();
 }
 finished = true;
