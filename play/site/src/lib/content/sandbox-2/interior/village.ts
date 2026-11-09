@@ -33,7 +33,7 @@ import { createStream, type View } from '$lib/content/sandbox-kit/stream.js'
 import { ambience, levelsAt } from './ambience'
 import { createForest, STREAMS, type Forest } from './flora.js'
 import { createDrawn, createFlora } from './drawn.js'
-import { createCover } from './cover.js'
+import { coverStream } from '$lib/content/biomes/stream.js'
 import { FLOORS, THINGS, coopsOf, putThings } from './things.js'
 import { swapLegacy } from './legacy.js'
 import { assetOf, pick, planting, stageOf, type Flora } from './sandbox5.js'
@@ -983,8 +983,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	// Sandbox 5's floor cover: the food forest biome's grasses, moss, flowers, strawberries, ferns, leaves and deadwood,
 	// each in its colonies, laid out in tiles round you as you go ($content/biomes/stream.js) — too dense for the whole cell;
 	// all of it near you, thinning out further off, each plant growing out of the ground as you come (so it has no edge)
-	// ($content/biomes/stream.js lays it; each kind built in the box and drawn by the renderer, ./cover.js)
-	const floorCover = flora && FLOOR_BIOME ? createCover({ drawn: library, recipe: FLOOR_BIOME, open: (x, z) => floorOpen(x, z), heightAt: groundY, tile: 10, reach: 28, near: 7, thin: 0.2, density: 3.4, seed: 505 }) : null
+	// ($content/biomes/stream.js lays it; each kind built in the box and drawn by the renderer, grown on the graphics card)
+	const floorCover = flora && FLOOR_BIOME ? coverStream({ drawn: library, recipe: FLOOR_BIOME, open: (x, z) => floorOpen(x, z), heightAt: groundY, tile: 10, reach: 28, near: 7, thin: 0.2, density: 3.4, seed: 505 }) : null
 	const TILE = 70
 	type Tile = { cx: number; cz: number; main: THREE.Matrix4[][]; under: THREE.Matrix4[][]; floor: THREE.Matrix4[][]; far: THREE.Matrix4[]; farCrowns: THREE.Matrix4[]; farColors: THREE.Color[]; dense: THREE.Matrix4[]; denseCrowns: THREE.Matrix4[]; denseColors: THREE.Color[]; near?: THREE.Group; farMesh?: THREE.Group; ground?: THREE.Group }
 	const tiles = new Map<string, Tile>()
