@@ -17,7 +17,7 @@
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type ChainVersion, type Pick } from './Aside.svelte';
-	import { api, may } from '$lib/api';
+	import { api, fileUrl, may } from '$lib/api';
 	import { catalogReady } from '$lib/recipes';
 	import { admitProposed, recipeInfo, source } from '$lib/content/assets/catalog.js';
 
@@ -201,7 +201,7 @@
 				{/if}
 			</dl>
 			<!-- its reference sheet (a plant's plate of every stage and organ), its data sheet and the sheet's brief, kept in the Library -->
-			{#if v.sheet}<a class="sheet" href="/api/files/{v.sheet}" target="_blank" rel="noopener"><img src="/api/files/{v.sheet}" alt="v{v.number}'s reference sheet" loading="lazy" /><span>Reference sheet</span></a>{/if}
+			{#if v.sheet}<a class="sheet" href={fileUrl(v.sheet)} target="_blank" rel="noopener"><img src={fileUrl(v.sheet)} alt="v{v.number}'s reference sheet" loading="lazy" /><span>Reference sheet</span></a>{/if}
 			{#if v.datasheet || v.brief}<p class="docs">{#if v.datasheet}<a href="/library/?kind=document&q={v.datasheet}">Data sheet</a>{/if}{#if v.brief}<a href="/library/?kind=document&q={v.brief}">Sheet brief</a>{/if}</p>{/if}
 			<div bind:this={details}></div>
 			{#if catalog}{#await partsList then { default: Parts }}<h4 class="side-head">Parts {catalog.parts.length}</h4><Parts {catalog} own={shownHash ?? undefined} bind:picked bind:solo hrefOf={unitHref} nameOf={unitName} />{/await}{/if}

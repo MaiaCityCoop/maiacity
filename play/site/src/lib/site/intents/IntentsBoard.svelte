@@ -33,7 +33,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
+	import { api, fileText } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import { wayBack } from '$lib/site/app/back.svelte.js';
 	import { intentsModal } from './intents.svelte';
@@ -205,11 +205,6 @@
 	let showSource = $state(false);
 	let noteOpen = $state(false);
 	let reviewError = $state('');
-	const text = async (hash: string) => {
-		const r = await fetch(`/api/files/${hash}`, { credentials: 'same-origin' });
-		if (!r.ok) throw new Error(`The file could not be read (HTTP ${r.status}).`);
-		return r.text();
-	};
 	// a story's (play/api/src/stories.ts): its timeline played in the Stories player, beside what changed clip by clip
 	type StoryReview = DocReview & { story: Story; baseStory: (Story & { number: number }) | null; diff: StoryDiff };
 	let storyReview = $state<StoryReview | null>(null);
@@ -287,8 +282,8 @@
 			if (focused !== d) return;
 			review = r;
 			shown = (r.builds.find((b) => b.first) ?? r.builds[0])?.hash ?? '';
-			code = r.source ? await text(r.source) : r.recipe ? await text(r.recipe) : '';
-			baseCode = r.baseVersion?.source ? await text(r.baseVersion.source) : null;
+			code = r.source ? await fileText(r.source) : r.recipe ? await fileText(r.recipe) : '';
+			baseCode = r.baseVersion?.source ? await fileText(r.baseVersion.source) : null;
 		} catch (e) {
 			reviewError = (e as Error).message;
 		}

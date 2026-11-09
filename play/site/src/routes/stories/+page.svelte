@@ -9,7 +9,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
+	import { api, fileUrl } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import { goto } from '$app/navigation';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
@@ -96,7 +96,7 @@
 		<h1>Stories</h1>
 		{#each list as s (s.id)}
 			<button class="item" class:on={s.id === picked} onclick={() => open(s.id)} title={s.title}>
-				{#if s.cover}<img src="/api/files/{s.cover}" alt="" />{:else}<span class="blank"></span>{/if}
+				{#if s.cover}<img src={fileUrl(s.cover)} alt="" />{:else}<span class="blank"></span>{/if}
 				<span class="text"><b>{s.title}</b><span class="muted">{clock(s.duration)} · v{s.number}</span></span>
 			</button>
 		{:else}

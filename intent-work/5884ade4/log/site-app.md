@@ -14,3 +14,7 @@ Problems cited as `site-app#n` (audit/site-app.md). Each move: what, the problem
 3. **The dashboard's Rules tile draws its icon** (the other live bug). `'check'` was in neither icon set the tile's
    type allowed; it is added to `lib/site/app/Icon.svelte` (a ticked square in that set's line style) and to the
    dashboard's `Tile` type. Removes site-app#40. Pinned by svelte-check (the one error in routes/+page.svelte is gone).
+4. **The app's pages read play's files through the client.** AssetLibrary's reference sheet, the Artifacts' kept page,
+   the Stories list's covers and the Library's links use `fileUrl`; the Library's document view and the board's source
+   diff use `fileText`, so both are now held to the hash (the board's read was not; the Library's showed an error
+   page's body as the document). Removes site-app#11 outside StoryPlayer. Pinned by the build and svelte-check.

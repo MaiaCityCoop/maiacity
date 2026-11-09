@@ -16,7 +16,7 @@
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
-	import { api } from '$lib/api';
+	import { api, fileUrl } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import { markdown } from '$lib/site/markdown/index.js';
 
@@ -286,7 +286,7 @@
 							</div>
 							<p class="actions">
 								<a class="go" href={view.url} target="_blank" rel="noopener noreferrer">Open the link ↗ <small>{host(view.url)}</small></a>
-								{#if view.text_hash}<a class="chip" href="/api/files/{view.text_hash}" target="_blank" rel="noopener">The page as it was kept</a>{/if}
+								{#if view.text_hash}<a class="chip" href={fileUrl(view.text_hash)} target="_blank" rel="noopener">The page as it was kept</a>{/if}
 							</p>
 							{#if view.tags.length}
 								<p class="tags">{#each view.tags as t (t)}<button class="tagchip" onclick={() => filter(() => (tag = t))}>{t}</button>{/each}</p>

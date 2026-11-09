@@ -15,7 +15,7 @@
 	import { goto } from '$app/navigation';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
-	import { api } from '$lib/api';
+	import { api, fileText, fileUrl as url } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import { acting, asCity } from '$lib/acting.svelte';
 
@@ -50,7 +50,6 @@
 	const admin = $derived(session.me?.level === 'admin');
 	/** the library of whoever the person acts as: Maia City's (the coop's) or their own */
 	const library = $derived<'coop' | 'personal'>(asCity() ? 'coop' : 'personal');
-	const url = (h: string) => `/api/files/${h}`;
 	// a document is Markdown (a plant's data sheet, its sheet's brief); the rest by their media type
 	const kindOf = (f: File) => (f.media_type === 'text/markdown' ? 'document' : f.media_type.split('/')[0]);
 	/** what a plant version keeps a file as */
@@ -163,7 +162,7 @@
 			{:else if kindOf(open) === 'audio'}
 				<audio src={url(open.hash)} controls></audio>
 			{:else if kindOf(open) === 'document'}
-				{#await fetch(url(open.hash), { credentials: 'same-origin' }).then((r) => r.text())}
+				{#await fileText(open.hash)}
 					<p class="soft">Reading it…</p>
 				{:then text}
 					<pre class="doc">{text}</pre>
