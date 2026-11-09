@@ -20,7 +20,7 @@ import {
 } from 'three/tsl';
 import { GRASS, PUSHERS, fieldMask, grassField, levelGeometry, perCell } from '../../biomes/grass.js';
 import {
-	ARGS, OFFSETS, TRAMPLE, RECOVERED, capacities, cellsAround, cellOf, choose, gpuDevice, indirectArgs, maxCells, tallest, JITTER
+	ARGS, OFFSETS, TRAMPLE, RECOVERED, capacities, cellsAround, cellOf, choose, chooseOnCpu, gpuDevice, indirectArgs, maxCells, tallest, JITTER
 } from '../../biomes/grass-gpu.js';
 import { grassMaterial, grassUniforms, bladeT, clumpsT, drawU } from './grass.js';
 import { windNodes, worldSeconds } from '../wind.js';
@@ -208,6 +208,24 @@ export function grassCompute(renderer, o) {
 	let counts = [0, 0, 0];
 	/** @type {[number, number] | null} */
 	let origin = null;
+	let mirrored = '';
+	/** each level's blades as the CPU's twin chooses them this frame, kept on its draw for the census */
+	const mirror = () => {
+		const v = { mask, eye: /** @type {[number, number, number]} */ (C.eye.value.toArray()), planes: C.planes.array.slice(0, 6).map((p) => /** @type {[number, number, number, number]} */ (p.toArray())), dev, n, hmax, clump: P.clump };
+		const key = JSON.stringify([v.eye, v.planes, maskVersion, live]);
+		if (key === mirrored) return;
+		mirrored = key;
+		const c = [0, 0, 0], list = /** @type {Uint32Array} */ (cells.array);
+		for (let k = 0; k < live; k++) {
+			const p = /** @type {number} */ (list[k]), cx = (p & 0xffff) - 32768, cz = (p >>> 16) - 32768;
+			for (let j = 0; j < n; j++) {
+				const l = chooseOnCpu(cx, cz, j, v);
+				if (l >= 0) c[l] = /** @type {number} */ (c[l]) + 1;
+			}
+		}
+		counts = c.map((x, l) => Math.min(/** @type {number} */ (x), /** @type {number} */ (caps[l])));
+		meshes.forEach((m, l) => (m.geometry.userData.indirectInstances = counts[l]));
+	};
 	return {
 		object,
 		uniforms: U,
@@ -262,6 +280,9 @@ export function grassCompute(renderer, o) {
 			renderer.compute(reset);
 			renderer.compute(trample);
 			if (live) renderer.compute(chooseNode, live * n);
+			// counted, not drawn (the census, scripts/census/counting.js): no GPU counts the blades, so the CPU's twin
+			// does, once a view, so each indirect draw's triangles are counted as the card would draw them
+			if (renderer.tally) mirror();
 		},
 		/** how many blades it drew at each level, as last read back (`readBack`) */
 		count: () => counts.slice(),

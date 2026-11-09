@@ -301,9 +301,13 @@ describe('on WebGPU: chosen on the graphics card', async () => {
 			expect(b.draws).toBeGreaterThan(3);
 		}
 		for (const m of field.object.children) expect(/** @type {any} */ (m).geometry.indirect).toBeTruthy();
+		// counted as the card would draw them: the CPU's twin fills each draw's blades, so its triangles are counted
+		frame(renderer, field, scene, cameraAt(0, 0, 0));
+		expect(field.count().reduce((/** @type {number} */ a, /** @type {number} */ b) => a + b, 0)).toBeGreaterThan(10000);
+		expect(renderer.tally.tris).toBeGreaterThan(10000);
 		field.dispose();
 		tiles.dispose();
-	});
+	}, 60_000);
 
 	test('indirect: the three draws’ arguments: each level’s index count, its blades from 0, firstIndex, baseVertex and firstInstance 0; 20 bytes apart', () => {
 		const a = G.indirectArgs([39, 15, 6]);
