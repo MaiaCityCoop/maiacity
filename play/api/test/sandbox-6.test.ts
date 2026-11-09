@@ -44,8 +44,13 @@ suite("Sandbox 6 in play", () => {
   });
 
   test("its layout is a document, its v1 the village and audit the deploy's import writes once, with a history", async () => {
-    expect(await seedSandboxLayouts(f.db)).toEqual({ seeded: [SANDBOX.six], present: [], errors: [] });
-    expect(await seedSandboxLayouts(f.db)).toEqual({ seeded: [], present: [SANDBOX.six], errors: [] });
+    // (the other sandboxes' layouts kept in the repo are seeded beside it)
+    const first = await seedSandboxLayouts(f.db);
+    expect(first.errors).toEqual([]);
+    expect(first.seeded).toContain(SANDBOX.six);
+    const again = await seedSandboxLayouts(f.db);
+    expect(again.seeded).toEqual([]);
+    expect(again.present).toContain(SANDBOX.six);
     expect(await ensureLayoutDoc(f.db, SANDBOX.six)).toBe(false);
     const { rows } = await f.db.query<any>(`SELECT id FROM play.docs WHERE id = $1`, [`sandbox:${SANDBOX.six}`]);
     expect(rows).toHaveLength(1);

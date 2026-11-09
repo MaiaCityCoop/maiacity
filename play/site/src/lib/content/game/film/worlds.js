@@ -35,6 +35,7 @@ export const WORLDS = {
 	[SANDBOX.one]: { label: 'Sandbox 1 · a dome cell grown from our plants', route: '/sandbox-1/', ...DOME_CELL },
 	[SANDBOX.three]: { label: 'Sandbox 3 · the tired land', route: '/sandbox-3/', areas: ['A', 'B', 'C'], areaNames: { A: 'Player 1', B: 'Player 2', C: 'Player 3' }, parts: ROAD },
 	[SANDBOX.five]: { label: 'Sandbox 5 · the forest dome in its own food forest', route: '/sandbox-5/', ...DOME_CELL },
+	[SANDBOX.seven]: { label: 'Sandbox 7 · the planet', route: '/sandbox-7/', areas: ['planet'], parts: [] },
 	worlds: { label: 'Worlds · a world of play, by its UUID and version', route: '/worlds/', areas: null, parts: [] }
 };
 

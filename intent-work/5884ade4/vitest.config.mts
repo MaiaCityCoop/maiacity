@@ -1,6 +1,7 @@
 // play/site's vitest run for intent 5884ade4's c11 (./site-checks.sh): the site's own config (play/site/vite.config.ts),
-// on every core, its slowest files started first. Sandbox 2's structural tests take most of the run (one alone 290 s
-// here); in the order vitest picks with no results cached they finish one after another past the box's 600 s a check.
+// on every core, its slowest files started first, a test given 60 s (Sandbox 7's globe takes 7 s in vitest; its 5 s
+// were written for bun). Sandbox 2's structural tests take most of the run (one alone 290 s here); in the order vitest
+// picks with no results cached they finish one after another past the box's 600 s a check.
 // Nothing imported by name from here but the site's config: bare names resolve beside this file, where nothing is.
 import { availableParallelism } from 'node:os';
 import site from '../../play/site/vite.config.ts';
@@ -36,4 +37,4 @@ class SlowestFirst {
 	}
 }
 
-export default { ...site, test: { ...site.test, maxWorkers: availableParallelism(), sequence: { sequencer: SlowestFirst } } };
+export default { ...site, test: { ...site.test, maxWorkers: availableParallelism(), testTimeout: 60_000, sequence: { sequencer: SlowestFirst } } };
