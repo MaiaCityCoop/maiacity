@@ -29,5 +29,10 @@ PLAY_API=http://localhost:3911 bunx vite preview --port 5190 --strictPort >"$OUT
 PIDS+=($!)
 for _ in $(seq 1 60); do curl -sf http://localhost:5190/ >/dev/null && break; sleep 1; done
 # Playwright from the served tree's play/site (Chromium on Metal and WebKit)
-node "$JOB/look.mjs" --site http://localhost:5190 --out "$OUT" 2>&1 | tee "$OUT/stdout.txt"
+# one process per browser, each ending only once its results are written
+for b in chromium webkit; do
+  rm -f "$OUT/results-$b.json"
+  node "$JOB/look.mjs" --site http://localhost:5190 --out "$OUT" --browser "$b" 2>&1 | tee "$OUT/stdout-$b.txt"
+  [ -s "$OUT/results-$b.json" ] || { echo "FAILED: $b ended before its results were written"; exit 1; }
+done
 echo "out: $OUT (commit out/ and push the branch intent-work/660ad67f-render)"

@@ -22,6 +22,6 @@ bash intent-work/660ad67f-render/run.sh      # optional: a commit of the fix; de
   - it prints `OK`: no `uniform3fv`, `@@iterator` or `did not load`, and the film advanced;
   - `out/*-sandbox-5.png` shows the dome's plants (Lemon, Strawberry, Basil, Nasturtium);
   - WebKit's count of programs linked while walking is reported.
-- **Out:** `out/` (screenshots, `results.json`, `stdout.txt`). Commit it to this branch and push.
+- **Out:** `out/` (screenshots, `results-<browser>.json`, `stdout-<browser>.txt`). Commit it to this branch and push.
 
 **Dry run** (intent cb52fbd9; it passed in avenBOX before this was reported ready): `bun play/site/scripts/macjob/dry.ts intent-work/660ad67f-render --at <this branch's commit>`, from a checkout holding cb52fbd9's `scripts/macjob`. It builds Sandbox 1 on the CPU. Sandbox 5's route is an empty page there, so its waits time out, and the job tolerates that.

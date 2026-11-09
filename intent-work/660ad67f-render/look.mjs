@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // c6 of intent 660ad67f on the Mac (Metal): Sandbox 5's dome plants in Chromium and WebKit, and Sandbox 1's film stepped.
-//   node intent-work/660ad67f-render/look.mjs --site http://localhost:5190 [--out <dir>]   (run.sh runs it)
+//   node intent-work/660ad67f-render/look.mjs --site http://localhost:5190 [--out <dir>] [--browser chromium|webkit]
+// (run.sh runs it once per browser)
 // Per browser: Sandbox 5 opened, left to build (until its renderers build nothing, at most 120 s), walked forward 12 s
 // (W held), its programs linked counted (linkProgram) and every console error and page error kept; a screenshot after.
 // Then Sandbox 1, built, its film advanced over 5 s (window.__world.film.advance at 0…5 s, 10 steps). Out: <out>/*.png
-// and <out>/results.json; it exits 1 when any uniform error, "did not load" or film throw is seen.
+// and <out>/results[-<browser>].json; it exits 1 when any uniform error, "did not load" or film throw is seen.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const { chromium, webkit } = createRequire(process.cwd() + "/package.json")("playwright");
@@ -12,6 +13,7 @@ const argv = process.argv.slice(2);
 const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
 const site = opt('--site', 'http://localhost:5190').replace(/\/$/, '');
 const out = opt('--out', 'out');
+const only = opt('--browser', null);
 mkdirSync(out, { recursive: true });
 
 const counting = () => {
@@ -33,7 +35,7 @@ const step = (s) => console.error(`look: ${s}`);
 for (const [name, type, opts] of [
 	['chromium', chromium, { args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] }],
 	['webkit', webkit, {}]
-]) {
+].filter(([n]) => !only || n === only)) {
 	step(`${name}: launch`);
 	const browser = await type.launch({ headless: true, ...opts });
 	const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -82,6 +84,6 @@ for (const [name, type, opts] of [
 	await browser.close();
 }
 finished = true;
-writeFileSync(`${out}/results.json`, JSON.stringify(results, null, 2));
+writeFileSync(`${out}/results${only ? `-${only}` : ''}.json`, JSON.stringify(results, null, 2));
 console.log(failed ? 'FAILED: see results.json' : 'OK: no uniform error, no plant failed to load, the film advanced');
 process.exit(failed ? 1 : 0);
