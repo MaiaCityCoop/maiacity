@@ -1,23 +1,13 @@
-// play's MCP server (/api/mcp, Streamable HTTP, stateless): an agent works on Maia City's assets, stories, factories,
-// game configs and skills for an admin, by that admin's access token (./tokens.ts, `Authorization: Bearer play_…`).
-// Everything play versions is versioned one way (./versioned.ts, play/SPEC.md "Version control"), by its document's
-// UUID: list_docs, doc_at (a version, an edit, an intent's variant), doc_history (edits, versions, variants), doc_edit
-// (one edit of an intent variant) and propose_doc_version. Each kind's own reads and creates stay where they hold more
-// than the document: get_asset (its recipe files), get_story (its links), propose_asset and propose_story (a new one),
-// and get_sandbox (a layout's pins by their assets). To propose is to put an intent at Proposal with that work (one record, the intent:
-// ./held.ts and ./intents.ts, Samuel 2026-11-06), in the admin's name with `via` 'mcp'. Accepting stays a person's, on the intents'
-// board (Samuel 2026-11-02): no tool here accepts. An agent may archive only its own intents at Proposal put there over
-// MCP (archive_intent, Samuel 2026-11-04), one it no longer stands by. Everything on the board is an intent
-// (./intents.ts): it adds intents (the only way in), specifies them (a goal, a scope, checks), records their checks'
-// results while it builds an approved one, and names the intent in what it proposes (every propose tool's
-// `intent`), play taking it only once every must check passes; once they all pass the intent moves to Proposal by
-// itself, where a person decides it (Samuel 2026-11-06); approving a spec and accepting stay a person's.
-// Every agent connected here is avenMAIA (play/SPEC.md §4.13, Samuel 2026-11-06), whatever its client or token: it keeps
-// Maia City's artifacts (./artifacts.ts), every link its operator pastes (origin 'human') and every artifact it finds in
-// its own research (origin 'agent'), each with its title, description, summary and authors.
-// What it is taught is not written here: the system prompt (initialize's instructions), an intent's brief and the
-// prompts are the skills', kept once in play's Postgres and changed only by proposal (./skills.ts, play/SPEC.md §4.14,
-// Samuel 2026-11-06); a tool's description says only what it takes, gives back and refuses.
+// play's MCP server (/api/mcp, Streamable HTTP, stateless): an agent works on Maia City's documents for an admin, by that
+// admin's access token (./tokens.ts, `Authorization: Bearer play_…`). Everything is versioned one way (./versioned.ts,
+// play/SPEC.md "Version control") by its document's UUID: list_docs, doc_at, doc_history, doc_edit, propose_doc_version;
+// each kind's own reads and creates stay where they hold more (get_asset, get_story, propose_asset, propose_story,
+// get_sandbox). To propose is to put an intent at Proposal with that work (./held.ts, ./intents.ts; Samuel 2026-11-06),
+// in the admin's name, `via` 'mcp'. Agents add, specify and build intents and name them in every propose; approving a
+// spec and accepting stay a person's on the board (Samuel 2026-11-02): no tool here accepts, and an agent archives only
+// its own intents put at Proposal over MCP (archive_intent, Samuel 2026-11-04). Every agent here is avenMAIA (play/SPEC.md
+// §4.13), keeping Maia City's artifacts (./artifacts.ts). What it is taught is the skills', kept once in play's Postgres
+// and changed only by proposal (./skills.ts, §4.14); a tool's description says only what it takes, gives and refuses.
 import type { BlobStore } from "./blobs";
 import type { Db, Queryable } from "./kit/pg";
 import { admin, type Me } from "./access";
@@ -447,9 +437,8 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     ...artifactTools(c),
   ];
 
-  // to propose is to put an intent at Proposal (play/SPEC.md §4.12): no work without an intent. Work names its intent,
-  // held to its gate first (its spec approved and every must check passed, ./intents.ts intentReady), and replaces any
-  // work it held; without one nothing is taken. Every propose tool gives back the intent (`intent`, at stage proposal)
+  // to propose is to put an intent at Proposal (play/SPEC.md §4.12), held to its gate first (./intents.ts intentReady),
+  // its work replacing any it held; without one nothing is taken. Every propose tool gives back the intent (`intent`, at stage proposal)
   for (const t of tools) {
     if (!t.proposes) continue;
     // an artifact added or corrected without one makes its own (./artifacts.ts): the first rule needs no tap for it
@@ -497,8 +486,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     if (msg.id === undefined) return new Response(null, { status: 202 });
     switch (msg.method) {
       case "initialize":
-        // the system prompt is the system skills' parts as accepted (./skills.ts), read on each request: an accepted
-        // version teaches the next agent that connects, with no deploy
+        // the system prompt is the system skills' parts as accepted (./skills.ts), read each request: no deploy needed
         return reply(msg.id, {
           protocolVersion: PROTOCOL,
           capabilities: { tools: {}, prompts: {} },
