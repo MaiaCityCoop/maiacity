@@ -28,7 +28,6 @@ play/site/scripts/selector-shots.mjs
 play/site/scripts/story-parity.ts
 play/site/src/lib/content/actors/dqs.test.ts
 play/site/src/lib/content/actors/dqs.ts
-play/site/src/lib/content/assets/VaultAsset.svelte
 play/site/src/lib/content/assets/box/engine.js
 play/site/src/lib/content/assets/box/engine.test.ts
 play/site/src/lib/content/assets/box/engine/card.js
@@ -53,7 +52,6 @@ play/site/src/lib/content/assets/box/rebuild.js
 play/site/src/lib/content/assets/box/serialize.js
 play/site/src/lib/content/assets/box/shim.js
 play/site/src/lib/content/assets/card.js
-play/site/src/lib/content/assets/ground.js
 play/site/src/lib/content/assets/hero.js
 play/site/src/lib/content/assets/kit.js
 play/site/src/lib/content/assets/look.js
@@ -70,7 +68,6 @@ play/site/src/lib/content/assets/stage.js
 play/site/src/lib/content/assets/viewer.js
 play/site/src/lib/content/biomes/biomes.test.ts
 play/site/src/lib/content/biomes/card.js
-play/site/src/lib/content/biomes/cover.js
 play/site/src/lib/content/biomes/grass-gpu.js
 play/site/src/lib/content/biomes/grass.js
 play/site/src/lib/content/biomes/grass.test.js
@@ -119,8 +116,6 @@ play/site/src/lib/content/render/wind.test.js
 play/site/src/lib/content/render/world.js
 play/site/src/lib/content/sandbox-2/interior/PlantLook.svelte
 play/site/src/lib/content/sandbox-2/interior/animals.ts
-play/site/src/lib/content/sandbox-2/interior/cover.js
-play/site/src/lib/content/sandbox-2/interior/drawn.js
 play/site/src/lib/content/sandbox-2/interior/interior.ts
 play/site/src/lib/content/sandbox-2/interior/plants.ts
 play/site/src/lib/content/sandbox-2/interior/textures.ts
