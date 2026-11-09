@@ -1,5 +1,19 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 11:15 Berlin — 660ad67f c6 recorded: FAIL on the Safari walk (decision for Samuel below)
+- Judged as planned (the bound against its purpose: Safari walking Sandbox 5 smoothly). **WebKit walk on head 1ddf48990:
+  66 frames in 12 s, mean 186.9 ms, p95 341, 27 over 100 ms, one 5.1 s stall** (pre-programme 577 frames, 20.8 ms; bound
+  31.2 ms). Main before bd087014 was 23 frames, 523 ms. Programs linked while walking: WebKit 45, Chromium 48.
+- Everything else passes: Sandbox 5 drawn in both engines, 0 uniform errors of any kind, no plant fails, the film plays.
+- **For Samuel:** production's Sandbox 5 is blank now; this head makes it draw everywhere but Safari stutters while it
+  links. Either (a) ship it as is: relax c6's bound in the spec (his approval) and I re-record from this run, no new GPU
+  time; or (b) its builder keys a clashing material by its *source* (same source, one program) instead of its id (each
+  clash now adds a program), and builds Sandbox 5's plant programs before the walk; then a new job (~3 min).
+- 0b4c007b: pushed 89f357d34 (the sky's light keeps 3/4 of its blue instead of 85 %: the shade under the trees no longer
+  navy; near stays within 10 % of pre). Its box run will record c1/c2; its looks wait for 660ad67f on main (Sandbox 5).
+- Loop: 544485e2's viewer calibration (running) → 660ad67f's next job if pushed → #13 run 3 (f286675c6) → #8 run 2
+  (7f322dff8) → (#6 held).
+
 ## 11:08 Berlin — 660ad67f run 2 (head 1ddf48990; out/ 0321a26c5)
 - **Everything in c6 passes but the program bound:** Sandbox 5 fully drawn in Chromium and WebKit (the dome's food forest,
   paths, plants), **0 uniform-buffer errors, 0 uniform3fv, 0 plants failing to load**, the film advances 0…5 s in both.
