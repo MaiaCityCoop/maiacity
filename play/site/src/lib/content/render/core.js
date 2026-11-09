@@ -128,7 +128,8 @@ export const isWebGPU = (r) => !!(/** @type {any} */ (r)?.isWebGPURenderer);
  * @property {keyof typeof TONE} [toneMapping] none (default) or agx
  * @property {number} [exposure] the tone mapping's exposure (default 1)
  * @property {boolean | keyof typeof SHADOWS} [shadows] shadow maps on (true: three's default kind) and of which kind
- * @property {boolean} [clipping] clipping planes per material (WebGL only: WebGPU clips by ClippingGroup)
+ * @property {boolean} [clipping] clipping planes per material on WebGL, and the kit's cuts on either (WebGPU clips
+ *   plain materials only by ClippingGroup)
  * @property {() => void} [onLost] the graphics card took the canvas back (the default reaction prevented)
  * @property {Backend} [backend] the switch's choice for this page (see BACKENDS); else `backend()`'s
  */
@@ -216,6 +217,8 @@ function createWebGPU(o, forceWebGL) {
 		renderer.shadowMap.enabled = true;
 		if (o.shadows !== true) renderer.shadowMap.type = SHADOWS[o.shadows];
 	}
+	// WebGPU has no clipping switch of its own: the kit's cut reads this one, as on WebGL (./nodes/index.js `clipping`)
+	/** @type {any} */ (renderer).localClippingEnabled = !!o.clipping;
 	// the device taken back: the page's reaction, else three's own (it logs); a page is opened anew as on WebGL
 	renderer.onDeviceLost = (info) => {
 		if (o.onLost) o.onLost();
