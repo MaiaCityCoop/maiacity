@@ -1,7 +1,6 @@
 /**
- * The one sky every world, sandbox and the asset viewer is under (./sky.js puts it up): by day the Preetham scattering
- * model (our TSL fork of three's SkyMesh), at dusk the blue hour, at night the moon and the stars (instanced sprites:
- * WebGPU draws points a pixel wide). Set from the hour and the camera alone, so a film renders the same pixels every time.
+ * The one sky every world is under (./sky.js puts it up): Preetham's scattering by day (our TSL fork of SkyMesh), the
+ * blue hour at dusk, the moon and stars at night (sprites: WebGPU draws points a pixel wide); set from hour and camera alone.
  */
 import * as THREE from 'three';
 import { NodeMaterial } from 'three/webgpu';
@@ -29,10 +28,7 @@ const nightOf = (/** @type {number} */ alt) => smooth(0.02, -0.2, alt);
 
 const RAYLEIGH = [5.804542996261093e-6, 1.3562911419845635e-5, 3.0265902468824876e-5];
 const MIE = [1.8399918514433978e14, 2.7798023919660528e14, 4.0790479543861094e14];
-/**
- * What the air does with the sun at sun.y (its strength, each primary's scattering): Preetham's sun-only half, worked out
- * once per move, not per pixel. @param {number} sunY @param {typeof AIR} [a]
- */
+/** Preetham's sun-only half at sun.y, worked out once per move, not per pixel. @param {number} sunY @param {typeof AIR} [a] */
 export function airOf(sunY, a = AIR) {
 	const sunE = 1000 * Math.max(0, 1 - Math.exp(-((1.6110731556870734 - Math.acos(Math.max(-1, Math.min(1, sunY)))) / 1.5)));
 	const fade = Math.min(1, Math.exp(sunY / 450000));
@@ -64,10 +60,7 @@ export function skyAt(d, s, air) {
 	});
 }
 
-/**
- * The air just above the horizon at 16 bearings from +x toward +z, what the haze becomes (warm toward a low sun, pale by
- * day, blue in the blue hour); linear. @param {THREE.Vector3} sun @returns {THREE.Color[]}
- */
+/** The air just above the horizon at 16 bearings, what the haze becomes; linear. @param {THREE.Vector3} sun @returns {THREE.Color[]} */
 export function horizonRing(sun) {
 	const air = airOf(sun.y), s = sun.toArray(), el = 0.05;
 	return Array.from({ length: 16 }, (_, k) => {

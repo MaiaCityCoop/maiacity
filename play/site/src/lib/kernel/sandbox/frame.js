@@ -45,10 +45,7 @@ export async function frozen(path, hash, what) {
 /** each frozen engine's code as it was fetched and checked, by kind and version: once a page, for every host */
 const engines = new Map();
 
-/**
- * Frozen engine `v` of `kind` (latest when none: ../engines.js) checked (`frozen`), fetched once a page; a failed fetch
- * is tried again by the next ask. @param {string} kind @param {number} [v] @returns {Promise<string>}
- */
+/** Frozen engine `v` of `kind` (latest when none), checked and fetched once a page. @param {string} kind @param {number} [v] @returns {Promise<string>} */
 export function engineCode(kind, v = latestOf(kind)?.v) {
 	const k = `${kind}-v${v}`;
 	if (!engines.has(k)) {
@@ -125,8 +122,7 @@ export class Shell {
 		const [msg, room] = Array.isArray(e.data) ? e.data : [];
 		if (!msg || typeof msg !== 'object') return;
 		if (msg.op === 'ready') return this.started?.();
-		// a room's worker that crashed ends alone where rooms are kept apart; one in no room yet (the spare: nothing but
-		// the engine ran in it) failed as the engine, and the shell goes
+		// a crashed room's worker ends alone where rooms are apart; the spare's crash is the engine's, and the shell goes
 		if (msg.op === 'crash') return this.apart && room != null ? this.leave(room, `its worker crashed: ${msg.error}`) : this.stop(`the box crashed: ${msg.error}`);
 		const job = this.jobs.get(msg.id);
 		// a job is answered only from the room it was asked in, whatever number another room's code guesses
@@ -159,8 +155,7 @@ export class Shell {
 		if (typeof room === 'function') room = room();
 		const id = this.next++;
 		return new Promise((ok, no) => {
-			// counted a second at a time, at most 1.5 s each: a page too busy to listen (compiling shaders on a slow
-			// machine) uses up none of the shell's time
+			// counted a second at a time, at most 1.5 s each, so a page too busy to listen uses none of the shell's time
 			let had = 0, last = performance.now();
 			const timer = setInterval(() => {
 				const t = performance.now();

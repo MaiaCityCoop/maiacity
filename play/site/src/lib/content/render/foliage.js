@@ -22,15 +22,11 @@ export const FOOT = 0.7;
 const WRAP = 0.35;
 /** the backlight lobe: how the light's way is bent by the normal, how tight the lobe is, how bright */
 export const BACK = Object.freeze({ distortion: 0.3, power: 4, scale: 1.6 });
-/**
- * How much sun reaches a backlit leaf through its crown's own shadow (0 none, 1 unshadowed): the light passes leaf
- * through leaf; without it the shadow cancels the glow and a backlit crown goes dark.
- */
+/** How much sun reaches a backlit leaf through its own crown's shadow (0 none, 1 unshadowed); without it a backlit crown goes dark. */
 export const LEAK = 0.5;
 /**
- * What a coarser level (../assets/render/lod.js) leaves out, unread that far, so mid-range copies cost little more than
- * without a look: from level 1 the tips' flutter (gone beyond 15 m anyway), from level 2 the wrap and backlight. Bend,
- * crown normals and the darker foot stay at every level, so nothing pops.
+ * What a coarser level (../assets/render/lod.js) leaves out: from level 1 the tips' flutter, from level 2 the wrap and
+ * backlight; bend, crown normals and the darker foot stay, so nothing pops.
  */
 export const LEVELS = Object.freeze({ flutter: 1, glow: 2 });
 /** the levels drawn alike: 0, 1, and 2 or coarser */
@@ -58,16 +54,13 @@ const translucent = (Model, translucency, height) =>
 	};
 
 /**
- * A node material class with a look on top: `look` (checked, ../../kernel/look.js) and `wind` (./wind.js `windNodes`, the
- * world's) set on it before it is first drawn; its copies carry `aWind` (their foot and height). Without a wind, or on
- * a mesh whose copies carry none, it is drawn as its base.
- * @template {new (...a: any[]) => any} B @param {B} Base
+ * A node material class with a look on top (`look`, `wind` set before it is first drawn); without a wind, or copies
+ * carrying no `aWind`, drawn as its base. @template {new (...a: any[]) => any} B @param {B} Base
  */
 export const foliage = (Base) =>
 	class extends Base {
 		/** @type {ReturnType<typeof lookOf>} */ look = null;
 		/** @type {any} */ wind = null;
-		/** the level of its kind it draws (`LEVELS`), 0 the finest */
 		level = 0;
 		/** the height on the plant, 0 foot … 1 tip, from the vertex to the fragment */
 		#height = null;
@@ -125,8 +118,7 @@ const FoliageMaterial = foliage(MeshStandardNodeMaterial);
 const classes = new WeakMap();
 
 /**
- * A page's node material (./nodes `nodeOf`) with a look on top, same kind and settings, thin looks two-sided and cut
- * out; itself without look or wind. `level` leaves out what is not read that far (`LEVELS`).
+ * A page's node material (./nodes `nodeOf`) with a look on top; itself without look or wind.
  * @param {any} n a node material, before its cut and fade are given @param {unknown} look @param {any} wind @param {number} [level]
  */
 export function lookedOf(n, look, wind, level = 0) {
@@ -155,8 +147,7 @@ function thin(m, l) {
 }
 
 /**
- * A page's material drawn with a look, its settings carried onto a FoliageMaterial; thin looks two-sided, cut out
- * (alphaTest). `look` checked (an unknown kind throws), `wind` the world's (./wind.js `windNodes`) or none.
+ * A page's material drawn with a look on a FoliageMaterial (an unknown kind throws).
  * @param {THREE.MeshStandardMaterial} material @param {unknown} look @param {{ wind?: any }} [o]
  */
 export function foliageOf(material, look, { wind = null } = {}) {
