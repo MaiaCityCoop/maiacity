@@ -1,19 +1,21 @@
 GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
 head: Sandbox 1 up and quiet after 78 s
-head near: 27 ms (p95 33.4), cpu 15.9, gpu 19.9, bound gpu
-head mid: 34.6 ms (p95 50), cpu 16.3, gpu 27, bound gpu
-head far: 16.7 ms (p95 16.7), cpu 7.2, gpu 12.5, bound vsync
-error: evaluate: TypeError: Cannot read properties of null (reading 'position')
-    at at (eval at evaluate (:311:30), <anonymous>:11:48)
-    at eval (eval at evaluate (:311:30), <anonymous>:16:17)
+head near: 27.4 ms (p95 33.4), cpu 17.2, gpu 19.9, bound gpu
+head mid: 34.3 ms (p95 50), cpu 17.7, gpu 26.6, bound gpu
+head far: 16.7 ms (p95 16.7), cpu 7.3, gpu 12.5, bound vsync
+error: evaluate: TypeError: Cannot read properties of undefined (reading 'position')
+    at Object.advance (http://localhost:5183/src/lib/content/sandbox-2/interior/village.ts:1856:73)
+    at Object.advance (http://localhost:5183/src/lib/content/sandbox-kit/film.js:201:16)
+    at eval (eval at evaluate (:311:30), <anonymous>:3:29)
     at UtilityScript.evaluate (<anonymous>:313:16)
     at UtilityScript.<anonymous> (<anonymous>:1:44)
   log: [],
 
-      at at (eval at evaluate (:311:30), <anonymous>:11:48)
-      at eval (eval at evaluate (:311:30), <anonymous>:16:17)
+      at Object.advance (http://localhost:5183/src/lib/content/sandbox-2/interior/village.ts:1856:73)
+      at Object.advance (http://localhost:5183/src/lib/content/sandbox-kit/film.js:201:16)
+      at eval (eval at evaluate (:311:30), <anonymous>:3:29)
       at UtilityScript.evaluate (<anonymous>:313:16)
       at UtilityScript.<anonymous> (<anonymous>:1:44)
-      at lowSun (/Users/samuelandert/Documents/Development/s6fd5-render/intent-work/6fd5e63f-render/wind.mjs:105:14)
+      at /Users/samuelandert/Documents/Development/s6fd5-render/intent-work/6fd5e63f-render/wind.mjs:182:15
 
 Bun v1.4.2 (macOS arm64)
