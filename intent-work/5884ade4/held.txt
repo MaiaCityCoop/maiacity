@@ -15,7 +15,6 @@ play/api/src/lod.ts
 play/api/test/assetdocs.test.ts
 play/api/test/gate.test.ts
 play/api/test/graphs.test.ts
-play/api/test/needsintent.test.ts
 play/api/test/workflows.test.ts
 play/avenbox/gate.sh
 play/avenbox/intent.ts
@@ -178,8 +177,6 @@ play/site/src/lib/content/render/post.test.js
 play/site/src/lib/content/render/stage.js
 play/site/src/lib/content/render/world.js
 play/site/src/lib/content/sandbox-2/interior/PlantLook.svelte
-play/site/src/lib/content/sandbox-2/interior/ambience.test.ts
-play/site/src/lib/content/sandbox-2/interior/ambience.ts
 play/site/src/lib/content/sandbox-2/interior/interior.ts
 play/site/src/lib/content/sandbox-2/interior/plants.ts
 play/site/src/lib/content/sandbox-2/interior/textures.ts
