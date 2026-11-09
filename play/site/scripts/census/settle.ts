@@ -26,7 +26,7 @@ if (argv[0] === '--one') {
 	const { setup } = await import('./setup');
 	setup({ inputs: join(SITE, 'scripts/census/inputs'), cache: process.env.CENSUS_CACHE });
 	const { mountSandbox1, untilQuiet, VIEWS } = await import('./run');
-	const { taken } = await import('../quiet.js');
+	const { taken } = await import('../lib/quiet.js');
 	const g = globalThis as any;
 	const t0 = performance.now();
 	await mountSandbox1(() => {});

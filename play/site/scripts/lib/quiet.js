@@ -1,6 +1,6 @@
 /*
  * WHEN A WORLD HAS SETTLED — the one rule every check that waits on a world uses (intent 7af6e162): the census on the
- * CPU (./census/run.ts), the Mac's jobs (./mac-page.mjs, ./selector-shots.mjs) and the render box's. A world is
+ * CPU (../census/run.ts), the Mac's jobs (../mac-page.mjs, ../selector-shots.mjs) and the render box's. A world is
  * settled when its asset renderers (`__assets.stats()`: Sandbox 1's out, in and library) build nothing and keep
  * nothing (no picture being read back, no file waiting to be written), no dome's inside is building (`__domeStream`,
  * where the page shows it), and their copies, the pictures they took and the domes are as they were at the last look.
