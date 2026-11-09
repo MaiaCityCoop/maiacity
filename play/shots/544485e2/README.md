@@ -2,7 +2,7 @@
 
 Taken in avenBOX's Chromium (SwiftShader, software GL; no Mac), 1280×800 at 1×, the viewer cropped, 60 s after the
 page opened, play's API read live with the admin token (read only). Main is `53f3bad`; head is this branch at
-`e164817` (main merged in). The same four viewers each: the goat (Saanen, /animals/), the forklift (/machines/), a
+`eee4cd8` (main and the Mac's bloom fix merged in). The same four viewers each: the goat (Saanen, /animals/), the forklift (/machines/), a
 grass tuft (Biome cover: Grass) and the meadow (/biomes/).
 
 - `main-*.jpg`: a dark olive sky above a glaring white band, a haze over the asset, its shadows weak. Over the
