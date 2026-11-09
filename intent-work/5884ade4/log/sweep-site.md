@@ -99,3 +99,6 @@ name and body, `// the next thing` lines.
 16. **`content/sandbox-kit`** (52): the headers of `film.js` (the film contract's three rules kept), `walker.js`,
     `stream.js` (why one build at a time kept) and `universe.js` (WebGPU's one-pixel points kept), each retelling its
     module; the legacy `maia/content/film` names went with them.
+17. **`content/game/film`** (47): `shot.js`'s header spelt the spec out a second time beside its `Spec` typedef
+    (what the typedef can't say kept: the clock rule, the fov's axis, middle grey, the CB60's history); `camera.js`'s
+    listed the kinds beside its `CameraKind` typedef, and named `maia/content/scripts/film/camera.mjs`, gone.
