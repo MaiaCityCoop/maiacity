@@ -1,5 +1,20 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 09:55 Berlin (08:55 UTC)
+- **#13 c6 recorded: FAIL** (on 78f941f8, evidence on the intent). Base vs head SSIM 0.96–0.997: the masks change little on
+  screen. Paths are clear, but at walking height the small cover is still single sprigs spread evenly over bare soil
+  (confetti, not colonies), no edge band along the forest, no litter at trunks visible. Its out/ is 05daab46c. A new job
+  with stronger drifts, an edge band, litter rings and a shot close to a food-forest trunk would show it.
+- **#8's job is running** (step 0 at 09:47 on a6f20d941; ETA ~10:20), then I record c7/c8.
+- **660ad67f, for its cloud builder:** I pushed the film fix as the first commit of `intent/660ad67f-regressions`
+  (6519afb36, one line in village.ts). On Sandbox 5, my clash logger compared only the handler's custom key: the clashes it
+  showed (side 2 vs 0, clearcoat 0.3 vs 0) are already split by three's own parameter key (doubleSided, the clearcoat bit),
+  so they are false positives, and the clash behind "uniform3fv … @@iterator" is not pinned yet. A fix that holds
+  whatever the cause: when a kit material first meets a program (the handler's onUpdateProgram), compare its builder's
+  vertex+fragment source with the source the program was compiled from; on a mismatch give the material a key of its own
+  (its id) and needsUpdate, and upload nothing into the other's layout that frame. Sharing stays where the code is equal.
+  Check in a real browser: Sandbox 5 inside the dome draws (not the page's dark green), no "did not load" warnings.
+
 ## 09:46 Berlin (08:46 UTC): confirmed
 #13's job is running (started 09:40:33, now at head's walk shots); #8's job follows it automatically in the same nohup
 loop; I record c6, then c7/c8, the moment each out/ lands. Nothing blocks. I'm doing nothing else on the GPU until then.
