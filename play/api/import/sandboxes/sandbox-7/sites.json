@@ -1,1 +1,633 @@
-{ "regions": [] }
+{
+	"note": "Where a new food-forest city could grow (Samuel 2026-11-09): regions of 2,000 km² or more with no town of 10,000 people, degraded or depopulated land to restore without displacing anyone, and a real path to water. Researched 2026-11-09; scored 1–5 on water, land, legal path, access, climate, restoration and precedent; numbers from official statistics where found, estimates marked.",
+	"criteria": [
+		"at least 2,000 km² in one piece",
+		"no town of 10,000 people or more inside; under about 10 people a km²",
+		"barren, degraded, abandoned or depopulated land: a restoration, nobody displaced, no intact habitat cleared",
+		"a real path to water for a food forest: rain, rivers, groundwater or proven water harvesting nearby"
+	],
+	"regions": [
+		{
+			"name": "Lower Guadiana: Mértola + Alcoutim + Almodôvar",
+			"country": "Portugal",
+			"lat": 37.58,
+			"lon": -7.85,
+			"bbox": [
+				37.27,
+				-8.33,
+				37.87,
+				-7.42
+			],
+			"area_km2": 2646,
+			"population": 15421,
+			"density_per_km2": 5.8,
+			"density_year": 2021,
+			"largest_settlement": {
+				"name": "Almodôvar (parish)",
+				"population": 3658
+			},
+			"koppen": "Csa (semi-arid margins)",
+			"rain_mm": 450,
+			"temp_c": [
+				9.6,
+				25.3
+			],
+			"land_state": "Portugal's desertification hotspot: 94% of Baixo Alentejo and 96% of the Mértola area are susceptible to desertification. Thin, eroded schist soils, abandoned wheat-campaign fields, cistus scrub. Alcoutim is Portugal's least populated and oldest municipality (average age 58.4).",
+			"water": "About 450-490 mm, declining. The Guadiana river (border) and the Chança; small reservoirs. Proven syntropic agroforestry and water-retention work at Terra Sintrópica. Erosion research since the late 1950s at Vale Formoso.",
+			"land_price_eur_ha": [
+				1000,
+				5000
+			],
+			"legal_route": "EU/Portuguese law, as for Beira Baixa: a PDM amendment or detailed plan, RAN/REN constraints, interior relocation grants. The Guadiana Valley Natural Park (697 km², IUCN V protected landscape, management plan 2004) covers part of Mértola and Serpa, so build outside it and restore inside it.",
+			"access": "Faro airport about 1.25-1.5 h (IC27); Seville about 2-2.5 h; Beja about 50 min. Times are estimates.",
+			"risks": "Desertification and a declining rainfall trend; extreme summer heat; wildfire; thin soils and steep schist slopes; protected-landscape rules in the Natural Park; intensive olive and cattle pressure nearby.",
+			"precedents": "Terra Sintrópica (syntropic agroforestry in Mértola, António Coelho, and the CARES centre). Centro Experimental de Erosão de Vale Formoso (late 1950s). REA Alentejo soil-restoration project.",
+			"scores": {
+				"water": 3,
+				"land": 4,
+				"legal": 4,
+				"access": 3,
+				"climate": 4,
+				"restoration": 5,
+				"precedent": 4
+			},
+			"notes": {
+				"area": "Mértola 1,292.9 + Alcoutim 575.4 + Almodôvar 778 km². The Spanish Andévalo across the Guadiana is also sparse.",
+				"density": "Mértola 6,206 (2021) + Alcoutim 2,521 (2021) + Almodôvar 6,694 (2023 estimate)",
+				"rain": "Mértola 447 mm (1991-2020); Alcoutim 493 mm (1985-2021); Vale Formoso station fell from about 755 mm (1940s) to about 474 mm (2010s)",
+				"temp": "Mértola 1991-2020, January and August daily means; July highs 35-36 C",
+				"land_price": "Beja-district listings average about EUR 915/ha (asking prices); Savills puts dry land without water at about EUR 5,000/ha. The range is an estimate. EU citizens can buy freely."
+			},
+			"sources": [
+				{
+					"artifact": "4bfc7a68-41c6-4bd1-b0f4-b170e52e4076",
+					"title": "Mértola: Portugal's sixth-largest and near-empty municipality",
+					"url": "https://en.wikipedia.org/wiki/M%C3%A9rtola"
+				},
+				{
+					"artifact": "649ffebf-7ef4-486f-b8b6-df570bfa7b75",
+					"title": "António Coelho's syntropic farming on Mértola's degraded soils",
+					"url": "https://regenerationinternational.org/2026/02/14/how-antonio-coelho-is-reviving-portugals-driest-soils-with-syntropic-farming/"
+				}
+			]
+		},
+		{
+			"name": "Altiplano of Granada-Almería: Comarca de Huéscar + Los Vélez (AlVelAl core)",
+			"country": "Spain",
+			"lat": 37.8,
+			"lon": -2.35,
+			"bbox": [
+				37.52,
+				-2.88,
+				38.1,
+				-1.85
+			],
+			"area_km2": 2960,
+			"population": 26265,
+			"density_per_km2": 8.9,
+			"density_year": 2024,
+			"largest_settlement": {
+				"name": "Huéscar (municipality)",
+				"population": 7234
+			},
+			"koppen": "BSk / Csa (semi-arid, cold winters)",
+			"rain_mm": 400,
+			"temp_c": [
+				5,
+				24
+			],
+			"land_state": "A high steppe plateau at 700-1,100 m of rain-fed cereal and almond, eroded badlands and gullies (the Granada Geopark), and abandoned terraces. Rural abandonment drives migration out. The world's largest area of rain-fed almonds is here, and droughts have killed many trees.",
+			"water": "300-500 mm of rain. The San Clemente reservoir (about 117 hm³, irrigation) on the Guardal; the Guardal springs (source of the Canal de Carlos III); mountain-fed rivers (Huéscar, Galera, Castril). AlVelAl has a proven toolkit: keyline, cover crops, hedgerows, green manure, water retention.",
+			"land_price_eur_ha": [
+				3000,
+				8000
+			],
+			"legal_route": "EU and Spanish law. Andalucía's LISTA land law (2021) allows regionally declared 'actuaciones de interés autonómico' and municipal plan changes. The national demographic-challenge funds back rural repopulation. AlVelAl's 400+ farmer members are potential land partners.",
+			"access": "The A-92N motorway (Granada-Murcia) crosses Los Vélez. Granada about 1.5-2 h, Murcia about 1.5 h, Almería and Región de Murcia airports about 2 h. Times are estimates.",
+			"risks": "Drought (rain-fed almond and cereal losses in the Huéscar and Baza comarcas), frost and cold winters, heat. Natural parks in the sierras (Castril, María-Los Vélez) and the badlands protected within the Geopark. Density is borderline (8.9/km²) once Huéscar town is counted.",
+			"precedents": "AlVelAl, started in 2014 with Commonland's 4 Returns framework, now 400+ members and three regenerative businesses. Camp Altiplano (5 ha restoration). UNESCO Granada Geopark (4,722 km², 2020).",
+			"scores": {
+				"water": 3,
+				"land": 4,
+				"legal": 4,
+				"access": 3,
+				"climate": 3,
+				"restoration": 5,
+				"precedent": 5
+			},
+			"notes": {
+				"area": "Comarca de Huéscar 1,814 km² + Los Vélez about 1,146 km² (the Vélez-Rubio judicial district). The surrounding Altiplano Estepario that AlVelAl works in covers about 1 million ha.",
+				"density": "Huéscar comarca 14,957 (2024) + Los Vélez about 11,300 (2023-24 municipal figures). Density falls to about 4/km² away from Huéscar town (Orce 3.5, Puebla de Don Fadrique 4.2).",
+				"rain": "300-500 mm for the Altiplano (Restor/AlVelAl), with a pronounced summer drought; the surrounding sierras get more",
+				"temp": "Estimate. July mean about 24 C (Meteored) at 950 m; January mean estimated at 4-6 C with regular frost",
+				"land_price": "MAPA 2024 averages: rain-fed cereal land in Andalucía EUR 9,941/ha (a regional average including richer land); rain-fed nut orchards (almond) nationally EUR 7,621/ha. Altiplano dry land trades below the Andalucía average; the EUR 3,000-8,000 range is an estimate. EU citizens can buy freely."
+			},
+			"sources": [
+				{
+					"artifact": "49b5d5ba-8bbe-4b63-93ed-dc5b972e9b2a",
+					"title": "Comarca de Huéscar: six sparse municipalities in Granada's northeast",
+					"url": "https://en.wikipedia.org/wiki/Comarca_de_Hu%C3%A9scar"
+				},
+				{
+					"artifact": "d808acf4-66a1-4bba-be8a-879b0e4cf0bf",
+					"title": "Spanish farmland prices in 2024 by region and crop",
+					"url": "https://www.ocu.org/fincas-y-casas/compraventa/fincas-rusticas/analisis/2025/09/precios-tierra-2024-tendencias"
+				}
+			]
+		},
+		{
+			"name": "Beira Baixa raia: Idanha-a-Nova + Penamacor + Sabugal",
+			"country": "Portugal",
+			"lat": 40.08,
+			"lon": -7.08,
+			"bbox": [
+				39.63,
+				-7.52,
+				40.5,
+				-6.8
+			],
+			"area_km2": 2803,
+			"population": 24399,
+			"density_per_km2": 8.7,
+			"density_year": 2021,
+			"largest_settlement": {
+				"name": "Sabugal (town)",
+				"population": 3000
+			},
+			"koppen": "Csa",
+			"rain_mm": 644,
+			"temp_c": [
+				8.3,
+				25.1
+			],
+			"land_state": "Dry cereal land and pasture on thin granite and schist soils, largely abandoned since the 1960s emigration and overgrown with cistus scrub. The holm and cork oak montado is ageing and wildfire recurs. Idanha lost 14% of its people from 2011 to 2021 (9,716 to 8,355).",
+			"water": "644-744 mm of winter rain. The Marechal Carmona dam on the Ponsul feeds the Campina de Idanha irrigation scheme (about 8,300 ha), whose network loses around 60% of its water and is being modernised. The Ponsul, Erges and Tejo rivers run through the area. The gentle granite plain suits keyline ponds and swales.",
+			"land_price_eur_ha": [
+				2000,
+				6000
+			],
+			"legal_route": "Idanha's municipal 'Recomeçar' newcomer strategy (2015-2025) runs a free land bank (Banco de Terras), Idanha Green Valley, Idanha Experimenta and Idanha Vive. The national 'Emprego Interior MAIS' grant pays people who move to the interior (base 5 x IAS, about EUR 2,686 in 2026, plus extras). A new settlement needs a change to the municipal master plan (PDM) or a detailed plan. Building on farmland reserve (RAN) or ecological reserve (REN) is restricted, so a partnership with the council is essential.",
+			"access": "A23 motorway and the Beira Baixa railway at Castelo Branco, about 30-45 min away. Lisbon and its airport about 2.5-3 h; Madrid about 4 h. Times are estimates.",
+			"risks": "Wildfire: Portugal burned about 271,000-284,000 ha in 2025 (4th-worst year since 2001) and set its record of 563,530 ha in 2017. Hotter, drier summers. RAN/REN zoning. Part of the area is Tejo Internacional Natural Park or Natura 2000. The population is ageing.",
+			"precedents": "The Recomeçar land bank and newcomer programme. Campina de Idanha irrigation (since 1949). The Naturtejo UNESCO Geopark. Syntropic and regenerative farms in Portugal's interior (see Mértola).",
+			"scores": {
+				"water": 4,
+				"land": 4,
+				"legal": 4,
+				"access": 3,
+				"climate": 4,
+				"restoration": 4,
+				"precedent": 3
+			},
+			"notes": {
+				"area": "Idanha-a-Nova 1,416.3 km² + Penamacor 563.7 km² (1,980 km²) + Sabugal 822.7 km² to the north, the three municipalities along the Spanish border.",
+				"rain": "644 mm at Ladoeiro (180 m, the drier lowland); 744 mm at Castelo Branco (1991-2020)",
+				"temp": "Castelo Branco 1991-2020 normals, January and August means; Ladoeiro has 54 frost days a year, record low -8.0 C, record high 42.3 C",
+				"land_price": "Savills (Portugal-wide broker figure) gives about EUR 5,000/ha for dry land without reliable water and about EUR 20,000/ha for irrigated land around Castelo Branco. The EUR 2,000-6,000 range for large dry estates is an estimate. EU citizens can buy freely.",
+				"density": "Census 2021: Idanha-a-Nova 8,355, Penamacor 4,764, Sabugal 11,280 (down 10 % since 2011). Sabugal town about 3,000, its parish union 2,604; Idanha-a-Nova town 2,071."
+			},
+			"sources": [
+				{
+					"artifact": "a75ff547-a638-49e6-b0e5-a6db348c6070",
+					"title": "Idanha-a-Nova: a vast, ageing border municipality of Beira Baixa",
+					"url": "https://en.wikipedia.org/wiki/Idanha-a-Nova"
+				},
+				{
+					"artifact": "23af8a23-0c93-403c-a045-af8269033977",
+					"title": "Idanha-a-Nova's 'Recomeçar' strategy to welcome new residents",
+					"url": "https://www.cm-idanhanova.pt/divulgacao/arquivo_noticias/noticias_2015/recomecar.aspx"
+				},
+				{
+					"artifact": "473557ce-6610-4097-b155-21c2470afc08",
+					"title": "Census 2021: Guarda district loses about 18,000 people in ten years",
+					"url": "https://observador.pt/2022/11/25/censos2021-distrito-da-guarda-perde-cerca-de-18-mil-habitantes-em-dez-anos/"
+				}
+			]
+		},
+		{
+			"name": "Western Australia's Great Southern wheatbelt between the Stirling Range and Fitzgerald River (Gnowangerup, Jerramungup, Kent)",
+			"country": "Australia",
+			"lat": -33.85,
+			"lon": 118.55,
+			"bbox": [
+				-34.3,
+				117.75,
+				-33.3,
+				119.4
+			],
+			"area_km2": 12000,
+			"population": 2866,
+			"density_per_km2": 0.17,
+			"density_year": 2021,
+			"largest_settlement": {
+				"name": "Gnowangerup",
+				"population": 568
+			},
+			"koppen": "Csb (mild Mediterranean, semi-arid margin)",
+			"rain_mm": 386,
+			"temp_c": [
+				10.6,
+				21.4
+			],
+			"land_state": "Mallee and kwongan heath cleared for wheat and sheep, much of it after 1949 under the War Service Land Settlement scheme. Only about 30% of the original vegetation remains. Dryland salinity is spreading: about 1.75 M ha of the south-west agricultural region is salt-affected and could double in 50-100 years. Some marginal farms are being sold for restoration.",
+			"water": "About 390-450 mm of winter rain. Saline groundwater, so water comes from farm dams, roof and road catchment and keyline. Revegetation also lowers saline water tables. Gondwana Link has restored more than 14,500 ha of former farmland nearby.",
+			"land_price_eur_ha": [
+				1700,
+				4800
+			],
+			"legal_route": "Freehold purchase. Foreign persons need FIRB approval once their cumulative agricultural land exceeds AUD 15 M, and must notify the Register of Foreign Ownership. A new townsite or eco-village needs a local planning scheme amendment and WA Planning Commission approval. Native title has to be checked.",
+			"access": "Albany (regional airport, port) about 1.5-2 h; Perth about 4.5-5 h; Esperance port about 3 h. Times are estimates.",
+			"risks": "Dryland salinity; a drying, warming winter-rain climate in south-west WA; wildfire; remoteness and thin services; FIRB and the foreign-ownership register; native title.",
+			"precedents": "Gondwana Link (more than 14,500 ha restored, including Nowanup, Peniup 2,400 ha with Bush Heritage and Greening Australia, and Monjebup). Carbon Positive Australia's Tootanellup.",
+			"scores": {
+				"water": 3,
+				"land": 4,
+				"legal": 3,
+				"access": 2,
+				"climate": 4,
+				"restoration": 5,
+				"precedent": 5
+			},
+			"notes": {
+				"area": "The three shires cover 16,409 km² (Gnowangerup 4,268 + Jerramungup 6,507 + Kent 5,634). About 12,000 km² of that is cleared farmland outside the national parks (estimate).",
+				"rain": "Ongerup (BoM 010622, 1911-2025) 385.9 mm; Jerramungup about 448 mm; wetter toward the Stirling Range",
+				"temp": "Ongerup 1991-2020: July mean about 10.6 C (5.8/15.3), January mean about 21.4 C (14.1/28.7)",
+				"land_price": "The Great Southern median was AUD 8,493/ha in 2023 (Rural Bank), about EUR 4,800. The drier eastern shires sell for less; AUD 3,000-6,000/ha there is an estimate. Converted at about EUR 0.57 per AUD."
+			},
+			"sources": []
+		},
+		{
+			"name": "South Iceland eroded lowlands: Rangárvellir / Rangárþing ytra",
+			"country": "Iceland (EEA)",
+			"lat": 63.92,
+			"lon": -20.1,
+			"bbox": [
+				63.7,
+				-20.6,
+				64.15,
+				-19.55
+			],
+			"area_km2": 2000,
+			"population": 1867,
+			"density_per_km2": 0.58,
+			"density_year": 2024,
+			"largest_settlement": {
+				"name": "Hella",
+				"population": 942
+			},
+			"koppen": "Dfc / Cfc (subarctic oceanic)",
+			"rain_mm": 1206,
+			"temp_c": [
+				-1.8,
+				10.9
+			],
+			"land_state": "Iceland lost more than 95% of its birch woodland, which now covers about 1% of the country, and 30-40% of the country is threatened by soil erosion. Rangárvellir is the classic case of tephra deserts and blown-out rangeland, under restoration since the early 20th century from Gunnarsholt.",
+			"water": "Abundant: about 1,200 mm of rain, the glacial rivers Þjórsá and Rangá, and groundwater. The real constraint is heat, not water. Geothermal heat for the domes is used by greenhouse clusters elsewhere in South Iceland.",
+			"land_price_eur_ha": null,
+			"legal_route": "EEA rules: Germans can live and work in Iceland. Act 19/1966 restricts land acquisition by non-residents; EEA nationals fall under a separate regulation. In 2020 the government moved to give ministers a final say over large land purchases (details to verify). Planning is municipal.",
+			"access": "Ring Road (Route 1) through Hella; Reykjavík about 1.25 h; Keflavík airport about 1.75 h; Þorlákshöfn port about 1 h. Times are estimates.",
+			"risks": "Hekla, one of Iceland's most active volcanoes, is inside the municipality, about 40 km from Hella. The South Iceland Seismic Zone. Tephra, wind, a short season. An outdoor food forest is limited to hardy berries, rhubarb, birch, rowan and willow, so the domes must carry almost all the warm-climate food. Large land deals may need ministerial consent.",
+			"precedents": "The Soil Conservation Service (now Land and Forest Iceland), headquartered at Gunnarsholt; Hekluskógar; WOCAT-documented fertilising and reseeding of degraded rangeland with farmers.",
+			"scores": {
+				"water": 5,
+				"land": 2,
+				"legal": 3,
+				"access": 4,
+				"climate": 1,
+				"restoration": 5,
+				"precedent": 5
+			},
+			"notes": {
+				"area": "The municipality covers 3,194 km², much of it highland lava and the Hekla massif. The usable lowland and eroded rangeland is about 1,500-2,000 km² (estimate). The Rangárvellir rangeland alone is about 900 km².",
+				"rain": "Hella, 1961-1990",
+				"temp": "Hella 1961-1990, January and July daily means",
+				"land_price": "No reliable per-hectare statistic found in this research."
+			},
+			"sources": [
+				{
+					"artifact": "2aab3745-3bac-4cd4-90a8-6c5b741809b4",
+					"title": "Rangárþing ytra, a municipality in South Iceland",
+					"url": "https://en.wikipedia.org/wiki/Rang%C3%A1r%C3%BEing_ytra"
+				},
+				{
+					"artifact": "08f1c9b0-a354-4e2c-8ff5-dd631b406709",
+					"title": "Fertilising and re-seeding degraded rangelands near Hekla",
+					"url": "https://wocat.net/en/database/technologies/1261/"
+				}
+			]
+		},
+		{
+			"name": "Señorío de Molina parameras (Serranía Celtibérica, 'Lapland of the South')",
+			"country": "Spain",
+			"lat": 40.86,
+			"lon": -1.82,
+			"bbox": [
+				40.58,
+				-2.1,
+				41.15,
+				-1.53
+			],
+			"area_km2": 2500,
+			"population": 7944,
+			"density_per_km2": 2.3,
+			"density_year": 2019,
+			"largest_settlement": {
+				"name": "Molina de Aragón",
+				"population": 3219
+			},
+			"koppen": "Cfb (cold continental; borderline Dsb)",
+			"rain_mm": 468,
+			"temp_c": [
+				2.5,
+				20.2
+			],
+			"land_state": "One of Spain's most abandoned areas: a fifth of its mid-20th-century population is left. Cold plateaus of abandoned cereal fields, juniper and holm-oak scrub, pine plantations, empty villages. Restoration here means mostly soil and forest rebuilding, plus wildfire prevention.",
+			"water": "468 mm, partly as snow. Headwaters of the Tajo, Gallo, Mesa and Piedra rivers; karst springs. Evaporation is low, so water is a smaller constraint than cold.",
+			"land_price_eur_ha": [
+				1500,
+				5000
+			],
+			"legal_route": "Castilla-La Mancha's law against depopulation (Ley 2/2021) gives specific resources to areas of extreme depopulation, and the region has a new functional-area agenda (ADUR 2026) piloting housing reuse in villages such as Checa, Orea and Rueda de la Sierra. The Foro de la España Abandonada chose Molina as a pilot territory (2019). Regional 'projects of singular interest' allow plans outside municipal schemes.",
+			"access": "N-211 to the A-2 motorway at Alcolea del Pinar about 45 min; Madrid about 2 h; Zaragoza about 1.75 h; high-speed AVE at Guadalajara or Calatayud about 1.25 h. Times are estimates.",
+			"risks": "Hard cold limits the outdoor food forest to hardy temperate species (apple, pear, walnut, hazel, sea buckthorn, currants), and the domes would need heating. Short growing season. Alto Tajo Natural Park and Natura 2000 sites. Very thin services and an ageing population.",
+			"precedents": "Rewilding Spain's Iberian Highlands (an 850,000 ha landscape; forest restoration, wildfire prevention and natural grazing on more than 11,000 ha). The Foro de la España Abandonada pilot.",
+			"scores": {
+				"water": 3,
+				"land": 4,
+				"legal": 4,
+				"access": 3,
+				"climate": 2,
+				"restoration": 4,
+				"precedent": 4
+			},
+			"notes": {
+				"area": "Señorío de Molina covers 3,466 km². About 2,500 km² of cold plateau (parameras) and abandoned cereal land lies outside the Alto Tajo Natural Park (estimate). The wider Serranía Celtibérica continues into Teruel, Cuenca and Soria (Montes Universales 0.92/km²).",
+				"density": "2.3/km² in 2019 (7,944 on 3,466 km²); the regional ADUR agenda of 2026 says below 2/km², with almost 10% of residents lost in five years",
+				"rain": "AEMET Molina de Aragón (1,062 m), 1981-2010",
+				"temp": "AEMET 1981-2010: January 2.5 C, July 20.2 C; about 122 frost nights a year; record -28.2 C (1952)",
+				"land_price": "MAPA 2024: rain-fed cereal land in Castilla-La Mancha EUR 4,961/ha; regional agricultural land EUR 6,307/ha. Remote parameras and scrubland sell well below that; the EUR 1,500-5,000 range is an estimate. Many hills are municipal commons (montes de utilidad pública) that can only be leased."
+			},
+			"sources": [
+				{
+					"artifact": "2cbd12b9-efd8-445e-96db-aaca59f253ba",
+					"title": "Molina de Aragón–Alto Tajo rural development agenda, summary",
+					"url": "https://adur.castillalamancha.es/sites/default/files/2026-03/ADUR%20MAAT%20-%20Resumen%20ejecutivo.pdf"
+				},
+				{
+					"artifact": "1d564549-a392-4f8c-be12-1709aea10792",
+					"title": "Iberian Highlands rewilding vision: vultures, lynx, old-growth forest",
+					"url": "https://www.rewildingeurope.com/areas/iberian-highlands/"
+				},
+				{
+					"artifact": "d808acf4-66a1-4bba-be8a-879b0e4cf0bf",
+					"title": "Spanish farmland prices in 2024 by region and crop",
+					"url": "https://www.ocu.org/fincas-y-casas/compraventa/fincas-rusticas/analisis/2025/09/precios-tierra-2024-tendencias"
+				}
+			]
+		},
+		{
+			"name": "Los Monegros steppe (Aragón)",
+			"country": "Spain",
+			"lat": 41.62,
+			"lon": -0.27,
+			"bbox": [
+				41.33,
+				-0.72,
+				41.95,
+				0.12
+			],
+			"area_km2": 2764,
+			"population": 18573,
+			"density_per_km2": 6.7,
+			"density_year": 2024,
+			"largest_settlement": {
+				"name": "Sariñena",
+				"population": 4238
+			},
+			"koppen": "BSk",
+			"rain_mm": 380,
+			"temp_c": [
+				5,
+				24
+			],
+			"land_state": "Semi-arid gypsum and saline steppe and rain-fed cereal. Historic juniper woodland was cleared; there are eroded hills, salt flats (saladas) and abandoned dry farming. Some of it is a valued natural steppe habitat for protected steppe birds, so not all of it is degraded.",
+			"water": "350-400 mm of rain. The Riegos del Alto Aragón system (Canal de Monegros) brings Pyrenean and Ebro-basin water to part of the comarca; any water use needs a concession from the Ebro basin authority (CHE).",
+			"land_price_eur_ha": [
+				2500,
+				5000
+			],
+			"legal_route": "EU and Aragón law. Aragón has passed regional plans for a whole new town here before: the Gran Scala leisure city (casinos plus a town of 100,000 on about 2,000-2,700 ha) was approved in principle in 2007 and backed by a 2009 Aragón law, then failed. The route exists, but expect local scepticism.",
+			"access": "The A-2 motorway and the Madrid-Barcelona railway along the southern edge. Zaragoza (high-speed AVE, airport) about 45-75 min; Huesca about 45 min; Lleida about 1 h. Times are estimates.",
+			"risks": "Conflict with steppe-bird conservation (Natura 2000), which makes it less clearly a restoration; water rights; gypsum and saline soils; heat and cold extremes; memories of the Gran Scala fiasco.",
+			"precedents": "The Monegros irrigation scheme and Gran Scala (planning precedent, failed). Steppe conservation and land stewardship projects.",
+			"scores": {
+				"water": 3,
+				"land": 4,
+				"legal": 3,
+				"access": 5,
+				"climate": 3,
+				"restoration": 2,
+				"precedent": 2
+			},
+			"notes": {
+				"area": "The whole comarca covers 2,764.5 km². Usable land is smaller: subtract the Natura 2000 steppe-bird areas (SPA/SAC Sierra de Alcubierre, Sigena and others) and the irrigated sectors.",
+				"rain": "About 400 mm at Sariñena, Alcubierre and Sena; about 350 mm at Bujaraloz, the most arid part of the Ebro basin",
+				"temp": "Estimate. Annual mean 14-15 C; cold, foggy winters and hot summers",
+				"land_price": "MAPA 2024: rain-fed cereal land in Aragón EUR 3,863/ha (the cheapest in Spain); Aragón agricultural land overall EUR 5,175/ha. Irrigated land is much dearer (EUR 12,886/ha)."
+			},
+			"sources": [
+				{
+					"artifact": "959e9427-b07c-4b84-921a-a9ca3ed598d8",
+					"title": "Los Monegros health report 2024: people, ageing and services",
+					"url": "https://www.aragon.es/documents/d/guest/los-monegros-informe-salud-comarcas-2024"
+				},
+				{
+					"artifact": "32dd24be-3906-416f-b515-db9a3e235f43",
+					"title": "Sierra de Alcubierre y Sigena: Natura 2000 ridge of Los Monegros",
+					"url": "https://www.aragon.es/-/zepa-sierra-de-alcubierre-y-sigena"
+				},
+				{
+					"artifact": "d808acf4-66a1-4bba-be8a-879b0e4cf0bf",
+					"title": "Spanish farmland prices in 2024 by region and crop",
+					"url": "https://www.ocu.org/fincas-y-casas/compraventa/fincas-rusticas/analisis/2025/09/precios-tierra-2024-tendencias"
+				}
+			]
+		},
+		{
+			"name": "High Plains of north-east New Mexico: Harding County (Kiowa National Grassland country)",
+			"country": "USA",
+			"lat": 35.9,
+			"lon": -103.95,
+			"bbox": [
+				35.6,
+				-104.45,
+				36.25,
+				-103.35
+			],
+			"area_km2": 5505,
+			"population": 657,
+			"density_per_km2": 0.12,
+			"density_year": 2020,
+			"largest_settlement": {
+				"name": "Roy",
+				"population": 193
+			},
+			"koppen": "BSk",
+			"rain_mm": 415,
+			"temp_c": [
+				1.3,
+				22.7
+			],
+			"land_state": "Shortgrass prairie broken up for dry farming. It was Dust Bowl country: the federal government bought back failed dry farms in the 1930s, and some became the national grasslands. Today it is depopulated ranchland with old eroded cropland and Conservation Reserve Program fields; it is the least populous county in New Mexico.",
+			"water": "About 415 mm, mostly summer storms. Surface water is appropriated (prior appropriation) and groundwater is limited. New Mexico's State Engineer has encouraged rooftop rainwater harvesting since 2004 (unlike Colorado, which allows a household 110 gallons). Earthworks for water retention need checking against water law.",
+			"land_price_eur_ha": [
+				1100,
+				1600
+			],
+			"legal_route": "Freehold purchase. New Mexico is not among the states that enacted foreign-ownership restrictions in 2025 (NALC); verify before buying. AFIDA federal disclosure applies. County zoning or a planned development; a later municipal incorporation under state law.",
+			"access": "Roy to I-25 at Springer about 1 h; Albuquerque and Amarillo about 3 h each. Amtrak Southwest Chief at Raton or Las Vegas NM. Times are estimates.",
+			"risks": "Drought and heat trend; water rights; wind and hail; altitude frost (1,800 m); remoteness and no services; the national policy climate on foreign land ownership could change.",
+			"precedents": "The national grasslands. The federal government bought 11.3 M acres of failed farms in the 1930s, and 3.8 M acres became 19 national grasslands in 1960, including the Kiowa, Comanche and Cimarron. The Conservation Reserve Program. California Forever and Telosa are references for new-city process and scale only.",
+			"scores": {
+				"water": 2,
+				"land": 5,
+				"legal": 3,
+				"access": 1,
+				"climate": 2,
+				"restoration": 4,
+				"precedent": 3
+			},
+			"notes": {
+				"area": "The county's land area is 2,125.48 sq mi. Parts are Kiowa National Grassland (federal).",
+				"rain": "Roy, NOAA 1991-2020, 16.35 in; summer monsoon storms",
+				"temp": "Roy (1,797 m), 1991-2020 daily means for January and July",
+				"land_price": "USDA NASS 2025: New Mexico non-irrigated cropland and pasture both USD 630/acre, about USD 1,557/ha or EUR 1,340/ha at about EUR 0.86 per USD."
+			},
+			"sources": [
+				{
+					"artifact": "5d0fb2c0-18de-4d13-b592-c65ce6030650",
+					"title": "Harding County, New Mexico: 2,125 sq mi and 657 people",
+					"url": "https://en.wikipedia.org/wiki/Harding_County,_New_Mexico"
+				}
+			]
+		},
+		{
+			"name": "Middle Chubut valley and meseta: Paso de Indios department",
+			"country": "Argentina",
+			"lat": -43.85,
+			"lon": -68.75,
+			"bbox": [
+				-44.1,
+				-69.4,
+				-43.55,
+				-68
+			],
+			"area_km2": 22300,
+			"population": 1886,
+			"density_per_km2": 0.08,
+			"density_year": 2022,
+			"largest_settlement": {
+				"name": "Paso de Indios",
+				"population": 1365
+			},
+			"koppen": "BWk",
+			"rain_mm": 200,
+			"temp_c": [
+				3,
+				18.5
+			],
+			"land_state": "Overgrazed Patagonian sheep steppe. INTA attributes erosion and desertification mainly to extensive sheep grazing. In 2026 more than 500,000 ha in north-east Chubut stood empty after more than 50 ranches closed.",
+			"water": "Very low rain, but the Río Chubut is a permanent snowmelt-fed river through the department (the irrigated lower Chubut valley is the model). Only river-irrigated terraces could carry a food forest; the meseta stays steppe.",
+			"land_price_eur_ha": [
+				30,
+				150
+			],
+			"legal_route": "Decree DNU 70/2023 repealed the Rural Land Law's foreign-ownership caps (Ley 26.737). The Supreme Court lifted an injunction in September 2026, but the decree's constitutionality is still open (October 2026). Chubut has provincial state land (tierras fiscales) and its own colonisation institute.",
+			"access": "RN25; Trelew airport about 3.5-4 h; Esquel about 3 h. Times are estimates.",
+			"risks": "Aridity, wind and cold; legal uncertainty over foreign ownership; Argentine macro-economic volatility; possible indigenous land claims (not researched); extreme remoteness.",
+			"precedents": "The irrigated lower Chubut valley (Welsh colony, 19th century) as the water model. INTA rangeland monitoring and holistic-grazing work in Patagonia.",
+			"scores": {
+				"water": 2,
+				"land": 5,
+				"legal": 2,
+				"access": 1,
+				"climate": 2,
+				"restoration": 5,
+				"precedent": 2
+			},
+			"notes": {
+				"area": "The department covers 22,300 km². A settlement would hug the Río Chubut corridor and its terraces, a block of about 5,000 km² including the adjacent meseta (estimate).",
+				"rain": "About 200 mm (monthly table total 198.6 mm)",
+				"temp": "July about 3 C, January 18.5 C; record -24.2 C; strong westerly winds",
+				"land_price": "Estimate. One undated listing of a 165,429 ha Paso de Indios ranch asks USD 8 M, about USD 48/ha. No official price series was found."
+			},
+			"sources": [
+				{
+					"artifact": "e59c0d5b-3af0-43dc-befb-5451cca5fbea",
+					"title": "Paso de Indios Department, Chubut: 22,300 km² of Patagonia",
+					"url": "https://en.wikipedia.org/wiki/Paso_de_Indios_Department"
+				},
+				{
+					"artifact": "fd5f8eed-6f43-4104-bf50-15f8d486d1fb",
+					"title": "Argentina's Supreme Court leaves foreign rural land buying unlimited",
+					"url": "https://www.estudio-ofarrell.com/csjn-revoca-la-declaracion-de-inconstitucionalidad-del-articulo-154-del-dnu-70-2023-y-deja-sin-limites-la-venta-de-tierras-rurales-a-extranjeros/"
+				}
+			]
+		},
+		{
+			"name": "Ferlo (Great Green Wall belt): Ranérou-Ferlo department",
+			"country": "Senegal",
+			"lat": 15.27,
+			"lon": -13.95,
+			"bbox": [
+				14.95,
+				-14.4,
+				15.6,
+				-13.5
+			],
+			"area_km2": 14411,
+			"population": 103225,
+			"density_per_km2": 7.2,
+			"density_year": 2023,
+			"largest_settlement": {
+				"name": "Ranérou (commune)",
+				"population": 4648
+			},
+			"koppen": "BSh (borderline BWh)",
+			"rain_mm": 420,
+			"temp_c": [
+				24.4,
+				31.7
+			],
+			"land_state": "Overgrazed Sahelian savanna and sylvopastoral rangeland; pastoral areas cover more than 90% of Ranérou department. It is degraded, but it is in use by Fulani herders, not empty.",
+			"water": "About 420 mm in one short season, plus the deep, fresh, confined Maastrichtian aquifer, reached by more than 100 pastoral boreholes. Restoration of pastoral units uses assisted natural regeneration and direct planting (WeForest with AVSF, ISRA and CIRAD).",
+			"land_price_eur_ha": null,
+			"legal_route": "Only through partnership: the commune's land allocation and pastoral-unit agreements, the national Great Green Wall agency, possibly the special economic zone law. Foreign founders cannot own land here.",
+			"access": "RN3 (Linguère-Matam). Dakar about 6-7 h; Ouro Sogui/Matam about 2 h. Times are estimates.",
+			"risks": "Pastoral land rights: a city must not displace herders. Survival of Great Green Wall plantings has been poor: only 1 of 36 Senegal plots studied was greener than it would have been naturally. Extreme heat (45 C), erratic rain, insecurity elsewhere in the Sahel. Senegal itself is stable: a peaceful transfer of power in 2024.",
+			"precedents": "The Great Green Wall (Widou Thiengoly and others); WeForest Ferlo (10,000 ha goal in the Labgar, Younouféré and Vélingara pastoral units); farmer-managed natural regeneration (FMNR) further south in Senegal's peanut basin.",
+			"scores": {
+				"water": 3,
+				"land": 2,
+				"legal": 2,
+				"access": 1,
+				"climate": 3,
+				"restoration": 2,
+				"precedent": 3
+			},
+			"notes": {
+				"area": "The department covers 14,411 km². A candidate block of about 5,000 km² around Ranérou and Vélingara-Ferlo, outside the core of the Ferlo reserves (estimate).",
+				"rain": "Linguère (nearest long series, 1991-2020) 421.8 mm; very variable year to year, 3-4 month rainy season",
+				"temp": "Linguère 1961-1990: January about 24.4 C, May about 31.7 C; Ranérou peak 45.1 C (June 2025)",
+				"land_price": "Not a market. Land is national domain under the 1964 law and cannot be sold; it is allocated by communes. Long leases are possible only on state private land (bail emphytéotique, reported terms 18-50 or 18-99 years)."
+			},
+			"sources": [
+				{
+					"artifact": "faa34be1-60df-41ed-99ca-d2eb9d8d3075",
+					"title": "Restoring the Ferlo with pastoralists, Great Green Wall in Senegal",
+					"url": "https://www.weforest.org/programmes/the-great-green-wall/ferlo/"
+				}
+			]
+		}
+	]
+}
