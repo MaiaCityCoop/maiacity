@@ -1,12 +1,10 @@
 /*
- * TEST WORLD — the stand-in world of play's world tests and the dev harness (play/SPEC.md §4.11), never proposed, and
- * the template of the world contract v1: a 400 m stretch of a two-lane road across bare soil, one traffic signal for
- * each way, cars on both lanes that keep their distance, queue and stop at red, an ambulance that passes with its
- * beacons and siren, horns from the queue. Everything that moves is the world's own recipe, run live in the box
- * (`root.userData.tick`); the page only follows the `use:` nodes it moves and reads their `state:` nodes.
- *
- * The guests it names by hash (`use:<hash>?values`): its car and its signal. Here they are the stand-ins beside this
- * file; render.mjs `--guests` hands them to the page and puts the hashes they are held by in place of these.
+ * TEST WORLD — the stand-in world of play's world tests and the dev harness (play/SPEC.md §4.11), never proposed, and the
+ * template of world contract v1: 400 m of two-lane road over bare soil, a signal each way, cars that keep their
+ * distance, queue and stop at red, an ambulance passing with beacons and siren, horns from the queue. All that moves is
+ * the world's own recipe run live in the box (`root.userData.tick`); the page follows its `use:` nodes and reads their
+ * `state:` nodes. Its guests by hash (`use:<hash>?values`), its car and signal, are the stand-ins beside this file;
+ * render.mjs `--guests` hands them to the page, the hashes they are held by put in place of these.
  */
 const THREE = require('three');
 
@@ -174,9 +172,8 @@ function build(cars = 18) {
 		ambulance.node.rotation.y = Math.PI / 2;
 	}
 	for (let i = 0; i < 300; i++) step(0.1); // the traffic settled before the first look
-	// the box hands the tick the world's time t (s since its run began, a quarter second more at most each call): the
-	// world brought to t in steps of exactly 0.1 s, counted (so the same world at the same t however it got there: a
-	// film steps through a shot, the page frame by frame)
+	// the box hands the tick the world's time t (s since its run began, ≤ 0.25 s more a call): brought to t in counted
+	// steps of exactly 0.1 s, so the same t is the same world however it got there (a film's steps, the page's frames)
 	let steps = 0;
 	root.userData.tick = (t) => {
 		const to = Number(t) || 0;

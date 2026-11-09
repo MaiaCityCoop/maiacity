@@ -1,11 +1,9 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * A WORLD'S SOUND — what its `sound:` nodes name (./contract.js), played with Web Audio round the camera: the bed (the
- * world's ambient loop, everywhere at once), and at its guests what their states call for, each where that guest
- * stands, panned and fading with distance as the camera moves: a horn once each time a guest's `state:horn` comes on,
- * a siren looped at each emergency vehicle whose `state:siren` is on (the nearest few), a truck's engine the same.
- * Recordings are play's files by hash (../../kernel/files.js), each fetched and decoded once. A browser lets a page
- * sound only once it has been touched: `unlock()` from a touch or a key.
+ * A WORLD'S SOUND — what its `sound:` nodes name (./contract.js), in Web Audio round the camera: the bed everywhere, and
+ * at each guest what its states call for, panned and fading with distance: a horn once each time `state:horn` comes on,
+ * a siren looped while `state:siren` is (the nearest few), a truck's engine the same. Recordings are play's files by
+ * hash (../../kernel/files.js), fetched and decoded once. A page sounds only once touched: `unlock()` from a touch or key.
  */
 import { fileUrl } from '../../kernel/files.js';
 
@@ -14,9 +12,7 @@ const LOOPS = 4;
 const SHOTS = 6;
 const REACH = 320;
 
-/**
- * @param {{ fetchFile?: (hash: string) => Promise<ArrayBuffer> }} [o]
- */
+/** @param {{ fetchFile?: (hash: string) => Promise<ArrayBuffer> }} [o] */
 export function createSound(o = {}) {
 	/** @type {AudioContext | null} */
 	let ctx = null;
