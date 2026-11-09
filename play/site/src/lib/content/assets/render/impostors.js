@@ -10,13 +10,13 @@ import { bake, bakeOf, cardMaterials } from '../../render/nodes/impostor.js';
 import { budget } from '../../render/budget.js';
 import { isWebGPU, maxTextureSize } from '../../render/core.js';
 
-/** a kind's picture is kept as two images: its views' colours; their normals and depth */
+/** a picture is kept as two images: colours; normals and depth */
 export const FRAMES = 2;
 
 /** in every kept picture's key (./levels.js): raised whenever a picture changes */
 export const VERSION = 3;
 
-/** a direction (y up; below the horizon as on it) as its place u, v (−1…1) on the hemi-octahedral square */
+/** a direction (y up; below the horizon as on it) as u, v (−1…1) on the hemi-octahedral square */
 export function encode(x, y, z) {
 	y = Math.max(0, y);
 	const s = Math.abs(x) + y + Math.abs(z) || 1;
@@ -43,7 +43,7 @@ export function nearest(x, y, z, n) {
 		: [[bx + 1, by + 1, fx + fy - 1], [bx, by + 1, 1 - fx], [bx + 1, by, 1 - fy]];
 }
 
-/** the up a view's camera is aimed by (its right up × d, its up d × right; from straight above, −z) */
+/** a view camera's up (its right up × d; from straight above, −z) */
 export const upOf = (d) => (d[1] > 0.999 ? [0, 0, -1] : [0, 1, 0]);
 
 /** triangles a card: five corners round a ball of diameter 1, flat side down */
@@ -148,7 +148,7 @@ export function createImpostors(renderer, o = {}) {
 
 	const at = (slot) => ({ x: (slot.cell % cols) * px, y: Math.floor(slot.cell / cols) * px });
 
-	/** `fn` copied onto a page, its smaller copies made once after (`settle`), not after every copy */
+	/** `fn` copied onto a page, its smaller copies made once after (`settle`) */
 	function onto(page, fn) {
 		for (const t of page.targets) t.texture.generateMipmaps = false;
 		fn();
@@ -156,7 +156,7 @@ export function createImpostors(renderer, o = {}) {
 		page.stale = true;
 	}
 
-	/** a kind baked onto a page from its coarsest shape: its slot (page, block's first cell, ball's diameter and middle) */
+	/** a kind baked from its coarsest shape: its slot (page, block's first cell, ball's diameter and middle) */
 	function add(level) {
 		const slot = slotFor(level), { size, mid } = slot, page = pages[slot.page], thing = thingOf(level), h = size / 2, D = size * 2 + 10;
 		studio.add(thing);
@@ -176,7 +176,7 @@ export function createImpostors(renderer, o = {}) {
 					for (let k = 0; k < 2; k++) {
 						for (const m of thing.children) m.material = bakeOf(m.userData.made)[k ? 'normal' : 'albedo'];
 						renderer.setRenderTarget(shots[k]);
-						// cleared see-through to its own colour (normal: facing the eye), its edges averaging into it afar
+						// cleared see-through to its own colour (or facing the eye): edges average into it afar
 						if (k) renderer.setClearColor(new THREE.Color().setRGB(d[0] * 0.5 + 0.5, d[1] * 0.5 + 0.5, d[2] * 0.5 + 0.5, THREE.NoColorSpace), 0);
 						else renderer.setClearColor(level.colour, 0);
 						renderer.clear();
@@ -200,7 +200,7 @@ export function createImpostors(renderer, o = {}) {
 		/** each view's pixels and views a side (a kept picture's key) */
 		px,
 		views: N,
-		/** a kind's block of each page, RGBA, read back asynchronously; null where it can't be (WebGPU: not yet) */
+		/** a kind's block of each page, RGBA, read back asynchronously; null on WebGPU */
 		async read(slot) {
 			const page = pages[slot.page];
 			if (!page || isWebGPU(renderer) || !renderer.capabilities?.isWebGL2) return null;
@@ -208,7 +208,7 @@ export function createImpostors(renderer, o = {}) {
 			await Promise.all(page.targets.map((t, k) => renderer.readRenderTargetPixelsAsync(t, x, y, side, side, out[k])));
 			return out;
 		},
-		/** a kind's picture laid from what `read` gave (kept: ./levels.js), nothing baked */
+		/** a picture laid from what `read` gave (./levels.js), nothing baked */
 		put(level, frames) {
 			if (!Array.isArray(frames) || frames.length !== FRAMES || frames.some((f) => !(f instanceof Uint8Array) || f.length !== side * side * 4)) throw new Error('refused: pictures of another size');
 			const slot = slotFor(level);
@@ -225,7 +225,7 @@ export function createImpostors(renderer, o = {}) {
 			);
 			return slot;
 		},
-		/** each page's smaller copies made again where new (drawing nothing into it), before a frame's cards */
+		/** each page's smaller copies made again where new, before a frame's cards */
 		settle() {
 			const stale = pages.filter((p) => p.stale);
 			if (stale.length)
@@ -240,7 +240,7 @@ export function createImpostors(renderer, o = {}) {
 		begin() {
 			for (const page of pages) page.n = 0;
 		},
-		/** a copy at x, y, z (its foot), turned `turn`, at `scale`, `fade` of it shown (0 or 1 whole) */
+		/** a copy at x, y, z (its foot), turned, scaled, `fade` of it shown (0 or 1 whole) */
 		push(slot, x, y, z, turn, scale, fade) {
 			const page = pages[slot.page];
 			if (page.n >= page.cap) grow(page, page.n + 1);

@@ -1,7 +1,7 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
  * THE FAR PICTURES IN TSL (../../assets/render/impostors.js): what a view is baked with and the card that draws them,
- * by the same sums as impostors.js's `encode`, `decode`, `nearest` and `upOf` (tested there).
+ * by impostors.js's sums (tested there).
  */
 import * as THREE from 'three';
 import { MeshBasicNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu';
@@ -15,7 +15,7 @@ import { always, drawn, faded, nodeOf, ours } from './index.js';
 export const bake = { dir: uniform(new THREE.Vector3(0, 0, 1)), mid: uniform(0), size: uniform(1) };
 
 const baked = new WeakMap();
-/** a material as baked: `albedo` its own colour, unlit; `normal` its normal and depth along the view, 0…1 @param {THREE.Material} m */
+/** a material as baked: `albedo` its colour unlit; `normal` its normal and depth, 0…1 */
 export function bakeOf(m) {
 	let b = baked.get(m);
 	if (b) return b;
@@ -75,7 +75,7 @@ export function cardMaterials(map, normals, cells, views, cut) {
 	const look = taken.reduce((a, t) => a.add(t.col.mul(t.wk)), vec4(0));
 	const cover = taken.reduce((a, t) => a.add(t.wk.mul(t.col.a)), float(1e-4));
 	const nd = taken.reduce((a, t) => a.add(t.nd.mul(t.wk.mul(t.col.a))), vec4(0)).div(cover);
-	// each pixel at its baked depth; its shadow cut as it is (on WebGPU by the material's own nodes, on WebGL `depth`)
+	// each pixel at its baked depth, its shadow cut out (WebGPU: by the material's nodes; WebGL: `depth`)
 	const z = positionView.z.add(nd.w.sub(0.5).mul(size));
 	const dz = select(ortho, viewZToOrthographicDepth(z, cameraNear, cameraFar), viewZToPerspectiveDepth(z, cameraNear, cameraFar));
 	const make = (K, o) => {
