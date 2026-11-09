@@ -1,26 +1,6 @@
-// One version control (play/SPEC.md "Version control", Samuel 2026-11-06): every versioned kind of play's (an asset, a
-// story, a factory, a game config, a skill, and whatever comes next) is one entry of the registry below, and one module
-// does the rest for each: list, read (at a version, an edit, or an intent's variant), history (edits, versions,
-// variants), edit, propose, review and decide. The words are one set everywhere:
-//
-//   Edit            one change, kept with its author, message and time
-//   Variant         a line of edits of one document
-//   Main            the default variant: what is accepted
-//   Intent variant  a variant that exists only inside an intent and goes through its stages; Accept merges it into
-//                   Main, Archive closes it (kept in the history)
-//   Seed            the version a variant grows from ("seeded from Main v3"); a document's first version is just v1
-//   Version         a numbered state of Main, named on accept
-//
-// An entry holds its document prefix and its schema (a document of the meta-schema, named by its UUID: ./docs/schemas.ts),
-// its row table, label and group (only shown), and hooks only where the kind really differs: edit helpers, what its
-// schema can't say (a whole-document check, that it is code), its own
-// propose (an asset's recipe built, a story's frozen row), its own decide, the fields its row keeps of an accepted
-// version, its list item's extra fields. A kind is named by its document's UUID everywhere (MCP's list_docs, doc_at,
-// doc_history, doc_edit, propose_doc_version; HTTP's /api/docs/<uuid>, /history, /changes; the board's review).
-//
-// A schema with no hooks needs no code (Samuel 2026-11-06): every accepted schema whose documents no entry here holds is
-// a kind of its own (syncKinds), its rows in play.records, so a new type is a schema document and the intent that
-// accepts it. A schema's new version is accepted only while every document on Main still validates against it.
+// One version control (play/SPEC.md §4.15, its words Edit, Variant, Main, Intent variant, Seed, Version; Samuel
+// 2026-11-06): documents and accept, for every kind of ./kinds.ts's registry. A schema with no hooks needs no code
+// (Samuel 2026-11-06): it is a kind of its own (syncKinds), its rows in play.records.
 import { admin, COOP, type Me } from "./access";
 import * as docs from "./docs";
 import { randomUUID } from "node:crypto";
@@ -42,7 +22,6 @@ function text(v: unknown, what: string, most: number): string {
   return v.trim();
 }
 
-/** a document's versions, each with who accepted it and its note */
 async function versionsNamed(db: Queryable, docId: string) {
   const versions = await docs.versionsOf(db, docId);
   const ids = [...new Set(versions.map((v) => v.author).filter((x): x is string => !!x))];
@@ -63,13 +42,11 @@ async function intentVariant(db: Queryable, docId: string, intent: unknown) {
     [s, COOP, docId],
   );
   if (!rows[0]?.doc_variant || !rows[0].status) throw new HttpError(`${docId} has no variant of intent ${s}.`, 404);
-  // the variant's own status (open, proposed, accepted, archived), as doc_history gives it
   return { id: rows[0].id, variant: Number(rows[0].doc_variant), stage: rows[0].stage, status: rows[0].status, note: rows[0].note, title: rows[0].title };
 }
 
 // ---- reading
 
-/** every document of kind `kind` (every kind's where none is named): its UUID, kind, label, newest version, how many versions */
 export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
   const who = admin(me, DOC_ADMINS);
   await syncKinds(db);
@@ -97,7 +74,6 @@ export async function listDocs(db: Queryable, me: Me | null, kind?: string) {
 
 type DocAt = { version?: number; edit?: number; intent?: string; breed?: number };
 
-/** One document, whole: at Main's newest version, at version `version`, at edit `edit`, or as intent `intent`'s variant would make it. With its versions. */
 export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}) {
   admin(me, DOC_ADMINS);
   const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id, me));
@@ -127,11 +103,6 @@ export async function docAt(ctx: Ctx, me: Me | null, id: unknown, at: DocAt = {}
   return viewed({ ...base, json: (await docs.readDoc(db, docId)).json, version: number });
 }
 
-/**
- * A document's history: its edits, oldest first (Main's, with each accepted intent variant's where it was made; with
- * `variant`, that variant's own), its versions, and its variants (Main, then each intent variant with its intent, its
- * seed and how many edits it holds).
- */
 export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { variant?: number } = {}) {
   admin(me, DOC_ADMINS);
   const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id, me));
@@ -169,10 +140,6 @@ export async function docHistory(ctx: Ctx, me: Me | null, id: unknown, o: { vari
   };
 }
 
-/**
- * What an edit or an intent variant changes, against the version it grew from: with `edit`, the state before it and
- * after it; with `variant`, its seed and where it stands now. The changes field by field, and the edits that made them.
- */
 export async function docChanges(ctx: Ctx, me: Me | null, id: unknown, o: { edit?: number; variant?: number }) {
   admin(me, DOC_ADMINS);
   const { kind, uuid, docId } = await (ctx.db as Db).transaction((q) => docRef(q, ctx, id, me));
@@ -204,7 +171,6 @@ export async function docChanges(ctx: Ctx, me: Me | null, id: unknown, o: { edit
 
 // ---- editing and proposing
 
-/** an edit's write: the kind's own, else the edits resolved, or the whole state with its schema kept */
 async function writeOf(q: Queryable, k: Kind, uuid: string, cur: any, input: Input): Promise<docs.Write> {
   if (k.write) return k.write(q, uuid, cur, input);
   if (input.whole !== undefined) {
@@ -214,7 +180,6 @@ async function writeOf(q: Queryable, k: Kind, uuid: string, cur: any, input: Inp
   return { edits: resolveEdits(cur, input.edits) };
 }
 
-/** an intent variant of the document still open for edits, and the intent it is the work of (null: none yet) */
 async function openVariant(q: Queryable, docId: string, uuid: string, v: unknown): Promise<{ id: number; seed: docs.Frontiers; intent: string | null }> {
   const n = Number(v);
   if (!Number.isInteger(n) || n < 1) throw new HttpError("An intent variant is named by its number (doc_edit gives it).");
@@ -224,7 +189,7 @@ async function openVariant(q: Queryable, docId: string, uuid: string, v: unknown
   return { id: n, seed: rows[0].seed, intent: rows[0].intent_id };
 }
 
-/** the intent an edit is made for (no edit without one): one that is being built or waits at Proposal */
+/** no edit without an intent (intent 847c5d38) */
 async function editingIntent(q: Queryable, intent: unknown): Promise<string> {
   const s = `${intent ?? ""}`.toLowerCase();
   if (!s) throw new HttpError(NO_INTENT);
@@ -236,7 +201,6 @@ async function editingIntent(q: Queryable, intent: unknown): Promise<string> {
   return s;
 }
 
-/** the variant an edit goes on: the one named (the intent's, or none's yet), else the intent's open one of this document, else a new one seeded from Main's newest version */
 async function variantFor(q: Queryable, docId: string, uuid: string, intent: string | null, v: unknown, author: docs.Author, note: string, on: { kind: Kind; breed?: number | null; newBreed?: string | null }): Promise<number> {
   if (v != null) {
     const o = await openVariant(q, docId, uuid, v);
@@ -279,7 +243,6 @@ async function growFromHeld(q: Queryable, k: Kind, docId: string, v: number, int
 }
 
 const BREED_NAME = /^[a-z0-9][a-z0-9-]{0,79}$/;
-/** a new intent variant of document `docId`: of Main, of breed `breed` (to change it), or making breed `newBreed` (an asset's) */
 async function newVariant(tx: Queryable, k: Kind, docId: string, uuid: string, p: { breed?: number | null; newBreed?: string | null }, author: docs.Author, note: string): Promise<number> {
   if (p.breed != null || p.newBreed != null) {
     if (!k.breeds) throw new HttpError(`A ${k.label} has no breeds: only an asset has.`);
@@ -293,11 +256,6 @@ async function newVariant(tx: Queryable, k: Kind, docId: string, uuid: string, p
   return (await docs.variant(tx, docId, { author, note, ...(p.breed != null ? { breed: Number(p.breed) } : {}), ...(p.newBreed != null ? { makes: `${p.newBreed}` } : {}) })).id;
 }
 
-/**
- * A new document of a kind that is a schema alone, or of a schema (`kind`), from its whole first state: its row, and its
- * Main born empty; its first state is an intent variant's, Main's only once a person accepts it (no bypass). A kind with a
- * table of its own makes its documents its own way (propose_asset, propose_story).
- */
 async function newDocument(q: Queryable, who: Me, kindName: unknown, whole: unknown): Promise<string> {
   await syncKinds(q);
   const k = kindNamed(`${kindName ?? ""}`);
@@ -314,11 +272,6 @@ async function newDocument(q: Queryable, who: Me, kindName: unknown, whole: unkn
 
 type DocEditBody = { doc?: unknown; kind?: unknown; intent?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; message?: unknown };
 
-/**
- * One edit of an intent variant, as the admin `me`, for intent `intent` (no edit without one: Main is written only by an
- * Accept): on variant `variant`, else on the intent's open variant of the document, else on a new one seeded from Main's
- * newest version; with `kind` and no `doc`, a new document of that kind, its whole first state the variant's first edit.
- */
 export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web" | "mcp" = "mcp") {
   const who = admin(me, DOC_ADMINS);
   const message = text(p?.message, "The edit's message (what it does)", 500);
@@ -339,18 +292,12 @@ export async function docEdit(ctx: Ctx, me: Me | null, p: DocEditBody, via: "web
 
 type ProposeBody = { doc?: unknown; kind?: unknown; note?: unknown; variant?: number | null; breed?: number | null; newBreed?: string | null; edits?: unknown; whole?: unknown; intent?: string };
 
-/** a variant made edit by edit is proposed for the intent it was made for, and only for it */
 async function proposedFor(q: Queryable, docId: string, uuid: string, v: number, intent: string | undefined) {
   const o = await openVariant(q, docId, uuid, v);
   if (o.intent && o.intent !== intent) throw new HttpError(`Variant ${v} of ${uuid} is intent ${o.intent}'s: propose it naming that intent (\`intent\`).`, 409);
   return o;
 }
 
-/**
- * Propose the document's next version, as the admin `me`: an intent variant made edit by edit (its `variant`, perhaps
- * with one more edit), or edits (or the whole) at once. To propose is to put an intent at Proposal with the work: the
- * intent named (beside the other documents it changes): no work without an intent.
- */
 export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody, via: "web" | "mcp" = "mcp") {
   const who = admin(me, DOC_ADMINS);
   const note = text(p?.note, "The note (what changes and why)", NOTE_MOST);
@@ -380,7 +327,6 @@ export async function proposeDocVersion(ctx: Ctx, me: Me | null, p: ProposeBody,
   });
 }
 
-/** a document's next version proposed, in the caller's transaction (proposeDocVersion, proposeNewDoc) */
 async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId: string, p: ProposeBody, note: string, via: "web" | "mcp") {
   const author = authorOf(who, via);
   let v: number;
@@ -403,11 +349,6 @@ async function proposeIn(tx: Queryable, who: Me, kind: Kind, uuid: string, docId
   return { intent, stage: await stageAfter(tx, intent), doc: uuid, kind: kind.name, number, variant: v, edits: (await docs.history(tx, docId, { variant: v })).length, changes: changes.length };
 }
 
-/**
- * A new document of kind `kindName` with a table of its own proposed (an artifact kept for the first time): its row
- * holding only its id until an Accept writes it, its Main born empty, its first state an intent variant proposed for
- * the intent named (no work without an intent). Nothing of it is Main's until it is accepted.
- */
 export async function proposeNewDoc(ctx: Ctx, me: Me | null, kindName: string, o: { whole: Record<string, unknown>; note: string; intent?: string }, via: "web" | "mcp" = "mcp") {
   const who = admin(me, DOC_ADMINS);
   const kind = kindNamed(kindName);
@@ -422,7 +363,6 @@ export async function proposeNewDoc(ctx: Ctx, me: Me | null, kindName: string, o
   });
 }
 
-/** A document's first version, as a new document named v1 (the deploy's import): only when play holds none of its id. Gives back whether it was made. */
 export async function seedDoc(db: Db, kindName: string, o: { id: string; json: any; note: string; at?: Date }): Promise<boolean> {
   const k = kindNamed(kindName);
   if (!k) throw new HttpError(`There is no kind ${kindName}.`);
@@ -440,22 +380,12 @@ export async function seedDoc(db: Db, kindName: string, o: { id: string; json: a
 
 // ---- reviewing and deciding
 
-/** an accepted version's row: its label (or title) and the fields its kind's row keeps, in the caller's transaction */
 async function writeRow(tx: Queryable, k: Kind, docId: string, json: any) {
   const cols = { [k.labelColumn ?? "label"]: json.label ?? json.title, ...Object.fromEntries(Object.entries(k.row ?? {}).map(([c, f]) => [c, f(json)])) };
   await tx.query(`UPDATE ${qi(k.table)} SET ${Object.keys(cols).map((c, i) => `${qi(c)} = $${i + 2}`).join(", ")} WHERE id = $1`, [docId.split(":")[1], ...Object.values(cols)]);
 }
 
-/**
- * Accept or archive an intent's work on its documents (`p`, its intent locked by the caller's transaction), as admin
- * `me`: every one of them in this one transaction, or none (intent 7c8986c5: any number, whatever their kind). Accepted,
- * each intent variant is merged into its Main and named its next version, its row keeping what the version says;
- * seeded from a version that is no longer Main's newest, it still goes in where the two changes touch different fields.
- * A kind's `before` holds each merge to what its schema can't say (a layout's pins, a schema's documents). A kind with
- * its own decide (an asset's, a story's frozen rows) decides its own documents, each with its own refs, once every other
- * one has been found to go in. Where one clashes (the same field changed), is no longer valid merged, no longer holds,
- * or its kind's decide does not take it, none goes in: the intent is archived whole (back to Build).
- */
+/** An intent's work on all its documents decided in one transaction, or none (intent 7c8986c5). */
 export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdict: Verdict) {
   const own = kindOfWork(p.kind)!;
   if (me.level !== "admin") throw new HttpError(`Only Maia City's admins decide on ${own.group}.`, 403);
@@ -543,11 +473,7 @@ export async function decideWork(tx: Queryable, ctx: Ctx, me: Me, p: any, verdic
   return { id: p.id as string, status: "accepted" as const, number: numbers[0], ...(numbers.length > 1 ? { numbers } : {}), ...(merges[0]?.preview.concurrent ? { merged: true } : {}), ...(retires.length ? { retired: retires.map((h) => h.doc_id.split(":")[1]) } : {}) };
 }
 
-/**
- * An intent's pieces in the order an Accept keeps them (intent 02e3a85f): each after the pieces of the intent its
- * source requires and after the earlier versions of its own piece the intent holds, else in the intent's order. Each
- * with its state as proposed. Pieces that require each other in a circle give why, to archive it.
- */
+/** An intent's pieces in the order an Accept keeps them (intent 02e3a85f), each after what its source requires. */
 async function piecesInOrder(q: Queryable, pieces: { doc_id: string; doc_variant: number }[]): Promise<{ h: { doc_id: string; doc_variant: number }; json: any }[] | string> {
   const all = [];
   for (const h of pieces) {
@@ -566,10 +492,7 @@ async function piecesInOrder(q: Queryable, pieces: { doc_id: string; doc_variant
   return out.map(({ h, json }) => ({ h, json }));
 }
 
-/**
- * Accept or archive an intent's work at Proposal (Samuel 2026-11-04: it ends accepted or archived, nothing else). An
- * admin decides any; whoever proposed it may archive their own. The answer says the stage the intent settled at.
- */
+/** Accept or archive an intent's work at Proposal (Samuel 2026-11-04: it ends accepted or archived, nothing else). */
 export async function decide(ctx: Ctx, me: Me | null, id: string, verdict: Verdict) {
   if (!me) throw new HttpError("Please sign in first.", 401);
   return ctx.db.transaction(async (tx) => {
