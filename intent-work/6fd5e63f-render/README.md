@@ -9,9 +9,9 @@ are two-sided, darker toward the root, and glow with the sun behind them. The ce
 triangles as main, a little fewer (the steady census: near 10,523,087/5,665; mid 13,840,939/4,244; far 2,762,180/1,782). This job checks what the census can't:
 frame time, the film, and that a frame repeats.
 
-**The head is the change stacked on intent 5** (PR #2180's head, `intent/6fd5e63f-living-plants` @ bf0529e83, the stack on intent 5's 5332a67 merged in). The looks are
-drawn on the kit's TSL materials (on main since cb16b7a5), the cover stream (11ead007) not on main yet. So three trees are measured: **main** 6a01d98 (base),
-**kit** 5332a67 (intent 5's head, what the change sits on) and **head** bf0529e. head − kit is this intent's own cost;
+**The head is the change stacked on intent 5** (PR #2180's head, `intent/6fd5e63f-living-plants` @ dd09828c4, intent 5's de691fd merged in). The looks are
+drawn on the kit's TSL materials (on main since cb16b7a5), the cover stream (11ead007) not on main yet. So three trees are measured: **main** 37bd0d1 (base),
+**kit** de691fd (intent 5's head, what the change sits on) and **head** dd09828. head − kit is this intent's own cost;
 head − main is what c7 bounds.
 
 **Run:** `PLAY_MCP_TOKEN=play_… bash intent-work/6fd5e63f-render/run.sh` (bun, node with Playwright's Chromium, ffmpeg).
