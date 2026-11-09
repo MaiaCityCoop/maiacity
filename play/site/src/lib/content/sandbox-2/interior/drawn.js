@@ -1,16 +1,8 @@
 /*
- * DRAWN BY THE RENDERER — what a sandbox draws of the asset library: a universal renderer ($content/assets/render) in a
- * world's scene, every asset in it built in the asset box and drawn there as copies of its kind, and its copies kept
- * when a part of the world lets them go (a tile of floor walked away from, a dome's inside let go of), for the next
- * that wants one of that kind: a world that comes and goes as you walk adds none.
- *
- * What the world decides: where each copy stands. What the renderer decides: how each is drawn (its level, frame by
- * frame; nothing behind the eye), and that the shadows are drawn again when what casts them changed (`shadows`: or
- * the world is told, when it draws them only every so often).
- *
- * `createDrawn` for the library's Things and the biomes' cover; `createFlora` for a forest of our plants (./flora.js).
- * Every kind is drawn by its card's levels and the renderer's one selector (assets/render/lod.js): no world here
- * chooses a level, a detail or a distance of its own.
+ * DRAWN BY THE RENDERER — the asset library in a world's scene ($content/assets/render): each asset built in the box
+ * and drawn as copies of its kind, copies let go of kept for the next that wants that kind. The world decides where a
+ * copy stands; the renderer how it is drawn, by its card's levels and its one selector (assets/render/lod.js).
+ * `createDrawn` for Things and the biomes' cover; `createFlora` for a forest of our plants (./flora.js).
  */
 import * as THREE from 'three';
 import { createAssets } from '$lib/content/assets/render/index.js';

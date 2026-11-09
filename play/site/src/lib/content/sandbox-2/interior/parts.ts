@@ -1,13 +1,6 @@
 /**
- * What rides the belts of the solar factory dome, in 3D: the part each floor
- * makes, at every stage of it. Every station makes something of its own —
- * quartz becomes silicon becomes an ingot becomes wafers becomes cells; a coil
- * of copper gathers ribbons, cable, plugs, a box and a board; sand becomes a
- * melt, a sheet of glass, a triangle — so what rides out of a station is never
- * what rode in.
- *
- * Each stage is one merged geometry with its colours in its vertices, all on
- * a tray 1.5 m square: one instanced mesh per stage, one material for all.
+ * What rides the belts of the solar factory dome: each station's own part at every stage (quartz to cells, copper to
+ * a junction box, sand to a glass triangle), each stage one merged, vertex-coloured geometry on a 1.5 m tray.
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'

@@ -1,28 +1,9 @@
 /**
- * THE SOLAR FACTORY DOME — the village's factory coop, a dome the size of the
- * master dome, making the glass triangles every dome is built from.
- *
- * It follows the real recipe of a solar module line, top to bottom:
- *
- *   4  Solar glass       float glass in, triangles cut, edges ground, washed,
- *                        tempered at 700 °C, quenched, anti-reflective coated
- *   3  Cells & strings   cells sorted by EL and IV, laser half-cut, soldered
- *                        into strings on the tabber-stringers, inspected
- *   2  Layup             glass in, encapsulant film, strings laid up, bussed,
- *                        second film, back glass, EL before lamination
- *   1  Lamination        vacuum laminators at 145 °C, cooling press, edge
- *                        trimming, triangle frame and gasket, junction box
- *   0  Testing & ship    sun simulator flash test, final EL, insulation test,
- *                        grading, packing onto racks; round it the warehouse,
- *                        high-bay racks, docks at the doors, AGVs to the yard
- *
- * Every floor is a ring round a central tower: one great round lift that
- * carries people, robots and racks between the floors (↑ and ↓ inside it),
- * and overhead conveyors from the tower out over the lines. On every floor
- * two circular lines carry the triangles from station to station, climbing
- * over the paths where they cross. Robot arms load the machines behind their
- * fences, gantries lay up the strings, humanoid robots and people walk the
- * aisles, AGVs carry racks.
+ * THE SOLAR FACTORY DOME — the village's factory coop, master-dome size, making the glass triangles every dome is
+ * built from, after a real solar module line, top floor to bottom: 4 solar glass (cut, ground, tempered at 700 °C,
+ * AR coated), 3 cells & strings (EL/IV sorted, half-cut, stringed), 2 layup, 1 lamination (145 °C, framed, junction
+ * box), 0 flash test, grading and the warehouse. Each floor is a ring round one great lift tower; two circular lines
+ * per floor carry the triangles, climbing over the paths where they cross.
  */
 import * as THREE from 'three'
 import type { Mats } from './interior'

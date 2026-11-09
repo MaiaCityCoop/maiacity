@@ -1,13 +1,7 @@
 /**
- * The master dome's working life: the ring under its gallery holds the
- * village's workshops (co-working desks, a woodshop, an art studio, a pottery,
- * a bakery and a cooking school, a library, a repair bench) and round it, just
- * outside the arcade, a ring of café squares where people eat in the open.
- *
- * Each space is drawn in its own frame: x runs along the ring, +z points out
- * toward the glass, and the space is placed on the ring by `place`. The
- * workshops are Things of the library ($content/models/domerooms.js), and the
- * master dome puts copies of them down on its ring (./things.js `workshopsOf`).
+ * The master dome's working life: workshops in the ring under its gallery (desks, woodshop, studio, pottery, bakery,
+ * library, repair bench) and café squares outside the arcade. Each space in its own frame (x along the ring, +z out to
+ * the glass), placed by `place`; the workshops are Things ($content/models/domerooms.js, ./things.js `workshopsOf`).
  */
 import * as THREE from 'three'
 import { coop, hutch } from '$lib/content/models/timber.v1.js'
