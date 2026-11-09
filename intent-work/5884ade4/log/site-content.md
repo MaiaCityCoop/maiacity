@@ -64,3 +64,12 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
    importing `lib/recipes.ts` would close a folder cycle); `lib/recipes.ts` re-exports it for the census (held), and the
    Factories wait on it instead of a copy without its check. Held, left: `interior/things.js`'s ref,
    `sandbox-4/scene.ts`'s raw config read and its copy of the wait, the catalog walks of `village.ts` and `scene.ts`.
+8. **Sandbox 1 and 5 are one dome-cell page** (site-worlds#1; site-worlds F1 non-held part).
+   `content/sandbox-2/interior/DomeCellPage.svelte` holds the page (the mount, the plant card, its styles, the aside);
+   `routes/sandbox-1` (23 lines) and `routes/sandbox-5` (32) give it their sandbox's UUID, head, bar, cover and label,
+   Sandbox 5 its `solo` building and Sandbox 1 its `opening` notice. Both mount as before: Sandbox 1's garden after
+   `catalogReady(SANDBOX.one)`, Sandbox 5 with `solo`. Pinned by the SSR snapshot of each page (written from the old
+   pages, passed by the new; the test now leaves out the in-game clock, which made it fail by the hour, and the head's
+   hydration marker, which names the component that owns the head). The kit's barrel is no longer used for `WorldPage`.
+   Census: Sandbox 1 and Worlds same, Sandbox 3 its noise. Held, left: the census's `mountSandbox1` copy of the mount
+   (`scripts/census/run.ts`), Sandbox 5's `FOREST_DOME` and gates as layout configs (§5, `village.ts`).
