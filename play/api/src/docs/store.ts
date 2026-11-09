@@ -1,8 +1,5 @@
-// Documents in Postgres (play/SPEC.md §4.4, "Version control"). The server is the only writer: every write locks its
-// document's row, loads it (Main: snapshot plus later edits; an intent variant: Main forked at its seed plus its own),
-// applies the edit, checks the whole against its type and appends the edit (Loro update, who, why, when, frontiers).
-// Accepting merges an intent variant into Main and names the result a version (its canonical JSON's BLAKE3 kept). The
-// browser never needs Loro: any edit's state is served as JSON.
+// Documents in Postgres (play/SPEC.md §4.4, "Version control"): the server the only writer, each write locking the
+// document's row and checking the whole against its type. The browser never needs Loro: any state is served as JSON.
 import { randomInt } from "node:crypto";
 import type { LoroDoc } from "loro-crdt";
 import type { Db, Queryable } from "../kit/pg";
@@ -111,10 +108,7 @@ async function compact(q: Queryable, row: DocRow, d: LoroDoc): Promise<void> {
 
 // ---- writing
 
-/**
- * A new document of schema `schema` from its first state, one edit of its Main (named v1 with `version`). With `empty`,
- * Main is born empty: a document proposed new, its first version held by an intent variant until accepted.
- */
+/** A new document of schema `schema`, one edit of its Main (v1 with `version`); with `empty`, Main born empty until accepted. */
 export async function createDoc(db: Db | Queryable, o: { id: string; schema: string; json?: unknown; empty?: boolean; author: Author; message?: string; at?: Date; version?: string; number?: number }): Promise<{ id: string; edit: DocEdit; version: Version | null }> {
   if (!ID.test(o.id)) throw new DocError(`a document's id is its kind and a name, like story:<uuid>: not ${JSON.stringify(o.id)}`);
   return inTx(db, async (q) => {
@@ -155,10 +149,7 @@ async function name(q: Queryable, docId: string, d: LoroDoc, note: string, a: Au
 
 export type Write = { edits: Edit[] } | { target: unknown };
 
-/**
- * One edit (`edits`, or the operations that make the document `target`) on Main or intent variant `variant`, with
- * `message`; null when nothing changed. A decided variant takes no more edits.
- */
+/** One edit (`edits`, or the operations making `target`) on Main or `variant`; null when nothing changed. A decided variant takes none. */
 export async function commit(db: Db | Queryable, id: string, w: Write & { message: string; author: Author; variant?: number; kind?: "edit" | "import"; at?: Date }): Promise<DocEdit | null> {
   if (!w.message?.trim()) throw new DocError("every edit says what it does: its message is empty");
   return inTx(db, async (q) => {
@@ -235,10 +226,7 @@ async function makeBreed(q: Queryable, row: DocRow, o: { name: string; author: A
   return { id: Number(rows[0].id), seed: seedAt };
 }
 
-/**
- * Main merged into breed `b` (play/SPEC.md "Breeds"): every edit it lacks taken in, its overridden fields keeping its own
- * value (both changed: the breed's); one merge edit, none when it has all of Main already.
- */
+/** Main merged into breed `b` (play/SPEC.md "Breeds"): one merge edit, the breed's own fields kept; none when it has all of Main. */
 async function trackMain(q: Queryable, row: DocRow, t: DocType, main: LoroDoc, b: VariantRow, message: string, a: Author): Promise<DocEdit | null> {
   const d = await loadVariant(q, row, b, main);
   d.setPeerId(await peerFor(q, row.id, b.id, { human: null, via: "system" }));
@@ -354,9 +342,8 @@ async function intoBreed(q: Queryable, row: DocRow, r: VariantRow, main: LoroDoc
 }
 
 /**
- * Accepts a breed's intent variant into that breed (or as the new breed it makes): merged into its line, what it changes
- * overridden from then on, Main merged in where it moved. Main is unchanged, but it is named the next version all the
- * same: every Accept, on Main or a breed, is the next version.
+ * Accepts a breed's intent variant into that breed (or as the new breed it makes). Main is unchanged, but it is named
+ * the next version all the same: every Accept is the next version.
  */
 async function acceptIntoBreed(q: Queryable, row: DocRow, t: DocType, r: VariantRow, o: { author: Author; note?: string; mergedHash?: string }): Promise<Version> {
   const main = await loadMain(q, row);
@@ -493,10 +480,7 @@ export async function variantOf(db: Queryable, id: string, v: number, o: { breed
 
 const cache = new Map<string, { key: string; type: DocType }>();
 
-/**
- * The type schema `id` is now: its Main's newest version, cached by the schema's head. One not yet a document is its
- * seed's v1 (as ensureSchemas makes it); one proposed and not yet accepted is no type yet.
- */
+/** The type schema `id` is now (its Main's newest, cached by its head; its seed's v1 until a document; none until accepted). */
 export async function typeFor(q: Queryable, id: string | null | undefined): Promise<DocType> {
   if (!id) throw new DocError("this document names no schema (play.docs.schema_id): run the migrations", 500);
   const { rows } = await q.query<{ head: unknown; n: number | null }>(

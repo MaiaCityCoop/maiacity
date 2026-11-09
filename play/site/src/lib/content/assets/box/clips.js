@@ -20,10 +20,7 @@ export const WIDTH = 7;
 const STRIDE = 64;
 /** the rates a clip in time may be written down at (samples a second) */
 const RATES = [15, 30, 60, 120];
-/**
- * how close the tables keep to the clip: a turn (rad), a size, an offset (of the actor's size); or, for a channel that
- * moves further, that share of its move (a tail beating six times a second, at a tenth of its swing)
- */
+/** how close the tables keep to the clip: a turn (rad), a size, an offset (of the actor's size), or a share of a far-moving channel's move */
 const TOL = { turn: 0.01, size: 0.004, offset: 0.002, of: 0.03 };
 /** the most numbers one build's clips may come to, and the most clips */
 export const MOST = 6_000_000;
@@ -118,11 +115,9 @@ function unwrap(S, n, L, base, flips) {
 }
 
 /**
- * One axis of a clip written down: its pose at x = 0 … `length` (s, or m of a gait) as what it adds to `base`, at
- * `rate` samples a unit or more (doubled up to `most` while more than a few midpoints stray past their tolerance), each
- * channel's drift over the length, its end blended into its start over `seam` (0: repeats exactly, a stride). `flips`:
- * bones written either way round; `like`: the same axis at another pace ({ S, base }), each sample written nearest its
- * own there, so the two blend the short way round. @param {(x: number, out: Float64Array, at: number) => void} at
+ * One axis of a clip written down: its pose at x = 0 … `length` (s, or m of a gait) over `base`, at `rate` samples a unit
+ * (doubled up to `most` while midpoints stray past tolerance), with drift, its end blended over `seam`; `like`: the same
+ * axis at another pace, sampled nearest it so the two blend the short way. @param {(x: number, out: Float64Array, at: number) => void} at
  */
 function axis(at, length, rate, most, seam, L, base, flips, like) {
 	const w = L.width;
@@ -261,8 +256,7 @@ function strideOf(at, gear, L, base, flips) {
 	};
 	const errs = [];
 	for (let k = 0; k <= N / 2 + 1; k++) errs.push(k < 3 ? Infinity : E(k));
-	// the first dip: lower than its neighbours and well below how far it had come from itself (a smooth clip is near
-	// itself a few samples on)
+	// the first dip: lower than its neighbours and well below how far it had come from itself
 	let k = -1, top = 0;
 	for (let j = 4; j <= N / 2; j++) {
 		top = Math.max(top, errs[j - 1]);
@@ -357,9 +351,8 @@ function pacesOf(play, gear, L) {
 }
 
 /**
- * A gait written down: at each pace (`pacesOf`) its channels at time and distance 0 (`base`), what time adds (`T`), what
- * distance adds (`D`; one moved by both as one wave at distance + k × time); and at its own pace, each rate of turn's
- * (`turn`, along the distance).
+ * A gait written down: at each pace (`pacesOf`) its `base`, what time adds (`T`), what distance adds (`D`), and at its
+ * own pace each rate of turn's (`turn`).
  */
 function gaitOf(play, gear, L) {
 	const w = L.width;

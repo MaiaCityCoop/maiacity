@@ -1,12 +1,9 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
  * THE WORLD CONTRACT v1 (play/SPEC.md §4.11) — what a world's build says by the names of its nodes, read here and
- * nowhere else. A world is an asset of the group `worlds`: its recipe builds its land and names everything else it
- * stands by hash (`use:<recipe hash>?values`, ../assets/plantings.js); a world that moves is a build kept running in
- * the box (`root.userData.tick`), whose steps move its own `use:` nodes. Besides those, it says:
+ * nowhere else; its land built by its recipe, everything else by hash (`use:<recipe hash>?values`, ../assets/plantings.js):
  *
  *   mood:<preset>?k=v          its sky and light: a preset (MOODS) and its keys over it: sun (the sun's height, °),
- *                              (fog is the density at street level; the page thins it with the eye's height, ../sandbox-kit/sky.js)
  *                              az (its bearing, ° from +z toward +x), fog (density a metre), haze (the fog's colour,
  *                              hex), lamps (1: street lamps and vehicles' head and tail lights lit), shadows (1: the
  *                              sun casts them; off under smog and overcast by default)
@@ -142,10 +139,7 @@ export function worldOf(root) {
 	return { mood: mood ?? moodOf(''), sounds, moves: root.userData?.view?.ticks === true };
 }
 
-/**
- * A guest's states now, read off its `state:` children: by name on or off, and each signal head's lamps.
- * @param {import('three').Object3D} node @returns {{ on: Map<string, boolean>, heads: Map<number, Map<string, boolean>> }}
- */
+/** A guest's states now, read off its `state:` children. @param {import('three').Object3D} node @returns {{ on: Map<string, boolean>, heads: Map<number, Map<string, boolean>> }} */
 export function statesOf(node, out = { on: new Map(), heads: new Map() }) {
 	out.on.clear();
 	out.heads.clear();
@@ -167,8 +161,7 @@ const BLINK = 1.5;
 const FLASH = 2.5;
 
 /**
- * Whether a guest's light is lit now: by its state, else the mood; an indicator blinks and a beacon's colours turn about
- * on the page's clock `t` (s), each guest at its own phase.
+ * Whether a guest's light is lit now: by its state, else the mood; indicators and beacons on the page's clock `t` (s).
  * @param {{ light?: string, state?: string, lamp?: string, head?: number, set?: number }} part
  * @param {{ on: Map<string, boolean>, heads: Map<number, Map<string, boolean>> }} states
  * @param {{ lamps: boolean }} mood @param {number} t @param {number} [phase] 0..1
