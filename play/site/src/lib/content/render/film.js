@@ -6,7 +6,7 @@
  * caller) was deleted by intent 602a8849; a later film intent brings what it needs back in TSL.
  *
  * The contract a world hands over (`window.__world`) is the sandbox kit's `connectFilm` ($content/sandbox-kit/film.js);
- * film mode itself is ../film/index.js.
+ * the shots it plays are ../game/film/shot.js and ../game/film/reel.js.
  */
 const win = () => /** @type {{ __filmDraw?: boolean, __filmPlays?: boolean, __worldTime?: number, __film?: { virtual?: boolean }, __world?: unknown }} */ (/** @type {unknown} */ (window));
 /** True while the film draws the canvas itself: the world must not spend a frame drawing for nobody. */
