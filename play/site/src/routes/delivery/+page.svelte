@@ -7,10 +7,12 @@
 	minutes and slowest steps. `?days=<n>` the window (7 by default, 1 to 30). Admins only; it changes nothing.
 -->
 <script lang="ts">
+	import { shortWhen as short, weekday as dayName } from '$lib/format';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import { span } from '$lib/site/intents/took';
 
 	type Stage = 'idea' | 'specify' | 'build' | 'proposal' | 'ship';
@@ -32,14 +34,15 @@
 		['proposal', 'Proposal', 'waiting for a person: Accept'],
 		['ship', 'Ship', 'CI: merge, main, release, deploy']
 	];
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	const days = $derived(Number(page.url.searchParams.get('days') ?? 7) || 7);
 	let ci = $state(false);
 	let d = $state<Delivery | null>(null);
 	let error = $state('');
 	let busy = $state(false);
 	$effect(() => {
-		if (!admin) return void (session.me && goto('/', { replaceState: true }));
+		if (!admin) return;
 		let gone = false;
 		busy = true;
 		api<Delivery>(`/delivery?days=${days}${ci ? '&ci=1' : ''}`).then(
@@ -49,8 +52,6 @@
 		return () => (gone = true);
 	});
 	const most = $derived(Math.max(1, ...(d?.intents ?? []).map((t) => t.lead_ms)));
-	const short = (s: string) => new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-	const dayName = (s: string) => new Date(`${s}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
 	const hasCi = (c: Ci | undefined): c is Extract<Ci, { list: CiRun[] }> => !!c && 'list' in c;
 </script>
 

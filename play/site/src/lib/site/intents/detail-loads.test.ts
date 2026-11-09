@@ -53,6 +53,20 @@ describe('detail loads', () => {
 		expect(summaryText(listed[0])).toBe('3 changes: schema, label, source');
 	});
 
+	test('detail loads: the intent itself is read once for each stage it is at, by the board and the detail alike', async () => {
+		const get = vi.fn(async (path: string) => ({ path }));
+		const opened = createOpened(get);
+		expect(await opened.intent(ID, 'proposal')).toEqual({ path: `/intents/${ID}` });
+		await opened.intent(ID, 'proposal');
+		expect(get).toHaveBeenCalledTimes(1);
+		// moved on: read again; forgotten (a document withdrawn): read again
+		await opened.intent(ID, 'ship');
+		expect(get).toHaveBeenCalledTimes(2);
+		opened.forget();
+		await opened.intent(ID, 'ship');
+		expect(get).toHaveBeenCalledTimes(3);
+	});
+
 	test("detail loads: a piece's review renders its source and its diff", () => {
 		// as GET /api/intents/:id/docs/:doc gives a piece's second version: read against the one before it
 		const { body } = render(Changes, { props: { changes: [{ path: '$.source', kind: 'changed', from: v1, to: v2 }], edits: [], seed: null } });

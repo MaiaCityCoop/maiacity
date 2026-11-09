@@ -9,7 +9,8 @@
 	and after by its asset's label and version (`pins`), instead of the version's hash.
 -->
 <script lang="ts" module>
-	export type Change = { path: string; kind: 'added' | 'removed' | 'changed'; from?: unknown; to?: unknown };
+	import type { DocChange } from '$wire';
+	export type Change = DocChange;
 	export type Edit = { seq: number; variant: number | null; kind: string; author: string | null; via: string; message: string; at: string; version: number | null };
 	/** a pin of a sandbox's layout as people read it: its asset's label and version, its variant and values */
 	export type PinShown = { label: string | null; number: number | null; variant: string | null; usedVariant: string | null; params: Record<string, string> | null } | null;
@@ -19,6 +20,7 @@
 <script lang="ts">
 	import { api } from '$lib/api';
 	import { changesOnly, lineDiff, sentences } from '$lib/diff';
+	import { shortWhen as when } from '$lib/format';
 
 	let {
 		changes = $bindable(null),
@@ -70,7 +72,6 @@
 	const valueText = (v: unknown) => (v === undefined ? '(none)' : JSON.stringify(v, null, 1));
 	/** a text as the diff reads it: line by line, then one sentence a line ($lib/diff's sentences) */
 	const textDiff = (c: Change) => changesOnly(lineDiff(c.kind === 'added' ? '' : sentences(c.from), c.kind === 'removed' ? '' : sentences(c.to)), 1);
-	const when = (iso: string) => new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 	const shown = $derived((changes ?? []).filter((c) => !skip.includes(c.path) && !(pins && c.path.startsWith('$.pins.'))));
 	const pinText = (x: PinShown) =>
 		x ? `${x.label ?? 'an asset'}${x.number != null ? ` v${x.number}` : ''}${x.usedVariant ? ` · ${x.usedVariant}${x.variant ? '' : ' (default)'}` : ''}${x.params ? ` · ${Object.entries(x.params).map(([k, v]) => `${k} ${v}`).join(', ')}` : ''}` : 'none';

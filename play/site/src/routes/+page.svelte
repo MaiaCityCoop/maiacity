@@ -10,7 +10,7 @@
 <script lang="ts">
 	import Icon from '$lib/site/app/Icon.svelte';
 	import { asset } from '$lib/site/media/url';
-	import { session } from '$lib/session.svelte';
+	import { session, isAdmin } from '$lib/session.svelte';
 	import { asCity } from '$lib/acting.svelte';
 	import { GROUP_APPS } from '$lib/app/groups';
 
@@ -24,7 +24,7 @@
 		{ href: '/sandbox-4/', label: 'Sandbox 4', note: 'The cassette joint: a cast cassette of the 100 m dome seated, keyed, capped and clamped', cover: 'd308f061bd5498775faa69da06ae54aef9a39c784b714c5c3605382e18540aca.jpg' },
 		{ href: '/sandbox-5/', label: 'Sandbox 5', note: 'The forest dome alone in its own food forest, outside and under the glass', cover: '80ee079deb5be54066d2fd230d11fa74ee59aa8f13c6ce3b9b7aa27fb30c8892.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media' | 'link' | 'journal' | 'ledger'; admins?: boolean };
+	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media' | 'link' | 'journal' | 'ledger' | 'check'; admins?: boolean };
 	const APPS: Tile[] = [
 		// the asset library, a tile per group, each the same viewer (Samuel 2026-11-04)
 		...GROUP_APPS.map((g) => ({ href: g.href, label: g.label, note: g.note, icon: g.icon, admins: 'admins' in g && g.admins })),
@@ -65,7 +65,7 @@
 		{ href: '/postgres/', label: 'Postgres', note: 'Every table and its rows, read only', icon: 'database' }
 	];
 	const city = $derived(asCity());
-	const admin = $derived(session.me?.level === 'admin');
+	const admin = $derived(isAdmin());
 	const apps = $derived([...APPS, ...(city ? [] : [LIBRARY(false)])].filter((t) => !t.admins || admin));
 </script>
 

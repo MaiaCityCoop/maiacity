@@ -9,17 +9,20 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
-	import { goto } from '$app/navigation';
+	import type { StoryItem } from '$wire';
+	import { storyAddress, storyHash } from '$lib/app/address';
+	import { api, fileUrl } from '$lib/api';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Aside, { type ChainVersion, type Pick } from '$lib/app/Aside.svelte';
 	import { clock, type Story } from '$lib/stories/timeline';
 
-	type Item = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
+	type Item = StoryItem;
 
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let story = $state<Story | null>(null);
 	let picked = $state('');
@@ -29,18 +32,15 @@
 	let versions = $state<NonNullable<Story['versions']>>([]);
 	let loading = $state(false);
 
-	/** the story and version in the address: #papaya-v2-devlog, or #papaya-v2-devlog@1 for an older version */
-	const fromHash = () => {
-		const [id, v] = decodeURIComponent(location.hash.slice(1)).split('@');
-		return { id: id || '', v: v ? Number(v) : null };
-	};
+	/** the story and version in the address: #<its UUID>, or #<its UUID>@1 for an older version */
+	const fromHash = () => storyAddress(location.hash);
 	async function open(id: string, v: number | null = null) {
 		if (id !== picked) versions = [];
 		picked = id;
 		version = v;
 		loading = true;
 		error = '';
-		const want = `#${id}${v ? `@${v}` : ''}`;
+		const want = `#${storyHash(id, v)}`;
 		if (location.hash !== want) history.replaceState(history.state, '', want);
 		try {
 			const s = await api<Story>(`/stories/${encodeURIComponent(id)}${v ? `?v=${v}` : ''}`);
@@ -57,7 +57,7 @@
 	onMount(async () => {
 		// admins only (Samuel 2026-11-03): anyone else is taken back to the dashboard, as from the Factories and the
 		// Proposals; the API hands stories to admins alone
-		if (!admin) return void goto('/', { replaceState: true });
+		if (!admin) return;
 		try {
 			list = await api<Item[]>('/stories');
 		} catch (e) {
@@ -96,7 +96,7 @@
 		<h1>Stories</h1>
 		{#each list as s (s.id)}
 			<button class="item" class:on={s.id === picked} onclick={() => open(s.id)} title={s.title}>
-				{#if s.cover}<img src="/api/files/{s.cover}" alt="" />{:else}<span class="blank"></span>{/if}
+				{#if s.cover}<img src={fileUrl(s.cover)} alt="" />{:else}<span class="blank"></span>{/if}
 				<span class="text"><b>{s.title}</b><span class="muted">{clock(s.duration)} · v{s.number}</span></span>
 			</button>
 		{:else}

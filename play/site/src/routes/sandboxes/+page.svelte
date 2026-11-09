@@ -5,12 +5,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin, session } from '$lib/session.svelte';
 
+	adminsOnly();
 	let error = $state('');
 	$effect(() => {
 		if (!session.me) return;
-		if (session.me.level !== 'admin') return void goto('/', { replaceState: true });
+		if (!isAdmin()) return;
 		api<{ id: string }[]>('/docs?kind=sandbox').then(
 			(l) => void (l[0] ? goto(`/sandboxes/${l[0].id}/`, { replaceState: true }) : (error = 'No sandboxes yet.')),
 			(e) => (error = e.message)

@@ -12,18 +12,18 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
-	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import type { LibraryFile } from '$wire';
+	import { libraryAddress, storyHref } from '$lib/app/address';
+	import { api, fileText, fileUrl as url } from '$lib/api';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import { acting, asCity } from '$lib/acting.svelte';
+	import { listWhen as when } from '$lib/format';
 
 	const PAGE = 60;
-	type StoryUse = { story: string; title: string; number: number | null; track: string; clip: string; as: 'frame' | 'video' | 'audio'; at: number };
-	type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: 'sheet' | 'datasheet' | 'brief'; accepted: boolean };
-	type Use = StoryUse | SheetUse;
-	type File = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
+	type File = LibraryFile;
 	type Owner = { library: 'coop' | 'personal'; id: string; name: string };
 	type Page = { owner: Owner; total: number; offset: number; limit: number; counts: Record<string, number>; files: File[] };
 	const KINDS = [
@@ -47,16 +47,15 @@
 	let saving = $state(false);
 	let copied = $state(false);
 	let owner = $state<Owner | null>(null);
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	/** the library of whoever the person acts as: Maia City's (the coop's) or their own */
 	const library = $derived<'coop' | 'personal'>(asCity() ? 'coop' : 'personal');
-	const url = (h: string) => `/api/files/${h}`;
 	// a document is Markdown (a plant's data sheet, its sheet's brief); the rest by their media type
 	const kindOf = (f: File) => (f.media_type === 'text/markdown' ? 'document' : f.media_type.split('/')[0]);
 	/** what a plant version keeps a file as */
 	const DOC_AS = { sheet: 'reference sheet', datasheet: 'data sheet', brief: 'sheet brief' };
 	const size = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n >= 1e3 ? `${Math.round(n / 1e3)} kB` : `${n} B`);
-	const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 	const AS = { frame: 'still', video: 'video', audio: 'recording' };
 
 	/** a page of files: the first (again, for a new kind or search) or the next */
@@ -82,11 +81,9 @@
 		loaded = true;
 	}
 	onMount(() => {
-		if (!admin) return void goto('/', { replaceState: true });
-		const given = new URLSearchParams(location.search);
-		kind = given.get('kind') ?? '';
+		if (!admin) return;
 		// a link straight to one file (the asset library's data sheet and brief): the search for its hash
-		query = given.get('q') ?? '';
+		({ kind, q: query } = libraryAddress(new URLSearchParams(location.search)));
 	});
 	// acting as someone else (the You menu) opens their library: the first page again, nothing opened
 	let shown = '';
@@ -163,7 +160,7 @@
 			{:else if kindOf(open) === 'audio'}
 				<audio src={url(open.hash)} controls></audio>
 			{:else if kindOf(open) === 'document'}
-				{#await fetch(url(open.hash), { credentials: 'same-origin' }).then((r) => r.text())}
+				{#await fileText(open.hash)}
 					<p class="soft">Reading it…</p>
 				{:then text}
 					<pre class="doc">{text}</pre>
@@ -193,7 +190,7 @@
 							{:else}<a href="/intents/">{u.label}</a> <span class="soft">a proposed version · its {DOC_AS[u.as]}</span>{/if}
 						</li>
 					{:else}
-						<li><a href="/stories/#{u.story}">{u.title}</a> <span class="soft">v{u.number ?? '?'} · {u.track} · {u.clip} at {u.at} s · its {AS[u.as]}</span></li>
+						<li><a href={storyHref(u.story)}>{u.title}</a> <span class="soft">v{u.number ?? '?'} · {u.track} · {u.clip} at {u.at} s · its {AS[u.as]}</span></li>
 					{/if}
 				{/each}
 			</ul>

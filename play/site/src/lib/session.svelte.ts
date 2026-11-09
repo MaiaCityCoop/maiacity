@@ -4,6 +4,9 @@ import { api, ApiError, type Me } from './api';
 
 export const session = $state<{ me: Me | null; ready: boolean }>({ me: null, ready: false });
 
+/** whether the one signed in is an admin: Maia City's owners (CLAUDE.md, Members) */
+export const isAdmin = () => session.me?.level === 'admin';
+
 export async function loadMe() {
 	try {
 		session.me = await api<Me>('/me');

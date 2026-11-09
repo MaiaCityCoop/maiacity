@@ -2,23 +2,30 @@
 // lane, its subtitles, its sections and mood, its links. What is seen and heard is made by HyperFrames from the same
 // timeline (./compose.ts), never here.
 
-export type Clip = { id: string; at: number; duration: number; [field: string]: unknown };
-export type Track = { id: string; kind: string; clips: Clip[]; gain?: number; mute?: boolean; duck?: boolean; name?: string };
-export type StoryBody = { schema: 'story/1'; format: string; fps: number; duration: number; tracks: Track[] };
+import type * as W from '$wire';
+import { storyHref } from '../app/address';
+
+export type Clip = W.Clip;
+/** a track as the site reads it: the API's, and the names and ducking its tracks carry (not in its type yet) */
+export interface Track extends W.Track {
+	duck?: boolean;
+	name?: string;
+}
+export type StoryBody = Omit<W.StoryBody, 'tracks'> & { tracks: Track[] };
 /** a linked version as play reads it (play/api/src/stories.ts `linksOf`): its story's UUID, title, number and id, its
  *  length and timeline, and its story's newest accepted number (only shown: a link plays its own version) */
-export type Linked = { id: string; title: string; number: number; version: string; duration: number; newest?: number | null; body: StoryBody };
+export type Linked = Omit<W.Linked, 'newest' | 'body'> & { newest?: number | null; body: StoryBody };
 /** every version a timeline links, to any depth, by the version's id */
 export type Links = Record<string, Linked>;
 /** a story whose newest version links this one, and the number of this one's version it plays (GET /api/stories/:id) */
-export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
+export type LinkedBy = W.LinkedBy;
 export type Story = StoryBody & { id: string; title: string; number?: number | null; version?: string; note?: string; links?: Links; linked_by?: LinkedBy[]; versions?: { number: number; id: string; note: string; created: string; author: string | null; approved_by?: string | null }[] };
 
 /** a shot: its still (frame), how it goes into the next (transition), and its moving picture if it has one: a video
  *  (played muted from video_in seconds into it, the story's own sound under it) or a composition (readable HTML by hash) */
 export type Shot = Clip & { frame: string | null; transition: string; video?: string | null; video_in?: number; composition?: string | null };
 /** a subtitle the clip sets itself: `at` seconds into the clip it comes on, until the next; `em` sets it alone, large */
-export type SetCue = { at: number; text: string; em?: boolean };
+type SetCue = { at: number; text: string; em?: boolean };
 export type Voice = Clip & { who: string; line: string; cues?: SetCue[] };
 export type Notes = Clip & { section: string; camera: string; retention: string; mood: string; pace?: string; sound?: string; emotion?: string };
 
@@ -221,6 +228,24 @@ export const linkedOf = (c: { [field: string]: unknown }, links: Links | null | 
 	const l = typeof c.version === 'string' ? links?.[c.version] : undefined;
 	return l && l.id === c.story ? l : null;
 };
+
+/** a link in its place: the story it plays (null title: it can't be read), its version's number, its newest */
+export type Slot = { clip: string; at: number; duration: number; story: string; title: string | null; number: number | null; newest: number | null };
+export const slotsOf = (story: StoryBody & { links?: Links | null }): Slot[] =>
+	story.tracks.filter((x) => x.kind === LINK).flatMap((x) => x.clips.map((c) => {
+		const l = linkedOf(c, story.links);
+		return { clip: `${x.id}/${c.id}`, at: c.at, duration: c.duration, story: l?.id ?? String(c.story ?? ''), title: l?.title ?? null, number: l?.number ?? null, newest: l?.newest ?? null };
+	}));
+/** a link as people read it: the story's title and the version it plays, "Trailer · v3" */
+export const linkName = (s: Slot) => (s.title ? `${s.title} · v${s.number}` : 'A story that can no longer be read');
+/** a newer accepted version of the linked story, if there is one: only shown (moving to it is a proposal on this story) */
+export const newerOf = (s: Slot) => (s.newest != null && s.number != null && s.newest > s.number ? s.newest : null);
+/** the Stories page at the linked story (by its UUID), at the version this link plays */
+export const linkHref = (s: Slot) => storyHref(s.story, s.number);
+
+const PALETTE = ['#8fae8b', '#d9a441', '#c96f53', '#7c9cb8', '#a98bb5', '#6f9e95', '#c4a27a', '#9aa35c'];
+/** a calm colour for each section, the same every time */
+export const colourOf = (s: string) => PALETTE[[...(s ?? '')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % PALETTE.length];
 
 export const clock = (s: number) => {
 	const m = Math.floor(s / 60), r = s - m * 60;

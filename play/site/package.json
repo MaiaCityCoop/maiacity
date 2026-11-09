@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.21.0",
+    "@hyperframes/core": "0.9.20",
     "@hyperframes/player": "0.9.20",
     "@noble/hashes": "2.4.0",
     "@simplewebauthn/browser": "^13.2.0",

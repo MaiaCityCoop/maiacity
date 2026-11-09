@@ -13,7 +13,8 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
@@ -24,7 +25,8 @@
 	type Schema = { id: string; json: { label: string; type: string; name: string; note?: string; node: Node }; number: number; version?: number; edit?: number; intent?: { id: string; status: string; note: string } };
 	type Doc = { id: string; kind: string; label: string; number: number };
 
-	const admin = $derived(session.me?.level === 'admin');
+	adminsOnly();
+	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let all = $state<Map<string, Doc>>(new Map());
 	let schema = $state<Schema | null>(null);
@@ -34,7 +36,7 @@
 	const wantV = $derived(params.get('v'));
 	const wantIntent = $derived(params.get('intent'));
 	$effect(() => {
-		if (!admin) return void (session.me && goto('/', { replaceState: true }));
+		if (!admin) return;
 		api<Item[]>('/docs?kind=schema').then((l) => (list = [...l].sort((a, b) => (a.type === 'schema' ? -1 : b.type === 'schema' ? 1 : 0))), (e) => (error = e.message));
 		// every document's label (only shown), to name the documents a schema holds
 		api<Doc[]>('/docs').then((l) => (all = new Map(l.map((d) => [d.id, d]))), () => {});

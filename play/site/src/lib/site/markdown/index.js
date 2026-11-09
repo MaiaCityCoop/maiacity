@@ -22,7 +22,7 @@
 import { Lexer } from 'marked';
 
 /** Every tag this engine writes, and the attributes each may carry. */
-export const TAGS = {
+const TAGS = {
 	p: [], br: [], hr: [], h1: ['id'], h2: ['id'], h3: ['id'], h4: ['id'], h5: ['id'], h6: ['id'],
 	strong: [], em: [], del: [], code: ['class'], pre: [], blockquote: [],
 	ul: [], ol: ['start'], li: [], input: ['type', 'checked', 'disabled'],
@@ -55,7 +55,7 @@ const words = (html) => String(html ?? '').replace(/<!--[\s\S]*?(-->|$)/g, '').r
 /** Where a link may go, judged on the decoded address. */
 const SAFE = /^(https?:\/\/|mailto:|\/(?![/\\])|#|\?|[^:/?#\\]*(?:[/?#]|$))/i;
 /** Whether `href` is an address a link may lead to. */
-export const safeHref = (href) => SAFE.test(decoded(href));
+const safeHref = (href) => SAFE.test(decoded(href));
 /** An address from a record or a vault, as a link's href: itself when a link may lead there, else none (no link). */
 export const linkHref = (href) => (href && safeHref(href) ? href : undefined);
 /** Where a picture may be shown from: the web over https, this site, a page-made blob or an
