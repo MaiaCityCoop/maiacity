@@ -284,3 +284,8 @@ database URL from box.env; restore.sh's check uses production's database image a
 guard lives in server-up.sh; deploy/test_publish_site.py runs in the gate (`gate.sh deploy`); three tests restating
 bun's and Postgres's versions dropped. Kept: src/pg.ts and src/hash.ts (the held assetdocs.ts imports them).
 (At 13:45Z the held set grew by ed6694c3: stories/live.ts and world.test.ts restored to main's; 159 files.)
+- 14:10Z (the Orchestrator's finding, fix 8): API test files timed out in beforeAll at 5 s on busy runners (6fd5e63f,
+  7af6e162), each migrating and seeding its own database since the files run in parallel (aa59f248). `freshDb` now
+  copies one template per code (`play_tmpl_<hash of migrations and src>`), made once and claimed by a rename (a
+  file losing the race drops its own): a copy 140 ms, a migrate and seed 661 ms on an idle box. `migrate: false` and
+  `until` keep the slow path. gate api green twice (from no template, and with one): 356 pass.
