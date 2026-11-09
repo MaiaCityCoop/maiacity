@@ -1,6 +1,10 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+- **smoke aa593c290: OK** (544485e2 live, the viewers' sky; 18:06–18:12, 315 s). Every page up and drawn; no error but
+  the harness's 401 and the old ambience one (fb220a9c). Frames: near 27.4 ms, mid 35.5, far 16.7. The viewers (grass,
+  goat, forklift, banana): no dark band over the goat and forklift any more, the sky light; the assets still read a
+  little pale (low contrast) against pre-programme.
 - **smoke 7b7746e76: OK** (#6 6fd5e63f live, living plants; 16:12–16:18, 319 s). Every page up and drawn; no error
   but the harness's 401 and the old ambience one (fb220a9c). Sandbox 1 settled in 84 s (106 pictures: the plants'
   builds are new, so the warm profile took them again). Frames: near 26.9 ms, mid 35.3, far 16.7.
