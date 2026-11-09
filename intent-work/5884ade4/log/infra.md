@@ -65,3 +65,11 @@ committed before and as now, every call they make logged and diffed):
 - `actionlint` (play/avenbox/actionlint.sh) clean; `bash -n` and `shellcheck -S warning` clean on the new scripts.
 - Tests followed the moves: workflows.test.ts reads play.env's lines from server-up.sh, runs remove-dns from the
   repository's root, and allows remove-dns's job its checkout.
+
+## 3. Dead files out (infra F6; infra#41, 44)
+
+- `.claude/launch.json` (`bun run dev` at the root, which has no package.json) and `play/site/scripts/clone.py`
+  (cloned legacy maia/ aven/ paths into play, the direction CLAUDE.md forbids) go. Nothing names them: `git grep`
+  over the repository (but intent-work's audit) finds no reader, no workflow, script or skill file runs them.
+- `deploy/deploy-time.ts` stays: it is the `run` of check c12 of intent 5ab64b8e (accepted; `bun deploy/deploy-time.ts
+  --most 90`, recorded by hand by Samuel 2026-11-07), the one measure of merge → live. Not dead.
