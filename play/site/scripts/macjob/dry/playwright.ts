@@ -249,6 +249,8 @@ class Context {
 	}
 }
 
+/** the process's end once the browser closed (the world's box workers would keep it up), called off by a browser opened again */
+let ending: ReturnType<typeof setTimeout> | undefined;
 const browser = {
 	async newContext(o?: any) {
 		return new Context(o);
@@ -259,12 +261,23 @@ const browser = {
 	async close() {
 		if (world.pump) clearTimeout(world.pump);
 		// the world's box workers would keep the process up where a closed browser lets a job's script end
-		if (world.route) setTimeout(() => process.exit(), 5000).unref();
+		if (world.route) (ending = setTimeout(() => process.exit(), 5000)).unref();
 		if (refusedContexts.length) say(`the job asked for a graphics context ${refusedContexts.length}× (${[...new Set(refusedContexts)].join(', ')}): refused, as nothing here draws`);
 	},
 	version: () => 'dry'
 };
 
-export const chromium = { launch: async () => browser, name: () => 'chromium' };
+/** a persistent profile's browser (../../mac-page.mjs `openSite`): a context whose close is the browser's; the world one a process, its profile kept by no one */
+class PersistentContext extends Context {
+	async close() {
+		await browser.close();
+	}
+}
+
+export const chromium = {
+	launch: async () => (clearTimeout(ending), browser),
+	launchPersistentContext: async (_dir: string, o?: any) => (clearTimeout(ending), new PersistentContext(o)),
+	name: () => 'chromium'
+};
 export const firefox = chromium, webkit = chromium;
 export default { chromium, firefox, webkit };

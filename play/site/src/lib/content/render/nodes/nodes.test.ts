@@ -208,38 +208,33 @@ describe('the render kit in TSL', () => {
 		}
 	});
 
-	test('a clash the key misses: the one whose source differs draws one frame with the owner’s uniforms, then takes its own', () => {
+	test('one material on a mesh that takes shadows and one that takes none: each program draws with its own build', () => {
+		// the car paint (8823eb7c): compiled for the body (shadows) and then its ends (none), the body's first draw took
+		// the ends' uniforms into its program, a number into a texture slot
 		const { r } = renderer();
 		const { scene, camera } = lit();
-		const [a, b, c] = [0, 1, 2].map(() => Object.assign(nodeOf(new THREE.MeshStandardMaterial({ map: new THREE.Texture() })) as any, { fade: aFade }));
-		// every key of this kind the same, whatever the shader: a clash forced
-		const P = Object.getPrototypeOf(a), key = P.customProgramCacheKey;
-		P.customProgramCacheKey = function (this: any) {
-			return this.own ? `own${this.id}` : 'same';
+		const paint = nodeOf(new THREE.MeshStandardMaterial({ vertexColors: true })) as any;
+		const g = new THREE.BoxGeometry();
+		g.setAttribute('color', g.attributes.position.clone());
+		const body = Object.assign(new THREE.Mesh(g, paint), { receiveShadow: true, castShadow: true });
+		const ends = Object.assign(new THREE.Mesh(g, paint), { receiveShadow: false });
+		scene.add(body, ends);
+		r.compile(scene, camera);
+		const slots = () => {
+			const q = r.properties.get(paint) as any;
+			for (const u of q.uniformsList) if (/T1|TCube|T2DArray|T3D/.test(u.setValue?.name ?? '')) expect(typeof q.uniforms[u.id]?.value).toBe('object');
 		};
-		try {
-			const g = new THREE.BoxGeometry();
-			g.deleteAttribute('uv');
-			scene.add(new THREE.Mesh(new THREE.BoxGeometry(), a), new THREE.Mesh(g, b), new THREE.Mesh(new THREE.BoxGeometry(), c));
-			(globalThis as any).__clashes = [];
-			r.render(scene, camera);
-			// the clash's frame: b in a's program with a's own uniforms and buffers, none of its own into a's layout
-			const q = (m: any) => r.properties.get(m) as any;
-			expect(q(b).currentProgram).toBe(q(a).currentProgram);
-			expect(q(b).uniformsList).toBe(q(a).uniformsList);
-			expect(b.uniformsGroups).toBe(a.uniformsGroups);
-			expect((globalThis as any).__clashes).toHaveLength(1);
-			expect((globalThis as any).__clashes[0].at).not.toBe((globalThis as any).__clashes[0].was);
-			r.render(scene, camera);
-		} finally {
-			P.customProgramCacheKey = key;
-		}
-		const p = (m: any) => (r.properties.get(m) as any).currentProgram;
-		expect(b.own).toBe(true);
-		expect(p(b)).not.toBe(p(a));
-		// the same source still shares
-		expect(c.own).toBeUndefined();
-		expect(p(c)).toBe(p(a));
+		const drawn = [body, ends, body].map((o) => {
+			body.visible = o === body;
+			ends.visible = o === ends;
+			expect(() => r.render(scene, camera)).not.toThrow();
+			slots();
+			return (r.properties.get(paint) as any).uniforms;
+		});
+		// the body drawn with its own build each time (the sun's shadow in it), the ends with theirs
+		expect(drawn[2]).toBe(drawn[0]);
+		expect(drawn[1]).not.toBe(drawn[0]);
+		expect(Object.keys(drawn[0]).length).toBeGreaterThan(Object.keys(drawn[1]).length);
 	});
 
 	test('twenty copies of one shape on meshes alike link one program', () => {

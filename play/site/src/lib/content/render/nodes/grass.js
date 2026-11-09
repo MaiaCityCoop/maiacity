@@ -19,7 +19,7 @@ import {
 	normalize, cross, dot, length, distance, fract, floor, texture, cameraPosition, modelWorldMatrix, positionGeometry, transformNormalToView,
 	faceDirection, select, sqrt, varyingProperty
 } from 'three/tsl';
-import { CELL, FADE, PUSHERS, TILE_CELLS } from '../../biomes/grass.js';
+import { CELL, FADE, PATCH, PUSHERS, STANDS, TILE_CELLS } from '../../biomes/grass.js';
 
 /** the uniforms a field's tiles share */
 export function grassUniforms(/** @type {THREE.Texture} */ mask) {
@@ -173,8 +173,8 @@ export function grassMaterial(o) {
 		const dd = d.toVar();
 		const keepD = select(dd.lessThanEqual(D.near), float(1), select(dd.greaterThanEqual(b2), float(0), pow(float(D.near).div(dd), D.falloff ?? 1.5)));
 		const reach = end.mul(b2);
-		// the mask thins it by rank as distance does (grass.js `growAt`)
-		const kept = keepD.mul(m.x);
+		// the mask thins it by rank as distance does (grass.js `growAt`, `standing`: a colony dense, the ground between bare)
+		const kept = keepD.mul(smoothstep(PATCH[0], PATCH[1], m.x));
 		const grow = clamp(kept.mul(1 + FADE).sub(rank).div(kept.mul(FADE).add(1e-4)), 0, 1).mul(float(1).sub(smoothstep(reach.sub(6), reach, dd)));
 
 		/* clumps: grass.js `clumpAt`, the two nearest of four */
@@ -191,7 +191,7 @@ export function grassMaterial(o) {
 		const leanWay = normalize(own.mul(float(1).sub(out.mul(0.6))).add(normalize(away.add(1e-4)).mul(out.mul(0.9))));
 		const lean = ownLean.mul(P.lean);
 		const thin = float(1).div(sqrt(max(keepD, 0.12)));
-		const width = max(float(P.width).mul(ownW).mul(thin), dd.mul(D.minPx).div(U.pxAt1m));
+		const width = max(float(P.width * STANDS).mul(ownW).mul(thin), dd.mul(D.minPx).div(U.pxAt1m));
 
 		/* the wind: the world's one wind where it has one (intent 6fd5e63f, render/wind.js `windNodes`: its strength at the
 		   blade's foot, gusts travelling along its way, on the world's clock), else the grass's own gusts; each blade its
