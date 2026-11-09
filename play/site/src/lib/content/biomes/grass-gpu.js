@@ -19,11 +19,9 @@
  * arithmetic, the environment `E` what the blade reads (its hash, its clumps, the mask, the eye, the view's planes).
  */
 import * as THREE from 'three';
-import { CELL, FADE, DEVICES, PATCH, clumpCentre, draw, seedOf } from './grass.js';
+import { CELL, FADE, DEVICES, PATCH, SINK, clumpCentre, draw, seedOf } from './grass.js';
 /** @typedef {import('./grass.js').GrassMask} GrassMask */
 
-/** blades a square metre near on WebGPU, by device (intent 7's instanced tiles keep DEVICES' density) */
-export const GPU_DENSITY = { desktop: 180, small: 70 };
 /** how far outside the view a blade's sphere may be and still be drawn (m): the wind and the pushers bend it so far */
 export const TOLERANCE = 0.4;
 /** how edge on a blade may be seen before it is left out, past the near band (|view · across|) */
@@ -94,13 +92,13 @@ export function choose(K, E, cx, cz, j, v) {
 	const dx = K.sub(fx, E.eye[0]), dy = K.sub(m.y, E.eye[1]), dz = K.sub(fz, E.eye[2]);
 	const d = K.sqrt(K.add(K.add(K.mul(dx, dx), K.mul(dy, dy)), K.mul(dz, dz)));
 
-	/* nested thinning: grass.js `keep` and `growAt`, the mask thinning it by rank as distance does */
-	const keepD = K.sel(K.le(d, v.dev.near), K.f(1), K.sel(K.ge(d, b2), K.f(0), K.pow(K.div(K.f(v.dev.near), K.max(d, 1e-6)), v.dev.falloff ?? 1.5)));
-	// grass.js `standing`: a colony dense, the ground between bare (intent 7's PATCH)
-	const kept = K.mul(keepD, K.smooth(PATCH[0], PATCH[1], m.grass));
+	/* nested thinning: grass.js `growAt` and `keptTo`: how far out this blade is kept where the mask grows grass
+	   (`standing`, a colony dense, the ground between bare), and it sinks in over SINK + FADE of that before it */
+	const stand = K.smooth(PATCH[0], PATCH[1], m.grass);
+	const out = K.sel(K.lt(rank, stand), K.mul(K.pow(K.div(K.max(rank, 1e-6), stand), -1 / (v.dev.falloff ?? 1.5)), v.dev.near), K.f(0));
 	const reach = K.mul(K.add(K.mul(E.draw(s, 9), 0.1), 0.9), b2);
 	const grow = K.mul(
-		K.clamp(K.div(K.sub(K.mul(kept, 1 + FADE), rank), K.add(K.mul(kept, FADE), 1e-4)), 0, 1),
+		K.clamp(K.div(K.sub(out, d), K.add(K.mul(out, FADE), SINK)), 0, 1),
 		K.sub(K.f(1), K.smooth(K.sub(reach, 6), reach, d))
 	);
 
@@ -278,7 +276,8 @@ export function capacities(dev, density) {
 		const lo = Math.max(a, near);
 		if (b <= lo) return inner;
 		const e = 2 - p;
-		const outer = (2 * Math.PI * near ** p * (b ** e - lo ** e)) / e;
+		// ∫ near^p r^(1−p) 2π dr: a logarithm where the grass thins as the square of the distance (e = 0)
+		const outer = Math.abs(e) < 1e-9 ? 2 * Math.PI * near ** p * Math.log(b / lo) : (2 * Math.PI * near ** p * (b ** e - lo ** e)) / e;
 		return inner + outer;
 	};
 	return [area(0, b0), area(b0 * JITTER, b1), area(b1 * JITTER, b2)].map((a) => Math.ceil((a * density * 1.2) / 64) * 64);
@@ -350,6 +349,6 @@ export class Trample {
 /** the tallest a blade of these params stands (m): its tall height, its spread and its clump's 1.2 @param {{ height: number, tall: number, heightSpread: number }} p */
 export const tallest = (p) => Math.max(p.height, p.tall) * (1 + p.heightSpread) * 1.2;
 
-/** the device's bands and the WebGPU density @param {'desktop' | 'small'} device */
-export const gpuDevice = (device) => ({ ...DEVICES[device], density: GPU_DENSITY[device] });
+/** the device's grass on WebGPU: its bands and density, as on the fallback (grass.js DEVICES) @param {'desktop' | 'small' | 'viewer'} device */
+export const gpuDevice = (device) => DEVICES[device];
 

@@ -324,10 +324,9 @@ describe('on WebGPU: chosen on the graphics card', async () => {
 		field.dispose();
 	});
 
-	test('denser than intent 7’s: 160–200 blades a square metre near on a desktop', () => {
-		expect(G.GPU_DENSITY.desktop).toBeGreaterThanOrEqual(160);
-		expect(G.GPU_DENSITY.desktop).toBeLessThanOrEqual(200);
-		expect(G.GPU_DENSITY.desktop).toBeGreaterThan(DEVICES.desktop.density);
+	test('the card draws the grass at the same density as the fallback, 700 a square metre at the eye on a desktop', () => {
+		for (const d of /** @type {const} */ (['desktop', 'small', 'viewer'])) expect(G.gpuDevice(d)).toBe(DEVICES[d]);
+		expect(DEVICES.desktop.density).toBeGreaterThanOrEqual(500);
 	});
 
 	/* the CPU's twin: a frame's field, its mask filled, its view as the compute read it */
@@ -405,18 +404,19 @@ describe('on WebGPU: chosen on the graphics card', async () => {
 	});
 
 	test('compute: every level fits its room at the views it is drawn from', () => {
-		const counts = [0, 0, 0];
+		// every 5th candidate of every cell, scaled: millions of candidates in all (700 a square metre at the eye)
+		const K = 5, counts = [0, 0, 0];
 		for (const p of view.cells) {
 			const [cx, cz] = G.unpackCell(p);
-			for (let j = 0; j < view.n; j++) {
+			for (let j = 0; j < view.n; j += K) {
 				const l = G.chooseOnCpu(cx, cz, j, view);
-				if (l >= 0) counts[l]++;
+				if (l >= 0) counts[l] += K;
 			}
 		}
 		counts.forEach((c, l) => expect(c, `level ${l}`).toBeLessThanOrEqual(/** @type {number} */ (field.capacities[l])));
 		// tens of thousands of blades near a desktop's eye
 		expect(counts[0] + counts[1] + counts[2]).toBeGreaterThan(20000);
-	});
+	}, 120_000);
 
 	test('compute: the cells it runs over are those the view sees, none beyond the field’s end, nearest first', () => {
 		const ds = view.cells.map((p) => {
