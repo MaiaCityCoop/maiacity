@@ -32,6 +32,7 @@ import { createWalker } from '../sandbox-kit/walker.js';
 import { worldOf } from './contract.js';
 import { createLights } from './lights.js';
 import { createSky } from '../sandbox-kit/sky.js';
+import { worldFinish } from '../render/world.js';
 import { createSound } from './sound.js';
 
 /** the eye and the paces (m/s) of the street cameras */
@@ -77,6 +78,8 @@ export function createWorldView(el, o) {
 	camera.position.set(80, 60, 80);
 	// the one sky, its sun pinned where the world's mood has it; its shadows from the eye out, a city's width
 	const sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 } });
+	/** @type {import('../render/world.js').WorldFinish | null} the picture finished (intent 1f0c6f79), once the renderer is ready */
+	let finish = null;
 	const controls = createControls(camera, renderer.domElement, { maxPolarAngle: Math.PI * 0.495, screenSpacePanning: false });
 	const plantings = createPlantings({ renderer, camera, scene });
 	const lights = createLights({ scene, camera, renderer, assets: () => plantings.assets });
@@ -368,7 +371,8 @@ export function createWorldView(el, o) {
 			const guests = plantings.guests();
 			if (world) lights.update(guests, world.info.mood, state.t);
 			sound?.update(camera, guests);
-			renderer.render(scene, camera);
+			if (finish) finish.render();
+			else renderer.render(scene, camera);
 			state.guests = guests.length;
 			state.kinds = plantings.state.kinds;
 			state.missing = plantings.state.missing;
@@ -401,6 +405,7 @@ export function createWorldView(el, o) {
 			plantings.dispose();
 			lights.dispose();
 			sound?.dispose();
+			finish?.dispose();
 			sky.dispose();
 			controls.dispose();
 			build.stop('the world was left');
@@ -413,7 +418,7 @@ export function createWorldView(el, o) {
 	let running = true;
 	let last = performance.now(), frames = 0, since = last;
 	// drawn once the renderer is ready (WebGPU's device asked for; on WebGL at once), unless left before
-	void ready(renderer).then(() => running && renderer.setAnimationLoop((now) => {
+	void ready(renderer).then(() => running && ((finish = worldFinish(renderer, scene, camera, { sky, device: small ? 'small' : undefined })), renderer.setAnimationLoop((now) => {
 		if (!running || paused) return;
 		const dt = Math.min(0.1, (now - last) / 1000);
 		last = now;
@@ -424,6 +429,6 @@ export function createWorldView(el, o) {
 			frames = 0;
 			since = now;
 		}
-	}));
+	})));
 	return view;
 }

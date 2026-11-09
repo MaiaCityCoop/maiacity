@@ -9,7 +9,10 @@
  * (`createWorldRenderer`'s `renderer` alone, ./core.js `createRenderer` with the world's settings).
  */
 import * as THREE from 'three';
-import { createRenderer, disposeObject, disposeRenderer, fitTo, placeSeenOnly, ready } from './core.js';
+import { createRenderer, disposeObject, disposeRenderer, fitTo, isWebGPU, placeSeenOnly, ready } from './core.js';
+import { finishing, thisDevice } from './finish.js';
+import { createAtmosphere } from './atmosphere.js';
+import { createFinish } from './post.js';
 
 /**
  * @typedef {object} StageHandle
@@ -79,3 +82,50 @@ export function createWorldRenderer(container, options = {}) {
 		}
 	};
 }
+
+/**
+ * @typedef {object} WorldFinish
+ * @property {import('./finish.js').Plan | null} plan the plan drawn by (null on WebGL: the scene drawn as it is)
+ * @property {import('./atmosphere.js').AtmosphereHandle | null} atmosphere
+ * @property {(t?: number) => void} render a frame through the pipeline; `t` a film's own clock for the grain
+ * @property {() => void} dispose
+ */
+
+/**
+ * A world's picture finished (intent 1f0c6f79): the haze on its scene from the one sky and the one RenderPipeline for
+ * the device (./finish.js), the far plane following the haze up to the world's own (what the world last set itself).
+ * On WebGL the scene is drawn as it was, untouched. Made once the renderer is ready (its `init`), as the pipeline's
+ * passes need the device.
+ * @param {any} renderer @param {THREE.Scene} scene @param {THREE.PerspectiveCamera} camera
+ * @param {{ sky?: any, device?: import('./finish.js').Device, film?: boolean, ghosts?: boolean }} [o] `sky` the one
+ *   sky (../sandbox-kit/sky.js createSky's handle): the haze and the sun's contact shadows come from it
+ * @returns {WorldFinish}
+ */
+export function worldFinish(renderer, scene, camera, o = {}) {
+	if (!isWebGPU(renderer)) return { plan: null, atmosphere: null, render: () => renderer.render(scene, camera), dispose() {} };
+	const plan = finishing({ device: o.device ?? thisDevice(), film: o.film, ghosts: o.ghosts });
+	const atmosphere = o.sky ? createAtmosphere(scene, o.sky) : null;
+	const finish = createFinish(renderer, scene, camera, plan, { sun: o.sky?.sun });
+	/** the world's own far plane, and the one the haze last set */
+	let own = camera.far, set = NaN;
+	return {
+		plan,
+		atmosphere,
+		render(t) {
+			if (atmosphere) {
+				atmosphere.update();
+				// a small device's haze closer: its reach of the world's, the air that much denser
+				atmosphere.uniforms.a.value /= plan.fog.reach;
+				if (camera.far !== set) own = camera.far;
+				atmosphere.far(camera, own);
+				set = camera.far;
+			}
+			finish.render(t);
+		},
+		dispose() {
+			finish.dispose();
+			atmosphere?.dispose();
+		}
+	};
+}
+

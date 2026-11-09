@@ -282,3 +282,35 @@ describe('the world’s finishing on WebGPU', () => {
 		f.dispose();
 	});
 });
+
+describe('a world finished', async () => {
+	const { worldFinish } = await import('./world.js');
+	test('the haze and the pipeline from the one sky; the far plane follows the haze up to the world’s own', async () => {
+		const { r } = await renderer();
+		const { scene, camera } = world();
+		camera.far = 3000;
+		scene.fog = new THREE.FogExp2(0xffffff, 1.6 / 1400);
+		const s = { horizon: { uniforms: { uSkyRing: { value: Array.from({ length: 16 }, () => new THREE.Vector3(0.6, 0.7, 0.9)) } } }, sunDir: new THREE.Vector3(0, 1, 0), sun: new THREE.DirectionalLight() };
+		const w = worldFinish(r, scene, /** @type {any} */ (camera), { sky: s, device: 'desktop' });
+		expect(w.plan?.device).toBe('desktop');
+		w.render(0);
+		const hazeFar = atmo.farFor(atmo.groundDensity(1.6 / 1400), atmo.FALLOFF, camera.position.y);
+		expect(camera.far).toBeCloseTo(Math.min(3000, hazeFar), 3);
+		// the world sets its own far again (a bigger world shown): the haze follows up to it
+		camera.far = 900;
+		w.render(0);
+		expect(camera.far).toBeCloseTo(Math.min(900, hazeFar), 3);
+		w.dispose();
+		expect(/** @type {any} */ (scene).fogNode ?? null).toBeNull();
+	});
+	test('a small device’s haze closer', async () => {
+		const { r } = await renderer();
+		const { scene, camera } = world();
+		scene.fog = new THREE.FogExp2(0xffffff, 1.6 / 1400);
+		const s = { horizon: { uniforms: { uSkyRing: { value: Array.from({ length: 16 }, () => new THREE.Vector3(0.6, 0.7, 0.9)) } } }, sunDir: new THREE.Vector3(0, 1, 0) };
+		const w = worldFinish(r, scene, /** @type {any} */ (camera), { sky: s, device: 'small' });
+		w.render(0);
+		expect(w.atmosphere?.uniforms.a.value).toBeCloseTo(atmo.groundDensity(1.6 / 1400) / 0.7, 9);
+		w.dispose();
+	});
+});
