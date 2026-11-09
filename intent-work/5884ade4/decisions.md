@@ -166,3 +166,14 @@ Four area builders in parallel, each on its own branch from this one, merged in 
 moves' log in `log/<area>.md`. After them: the tests builder (fix 8: the test kit, last), then sweeps for 4, 5 and 7
 across what is left, then the re-audit. The held set is refreshed from every other intent in Build, Proposal or Ship
 (`held-intents.txt`), 143 files at 08:33Z.
+
+### Merged: infra (fix 6), 09:20Z
+
+13 moves (`log/infra.md`), gate green on the merge (all parts, 129 s); `measure.ts infra` passes once CLAUDE.md and
+SPEC name the required checks by their list. Deploy changes were shown identical by running old and new against
+stand-ins that log every call (backup.sh byte-identical; dns.sh 27 scenarios; server-up.sh 4), except where the old
+was wrong or weaker: the old heredoc cut a bucket key holding `$` (now written as given); restore.sh and server-care.sh
+gain the toolkit's retry flags; server-care runs without `-i` under `timeout 0`. The image wasn't built here (no
+Docker daemon). Kept: `deploy/deploy-time.ts` (the `run` of 5ab64b8e's c12, not dead). Left: `.claude/settings.json`'s
+SessionStart hook, intent.ts's own database URL, play/site scripts' MCP clients, the tools/motion mirror (waits for
+b9e6ad45), F4 (Samuel's).
