@@ -97,7 +97,12 @@ const wrongWith = (el: Element, textToo: boolean) => {
 	return out;
 };
 
-const browser = await chromium.launch();
+// a fresh runner has Playwright's package but not its browser: fetched once, with what it needs (as bench-smoke.sh)
+const browser = await chromium.launch().catch(async () => {
+	const got = Bun.spawnSync(['bunx', 'playwright', 'install', '--with-deps', 'chromium-headless-shell'], { cwd: import.meta.dir + '/..', stdout: 'inherit', stderr: 'inherit' });
+	if (!got.success) { dev.kill(); throw new Error('Playwright could not install its browser'); }
+	return chromium.launch();
+});
 const failures: string[] = [];
 let checked = 0;
 for (const size of SIZES) {
