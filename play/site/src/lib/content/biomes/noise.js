@@ -23,14 +23,5 @@ export function vn(x, y) {
 /** three octaves of it, 0…1 @param {number} x @param {number} y */
 export const fbm2 = (x, y) => vn(x, y) * 0.55 + vn(x * 2.03 + 7.1, y * 2.03 + 7.1) * 0.3 + vn(x * 4.1 + 3.3, y * 4.1 + 3.3) * 0.15;
 
-/** a seeded random number, the same every time @param {number} seed */
-export function rng(seed) {
-	let s = seed >>> 0 || 1;
-	return () => {
-		s = (s + 0x6d2b79f5) >>> 0;
-		let t = s;
-		t = Math.imul(t ^ (t >>> 15), t | 1);
-		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
-}
+// the worlds' seeded random is the kernel's (../../kernel/random.js); stream.js (held) still takes it here as rng
+export { seededRandom as rng } from '../../kernel/random.js';

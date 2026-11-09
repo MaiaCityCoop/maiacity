@@ -12,12 +12,12 @@
  */
 
 /**
- * The worlds' seeded random numbers (mulberry32).
+ * The worlds' seeded random numbers (mulberry32); a seed of 0 is taken as 1.
  * @param {number} seed
  * @returns {() => number}
  */
-function seededRandom(seed) {
-	let a = seed >>> 0;
+export function seededRandom(seed) {
+	let a = seed >>> 0 || 1;
 	return () => {
 		a = (a + 0x6d2b79f5) >>> 0;
 		let t = a;

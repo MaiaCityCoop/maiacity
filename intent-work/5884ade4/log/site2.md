@@ -46,3 +46,14 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    `library-shots.ts` run side by side in avenBOX get as far as each other and stop at the same call: play's Library
    now lists KTX2 pictures among its newest, which `add_story_frame` refuses ("A frame is a JPEG, PNG or WebP image"),
    so both scripts fail today before any shot, as before the move (not this untangle's to change).
+6. **One seeded random, the kernel's** (re-audit: copies). `kernel/random.js` says it is "the one place the worlds get
+   chance", but its mulberry32, `seededRandom`, was not exported, and four copies lived beside it: `biomes/noise.js`
+   `rng` and `models/minidomes.js` `seeded` (mulberry32, a seed of 0 taken as 1), `routes/game/map/map.ts`
+   `mulberry32` (the same numbers but at 0) and `maiacity-v2/van.js` `seeded` (the kernel's `seededLcg` but at 0).
+   `seededRandom` is exported, a seed of 0 taken as 1 (nothing read it before); minidomes, the map, its city and test
+   take it, the van `seededLcg` (its seeds 3, 5, 7, 11), and noise.js keeps `rng` as a one-line re-export for the held
+   `biomes/stream.js`. The map's own seeds are FNV hashes of fixed strings, none 0 (each checked to give the same
+   numbers). Pinned: `kernel/random.test.js` (the old copies' numbers, written down); census-same: same for Sandbox 1,
+   Sandbox 3 and the Worlds page; gate site; the map's, biomes' and models' tests. Left: `sandbox-2/interior/textures.ts`
+   `rng` and `maiacity-v2/world.js` `rng` (held), `factory.ts`'s two inline LCGs, `box/clips.js` (the box's), the test
+   world's own (a recipe, self-contained) and AirSup's `des.js` (theirs).

@@ -10,6 +10,8 @@
 // exactly PLOTS plots (villages, about 1500 people and 2.25 km² each), all buildable (shore, forest, grassland,
 // sand): mountains are no plots but wild land, raised into real hills (terrain); the water itself is no land at all.
 
+import { seededRandom } from '$lib/kernel/random.js';
+
 export type P = [number, number];
 export type Biome = 'grass' | 'forest' | 'sand' | 'mountain' | 'river';
 /** the biomes nobody builds on: they stay wild land, never plots */
@@ -103,15 +105,6 @@ export function hashSeed(s: string): number {
 		h = Math.imul(h, 16777619);
 	}
 	return h >>> 0;
-}
-
-export function mulberry32(a: number) {
-	return () => {
-		a = (a + 0x6d2b79f5) | 0;
-		let t = Math.imul(a ^ (a >>> 15), 1 | a);
-		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
 }
 
 /** smooth value noise in [0,1], summed over a few octaves */
@@ -256,7 +249,7 @@ interface Cell {
 export const SEED = 'one-world';
 
 export function generateMap(seed: string): WorldMap {
-	const rand = mulberry32(hashSeed(seed));
+	const rand = seededRandom(hashSeed(seed));
 	const height = fbmNoise(rand), wet = fbmNoise(rand), wobble = fbmNoise(rand);
 
 	// the river: from the top edge to the bottom, meandering
@@ -504,7 +497,7 @@ export const RIM = 700;
 
 /** the ground's height (m) at a point: flat in the valley, rising into hills and mountains beyond its edges */
 export function terrain(seed: string, river: P[], massif: Massif): (x: number, y: number) => number {
-	const rand = mulberry32(hashSeed(`${seed}/terrain`));
+	const rand = seededRandom(hashSeed(`${seed}/terrain`));
 	const hills = fbmNoise(rand), ridges = fbmNoise(rand);
 	const smooth = (a: number, b: number, v: number) => {
 		const t = Math.max(0, Math.min(1, (v - a) / (b - a)));
