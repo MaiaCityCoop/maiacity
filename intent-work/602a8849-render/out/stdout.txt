@@ -1,37 +1,17 @@
 GPU: ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)
-base s1-water-pond: frame 19.70 (p95 33.30) · cpu 8.00 · gpu 16.10 · 699 calls · 2,270,881 tris · bound gpu
-base s1-water-river: frame 16.90 (p95 16.80) · cpu 6.50 · gpu 14.20 · 384 calls · 2,523,838 tris · bound vsync
-base s1-dome-0: frame 49.20 (p95 50.10) · cpu 27.20 · gpu 38.90 · 1236 calls · 5,231,555 tris · bound gpu
-base s1-dome-1: frame 32.10 (p95 33.40) · cpu 16.20 · gpu 25.60 · 1357 calls · 3,110,762 tris · bound gpu
-base s1-near: frame 28.50 (p95 33.40) · cpu 22.10 · gpu 19.60 · 1767 calls · 3,401,006 tris · bound cpu
-base s1-mid: frame 34.30 (p95 50.00) · cpu 21.70 · gpu 25.80 · 1764 calls · 4,968,124 tris · bound gpu
-base s1-far: frame 16.80 (p95 16.70) · cpu 8.30 · gpu 12.40 · 851 calls · 1,529,320 tris · bound vsync
-base s3-open: frame 16.70 (p95 16.70) · cpu 4.00 · gpu 6.70 · 303 calls · 458,115 tris · bound vsync
-base world-oldcity: frame 16.70 (p95 16.80) · cpu 5.70 · gpu 0.50 · 47 calls · 29,210 tris · bound vsync
-base factories: frame 0.00 (p95 0.00) · cpu 0.00 · gpu – · 0 calls · 0 tris · bound null
-base game-map: frame 16.70 (p95 16.70) · cpu 2.70 · gpu 7.50 · 315 calls · 1,914,812 tris · bound vsync
-base lab: frame 16.70 (p95 16.70) · cpu 0.60 · gpu 1.30 · 4 calls · 12 tris · bound vsync
-base plant-look: frame 18.70 (p95 16.80) · cpu 8.20 · gpu 8.90 · 574 calls · 3,565,131 tris · bound vsync
-base: 6 errors
-    /sandbox-1/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-    /sandbox-3/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-    /worlds/#43420c0b-675b-4e50-98b5-c461b9432fc0 console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-    /factories/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-    /sandbox-2/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-    /sandbox-5/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-head s1-water-pond: frame 21.20 (p95 33.40) · cpu 12.30 · gpu 16.90 · 741 calls · 2,370,478 tris · bound gpu
-head s1-water-river: frame 17.00 (p95 16.80) · cpu 6.80 · gpu 14.20 · 400 calls · 2,548,238 tris · bound vsync
-head s1-dome-0: frame 44.80 (p95 50.10) · cpu 20.60 · gpu 37.60 · 1236 calls · 5,231,555 tris · bound gpu
-head s1-dome-1: frame 31.60 (p95 33.40) · cpu 19.50 · gpu 25.20 · 1373 calls · 3,141,333 tris · bound gpu
-head s1-near: frame 26.50 (p95 33.40) · cpu 25.10 · gpu 18.90 · 1785 calls · 3,411,642 tris · bound cpu
-head s1-mid: frame 33.50 (p95 33.40) · cpu 24.20 · gpu 25.90 · 1753 calls · 4,973,195 tris · bound gpu
-head s1-far: frame 17.70 (p95 33.30) · cpu 17.30 · gpu 12.10 · 851 calls · 1,529,320 tris · bound cpu
-head s3-open: frame 16.70 (p95 16.70) · cpu 4.30 · gpu 6.40 · 296 calls · 457,939 tris · bound vsync
-head world-oldcity: frame 16.70 (p95 16.70) · cpu 5.50 · gpu 0.50 · 47 calls · 30,061 tris · bound vsync
+head s1-water-pond: frame 19.50 (p95 33.40) · cpu 9.70 · gpu 15.90 · 713 calls · 2,311,169 tris · bound gpu
+head s1-water-river: frame 16.90 (p95 16.80) · cpu 6.80 · gpu 14.00 · 395 calls · 2,541,578 tris · bound vsync
+head s1-dome-0: frame 44.10 (p95 50.10) · cpu 19.50 · gpu 36.50 · 1236 calls · 5,231,555 tris · bound gpu
+head s1-dome-1: frame 31.20 (p95 33.40) · cpu 18.30 · gpu 24.80 · 1363 calls · 3,115,131 tris · bound gpu
+head s1-near: frame 25.10 (p95 33.40) · cpu 21.10 · gpu 18.30 · 1785 calls · 3,411,642 tris · bound cpu
+head s1-mid: frame 31.10 (p95 33.40) · cpu 21.50 · gpu 23.70 · 1753 calls · 4,970,499 tris · bound gpu
+head s1-far: frame 16.80 (p95 16.70) · cpu 14.00 · gpu 12.20 · 851 calls · 1,529,320 tris · bound vsync
+head s3-open: frame 16.70 (p95 16.80) · cpu 4.10 · gpu 6.50 · 297 calls · 457,971 tris · bound vsync
+head world-oldcity: frame 16.70 (p95 16.80) · cpu 5.50 · gpu 0.50 · 47 calls · 30,060 tris · bound vsync
 head factories: frame 0.00 (p95 0.00) · cpu 0.00 · gpu – · 0 calls · 0 tris · bound null
-head game-map: frame 16.70 (p95 16.70) · cpu 2.10 · gpu 7.60 · 315 calls · 1,914,812 tris · bound vsync
+head game-map: frame 16.70 (p95 16.80) · cpu 2.60 · gpu 8.40 · 315 calls · 1,914,812 tris · bound vsync
 head lab: frame 16.70 (p95 16.80) · cpu 0.70 · gpu 1.30 · 3 calls · 12 tris · bound vsync
-head plant-look: frame 16.70 (p95 16.80) · cpu 6.70 · gpu 8.80 · 568 calls · 3,557,393 tris · bound vsync
+head plant-look: frame 16.70 (p95 16.80) · cpu 6.80 · gpu 8.80 · 562 calls · 3,519,995 tris · bound vsync
 head: 6 errors
     /sandbox-1/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
     /sandbox-3/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
@@ -39,17 +19,37 @@ head: 6 errors
     /factories/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
     /sandbox-2/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
     /sandbox-5/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
-s1-water-pond: SSIM NaN (water: judged by eye) · base 19.70 (gpu) → head 21.20 (gpu) · Δ 1.50 ms OVER +1.0
-s1-water-river: SSIM NaN (water: judged by eye) · base 16.90 (vsync) → head 17.00 (vsync) · Δ 0.10 ms within +1.0
-s1-dome-0: SSIM NaN UNDER 0.98 · base 49.20 (gpu) → head 44.80 (gpu) · Δ -4.40 ms within +1.0
-s1-dome-1: SSIM NaN UNDER 0.98 · base 32.10 (gpu) → head 31.60 (gpu) · Δ -0.50 ms within +1.0
-s1-near: SSIM NaN UNDER 0.98 · base 28.50 (cpu) → head 26.50 (cpu) · Δ -2.00 ms within +1.0
-s1-mid: SSIM NaN UNDER 0.98 · base 34.30 (gpu) → head 33.50 (gpu) · Δ -0.80 ms within +1.0
-s1-far: SSIM NaN UNDER 0.98 · base 16.80 (vsync) → head 17.70 (cpu) · Δ 0.90 ms within +1.0
-s3-open: SSIM NaN UNDER 0.98 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
-world-oldcity: SSIM NaN UNDER 0.98 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
-factories: SSIM NaN UNDER 0.98 · base 0.00 (null) → head 0.00 (null) · Δ 0.00 ms within +1.0
-game-map: SSIM NaN UNDER 0.98 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
-lab: SSIM NaN UNDER 0.98 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +1.0
-plant-look: SSIM NaN UNDER 0.98 · base 18.70 (vsync) → head 16.70 (vsync) · Δ -2.00 ms within +1.0
-done in 2846 s: /Users/samuelandert/Documents/Development/s602a-render/intent-work/602a8849-render/out/results.json
+base s1-water-pond: frame 19.50 (p95 33.40) · cpu 7.90 · gpu 15.80 · 739 calls · 2,361,015 tris · bound gpu
+base s1-water-river: frame 16.90 (p95 16.80) · cpu 6.60 · gpu 14.10 · 402 calls · 2,545,242 tris · bound vsync
+base s1-dome-0: frame 43.10 (p95 50.10) · cpu 16.00 · gpu 35.70 · 1236 calls · 5,231,555 tris · bound gpu
+base s1-dome-1: frame 31.40 (p95 33.40) · cpu 14.00 · gpu 25.00 · 1361 calls · 3,113,763 tris · bound gpu
+base s1-near: frame 26.10 (p95 33.40) · cpu 16.80 · gpu 18.80 · 1785 calls · 3,411,642 tris · bound gpu
+base s1-mid: frame 31.20 (p95 33.40) · cpu 16.10 · gpu 24.00 · 1753 calls · 4,969,009 tris · bound gpu
+base s1-far: frame 16.70 (p95 16.70) · cpu 7.80 · gpu 12.30 · 851 calls · 1,527,272 tris · bound vsync
+base s3-open: frame 16.70 (p95 16.80) · cpu 5.00 · gpu 6.60 · 302 calls · 458,095 tris · bound vsync
+base world-oldcity: frame 16.70 (p95 16.70) · cpu 5.50 · gpu 0.50 · 47 calls · 29,240 tris · bound vsync
+base factories: frame 0.00 (p95 0.00) · cpu 0.00 · gpu – · 0 calls · 0 tris · bound null
+base game-map: frame 16.70 (p95 16.70) · cpu 2.90 · gpu 8.20 · 315 calls · 1,914,812 tris · bound vsync
+base lab: frame 16.70 (p95 16.80) · cpu 0.80 · gpu 1.20 · 4 calls · 12 tris · bound vsync
+base plant-look: frame 16.70 (p95 16.70) · cpu 6.00 · gpu 9.10 · 567 calls · 3,554,856 tris · bound vsync
+base: 6 errors
+    /sandbox-1/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-3/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /worlds/#43420c0b-675b-4e50-98b5-c461b9432fc0 console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /factories/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-2/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+    /sandbox-5/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+s1-water-pond: SSIM 0.9960 (water: judged by eye) · base 19.50 (gpu) → head 19.50 (gpu) · Δ 0.00 ms within +5 %
+s1-water-river: SSIM 0.9956 (water: judged by eye) · base 16.90 (vsync) → head 16.90 (vsync) · Δ 0.00 ms within +5 %
+s1-dome-0: SSIM 0.9970 · base 43.10 (gpu) → head 44.10 (gpu) · Δ 1.00 ms within +5 %
+s1-dome-1: SSIM 0.9972 · base 31.40 (gpu) → head 31.20 (gpu) · Δ -0.20 ms within +5 %
+s1-near: SSIM 0.9968 · base 26.10 (gpu) → head 25.10 (cpu) · Δ -1.00 ms within +8 ms, ≤ 33.4
+s1-mid: SSIM 0.9750 UNDER 0.98 · base 31.20 (gpu) → head 31.10 (gpu) · Δ -0.10 ms within +5 %
+s1-far: SSIM 0.8719 UNDER 0.98 · base 16.70 (vsync) → head 16.80 (vsync) · Δ 0.10 ms within +5 %
+s3-open: SSIM 0.8853 UNDER 0.98 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +5 %
+world-oldcity: SSIM 0.9070 UNDER 0.98 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +5 %
+factories: SSIM 1.0000 · base 0.00 (null) → head 0.00 (null) · Δ 0.00 ms within +5 %
+game-map: SSIM 1.0000 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +5 %
+lab: SSIM 1.0000 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +5 %
+plant-look: SSIM 1.0000 · base 16.70 (vsync) → head 16.70 (vsync) · Δ 0.00 ms within +5 %
+done in 1566 s: /Users/samuelandert/Documents/Development/s602a-render/intent-work/602a8849-render/out/results.json

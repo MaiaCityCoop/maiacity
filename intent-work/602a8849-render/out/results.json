@@ -1,8 +1,8 @@
 {
  "intent": "602a8849-50e4-4885-99b9-38353f951c9f",
  "commits": {
-  "base": "d5346b7ce13519a0606b4451dbc46aa272e79a48",
-  "head": "a6f20d9412d152a6f9820f35d847cc84b34c4ed5"
+  "base": "11e518c7e238b1a07fe572c391bef7a8eb9ac8bb",
+  "head": "af3b1e0db34c7ceced441e6e504f1f4cc51dad35"
  },
  "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)",
  "viewport": [
@@ -10,484 +10,158 @@
   900
  ],
  "sample_s": 3,
- "at": "2026-11-09T09:38:53.317Z",
+ "at": "2026-11-09T11:00:58.002Z",
  "views": [
-  {
-   "site": "base",
-   "view": "s1-water-pond",
-   "settled": true,
-   "at": [
-    43.84225344248604,
-    -78.6195266532414,
-    -0.5086982748250172,
-    -0.32
-   ],
-   "target": {
-    "x": 50.66082408390747,
-    "y": 0,
-    "z": -90.84683602235224
-   },
-   "frames": 154,
-   "frame_ms": 19.7,
-   "frame_p95": 33.3,
-   "cpu_ms": 8,
-   "gpu_ms": 16.1,
-   "calls": 699,
-   "bound": "gpu",
-   "tris": 2270881,
-   "buckets": {
-    "shadow": {
-     "calls": 14,
-     "tris": 40350
-    },
-    "blend": {
-     "calls": 29,
-     "tris": 54604
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 30
-    },
-    "screen": {
-     "calls": 656,
-     "tris": 2175309
-    }
-   },
-   "png": "base-s1-water-pond.png"
-  },
-  {
-   "site": "base",
-   "view": "s1-water-river",
-   "settled": true,
-   "at": [
-    108.90969372725077,
-    269.85121569530946,
-    -2.757993877991495,
-    -0.32
-   ],
-   "target": {
-    "x": 114.14933534986764,
-    "y": 0,
-    "z": 282.83374840917315
-   },
-   "frames": 178,
-   "frame_ms": 16.9,
-   "frame_p95": 16.8,
-   "cpu_ms": 6.5,
-   "gpu_ms": 14.2,
-   "calls": 384,
-   "bound": "vsync",
-   "tris": 2523838,
-   "buckets": {
-    "shadow": {
-     "calls": 0,
-     "tris": 0
-    },
-    "blend": {
-     "calls": 7,
-     "tris": 49616
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 0
-    },
-    "screen": {
-     "calls": 377,
-     "tris": 2474222
-    }
-   },
-   "png": "base-s1-water-river.png"
-  },
-  {
-   "site": "base",
-   "view": "s1-dome-0",
-   "settled": true,
-   "at": [
-    23.799999999999997,
-    23.799999999999997,
-    0.7853981633974483,
-    0.12
-   ],
-   "target": {
-    "x": 0,
-    "z": 0,
-    "R": 68
-   },
-   "frames": 62,
-   "frame_ms": 49.2,
-   "frame_p95": 50.1,
-   "cpu_ms": 27.2,
-   "gpu_ms": 38.9,
-   "calls": 1236,
-   "bound": "gpu",
-   "tris": 5231555,
-   "buckets": {
-    "shadow": {
-     "calls": 0,
-     "tris": 0
-    },
-    "blend": {
-     "calls": 116,
-     "tris": 67049
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 0
-    },
-    "screen": {
-     "calls": 1120,
-     "tris": 5164506
-    }
-   },
-   "png": "base-s1-dome-0.png"
-  },
-  {
-   "site": "base",
-   "view": "s1-dome-1",
-   "settled": true,
-   "at": [
-    12.25,
-    162.25,
-    0.7853981633974483,
-    0.12
-   ],
-   "target": {
-    "x": 0,
-    "z": 150,
-    "R": 35
-   },
-   "frames": 94,
-   "frame_ms": 32.1,
-   "frame_p95": 33.4,
-   "cpu_ms": 16.2,
-   "gpu_ms": 25.6,
-   "calls": 1357,
-   "bound": "gpu",
-   "tris": 3110762,
-   "buckets": {
-    "shadow": {
-     "calls": 0,
-     "tris": 0
-    },
-    "blend": {
-     "calls": 139,
-     "tris": 75335
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 0
-    },
-    "screen": {
-     "calls": 1218,
-     "tris": 3035590
-    }
-   },
-   "png": "base-s1-dome-1.png"
-  },
-  {
-   "site": "base",
-   "view": "s1-near",
-   "settled": true,
-   "at": [
-    0,
-    95,
-    0,
-    -0.05
-   ],
-   "frames": 107,
-   "frame_ms": 28.5,
-   "frame_p95": 33.4,
-   "cpu_ms": 22.1,
-   "gpu_ms": 19.6,
-   "calls": 1767,
-   "bound": "cpu",
-   "tris": 3401006,
-   "buckets": {
-    "shadow": {
-     "calls": 0,
-     "tris": 0
-    },
-    "blend": {
-     "calls": 209,
-     "tris": 74382
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 0
-    },
-    "screen": {
-     "calls": 1558,
-     "tris": 3326624
-    }
-   },
-   "png": "base-s1-near.png"
-  },
-  {
-   "site": "base",
-   "view": "s1-mid",
-   "settled": true,
-   "at": [
-    0,
-    235,
-    0,
-    -0.05
-   ],
-   "frames": 89,
-   "frame_ms": 34.3,
-   "frame_p95": 50,
-   "cpu_ms": 21.7,
-   "gpu_ms": 25.8,
-   "calls": 1764,
-   "bound": "gpu",
-   "tris": 4968124,
-   "buckets": {
-    "shadow": {
-     "calls": 0,
-     "tris": 0
-    },
-    "blend": {
-     "calls": 220,
-     "tris": 83695
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 0
-    },
-    "screen": {
-     "calls": 1544,
-     "tris": 4885536
-    }
-   },
-   "png": "base-s1-mid.png"
-  },
-  {
-   "site": "base",
-   "view": "s1-far",
-   "settled": true,
-   "at": [
-    0,
-    370,
-    0,
-    -0.12
-   ],
-   "frames": 181,
-   "frame_ms": 16.8,
-   "frame_p95": 16.7,
-   "cpu_ms": 8.3,
-   "gpu_ms": 12.4,
-   "calls": 851,
-   "bound": "vsync",
-   "tris": 1529320,
-   "buckets": {
-    "shadow": {
-     "calls": 0,
-     "tris": 0
-    },
-    "blend": {
-     "calls": 110,
-     "tris": 76936
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 0
-    },
-    "screen": {
-     "calls": 741,
-     "tris": 1452384
-    }
-   },
-   "png": "base-s1-far.png"
-  },
-  {
-   "site": "base",
-   "view": "s3-open",
-   "frames": 181,
-   "frame_ms": 16.7,
-   "frame_p95": 16.7,
-   "cpu_ms": 4,
-   "gpu_ms": 6.7,
-   "calls": 303,
-   "bound": "vsync",
-   "tris": 458115,
-   "buckets": {
-    "shadow": {
-     "calls": 0,
-     "tris": 0
-    },
-    "blend": {
-     "calls": 9,
-     "tris": 12060
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 0
-    },
-    "screen": {
-     "calls": 294,
-     "tris": 446055
-    }
-   },
-   "png": "base-s3-open.png"
-  },
-  {
-   "site": "base",
-   "view": "world-oldcity",
-   "frames": 181,
-   "frame_ms": 16.7,
-   "frame_p95": 16.8,
-   "cpu_ms": 5.7,
-   "gpu_ms": 0.5,
-   "calls": 47,
-   "bound": "vsync",
-   "tris": 29210,
-   "buckets": {
-    "shadow": {
-     "calls": 0,
-     "tris": 0
-    },
-    "blend": {
-     "calls": 8,
-     "tris": 12012
-    },
-    "offscreen": {
-     "calls": 39,
-     "tris": 17198
-    },
-    "screen": {
-     "calls": 0,
-     "tris": 0
-    }
-   },
-   "png": "base-world-oldcity.png"
-  },
-  {
-   "site": "base",
-   "view": "factories",
-   "frames": 0,
-   "frame_ms": 0,
-   "frame_p95": 0,
-   "cpu_ms": 0,
-   "gpu_ms": null,
-   "calls": 0,
-   "bound": null,
-   "tris": 0,
-   "buckets": {
-    "shadow": {
-     "calls": 0,
-     "tris": 0
-    },
-    "blend": {
-     "calls": 0,
-     "tris": 0
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 0
-    },
-    "screen": {
-     "calls": 0,
-     "tris": 0
-    }
-   },
-   "png": "base-factories.png"
-  },
-  {
-   "site": "base",
-   "view": "game-map",
-   "frames": 181,
-   "frame_ms": 16.7,
-   "frame_p95": 16.7,
-   "cpu_ms": 2.7,
-   "gpu_ms": 7.5,
-   "calls": 315,
-   "bound": "vsync",
-   "tris": 1914812,
-   "buckets": {
-    "shadow": {
-     "calls": 11,
-     "tris": 905238
-    },
-    "blend": {
-     "calls": 0,
-     "tris": 0
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 0
-    },
-    "screen": {
-     "calls": 304,
-     "tris": 1009574
-    }
-   },
-   "png": "base-game-map.png"
-  },
-  {
-   "site": "base",
-   "view": "lab",
-   "frames": 181,
-   "frame_ms": 16.7,
-   "frame_p95": 16.7,
-   "cpu_ms": 0.6,
-   "gpu_ms": 1.3,
-   "calls": 4,
-   "bound": "vsync",
-   "tris": 12,
-   "buckets": {
-    "shadow": {
-     "calls": 0,
-     "tris": 0
-    },
-    "blend": {
-     "calls": 1,
-     "tris": 0
-    },
-    "offscreen": {
-     "calls": 0,
-     "tris": 0
-    },
-    "screen": {
-     "calls": 3,
-     "tris": 12
-    }
-   },
-   "png": "base-lab.png"
-  },
-  {
-   "site": "base",
-   "view": "plant-look",
-   "frames": 161,
-   "frame_ms": 18.7,
-   "frame_p95": 16.8,
-   "cpu_ms": 8.2,
-   "gpu_ms": 8.9,
-   "calls": 574,
-   "bound": "vsync",
-   "tris": 3565131,
-   "buckets": {
-    "shadow": {
-     "calls": 6,
-     "tris": 40958
-    },
-    "blend": {
-     "calls": 29,
-     "tris": 56711
-    },
-    "offscreen": {
-     "calls": 539,
-     "tris": 3466689
-    },
-    "screen": {
-     "calls": 0,
-     "tris": 0
-    }
-   },
-   "png": "base-plant-look.png"
-  },
   {
    "site": "head",
    "view": "s1-water-pond",
-   "settled": false,
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 4,
+     "busy": {
+      "out": {
+       "building": 4,
+       "busy": {
+        "queue": 0,
+        "loads": 4,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 4,
+     "busy": {
+      "out": {
+       "building": 4,
+       "busy": {
+        "queue": 0,
+        "loads": 4,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 2,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
    "at": [
     43.84225344248604,
     -78.6195266532414,
@@ -499,18 +173,18 @@
     "y": 0,
     "z": -90.84683602235224
    },
-   "frames": 143,
-   "frame_ms": 21.2,
+   "frames": 156,
+   "frame_ms": 19.5,
    "frame_p95": 33.4,
-   "cpu_ms": 12.3,
-   "gpu_ms": 16.9,
-   "calls": 741,
+   "cpu_ms": 9.7,
+   "gpu_ms": 15.9,
+   "calls": 713,
    "bound": "gpu",
-   "tris": 2370478,
+   "tris": 2311169,
    "buckets": {
     "shadow": {
-     "calls": 45,
-     "tris": 129889
+     "calls": 27,
+     "tris": 79298
     },
     "blend": {
      "calls": 29,
@@ -518,11 +192,11 @@
     },
     "offscreen": {
      "calls": 0,
-     "tris": 95
+     "tris": 58
     },
     "screen": {
-     "calls": 666,
-     "tris": 2183350
+     "calls": 656,
+     "tris": 2175157
     }
    },
    "png": "head-s1-water-pond.png"
@@ -530,7 +204,153 @@
   {
    "site": "head",
    "view": "s1-water-river",
-   "settled": false,
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 2,
+     "busy": {
+      "out": {
+       "building": 2,
+       "busy": {
+        "queue": 0,
+        "loads": 2,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 2,
+     "busy": {
+      "out": {
+       "building": 2,
+       "busy": {
+        "queue": 0,
+        "loads": 2,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 2,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
    "at": [
     108.90969372725077,
     269.85121569530946,
@@ -542,14 +362,14 @@
     "y": 0,
     "z": 282.83374840917315
    },
-   "frames": 177,
-   "frame_ms": 17,
+   "frames": 179,
+   "frame_ms": 16.9,
    "frame_p95": 16.8,
    "cpu_ms": 6.8,
-   "gpu_ms": 14.2,
-   "calls": 400,
+   "gpu_ms": 14,
+   "calls": 395,
    "bound": "vsync",
-   "tris": 2548238,
+   "tris": 2541578,
    "buckets": {
     "shadow": {
      "calls": 0,
@@ -564,8 +384,8 @@
      "tris": 0
     },
     "screen": {
-     "calls": 393,
-     "tris": 2498387
+     "calls": 388,
+     "tris": 2491962
     }
    },
    "png": "head-s1-water-river.png"
@@ -573,7 +393,201 @@
   {
    "site": "head",
    "view": "s1-dome-0",
-   "settled": false,
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 11,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 11,
+       "busy": {
+        "queue": 0,
+        "loads": 11,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 11,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 11,
+       "busy": {
+        "queue": 0,
+        "loads": 11,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 2,
+     "q": 5,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 5,
+       "busy": {
+        "queue": 0,
+        "loads": 5,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 4,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
    "at": [
     23.799999999999997,
     23.799999999999997,
@@ -585,11 +599,11 @@
     "z": 0,
     "R": 68
    },
-   "frames": 68,
-   "frame_ms": 44.8,
+   "frames": 69,
+   "frame_ms": 44.1,
    "frame_p95": 50.1,
-   "cpu_ms": 20.6,
-   "gpu_ms": 37.6,
+   "cpu_ms": 19.5,
+   "gpu_ms": 36.5,
    "calls": 1236,
    "bound": "gpu",
    "tris": 5231555,
@@ -616,7 +630,201 @@
   {
    "site": "head",
    "view": "s1-dome-1",
-   "settled": false,
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 4,
+     "busy": {
+      "out": {
+       "building": 3,
+       "busy": {
+        "queue": 0,
+        "loads": 3,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 1,
+       "busy": {
+        "queue": 0,
+        "loads": 1,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 4,
+     "busy": {
+      "out": {
+       "building": 3,
+       "busy": {
+        "queue": 0,
+        "loads": 3,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 1,
+       "busy": {
+        "queue": 0,
+        "loads": 1,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 2,
+     "q": 1,
+     "busy": {
+      "out": {
+       "building": 1,
+       "busy": {
+        "queue": 0,
+        "loads": 1,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 4,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
    "at": [
     12.25,
     162.25,
@@ -628,14 +836,14 @@
     "z": 150,
     "R": 35
    },
-   "frames": 96,
-   "frame_ms": 31.6,
+   "frames": 97,
+   "frame_ms": 31.2,
    "frame_p95": 33.4,
-   "cpu_ms": 19.5,
-   "gpu_ms": 25.2,
-   "calls": 1373,
+   "cpu_ms": 18.3,
+   "gpu_ms": 24.8,
+   "calls": 1363,
    "bound": "gpu",
-   "tris": 3141333,
+   "tris": 3115131,
    "buckets": {
     "shadow": {
      "calls": 0,
@@ -650,8 +858,8 @@
      "tris": 0
     },
     "screen": {
-     "calls": 1234,
-     "tris": 3066309
+     "calls": 1224,
+     "tris": 3040117
     }
    },
    "png": "head-s1-dome-1.png"
@@ -659,18 +867,116 @@
   {
    "site": "head",
    "view": "s1-near",
-   "settled": false,
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
    "at": [
     0,
     95,
     0,
     -0.05
    ],
-   "frames": 115,
-   "frame_ms": 26.5,
+   "frames": 121,
+   "frame_ms": 25.1,
    "frame_p95": 33.4,
-   "cpu_ms": 25.1,
-   "gpu_ms": 18.9,
+   "cpu_ms": 21.1,
+   "gpu_ms": 18.3,
    "calls": 1785,
    "bound": "cpu",
    "tris": 3411642,
@@ -697,21 +1003,167 @@
   {
    "site": "head",
    "view": "s1-mid",
-   "settled": false,
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 1,
+     "busy": {
+      "out": {
+       "building": 1,
+       "busy": {
+        "queue": 0,
+        "loads": 1,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 1,
+     "busy": {
+      "out": {
+       "building": 1,
+       "busy": {
+        "queue": 0,
+        "loads": 1,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 2,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
    "at": [
     0,
     235,
     0,
     -0.05
    ],
-   "frames": 91,
-   "frame_ms": 33.5,
+   "frames": 98,
+   "frame_ms": 31.1,
    "frame_p95": 33.4,
-   "cpu_ms": 24.2,
-   "gpu_ms": 25.9,
+   "cpu_ms": 21.5,
+   "gpu_ms": 23.7,
    "calls": 1753,
    "bound": "gpu",
-   "tris": 4973195,
+   "tris": 4970499,
    "buckets": {
     "shadow": {
      "calls": 0,
@@ -727,7 +1179,7 @@
     },
     "screen": {
      "calls": 1533,
-     "tris": 4889500
+     "tris": 4886804
     }
    },
    "png": "head-s1-mid.png"
@@ -735,20 +1187,118 @@
   {
    "site": "head",
    "view": "s1-far",
-   "settled": false,
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 42,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "busy": {
+        "queue": 0,
+        "loads": 0,
+        "compiling": 0,
+        "lowering": 0
+       },
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
    "at": [
     0,
     370,
     0,
     -0.12
    ],
-   "frames": 171,
-   "frame_ms": 17.7,
-   "frame_p95": 33.3,
-   "cpu_ms": 17.3,
-   "gpu_ms": 12.1,
+   "frames": 181,
+   "frame_ms": 16.8,
+   "frame_p95": 16.7,
+   "cpu_ms": 14,
+   "gpu_ms": 12.2,
    "calls": 851,
-   "bound": "cpu",
+   "bound": "vsync",
    "tris": 1529320,
    "buckets": {
     "shadow": {
@@ -773,14 +1323,14 @@
   {
    "site": "head",
    "view": "s3-open",
-   "frames": 181,
+   "frames": 182,
    "frame_ms": 16.7,
-   "frame_p95": 16.7,
-   "cpu_ms": 4.3,
-   "gpu_ms": 6.4,
-   "calls": 296,
+   "frame_p95": 16.8,
+   "cpu_ms": 4.1,
+   "gpu_ms": 6.5,
+   "calls": 297,
    "bound": "vsync",
-   "tris": 457939,
+   "tris": 457971,
    "buckets": {
     "shadow": {
      "calls": 0,
@@ -795,8 +1345,8 @@
      "tris": 0
     },
     "screen": {
-     "calls": 287,
-     "tris": 445879
+     "calls": 288,
+     "tris": 445911
     }
    },
    "png": "head-s3-open.png"
@@ -806,12 +1356,12 @@
    "view": "world-oldcity",
    "frames": 181,
    "frame_ms": 16.7,
-   "frame_p95": 16.7,
+   "frame_p95": 16.8,
    "cpu_ms": 5.5,
    "gpu_ms": 0.5,
    "calls": 47,
    "bound": "vsync",
-   "tris": 30061,
+   "tris": 30060,
    "buckets": {
     "shadow": {
      "calls": 0,
@@ -819,7 +1369,7 @@
     },
     "blend": {
      "calls": 8,
-     "tris": 12845
+     "tris": 12844
     },
     "offscreen": {
      "calls": 39,
@@ -866,11 +1416,11 @@
   {
    "site": "head",
    "view": "game-map",
-   "frames": 182,
+   "frames": 181,
    "frame_ms": 16.7,
-   "frame_p95": 16.7,
-   "cpu_ms": 2.1,
-   "gpu_ms": 7.6,
+   "frame_p95": 16.8,
+   "cpu_ms": 2.6,
+   "gpu_ms": 8.4,
    "calls": 315,
    "bound": "vsync",
    "tris": 1914812,
@@ -931,23 +1481,23 @@
    "frames": 181,
    "frame_ms": 16.7,
    "frame_p95": 16.8,
-   "cpu_ms": 6.7,
+   "cpu_ms": 6.8,
    "gpu_ms": 8.8,
-   "calls": 568,
+   "calls": 562,
    "bound": "vsync",
-   "tris": 3557393,
+   "tris": 3519995,
    "buckets": {
     "shadow": {
-     "calls": 5,
-     "tris": 36530
+     "calls": 0,
+     "tris": 0
     },
     "blend": {
      "calls": 29,
      "tris": 56711
     },
     "offscreen": {
-     "calls": 534,
-     "tris": 3463572
+     "calls": 533,
+     "tris": 3463284
     },
     "screen": {
      "calls": 0,
@@ -955,96 +1505,1212 @@
     }
    },
    "png": "head-plant-look.png"
+  },
+  {
+   "site": "base",
+   "view": "s1-water-pond",
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 3,
+     "busy": {
+      "out": {
+       "building": 3,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 3,
+     "busy": {
+      "out": {
+       "building": 3,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 2,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
+   "at": [
+    43.84225344248604,
+    -78.6195266532414,
+    -0.5086982748250172,
+    -0.32
+   ],
+   "target": {
+    "x": 50.66082408390747,
+    "y": 0,
+    "z": -90.84683602235224
+   },
+   "frames": 156,
+   "frame_ms": 19.5,
+   "frame_p95": 33.4,
+   "cpu_ms": 7.9,
+   "gpu_ms": 15.8,
+   "calls": 739,
+   "bound": "gpu",
+   "tris": 2361015,
+   "buckets": {
+    "shadow": {
+     "calls": 42,
+     "tris": 119399
+    },
+    "blend": {
+     "calls": 29,
+     "tris": 54604
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 87
+    },
+    "screen": {
+     "calls": 667,
+     "tris": 2184514
+    }
+   },
+   "png": "base-s1-water-pond.png"
+  },
+  {
+   "site": "base",
+   "view": "s1-water-river",
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 1,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 1,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 2,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
+   "at": [
+    108.90969372725077,
+    269.85121569530946,
+    -2.757993877991495,
+    -0.32
+   ],
+   "target": {
+    "x": 114.14933534986764,
+    "y": 0,
+    "z": 282.83374840917315
+   },
+   "frames": 179,
+   "frame_ms": 16.9,
+   "frame_p95": 16.8,
+   "cpu_ms": 6.6,
+   "gpu_ms": 14.1,
+   "calls": 402,
+   "bound": "vsync",
+   "tris": 2545242,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 7,
+     "tris": 49616
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 394,
+     "tris": 2495506
+    }
+   },
+   "png": "base-s1-water-river.png"
+  },
+  {
+   "site": "base",
+   "view": "s1-dome-0",
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 15,
+     "busy": {
+      "out": {
+       "building": 2,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 13,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 15,
+     "busy": {
+      "out": {
+       "building": 2,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 13,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 2,
+     "q": 7,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 7,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 4,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
+   "at": [
+    23.799999999999997,
+    23.799999999999997,
+    0.7853981633974483,
+    0.12
+   ],
+   "target": {
+    "x": 0,
+    "z": 0,
+    "R": 68
+   },
+   "frames": 71,
+   "frame_ms": 43.1,
+   "frame_p95": 50.1,
+   "cpu_ms": 16,
+   "gpu_ms": 35.7,
+   "calls": 1236,
+   "bound": "gpu",
+   "tris": 5231555,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 116,
+     "tris": 67049
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1120,
+     "tris": 5164506
+    }
+   },
+   "png": "base-s1-dome-0.png"
+  },
+  {
+   "site": "base",
+   "view": "s1-dome-1",
+   "settled": true,
+   "quiet": [
+    {
+     "s": 3,
+     "q": 4,
+     "busy": {
+      "out": {
+       "building": 2,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 1,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 3,
+     "q": 4,
+     "busy": {
+      "out": {
+       "building": 2,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 1,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 5,
+     "q": 1,
+     "busy": {
+      "out": {
+       "building": 1,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 7,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
+   "at": [
+    12.25,
+    162.25,
+    0.7853981633974483,
+    0.12
+   ],
+   "target": {
+    "x": 0,
+    "z": 150,
+    "R": 35
+   },
+   "frames": 97,
+   "frame_ms": 31.4,
+   "frame_p95": 33.4,
+   "cpu_ms": 14,
+   "gpu_ms": 25,
+   "calls": 1361,
+   "bound": "gpu",
+   "tris": 3113763,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 139,
+     "tris": 75335
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1222,
+     "tris": 3037967
+    }
+   },
+   "png": "base-s1-dome-1.png"
+  },
+  {
+   "site": "base",
+   "view": "s1-near",
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
+   "at": [
+    0,
+    95,
+    0,
+    -0.05
+   ],
+   "frames": 116,
+   "frame_ms": 26.1,
+   "frame_p95": 33.4,
+   "cpu_ms": 16.8,
+   "gpu_ms": 18.8,
+   "calls": 1785,
+   "bound": "gpu",
+   "tris": 3411642,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 209,
+     "tris": 74382
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1576,
+     "tris": 3337260
+    }
+   },
+   "png": "base-s1-near.png"
+  },
+  {
+   "site": "base",
+   "view": "s1-mid",
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 2,
+     "busy": {
+      "out": {
+       "building": 2,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 2,
+     "busy": {
+      "out": {
+       "building": 2,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 3,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
+   "at": [
+    0,
+    235,
+    0,
+    -0.05
+   ],
+   "frames": 97,
+   "frame_ms": 31.2,
+   "frame_p95": 33.4,
+   "cpu_ms": 16.1,
+   "gpu_ms": 24,
+   "calls": 1753,
+   "bound": "gpu",
+   "tris": 4969009,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 220,
+     "tris": 83695
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 1533,
+     "tris": 4885314
+    }
+   },
+   "png": "base-s1-mid.png"
+  },
+  {
+   "site": "base",
+   "view": "s1-far",
+   "settled": true,
+   "quiet": [
+    {
+     "s": 0,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    },
+    {
+     "s": 0,
+     "q": 0,
+     "busy": {
+      "out": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 66,
+       "kinds": 188,
+       "loaded": 188,
+       "pages": 3
+      },
+      "in": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 46,
+       "kinds": 114,
+       "loaded": 114,
+       "pages": 2
+      },
+      "library": {
+       "building": 0,
+       "keeping": 0,
+       "taken": 0,
+       "kinds": 33,
+       "loaded": 33,
+       "pages": 0
+      }
+     }
+    }
+   ],
+   "at": [
+    0,
+    370,
+    0,
+    -0.12
+   ],
+   "frames": 182,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 7.8,
+   "gpu_ms": 12.3,
+   "calls": 851,
+   "bound": "vsync",
+   "tris": 1527272,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 110,
+     "tris": 76936
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 741,
+     "tris": 1450336
+    }
+   },
+   "png": "base-s1-far.png"
+  },
+  {
+   "site": "base",
+   "view": "s3-open",
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.8,
+   "cpu_ms": 5,
+   "gpu_ms": 6.6,
+   "calls": 302,
+   "bound": "vsync",
+   "tris": 458095,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 9,
+     "tris": 12060
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 293,
+     "tris": 446035
+    }
+   },
+   "png": "base-s3-open.png"
+  },
+  {
+   "site": "base",
+   "view": "world-oldcity",
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 5.5,
+   "gpu_ms": 0.5,
+   "calls": 47,
+   "bound": "vsync",
+   "tris": 29240,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 8,
+     "tris": 12012
+    },
+    "offscreen": {
+     "calls": 39,
+     "tris": 17228
+    },
+    "screen": {
+     "calls": 0,
+     "tris": 0
+    }
+   },
+   "png": "base-world-oldcity.png"
+  },
+  {
+   "site": "base",
+   "view": "factories",
+   "frames": 0,
+   "frame_ms": 0,
+   "frame_p95": 0,
+   "cpu_ms": 0,
+   "gpu_ms": null,
+   "calls": 0,
+   "bound": null,
+   "tris": 0,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 0,
+     "tris": 0
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 0,
+     "tris": 0
+    }
+   },
+   "png": "base-factories.png"
+  },
+  {
+   "site": "base",
+   "view": "game-map",
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 2.9,
+   "gpu_ms": 8.2,
+   "calls": 315,
+   "bound": "vsync",
+   "tris": 1914812,
+   "buckets": {
+    "shadow": {
+     "calls": 11,
+     "tris": 905238
+    },
+    "blend": {
+     "calls": 0,
+     "tris": 0
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 304,
+     "tris": 1009574
+    }
+   },
+   "png": "base-game-map.png"
+  },
+  {
+   "site": "base",
+   "view": "lab",
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.8,
+   "cpu_ms": 0.8,
+   "gpu_ms": 1.2,
+   "calls": 4,
+   "bound": "vsync",
+   "tris": 12,
+   "buckets": {
+    "shadow": {
+     "calls": 0,
+     "tris": 0
+    },
+    "blend": {
+     "calls": 1,
+     "tris": 0
+    },
+    "offscreen": {
+     "calls": 0,
+     "tris": 0
+    },
+    "screen": {
+     "calls": 3,
+     "tris": 12
+    }
+   },
+   "png": "base-lab.png"
+  },
+  {
+   "site": "base",
+   "view": "plant-look",
+   "frames": 181,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 6,
+   "gpu_ms": 9.1,
+   "calls": 567,
+   "bound": "vsync",
+   "tris": 3554856,
+   "buckets": {
+    "shadow": {
+     "calls": 4,
+     "tris": 34049
+    },
+    "blend": {
+     "calls": 29,
+     "tris": 56711
+    },
+    "offscreen": {
+     "calls": 533,
+     "tris": 3463343
+    },
+    "screen": {
+     "calls": 0,
+     "tris": 0
+    }
+   },
+   "png": "base-plant-look.png"
   }
  ],
  "compare": [
   {
    "view": "s1-water-pond",
-   "ssim": null,
+   "ssim": 0.995996,
    "ssim_ok": true,
    "water": true,
-   "base_ms": 19.7,
-   "head_ms": 21.2,
-   "delta_ms": 1.5,
+   "base_ms": 19.5,
+   "head_ms": 19.5,
+   "delta_ms": 0,
    "base_bound": "gpu",
    "head_bound": "gpu",
-   "within": false
+   "within": true
   },
   {
    "view": "s1-water-river",
-   "ssim": null,
+   "ssim": 0.995638,
    "ssim_ok": true,
    "water": true,
    "base_ms": 16.9,
-   "head_ms": 17,
-   "delta_ms": 0.10000000000000142,
+   "head_ms": 16.9,
+   "delta_ms": 0,
    "base_bound": "vsync",
    "head_bound": "vsync",
    "within": true
   },
   {
    "view": "s1-dome-0",
-   "ssim": null,
-   "ssim_ok": false,
+   "ssim": 0.996993,
+   "ssim_ok": true,
    "water": false,
-   "base_ms": 49.2,
-   "head_ms": 44.8,
-   "delta_ms": -4.400000000000006,
+   "base_ms": 43.1,
+   "head_ms": 44.1,
+   "delta_ms": 1,
    "base_bound": "gpu",
    "head_bound": "gpu",
    "within": true
   },
   {
    "view": "s1-dome-1",
-   "ssim": null,
-   "ssim_ok": false,
+   "ssim": 0.997193,
+   "ssim_ok": true,
    "water": false,
-   "base_ms": 32.1,
-   "head_ms": 31.6,
-   "delta_ms": -0.5,
+   "base_ms": 31.4,
+   "head_ms": 31.2,
+   "delta_ms": -0.1999999999999993,
    "base_bound": "gpu",
    "head_bound": "gpu",
    "within": true
   },
   {
    "view": "s1-near",
-   "ssim": null,
-   "ssim_ok": false,
+   "ssim": 0.996789,
+   "ssim_ok": true,
    "water": false,
-   "base_ms": 28.5,
-   "head_ms": 26.5,
-   "delta_ms": -2,
-   "base_bound": "cpu",
+   "base_ms": 26.1,
+   "head_ms": 25.1,
+   "delta_ms": -1,
+   "base_bound": "gpu",
    "head_bound": "cpu",
    "within": true
   },
   {
    "view": "s1-mid",
-   "ssim": null,
+   "ssim": 0.975026,
    "ssim_ok": false,
    "water": false,
-   "base_ms": 34.3,
-   "head_ms": 33.5,
-   "delta_ms": -0.7999999999999972,
+   "base_ms": 31.2,
+   "head_ms": 31.1,
+   "delta_ms": -0.09999999999999787,
    "base_bound": "gpu",
    "head_bound": "gpu",
    "within": true
   },
   {
    "view": "s1-far",
-   "ssim": null,
+   "ssim": 0.871923,
    "ssim_ok": false,
    "water": false,
-   "base_ms": 16.8,
-   "head_ms": 17.7,
-   "delta_ms": 0.8999999999999986,
+   "base_ms": 16.7,
+   "head_ms": 16.8,
+   "delta_ms": 0.10000000000000142,
    "base_bound": "vsync",
-   "head_bound": "cpu",
+   "head_bound": "vsync",
    "within": true
   },
   {
    "view": "s3-open",
-   "ssim": null,
+   "ssim": 0.885268,
    "ssim_ok": false,
    "water": false,
    "base_ms": 16.7,
@@ -1056,7 +2722,7 @@
   },
   {
    "view": "world-oldcity",
-   "ssim": null,
+   "ssim": 0.90696,
    "ssim_ok": false,
    "water": false,
    "base_ms": 16.7,
@@ -1068,8 +2734,8 @@
   },
   {
    "view": "factories",
-   "ssim": null,
-   "ssim_ok": false,
+   "ssim": 1,
+   "ssim_ok": true,
    "water": false,
    "base_ms": 0,
    "head_ms": 0,
@@ -1080,8 +2746,8 @@
   },
   {
    "view": "game-map",
-   "ssim": null,
-   "ssim_ok": false,
+   "ssim": 1,
+   "ssim_ok": true,
    "water": false,
    "base_ms": 16.7,
    "head_ms": 16.7,
@@ -1092,8 +2758,8 @@
   },
   {
    "view": "lab",
-   "ssim": null,
-   "ssim_ok": false,
+   "ssim": 1,
+   "ssim_ok": true,
    "water": false,
    "base_ms": 16.7,
    "head_ms": 16.7,
@@ -1104,19 +2770,19 @@
   },
   {
    "view": "plant-look",
-   "ssim": null,
-   "ssim_ok": false,
+   "ssim": 1,
+   "ssim_ok": true,
    "water": false,
-   "base_ms": 18.7,
+   "base_ms": 16.7,
    "head_ms": 16.7,
-   "delta_ms": -2,
+   "delta_ms": 0,
    "base_bound": "vsync",
    "head_bound": "vsync",
    "within": true
   }
  ],
  "errors": {
-  "base": [
+  "head": [
    "/sandbox-1/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
    "/sandbox-3/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
    "/worlds/#43420c0b-675b-4e50-98b5-c461b9432fc0 console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
@@ -1124,7 +2790,7 @@
    "/sandbox-2/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
    "/sandbox-5/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
   ],
-  "head": [
+  "base": [
    "/sandbox-1/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
    "/sandbox-3/ console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",
    "/worlds/#43420c0b-675b-4e50-98b5-c461b9432fc0 console: Failed to load resource: the server responded with a status of 401 (Unauthorized)",

@@ -1,0 +1,395 @@
+{
+ "settled": true,
+ "log": [
+  {
+   "s": 0,
+   "q": 110,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 66,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 0,
+     "loaded": 0,
+     "pages": 0
+    },
+    "library": {
+     "building": 7,
+     "keeping": 36,
+     "taken": 0,
+     "kinds": 25,
+     "loaded": 18,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 2,
+   "q": 225,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 66,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 104,
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 114,
+     "loaded": 10,
+     "pages": 0
+    },
+    "library": {
+     "building": 10,
+     "keeping": 46,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 23,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 4,
+   "q": 208,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 66,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 73,
+     "keeping": 2,
+     "taken": 2,
+     "kinds": 114,
+     "loaded": 41,
+     "pages": 1
+    },
+    "library": {
+     "building": 0,
+     "keeping": 66,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 6,
+   "q": 197,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 66,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 56,
+     "keeping": 8,
+     "taken": 8,
+     "kinds": 114,
+     "loaded": 58,
+     "pages": 1
+    },
+    "library": {
+     "building": 0,
+     "keeping": 66,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 8,
+   "q": 192,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 63,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 43,
+     "keeping": 19,
+     "taken": 19,
+     "kinds": 114,
+     "loaded": 71,
+     "pages": 1
+    },
+    "library": {
+     "building": 0,
+     "keeping": 64,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 10,
+   "q": 164,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 53,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 33,
+     "keeping": 27,
+     "taken": 27,
+     "kinds": 114,
+     "loaded": 81,
+     "pages": 1
+    },
+    "library": {
+     "building": 0,
+     "keeping": 50,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 12,
+   "q": 134,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 46,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 24,
+     "keeping": 33,
+     "taken": 33,
+     "kinds": 114,
+     "loaded": 90,
+     "pages": 2
+    },
+    "library": {
+     "building": 0,
+     "keeping": 30,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 14,
+   "q": 111,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 25,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 18,
+     "keeping": 37,
+     "taken": 37,
+     "kinds": 114,
+     "loaded": 96,
+     "pages": 2
+    },
+    "library": {
+     "building": 0,
+     "keeping": 30,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 17,
+   "q": 84,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 2,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 12,
+     "keeping": 40,
+     "taken": 40,
+     "kinds": 114,
+     "loaded": 102,
+     "pages": 2
+    },
+    "library": {
+     "building": 0,
+     "keeping": 30,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 19,
+   "q": 77,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 0,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "keeping": 46,
+     "taken": 46,
+     "kinds": 114,
+     "loaded": 114,
+     "pages": 2
+    },
+    "library": {
+     "building": 0,
+     "keeping": 30,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 21,
+   "q": 76,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 0,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "keeping": 46,
+     "taken": 46,
+     "kinds": 114,
+     "loaded": 114,
+     "pages": 2
+    },
+    "library": {
+     "building": 0,
+     "keeping": 30,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 23,
+   "q": 24,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 0,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "keeping": 24,
+     "taken": 46,
+     "kinds": 114,
+     "loaded": 114,
+     "pages": 2
+    },
+    "library": {
+     "building": 0,
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  },
+  {
+   "s": 25,
+   "q": 0,
+   "busy": {
+    "out": {
+     "building": 0,
+     "keeping": 0,
+     "taken": 66,
+     "kinds": 188,
+     "loaded": 188,
+     "pages": 3
+    },
+    "in": {
+     "building": 0,
+     "keeping": 0,
+     "taken": 46,
+     "kinds": 114,
+     "loaded": 114,
+     "pages": 2
+    },
+    "library": {
+     "building": 0,
+     "keeping": 0,
+     "taken": 0,
+     "kinds": 33,
+     "loaded": 33,
+     "pages": 0
+    }
+   }
+  }
+ ]
+}
