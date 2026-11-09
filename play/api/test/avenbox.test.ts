@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { hashBytes } from "../src/kit/hash";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { type Db } from "../src/kit/pg";
 import { agentToken, type Api, appOn, type Fresh, freshDb, human, suite, tool as mcpTool } from "./kit";
 
@@ -192,14 +192,20 @@ describe("avenBOX's runner: its modes", () => {
     expect(r.out).toContain("· c4 look (must): judge it by eye: by eye");
   });
 
-  test("--from without TEST_DATABASE_URL gives the checks the root's box.env database", async () => {
+  test("--from without TEST_DATABASE_URL gives the checks the database of the box.env beside it, as the run job copies them", async () => {
+    // intents-pr.yml's spec job hands main's intent.ts, play.ts and box.env over together; the head may predate box.env
     const box = mkdtempSync(join(tmpdir(), "avenbox-env-"));
-    mkdirSync(join(box, "play/avenbox"), { recursive: true });
-    writeFileSync(join(box, "play/avenbox/box.env"), "PG_PORT=5999\nPG_PASSWORD=pw\nBOX_DATABASE_URL=postgres://postgres:$PG_PASSWORD@127.0.0.1:$PG_PORT/postgres\n");
+    for (const f of ["intent.ts", "play.ts"]) writeFileSync(join(box, f), readFileSync(join(dirname(RUNNER), f)));
+    writeFileSync(join(box, "box.env"), "PG_PORT=5999\nPG_PASSWORD=pw\nBOX_DATABASE_URL=postgres://postgres:$PG_PASSWORD@127.0.0.1:$PG_PORT/postgres\n");
+    const head = mkdtempSync(join(tmpdir(), "avenbox-head-"));
     const spec = { intent: { id: ID, stage: "build", title: "The box" }, checks: [{ id: "c1", check: "its database", how: "test", by: "the URL", run: `echo "db=$TEST_DATABASE_URL"`, must: true }] };
     writeFileSync(join(dir, "db-spec.json"), JSON.stringify(spec));
-    const r = await run(["--from", join(dir, "db-spec.json"), "--results-out", join(dir, "db.json"), "--root", box], { TEST_DATABASE_URL: undefined, PLAY_MCP_TOKEN: undefined });
-    expect(r.code).toBe(0);
+    const p = Bun.spawn([process.execPath, join(box, "intent.ts"), "--from", join(dir, "db-spec.json"), "--results-out", join(dir, "db.json"), "--root", head, "--no-up"], {
+      env: { ...process.env, TEST_DATABASE_URL: undefined, PLAY_MCP_TOKEN: undefined },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(await p.exited).toBe(0);
     expect(JSON.parse(readFileSync(join(dir, "db.json"), "utf8")).results[0].evidence).toMatch(/\ndb=postgres:\/\/postgres:pw@127\.0\.0\.1:5999\/postgres$/);
   });
 

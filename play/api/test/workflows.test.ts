@@ -222,7 +222,7 @@ describe("Intent named", async () => {
     expect(JSON.stringify(run)).not.toContain("secrets.");
     expect(JSON.stringify(run)).not.toContain("github.token");
     expect(src.match(/secrets\.[A-Z_]+/g)!.sort()).toEqual(["secrets.PLAY_MCP_TOKEN", "secrets.PLAY_MCP_TOKEN"]);
-    expect(spec.steps.find((s: any) => s.id === "which").run).toContain('cp play/avenbox/intent.ts play/avenbox/play.ts "$RUNNER_TEMP/box/"');
+    expect(spec.steps.find((s: any) => s.id === "which").run).toContain('cp play/avenbox/intent.ts play/avenbox/play.ts play/avenbox/box.env "$RUNNER_TEMP/box/"');
     const box = run.steps.find((s: any) => s.name === "The intent's checks on the head (no token)");
     expect(box.run).toContain('bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --results-out');
     expect(run.steps.find((s: any) => s.name?.startsWith("avenBOX")).run).toBe('sudo env "PATH=$PATH" bash play/avenbox/setup.sh');

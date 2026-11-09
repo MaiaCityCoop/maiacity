@@ -116,9 +116,10 @@ async function runOne(run: string, env: Record<string, string | undefined>) {
   return { code: timedOut ? 124 : code, seconds: (performance.now() - start) / 1000, tail };
 }
 
-/** the box's test database: BOX_DATABASE_URL of the root's play/avenbox/box.env, as up.sh and setup.sh made the box */
+/** the box's test database: BOX_DATABASE_URL of the box.env beside this script (intents-pr.yml hands both over
+ *  from main, so a head older than box.env reads it too), as up.sh and setup.sh made the box */
 function boxDatabase(): string {
-  const file = `${ROOT}/play/avenbox/box.env`;
+  const file = resolve(import.meta.dir, "box.env");
   const r = Bun.spawnSync(["bash", "-c", '. "$1" && printf %s "$BOX_DATABASE_URL"', "box.env", file], { env: { PATH: process.env.PATH }, stdout: "pipe", stderr: "pipe" });
   const url = `${r.stdout}`;
   if (r.exitCode !== 0 || !url) throw new Error(`${file} names no BOX_DATABASE_URL: ${`${r.stderr}`.trim()}`);
