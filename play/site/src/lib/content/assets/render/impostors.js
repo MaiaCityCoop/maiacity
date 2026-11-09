@@ -2,11 +2,10 @@
 /*
  * PICTURES OF THINGS FAR AWAY — an asset that looks small (./lod.js) as a hemi-octahedral impostor (Brucks): baked once
  * from `views` × `views` directions over its upper half (colours unlit, normals, depth) into a block on two pages; a
- * copy one card, its three nearest views blended and lit as the scene is (../../render/nodes/impostor.js).
+ * copy one card, its three nearest views blended and lit as the scene is (../../render/nodes/index.js).
  */
 import * as THREE from 'three';
-import { castsAsNode, cutOf } from '../../render/nodes/index.js';
-import { bake, bakeOf, cardMaterials } from '../../render/nodes/impostor.js';
+import { bake, bakeOf, cardMaterials, castsAsNode, cutOf } from '../../render/nodes/index.js';
 import { budget } from '../../render/budget.js';
 import { isWebGPU, maxTextureSize } from '../../render/core.js';
 

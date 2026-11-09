@@ -10,8 +10,7 @@ import * as THREE from 'three';
 import { fakeGL } from './fakegl.js';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { SunLight } from 'three/addons/lights/SunLight.js';
-import { cardMaterials } from './impostor.js';
-import { aFade, blurMaterial, castsAsNode, cutBy, cutOf, floorMaterial, ghostMaterial, install, nodeOf, poolMaterial } from './index.js';
+import { aFade, blurMaterial, cardMaterials, castsAsNode, cutBy, cutOf, floorMaterial, ghostMaterial, install, nodeOf, poolMaterial } from './index.js';
 
 (globalThis as any).self ??= globalThis;
 (globalThis as any).ImageBitmap ??= class {};
