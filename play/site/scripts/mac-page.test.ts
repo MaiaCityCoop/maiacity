@@ -68,12 +68,21 @@ test("a site's profile is its own folder, named by a plain word", () => {
 	expect(() => profileOf('../x', '/r')).toThrow();
 });
 
-test("a site is served as its production build: Sandbox 1's page and its built scripts, no dev server's modules", async () => {
+test("a site is served as play serves its build: Sandbox 1's page, its built scripts and the asset box's engines, no dev server", async () => {
 	const site = await serveBuilt(join(import.meta.dir, '..'), { port: 5399, api: 'http://127.0.0.1:9', log: join(root, 'serve.log') });
 	try {
 		const html = await (await fetch(`${site.url}/sandbox-1/`)).text();
 		expect(html).toContain('/_app/immutable/');
 		expect(html).not.toContain('/@vite/client');
+		// the asset box's frozen engines, as play serves them: each one's bytes its hash (kernel/sandbox/engines.json)
+		const { blake3 } = await import('@noble/hashes/blake3.js');
+		const { bytesToHex } = await import('@noble/hashes/utils.js');
+		const engines = (await import('../src/lib/kernel/sandbox/engines.json')).default.box as { v: number; blake3: string }[];
+		for (const e of engines) {
+			const r = await fetch(`${site.url}/engines/engine-v${e.v}.js`);
+			expect(r.headers.get('content-type')).toBe('text/javascript');
+			expect(bytesToHex(blake3(new Uint8Array(await r.arrayBuffer())))).toBe(e.blake3);
+		}
 	} finally {
 		site.stop();
 	}

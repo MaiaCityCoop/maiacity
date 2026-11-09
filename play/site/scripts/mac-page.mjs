@@ -61,22 +61,22 @@ export async function settle(page, ms) {
 }
 
 /**
- * A site served as visitors get it: its production build (`bun run build` once, then `vite preview`), not the dev
- * server, whose first load transforms hundreds of modules on demand. `/api` goes to `api` (preview takes the dev
- * server's proxy). Gives its URL and a way to stop it.
+ * A site served as visitors get it: its production build (`bun run build` once), served as play-api serves it
+ * (./serve-built.ts: play/api/src/site.ts's handler), not the dev server, whose first load transforms hundreds of
+ * modules on demand, nor `vite preview`, under which the asset box never built. `/api` goes to `api`. Gives its URL
+ * and a way to stop it.
  * @param {string} dir a tree's play/site @param {{ port: number, api?: string, build?: boolean, log?: string }} o
  */
 export async function serveBuilt(dir, o) {
-	const env = { ...process.env, PLAY_API: o.api ?? 'http://localhost:3911' };
 	const out = o.log ? openSync(o.log, 'a') : 'ignore';
 	if (o.build !== false) {
-		const b = spawnSync('bun', ['run', 'build'], { cwd: dir, env, stdio: ['ignore', out, out] });
+		const b = spawnSync('bun', ['run', 'build'], { cwd: dir, stdio: ['ignore', out, out] });
 		if (b.status !== 0) throw new Error(`mac-page: ${dir}'s build failed (${b.status})`);
 	}
-	const server = spawn('bunx', ['vite', 'preview', '--port', String(o.port), '--strictPort'], { cwd: dir, env, stdio: ['ignore', out, out] });
+	const server = spawn('bun', ['scripts/serve-built.ts', String(o.port), o.api ?? 'http://localhost:3911'], { cwd: dir, stdio: ['ignore', out, out] });
 	const url = `http://localhost:${o.port}`;
-	for (const end = Date.now() + 60e3; ; await new Promise((r) => setTimeout(r, 500))) {
-		if (server.exitCode !== null) throw new Error(`mac-page: vite preview stopped (${server.exitCode})`);
+	for (const end = Date.now() + 60e3; ; await new Promise((r) => setTimeout(r, 300))) {
+		if (server.exitCode !== null) throw new Error(`mac-page: the build's server stopped (${server.exitCode})`);
 		if (await fetch(url).then((r) => r.ok, () => false)) break;
 		if (Date.now() > end) throw new Error(`mac-page: nothing served at ${url}`);
 	}
