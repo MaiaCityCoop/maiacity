@@ -5,7 +5,7 @@
 // and, where a world has more than one place, which (`world.area`; its first is the default). A world's page hands it
 // to the film camera (../../sandbox-kit/film.js `connectFilm`).
 // Plain JavaScript, shared by the browser and the scripts.
-import { SANDBOX } from '../../assets/sandboxes.js';
+import { SANDBOX } from '../../../kernel/sandboxes.js';
 
 /**
  * @typedef {string} Sandbox  a world as a shot names it (`world.sandbox`): a sandbox's UUID, or `worlds`

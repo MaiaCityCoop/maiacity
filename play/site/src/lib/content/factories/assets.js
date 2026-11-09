@@ -10,7 +10,7 @@
  * read once before anything is built. What could not be built (no pin yet, a refused build) is left out and said in
  * `missing`: the world then draws the stage's own `fallback` shape and the kit's EPAL pallet instead.
  */
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadAsset } from '$lib/content/assets/load.js';

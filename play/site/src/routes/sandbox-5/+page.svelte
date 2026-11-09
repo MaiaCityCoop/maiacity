@@ -4,7 +4,8 @@
 	forest under the glass. Walk in by its south gate.
 -->
 <script lang="ts">
-	import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+	import Aside from '$lib/app/Aside.svelte';
+	import { SANDBOX } from '$lib/kernel/sandboxes.js';
 	import { asset } from '$lib/site/media/url';
 	import DomeCellPage from '$lib/content/sandbox-2/interior/DomeCellPage.svelte';
 
@@ -15,7 +16,6 @@
 </script>
 
 <DomeCellPage
-	sandbox={SANDBOX.five}
 	head="Sandbox 5 · The forest dome in its own food forest · maiaCITY play"
 	description="Walk up to the 80 m forest dome alone in a whole maiaCITY world: a middle-European food forest outside, the tropics under its glass."
 	title="Sandbox 5"
@@ -30,3 +30,6 @@
 	label="Sandbox 5: walk, look round, click a plant"
 	solo={{ asset: FOREST_DOME, gates: GATES }}
 />
+
+<!-- its layout's one aside (Info and History), an admin's: a round button at the bottom right -->
+<Aside doc={SANDBOX.five} float />

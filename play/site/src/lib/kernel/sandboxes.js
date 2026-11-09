@@ -1,7 +1,7 @@
 // @ts-nocheck — plain JS, runs in the page
 /*
  * The sandboxes by their ids (Samuel 2026-11-04: every reference is a UUID or a hash; a name, a slug or a route is
- * only shown). A slot of a sandbox's pins is `pin:<its id>/<slot>` (./catalog.js) and its config is read at
+ * only shown). A slot of a sandbox's pins is `pin:<its id>/<slot>` (../content/assets/catalog.js) and its config is read at
  * /api/sandboxes/<its id>/config. These are the UUIDs play's migration 0017-uuids gave them, the same as play/api's
  * src/ids.ts `SANDBOX`.
  */

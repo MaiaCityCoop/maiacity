@@ -1,12 +1,11 @@
 <!--
 	A dome-cell page (play's Sandbox 1 and Sandbox 5, one page; play/SPEC.md §5): the dome cell of ./village.ts, its food
 	forest grown from our own plants as Sandbox 1's garden keeps them (./sandbox5.js, ./flora.js), every plant at its
-	stage, round the kit's page ($content/sandbox-kit/WorldPage.svelte). Click or tap a plant: a card beside the world
+	stage, round the kit's page ($content/sandbox-kit/WorldPage.svelte; the route puts its layout's aside beside it). Click or tap a plant: a card beside the world
 	tells what it is and where it is in its life. `solo` draws one building of play's library alone in place of the
 	cell's thirteen domes (Sandbox 5); `opening` says on the bar which dome ahead is opening its doors.
 -->
 <script lang="ts">
-	import Aside from '$lib/app/Aside.svelte';
 	import type { PickedPlant, VillageHandle } from './village';
 	import { base } from '$app/paths';
 	import WorldPage from '$lib/content/sandbox-kit/WorldPage.svelte';
@@ -14,7 +13,6 @@
 	import { fly } from 'svelte/transition';
 
 	let {
-		sandbox,
 		head,
 		description,
 		title,
@@ -24,8 +22,6 @@
 		solo,
 		opening = false
 	}: {
-		/** the sandbox's UUID: its layout's aside */
-		sandbox: string;
 		/** the page's title and description in the browser */
 		head: string;
 		description: string;
@@ -83,7 +79,7 @@
 
 <WorldPage
 	mount={async (stage, onProgress) => {
-		const { SANDBOX } = await import('$lib/content/assets/sandboxes.js');
+		const { SANDBOX } = await import('$lib/kernel/sandboxes.js');
 		await (await import('$lib/content/assets/catalog.js')).catalogReady(SANDBOX.one);
 		const { mountVillage } = await import('./village');
 		const garden = await (await import('./sandbox5.js')).sandbox5();
@@ -138,9 +134,6 @@
 		</aside>
 	{/if}
 </WorldPage>
-
-<!-- its layout's one aside (Info and History), an admin's: a round button at the bottom right -->
-<Aside doc={sandbox} float />
 
 <style>
 	/* the picked plant's card: a panel down the whole right side of the world, over its bar, the plant itself turning

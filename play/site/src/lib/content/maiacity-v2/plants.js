@@ -7,7 +7,7 @@
  * number to the Plants ($content/plants).
  */
 import { slotRef } from '$lib/content/assets/catalog.js';
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 
 /** @type {Record<string, { label: string, versions: number[], stages: [number, string][] }>} */
 const PLANTS = {

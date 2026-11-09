@@ -5,7 +5,7 @@
  * (`K.palletPieces`).
  */
 import { slotRef } from '$lib/content/assets/catalog.js';
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 
 /** our Euro pallet, by its slot of the Factories' pins */
 export const PALLET = slotRef(SANDBOX.factories, 'pallet');

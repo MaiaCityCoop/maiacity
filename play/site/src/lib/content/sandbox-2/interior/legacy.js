@@ -6,7 +6,7 @@
  * The pots, the posts and the beds' soil stay; the stand-ins go.
  */
 import { slotRef } from '$lib/content/assets/catalog.js';
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 import * as THREE from 'three';
 
 /** @typedef {import('./flora.js').Forest} Forest */

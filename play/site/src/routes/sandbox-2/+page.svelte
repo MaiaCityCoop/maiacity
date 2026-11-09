@@ -2,7 +2,7 @@
      their parts, with rigid-body physics in a worker, finite fixings, temporary stands, wind and damage. -->
 <script>
 	import Aside from '$lib/app/Aside.svelte';
-	import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+	import { SANDBOX } from '$lib/kernel/sandboxes.js';
 	const lab = import('$lib/sandbox-2/Lab.svelte');
 </script>
 

@@ -86,3 +86,11 @@ Builder of area `site-content` (branch `intent/5884ade4-u-site-content`). Proble
     declared in `lib/sandbox-2/geometry.ts`; `simulation.ts` imports and re-exports them (a type-only move). The 24 lab
     tests pass (five of them time out only when the whole folder runs beside other builders' processes; each passes
     alone).
+11. **The sandboxes' UUIDs in the kernel; no new folder cycle** (site-assets#11 part; cycles, layers). Moves 7–9 had
+    pulled factories, maiacity-v2, the dome cell, models, film and game/film into the site's folder cycle: the refs'
+    test sat in `content/assets` importing the worlds, the film registry imported `content/assets/sandboxes.js`, and
+    the dome-cell page imported `lib/app/Aside.svelte`. Now `content/assets/sandboxes.js` → `kernel/sandboxes.js` (a
+    one-line re-export stays for the held worlds and the census), the refs are pinned beside each world
+    (`factories/pallet.test.ts`, `maiacity-v2/refs.test.ts`, `interior/flora.test.ts`), and the routes put the aside
+    beside the page. The site's folder cycle is back to its 16 folders plus `content/assets/cache` (which reads
+    `content/render/budget.js`; render is in the cycle only through held tests); less-stable imports 18 → 15.

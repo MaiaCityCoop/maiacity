@@ -12,7 +12,7 @@
  * version its card numbers (`v`). A plant changed later is a new version of its entry, and Sandbox 5 keeps growing the
  * one written here until it is planted again on purpose.
  */
-import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { SANDBOX } from '$lib/kernel/sandboxes.js';
 
 import { configAt, configKey, loadConfig } from '../../game/code/index.js';
 
