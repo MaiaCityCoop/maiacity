@@ -93,3 +93,18 @@ committed before and as now, every call they make logged and diffed):
   tools/plant/organ.mjs, tools/motion/boxtime.mjs): the failure of each try is the point; tools/sheet/allow.ts's
   body parse (an unreadable body is asked as one image).
 - Pinned: `node --check` on each; nothing runs them in CI (they film and render by hand).
+
+## 6. The website on its own constants (infra F7; infra#25, 38 (website), 46, 47, 50 (FounderCounter), 54)
+
+- FounderCounter.svelte asks `new URL('api/founders', PLAY)` (`$lib/play`), is TypeScript (no `@ts-nocheck`), and
+  says why a failed read leaves the number as it is instead of an empty catch.
+- Manifesto's `banner` prop (one caller, always true, from a load function that returned a constant) and its
+  `afterHero` slot (never given) go, with `+page.server.ts` and `.after-hero`'s CSS: the page renders as before
+  (the banner, its h1 and the h2 headline).
+- app.css 445 → 134 lines: the legacy app shell's rules nothing names (`.app-dock`, `.foot-stack`, `.tag-list`,
+  `.prose`, `.shifts`, `.screen-*`, `.tb-*`, `.cc-city`, `.lab-controls`) and the custom properties only they read
+  (`--nav-*`, `--stick-*`, `--overlay-*`, `--screen-head-room`); an unused-class scan of website/src now finds none.
+- Comments naming gone places (maia/site/app.html, Bunny storage, maia/site and aven/kernel in the fonts README);
+  the two `*-latin-wght-normal.woff2` faces only aven/kernel's view engine inlined go.
+- vite.config.ts without `as never` (vite 8 types `tsconfig`; the website's tsc and svelte-check are clean).
+- Pinned: `bash play/avenbox/gate.sh website` (check and build) green.
