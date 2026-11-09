@@ -13,13 +13,13 @@ import { THIN, lookOf } from '../assets/look.js';
 import { windLook } from './wind.js';
 
 /** where a crown's middle is, as a share of the plant's height */
-export const CROWN = 0.62;
+const CROWN = 0.62;
 /** how far a leaf's normal is turned toward the outside of its crown (0 its own, 1 the crown's) */
 export const ROUND = 0.45;
 /** how much darker the foot is than the tip (the share of its colour the foot keeps) */
 export const FOOT = 0.7;
 /** how far past the terminator light wraps (0 Lambert) */
-export const WRAP = 0.35;
+const WRAP = 0.35;
 /** the backlight lobe: how the light's way is bent by the normal, how tight the lobe is, how bright */
 export const BACK = Object.freeze({ distortion: 0.3, power: 4, scale: 1.6 });
 /**
@@ -122,7 +122,7 @@ export const foliage = (Base) =>
 	};
 
 /** the foliage material on three's standard node material */
-export const FoliageMaterial = foliage(MeshStandardNodeMaterial);
+const FoliageMaterial = foliage(MeshStandardNodeMaterial);
 
 /** each node material class with a look on top, made once */
 const classes = new WeakMap();

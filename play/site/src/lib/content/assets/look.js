@@ -27,7 +27,7 @@ export const KINDS = Object.freeze({
 });
 
 /** each number's range, both ends kept */
-export const RANGES = Object.freeze({ translucency: [0, 1], stiffness: [0.1, 10], flutter: [0, 1] });
+const RANGES = Object.freeze({ translucency: [0, 1], stiffness: [0.1, 10], flutter: [0, 1] });
 
 /** the kinds whose faces let light through and are lit from both sides (drawn two-sided, cut out, not blended) */
 export const THIN = Object.freeze(['leaf', 'grass', 'petal']);

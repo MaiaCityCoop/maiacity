@@ -19,7 +19,7 @@ import { seeded } from './plants'
 import { villageAsset } from './things.js'
 
 /** where the eye stands (in the crowd's own frame) */
-export type Eye = () => { x: number; z: number }
+type Eye = () => { x: number; z: number }
 /** how an animal moves, for a gait: how far it has come, how fast, how fast it turns */
 type Motion = { dist: number; speed: number; turn?: number }
 /** a pose: each bone's turn (and size, offset), the root's place */
@@ -28,7 +28,7 @@ type Clip = (t: number, m?: Motion) => Pose
 
 /** an actor of the Actors by its cast's name (`goat-saanen`, `bird-robin`): the version of it the village's config pins
  * under that name (maia/content/code/configs/sandbox-4/assets, ./things.js `villageAsset`) */
-export const actorRef = (id: string) => villageAsset(id)
+const actorRef = (id: string) => villageAsset(id)
 
 type Part = { geo: THREE.BufferGeometry; color: string; at: [number, number, number]; rot?: [number, number, number]; scale?: [number, number, number] }
 
@@ -48,7 +48,7 @@ function model(parts: Part[]): THREE.BufferGeometry {
 
 const block = new THREE.BoxGeometry(1, 1, 1)
 
-export type Patch = { x: number; z: number; r: number; n: number }
+type Patch = { x: number; z: number; r: number; n: number }
 
 /** the clips of a crowd's coats, once each is built */
 const clipsOf = (c: { clips: (Record<string, Clip> | undefined)[] }) => c.clips
@@ -270,12 +270,8 @@ export function apiary(spots: { x: number; z: number; rot: number }[], seed: num
 }
 
 /** the fish of the ponds: koi of three colours and a plain carp; of the aquaponics tanks: tilapia */
-export const POND_FISH = ['fish-koi', 'fish-kohaku', 'fish-ogon', 'fish-carp']
+const POND_FISH = ['fish-koi', 'fish-kohaku', 'fish-ogon', 'fish-carp']
 export const TANK_FISH = ['fish-nile', 'fish-redtilapia']
-
-/** every cast the village draws, each by the name its config pins it under (./things.js `villageAsset`): the herds'
- * breeds, the bees, the ant hills and the fish of the ponds and the tanks */
-export const CASTS = [...Object.values(KINDS).flatMap((k) => k.breeds.map((b) => b.id)), 'bee', 'ant-hill', ...POND_FISH, ...TANK_FISH]
 
 /**
  * Fish: koi and carp in the ponds, tilapia in the aquaponics tanks, circling

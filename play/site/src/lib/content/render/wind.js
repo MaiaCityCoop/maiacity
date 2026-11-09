@@ -61,7 +61,7 @@ export const strengthAt = (w, x, z, t) => Math.max(0, w.strength * (1 + w.gust *
 export const phaseOf = (x, z) => TAU * fract(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453);
 
 /** how fast a plant sways back and forth about its lean, radians a second */
-export const SWAY = 1.4;
+const SWAY = 1.4;
 
 /**
  * How far a plant of height `height` (m) leans at its top, in metres, at t: the strength at its foot over its
@@ -100,7 +100,7 @@ export function bendAt(w, copy, h, stiffness, t) {
 }
 
 /** where flutter is gone: it fades from FLUTTER_NEAR to FLUTTER_FAR metres from the eye */
-export const FLUTTER_NEAR = 12;
+const FLUTTER_NEAR = 12;
 export const FLUTTER_FAR = 15;
 
 /** GPU Gems 3 ch. 16's four flutter frequencies */
