@@ -82,3 +82,17 @@ Before, play/site's non-held files: layers 16 (all of the repo; at most 10), swa
     2 → 0), each about something outside its line: the cache worker's probe byte (a best-effort clean-up), the box's
     and the story worker's `end` of a session whose worker may be gone, the shell's `halted` (a stop after its start
     has no race left), and two warm-ups (`crowd.js`, `drawn.js`) whose failure is said where a build is asked for.
+
+## Comments (fix 7), one folder a commit, comments only
+
+Each commit changes comment lines alone: every changed `.js`/`.ts` file compiles to the same code before and after
+(Bun's transpiler with whitespace minified; a script of this sweep), every changed `.svelte` file's text is the same
+without its comment and blank lines; gate site and the folder's tests after each. Kept: a person's decision with its
+date, a browser's, GPU's or library's behaviour, a measured number and where it came from, a SPEC section, why a
+number is what it is. Gone: the module headers that retell the algorithm below them, docs that restate a function's
+name and body, `// the next thing` lines.
+
+15. **`content/assets/render`** (136 lines): `simplify.js`'s 48-line header, its retelling of each pass, and its
+    step-by-step `//` lines; `crowd.js`'s header and the docs of its sets and helpers (the stale
+    `maia/content/film/warm.js` gone with it); `prepare.js`'s and `lower.js`'s headers (the LifeTrac's measured
+    437,713 corners kept). Its one "as any other" went with the header.
