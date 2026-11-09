@@ -257,6 +257,8 @@ export function grassCompute(renderer, o) {
 			last = time;
 			C.decay.value = Math.exp((-dt * Math.log(1 / RECOVERED)) / T.recover);
 
+			// hidden, it costs nothing: no pass runs (the Mac job's grass with and without)
+			if (!object.visible) return;
 			renderer.compute(reset);
 			renderer.compute(trample);
 			if (live) renderer.compute(chooseNode, live * n);
@@ -275,6 +277,10 @@ export function grassCompute(renderer, o) {
 			const [a, b] = await Promise.all([renderer.getArrayBufferAsync(args), renderer.getArrayBufferAsync(chosen)]);
 			const n3 = new Uint32Array(a), c = new Uint32Array(b);
 			return [0, 1, 2].map((l) => Array.from({ length: Math.min(/** @type {number} */ (n3[l * ARGS + 1]), /** @type {number} */ (caps[l])) }, (_, k) => [c[(/** @type {number} */ (bases[l]) + k) * 2], c[(/** @type {number} */ (bases[l]) + k) * 2 + 1]]));
+		},
+		/** the trample map, read back: how trodden each texel is (for a check: it waits for the GPU) */
+		async readTrodden() {
+			return { data: new Float32Array(await renderer.getArrayBufferAsync(trodden)), size: Ts, texel: tex, origin: origin?.slice() ?? null };
 		},
 		/** what the compute read this frame, for the CPU's twin (grass-gpu.js `chooseOnCpu`) */
 		view: () => ({ mask, eye: /** @type {[number, number, number]} */ (C.eye.value.toArray()), planes: C.planes.array.slice(0, 6).map((v) => /** @type {[number, number, number, number]} */ (v.toArray())), dev, n, hmax, clump: P.clump, cells: Array.from(/** @type {Uint32Array} */ (cells.array).subarray(0, live)) }),
