@@ -26,7 +26,9 @@ export async function liveRuntime(): Promise<string> {
 		target: 'browser',
 		format: 'iife',
 		minify: false,
-		define: { 'import.meta.env.DEV': 'false', 'import.meta.env': '{}' },
+		// a classic script has no import.meta: a composition loads the runtime as one, so nothing may name it (three's
+		// KTX2Loader builds its default transcoder URLs from import.meta.url; the ground sets its own path, '/basis/', so this base is never fetched)
+		define: { 'import.meta.env.DEV': 'false', 'import.meta.env': '{}', 'import.meta.url': '"file:///live/live-runtime.js"' },
 		plugins: [
 			{
 				name: 'site',
@@ -41,7 +43,9 @@ export async function liveRuntime(): Promise<string> {
 		]
 	});
 	if (!r.success) throw new Error(r.logs.join('\n'));
-	return r.outputs[0].text();
+	const text = await r.outputs[0].text();
+	if (/import\.meta/.test(text)) throw new Error('the live runtime names import.meta: a classic script cannot parse it');
+	return text;
 }
 
 if (import.meta.main) {

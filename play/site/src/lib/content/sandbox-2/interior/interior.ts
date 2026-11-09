@@ -24,6 +24,9 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import type { MeshPhysicalNodeMaterial } from 'three/webgpu'
+import { OwnPhysical } from '$lib/content/render/tsl.js'
+import { abs, cameraViewMatrix, dot, float, max, normalView, normalize, positionViewDirection, uniform, vec4 } from 'three/tsl'
 import { flagstone, groundCover, leaves, limestone, oak, soil, water } from './textures'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
 import { antHills, apiary, fishes, herd, TANK_FISH } from './animals'
@@ -48,7 +51,7 @@ import type { Drawn } from './drawn.js'
 import { FLOORS, standThings, workshopsOf } from './things.js'
 import { swapLegacy } from './legacy.js'
 import { pick as pickPlant, type Garden } from './sandbox5.js'
-import { forestFloor, floorPick, grassTuft, appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm, comfrey, crop, CROPS, type Crop, fruitTree, ginger, grapePergola, herb, papaya, passionVine, potted, seeded, shrub, smallFruitTree, squash, strawberries, tropicalShrub, vineAlong, type Plant } from './plants'
+import { forestFloor, floorPick, appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm, comfrey, crop, CROPS, type Crop, fruitTree, ginger, grapePergola, herb, papaya, passionVine, potted, seeded, shrub, smallFruitTree, squash, strawberries, tropicalShrub, vineAlong, type Plant } from './plants'
 
 export type DomeKind = 'tent' | 'glamp' | 'home' | 'large' | 'grand' | 'master' | 'factory'
 
@@ -91,27 +94,18 @@ function tiled(tex: THREE.Texture, repeatX: number, repeatY = repeatX): THREE.Te
  * dome's glass, near or far.
  */
 export const glassSheen = {
-	uGlassSheen: { value: 0 },
-	uGlassSheenColor: { value: new THREE.Color('#ffb070') },
-	uGlassSun: { value: new THREE.Vector3(0, 1, 0) }
+	uGlassSheen: uniform(0),
+	uGlassSheenColor: uniform(new THREE.Color('#ffb070')),
+	uGlassSun: uniform(new THREE.Vector3(0, 1, 0))
 }
-function withSheen<M extends THREE.MeshPhysicalMaterial>(m: M): M {
-	m.onBeforeCompile = (sh) => {
-		Object.assign(sh.uniforms, glassSheen)
-		sh.fragmentShader = sh.fragmentShader
-			.replace('#include <common>', '#include <common>\nuniform float uGlassSheen;\nuniform vec3 uGlassSheenColor;\nuniform vec3 uGlassSun;')
-			.replace(
-				'#include <emissivemap_fragment>',
-				`#include <emissivemap_fragment>
-				if ( uGlassSheen > 0.0 ) {
-					vec3 sunV = normalize( ( viewMatrix * vec4( uGlassSun, 0.0 ) ).xyz );
-					float facing = max( dot( normal, sunV ), 0.0 );
-					float grazing = pow( 1.0 - abs( dot( normal, normalize( vViewPosition ) ) ), 2.0 );
-					totalEmissiveRadiance += uGlassSheenColor * uGlassSheen * facing * ( 0.35 + 0.65 * grazing );
-				}`
-			)
-	}
-	m.customProgramCacheKey = () => 'glass-sheen'
+/** the dome's clear glass, in TSL: its sheen (`glassSheen`) its emissive light */
+function sheenGlass(o: THREE.MeshPhysicalMaterialParameters): MeshPhysicalNodeMaterial {
+	const m = new OwnPhysical(o)
+	const { uGlassSheen, uGlassSheenColor, uGlassSun } = glassSheen
+	const sunV = normalize(cameraViewMatrix.mul(vec4(uGlassSun, 0)).xyz)
+	const facing = max(dot(normalView, sunV), 0)
+	const grazing = float(1).sub(abs(dot(normalView, positionViewDirection))).pow(2)
+	m.emissiveNode = uGlassSheenColor.mul(uGlassSheen).mul(facing).mul(grazing.mul(0.65).add(0.35))
 	return m
 }
 
@@ -120,8 +114,8 @@ function withSheen<M extends THREE.MeshPhysicalMaterial>(m: M): M {
  * lightly tinted, with gaps between the cells so the light still falls through
  * to the forest inside. One triangle of it, drawn once, on every panel.
  */
-let solarCache: THREE.MeshPhysicalMaterial | null = null
-function solarGlass(): THREE.MeshPhysicalMaterial {
+let solarCache: MeshPhysicalNodeMaterial | null = null
+function solarGlass(): MeshPhysicalNodeMaterial {
 	if (solarCache) return solarCache
 	const s = 256
 	const c = document.createElement('canvas')
@@ -147,7 +141,7 @@ function solarGlass(): THREE.MeshPhysicalMaterial {
 	const tex = new THREE.CanvasTexture(c)
 	tex.colorSpace = THREE.SRGBColorSpace
 	tex.anisotropy = 8
-	solarCache = withSheen(new THREE.MeshPhysicalMaterial({ map: tex, color: '#ffffff', roughness: 0.06, metalness: 0.1, transparent: true, envMapIntensity: 1.4, side: THREE.DoubleSide, depthWrite: false }))
+	solarCache = sheenGlass({ map: tex, color: '#ffffff', roughness: 0.06, metalness: 0.1, transparent: true, side: THREE.DoubleSide, depthWrite: false })
 	return solarCache
 }
 
@@ -187,7 +181,7 @@ export const mats = () => {
 		get solar() {
 			return solarGlass()
 		},
-		glass: withSheen(new THREE.MeshPhysicalMaterial({ color: '#eef6f4', roughness: 0.04, metalness: 0, transparent: true, opacity: 0.1, envMapIntensity: 1.5, side: THREE.DoubleSide, depthWrite: false })),
+		glass: sheenGlass({ color: '#eef6f4', roughness: 0.04, metalness: 0, transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false }),
 		canvas: new THREE.MeshStandardMaterial({ color: '#efe8da', roughness: 0.95, side: THREE.DoubleSide }),
 		linen: new THREE.MeshStandardMaterial({ color: '#f1ece2', roughness: 0.95 }),
 		cushion: new THREE.MeshStandardMaterial({ color: '#c47a4a', roughness: 0.9 }),
@@ -1144,7 +1138,8 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			if (r() < 0.4) around(1, 1.9, (sd) => climber(sd, 2 + r()).object)
 			// the forest floor: moss, mycelium, earth, fallen wood, stones, an ant hill, a rock
 			around(2, 3.2, (sd) => forestFloor(floorPick(r), sd))
-			around(8, 4, () => grassTuft(0.4 + r() * 0.35))
+			// the meadow grass is blades now ($content/biomes/grass.js): its draws kept, so all after it stands where it did
+			around(8, 4, () => (r(), new THREE.Group()))
 		}
 		scene.add(bake(trees))
 		scene.add(bake(under, false))

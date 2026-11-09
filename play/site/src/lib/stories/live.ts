@@ -126,11 +126,12 @@ export function sunAt(hour: number): { sun: number; az: number } {
 
 /** everything a world shot shows at t seconds into it, by t alone: its frame on the world's own clock (`since`: how long
  *  after the world's first frame the shot begins, so every shot of one world runs on one clock, intent 4f7a2178), its
- *  camera, the sun (null: the mood's), its exposure in stops and its lights' multipliers */
+ *  camera, its hour (null: none of its own), the sun (null: the mood's), its exposure in stops and its lights' multipliers */
 export function worldAt(w: Pick<World, 'camera' | 'hour' | 'exposure' | 'lights'>, t: number, fps: number, frames: number, since = 0) {
 	return {
 		frame: frameOf(since + t, fps, frames),
 		camera: cameraAt(w.camera, t),
+		hour: w.hour == null ? null : curveAt(w.hour, t, 12),
 		sun: w.hour == null ? null : sunAt(curveAt(w.hour, t, 12)),
 		exposure: curveAt(w.exposure, t, 0),
 		lights: { sun: curveAt(w.lights?.sun, t, 1), sky: curveAt(w.lights?.sky, t, 1), lamps: curveAt(w.lights?.lamps, t, 1) }
