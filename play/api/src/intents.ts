@@ -15,6 +15,7 @@ import { closeWork, intentIdOf, WORK_STATUS } from "./work";
 import { decideAny, workKinds, workSql } from "./versioned";
 import { decidable, sub, unmetOn } from "./substate";
 import { HttpError } from "./kit/errors";
+import { LOCK, lockSql } from "./kit/locks";
 
 export { unmetOn };
 
@@ -199,7 +200,7 @@ const heldText = (id: string, held: Dep[]) => `Intent ${id} is held: it depends 
 
 /** Edges from `id` to each of `on` added (or dropped), in the caller's transaction: none to itself, none closing a cycle. */
 async function addEdges(q: Queryable, who: Me, id: string, on: string[], drop = false) {
-  await q.query(`SELECT pg_advisory_xact_lock(4711031)`); // one at a time: two edges added at once could close a cycle
+  await q.query(lockSql(LOCK.intentEdges));
   for (const o of on) {
     if (drop) await q.query(`DELETE FROM play.intent_depends WHERE intent_id = $1 AND depends_on = $2`, [id, o]);
     else if (o === id) throw new HttpError(`Intent ${id} cannot depend on itself.`);

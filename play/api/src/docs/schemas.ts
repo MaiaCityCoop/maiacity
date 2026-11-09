@@ -12,6 +12,7 @@ import { COOP, SCHEMA } from "../kit/ids";
 import type { Db, Queryable } from "../kit/pg";
 import { seedOf, SEEDED, type SchemaJson } from "./seed";
 import { createDoc, readDoc } from "./store";
+import { LOCK, lockSql } from "../kit/locks";
 
 /** every accepted schema, as its document says it: its UUID, version and JSON (each read again only once its head moved) */
 const read = new Map<string, { key: string; json: SchemaJson }>();
@@ -41,7 +42,7 @@ export async function ensureSchemas(db: Db): Promise<string[]> {
   const made: string[] = [];
   for (const id of SEEDED) {
     const did = await db.transaction(async (q) => {
-      await q.query(`SELECT pg_advisory_xact_lock(4711030)`);
+      await q.query(lockSql(LOCK.schemaSeed));
       const { rows } = await q.query(`SELECT 1 FROM play.docs WHERE id = $1`, [`schema:${id}`]);
       if (rows.length) return false;
       const j = seedOf(id)!;

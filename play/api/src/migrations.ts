@@ -12,6 +12,7 @@ import type { Db } from "./kit/pg";
 import { ensureSchemas } from "./docs/schemas";
 import { ensureLayouts } from "./sandboxes";
 import { ensureRules } from "./rules";
+import { LOCK, lockSql } from "./kit/locks";
 
 export type Migration = { id: string; sql: string };
 
@@ -48,8 +49,6 @@ export function loadMigrations(dir = MIGRATIONS_DIR): Migration[] {
 /** play's migrations, as the folder holds them */
 export const MIGRATIONS: Migration[] = loadMigrations();
 
-/** The advisory lock every migration step holds: play-api and the import start together on a deploy, and both migrate. */
-const MIGRATION_LOCK = 4_711_029;
 
 /** Runs every migration not yet run, each in its own transaction. */
 export async function migrate(db: Db, o: { until?: string; migrations?: Migration[] } = {}): Promise<string[]> {
@@ -62,7 +61,7 @@ export async function migrate(db: Db, o: { until?: string; migrations?: Migratio
   // In production the role play owns the schema but may not create one in the database (play/deploy/setup.sql makes
   // it), and CREATE SCHEMA IF NOT EXISTS checks that right even when the schema is there: so only create it if missing.
   await db.transaction(async (tx) => {
-    await tx.query(`SELECT pg_advisory_xact_lock(${MIGRATION_LOCK})`);
+    await tx.query(lockSql(LOCK.migrations));
     await tx.query(`DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'play') THEN CREATE SCHEMA play; END IF;
       END $$`);
@@ -74,7 +73,7 @@ export async function migrate(db: Db, o: { until?: string; migrations?: Migratio
   for (const m of all.slice(0, last + 1)) {
     if (done.has(m.id)) continue;
     const did = await db.transaction(async (tx) => {
-      await tx.query(`SELECT pg_advisory_xact_lock(${MIGRATION_LOCK})`);
+      await tx.query(lockSql(LOCK.migrations));
       if ((await tx.query("SELECT 1 FROM play.migrations WHERE id = $1", [m.id])).rows.length) return false;
       await tx.query(m.sql);
       await tx.query("INSERT INTO play.migrations (id) VALUES ($1)", [m.id]);

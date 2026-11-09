@@ -31,3 +31,8 @@ behaviour is pinned. Measured with `bun intent-work/5884ade4/measure.ts api|cycl
    (B), api-docs#14 (F10). What changes: an error not on app.ts' old list (a DocError, a PieceError) now answers its
    own status over HTTP, as it already did over MCP (the audit's intended change). Pinned: api.test,
    toolschemas.test, needsintent.test, nobypass.test (statuses), the whole suite. `error classes` 19 → 2.
+4. **Every advisory lock named once** (`src/kit/locks.ts` `LOCK`, `lockSql`): migrations 4711029, Ship's queue
+   4711030, intent edges 4711031, and the three that shared a number by accident get their own: the schemas' seed
+   (was Ship's 4711030), the rule set's seed (was 4711030) and the layouts' move (was the intent edges' 4711031).
+   Removes api-flow#1, api-docs#13. Pinned: depends.test (edges added at once), ship.test (the queue), migrate.test
+   and rules.test (seeds), the whole suite.

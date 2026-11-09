@@ -13,6 +13,7 @@ import type { Db, Queryable } from "./kit/pg";
 import * as docs from "./docs";
 import { COOP, RULE, RULES, SCHEMA } from "./kit/ids";
 import { kindOfWork } from "./versioned";
+import { LOCK, lockSql } from "./kit/locks";
 
 export const GATES = ["approve", "accept"] as const;
 export type Gate = (typeof GATES)[number];
@@ -51,7 +52,7 @@ export const RULES_V1 = {
 /** The end of migrate(), after ensureSchemas: the rule set's v1, made only where absent (one at a time: play-api and the import migrate at once on a deploy). */
 export async function ensureRules(db: Db): Promise<boolean> {
   return db.transaction(async (q) => {
-    await q.query(`SELECT pg_advisory_xact_lock(4711030)`);
+    await q.query(lockSql(LOCK.rulesSeed));
     if ((await q.query(`SELECT 1 FROM play.docs WHERE id = $1`, [RULES_DOC])).rows.length) return false;
     await q.query(`INSERT INTO play.records (id, coop_id, kind, label, updated) VALUES ($1, $2, 'rules', $3, now()) ON CONFLICT (id) DO NOTHING`, [RULES, COOP, RULES_V1.label]);
     const note = "the first rule: artifacts need no tap (Samuel 2026-11-07)";

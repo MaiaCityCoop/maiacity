@@ -23,6 +23,7 @@ import { meOf } from "./access";
 import { decideWork } from "./versioned";
 import { closeWork, workOf } from "./work";
 import { HttpError } from "./kit/errors";
+import { LOCK, lockSql } from "./kit/locks";
 
 /** the store play's work is accepted with when the reconcile sees its code live (set by ./app.ts) */
 export const shipWork: { store?: BlobStore } = {};
@@ -242,8 +243,6 @@ function refuse(why: string): never {
 const now = () => new Date().toISOString();
 /** the intent on play's board, where the status 'Intent accepted' links to */
 export const intentLink = (id: string) => `https://play.maia.city/intents/#${id}`;
-/** one start at a time: the queue's order is read and its head started under this lock */
-const QUEUE_LOCK = 4_711_030;
 /** the first step's name, by what it waits to do */
 const READY: Record<Pending["kind"], string> = { merge: "Ready to merge", main: "Ready to run main's checks again", release: "Ready to release again" };
 
@@ -371,7 +370,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
  */
 export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now()) {
   return db.transaction(async (tx) => {
-    await tx.query(`SELECT pg_advisory_xact_lock(${QUEUE_LOCK})`);
+    await tx.query(lockSql(LOCK.shipQueue));
     const { rows: [row] } = await tx.query<any>(`SELECT id, title, ship, decided_at, spec, results FROM play.intents WHERE id = $1 AND stage = 'ship' FOR UPDATE`, [id]);
     const was: Ship | undefined = row?.ship;
     if (!was?.pending) return;

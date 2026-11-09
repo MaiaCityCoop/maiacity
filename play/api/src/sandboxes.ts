@@ -18,6 +18,7 @@ import { applyEdits as applyDocEdits, jsonOf, newDoc, seed } from "./docs/core";
 import { closeWork, holdVariant, intentIdOf, settle } from "./work";
 import { resolveEdits } from "./versioned";
 import { HttpError } from "./kit/errors";
+import { LOCK, lockSql } from "./kit/locks";
 
 export class SandboxError extends HttpError {}
 
@@ -547,7 +548,7 @@ export async function ensureLayouts(db: Db): Promise<number> {
   const { rows: has } = await db.query(`SELECT to_regclass('play.sandbox_changes_kept') AS t`);
   if (!(has[0] as any)?.t) return 0;
   return db.transaction(async (q) => {
-    await q.query(`SELECT pg_advisory_xact_lock(4711031)`);
+    await q.query(lockSql(LOCK.layoutsMove));
     const { rows: sandboxes } = await q.query<{ id: string }>(
       `SELECT s.id FROM play.sandboxes s
         WHERE NOT EXISTS (SELECT 1 FROM play.docs d WHERE d.id = 'sandbox:' || s.id::text)
