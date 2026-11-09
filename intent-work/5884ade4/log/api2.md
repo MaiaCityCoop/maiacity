@@ -24,3 +24,8 @@ left for Samuel.
 - artifacts.ts' `authorOf` (an author row, a different thing) is `getAuthor`.
 - assetdocs.ts keeps its own copy: held (Next untangles: import it from ./kinds).
 - Pinned by the suite as it is (no behaviour moved).
+
+## 3. One humans-name query (re-api#4)
+
+- `namesOf(q, ids)` in kinds.ts (dedupes, drops nulls); `named`, versioned.ts' versionsNamed and docHistory's variants
+  use it. Same query, same Map. Pinned by the suite (doc_history's and versions' authors are asserted in docs/api tests).

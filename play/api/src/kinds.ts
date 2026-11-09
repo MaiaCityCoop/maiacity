@@ -145,10 +145,15 @@ export const iso = (d: Date | string) => new Date(d).toISOString();
 /** who an edit is by, as the store keeps it: a person, through MCP, the site or the import */
 export const authorOf = (me: Pick<Me, "id"> | null, via: string | null | undefined): docs.Author => ({ human: me?.id ?? null, via: via === "mcp" ? "mcp" : via === "import" ? "import" : "site" });
 
+/** the names of the humans `ids` names (none, or one more than once, is fine), by id */
+export async function namesOf(q: Queryable, ids: (string | null | undefined)[]): Promise<Map<string, string>> {
+  const some = [...new Set(ids.filter((x): x is string => !!x))];
+  return new Map((await q.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [some])).rows.map((r) => [r.id, r.name]));
+}
+
 /** each edit with its author's name, and the version it was named where one was */
 export async function named(db: Queryable, edits: docs.DocEdit[], versions: docs.Version[] = []) {
-  const ids = [...new Set(edits.map((s) => s.author).filter((x): x is string => !!x))];
-  const names = new Map((await db.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [ids])).rows.map((r) => [r.id, r.name]));
+  const names = await namesOf(db, edits.map((s) => s.author));
   const at = new Map(versions.map((v) => [docs.frontiersKey(v.frontiers), v.number]));
   // a version marks the latest edit at its point (a merge that only caught Main up stands where the intent variant's
   // last edit stood: the merge is the edit that made it the version)
