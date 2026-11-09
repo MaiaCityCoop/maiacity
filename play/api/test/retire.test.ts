@@ -120,7 +120,6 @@ suite("retire a document by an intent", () => {
     }
     expect(await usedBy(stray.hash)).not.toContain(stray.story);
     expect(await usedBy(kept.hash)).toContain(kept.story);
-    // retired already: refused
     const again = await building("Retire it again");
     expect((await tool("retire_doc", { intent: again, doc: stray.story, reason: "again" })).error).toContain("retired already");
   });

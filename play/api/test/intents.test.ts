@@ -192,7 +192,6 @@ suite("intents", () => {
     expect(at).toMatchObject({ stage: "proposal", work: { kind: "asset_version", status: "proposal", label: "Shade fern", asset_id: made.asset, version: made.version } });
     expect(at.review.builds).toHaveLength(1);
     expect((await call("ada", "GET", "/api/intents")).data.length).toBe(before);
-    // a citizen sees no intent
     expect((await call("cit", "GET", `/api/intents/${i.id}`)).status).toBe(403);
     // accepted, its work is applied: the asset's head is the version
     expect((await call("ada", "POST", `/api/intents/${i.id}/accept`)).data).toMatchObject({ stage: "accepted", decision: { status: "accepted", number: 1 } });

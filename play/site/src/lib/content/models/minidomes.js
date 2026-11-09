@@ -152,7 +152,6 @@ export function henDome(seed = 3) {
 	// a door frame at the front, where the keeper comes in
 	for (const sx of [-0.42, 0.42]) box(g, 0.07, 1.6, 0.07, MAT.strut, sx, 0, O + R - 0.25);
 	box(g, 0.9, 0.07, 0.07, MAT.strut, 0, 1.6, O + R - 0.25);
-	// straw on the floor
 	floor(g, R - 0.12, MAT.straw, 0, O);
 	// the roost: a ladder of perches leaning against the back
 	for (const sx of [-0.55, 0.55]) log(g, v(sx, 0, O - 1.2), v(sx, 1.55, O - 2.05), 0.035, MAT.darkLog);

@@ -93,7 +93,6 @@ suite("withdraw a document from an intent's work", () => {
     expect(await statusOf(held[0].variant_id)).toBe("archived");
     expect(await statusOf(held[1].variant_id)).toBe("accepted");
 
-    // a decided intent is refused
     const done = await tool("withdraw_doc", { intent: id, doc: film.story, reason: "too late" });
     expect(done.error).toContain("accepted stage");
   });

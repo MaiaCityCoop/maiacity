@@ -143,7 +143,6 @@ suite("auto-accept rules", () => {
     expect((await tool("doc_at", { doc: RULES, version: 1 })).json.rules).toEqual([{ id: RULE.artifacts, label: "Artifacts need no tap", gates: ["approve", "accept"], match: { via: ["mcp"], work_kind: [SCHEMA.artifact], schemas: [SCHEMA.artifact] }, reason: FIRST_RULE.reason }]);
     expect((await tool("list_docs", { kind: "rules" })).map((d: any) => d.id)).toEqual([RULES]);
     const before = (await docs.readDoc(db, RULES_DOC)).json;
-    // no edit without an intent
     const none = await tool("doc_edit", { doc: RULES, message: "no intent", edits: [{ op: "set", path: ["note"], value: "x" }] });
     expect(none.error).toContain("intent");
     // on an intent variant: Main as it was until an admin's Accept
@@ -323,7 +322,6 @@ suite("auto-accept rules", () => {
   // ---- c7
 
   test("held is held: a matching intent held by a dependency is moved only once that one is Accepted; failing must checks move nothing", async () => {
-    // the dependency, in Build
     const dep = (await tool("add_intent", { title: "The dependency" })).id;
     await tool("specify_intent", { intent: dep, ...SPEC });
     await call("ada", "POST", `/api/intents/${dep}/approve`);
@@ -411,11 +409,9 @@ suite("auto-accept rules", () => {
       expect(await intent(i)).toMatchObject({ stage: "build", approved_by: null, auto: { approve: { rule: RULE.artifacts } } });
       return i as string;
     };
-    // stepped back, by its agent
     const back = await declare("Stepped back after a rule");
     const s = await tool("step_back_intent", { intent: back, reason: "its spec is wrong" });
     expect(s).toMatchObject({ stage: "specify", approved_at: null, auto: {} });
-    // rejected, by ada
     const no = await declare("Rejected after a rule");
     expect((await call("ada", "POST", `/api/intents/${no}/reject`)).data).toMatchObject({ stage: "archived", auto: {} });
     // accepted by the rule: what a person's Accept leaves, its work applied

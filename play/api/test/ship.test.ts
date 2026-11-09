@@ -320,13 +320,11 @@ suite("accept ships it", () => {
       expect(gh.pulls.get(w.pr)!.merged).toBe(false);
       if (!tried) expect(writesSince(w.from).filter((x) => x.method === "PUT")).toEqual([]);
     };
-    // a required check turns red
     const r = await waiting("Its check turns red");
     gh.checks.set(r.head, [green("play / API and site"), { ...green("website / build"), conclusion: "failure", html_url: "https://github.test/checks/red" }]);
     await watchShips(db, gh.gh, store);
     await back(r, `'website / build' is failure on #${r.pr}'s head`, "https://github.test/checks/red");
     expect((await call("ada", "POST", `/api/intents/${r.id}/accept`)).status).toBe(409);
-    // its head moves
     const h = await waiting("Its head moves");
     const moved = sha(++commits);
     gh.pulls.get(h.pr)!.head.sha = moved;

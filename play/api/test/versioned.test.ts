@@ -406,7 +406,6 @@ suite("one version control", () => {
     expect((await call("ada", "POST", `/api/intents/${i}/accept`)).data.stage).toBe("accepted");
     expect(await both(i, e.variant)).toEqual({ stage: "accepted", status: "accepted" });
 
-    // another, archived: archived
     const gone = await readyIntent("A variant archived");
     const g = await tool("propose_doc_version", { doc: D, note: "teal", edits: [{ op: "set", path: ["colour"], value: "teal" }], intent: gone });
     expect((await call("ada", "POST", `/api/intents/${gone}/archive`)).data.decision.status).toBe("archived");

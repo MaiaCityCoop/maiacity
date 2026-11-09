@@ -1019,7 +1019,6 @@ suite("play API", () => {
     // of one kind only: not among the videos
     expect((await rawTool("list_library", { q: hash.slice(0, 10), kind: "video" }, token)).out.files).toHaveLength(0);
     expect((await rawTool("list_library", { kind: "text" }, token)).error).toBeString();
-    // a page at a time
     const page = await rawTool("list_library", { kind: "image", limit: 1 }, token);
     expect(page.out).toMatchObject({ limit: 1, offset: 0 });
     expect(page.out.files).toHaveLength(1);
