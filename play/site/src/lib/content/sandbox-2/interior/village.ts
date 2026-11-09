@@ -828,6 +828,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			const s = 0.9 + r() * 0.25
 			forest!.add(kind, 'tree', x, 0, z, r() * 6.28, s)
 			plantedTrees.push({ kind, x, z, s })
+			// its crown over the floor, for where the floor's cover gathers (under it, at its edge, round its trunk): as wide
+			// as its layer's spacing lets crowns meet (the canopy a trunk every five metres or so, crowns overlapping)
+			floorTrunks.push({ x, z, r: 0.62 * Math.sqrt(S[layer]) * s })
 			const k = trunkKey(Math.floor(x / 4), Math.floor(z / 4))
 			const list = trunks.get(k) ?? []
 			list.push({ x, z, r: keep })
@@ -970,10 +973,13 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		}
 		// and the floor itself under all of it, the biome's cover, may stand wherever the ground is open: not on a path,
 		// in the water, a dome (or Sandbox 5's building's own ground), a field or a trunk
-		floorOpen = (x, z) => (open(x, z, 0.1) || inBand(x, z, 0.1, 0.1)) && clearOf(x, z, 0.15)
+		// (a kind of it that keeps clear of the paths and the water by `margin` metres, that much further off them)
+		floorOpen = (x, z, margin = 0) => (open(x, z, 0.1 + margin) || inBand(x, z, 0.1 + margin, 0.1 + margin)) && clearOf(x, z, 0.15)
 	}
-	/** where the floor's cover may stand (set once the garden is planted) */
-	let floorOpen = (_x: number, _z: number) => true
+	/** where the floor's cover may stand (set once the garden is planted), `margin` metres clear of paths and water */
+	let floorOpen = (_x: number, _z: number, _margin = 0) => true
+	/** the trees of the forest garden, each its crown's radius (set as the garden is planted): the floor's canopy */
+	const floorTrunks: { x: number; z: number; r: number }[] = []
 	const floorIndex = (r: () => number) => FLOOR_KINDS.indexOf(floorPick(r))
 	// and tufts of meadow grass standing up out of the lawn, drawn with the floor, near you
 	FLOOR.push(species(grassTuft(0.55), false))
@@ -982,7 +988,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	// each in its colonies, laid out in tiles round you as you go ($content/biomes/stream.js) — too dense for the whole cell;
 	// all of it near you, thinning out further off, each plant growing out of the ground as you come (so it has no edge)
 	// ($content/biomes/stream.js lays it; each kind built in the box and drawn by the renderer, grown on the graphics card)
-	const floorCover = flora && FLOOR_BIOME ? coverStream({ drawn: library, recipe: FLOOR_BIOME, open: (x, z) => floorOpen(x, z), heightAt: groundY, tile: 10, reach: 28, near: 7, thin: 0.2, density: 3.4, seed: 505 }) : null
+	const floorCover = flora && FLOOR_BIOME ? coverStream({ drawn: library, recipe: FLOOR_BIOME, open: (x, z, margin) => floorOpen(x, z, margin), trunks: floorTrunks, heightAt: groundY, tile: 10, reach: 28, near: 7, thin: 0.2, density: 3.4, seed: 505 }) : null
 	const TILE = 70
 	type Tile = { cx: number; cz: number; main: THREE.Matrix4[][]; under: THREE.Matrix4[][]; floor: THREE.Matrix4[][]; far: THREE.Matrix4[]; farCrowns: THREE.Matrix4[]; farColors: THREE.Color[]; dense: THREE.Matrix4[]; denseCrowns: THREE.Matrix4[]; denseColors: THREE.Color[]; near?: THREE.Group; farMesh?: THREE.Group; ground?: THREE.Group }
 	const tiles = new Map<string, Tile>()
