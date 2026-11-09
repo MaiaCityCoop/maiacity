@@ -130,3 +130,53 @@ name and body, `// the next thing` lines.
     below), `assets.js` and `index.js`, keeping the dates, Samuel's 2026-11-04 decision and the OSE v25 source. AirSup's
     `world.js`, `kit.js` and `des.js` are kept "line for line theirs" (their header says so; MIT): not touched.
 26. **`content/models`** (10): `minidomes.js`'s header listed every perch and egg its builders' own docs describe.
+
+## Where the bounds stand (play/site's non-held files)
+
+| | before | after | asked |
+|---|---|---|---|
+| layers (`measure.ts layers`, whole repo) | 16 | 11 | ≤ 10 |
+| dead exports in play/site | 9 | 0 | 0 |
+| dead files of the 12 still there | 5 | 5, none in play/site | ≤ 4 |
+| swallowed errors | 17 (src 15, scripts 2) | 6 (src 6) | ≤ 6 |
+| `as any` | 34 (src 20, scripts 14) | 14 (src 13, scripts 1) | ≤ 15 |
+| comment lines | 6,095 | 5,659 | ≤ 5,500 |
+| comments naming a file gone | 0 | 0 | 0 |
+
+- **layers, 11.** Of the 11, the one left that only play/site's non-held code holds is `lib/app → content/assets`
+  (AssetLibrary.svelte: catalog.js, VaultAsset, Parts). Moved into content/assets it was measured (13: content/assets
+  turns more stable than box, cache, biomes, render/nodes and sandbox-kit, each then an upward import); a folder of
+  its own keeps the pair (8 routes make it stable). The real fix is the render kit below both (site-assets U1, held
+  files: VaultAsset.svelte, render/index.js). `lib/app → $wire` is a type-only import of the API's own types, fix 2's
+  design: a site-side copy is what fix 2 removed, and any home for wire.ts imports `play/api/src` (I ≥ 0.17).
+  Held: `lib → content/assets` (recipes.ts is the re-export the held census/run.ts imports), `content/assets →
+  render, sources` (plantings.js, VaultAsset.svelte), `box → cache` (cache/store.js reads render/budget.js, held),
+  `content/render → film, nodes` (render/film.js, core.js), `render/nodes → content/assets` (the ground's TSL test:
+  moved beside ground.js it measured `render/nodes → biomes` instead, through the held render/nodes/ground.js),
+  `stories → scripts` (old-city.test.ts). `play/api/src → docs` is the api's.
+- **dead.** The 2 exports left are the api's (`heavy.ts` `hostSource`, `ship.ts` `Pending`); the 5 dead files left
+  are `deploy/deploy-time.ts` (kept by infra: a check's `run`), `play/api/scripts/{board-speed,detail-size,seed-look}.ts`
+  and `play/api/import/plan.ts`: not play/site's.
+- **comments, 5,659.** 333 of them are in AirSup's `factories/{world,kit,des}.js`, kept line for line theirs; without
+  them play/site has 5,326. What is left past the bound is, read file by file: data formats and contracts other code
+  or people author against (the world contract, a shot's and a live shot's formats, packed.js's file format, the
+  film contract), security guarantees with the browser's behaviour (frame.js, policy.js, markdown/index.js, host.js),
+  measured numbers and their sources, decisions with their dates, the physics labs' solver notes, and the scripts'
+  usage (how a person runs each and what it writes). Taking another 160 would take those.
+
+## Runs
+
+Gate site after every code commit (green, 6–11 s); svelte-check's errors the same 13 throughout (held tests,
+`routes/pieces`, vite.config.ts); census-same after the drawing moves: same for Sandbox 1 (near, mid, far), Sandbox 3
+and the Worlds page. Comment commits: every changed file compiles to the same code (Bun's transpiler, whitespace
+minified; `.svelte` text without comment lines), checked before each. Full `bunx vitest run` at the end: 452 tests,
+447 passed, the 5 failing all `lib/stories/old-city.test.ts` (Bun's `import.meta.dir` under vitest), as on main.
+
+## Next untangles
+
+- The render kit below `lib/app` and `content/assets` (AssetLibrary's catalog, VaultAsset, Parts): with VaultAsset
+  and render/index.js free, the asset viewer's parts move to it and `lib/app → content/assets` goes.
+- `cache/store.js`'s small-device wait reads `render/budget.js` (held): passed in by the cache's callers, `box → cache`
+  goes.
+- `lib/recipes.ts`, once census/run.ts imports `catalog.js` itself.
+- `kernel/sandbox/policy.js` keeps `logicJob` and `mathJob` budgets for hosts that are gone (no reader).
