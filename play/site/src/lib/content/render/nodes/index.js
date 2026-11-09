@@ -46,7 +46,7 @@ export function install(r) {
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
 	// only the kit's own are drawn linear and untoned into a target (keyed apart as 'target'); every other node material
-	// (the sky, its environment bake) keeps the handler's key and output: a bake and the next frame two programs (cb16b7a5)
+	// keeps the handler's key and output (cb16b7a5)
 	let keying = null;
 	const keyOf = h.customProgramCacheKeyCallback;
 	h.customProgramCacheKeyCallback = function () {
@@ -58,14 +58,20 @@ export function install(r) {
 			keying = drawing = null;
 		}
 	};
-	// a kit material meeting a program built from other source uploads nothing into it, then keys by its id (660ad67f)
+	// a kit material meeting a program built from other source draws this frame with the owner's uniforms (none into a
+	// layout not its own), then keys by its id; each clash kept in __clashes (660ad67f)
 	const src = new WeakMap(), meet = h.onUpdateProgram.bind(h);
 	h.onUpdateProgram = (m, p, props) => {
 		const b = m._latestBuilder, s = b && b.vertexShader + b.fragmentShader, first = !h.programCache.get(m)?.has(p);
 		meet(m, p, props);
-		if (!m.isKit || !first || !s) return;
-		if (!src.has(p)) return void src.set(p, s);
-		if (src.get(p) !== s) (m.own = true), (m.needsUpdate = true), (props.uniformsList = []), (m.uniformsGroups = []);
+		const o = src.get(p);
+		if (!m.isKit || !first || !s || o?.s === s) return;
+		if (!o) return void src.set(p, { s, m });
+		let i = 0;
+		while (s[i] === o.s[i]) i++;
+		(globalThis.__clashes ??= []).push({ a: o.m.name, b: m.name, at: s.slice(i - 60, i + 60), was: o.s.slice(i - 60, i + 60) });
+		const e = h.programCache.get(o.m)?.get(p);
+		(m.own = m.needsUpdate = true), (props.uniforms = e?.uniforms ?? {}), (props.uniformsList = e?.uniformsList ?? []), (m.uniformsGroups = e?.uniformsGroups ?? []);
 	};
 	h.getOutputCallback = (node, builder) => (onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node);
 	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
@@ -74,8 +80,8 @@ export function install(r) {
 }
 
 /**
- * A mesh whose shadow is drawn by a node material (its `customDepthMaterial`): drawn from the light. The handler keeps
- * the eye's camera through the shadow pass and updates nothing there; this does both, for this mesh.
+ * A mesh whose shadow is drawn by a node material (its `customDepthMaterial`): drawn from the light (the handler keeps
+ * the eye's camera through the shadow pass and updates nothing there).
  * @param {THREE.Mesh} mesh @param {THREE.WebGLRenderer} r
  */
 export function castsAsNode(mesh, r) {
@@ -123,10 +129,8 @@ export const coverEye = uniform(new THREE.Vector3(1e9, 0, 1e9));
 export const coverAway = { on: uniform(0), c: uniform(new THREE.Vector2()), f: uniform(new THREE.Vector2(0, 1)), b: uniform(0), band: uniform(0) };
 
 /**
- * How far a copy of the cover is grown (0…1) at distance d from the eye, by its rank: all of it stands within `near`,
- * fewer and fewer further off down to `thin` of it at `reach`, each rising out of the ground over 0.08 of rank, and
- * nothing in the last 4 m. The same sum as `grown`'s on the graphics card, for the renderer to leave out on the
- * processor what does not grow and to size the rest by it.
+ * How far a copy of the cover is grown (0…1) at distance d from the eye, by its rank: all within `near`, thinning to
+ * `thin` at `reach`, each rising over 0.08 of rank, none in the last 4 m: `grown`'s sum, for the processor.
  */
 export function coverGrow(d, rank, near, reach, thin) {
 	const keep = 1 - (1 - thin) * Math.min(1, Math.max(0, (d - near) / Math.max(1e-3, reach - near)));
@@ -146,11 +150,8 @@ function grown(p) {
 	return select(aCover.x.greaterThan(0), foot.add(p.sub(foot).mul(grow)), p);
 }
 
-/**
- * A picture we drew into (a render target: the far pictures' page, the contact shadow's) read where three's own
- * materials read it. On WebGL three's TextureNode turns v over (1 - v) for a render target's texture; this turns it back,
- * so the cell laid at row r is read at row r (else the far trees showed another tree's picture, upside down).
- */
+/** A picture we drew into (the far pictures' page, the contact shadow's) read as three's own read it: TextureNode
+ * flips v for a target on WebGL; this flips it back (else the far trees showed another tree's picture, upside down). */
 const drawn = (map, at = uv()) => texture(map, vec2(at.x, float(1).sub(at.y)));
 
 /** the dither every drawing of ours fades in by: the same everywhere on the screen, so two levels never fight */

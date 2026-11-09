@@ -208,7 +208,7 @@ describe('the render kit in TSL', () => {
 		}
 	});
 
-	test('a clash the key misses: the one whose source differs uploads nothing into the program, then takes its own', () => {
+	test('a clash the key misses: the one whose source differs draws one frame with the owner’s uniforms, then takes its own', () => {
 		const { r } = renderer();
 		const { scene, camera } = lit();
 		const [a, b, c] = [0, 1, 2].map(() => Object.assign(nodeOf(new THREE.MeshStandardMaterial({ map: new THREE.Texture() })) as any, { fade: aFade }));
@@ -221,7 +221,15 @@ describe('the render kit in TSL', () => {
 			const g = new THREE.BoxGeometry();
 			g.deleteAttribute('uv');
 			scene.add(new THREE.Mesh(new THREE.BoxGeometry(), a), new THREE.Mesh(g, b), new THREE.Mesh(new THREE.BoxGeometry(), c));
+			(globalThis as any).__clashes = [];
 			r.render(scene, camera);
+			// the clash's frame: b in a's program with a's own uniforms and buffers, none of its own into a's layout
+			const q = (m: any) => r.properties.get(m) as any;
+			expect(q(b).currentProgram).toBe(q(a).currentProgram);
+			expect(q(b).uniformsList).toBe(q(a).uniformsList);
+			expect(b.uniformsGroups).toBe(a.uniformsGroups);
+			expect((globalThis as any).__clashes).toHaveLength(1);
+			expect((globalThis as any).__clashes[0].at).not.toBe((globalThis as any).__clashes[0].was);
 			r.render(scene, camera);
 		} finally {
 			P.customProgramCacheKey = key;
