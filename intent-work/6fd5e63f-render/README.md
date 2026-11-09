@@ -20,6 +20,12 @@ level. Look for a pop in the film as a plant changes level (the glow fading at l
 And `film.advance` works on head again (village.ts read the SunLight's missing target); on main it still throws, so main's
 golden still pins `__worldTime` alone (`summary.json` `advance` says which).
 
+**Dry run (intent cb52fbd9, before the Mac):** `bun play/site/scripts/macjob/dry.ts intent-work/6fd5e63f-render --at <this job's commit>`
+from a checkout of main 11e518c or later: it printed DRY RUN PASSED in avenBOX for this commit. It ran the whole job on the
+CPU: the views, the pose (the sun 8.1° up at 19:26, the stand a Plum at 5.5, 86.0), 480 film frames and the same t. In the
+dry run main reuses head's world (one world a process), so `advance` there says film.advance everywhere; on the Mac main
+throws in film.advance and falls back to `__worldTime`.
+
 **Run:** `PLAY_MCP_TOKEN=play_… bash intent-work/6fd5e63f-render/run.sh` (bun, node with Playwright's Chromium, ffmpeg).
 It makes two worktrees beside the repository (`../6fd5-main`, `../6fd5-head`) and serves them. It takes
 the render box's `determinism.mjs` from `intent-work/main-baseline-render` (SEEDED_RANDOM as an init script, settled by
