@@ -3,6 +3,7 @@
 export type { IntentKind, IntentStage, Check, Spec, Result, Dep } from "./intents";
 export type { Ship, Step as ShipStep, StepState } from "./ship";
 export type { Sub, PrSeen } from "./substate";
-export type { Clip, Track, StoryBody, Linked, Links, LinkedBy, Story, StoryItem, Change as StoryChange, StoryDiff } from "./stories";
+export type { Clip, Track, StoryBody } from "./storydocs";
+export type { Linked, Links, LinkedBy, Story, StoryItem, Change as StoryChange, StoryDiff } from "./stories";
 export type { Change as DocChange } from "./docs/core";
 export type { LibraryFile, Use, StoryUse, SheetUse } from "./library";

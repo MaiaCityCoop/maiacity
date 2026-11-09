@@ -55,7 +55,7 @@ export type Links = Record<string, Linked>;
 /** a story linking this one, at its newest version, and the number of this one's version it plays */
 export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
 export type Story = { id: string; title: string; version: string; number: number | null; note: string; created: string; author: string | null; versions: VersionInfo[]; links: Links; linked_by: LinkedBy[] } & StoryBody;
-type StoryItem = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
+export type StoryItem = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
 
 /** a story is named by its UUID (Samuel 2026-11-04); its title is only shown */
 export const STORY_ID = UUID;

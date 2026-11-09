@@ -27,7 +27,7 @@ export type StoryUse = { story: string; title: string; number: number | null; tr
 /** an asset version whose record names the file as its reference sheet: accepted (a version of the asset) or proposed */
 export type SheetUse = { asset: string; label: string; group: string; number: number | null; version: string; as: "sheet" | "datasheet" | "brief"; accepted: boolean };
 export type Use = StoryUse | SheetUse;
-type LibraryFile = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
+export type LibraryFile = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
 
 const LIBRARY_ADMINS = "Only Maia City's admins open the Library.";
 /** `me`, if they may open the Library: the coop's library is its admins' always; their own is theirs where it is open to them */
