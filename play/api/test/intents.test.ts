@@ -1,6 +1,4 @@
-// Intents (src/intents.ts, play/SPEC.md §4.12) against a real Postgres (as ./api.test.ts): Idea → Specify → Build →
-// Proposal → Accepted or Archived, added and specified over MCP only, the spec approved by an admin before it is built,
-// checks recorded while building, a proposal taken only once every must passes.
+// Intents (src/intents.ts, play/SPEC.md §4.12) against a real Postgres (as ./api.test.ts).
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { MIGRATIONS } from "../src/migrations";
 import { type Db } from "../src/kit/pg";

@@ -42,11 +42,8 @@ suite("migrate, twice at once", () => {
   }, 60_000);
 });
 
-// Migration 0032-versioned (play/SPEC.md "Version control"): a database at 0031 holding work of every kind at Proposal
-// and accepted, migrated: doc_variants and doc_edits replace doc_branches and doc_updates, every intent's work names its
-// doc_id and doc_variant and keeps its stage, the per-kind columns gone, every intent still reviewed and decided. Then
-// 202611070117-847c5d38-intent-variants: each intent's documents rows of play.intent_variants, and an artifact kept
-// before its v1. Every intent with work has a spec (intent 706ed873), so the seeded ones are specified and approved.
+// Migration 0032-versioned (play/SPEC.md "Version control"), then 202611070117-847c5d38-intent-variants, on a database at
+// 0031 holding work of every kind: nothing lost, every intent still reviewed and decided (seeded specified: intent 706ed873).
 const SPEC = JSON.stringify({ goal: "Its work is in.", scope: "A migration's fixture.", checks: [{ id: "c1", check: "It holds", how: "test", by: "a test", run: "true", must: true, step: "mvp" }] });
 
 suite("migration 0032-versioned", () => {
@@ -193,8 +190,7 @@ suite("migration 0032-versioned", () => {
     expect(rest.some((id) => id.endsWith("-847c5d38-intent-variants"))).toBe(true);
     expect(await migrate(db)).toEqual(rest);
     await seed(db);
-    // every schema a document, v1 from the seed; every document made before names its schema's UUID and version, and
-    // is still valid against that schema as Postgres holds it (play/SPEC.md "Version control")
+    // every schema a document, every document naming its schema's UUID and version, still valid against it
     const schemas = await q(`SELECT d.id, d.schema_id, (SELECT max(number) FROM play.doc_versions v WHERE v.doc_id = d.id) AS n FROM play.docs d WHERE d.id LIKE 'schema:%' ORDER BY d.id`);
     expect(schemas.map((r) => r.id.split(":")[1]).sort()).toEqual(Object.values(SCHEMA).sort());
     for (const r of schemas) expect([r.schema_id, r.n]).toEqual([SCHEMA.meta, 1]);
@@ -247,10 +243,8 @@ suite("migration 0032-versioned", () => {
   }, 60_000);
 });
 
-// Migration 202611070115-d2f50bf1-sandbox-layouts and ensureLayouts (play/SPEC.md §4.6): a database at 0037 holding a
-// sandbox's pins, configs and changes (accepted, archived, at Proposal holding, and one no longer holding), migrated:
-// the layout sandbox:<uuid>, v1 its pins and configs; each change an intent variant, its intent's stage kept; the
-// columns gone; the waiting one reviewed and accepted as v2, its rows written for the worlds.
+// Migration 202611070115-d2f50bf1-sandbox-layouts and ensureLayouts (play/SPEC.md §4.6) on a database at 0037 holding
+// a sandbox's pins, configs and changes: its layout document, each change an intent variant, the waiting one accepted as v2.
 suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
   let f: Fresh;
   beforeAll(async () => {
@@ -343,9 +337,8 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
   }, 60_000);
 });
 
-// One file per migration (play/SPEC.md "Migrations"): each shipped one `<id>.sql` in play/api/migrations, byte for byte
-// as it ran (./fixtures/migrations.sha256.json, frozen at b5d019e); the runner runs each once in name order and refuses
-// a duplicate or malformed id, naming the file.
+// One file per migration (play/SPEC.md "Migrations"), byte for byte as it ran (./fixtures/migrations.sha256.json, frozen
+// at b5d019e), run once each in name order; a duplicate or malformed id refused, naming the file.
 describe("migrations, one file each", () => {
   const frozen: Record<string, string> = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "migrations.sha256.json"), "utf8"));
   const sha = (s: string) => new Bun.CryptoHasher("sha256").update(s).digest("hex");
@@ -428,10 +421,8 @@ describe("migrations, one file each", () => {
   }, 120_000);
 });
 
-// Migration 202611070120-7c8085db-breeds and the import after it (play/SPEC.md "Breeds"; intent 7c8085db, check c3): a
-// database just before it, with assets of variants (one with its document already, one without) and a sandbox pinning
-// a variant by name. Migrated and imported, each asset's variants are breeds with the same sources and cards (each
-// building its variant's newest recipe hash, byte for byte), Main holds none, frozen versions, rows and pin unchanged.
+// Migration 202611070120-7c8085db-breeds and the import after it (play/SPEC.md "Breeds"; intent 7c8085db, check c3): each
+// asset's variants become breeds building the same recipes, byte for byte; frozen versions, rows and pins unchanged.
 const BREEDS = "202611070120-7c8085db-breeds";
 suite("migration 202611070120-7c8085db-breeds", () => {
   let f: Fresh;
@@ -528,9 +519,7 @@ suite("migration 202611070120-7c8085db-breeds", () => {
   }, 60_000);
 });
 
-// Migration 202611070945-1d9995c3-skills-records (intent 1d9995c3): a skill's row is play.records' (kind 'skill'), like a
-// schema's and a piece's; each play.skills row moves with its id, label and times, the table goes, and avenMAIA and the
-// Intents skill keep their documents, versions and history, served as before.
+// Migration 202611070945-1d9995c3-skills-records (intent 1d9995c3): skills' rows into play.records, nothing of them lost.
 const SKILLS_RECORDS = "202611070945-1d9995c3-skills-records";
 suite(`migration ${SKILLS_RECORDS}`, () => {
   let f: Fresh;

@@ -1,7 +1,5 @@
-// Accept ships it (src/ship.ts, play/SPEC.md §4.12) against a real Postgres (as ./api.test.ts) and a fake GitHub behind
-// the real client, so every request play makes (path, body, Bearer) is seen: Accept posts 'Intent accepted' on the
-// head and merges at once, the intent in Ship; the watcher follows main's checks, the release and the deploy's jobs; all
-// green, Accepted; a red one, back to Proposal with the report. SHIP_TOKEN is sent to GitHub only.
+// Accept ships it (src/ship.ts, play/SPEC.md §4.12) against a real Postgres and a fake GitHub behind the real client, so
+// every request play makes is seen. SHIP_TOKEN is sent to GitHub only.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import { type Db } from "../src/kit/pg";
