@@ -1,7 +1,9 @@
 # deploy
 
 What the server needs beside the compose files: Caddy's config (`Caddyfile`), the website's publish
-(`publish-site.py`), and play's backups.
+(`publish-site.py`), and play's backups. `lib.sh` holds production's constants (its folder, its host, the bucket) and
+what the scripts on the server share (the AWS CLI's call, compose, the health probe); `dns.sh` sets and removes a
+name's records, `server-up.sh` brings play up on the server, `bucket-keys.sh` writes the bucket's keys there.
 
 ## Releases: Accept ships it (Samuel 2026-11-06)
 
@@ -74,9 +76,10 @@ GitHub → Actions → **server** → Run workflow (`server-care.sh`), never bes
   leftovers of backups, play's files, and which of them are broken (their bytes not hashing to their name).
 - **clean** frees what nothing uses (Docker's unused images older than a day, stopped containers, its build cache,
   the journal past 200 MB, apt's cache, leftovers of backups older than an hour; no volume is removed), then mends
-  play's broken files: their good bytes from the backups' shared store, then from the older backups' own copies,
-  checked against their hash; one no
-  backup holds is moved aside to `broken-<when>/` beside the files, so play writes it anew when it is made again.
+  play's broken files: their good bytes from the folders kept when play's files moved into the bucket, then the
+  backups' shared store, then the older backups' own copies, checked against their hash. A file whose bytes are lost
+  everywhere and that nothing in play's data names but its own row is forgotten (its row in `play.files` removed);
+  one that anything names is kept and reported.
 
 A full disk is what breaks files: play now writes a file whole beside its name and only then moves it there, and takes
 a file whose bytes do not hash to its name for missing (`play/api/src/blobs.ts`). The backup uploads the files

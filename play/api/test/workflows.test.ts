@@ -62,7 +62,11 @@ describe("the way to production", () => {
     const start = p.jobs.server.steps.find((s: any) => s.name === "Start play-api, import, and answer play.maia.city");
     expect(start.env.SHIP_TOKEN).toBe("${{ secrets.SHIP_TOKEN }}");
     expect(start.env.SHIP_REPO).toBe("${{ github.repository }}");
-    const env = start.run.slice(start.run.indexOf("cat > play.env <<EOF2"), start.run.indexOf("\nEOF2", start.run.indexOf("cat > play.env")));
+    // the step hands its values and deploy/server-up.sh to the server over stdin; the script writes play.env
+    expect(start.run).toContain("SHIP_TOKEN SHIP_REPO; do printf '%s=%q\\n' \"$v\" \"${!v}\"; done");
+    expect(start.run).toContain("cat deploy/server-up.sh; } | ssh prod");
+    const up = text("deploy/server-up.sh");
+    const env = up.slice(up.indexOf("cat > play.env <<EOF2"), up.indexOf("\nEOF2", up.indexOf("cat > play.env")));
     expect(env).toContain("\nSHIP_TOKEN=$SHIP_TOKEN");
     expect(env).toContain("\nSHIP_REPO=$SHIP_REPO");
     // the token is never echoed
@@ -243,7 +247,7 @@ describe("the server's care", () => {
   const step = () => server().jobs.care.steps.find((s: any) => s.name === "remove-dns");
   /** the step's script, run with no token: it stops before it reaches any DNS API */
   const run = (name: string) => {
-    const p = Bun.spawnSync(["bash", "-e", "-c", step().run], { env: { PATH: process.env.PATH!, ZONE: "maia.city", NAME: name, DNS_TOKEN: "", HCLOUD_TOKEN: "" } });
+    const p = Bun.spawnSync(["bash", "-e", "-c", step().run], { cwd: ROOT, env: { PATH: process.env.PATH!, ZONE: "maia.city", NAME: name, DNS_TOKEN: "", HCLOUD_TOKEN: "" } });
     return { code: p.exitCode, out: p.stdout.toString() + p.stderr.toString() };
   };
 
@@ -253,7 +257,9 @@ describe("the server's care", () => {
     expect(s.on.workflow_dispatch.inputs.record.required).toBe(false);
     expect(step().if).toBe("inputs.mode == 'remove-dns'");
     expect(step().env).toMatchObject({ DNS_TOKEN: "${{ secrets.HETZNER_DNS_TOKEN }}", HCLOUD_TOKEN: "${{ secrets.HETZNER_API_KEY }}", ZONE: "maia.city", NAME: "${{ inputs.record }}" });
-    for (const other of s.jobs.care.steps.filter((x: any) => x.name !== "remove-dns")) expect(other.if).toBe("inputs.mode != 'remove-dns'");
+    // the checkout (deploy/dns.sh) is the one other step remove-dns runs
+    expect(s.jobs.care.steps[0]).toEqual({ uses: "actions/checkout@v4" });
+    for (const other of s.jobs.care.steps.slice(1).filter((x: any) => x.name !== "remove-dns")) expect(other.if).toBe("inputs.mode != 'remove-dns'");
     // it names no record of its own: the name comes only from the input
     expect(step().run.match(/^NAME=.*$/gm)).toEqual([expect.stringMatching(/^NAME=\$\(tr 'A-Z' 'a-z' <<< "\$NAME"\)/)]);
   });

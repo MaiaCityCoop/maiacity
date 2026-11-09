@@ -3,8 +3,8 @@
 #   clean   frees what nothing uses (unused images, build cache, the journal, leftovers of backups) and mends play's
 #           broken files from the backups in the bucket; then reports again
 #   remove-dns  removes every record of one name of the maia.city zone (`record`, e.g. a host no longer served): read
-#           first, only what is there removed, through the same Hetzner tokens as production.yml's DNS step. It
-#           refuses play, api (the deploy's host), www and the apex.
+#           first, only what is there removed (deploy/dns.sh, as production.yml's DNS step). It refuses play, api (the
+#           deploy's host), www and the apex.
 name: server
 
 on:
@@ -29,13 +29,6 @@ concurrency:
   group: production-release
   cancel-in-progress: false
 
-env:
-  APP_DIR: /opt/maia-city
-  HOST: api.maia.city
-  S3_BUCKET: maiacity
-  S3_ENDPOINT: https://hel1.your-objectstorage.com
-  S3_REGION: hel1
-
 jobs:
   care:
     name: ${{ inputs.mode }}
@@ -43,6 +36,7 @@ jobs:
     timeout-minutes: 45
     environment: production
     steps:
+      - uses: actions/checkout@v4
       - name: remove-dns
         if: inputs.mode == 'remove-dns'
         env:
@@ -50,43 +44,16 @@ jobs:
           HCLOUD_TOKEN: ${{ secrets.HETZNER_API_KEY }}
           ZONE: maia.city
           NAME: ${{ inputs.record }}
-          CLOUD: https://api.hetzner.cloud/v1
         run: |
           NAME=$(tr 'A-Z' 'a-z' <<< "$NAME"); NAME=${NAME%.maia.city}; NAME=${NAME%.}
           [[ "$NAME" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$ ]] || { echo "::error::remove-dns: '$NAME' is not a name in $ZONE"; exit 1; }
           case "$NAME" in
             play|api|www|@|maia.city) echo "::error::remove-dns: $NAME.$ZONE is served (play, api, www and the apex are never removed here)"; exit 1 ;;
           esac
-          api=
-          if [ -n "$DNS_TOKEN" ]; then
-            zone=$(curl -fsS -H "Auth-API-Token: $DNS_TOKEN" "https://dns.hetzner.com/api/v1/zones?name=$ZONE" 2> /dev/null | jq -r '.zones[0].id // empty' || true)
-            [ -n "$zone" ] && api=dns
-          fi
-          if [ -z "$api" ]; then
-            for token in "$DNS_TOKEN" "$HCLOUD_TOKEN"; do
-              [ -n "$token" ] || continue
-              if curl -fsS -o /dev/null -H "Authorization: Bearer $token" "$CLOUD/zones/$ZONE" 2> /dev/null; then api=cloud; CLOUD_DNS=$token; break; fi
-            done
-          fi
-          [ -n "$api" ] || { echo "::error::No token reaches the zone $ZONE: remove $NAME.$ZONE by hand"; exit 1; }
-          if [ "$api" = dns ]; then
-            H="Auth-API-Token: $DNS_TOKEN"
-            records=$(curl -fsS -H "$H" "https://dns.hetzner.com/api/v1/records?zone_id=$zone" | jq -c --arg n "$NAME" '[.records[] | select(.name == $n)]')
-            echo "$NAME.$ZONE now: $(jq -r 'map("\(.type) \(.value)") | join(", ") | if . == "" then "none" else . end' <<< "$records")"
-            for id in $(jq -r '.[].id' <<< "$records"); do curl -fsS -X DELETE -H "$H" "https://dns.hetzner.com/api/v1/records/$id" > /dev/null; done
-          else
-            H="Authorization: Bearer $CLOUD_DNS"
-            sets=$(curl -fsS -H "$H" "$CLOUD/zones/$ZONE/rrsets?name=$NAME&per_page=100" | jq -c --arg n "$NAME" '[.rrsets[] | select(.name == $n)]')
-            echo "$NAME.$ZONE now: $(jq -r 'map("\(.type) \(.records | map(.value) | join(" "))") | join(", ") | if . == "" then "none" else . end' <<< "$sets")"
-            for type in $(jq -r '.[].type' <<< "$sets"); do curl -fsS -X DELETE -H "$H" "$CLOUD/zones/$ZONE/rrsets/$NAME/$type" > /dev/null; done
-          fi
-          echo "$NAME.$ZONE: no record left"
-      - uses: actions/checkout@v4
-        if: inputs.mode != 'remove-dns'
+          bash deploy/dns.sh remove "$NAME"
       - uses: ./.github/actions/prod-ssh
         if: inputs.mode != 'remove-dns'
         with:
-          host: ${{ env.HOST }}
           ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
           known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
       - name: Copy the script and the bucket's access
@@ -96,12 +63,8 @@ jobs:
           S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
         run: |
           ssh prod "mkdir -p $APP_DIR/deploy $APP_DIR/backups-tmp"
-          scp deploy/server-care.sh "prod:$APP_DIR/deploy/"
-          if [ -n "$S3_ACCESS_KEY" ] && [ -n "$S3_SECRET_KEY" ]; then
-            printf 'BACKUP_BUCKET=%s\nBACKUP_ENDPOINT=%s\nBACKUP_REGION=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' \
-              "$S3_BUCKET" "$S3_ENDPOINT" "$S3_REGION" "$S3_ACCESS_KEY" "$S3_SECRET_KEY" \
-              | ssh prod "umask 077; cat > $APP_DIR/backup.env"
-          fi
+          scp deploy/lib.sh deploy/server-care.sh "prod:$APP_DIR/deploy/"
+          bash deploy/bucket-keys.sh --if-set
       - name: ${{ inputs.mode }}
         if: inputs.mode != 'remove-dns'
         env:

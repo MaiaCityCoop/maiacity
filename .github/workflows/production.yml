@@ -1,18 +1,10 @@
-# production: what is released, play and the website. production follows main (Accept ships it, play/SPEC.md §4.12;
-# Samuel 2026-11-06): an admin's Accept on play merges an intent's pull request into main, and once main.yml is green
-# release.yml moves production to that commit (fast-forward, the only way production moves) and starts this by
-# workflow_dispatch. The checks run once, on main (main.yml): here every job's first step after its checkout reads their
-# result for the commit (.github/actions/main-green), so no job only waits (intent 5ab64b8e): The image, The backup and
-# The website start together, and The server, which needs the image and the backup, changes nothing on the server
-# before play is backed up.
-# The deploy, both:
-#   play to play.maia.city (play/SPEC.md §9): the backup to the bucket (deploy/backup.sh), the image to GHCR, the DNS
-#     record, the server — play's role and schema in the same Postgres, play-api beside the running containers
-#     (--no-deps), the import, Caddy answering play.maia.city;
-#   the website to maia.city (website/README.md): its build into the server's site/releases/<commit>, site/current
-#     switched to it.
-# GitHub Actions with the DEPLOY_SSH_KEY secret, as legacy's release ran. The repository is play and the website alone
-# (Samuel 2026-11-02; everything before is on the branch SNAPSHOT_2611101).
+# production: play and the website released (Accept ships it, play/SPEC.md §4.12; Samuel 2026-11-06). release.yml moves
+# production fast-forward to a commit of main once main.yml is green for it, and starts this by workflow_dispatch. The
+# checks run once, on main: every job's first step after its checkout reads them for the commit (.github/actions/
+# main-green), so no job only waits (intent 5ab64b8e). The image, The backup and The website start together; The server
+# needs the image and the backup, so nothing on the server changes before play is backed up. play goes to
+# play.maia.city (play/SPEC.md §9: deploy/backup.sh, the image, deploy/dns.sh, deploy/server-up.sh), the website to
+# maia.city (website/README.md). The server and its constants: deploy/lib.sh, reached by .github/actions/prod-ssh.
 name: production
 
 on:
@@ -26,14 +18,6 @@ permissions:
 concurrency:
   group: production-release
   cancel-in-progress: false
-
-env:
-  APP_DIR: /opt/maia-city
-  HOST: api.maia.city
-  # Hetzner Object Storage: BACKUPS/play/ play's backups (deploy/backup.sh)
-  S3_BUCKET: maiacity
-  S3_ENDPOINT: https://hel1.your-objectstorage.com
-  S3_REGION: hel1
 
 jobs:
   image:
@@ -64,9 +48,7 @@ jobs:
           docker build -f play/Dockerfile --build-arg PLAY_COMMIT="$GITHUB_SHA" -t "${{ steps.tag.outputs.image }}" .
           docker push "${{ steps.tag.outputs.image }}"
 
-  # Before anything on the server changes: play's schema and a full copy of its files to the bucket, with the image that
-  # ran with them (deploy/backup.sh, which lists the store and stops if a file is missing). Beside The image, not after
-  # it: it needs no image, and The server waits for both.
+  # play's schema and its files to the bucket, with the image that ran with them (deploy/backup.sh stops on a file missing)
   backup:
     name: The backup
     environment: production
@@ -83,30 +65,21 @@ jobs:
           sha: ${{ github.sha }}
       - uses: ./.github/actions/prod-ssh
         with:
-          host: ${{ env.HOST }}
           ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
           known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-      # play's deploy files to the server in one connection (one tar over ssh: no handshake per file), each to where
-      # it was put before ($APP_DIR/play/…, $APP_DIR/deploy/backup.sh and restore.sh)
+      # play's deploy files to the server in one connection (one tar over ssh: no handshake per file)
       - name: Copy play's files
         run: |
           tar -cf - play/docker-compose.play.yml play/deploy/setup.sql play/deploy/after-import.sql play/deploy/Caddyfile.play \
-            deploy/backup.sh deploy/restore.sh | ssh prod "mkdir -p $APP_DIR && tar -xf - --no-same-owner -C $APP_DIR"
-      # Before anything changes: play's schema and a full copy of its files go to the bucket, with the image that ran
-      # with them (deploy/backup.sh); the deploy stops if that fails. Only here, on a deploy: nothing runs on a
-      # schedule, and the old daily dump's cron is taken away (Samuel 2026-11-02). Restore by hand: restore.yml.
+            deploy/lib.sh deploy/backup.sh deploy/restore.sh | ssh prod "mkdir -p $APP_DIR && tar -xf - --no-same-owner -C $APP_DIR"
+      # Only here, on a deploy: nothing runs on a schedule, and the old daily dump's cron is taken away (Samuel
+      # 2026-11-02). Restore by hand: restore.yml.
       - name: Back up play
         env:
           S3_ACCESS_KEY: ${{ secrets.HETZNER_S3_ACCESS_KEY }}
           S3_SECRET_KEY: ${{ secrets.HETZNER_S3_SECRET_KEY }}
         run: |
-          if [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
-            echo "::error::No backup without the bucket's keys: set HETZNER_S3_ACCESS_KEY and HETZNER_S3_SECRET_KEY."; exit 1
-          fi
-          # the keys travel over stdin into a file only deploy can read, never as arguments
-          printf 'BACKUP_BUCKET=%s\nBACKUP_ENDPOINT=%s\nBACKUP_REGION=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\n' \
-            "$S3_BUCKET" "$S3_ENDPOINT" "$S3_REGION" "$S3_ACCESS_KEY" "$S3_SECRET_KEY" \
-            | ssh prod "umask 077; cat > $APP_DIR/backup.env"
+          bash deploy/bucket-keys.sh
           ssh prod "sudo rm -f /etc/cron.d/maia-city-backup; timeout 1200 bash $APP_DIR/deploy/backup.sh before-deploy-${GITHUB_SHA::7} $GITHUB_SHA </dev/null"
 
   # play on the server: only once the image is built and play is backed up
@@ -136,60 +109,14 @@ jobs:
           [[ -n "$mount" && "$ipv4" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::no dataMount or ipv4 in the Pulumi state"; exit 1; }
           echo "data_mount=$mount" >> "$GITHUB_OUTPUT"
           echo "ipv4=$ipv4" >> "$GITHUB_OUTPUT"
-      # play.maia.city's A record to the server, as legacy's deploy kept its names:
-      # Hetzner's DNS Console API (HETZNER_DNS_TOKEN) or the Cloud API's zones (HETZNER_DNS_TOKEN or HETZNER_API_KEY);
-      # read first, written only when it differs
       - name: DNS
         env:
           DNS_TOKEN: ${{ secrets.HETZNER_DNS_TOKEN }}
           HCLOUD_TOKEN: ${{ secrets.HETZNER_API_KEY }}
           IPV4: ${{ steps.infra.outputs.ipv4 }}
-          ZONE: maia.city
-          NAME: play
-          CLOUD: https://api.hetzner.cloud/v1
-        run: |
-          api=
-          if [ -n "$DNS_TOKEN" ]; then
-            zone=$(curl -fsS -H "Auth-API-Token: $DNS_TOKEN" "https://dns.hetzner.com/api/v1/zones?name=$ZONE" 2> /dev/null | jq -r '.zones[0].id // empty' || true)
-            [ -n "$zone" ] && api=dns
-          fi
-          if [ -z "$api" ]; then
-            for token in "$DNS_TOKEN" "$HCLOUD_TOKEN"; do
-              [ -n "$token" ] || continue
-              if curl -fsS -o /dev/null -H "Authorization: Bearer $token" "$CLOUD/zones/$ZONE" 2> /dev/null; then api=cloud; CLOUD_DNS=$token; break; fi
-            done
-          fi
-          if [ -z "$api" ]; then
-            echo "::warning::No token reaches the zone $ZONE: set by hand  $NAME.$ZONE. 300 IN A $IPV4"
-            exit 0
-          fi
-          if [ "$api" = dns ]; then
-            H="Auth-API-Token: $DNS_TOKEN"
-            records=$(curl -fsS -H "$H" "https://dns.hetzner.com/api/v1/records?zone_id=$zone" | jq -c --arg n "$NAME" '[.records[] | select(.type == "A" and .name == $n)]')
-            now=$(jq -r 'map(.value) | join(" ")' <<< "$records")
-            echo "A $NAME.$ZONE now: ${now:-none}"
-            [ "$now" = "$IPV4" ] && exit 0
-            body=$(jq -nc --arg z "$zone" --arg n "$NAME" --arg v "$IPV4" '{zone_id: $z, type: "A", name: $n, value: $v, ttl: 300}')
-            id=$(jq -r '.[0].id // empty' <<< "$records")
-            if [ -n "$id" ]; then curl -fsS -X PUT -H "$H" -H 'Content-Type: application/json' -d "$body" "https://dns.hetzner.com/api/v1/records/$id" > /dev/null
-            else curl -fsS -X POST -H "$H" -H 'Content-Type: application/json' -d "$body" https://dns.hetzner.com/api/v1/records > /dev/null; fi
-          else
-            H="Authorization: Bearer $CLOUD_DNS"
-            set=$(curl -sS -H "$H" "$CLOUD/zones/$ZONE/rrsets/$NAME/A")
-            now=$(jq -r '.rrset.records // [] | map(.value) | join(" ")' <<< "$set")
-            echo "A $NAME.$ZONE now: ${now:-none}"
-            [ "$now" = "$IPV4" ] && exit 0
-            records=$(jq -nc --arg v "$IPV4" '[{value: $v}]')
-            if jq -e .rrset > /dev/null <<< "$set"; then
-              curl -fsS -X POST -H "$H" -H 'Content-Type: application/json' -d "{\"records\": $records}" "$CLOUD/zones/$ZONE/rrsets/$NAME/A/actions/set_records" > /dev/null
-            else
-              curl -fsS -X POST -H "$H" -H 'Content-Type: application/json' -d "$(jq -nc --arg n "$NAME" --argjson r "$records" '{name: $n, type: "A", ttl: 300, records: $r}')" "$CLOUD/zones/$ZONE/rrsets" > /dev/null
-            fi
-          fi
-          echo "A $NAME.$ZONE set: $IPV4"
+        run: bash deploy/dns.sh set play "$IPV4"
       - uses: ./.github/actions/prod-ssh
         with:
-          host: ${{ env.HOST }}
           ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
           known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
       - name: Start play-api, import, and answer play.maia.city
@@ -210,65 +137,15 @@ jobs:
             echo "::error::play keeps its files in the bucket: set HETZNER_S3_ACCESS_KEY and HETZNER_S3_SECRET_KEY."; exit 1
           fi
           [ -n "$SHIP_TOKEN" ] || echo "::warning::No SHIP_TOKEN: play cannot merge an accepted intent's pull request (deploy/README.md)."
-          ssh prod "cd $APP_DIR && bash -s" <<EOS
-          set -e
-          exec 9>.env.lock; flock -w 300 9
-          # play's database password: made once beside Postgres's data, never in git or a log
-          PWFILE="$DATA_MOUNT/.play_db_password"
-          if [ ! -f "\$PWFILE" ]; then openssl rand -hex 24 | sudo tee "\$PWFILE" >/dev/null; sudo chown deploy "\$PWFILE"; sudo chmod 600 "\$PWFILE"; fi
-          PW=\$(cat "\$PWFILE")
-          sudo mkdir -p "$DATA_MOUNT/play" && sudo chown 1000:1000 "$DATA_MOUNT/play"
-          umask 077
-          cat > play.env <<EOF2
-          PLAY_IMAGE=$IMAGE
-          PLAY_DATABASE_URL=postgres://play:\$PW@db:5432/maiacity
-          PLAY_DATA_PATH=$DATA_MOUNT/play
-          PLAY_BUCKET=$S3_BUCKET
-          PLAY_BUCKET_ENDPOINT=$S3_ENDPOINT
-          PLAY_BUCKET_REGION=$S3_REGION
-          PLAY_BUCKET_ACCESS_KEY=$S3_ACCESS_KEY
-          PLAY_BUCKET_SECRET_KEY=$S3_SECRET_KEY
-          PLAY_MIRROR_ROOT=BACKUPS/play-files/blobs
-          SHIP_TOKEN=$SHIP_TOKEN
-          SHIP_REPO=$SHIP_REPO
-          EOF2
-          set -a; . ./play.env; set +a
-          C="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f play/docker-compose.play.yml"
-          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin >/dev/null
-          \$C pull play-api
-          # the files still in the folder on the volume go into the bucket first (only the ones it lacks, each checked
-          # against its hash), so play finds every one there once it runs on the bucket; a copy that fails stops here
-          # then the folder leaves the volume (kept whole on the root disk, beside the app), which it was filling
-          if [ -d "$DATA_MOUNT/play/blobs" ]; then
-            \$C run --rm -T --no-deps play-api bun src/tobucket.ts </dev/null
-            KEPT=$APP_DIR/play-folder-blobs-\$(date -u +%Y%m%dT%H%M%SZ)
-            sudo mv "$DATA_MOUNT/play/blobs" "\$KEPT"
-            echo "play's files are in the bucket; the folder they were in is kept at \$KEPT"
-          fi
-          # play's role and schema
-          \$C exec -T db psql -v ON_ERROR_STOP=1 -U maiacity -d maiacity -v pw="'\$PW'" < play/deploy/setup.sql
-          \$C up -d --no-deps play-api
-          # the import: it writes only what play lacks from the repo (its site's media, readable sources, stories, …)
-          # -T and </dev/null: this script reaches the server on stdin (bash -s), and a run that reads stdin eats the rest
-          \$C run --rm -T --no-deps play-api bun import/run.ts --report /data/import-report.md </dev/null
-          \$C exec -T db psql -v ON_ERROR_STOP=1 -U maiacity -d maiacity < play/deploy/after-import.sql
-          # Caddy answers play.maia.city: its block added once, the file's inode kept (it is bind-mounted)
-          grep -q '>>> play.maia.city' deploy/Caddyfile || cat play/deploy/Caddyfile.play >> deploy/Caddyfile
-          # a file bind mount holds the file the container started with: if deploy/Caddyfile was replaced since, Caddy
-          # still sees the old one. Then load the current file from the site folder it also mounts (not served: the
-          # site is site/current), with no restart; the next start of Caddy reads deploy/Caddyfile itself.
-          CONFIG=/etc/caddy/Caddyfile
-          if [ "\$(\$C exec -T caddy grep -c '>>> play.maia.city' /etc/caddy/Caddyfile </dev/null || true)" = "0" ]; then
-            cp deploy/Caddyfile site/.Caddyfile-current
-            CONFIG=/srv/site/.Caddyfile-current
-          fi
-          \$C exec -T caddy caddy validate --config \$CONFIG --adapter caddyfile </dev/null
-          \$C exec -T caddy caddy reload --config \$CONFIG --adapter caddyfile </dev/null
-          docker logout ghcr.io >/dev/null
-          EOS
+          { for v in DATA_MOUNT IMAGE GHCR_TOKEN ACTOR S3_ACCESS_KEY S3_SECRET_KEY SHIP_TOKEN SHIP_REPO; do printf '%s=%q\n' "$v" "${!v}"; done
+            cat deploy/server-up.sh; } | ssh prod "cd $APP_DIR && bash -s"
       - name: Check
         run: |
-          ssh prod 'for i in 1 2 3 4 5 6; do docker exec maia-city-play bun -e "fetch(\"http://localhost:3000/api/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" && { echo "play-api answers"; docker exec maia-city-play cat /data/import-report.md | head -20; exit 0; }; sleep 5; done; docker logs --tail 80 maia-city-play; exit 1'
+          ssh prod "cd $APP_DIR && bash -s" <<'EOS'
+          . deploy/lib.sh
+          if answers "$PLAY_CONTAINER" 6 5; then echo "play-api answers"; docker exec "$PLAY_CONTAINER" cat /data/import-report.md | head -20; exit 0; fi
+          docker logs --tail 80 "$PLAY_CONTAINER"; exit 1
+          EOS
       - name: play.maia.city answers over HTTPS
         run: |
           # Caddy fetches the certificate on its own after the reload; wait for it, and on failure show what Caddy says
@@ -279,9 +156,8 @@ jobs:
           ssh prod 'echo "play blocks Caddy reads: $(docker exec maia-city-caddy grep -c ">>> play.maia.city" /etc/caddy/Caddyfile)"; docker exec maia-city-caddy caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null | grep -o "play.maia.city" | head -1; docker logs --since 30m maia-city-caddy 2>&1 | grep -iE "play.maia.city|error" | tail -40'
           exit 1
 
-  # the website (website/) to maia.city, as legacy's release put it there: its prerendered build into the server's
-  # site/releases/<commit>, then deploy/publish-site.py switches the relative site/current link to it atomically and keeps
-  # the last releases (their hashed chunks stay reachable for open pages). Caddy serves site/current; nothing restarts.
+  # its prerendered build into the server's site/releases/<commit>; deploy/publish-site.py switches site/current to it
+  # atomically and keeps the last releases (their hashed chunks stay reachable for open pages). Nothing restarts.
   website:
     name: The website
     environment: production
@@ -307,7 +183,6 @@ jobs:
           tar -czf "$RUNNER_TEMP/site.tgz" -C build .
       - uses: ./.github/actions/prod-ssh
         with:
-          host: ${{ env.HOST }}
           ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
           known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
       - name: Put the build on the server and switch to it
@@ -318,7 +193,7 @@ jobs:
       - name: maia.city answers with it
         run: |
           for i in $(seq 1 12); do
-            curl -fsS -m 10 -o /dev/null https://maia.city/site-notice/ && { echo "https://maia.city answers"; exit 0; }
+            curl -fsS -m 10 -o /dev/null https://maia.city/ && { echo "https://maia.city answers"; exit 0; }
             sleep 5
           done
           exit 1
