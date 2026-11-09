@@ -70,3 +70,10 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    the four take it. Types only: gate api (354 pass) and site; svelte-check's errors unchanged (9, all in held files).
    Left: AssetLibrary's and the Worlds page's own `Listed`/`Version` of `/api/assets` (the API has no named type for
    that answer yet), and the Rules page's narrower read of a version (number and hash), which needs no more.
+8. **The bench reads its manifest through the site's client** (site: `fetch(` outside api.ts, 2 → 0). Moved under
+   `routes/` (move 1), the bench's `?load=` manifest and its files were the pages' only `fetch(`. They are read with
+   `lib/api.ts` `siteBlob` now: the same requests (same origin); a manifest or file that does not come back is refused
+   with its HTTP status where before a 404 page was read as JSON or as a piece's code. Pinned: gate site; svelte-check
+   unchanged; the bench is run by hand (`/render/?load=`).
+9. **`ParityWindow` no longer exported** (dead: 1 → 0). The held `story-parity.ts`, now main's, no longer imports the
+   type the sweep exported for it from `story-parity-page.ts`, which alone uses it.

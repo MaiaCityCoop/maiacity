@@ -44,6 +44,7 @@
 	import { AssetBox } from '$lib/content/assets/box/host.js';
 	import { LATEST, RECIPE_HEAD, recipeFile } from '$lib/content/assets/box/engines.js';
 	import { hashText } from '$lib/kernel/hash.js';
+	import { siteBlob } from '$lib/api';
 	import { admitHanded } from '$lib/content/assets/catalog.js';
 	import { handPiece, handedPieces } from '$lib/content/assets/box/pieces.js';
 
@@ -123,8 +124,8 @@
 		if (!at) return;
 		try {
 			const base = new URL(at, location.href);
-			const m = await (await fetch(base)).json();
-			const text = async (f) => (await fetch(new URL(f, base))).text();
+			const text = async (f) => (await siteBlob(new URL(f, base).href)).text();
+			const m = JSON.parse(await text(base.href));
 			const here = {};
 			for (const p of m.pieces ?? []) {
 				const got = window.__render.piece({ code: await text(p.file) });
