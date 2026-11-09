@@ -351,3 +351,20 @@ from no template three times, once beside eight busy loops on four cores. c12 re
 origin/main; census-same.sh now fetches and unshallows as vs-main.ts does (shown on a depth-1 clone of GitHub). Main
 was merged in by hand for its one real conflict (routes/game-editor/+page.svelte: this branch's `$wire` DocVersion and
 `isAdmin`, main's new levelling rows), with 7af6e162 landed.
+
+### Main keeps landing (15:00–15:35Z): the bounds are fixed numbers, main is not
+
+Since marking ready, main landed 7af6e162, 8823eb7c and 6fd5e63f; play merged them in (and one real conflict was
+mine: routes/game-editor). Each landing brings code nothing here swept and frees files this intent held off, and the
+reduce bounds are absolute numbers taken on d5346b7, so measures that passed fail again: after 7af6e162/8823eb7c,
+dead (4), layers (11), comments (9,549): fixed (quiet.js below its users, scripts/lib; four exports un-exported;
+9,549 → 9,220 comment lines, comment-only, transpiled code identical). After 6fd5e63f: box → content/assets (4),
+two folder cycles, comments (9,506), one gone-file pointer, all in the files it released (the first audit's held
+*Next untangles*, now in reach): the site3 pass takes them. Also from CI's first run through the gate: the test
+template is now made before the test files start (play/api/test/template.ts), not by the first file while the rest
+wait.
+
+**For Samuel:** f63774a3's vs-main (bounds relative to main measured in the same run) is the form these reduce
+checks would want; as written they can turn red each time a GPU intent lands, also after this one reaches Proposal
+(play merges main in and the box records again). Re-specifying them is a step back and his Approve spec; this intent
+keeps meeting them as written meanwhile.
