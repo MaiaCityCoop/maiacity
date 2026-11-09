@@ -238,10 +238,24 @@ describe("the workflows", () => {
     expect(main.jobs.website.uses).toBe("./.github/workflows/website-checks.yml");
     expect([main.jobs.play.name, main.jobs.website.name]).toEqual(["play", "website"]);
     expect(main.permissions).toEqual({ contents: "read", actions: "read", checks: "read", "pull-requests": "read" });
-    const play = yaml(".github/workflows/play-checks.yml").jobs.checks;
+    const jobs = yaml(".github/workflows/play-checks.yml").jobs;
     const site = yaml(".github/workflows/website-checks.yml").jobs.build;
-    expect([play.name, site.name]).toEqual(["API and site", "build"]);
-    for (const [job, check] of [[play, "play / API and site"], [site, "website / build"]] as [any, string][]) {
+    expect([jobs.checks.name, site.name]).toEqual(["API and site", "build"]);
+    // play's (intent 417af727): the tested tree its own job; the API and the site run only when it did not say the very
+    // tree passed, and the check "API and site" ends by naming the tree it covered
+    const tested = jobs.tested.steps.find((s: any) => s.id === "tested");
+    expect(tested.if).toBe("github.event_name == 'push'");
+    expect(tested.env.CHECK).toBe("play / API and site");
+    expect(tested.run).toBe("bash .github/workflows/tested-tree.sh");
+    expect(jobs.tested.outputs.skip).toBe("${{ steps.tested.outputs.skip }}");
+    for (const k of ["api", "site"]) {
+      expect(jobs[k].needs).toBe("tested");
+      expect(jobs[k].if).toBe("needs.tested.outputs.skip != 'true'");
+      expect(jobs[k].services).toBeUndefined();
+    }
+    expect(jobs.checks.steps.at(-1).if).toBe("needs.tested.outputs.skip != 'true'");
+    expect(jobs.checks.steps.at(-1).run).toBe(`echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"`);
+    for (const [job, check] of [[site, "website / build"]] as [any, string][]) {
       expect(job.services).toBeUndefined();
       const tested = job.steps.find((s: any) => s.id === "tested");
       // only on a push to main may the tested tree skip: on a pull request the step does not run, so nothing skips
@@ -253,9 +267,9 @@ describe("the workflows", () => {
       // a run that tested ends by naming its tree
       expect(job.steps.at(-1).run).toBe(`echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"`);
     }
-    const pgStep = play.steps.find((s: any) => s.name === "Postgres");
+    const pgStep = jobs.api.steps.find((s: any) => s.name === "Postgres");
     expect(pgStep.run).toContain("postgres:17-alpine");
-    expect(play.steps.find((s: any) => s.name === "The API").run).toContain("bun test");
+    expect(jobs.api.steps.find((s: any) => s.name === "The API").run).toContain("bun test");
   });
 
   test("every gate kept", () => {

@@ -7,5 +7,13 @@ export default defineConfig({
 	tsconfig: './tsconfig.json',
 	plugins: [sveltekit()],
 	server: { proxy: { '/api': process.env.PLAY_API || 'http://localhost:3911' } },
-	test: { include: ['src/**/*.test.{ts,js}'], environment: 'node' }
+	// a *.bun.test.ts needs Bun's runtime (its Worker): `bun run test` runs those with Bun after vitest's. Sandbox 7's
+	// fixture.test.ts holds no test, only the planet its tests share (named .test.ts so the image's build leaves it out)
+	test: {
+		include: ['src/**/*.test.{ts,js}'],
+		exclude: ['**/node_modules/**', 'src/**/*.bun.test.ts', 'src/lib/content/sandbox-7/fixture.test.ts'],
+		environment: 'node',
+		// in CI the suite runs beside the API's tests, at the lowest priority: a test of a few seconds alone needs room
+		testTimeout: 30_000
+	}
 });
