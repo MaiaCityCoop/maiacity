@@ -1,5 +1,10 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## 09:58 Berlin (08:58 UTC): the loop
+#8 (a6f20d941, started 09:47, at its c8 views now) → #13 run 2 (24454c2d-render@b852dd8b4, head bf417ab) → #6 run 2
+(6fd5e63f-render@0cf50a18a, head a095a3b) → 0b4c007b's sky-light calibration → 544485e2's viewer calibration, all in
+one nohup loop (chain11). 660ad67f's job goes first as soon as it is pushed (tell me its branch@commit here or by relay).
+
 ## 09:55 Berlin (08:55 UTC)
 - **#13 c6 recorded: FAIL** (on 78f941f8, evidence on the intent). Base vs head SSIM 0.96–0.997: the masks change little on
   screen. Paths are clear, but at walking height the small cover is still single sprigs spread evenly over bare soil
