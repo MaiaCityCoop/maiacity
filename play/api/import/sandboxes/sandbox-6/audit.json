@@ -49,83 +49,83 @@
 			"value": null,
 			"pending": "the village's heat demand is not yet worked out"
 		},
-		"hallPerResident": {
-			"label": "Community hall and meeting rooms a resident",
-			"unit": "m²",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
-		},
-		"theatrePerResident": {
-			"label": "Theatre and assembly hall a resident",
-			"unit": "m²",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
-		},
-		"sportHalls": {
-			"label": "Sports halls",
-			"unit": "halls",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
-		},
-		"sportHallM2": {
-			"label": "A sports hall with its changing rooms",
-			"unit": "m²",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
-		},
-		"libraryPerResident": {
-			"label": "Library a resident",
-			"unit": "m²",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
-		},
 		"commonHousePerResident": {
-			"label": "Shared kitchens and dining a resident",
+			"label": "Shared kitchens, dining and common rooms a resident (a cohousing common house)",
 			"unit": "m²",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
+			"value": 9,
+			"source": "ART:1"
+		},
+		"halls": {
+			"label": "Community halls in the tower",
+			"unit": "halls",
+			"value": 1,
+			"decided": "Samuel 2026-11-09: \"The tower should be way smaller, and it's more about communal spaces\"; the spec's default moves the theatre and library into it"
+		},
+		"hallM2": {
+			"label": "A two-court village hall (18 × 17 m, seats up to 356, 496 with a stage)",
+			"unit": "m²",
+			"value": 306,
+			"source": "ART:2"
+		},
+		"sportPerResident": {
+			"label": "Usable sports hall a resident (municipalities up to 10,000)",
+			"unit": "m²",
+			"value": 0.37,
+			"source": "ART:3"
+		},
+		"libraries": {
+			"label": "Libraries in the tower",
+			"unit": "libraries",
+			"value": 1,
+			"decided": "Samuel 2026-11-09: \"The tower should be way smaller, and it's more about communal spaces\"; the spec's default moves the theatre and library into it"
+		},
+		"libraryM2": {
+			"label": "A village library below 2,500 inhabitants, at least",
+			"unit": "m²",
+			"value": 75,
+			"source": "ART:4"
 		},
 		"workshopPerResident": {
 			"label": "Workshops and studios a resident",
 			"unit": "m²",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
+			"value": 0.1,
+			"estimate": "About one registered user a m² (makerspace survey, ART:5) times a tenth of the residents registered: no per-resident benchmark for community workshops was found"
 		},
 		"marketPerResident": {
 			"label": "Market hall and cafés a resident",
 			"unit": "m²",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
+			"value": 0.5,
+			"estimate": "No per-resident benchmark found for a village market hall and cafés: half a square metre a resident gives ~700 m², a market hall with a few stalls and two cafés"
 		},
-		"coworkDesks": {
-			"label": "Co-working desks",
+		"coworkDesksPerResident": {
+			"label": "Co-working desks a resident",
 			"unit": "desks",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
+			"value": 0.0625,
+			"source": "ART:7"
 		},
 		"deskM2": {
-			"label": "Floor a co-working desk, its share of meeting rooms and kitchen",
+			"label": "Floor an open-plan desk, its share of circulation",
 			"unit": "m²",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
+			"value": 13.5,
+			"source": "ART:6"
 		},
 		"guestRooms": {
 			"label": "Guest rooms for visitors",
 			"unit": "rooms",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
+			"value": 20,
+			"estimate": "No benchmark found for a village's guest rooms; Samuel asked for tens, not 1,200: about one room for every 70 residents"
 		},
 		"guestRoomM2": {
-			"label": "Floor a guest room, its share of corridors",
+			"label": "Floor a guest room, its bath and share of corridor",
 			"unit": "m²",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
+			"value": 25,
+			"estimate": "A simple double room with its bath (~18 m²) and its share of corridor: no source read"
 		},
 		"usableShare": {
-			"label": "Usable floor of a public building's gross (NUF ÷ BGF)",
+			"label": "Usable floor of the tower's gross (NUF ÷ BGF)",
 			"unit": "×",
-			"value": null,
-			"pending": "being sourced: community-centre and cohousing common-house benchmarks"
+			"value": 0.75,
+			"estimate": "A public building's walls, core, stairs and plant take about a quarter of its gross floor (IFLA's library guidance adds 20 % non-assignable space to the net, before walls): no direct source read"
 		}
 	},
 	"split": {
@@ -300,19 +300,21 @@
 				"homeGfa": true
 			},
 			"contractor": [
-				1350,
-				1700,
-				2700
+				1103,
+				1553,
+				2028
 			],
 			"self": [
-				650,
-				900,
-				1300
+				550,
+				780,
+				1015
 			],
 			"unit": "€/m² BGF",
-			"basis": "contractor: German multi-family KG 300+400 (GdW 2023, BKI 2024: 1,820 / 2,300 / 3,360) less 20–30 % for no roof and no façade; self-built: materials 40–50 % plus licensed trades",
-			"source": "GdW serial/modular 2.0 (gdw.de 2023); BKI Bestseller 2024 (akhb.de); labour share 49–50 % (Statistik Austria BKI revision)",
-			"estimate": true
+			"basis": "BKI timber multi-family houses, KG 300+400 incl. VAT, Q1 2024: 1,575 / 2,070 / 2,535 €/m² BGF (read in full), less 30 / 25 / 20 % for no roof and no weather façade under a dome; self-built about half of it (materials 40–50 % plus licensed trades)",
+			"source": "BKI Bestseller 2024 (akhb.de)",
+			"estimate": true,
+			"artifact": "ART:10",
+			"note": "The research's 1,820 / 2,300 / 3,360 €/m² BGF is in neither source it named (GdW gives 2,370–4,374 €/m² of living area): replaced by BKI's timber value"
 		},
 		{
 			"id": "tower",
@@ -346,17 +348,21 @@
 			"contractor": [
 				13218,
 				15484,
-				35450
+				35300
 			],
 			"self": [
 				13218,
 				15484,
-				35450
+				35300
 			],
 			"unit": "€/ha",
-			"basis": "2024 sales; transfer tax not included",
-			"source": "state statistics offices, topagrar (Brandenburg / Saxony); topagrar, BMEL (Germany average)",
-			"note": "low Brandenburg, typical Brandenburg / Saxony, high the German average 35,300–35,600"
+			"basis": "2024 sales, total area; transfer tax not included",
+			"source": "Amt für Statistik Berlin-Brandenburg (low, read in full); top agrar from Destatis (high, read in full); typical: the research's Brandenburg / Saxony figure, unverified",
+			"note": "high: 35,300, not the research's 35,600, which no source gives",
+			"artifacts": [
+				"ART:8",
+				"ART:9"
+			]
 		},
 		{
 			"id": "roads",
@@ -368,17 +374,22 @@
 			"contractor": [
 				330000,
 				500000,
-				740000
+				1600000
 			],
 			"self": [
 				330000,
 				500000,
-				740000
+				1600000
 			],
 			"unit": "€/km",
-			"basis": "municipal asphalt road 5.5 m, contractor",
-			"source": "baucheck.io; infranken.de (Stammbach)",
-			"note": "the same self-built: machines and asphalt are bought"
+			"basis": "a 5.5 m municipal road: 330–660 € a running metre for its asphalt build-up (a cost calculator); a full widening with drainage and safety works ~1.6 M€/km (Kreisstraße BT 6, 2026)",
+			"source": "BauCheck (low, read in full); Bayreuther Tagblatt (high, read in full); typical: the research's, unverified",
+			"note": "typical between the two read; no municipal or state source gives 0.33–0.74 M€/km",
+			"artifacts": [
+				"ART:11",
+				"ART:12"
+			],
+			"estimate": true
 		},
 		{
 			"id": "paths",
@@ -411,19 +422,21 @@
 				"per": 1000
 			},
 			"contractor": [
-				500,
+				600,
 				1300,
 				2500
 			],
 			"self": [
-				500,
+				600,
 				1300,
 				2500
 			],
 			"unit": "€/m of trench",
 			"basis": "pipe and civil works, before ~40 % BEW subsidy",
-			"source": "kirchheim-neckar.de; losheim.de 2023; lea-hessen.de (Breuna 2025)",
-			"note": "typical: the middle of 1,150–1,460; high the middle of 2,000–3,000"
+			"source": "Kirchheim am Neckar price sheet 2024: 600 €/m net beyond a connection's 10 m, a lower bound (read in full); typical and high: the research's, unverified",
+			"note": "Breuna's network: 38 M€ for 26 km with its heat generators, ~1,460 €/m (read in full)",
+			"artifact": "ART:13",
+			"estimate": true
 		},
 		{
 			"id": "heat-connect",
@@ -433,19 +446,21 @@
 				"count": "buildings"
 			},
 			"contractor": [
-				4500,
-				8000,
-				12900
+				13000,
+				15000,
+				18500
 			],
 			"self": [
-				4500,
-				8000,
-				12900
+				13000,
+				15000,
+				18500
 			],
 			"unit": "€ each",
-			"basis": "substation and 10 m",
-			"source": "viessmann.de; sw-aalen.de 2024",
-			"note": "typical: the middle of 6,000–10,000"
+			"basis": "a connection's lump sum up to 10 m (6,000 € net) and its transfer station (7,000–12,500 € net, up to 100 kW)",
+			"source": "Kirchheim am Neckar price sheet 2024 (read in full)",
+			"note": "a dome over 100 kW of heat needs a larger station: not priced",
+			"artifact": "ART:13",
+			"estimate": true
 		},
 		{
 			"id": "water",
@@ -564,19 +579,20 @@
 				"input": "pvKwp"
 			},
 			"contractor": [
-				600,
+				700,
 				800,
-				1000
+				900
 			],
 			"self": [
-				600,
+				700,
 				800,
-				1000
+				900
 			],
 			"unit": "€/kWp",
-			"basis": "ground-mounted ~1 MWp, turnkey",
-			"source": "Fraunhofer ISE 2024; logicenergy.de 2026",
-			"coop": "solar coop"
+			"basis": "ground-mounted over 1 MWp, net of VAT, 2024 (read in full)",
+			"source": "Fraunhofer ISE, Stromgestehungskosten 2024",
+			"coop": "solar coop",
+			"artifact": "8f855386-599c-4b3d-8c79-1cc88226858a"
 		},
 		{
 			"id": "battery",
@@ -659,7 +675,7 @@
 		"note": "What the old Sandbox 6 showed (the branch SNAPSHOT_2611101): listed for the report, never used"
 	},
 	"research": {
-		"note": "The unit costs are the market research of 2026-11-09, made at Samuel's request (\"make the costs research now\"): public web sources, 2023–2026 prices in euros (GBP 1.18, USD 0.87–0.92, CHF 1.07). Its limit: page fetching was blocked where it was made, so every figure comes from search-engine extracts of the cited pages, not full reads; a row with one source is unverified; a row marked an estimate is the researcher's own build-up. Contractor: installed by a contractor. Self-built: materials, the villagers' own labour (structural design, cranes and licensed trades still bought).",
+		"note": "The unit costs are the market research of 2026-11-09, made at Samuel's request (\"make the costs research now\"): public web sources, 2023–2026 prices in euros (GBP 1.18, USD 0.87–0.92, CHF 1.07). Its limit: page fetching was blocked where it was made, so every figure comes from search-engine extracts of the cited pages, not full reads; a row with one source is unverified; a row marked an estimate is the researcher's own build-up. Contractor: installed by a contractor. Self-built: materials, the villagers' own labour (structural design, cranes and licensed trades still bought). Six of its rows were then read in full (2026-11-09, from avenBOX): solar, land, homes, roads and the heat network were corrected to what those pages say, each kept as an artifact; glulam was confirmed.",
 		"by": "market research 2026-11-09 (handing session, at Samuel's request)"
 	}
 }

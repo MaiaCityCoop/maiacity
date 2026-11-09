@@ -49,7 +49,8 @@ export function towerOf(v: Village, a: Audit, residents: number | null) {
 	const T = v.kinds.tower180, programme = (v.plans.tower.programme ?? []) as Use[];
 	const need = programme.map((u) => {
 		const per = u.perResident ? val(a, u.perResident) : null, n = u.count ? val(a, u.count) : null, size = u.size ? val(a, u.size) : null;
-		const m2 = u.perResident ? (per !== null && residents !== null ? per * residents : null) : n !== null && size !== null ? n * size : null;
+		// a share a resident (times its size, where it is counted in things a resident: desks), or a count of things times their size
+		const m2 = u.perResident ? (per !== null && residents !== null && (!u.size || size !== null) ? per * residents * (u.size ? size! : 1) : null) : n !== null && size !== null ? n * size : null;
 		return { ...u, m2, rooms: u.count && n !== null ? n : null };
 	});
 	const net = need.every((u) => u.m2 !== null) ? need.reduce((x, u) => x + u.m2!, 0) : null;

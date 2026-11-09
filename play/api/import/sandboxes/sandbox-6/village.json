@@ -578,35 +578,30 @@
 			},
 			"programme": [
 				{
-					"id": "hall",
-					"label": "Community hall and meeting rooms",
+					"id": "kitchens",
+					"label": "Shared kitchens, dining and the common rooms",
 					"use": "communal",
-					"perResident": "hallPerResident"
+					"perResident": "commonHousePerResident"
 				},
 				{
-					"id": "theatre",
-					"label": "Theatre and assembly hall",
+					"id": "hall",
+					"label": "Community hall and theatre (one two-court hall with a stage)",
 					"use": "communal",
-					"perResident": "theatrePerResident"
+					"count": "halls",
+					"size": "hallM2"
 				},
 				{
 					"id": "sport",
 					"label": "Sports hall",
 					"use": "communal",
-					"count": "sportHalls",
-					"size": "sportHallM2"
+					"perResident": "sportPerResident"
 				},
 				{
 					"id": "library",
 					"label": "Library",
 					"use": "communal",
-					"perResident": "libraryPerResident"
-				},
-				{
-					"id": "kitchens",
-					"label": "Shared kitchens and dining",
-					"use": "communal",
-					"perResident": "commonHousePerResident"
+					"count": "libraries",
+					"size": "libraryM2"
 				},
 				{
 					"id": "workshops",
@@ -624,7 +619,7 @@
 					"id": "cowork",
 					"label": "Co-working",
 					"use": "commercial",
-					"count": "coworkDesks",
+					"perResident": "coworkDesksPerResident",
 					"size": "deskM2"
 				},
 				{
