@@ -1,15 +1,12 @@
-// Sub-states (play/SPEC.md §4.12 "Sub-states"; intent 2bf8af96, Samuel 2026-11-07): every open intent is failed,
-// waiting, working or idle, with its reason, said by one pure function from what play keeps and what Ship's watcher
-// last read from GitHub (`pr_seen`). failed and waiting need a person; working and idle don't. The board groups each
-// column by it, and Approve spec and Accept take only a waiting intent (one red after its merge is shipped again too).
-// It imports nothing of play's at run time (only .github/required-checks.json, read as it loads), so every path (./intents.ts, ./ship.ts, ./versioned.ts) asks it.
+// Sub-states (play/SPEC.md §4.12 "Sub-states"; intent 2bf8af96, Samuel 2026-11-07), said by one pure function.
+// It imports nothing of play's at run time (only .github/required-checks.json, read as it loads), so every path
+// (./intents.ts, ./ship.ts, ./versioned.ts) asks it.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 /** the checks main.yml runs on a pull request, required green on its head before Accept merges it: named once, in
  * .github/required-checks.json (the image copies it to the same place under PLAY_REPO) */
 const REQUIRED_CHECKS: string[] = Object.values(JSON.parse(readFileSync(resolve(process.env.PLAY_REPO ?? resolve(import.meta.dir, "../../.."), ".github/required-checks.json"), "utf8")));
-/** how old the watcher's read of a pull request may be before it is read again first */
 const SEEN_MOST_MS = 60_000;
 
 type SubState = "failed" | "waiting" | "working" | "idle";
@@ -18,7 +15,6 @@ export type Sub = { state: SubState; tag: string; why: string };
 const S = (state: SubState, tag: string, why: string): Sub => ({ state, tag, why });
 /** a check as GitHub concluded it: neutral reads as success, skipped and cancelled as themselves, every other end as failure */
 type CheckState = "queued" | "running" | "success" | "failure" | "skipped" | "cancelled";
-/** a pull request as Ship's watcher (or an Accept) last read it */
 export type PrSeen = {
   pr: number; head: string; draft: boolean; mergeable: boolean | null; state: string; merged: boolean; base: string; checks: Record<string, CheckState>; at: string;
   /** play merged main into the branch (./mainmerge.ts, GitHub's update-branch): from the head `from`, main at `main`, the head GitHub made of it `to` */
@@ -43,16 +39,9 @@ type Row = {
   pr_seen?: PrSeen | null;
 };
 
-/** a commit as people read it: its first seven characters */
 export const short = (s: string) => s.slice(0, 7);
-/** the text a hold is read by, on the board and in every refusal of a held intent's move */
 const heldWhy = (held: { title: string }[]) => `held: waits for ${held.map((d) => d.title).join(", ")}`;
 
-/**
- * The must checks with a `run` that did not last pass on `head`, the pull request's head commit, as people read them:
- * what is merged is what was checked. Named by id only (their statements are in the spec), grouped by what they lack:
- * "c1, c2 passed on 233b24d, not yet on the head 7fbf99b", "c4 no result yet".
- */
 export function unmetOn(intent: Pick<Row, "spec" | "results">, head: string) {
   const by = new Map<string, string[]>();
   for (const c of intent.spec?.checks ?? []) {
@@ -65,11 +54,6 @@ export function unmetOn(intent: Pick<Row, "spec" | "results">, head: string) {
   return [...by].map(([lack, ids]) => `${ids.join(", ")} ${lack}`);
 }
 
-/**
- * Whether the pull request, as `seen`, may be merged at `head` now: null where it may (open into main, not a draft, the
- * head the checks passed on, mergeable, the required checks green), else its sub-state and why. Accept asks it through
- * subStateOf; Ship's turn (./ship.ts startIfReady) asks it again on what it reads then.
- */
 export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, head?: string): Sub | null {
   const n = `#${seen.pr}`;
   // `head` given: Ship's turn, at the head it was accepted on, read again while it waited
@@ -98,11 +82,7 @@ export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, hea
   return null;
 }
 
-/**
- * A conflict with main as people read it: "conflicts with main: " and the files both sides changed (./mainmerge.ts
- * works them out), or, until it has, that the pull request does not merge into main. A person's or its builder's to
- * resolve: a pull request merely behind main is play's to update.
- */
+/** a conflict with main is a person's or its builder's to resolve: a pull request merely behind main is play's to update */
 export function conflictWhy(seen: PrSeen) {
   const files = seen.conflicts?.head === seen.head ? seen.conflicts.files : null;
   return `conflicts with main: ${files?.length ? files.join(", ") : `#${seen.pr} does not merge into main as it is`}`;
@@ -111,12 +91,7 @@ export function conflictWhy(seen: PrSeen) {
 /** a ship's step now: the first not yet green or skipped */
 const stepNow = (ship: any) => (ship?.steps ?? []).find((s: any) => s.state !== "green" && s.state !== "skipped");
 
-/**
- * An open intent's sub-state and why, null for one Accepted or Archived. First match wins: failed (a red ship, a must
- * failed, its pull request in conflict or red), waiting (a person's gate: Approve spec at Specify, Accept at Proposal),
- * working (an agent, GitHub or Ship busy), idle (held by a dependency, queued in Ship, an Idea no agent took yet).
- * `seen` is the pull request as last read (the intent's pr_seen), older than 60 s working until read again.
- */
+/** `seen` is the pull request as last read (the intent's pr_seen), older than 60 s working until read again */
 export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent.pr_seen, now = Date.now()): Sub | null {
   const at = intent.stage;
   if (at === "accepted" || at === "archived") return null;
@@ -162,21 +137,18 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
     return S("working", "being built", "being built: its checks are recorded as they pass");
   }
 
-  // Proposal
   // code, with play's work beside it or not (intent 7c8986c5), is Accept and ship
   if (!pr) return S("waiting", "Accept", "Accept");
   if (!seen || seen.pr !== pr || now - Date.parse(seen.at) > SEEN_MOST_MS) return S("working", "reading GitHub", `reading #${pr} on GitHub`);
   return prBlock(intent, seen) ?? S("waiting", "Accept and ship", "Accept and ship");
 }
 
-/** the sub-state as every path asks it (a test may stand a stub in its place) */
 export const sub = { of: subStateOf };
 
 /** whether a person may decide it now: waiting, or failed only by a red ship after its merge (Accept ships it again) */
 export const decidable = (intent: Row, s: Sub | null) =>
   !!s && (s.state === "waiting" || (s.state === "failed" && intent.stage === "proposal" && !!intent.ship?.merge && intent.ship?.outcome === "red" && intent.ship.pr === intent.pull_request));
 
-/** the checks of a commit as GitHub lists them (the latest of each name) as kept in pr_seen */
 export function checksSeen(runs: any[]): Record<string, CheckState> {
   const by = new Map<string, any>();
   for (const r of runs) {

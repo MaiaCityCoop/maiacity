@@ -21,7 +21,6 @@ import { HttpError } from "./kit/errors";
 
 const STORY_WORK = "story_version";
 
-/** what a story takes as edits: its timeline's ops (applyEdits), told to an agent over MCP (./kinds.ts Kind.edits) */
 export const STORY_EDITS =
   "A story's edits are its timeline's: { op: 'set_clip', track, clip, fields: {…} } (a field set to null is removed), { op: 'add_clip', track, clip: { id, at, duration, … } }, { op: 'remove_clip', track, clip }, " +
   "{ op: 'add_track', track: { id, kind, clips }, index? }, { op: 'remove_track', track }, { op: 'set_track', track, fields: { id?, kind? } }, { op: 'shift', from, by, tracks? } (every clip starting at or after `from` seconds moved by `by`), " +
@@ -31,7 +30,6 @@ type VersionInfo = { number: number; id: string; note: string; created: string; 
  *  newest accepted number (shown as "v5 available" where it is newer; a link plays only its own version) */
 export type Linked = { id: string; title: string; number: number; version: string; duration: number; newest: number | null; body: StoryBody };
 export type Links = Record<string, Linked>;
-/** a story linking this one, at its newest version, and the number of this one's version it plays */
 export type LinkedBy = { id: string; title: string; number: number; version: string; plays: number | null };
 export type Story = { id: string; title: string; version: string; number: number | null; note: string; created: string; author: string | null; versions: VersionInfo[]; links: Links; linked_by: LinkedBy[] } & StoryBody;
 export type StoryItem = { id: string; title: string; number: number; versions: number; duration: number; shots: number; tracks: number; updated: string; cover: string | null };
@@ -81,7 +79,6 @@ const folded = (id: string, into: string) => new HttpError(`Story ${id} is part 
 
 export const STORY_ADMINS = "Only Maia City's admins may open the Stories.";
 
-// ---- the format, checked
 
 const text = (v: unknown, what: string, most: number, need = false): string => {
   if (v == null || v === "") {
@@ -100,7 +97,6 @@ const seconds = (v: unknown, what: string, least: number, most: number): number 
   return round(n);
 };
 
-/** each known kind's own fields, checked (texts trimmed, lengths held); the rest of a clip is kept as given */
 const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record<string, unknown>> = {
   shots: (c, what) => {
     const frame = c.frame == null || c.frame === "" ? null : text(c.frame, `${what}'s frame`, 64);
@@ -139,10 +135,7 @@ const KINDS: Record<string, (c: Record<string, unknown>, what: string) => Record
   [LINK]: (c, what) => linkOf(c, what),
 };
 
-// ---- a live shot (intent f270269e; play/site/src/lib/stories/live.ts, which draws it): the asset by its UUID, its
-// version by its id (a hash), a variant by its name; its parameters (`values`, and `keys` over the shot's time, s into
-// it) and its camera's keyframes (`camera`: eye and target in metres, fov in degrees); `steps`, how many builds a keyed
-// change is drawn in. The shot's frame stays its poster.
+// ---- a live shot (intent f270269e; play/site/src/lib/stories/live.ts, which draws it)
 const LIVE_KEYS = new Set(["asset", "version", "variant", "values", "keys", "camera", "steps"]);
 const MOST_LIVE_STEPS = 24;
 const PARAM = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/;
@@ -171,7 +164,6 @@ const shotTime = (duration: number) => (at: unknown, what: string) => {
 };
 type InShot = ReturnType<typeof shotTime>;
 
-/** a shot's camera keyframes, a live shot's and a world shot's alike: [{ at, eye, target, fov, ease? }] in time order */
 function cameraKeys(v: unknown, w: string, inShot: InShot) {
   if (!Array.isArray(v) || !v.length || v.length > 64) throw new HttpError(`${w}.camera must be 1 to 64 keyframes { at, eye, target, fov }.`);
   let last = -1;
@@ -221,12 +213,9 @@ function liveOf(v: unknown, what: string, duration: number) {
 }
 
 // ---- a world shot (intent 65d04790; play/site/src/lib/stories/live.ts, which draws it): a whole world, an asset of the
-// group `worlds` (play/SPEC.md §4.11) by its UUID and an accepted version's id (a hash), played on the shot's clock from
-// its camera's keyframes, its hour (the sun's place), its exposure (stops) and its lights (multipliers over its mood),
-// each a number held over the shot or [[t, value], …] keys in time order (t in s into the shot).
+// group `worlds` (play/SPEC.md §4.11)
 const WORLD_KEYS = new Set(["asset", "version", "camera", "hour", "exposure", "lights"]);
 const WORLD_LIGHTS = ["sun", "sky", "lamps"];
-/** a value over a shot: a number held, or [[t, value], …] keys in time order, each value within [lo, hi] */
 function curveOf(v: unknown, what: string, lo: number, hi: number, inShot: InShot): number | [number, number][] {
   const val = (x: unknown, w: string) => {
     if (typeof x !== "number" || !Number.isFinite(x) || x < lo || x > hi) throw new HttpError(`${w} must be a number from ${lo} to ${hi}.`);
@@ -266,7 +255,6 @@ function worldOf(v: unknown, what: string, duration: number) {
   return out;
 }
 
-/** every live shot's asset version is one play holds of that asset, accepted, and its variant one of that version's */
 async function checkLive(db: Queryable, tracks: Track[]) {
   const lives = tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.filter((c) => c.live).map((c) => ({ c, t, l: c.live as { asset: string; version: string; variant?: string } })));
   if (!lives.length) return;
@@ -285,7 +273,6 @@ async function checkLive(db: Queryable, tracks: Track[]) {
   }
 }
 
-/** every world shot's version is an accepted version of that world, an asset of the group worlds */
 async function checkWorld(db: Queryable, tracks: Track[]) {
   const worlds = tracks.filter((t) => t.kind === "shots").flatMap((t) => t.clips.filter((c) => c.world).map((c) => ({ c, t, l: c.world as { asset: string; version: string } })));
   if (!worlds.length) return;
@@ -332,7 +319,6 @@ function cuesOf(v: unknown, what: string, duration: unknown): { cues?: { at: num
   return { cues: cues.sort((a, b) => a.at - b.at) };
 }
 
-/** a clip's sound, where it has one: its recording (a hash), where in it the clip starts, its gain and fades */
 function sound(c: Record<string, unknown>, what: string): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (c.audio != null && c.audio !== "") {
@@ -376,12 +362,6 @@ function keysOf(v: unknown, what: string) {
     .sort((a, b) => a[0] - b[0]);
 }
 
-/**
- * A story's timeline as given, checked and laid out (clips in time order, each track's clips never overlapping where its
- * kind follows one after another); every shot's frame an image play holds; every link an accepted version it may play
- * (Linker: `self` is the story the timeline is of, so it never plays inside itself), the link clip as long as that
- * version (left out, it is given that length).
- */
 async function checkBody(db: Queryable, given: any, self?: string): Promise<StoryBody> {
   if (!given || typeof given !== "object" || Array.isArray(given)) throw new HttpError("A story's timeline is a JSON object: { format, fps, tracks }.");
   if (given.schema != null && given.schema !== STORY_SCHEMA) throw new HttpError(`A story's schema is ${STORY_SCHEMA}.`);
@@ -519,7 +499,6 @@ class Linker {
     return { id: r.story, title: v.title, number: v.number, version: r.version, duration: Number(v.body?.duration ?? 0), newest: v.newest, body: v.body };
   }
 
-  /** the version a link clip names, or why it can't be linked (`what` names the clip) */
   async must(r: Ref, what: string): Promise<Target> {
     const t = await this.get(r);
     if (!("miss" in t)) return t;
@@ -529,7 +508,6 @@ class Linker {
     throw new HttpError(`${what} plays version ${r.version.slice(0, 12)}…, which is not a version of story ${r.story} (get_story lists its versions and their ids).`);
   }
 
-  /** no loop to any depth (a story never plays inside itself, however far down), and links nested at most MOST_LINK_DEPTH deep */
   async nesting(body: StoryBody, self?: string) {
     const names = new Map<string, string>();
     const said = (path: string[]) => path.map((id, i) => (i === 0 ? "this story" : `“${names.get(id) ?? id}”`)).join(" → ");
@@ -546,7 +524,6 @@ class Linker {
     await walk(body, [self ?? "-"]);
   }
 
-  /** every version `body` links, to any depth (each once), by its id */
   async all(body: StoryBody, self?: string): Promise<Links> {
     const out: Links = {};
     const walk = async (b: StoryBody, path: string[]) => {
@@ -564,14 +541,10 @@ class Linker {
   }
 }
 
-/** every version a timeline links, to any depth, by its id: each with its story, title, number, duration, timeline and
- *  its story's newest number (a newer version there is only shown, never played) */
 export const linksOf = (q: Queryable, body: StoryBody, self?: string): Promise<Links> => new Linker(q).all(body, self);
 
-/** the links as an agent reads them by default: each one's story, title, number, version, duration and its story's newest number, without its timeline */
 export const slimLinks = (links: Links) => Object.fromEntries(Object.entries(links).map(([k, { body: _b, ...l }]) => [k, l]));
 
-/** the stories whose newest version links story `id`, and the version of it each plays */
 async function linkedBy(q: Queryable, id: string): Promise<{ id: string; title: string; number: number; version: string; plays: number | null }[]> {
   const { rows } = await q.query<{ id: string; title: string; number: number; version: string; plays: number | null }>(
     `SELECT DISTINCT s.id, s.title, v.number, c->>'version' AS version, lv.number AS plays
@@ -586,7 +559,6 @@ async function linkedBy(q: Queryable, id: string): Promise<{ id: string; title: 
   return rows;
 }
 
-// ---- edits: a new version made from the head, clip by clip
 
 export type Edit =
   | { op: "set_clip"; track: string; clip: string; fields: Record<string, unknown> }
@@ -599,7 +571,6 @@ export type Edit =
   | { op: "set"; fields: { format?: string; fps?: number } }
   | { op: "edit_text"; track: string; clip: string; field: string; index: number; delete?: number; insert?: string };
 
-/** The head's timeline with `edits` applied in order (checked as a whole afterwards by checkBody). */
 export function applyEdits(head: StoryBody, edits: unknown): any {
   if (!Array.isArray(edits) || !edits.length) throw new HttpError("Edits are a list of operations: set_clip, add_clip, remove_clip, add_track, remove_track, set_track, shift, set, edit_text.");
   const body: any = JSON.parse(JSON.stringify(head));
@@ -685,7 +656,6 @@ export function applyEdits(head: StoryBody, edits: unknown): any {
   return body;
 }
 
-// ---- what changed between two versions
 
 export type Change = { field: string; from: unknown; to: unknown };
 export type StoryDiff = {
@@ -722,7 +692,6 @@ export function diffStories(from: { title: string; body: StoryBody } | null, to:
   return { title: from && from.title !== to.title ? { from: from.title, to: to.title } : null, settings, tracks };
 }
 
-// ---- reading
 
 export async function listStories(db: Queryable, me: Me | null): Promise<StoryItem[]> {
   admin(me, STORY_ADMINS);
@@ -751,8 +720,6 @@ export async function listStories(db: Queryable, me: Me | null): Promise<StoryIt
 
 type VersionRow = { id: string; story_id: string; number: number | null; title: string; body: StoryBody; note: string; created: Date; author: string | null; approved_by: string | null };
 
-/** story `id` at its head, or at accepted version `number`, with the versions it links (`links`) and the stories whose
- *  newest version links it (`linked_by`) */
 export async function storyOf(db: Queryable, me: Me | null, id: string, number?: number): Promise<Story> {
   admin(me, STORY_ADMINS);
   if (!STORY_ID.test(id)) throw new HttpError("A story is named by its id, a UUID (list_stories).", 404);
@@ -798,7 +765,6 @@ async function keepVersion(q: Queryable, v: { id: string; story: string; parents
 // content-addressed as an asset version's id is (./versions.ts, play/SPEC.md §4.3)
 const versionIdOf = (story: string, parents: string[], title: string, body: StoryBody) => storyVersionId({ story, parents, title, body });
 
-/** ./versioned.ts's write hook: propose_story's ops or a whole new state, the timeline checked whole */
 export async function storyEdit(tx: Queryable, story: string, cur: any, p: { edits?: unknown; whole?: unknown }): Promise<docs.Write> {
   const now = asStory(cur);
   if (p.whole !== undefined) {
@@ -820,7 +786,6 @@ export async function storyEdit(tx: Queryable, story: string, cur: any, p: { edi
   return { target: asDoc(title, await checkBody(tx, applyEdits(now.body, edits), story)) };
 }
 
-/** a story's intent variant proposed as it stands (./versioned.ts propose_doc_version): its frozen version written */
 export async function proposeStoryVariant(db: Db, me: Me, o: { id: string; variant: number; note: string; intent?: string }, via: "web" | "mcp") {
   return proposeStory(db, me, { story: o.id, variant: o.variant, note: o.note, ...(o.intent ? { intent: o.intent } : {}) }, false, via);
 }
@@ -985,8 +950,6 @@ export async function foldStories(db: Db, folds: Fold[]): Promise<FoldReport> {
   return out;
 }
 
-/** a story's work as people review it beside its changes and edits (./review.ts reviewDoc): the proposed timeline
- *  and the head's it was made from (each with the versions it links, to play side by side), what changed clip by clip */
 export async function storyReview(db: Queryable, p: { story_id: string; story_base: string | null; story_version: string }) {
   const { rows } = await db.query<{ id: string; title: string; body: StoryBody; number: number | null }>(
     `SELECT id, title, body, number FROM play.story_versions WHERE id = ANY($1)`, [[p.story_version, p.story_base].filter(Boolean)],
@@ -1000,7 +963,6 @@ export async function storyReview(db: Queryable, p: { story_id: string; story_ba
   };
 }
 
-/** a story's work decided (its intent locked by the caller); on a moved head merged where fields differ, else archived */
 export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accept" | "archive") {
   if (me.level !== "admin") throw new HttpError("Only Maia City's admins decide on stories.", 403);
   const docId = await ensureStoryDoc(tx, p.story_id);
@@ -1062,9 +1024,7 @@ export async function decideStory(tx: Queryable, me: Me, p: any, verdict: "accep
   return { id: p.id, status: "accepted", number: n, version, merged: true };
 }
 
-// ---- a story at an edit, or as an intent's variant would make it
 
-/** story `id` as it was at edit `edit` of its history, or as intent `intent`'s variant would make it, with the versions it links */
 export async function storyAt(db: Db, me: Me | null, id: string, at: { edit?: number; intent?: string }) {
   admin(me, STORY_ADMINS);
   if (!STORY_ID.test(id)) throw new HttpError("A story is named by its id, a UUID.", 404);
@@ -1082,7 +1042,6 @@ export async function storyAt(db: Db, me: Me | null, id: string, at: { edit?: nu
   return { id, title, ...(at.intent !== undefined ? { intent: `${at.intent}`.toLowerCase() } : { edit: at.edit }), ...body, links: await linksOf(db, body, id) };
 }
 
-/** A story kept in the repo, written as its accepted v1 where play holds no story of its id (import/stories.ts). */
 export async function seedStory(db: Db, id: string, title: string, note: string, given: unknown): Promise<boolean> {
   if (!STORY_ID.test(id)) throw new HttpError("its story.json names no id (a UUID)");
   const body = await checkBody(db, given, id);
@@ -1093,17 +1052,14 @@ export async function seedStory(db: Db, id: string, title: string, note: string,
     if (!rows.length) return false;
     await keepVersion(tx, { id: version, story: id, number: 1, parents: [], title: t, body, note: text(note, "The note", 2000) });
     await tx.query(`UPDATE play.stories SET head = $2 WHERE id = $1`, [id, version]);
-    // and its document, its first edit that version
     await ensureStoryDoc(tx, id);
     return true;
   });
 }
 
-// ---- recordings
 
 const audioType = (bytes: Uint8Array): string | null => AUDIO.find((a) => a.is(bytes))?.type ?? null;
 
-/** Keep one recording (MP3, WAV, Ogg, FLAC, M4A or WebM audio, at most MOST_AUDIO bytes) among play's files; its hash. */
 async function putAudio(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (!bytes.length) throw new HttpError("The recording is empty.");
   if (bytes.length > MOST_AUDIO) throw new HttpError(`A recording is at most ${MOST_AUDIO / 1e6} MB.`, 413);
@@ -1144,7 +1100,6 @@ export const MOST_DOCUMENT = 2_000_000;
 /** the one media type play keeps a document as (recipe sources are text/javascript, never shown in the Library) */
 const DOCUMENT_TYPE = "text/markdown";
 
-/** Keep one document (Markdown text, at most MOST_DOCUMENT bytes) among play's files; its hash. */
 export async function putDocument(db: Queryable, store: BlobStore, text: unknown, label?: unknown, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (typeof text !== "string" || !text.trim()) throw new HttpError("Give the document as Markdown text (text).");
   if (/\u0000/.test(text)) throw new HttpError("A document is text: no NUL characters.");
@@ -1159,7 +1114,6 @@ export async function putDocument(db: Queryable, store: BlobStore, text: unknown
 // ---- compositions: a shot's motion design, one HyperFrames composition (play/SPEC.md §12)
 
 export const MOST_COMPOSITION = 2_000_000;
-/** the media type play keeps a composition as (served as plain text, like every code file) */
 const COMPOSITION_TYPE = "text/html";
 
 /**
@@ -1184,11 +1138,9 @@ export async function putComposition(db: Queryable, store: BlobStore, html: unkn
   return { hash, size: bytes.length, media_type: COMPOSITION_TYPE };
 }
 
-// ---- videos
 
 const videoType = (bytes: Uint8Array): string | null => VIDEOS.find((v) => v.is(bytes))?.type ?? null;
 
-/** Keep one video (MP4 or WebM, at most MOST_VIDEO bytes) among play's files; its hash. */
 async function putVideo(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (!bytes.length) throw new HttpError("The video is empty.");
   if (bytes.length > MOST_VIDEO) throw new HttpError(`A video is at most ${MOST_VIDEO / 1e6} MB.`, 413);
@@ -1209,11 +1161,9 @@ export async function putVideoBase64(db: Queryable, store: BlobStore, data: unkn
   return putVideo(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label));
 }
 
-// ---- frames
 
 const imageType = (bytes: Uint8Array): string | null => IMAGES.find((i) => i.is(bytes))?.type ?? null;
 
-/** Keep one frame (an image, at most MOST_FRAME bytes) among play's files; its hash. */
 export async function putFrame(db: Queryable, store: BlobStore, bytes: Uint8Array, said?: string, label?: string, owner?: string): Promise<{ hash: string; size: number; media_type: string }> {
   if (!bytes.length) throw new HttpError("The frame is empty.");
   if (bytes.length > MOST_FRAME) throw new HttpError(`A frame is at most ${MOST_FRAME / 1e6} MB.`, 413);
@@ -1234,7 +1184,6 @@ export async function putFrameBase64(db: Queryable, store: BlobStore, data: unkn
   return putFrame(db, store, new Uint8Array(Buffer.from(clean, "base64")), typeof mediaType === "string" ? mediaType : undefined, fileLabel(label), owner);
 }
 
-/** a story: its tracks' and clips' ids each once, every clip inside the story's duration */
 export function storyCheck(doc: any): string[] {
   const out: string[] = [];
   const tracks = new Set<string>();

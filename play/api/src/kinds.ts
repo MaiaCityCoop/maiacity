@@ -1,22 +1,5 @@
-// One version control (play/SPEC.md "Version control", Samuel 2026-11-06): every versioned kind of play's (an asset, a
-// story, a factory, a game config, a skill, and whatever comes next) is one entry of the registry below (each kind's
-// entry is ./allkinds.ts's), and ./versioned.ts does the rest for each: list, read (at a version, an edit, or an intent's variant), history (edits, versions,
-// variants), edit, propose, review and decide. The words are one set everywhere:
-//
-//   Edit            one change, kept with its author, message and time
-//   Variant         a line of edits of one document
-//   Main            the default variant: what is accepted
-//   Intent variant  a variant that exists only inside an intent and goes through its stages; Accept merges it into
-//                   Main, Archive closes it (kept in the history)
-//   Seed            the version a variant grows from ("seeded from Main v3"); a document's first version is just v1
-//   Version         a numbered state of Main, named on accept
-//
-// An entry holds its document prefix and its schema (a document of the meta-schema, named by its UUID: ./docs/schemas.ts),
-// its row table, label and group (only shown), and hooks only where the kind really differs: edit helpers, what its
-// schema can't say (a whole-document check, that it is code), its own
-// propose (an asset's recipe built, a story's frozen row), its own decide, the fields its row keeps of an accepted
-// version, its list item's extra fields. A kind is named by its document's UUID everywhere (MCP's list_docs, doc_at,
-// doc_history, doc_edit, propose_doc_version; HTTP's /api/docs/<uuid>, /history, /changes; the board's review).
+// One version control (play/SPEC.md "Version control", Samuel 2026-11-06): every versioned kind is one entry of the
+// registry below (each kind's entry is ./allkinds.ts's); ./versioned.ts does the rest for each.
 //
 // A schema with no hooks needs no code (Samuel 2026-11-06): every accepted schema whose documents no entry here holds is
 // a kind of its own (syncKinds), its rows in play.records, so a new type is a schema document and the intent that
@@ -29,23 +12,17 @@ import type { Db, Queryable } from "./kit/pg";
 import { UUID } from "./kit/uuid";
 import { HttpError } from "./kit/errors";
 
-/** how a hook is called: the database and the file store */
 export type Ctx = { db: Db; store: BlobStore };
 export type Input = { edits?: unknown; whole?: unknown };
 
 export type Kind = {
-  /** its name, as list_docs takes it */
   name: string;
-  /** its documents' id prefix: <prefix>:<uuid> */
   prefix: string;
-  /** its schema: a document of the meta-schema, by its UUID (./kit/ids.ts SCHEMA, or a schema accepted since) */
   schema: string;
   /** what its schema can't say: a whole-document check, and that its content is code (built and previewed before it is accepted) */
   check?: (doc: any) => string[];
   build?: boolean;
-  /** its rows among the table's, where the table holds other kinds' too (play.records) */
   where?: string;
-  /** the work an intent holding one of its versions names: <name>_version */
   work: string;
   /** the table of its rows (each its UUID and its label), the column its label is in, and a filter of the listed */
   table: string;
@@ -57,13 +34,9 @@ export type Kind = {
   open?: string;
   /** an accepted version's fields its row keeps (column → field of the document) */
   row?: Record<string, (json: any) => unknown>;
-  /** its document made where it is missing (from the kind's own history) */
   ensure?: (q: Queryable, ctx: Ctx, id: string) => Promise<void>;
-  /** what its documents take as edits beyond a document's own, as MCP tells an agent (doc_edit, propose_doc_version) */
   edits?: string;
-  /** whether what its schema says it holds is told among the formats in MCP's tools/list (./mcp.ts formatsOf) */
   told?: boolean;
-  /** an edit of an agent's turned into the document's own: edits, or the whole new state */
   write?: (q: Queryable, id: string, cur: any, input: Input) => Promise<docs.Write>;
   /** the kind's own propose, its intent variant as it stands (an asset's recipe files and frozen version; a story's) */
   propose?: (ctx: Ctx, me: Me, o: { id: string; variant: number; note: string; intent?: string }, via: "web" | "mcp") => Promise<Record<string, unknown> & { intent: string }>;
@@ -75,7 +48,6 @@ export type Kind = {
    *  longer holds (archived, back to Build), else null; a refusal throws (a sandbox's pins play no longer keeps; a
    *  schema failing a document on Main) */
   before?: (tx: Queryable, docId: string, variant: number, merged: any) => Promise<string | null>;
-  /** its list item's extra fields, from its document, and from the database */
   item?: (json: any) => Record<string, unknown>;
   more?: (q: Queryable, uuid: string) => Promise<Record<string, unknown>>;
   /** what a read of one shows beside its `json` (a sandbox's pins by their assets' labels and versions) */
@@ -96,10 +68,8 @@ export type Kind = {
 };
 
 const KINDS: Kind[] = [];
-/** the kinds that are a schema alone (syncKinds), by their name */
 const SCHEMA_KINDS = new Set<string>();
 
-/** a kind registered: its hooks known to the store by its schema's UUID, its entry to the module */
 export function register(k: Kind): Kind {
   if (!/^[a-z][a-z_]{0,31}$/.test(k.name) || !/^[a-z][a-z_]{0,31}$/.test(k.prefix)) throw new Error(`a kind's name and prefix are lowercase words: ${k.name}, ${k.prefix}`);
   if (!UUID.test(k.schema)) throw new Error(`kind ${k.name}: its schema is named by its UUID`);
@@ -111,7 +81,6 @@ export function register(k: Kind): Kind {
   docs.hook(k.schema, { check: k.check, build: k.build });
   return k;
 }
-/** a kind taken out of the registry again (a test's own kind, once its test is done) */
 export function unregister(name: string): void {
   const at = KINDS.findIndex((x) => x.name === name);
   if (at >= 0) docs.hook(KINDS.splice(at, 1)[0].schema, {});
@@ -140,22 +109,18 @@ export const kinds = (): readonly Kind[] => KINDS;
 export const kindNamed = (name: string) => KINDS.find((k) => k.name === name) ?? null;
 export const kindOfWork = (work: string | null | undefined) => KINDS.find((k) => k.work === work) ?? null;
 export const kindOfDoc = (docId: string | null | undefined) => KINDS.find((k) => `${docId ?? ""}`.startsWith(k.prefix + ":")) ?? null;
-/** every kind of work an intent may hold */
 export const workKinds = () => KINDS.map((k) => k.work);
 
 // ---- written once: who names an edit, the version an edit or a seed is, two changes that touch the same field, errors
 
 export const iso = (d: Date | string) => new Date(d).toISOString();
-/** who an edit is by, as the store keeps it: a person, through MCP, the site or the import */
 export const authorOf = (me: Pick<Me, "id"> | null, via: string | null | undefined): docs.Author => ({ human: me?.id ?? null, via: via === "mcp" ? "mcp" : via === "import" ? "import" : "site" });
 
-/** the names of the humans `ids` names (none, or one more than once, is fine), by id */
 export async function namesOf(q: Queryable, ids: (string | null | undefined)[]): Promise<Map<string, string>> {
   const some = [...new Set(ids.filter((x): x is string => !!x))];
   return new Map((await q.query<{ id: string; name: string }>(`SELECT id, name FROM play.humans WHERE id = ANY($1)`, [some])).rows.map((r) => [r.id, r.name]));
 }
 
-/** each edit with its author's name, and the version it was named where one was */
 export async function named(db: Queryable, edits: docs.DocEdit[], versions: docs.Version[] = []) {
   const names = await namesOf(db, edits.map((s) => s.author));
   const at = new Map(versions.map((v) => [docs.frontiersKey(v.frontiers), v.number]));
@@ -169,12 +134,10 @@ export async function named(db: Queryable, edits: docs.DocEdit[], versions: docs
   return edits.map((s, i) => ({ seq: s.seq, variant: s.variant, kind: s.kind, author: s.author ? names.get(s.author) ?? null : null, via: s.via, message: s.message, at: iso(s.created), bytes: s.bytes, version: marked.get(i) ?? null }));
 }
 
-/** the version whose point of Main is `frontiers` (a variant's seed), or null */
 export const versionAt = (versions: docs.Version[], frontiers: docs.Frontiers): number | null =>
   // the newest of those at that point: an Accept on a breed names Main's next version where Main stands
   versions.findLast((v) => docs.frontiersKey(v.frontiers) === docs.frontiersKey(frontiers))?.number ?? null;
 
-/** do two sets of changed paths touch the same field (one the other's, or inside it)? */
 export function overlap(a: string[], b: string[]): string[] {
   const inside = (x: string, y: string) => x === y || x.startsWith(y + ".") || x.startsWith(y + "[");
   return a.filter((x) => b.some((y) => inside(x, y) || inside(y, x)));
@@ -187,7 +150,6 @@ export const seen = (k: Kind, p: string) => (k.owned ? `(r.${qi(k.owned)} = '${C
 
 /**
  * A document named by its UUID, as `me` sees it (another's private one is as one that never was): its kind and id, its
- * document made where its kind makes it from its own history
  */
 export async function docRef(q: Queryable, ctx: Ctx | null, id: unknown, me: Pick<Me, "id"> | null): Promise<{ kind: Kind; uuid: string; docId: string }> {
   const uuid = `${id ?? ""}`.toLowerCase();
