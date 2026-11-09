@@ -20,6 +20,8 @@ COPY play/api/import ./import
 # the media play's site names by hash (its covers and sounds), found in its sources, at the repo's place
 COPY play/site/src /app/play/site/src
 COPY play/media /app/play/media
+# the required checks' names, read by src/substate.ts
+COPY .github/required-checks.json /app/.github/required-checks.json
 COPY --from=site /src/play/site/build /app/site
 ENV PORT=3000 PLAY_SITE=/app/site PLAY_REPO=/app
 # the commit this image is built from (production.yml: --build-arg PLAY_COMMIT=$GITHUB_SHA): GET /api/version answers

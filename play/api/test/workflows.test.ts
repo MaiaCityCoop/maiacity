@@ -57,7 +57,7 @@ describe("the way to production", () => {
       expect(job.permissions.checks).toBe("read");
     }
     const green = yaml(".github/actions/main-green/action.yml");
-    expect(green.inputs.checks.default).toBe("play / API and site|website / build");
+    expect(green.runs.steps[0].env.REQUIRED).toBe("${{ github.action_path }}/../../required-checks.json");
     expect(green.runs.steps[0].run).toContain("passed()");
     const start = p.jobs.server.steps.find((s: any) => s.name === "Start play-api, import, and answer play.maia.city");
     expect(start.env.SHIP_TOKEN).toBe("${{ secrets.SHIP_TOKEN }}");

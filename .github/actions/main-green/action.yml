@@ -1,7 +1,7 @@
 name: Main is green
 description: >-
-  Reads main's two checks (play / API and site, website / build) on the commit being deployed and stops the job unless
-  both concluded success there. The first step of every job of production.yml (intent 5ab64b8e), so its jobs start
+  Reads main's required checks (.github/required-checks.json) on the commit being deployed and stops the job unless
+  each concluded success there. The first step of every job of production.yml (intent 5ab64b8e), so its jobs start
   together and none goes on with a commit main has not checked.
 
 # production moves only by release.yml's fast-forward to a commit of main once main.yml is green for it, so the commit
@@ -14,10 +14,6 @@ inputs:
   sha:
     description: The commit whose checks are read (production's head, github.sha)
     required: true
-  checks:
-    description: The checks that must have passed, separated by |
-    required: false
-    default: play / API and site|website / build
 
 runs:
   using: composite
@@ -28,7 +24,7 @@ runs:
         GH_TOKEN: ${{ inputs.token }}
         REPO: ${{ github.repository }}
         SHA: ${{ inputs.sha }}
-        CHECKS: ${{ inputs.checks }}
+        REQUIRED: ${{ github.action_path }}/../../required-checks.json
         API: ${{ github.api_url }}
       run: |
         echo "$SHA" | grep -qxE '[0-9a-f]{40}' || { echo "::error::not a commit: '$SHA'"; exit 1; }
@@ -46,5 +42,6 @@ runs:
           done
           echo "::error::no finished '$check' on $SHA after 13 minutes"; return 1
         }
-        IFS='|' read -ra all <<< "$CHECKS"
+        mapfile -t all < <(jq -r '.[]' "$REQUIRED")
+        [ ${#all[@]} -gt 0 ] || { echo "::error::no required check named in $REQUIRED"; exit 1; }
         for check in "${all[@]}"; do passed "$check" || exit 1; done

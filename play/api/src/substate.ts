@@ -3,9 +3,12 @@
 // last read from GitHub (`pr_seen`). failed and waiting need a person; working and idle don't. The board groups each
 // column by it, and Approve spec and Accept take only a waiting intent (one red after its merge is shipped again too).
 // It imports nothing of play's at run time, so every path (./intents.ts, ./ship.ts, ./versioned.ts) asks it.
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-/** the checks main.yml runs on a pull request, required green on its head before Accept merges it */
-export const REQUIRED_CHECKS = ["play / API and site", "website / build"];
+/** the checks main.yml runs on a pull request, required green on its head before Accept merges it: named once, in
+ * .github/required-checks.json (the image copies it to the same place under PLAY_REPO) */
+export const REQUIRED_CHECKS: string[] = Object.values(JSON.parse(readFileSync(resolve(process.env.PLAY_REPO ?? resolve(import.meta.dir, "../../.."), ".github/required-checks.json"), "utf8")));
 /** how old the watcher's read of a pull request may be before it is read again first */
 export const SEEN_MOST_MS = 60_000;
 

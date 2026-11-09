@@ -32,7 +32,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
-          CHECK: play / API and site
+          PART: play
           GH_TOKEN: ${{ github.token }}
         run: bash .github/workflows/tested-tree.sh
       - name: Postgres

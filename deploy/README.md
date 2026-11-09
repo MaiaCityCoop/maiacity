@@ -21,13 +21,13 @@ Accept there ships it again.
 - **main's ruleset** (Settings → Rules → Rulesets → New branch ruleset; made once `Intent accepted` has been posted
   once, so GitHub offers it): target the default branch `main`, enforcement Active, **no bypass list**; rules:
   *Restrict deletions*; *Require a pull request before merging* (0 approvals); *Require status checks to pass*:
-  `play / API and site`, `website / build` and `Intent accepted` (any source; *Require branches to be up to date*
+  the two named in `.github/required-checks.json` and `Intent accepted` (any source; *Require branches to be up to date*
   left off, or every merge waits on the pull request being brought up to main first); *Block force pushes*. Then a
   pull request whose
   intent is not accepted cannot be merged: GitHub shows `Intent accepted` as expected.
 - **production's ruleset**: production moves only by release.yml's fast-forward push (GitHub Actions), never by a pull
   request: enforcement Active; rules *Restrict deletions*, *Block force pushes* (so it only ever moves forward) and
-  *Require status checks to pass*: `play / API and site` and `website / build` (main's own checks on the commit, so
+  *Require status checks to pass*: the two named in `.github/required-checks.json` (main's own checks on the commit, so
   only a commit main has checked goes out). No *Require a pull request*, no *Only from main*: those were the old way
   (a pull request main → production), and they refuse release.yml's push (GH013).
 - It stops every change landing without an Accept by mistake; it does not stop someone acting as the token's owner on
