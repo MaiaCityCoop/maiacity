@@ -32,3 +32,11 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    `lib/recipes.ts` (AssetLibrary, the Worlds page, Sandbox 3) stay: moved to `catalog.js`, the graph sees nothing
    import `recipes.ts` (run.ts reads it by a computed path) and counts it dead; it and they go once run.ts imports
    `catalog.js` itself.
+5. **The Library's two shot scripts share their scratch play** (re-audit: copies). `library-shots.ts` (732d8a38's c5)
+   and `dashboard-library-shots.ts` (1b2ebc8d's c2) each held the same 70 lines: a scratch database on avenBOX's
+   Postgres, this branch's API on it at :3911, an admin and their token, the coop's library seeded from play's and the
+   personal one from the Stand-in's stills, and the drop at the end. That is `scripts/library-scratch.ts`
+   `withLibrary({ name, images }, shoot)` now; each script keeps only its own shots. Pinned: the old and the new
+   `library-shots.ts` run side by side in avenBOX get as far as each other and stop at the same call: play's Library
+   now lists KTX2 pictures among its newest, which `add_story_frame` refuses ("A frame is a JPEG, PNG or WebP image"),
+   so both scripts fail today before any shot, as before the move (not this untangle's to change).
