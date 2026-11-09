@@ -3,8 +3,8 @@
 Run 1 (5f829ca, head a1c2823) found WebGPU's own shader errors (fixed in the pull request, 817fe84); this job then
 names the URL of every failed request, keeps the job's own errors apart, and smokes a production build (run 2).
 
-MAC JOB READY: intent-work/c1bee1f8-render@e02c83c3 intent-work/c1bee1f8-render/README.md, run 3, on the pull request's head
-`d9628c78040d69d6c8a5ab55782b43b00b9bff11` (`HEAD_COMMIT=d9628c78040d69d6c8a5ab55782b43b00b9bff11`; main merged in twice since 817fe84, and main's new plantings test), a production build.
+MAC JOB READY: intent-work/c1bee1f8-render@{JOB} intent-work/c1bee1f8-render/README.md, run 4, on the pull request's head
+`baf1338a27127c8d6e70796a26f9b05105e91616` (`HEAD_COMMIT=baf1338a27127c8d6e70796a26f9b05105e91616`; main's untangle 5884ade4 merged in), a production build.
 Dry run: DRY RUN PASSED at c28ad3d (23.2 s; only this line changed since).
 
 Intent c1bee1f8-e738-4ff3-aace-4aea1d7e74ae (GPU 9/14), pull request #2186, branch `intent/c1bee1f8-webgpu-switch`.
@@ -14,7 +14,7 @@ WebGPURenderer's own code without an error. This job checks what only a GPU show
 real browser's WebGPU with no console error. It takes about 5 minutes (Samuel 2026-11-09: frame times logged, not
 bounded; films are c9's, after the deploy).
 
-**Run:** `PLAY_MCP_TOKEN=play_… HEAD_COMMIT=b798efcfda9f82a9edb41856b9034026e7ca7f2a bash intent-work/c1bee1f8-render/run.sh` (bun, node
+**Run:** `PLAY_MCP_TOKEN=play_… HEAD_COMMIT=baf1338a27127c8d6e70796a26f9b05105e91616 bash intent-work/c1bee1f8-render/run.sh` (bun, node
 with Playwright's Chromium and WebKit: `npx playwright install chromium webkit` once). It checks out the head in a
 worktree beside the repository (`../c1bee-head`), builds it as production does (`bun run build`) and serves it with
 `vite preview` on 5183 through play's read-only proxy, and runs
