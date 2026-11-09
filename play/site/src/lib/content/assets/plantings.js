@@ -321,7 +321,6 @@ export function createPlantings(o) {
 			assets = null;
 			shown = [];
 			guests = [];
-			free.clear();
 		}
 	};
 }
