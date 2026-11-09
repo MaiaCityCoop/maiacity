@@ -19,7 +19,7 @@ addEventListener('message', (e) => {
 	feed(frame.contentWindow!, e.data, (h) => fetch(`/api/files/${h}`).then((r) => r.blob())).catch((x) => console.error(String(x)));
 });
 /** what story-parity.ts reads of this page (`__renderReady`: of the composition's frame, set by HyperFrames) */
-export type ParityWindow = Window & { ready?: boolean; player?: HyperframesPlayer; at?: (t: number) => Promise<void>; __renderReady?: boolean };
+type ParityWindow = Window & { ready?: boolean; player?: HyperframesPlayer; at?: (t: number) => Promise<void>; __renderReady?: boolean };
 const w = window as ParityWindow;
 player.addEventListener('ready', () => (w.ready = true));
 player.addEventListener('error', (e: Event) => console.error('player error', JSON.stringify((e as CustomEvent).detail)));
