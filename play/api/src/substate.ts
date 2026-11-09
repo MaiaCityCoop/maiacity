@@ -44,17 +44,24 @@ const short = (s: string) => s.slice(0, 7);
 /** the text a hold is read by, on the board and in every refusal of a held intent's move */
 export const heldWhy = (held: { title: string }[]) => `held: waits for ${held.map((d) => d.title).join(", ")}`;
 
+/** the commits a result counts on at the pull request's head as `seen` (only the head itself) */
+export function countsOn(seen: Pick<PrSeen, "head">) {
+  return new Set([seen.head]);
+}
+
 /**
- * The must checks with a `run` that did not last pass on `head`, the pull request's head commit, as people read them:
- * what is merged is what was checked. Named by id only (their statements are in the spec), grouped by what they lack:
- * "c1, c2 passed on 233b24d, not yet on the head 7fbf99b", "c4 no result yet".
+ * The must checks with a `run` that did not last pass on a commit that counts on the pull request's head (countsOn),
+ * as people read them: what is merged is what was checked. Named by id only (their statements are in the spec),
+ * grouped by what they lack: "c1, c2 passed on 233b24d, not yet on the head 7fbf99b", "c4 no result yet".
  */
-export function unmetOn(intent: Pick<Row, "spec" | "results">, head: string) {
+export function unmetOn(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head">) {
+  const head = seen.head;
+  const on = countsOn(seen);
   const by = new Map<string, string[]>();
   for (const c of intent.spec?.checks ?? []) {
     if (!c.must || !c.run) continue;
     const r = intent.results?.[c.id];
-    if (r?.pass === true && r.commit === head) continue;
+    if (r?.pass === true && r.commit && on.has(r.commit)) continue;
     const lack = !r ? "no result yet" : !r.pass ? "failed" : r.commit ? `passed on ${short(r.commit)}, not yet on the head ${short(head)}` : "passed on no named commit";
     by.set(lack, [...(by.get(lack) ?? []), c.id]);
   }
@@ -80,7 +87,7 @@ export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, hea
   if (seen.mergeable === false) return failed("conflicts with main", conflictWhy(seen) + (head ? `: ${n} no longer merges into main${w}` : ""));
   const merged = seen.main_merged;
   if (!head && merged?.from === seen.head) return S("working", "main merged in", `main merged in: its checks run on ${n}'s new head once GitHub makes it`);
-  const stale = unmetOn(intent, seen.head);
+  const stale = unmetOn(intent, seen);
   if (stale.length && !head && merged?.to === seen.head)
     return S("working", "main merged in", `main merged in: its checks run on ${short(seen.head)} (${stale.join("; ")})`);
   if (stale.length)
