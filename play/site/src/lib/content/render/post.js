@@ -172,17 +172,24 @@ function createPipelinePost(renderer, scene, camera, o = {}) {
 	/** @type {any} */
 	let ao = null;
 	if (o.ao) {
-		scenePass.setMRT(mrt({ output, normal: packNormalToRGB(normalView), [MASK]: float(1) }));
-		const depth = scenePass.getTextureNode('depth');
+		// the depth, the normals and the mask first, the scene unlit; the occlusion from them laid on the scene's ambient
+		// light alone (three's builtinAOContext), never on the sun's (intent 1f0c6f79: the viewer's GTAO darkened the
+		// whole picture, sunlight included); the scene itself then drawn to its colour alone
+		const prepass = pass(scene, camera, { type: THREE.HalfFloatType });
+		prepass.setMRT(mrt({ output: packNormalToRGB(normalView), [MASK]: float(1) }));
+		const depth = prepass.getTextureNode('depth');
 		// the normals decoded wherever GTAO and the denoise sample them (three's own way: `sample`)
-		const normals = scenePass.getTextureNode('normal');
+		const normals = prepass.getTextureNode('output');
 		const normal = sample((/** @type {any} */ uv) => unpackRGBToNormal(normals.sample(uv)));
 		const node = gtao(depth, normal, camera);
 		const pd = denoise(node.getTextureNode(), depth, normal, camera);
 		const blend = uniform(1);
-		// the occlusion where the mask lets it, by the blend's intensity: GTAOPass's mix(1, ao, intensity) over the colour
-		const occlusion = mix(float(1), pd.r, blend.mul(scenePass.getTextureNode(MASK).r));
-		color = vec4(color.rgb.mul(occlusion), color.a);
+		// the occlusion where the mask lets it, by the blend's intensity (GTAOPass's mix(1, ao, intensity)), on the ambient light
+		const shade = convertToTexture(mix(float(1), pd.r, blend.mul(prepass.getTextureNode(MASK).r)));
+		scenePass.contextNode = builtinAOContext(shade.sample(screenUV).r);
+		// the scene pass's outputs its colour alone, so an excluded material's own (`exclude`: the mask's 0) merges into
+		// them rather than standing in for its colour (three's NodeMaterial: a material's MRT alone replaces the output)
+		scenePass.setMRT(mrt({ output }));
 		/** @param {any} u @param {Record<string, number>} p @param {string[]} keys */
 		const set = (u, p, keys) => keys.forEach((n) => p[n] !== undefined && u[n] && (u[n].value = p[n]));
 		ao = {

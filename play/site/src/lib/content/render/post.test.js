@@ -72,9 +72,11 @@ describe('the post stack on WebGPU', () => {
 		// the NaN guard's bit test, the scene's normals beside its colour, and the grade's vignette in the programs
 		expect(frag).toMatch(/floatBitsToUint/);
 		expect(frag).toMatch(/2139095040u|0x7f800000/i);
-		// the grade's grain hash, and the scene pass's three outputs (colour, normals, the mask)
+		// the grade's grain hash, and the prepass's two outputs (normals, the mask: intent 1f0c6f79 lays the occlusion
+		// on the ambient light from a prepass, the scene itself drawn to its colour alone)
 		expect(frag).toMatch(/43758\.5453/);
-		expect(frag).toMatch(/layout\s*\(\s*location\s*=\s*2\s*\)/);
+		expect(frag).toMatch(/layout\s*\(\s*location\s*=\s*1\s*\)/);
+		expect(post.pipeline).toBeTruthy();
 		expect(shaders.length).toBeGreaterThan(4);
 		post.dispose();
 	});
