@@ -1,5 +1,22 @@
 # Mac job: intent 24454c2d's c6, plants placed the way nature places them
 
+## Run 2, on `bf417ab` (please run again)
+
+Run 1 is in `out-run1/`, on `78f941f`. Its look failed c6. Head and base differed in only 0.1–1.7 % of pixels. The paths
+were clear, but nothing gathered: a plant's chance was `min(1, fill × weight)`, and the colonies are 0.85 full, so any
+edge or ring gain was cut off at full.
+
+`bf417ab` fixes that:
+- a kind as full as its masks could raise it is spread thinner everywhere, so it gathers at the canopy's edge and in
+  its ring (on the tests' grid, clover at the edge went from 2.1× the open's density to 3.9×, and strawberries in the
+  guild ring from 1.7× to 15.6×);
+- a guild stands round every trunk.
+
+The cards in `cards/` are unchanged. Run it the same way. `run.sh` takes the branch's tip, `bf417ab` or later, and
+writes `out/` again. Then commit `out/` and push this branch.
+
+The HUD's clock (`15.03.32 21:04`) is the world's calendar. The light is held at noon by `__interiorHour = 12`.
+
 This job is for intent 24454c2d-cb35-4ab2-9f7d-82b7b9b0cb3f (GPU 13/14), pull request #2193, branch
 `intent/24454c2d-masks`, at its tip (`335ba43`: this intent's work as one commit on main `9f1442d`, which holds intents 2, 4
 and 5; it replaces #2181, the same tree).
