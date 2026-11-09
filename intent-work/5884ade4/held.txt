@@ -116,6 +116,7 @@ play/site/src/lib/content/render/nodes/grass.js
 play/site/src/lib/content/render/nodes/ground.js
 play/site/src/lib/content/render/nodes/index.js
 play/site/src/lib/content/render/nodes/nodes.test.ts
+play/site/src/lib/content/render/nodes/tsl.test.js
 play/site/src/lib/content/render/post.js
 play/site/src/lib/content/render/post.test.js
 play/site/src/lib/content/render/sprites.js
@@ -136,6 +137,7 @@ play/site/src/lib/content/sandbox-2/interior/textures.ts
 play/site/src/lib/content/sandbox-2/interior/things.js
 play/site/src/lib/content/sandbox-2/interior/village.ts
 play/site/src/lib/content/sandbox-2/interior/water.ts
+play/site/src/lib/content/sandbox-kit/sky-clock.test.ts
 play/site/src/lib/content/sandbox-kit/sky.js
 play/site/src/lib/content/sandbox-kit/sky.test.js
 play/site/src/lib/content/sandbox-kit/sky.webgpu.test.js
@@ -148,7 +150,9 @@ play/site/src/lib/sandbox-4/scene.ts
 play/site/src/lib/stories/compose.test.ts
 play/site/src/lib/stories/compose.ts
 play/site/src/lib/stories/live-runtime.ts
+play/site/src/lib/stories/live.ts
 play/site/src/lib/stories/old-city.test.ts
+play/site/src/lib/stories/world.test.ts
 play/site/src/routes/game/map/scene.ts
 play/site/static/engines/engine-v6.js
 play/site/static/live/719f7adaefbbd53d26a05341ccf895196c0835bdfe884b74ad3478cfa0f742b9.js

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { codeOf, compose, CSP, laid, seal, VENDOR } from './compose';
 import { cameraAt, curveAt, frameOf, framesOf, sunAt, worldAt, type World, type WorldAsset } from './live';
 import { engineAt } from '../kernel/engines.js';
-import { hashText } from '../kernel/hash.js';
+import { hashText } from '../content/game/hash.js';
 import type { StoryBody } from './timeline';
 
 const H = (c: string) => c.repeat(64);
