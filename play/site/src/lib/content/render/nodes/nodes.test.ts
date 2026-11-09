@@ -103,16 +103,15 @@ describe('the render kit in TSL', () => {
 		valid(shaders);
 	});
 
-	test('a far page of pictures, drawn and casting its shadow from the light', () => {
+	test('a far page of pictures, lit by its normals, three views blended, casting its shadow at its depth', () => {
 		const { r, shaders } = renderer();
 		const { scene, camera } = lit();
-		const map = new THREE.Texture();
-		const { material, depth } = cardMaterials(map, new THREE.Vector2(8, 8), 8, cutOf());
-		const quad = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
+		const { material, depth } = cardMaterials(new THREE.Texture(), new THREE.Texture(), 16, 8, cutOf());
+		const quad = new THREE.PlaneGeometry(1, 1);
 		const geo = new THREE.InstancedBufferGeometry();
 		geo.index = quad.index;
-		for (const k of ['position', 'normal', 'uv']) geo.setAttribute(k, quad.attributes[k]);
-		for (const [k, n] of [['aAt', 3], ['aSize', 1], ['aTurn', 1], ['aCell', 1], ['aFade', 1]] as const) geo.setAttribute(k, new THREE.InstancedBufferAttribute(new Float32Array(4 * n), n));
+		geo.setAttribute('position', quad.attributes.position);
+		for (const [k, n] of [['aAt', 3], ['aCard', 4]] as const) geo.setAttribute(k, new THREE.InstancedBufferAttribute(new Float32Array(4 * n), n));
 		geo.instanceCount = 4;
 		const mesh = new THREE.Mesh(geo, material);
 		mesh.customDepthMaterial = depth;
@@ -125,7 +124,9 @@ describe('the render kit in TSL', () => {
 		// the page is a render target: three turns its v over on WebGL, the card turns it back first (else each far
 		// tree showed another's picture upside down)
 		const card = shaders.filter((x) => x.includes('Node System') && /texture\(/.test(x) && !/gl_Position\s*=/.test(x));
-		expect(card.join('\n')).toMatch(/vec2\( nodeVarying\d+\.x, \( 1\.0 - nodeVarying\d+\.y \) \)/);
+		expect(card.join('\n')).toMatch(/vec2\( (\w+)\.x, \( 1\.0 - \1\.y \) \)/);
+		// its shadow drawn at each pixel's baked depth
+		expect(shaders.some((x) => /gl_FragDepth\s*=/.test(x))).toBe(true);
 		valid(shaders);
 	});
 

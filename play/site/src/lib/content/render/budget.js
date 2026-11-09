@@ -15,7 +15,8 @@
  * - reads: how many builds are read from the device's cache at once (each whole in memory while it is unpacked)
  * - shadowMap: the most pixels a side the sun's shadow map has (three makes a colour and a depth texture of it: 128 MB
  *   at 4096, 32 MB at 2048)
- * - picture: each far copy's picture, its pixels a side (`px`) on pages of `page` pixels a side
+ * - picture: each far kind's picture, `views` × `views` views (../assets/render/impostors.js) of `px` pixels a side, on
+ *   pages of `page` pixels a side
  * - texture: the most pixels a side a build's own picture (a bark, a cloth, a label) is kept at
  * - evict: after how long (ms) a shape no copy was drawn at is let go of, its graphics card's copy too (0: never); it is
  *   read again from the device's cache when a copy comes near it again
@@ -49,14 +50,14 @@ export function smallDevice() {
 
 /**
  * @typedef {{ small: boolean, builds: number, boxes: number, rooms: number, spare: boolean, idle: number, reads: number,
- *   shadowMap: number, picture: { px: number, page: number }, texture: number, evict: number, release: boolean }} Budget
+ *   shadowMap: number, picture: { px: number, page: number, views: number }, texture: number, evict: number, release: boolean }} Budget
  */
 
 /** @returns {Budget} the budget for a device, small or not */
 export function budgetFor(small, cores = 8) {
 	return small
-		? { small: true, builds: 2, boxes: 1, rooms: 1, spare: false, idle: 4000, reads: 4, shadowMap: 2048, picture: { px: 80, page: 1280 }, texture: 1024, evict: 15000, release: true }
-		: { small: false, builds: Math.max(2, Math.min(8, cores - 1)), boxes: 6, rooms: 4, spare: true, idle: 0, reads: 16, shadowMap: 4096, picture: { px: 128, page: 2048 }, texture: 4096, evict: 0, release: false };
+		? { small: true, builds: 2, boxes: 1, rooms: 1, spare: false, idle: 4000, reads: 4, shadowMap: 2048, picture: { px: 40, page: 1280, views: 6 }, texture: 1024, evict: 15000, release: true }
+		: { small: false, builds: Math.max(2, Math.min(8, cores - 1)), boxes: 6, rooms: 4, spare: true, idle: 0, reads: 16, shadowMap: 4096, picture: { px: 64, page: 2048, views: 8 }, texture: 4096, evict: 0, release: false };
 }
 
 /** @type {Budget | null} */

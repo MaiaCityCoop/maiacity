@@ -35,10 +35,11 @@ import { AssetBox } from '../box/host.js';
 import { labelOf, poserOf } from '../controls.js';
 import { canonical, loadAsset } from '../load.js';
 import { INDEX, buildOf, hashOf, heldAt, paramsOf, parseBuild } from '../catalog.js';
-import { createImpostors } from './impostors.js';
+import { TRIS, createImpostors } from './impostors.js';
+import { layCanopy } from '../../render/nodes/canopy.js';
 import { budget, dropOnUpload } from '../../render/budget.js';
 import { precompile } from '../../render/core.js';
-import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, thresholdsOf } from './lod.js';
+import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, switchAt, thresholdsOf } from './lod.js';
 import { createLowering } from './lower.js';
 import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
@@ -299,7 +300,7 @@ export function createAssets(o) {
 		// And every level hands over no later than DENSITY lets it, by its own triangles (./lod.js `heldTo`)
 		const last = k.levels.length - 1;
 		const tris = k.levels[last].level?.tris ?? budgetOf(last, k.levels[k.base].level.tris);
-		k.thresholds = heldTo(k.names.length > 1 && k.picture ? thresholdsOf(k.levels.length) : thresholdsOf(k.levels.length, tris), k.tris);
+		k.thresholds = heldTo(k.names.length > 1 && k.picture ? thresholdsOf(k.levels.length, undefined, [...LEVELS.slice(0, -1), switchAt(pictures.px)]) : thresholdsOf(k.levels.length, tris), k.tris);
 	}
 
 	/** pictures taken of builds read from this device's cache (`stats`) */
@@ -389,7 +390,7 @@ export function createAssets(o) {
 			async ([made]) => {
 				if (gone || lv.level !== from) return;
 				const fresh = { level: made, meshes: made.draws.map((d) => meshOf(k, L, d)) };
-				await compiled(fresh, false);
+				await compiled(fresh);
 				// the new drawings take the old ones' place (unless the renderer went meanwhile: then they go)
 				const away = gone || lv.level !== from ? fresh.meshes : lv.meshes;
 				if (away !== fresh.meshes) Object.assign(lv, fresh), letGo(k, L);
@@ -410,7 +411,7 @@ export function createAssets(o) {
 		lv.meshes = lv.as >= 0 ? [] : lv.level.draws.map((d) => meshOf(k, L, d));
 		lv.seen = performance.now();
 		const base = L === k.base;
-		await compiled(lv, base && k.picture);
+		await compiled(lv);
 		// its picture taken as soon as its coarsest built shape is here, while the world loads, not by a frame that
 		// wants it: a copy whose picture is missing draws that whole shape in its place
 		if (base && !k.slot && k.picture) {
@@ -489,14 +490,13 @@ export function createAssets(o) {
 	/**
 	 * A level's shaders made before it is first drawn, beside the frames and not in one (where the browser can, else
 	 * while the world loads): each new shader takes the GPU a while to make, and a frame that waits for it stalls the
-	 * view. The coarsest level's for the picture studio too, which lights it otherwise.
+	 * view. (A picture's bake draws by node materials, made as it bakes: ./impostors.js.)
 	 */
-	async function compiled(lv, studio) {
+	async function compiled(lv) {
 		const scene = worldOf();
 		compiling++;
 		try {
 			if (scene) await Promise.all(lv.meshes.map(({ mesh }) => precompile(renderer, mesh, camera, scene)));
-			if (studio) await pictures.prepare(lv.level);
 		} finally {
 			compiling--;
 		}
@@ -916,13 +916,15 @@ export function createAssets(o) {
 			}
 		}
 		pictures.end();
+		// past the sun's cascades, the far pictures' crowns shade the ground (../../render/nodes/canopy.js)
+		layCanopy(pictures.group, eye);
 		for (const k of kinds.values())
 			for (const p of k.posed.values())
 				if (p.tree && p.tree.visible !== p.shown) {
 					p.shown = p.tree.visible;
 					shadows = true;
 				}
-		let tris = counted.tris + pictures.drawn * 2, calls = counted.calls + (pictures.pages && pictures.drawn ? 1 : 0);
+		let tris = counted.tris + pictures.drawn * TRIS, calls = counted.calls + (pictures.pages && pictures.drawn ? 1 : 0);
 		const now = performance.now();
 		for (const k of kinds.values())
 			for (const lv of k.levels)

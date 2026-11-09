@@ -5,7 +5,7 @@ describe('the device budget', () => {
 	it('holds a small device to a few builds, one box and one room a renderer, a 2048 shadow map and its corners let go', () => {
 		const s = budgetFor(true, 6)
 		expect(s).toMatchObject({ small: true, builds: 2, boxes: 1, rooms: 1, spare: false, shadowMap: 2048, release: true })
-		expect(s.picture).toEqual({ px: 80, page: 1280 })
+		expect(s.picture).toEqual({ px: 40, page: 1280, views: 6 })
 		expect(s.evict).toBeGreaterThan(0)
 	})
 

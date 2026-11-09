@@ -5,8 +5,8 @@
  *
  * - a level derived by simplifying (./simplify.js, beside the page: ./lower.js), kept as what the simplifier made of
  *   each of the build's drawings (plain arrays), and a level again (./lower.js `levelOf`) on the build it came from;
- * - a picture (./impostors.js), kept as its eight frames' pixels (deflated, lossless: `packFrames`), laid on a page
- *   again with nothing photographed.
+ * - a picture (./impostors.js), kept as its two images' pixels (its views' colours; their normals and depth),
+ *   deflated, lossless (`packFrames`), laid on a page again with nothing baked.
  *
  * Each under its key (../cache.js `levelKeyOf`): the build's name (`<recipe hash>?values`, which holds its recipe, its
  * engine and its values), the level (or 'picture'), what it is made to (its plan: its budget, how far it may stray …;
@@ -28,11 +28,11 @@ export const DERIVER = { simplify: SIMPLIFIER, picture: PHOTOGRAPHER };
 /** the key a level made from `build` to `plan` is kept by @param {string} build @param {number} L @param {object} plan */
 export const levelKey = (build, L, plan, deriver = DERIVER.simplify) => cache.levelKeyOf({ build, level: L, plan, deriver });
 /** the key a build's picture, `px` pixels a side, is kept by @param {string} build @param {number} px */
-export const pictureKey = (build, px, deriver = DERIVER.picture) => cache.levelKeyOf({ build, level: 'picture', plan: { px }, deriver });
+export const pictureKey = (build, px, deriver = DERIVER.picture, views) => cache.levelKeyOf({ build, level: 'picture', plan: views ? { px, views } : { px }, deriver });
 
 /**
- * A picture's eight frames as kept: one run of their pixels, deflated where this browser can (CompressionStream: what
- * is not the thing is see-through and empty, so a picture keeps a fraction of its 8 × px² × 4 bytes), lossless.
+ * A picture's images as kept: one run of their pixels, deflated where this browser can (CompressionStream: what
+ * is not the thing is see-through and empty, so a picture keeps a fraction of its bytes), lossless.
  * @param {Uint8Array[]} frames @returns {Promise<{ frames: number, bytes: number, deflated: boolean, data: Uint8Array }>}
  */
 export async function packFrames(frames) {
@@ -149,7 +149,7 @@ export function createKept(o) {
 		 * @param {string} build @param {import('./prepare.js').Level} level @param {ReturnType<import('./impostors.js').createImpostors>} pictures
 		 */
 		async picture(build, level, pictures) {
-			const key = pictureKey(build, pictures.px);
+			const key = pictureKey(build, pictures.px, undefined, pictures.views);
 			const frames = await unpackFrames(await read(key));
 			if (frames !== undefined) {
 				try {

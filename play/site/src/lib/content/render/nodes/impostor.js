@@ -1,58 +1,94 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * THE FAR PICTURES IN TSL (../../assets/render/impostors.js): what a picture is taken with (`bakeOf`: a thing's own
- * material giving its colour as it is, unlit, no studio light) and the card a page of them is drawn by.
+ * THE FAR PICTURES IN TSL (../../assets/render/impostors.js): what a view is baked with and the card that draws them,
+ * by the same sums as impostors.js's `encode`, `decode`, `nearest` and `upOf` (tested there).
  */
 import * as THREE from 'three';
 import { MeshBasicNodeMaterial, MeshStandardNodeMaterial } from 'three/webgpu';
-import { atan, cameraPosition, cameraViewMatrix, clamp, diffuseColor, floor, length, mod, normalize, positionLocal, select, uniform, uv, varying, vec2, vec3, vec4 } from 'three/tsl';
-import { aFade, always, drawn, nodeOf, ours } from './index.js';
+import {
+	abs, cameraFar, cameraNear, cameraPosition, cameraProjectionMatrix, cameraViewMatrix, cameraWorldMatrix, clamp, cos, cross, diffuseColor, dot, float, floor, frontFacing, max, mod,
+	normalWorld, normalize, positionLocal, positionView, positionWorld, select, sin, uniform, varying, vec2, vec3, vec4, viewZToOrthographicDepth
+} from 'three/tsl';
+import { always, drawn, nodeOf, ours } from './index.js';
+
+/** the view baked: its direction, the thing's middle height, its ball's diameter */
+export const bake = { dir: uniform(new THREE.Vector3(0, 0, 1)), mid: uniform(0), size: uniform(1) };
 
 const baked = new WeakMap();
-/**
- * A thing's material as a picture takes it: its own colour (its pictures, its copies' colours, its cut-outs) as it is,
- * unlit, so the card lights it as the scene is lit.
- * @param {THREE.Material} m
- */
+/** a material as baked: `albedo` its own colour, unlit; `normal` its normal and depth along the view, 0…1 @param {THREE.Material} m */
 export function bakeOf(m) {
 	let b = baked.get(m);
 	if (b) return b;
-	const n = nodeOf(m);
-	b = n === m ? (m.isNodeMaterial ? m.clone() : nodeOf(new THREE.MeshBasicMaterial({ color: m.color ?? 0x808080, side: m.side }))) : n;
-	b.outputNode = vec4(diffuseColor.rgb, diffuseColor.a);
-	baked.set(m, b);
+	const of = () => {
+		const n = nodeOf(m);
+		return n !== m ? n : m.isNodeMaterial ? m.clone() : nodeOf(new THREE.MeshBasicMaterial({ color: m.color }));
+	};
+	const albedo = of(), normal = of();
+	albedo.outputNode = diffuseColor;
+	const n = normalize(select(frontFacing, normalWorld, normalWorld.negate()));
+	normal.outputNode = vec4(n.mul(0.5).add(0.5), dot(positionWorld.sub(vec3(0, bake.mid, 0)), bake.dir).div(bake.size).add(0.5));
+	baked.set(m, (b = { albedo, normal }));
 	return b;
 }
 
+/** v turned t about the upright */
+const turnY = (v, t) => vec3(v.x.mul(cos(t)).add(v.z.mul(sin(t))), v.y, v.z.mul(cos(t)).sub(v.x.mul(sin(t))));
+/** a view's right and up */
+const frameOf = (d) => {
+	const r = normalize(cross(select(d.y.greaterThan(0.999), vec3(0, 0, -1), vec3(0, 1, 0)), d));
+	return [r, cross(d, r)];
+};
+
 /**
- * The material of a page of far pictures (../../assets/render/impostors.js): each card stands at its foot (`aAt`),
- * `aSize` metres, turned about its upright axis to the eye (to the light, drawing its shadow), showing the picture of
- * its thing (`aCell`, then one of `frames` sides by the thing's own turn `aTurn`) from the page `map` of `grid` cells,
- * faded by `aFade`; `depth` the one that draws its shadow.
- * @param {THREE.Texture} map @param {THREE.Vector2} grid @param {number} frames @param {ReturnType<typeof cutOf>} cut
+ * A page's card: at its ball's middle `aAt`, `aCard` (its size, turn, block's first cell and fade), faced to the eye (the
+ * light, for `depth`, its shadow at its baked depth), its three views nearest the eye in its own frame blended from
+ * the pages `map` and `normals`, `cells` a side, lit by its normals.
+ * @param {THREE.Texture} map @param {THREE.Texture} normals @param {number} cells @param {number} views @param {any} cut
  */
-export function cardMaterials(map, cells, frames, cut) {
-	const grid = uniform(cells);
-	const at = always('aAt', 'vec3'), size = always('aSize', 'float');
-	const t = cameraPosition.xz.sub(at.xz);
-	const te = select(length(t).greaterThan(1e-4), normalize(t), vec2(0, 1));
-	const pos = at.add(vec3(te.y, 0, te.x.negate()).mul(positionLocal.x).mul(size)).add(vec3(0, positionLocal.y.mul(size), 0));
-	const step = (Math.PI * 2) / frames;
-	const face = mod(floor(atan(te.x, te.y).sub(always('aTurn', 'float')).div(step).add(0.5)), frames);
-	const cell = always('aCell', 'float').add(face);
-	const card = varying(vec2(mod(cell, grid.x), floor(cell.div(grid.x))).add(clamp(uv(), 0.004, 0.996)).div(grid));
-	const look = drawn(map, card);
+export function cardMaterials(map, normals, cells, views, cut) {
+	const at = always('aAt', 'vec3'), A = always('aCard', 'vec4'), size = A.x, turn = A.y, corner = A.z;
+	// the eye in the thing's frame (a light's along its axis)
+	const ortho = cameraProjectionMatrix.element(3).w.greaterThan(0.5);
+	const c = turnY(select(ortho, cameraWorldMatrix.element(2).xyz.mul(1e4), cameraPosition.sub(at)), turn.negate());
+	const e = normalize(c);
+	const [er, eu] = frameOf(e);
+	const V = er.mul(positionLocal.x).add(eu.mul(positionLocal.y)).mul(size);
+	// the eye on the grid, and the triangle of views round it
+	const n1 = views - 1;
+	const h = normalize(vec3(e.x, max(e.y, 0), e.z.add(1e-5)));
+	const p = vec2(h.x, h.z).div(abs(h.x).add(h.y).add(abs(h.z)));
+	const g = vec2(p.x.add(p.y), p.x.sub(p.y)).mul(0.5).add(0.5).mul(n1);
+	const b = clamp(floor(g), 0, n1 - 1), f = g.sub(b);
+	const lo = f.x.add(f.y).lessThan(1);
+	const grid = [select(lo, b, b.add(1)), b.add(select(lo, vec2(1, 0), vec2(0, 1))), b.add(select(lo, vec2(0, 1), vec2(1, 0)))];
+	const w = varying(select(lo, vec3(float(1).sub(f.x).sub(f.y), f.x, f.y), vec3(f.x.add(f.y).sub(1), float(1).sub(f.x), float(1).sub(f.y))));
+	const base = vec2(mod(corner, cells), floor(corner.div(cells)));
+	const taken = grid.map((gk, k) => {
+		const uv = gk.div(n1).mul(2).sub(1);
+		const x = uv.x.add(uv.y).mul(0.5), z = uv.x.sub(uv.y).mul(0.5);
+		const d = normalize(vec3(x, float(1).sub(abs(x)).sub(abs(z)), z));
+		const [r, u] = frameOf(d);
+		// the eye's ray through this corner met on the view's plane
+		const rd = V.sub(c);
+		const H = c.add(rd.mul(dot(c, d).negate().div(dot(rd, d))));
+		// (off its view, the view's empty edge)
+		const q = varying(base.add(gk)).add(clamp(varying(vec2(dot(H, r), dot(H, u)).div(size).add(0.5)), 0.004, 0.996)).div(cells);
+		return { col: drawn(map, q), nd: drawn(normals, q), wk: w[['x', 'y', 'z'][k]] };
+	});
+	const look = taken.reduce((a, t) => a.add(t.col.mul(t.wk)), vec4(0));
+	const cover = taken.reduce((a, t) => a.add(t.wk.mul(t.col.a)), float(1e-4));
+	const nd = taken.reduce((a, t) => a.add(t.nd.mul(t.wk.mul(t.col.a))), vec4(0)).div(cover);
 	const make = (K, o) => {
 		const m = new (ours(K))({ alphaTest: 0.5, side: THREE.DoubleSide, ...o });
-		m.positionNode = pos;
+		m.positionNode = at.add(turnY(V, turn));
 		m.colorNode = look;
-		m.fade = aFade;
+		m.fade = A.w;
 		m.cut = cut;
 		return m;
 	};
 	const material = make(MeshStandardNodeMaterial, { roughness: 0.85 });
-	// lit as a thing facing the eye a little upward
-	material.normalNode = normalize(cameraViewMatrix.mul(vec4(normalize(vec3(te.x, 0.55, te.y)), 0)).xyz);
-	return { material, depth: make(MeshBasicNodeMaterial, {}) };
+	material.normalNode = normalize(cameraViewMatrix.mul(vec4(turnY(normalize(nd.xyz.mul(2).sub(1)), turn), 0)).xyz);
+	const depth = make(MeshBasicNodeMaterial, {});
+	depth.depthNode = viewZToOrthographicDepth(positionView.z.add(nd.w.sub(0.5).mul(size)), cameraNear, cameraFar);
+	return { material, depth };
 }
-
