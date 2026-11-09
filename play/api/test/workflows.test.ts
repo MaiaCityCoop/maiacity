@@ -367,12 +367,12 @@ describe("the whole suite on every pull request and on main", () => {
       .map((l: string) => l.trim()).filter((l: string) => /\bbun test\b/.test(l));
   test("play-checks.yml runs `bun test --parallel`, every file, nothing narrowed, Postgres with room for it", () => {
     const p = yaml(".github/workflows/play-checks.yml");
-    const api = p.jobs.checks.steps.find((s: any) => s.name === "The API");
+    const api = p.jobs.api.steps.find((s: any) => s.name === "The API");
     expect(api["working-directory"]).toBe("play/api");
     expect(bunTests(".github/workflows/play-checks.yml")).toEqual(["bun test --parallel"]);
     expect(api.run).not.toMatch(/--changed|\s-t\s|--test-name-pattern|GATE_CHANGED|\.test\.ts/);
     expect(JSON.stringify(api.env ?? {})).not.toContain("GATE_CHANGED");
-    const pg = p.jobs.checks.steps.find((s: any) => s.name === "Postgres");
+    const pg = p.jobs.api.steps.find((s: any) => s.name === "Postgres");
     expect(pg.run).toContain("-c max_connections=500");
   });
   test("intents.yml and intents-pr.yml run no narrowed suite", () => {
@@ -392,45 +392,60 @@ describe("the whole suite on every pull request and on main", () => {
 });
 
 // intent 417af727: the site's own tests gate every merge as play/api's do; 8823eb7c reached main with one of them red
-// because CI only built the site. The fast suite (every file but Sandbox 2's physics) runs in the required job beside the
-// API's tests and the build; the physics (about ten minutes) in a job of their own, when their code changes and on main.
+// because CI only built the site. Each on a runner of its own (beside the API's on one they starved its 5 s timeouts):
+// the API's tests alone, the site's build and fast suite, Sandbox 2's physics apart (when their code changes and on
+// main); the required check "API and site" needs the first two.
 describe("the site's tests on every pull request and on main", () => {
   const p = yaml(".github/workflows/play-checks.yml");
-  const steps = p.jobs.checks.steps as any[];
-  const at = (name: string) => steps.findIndex((s) => s.name === name);
   const lines = (s: any) => String(s.run).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
   const site = JSON.parse(text("play/site/package.json")).scripts;
-  test("the site's tests: the fast suite is every file but Sandbox 2's physics, then the *.bun.test.ts with Bun; the physics apart", () => {
+  test("the site's tests: the fast suite is vitest without Sandbox 2's physics, then the *.bun.test.ts with Bun; the physics apart", () => {
     expect(site.test).toBe("bun run test:vitest && bun run test:bun");
     expect(site["test:vitest"]).toBe("vitest run --exclude 'src/lib/sandbox-2/tests/**'");
     expect(site["test:bun"]).toBe("bun test .bun.test.ts");
     expect(site["test:physics"]).toBe("vitest run src/lib/sandbox-2/tests");
     expect(text("play/site/vite.config.ts")).toContain("'src/**/*.bun.test.ts'");
   });
-  test("the site's tests: the required job starts them before the API's tests and the build, in the background, and awaits them at its end", () => {
-    expect(p.jobs.checks.name).toBe("API and site");
-    expect(p.jobs.checks["timeout-minutes"]).toBe(20);
-    const started = steps[at("The site's tests, started")];
-    expect(started["working-directory"]).toBe("play/site");
-    expect(started.if).toBe("steps.tested.outputs.skip != 'true'");
-    expect(lines(started)).toEqual([
-      "bun install --frozen-lockfile",
-      "bunx svelte-kit sync",
-      `nohup nice -n 19 bash -c 'bun run test:vitest --maxWorkers=1 > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &`,
+  test("the site's tests: the API's tests, the site and the physics each a job of their own; the required check needs the API and the site", () => {
+    const { tested, api, site: web, physics, checks } = p.jobs;
+    for (const j of [tested, api, web, physics, checks]) expect(j["runs-on"]).toBe("ubuntu-24.04");
+    // the API's tests run alone on their runner: nothing of the site's there
+    expect(api.name).toBe("API");
+    expect(api.steps.map((s: any) => s.name ?? s.uses)).toEqual(["actions/checkout@v4", "Postgres", "oven-sh/setup-bun@v2", "The API"]);
+    expect(JSON.stringify(api)).not.toMatch(/play\/site|bun run test|vitest/);
+    // the site: its build, then its fast suite, never the physics
+    expect(web.name).toBe("Site");
+    expect(web.steps.map((s: any) => s.name ?? s.uses)).toEqual(["actions/checkout@v4", "oven-sh/setup-bun@v2", "The site", "The site's tests"]);
+    expect(lines(web.steps[2])).toEqual(["bun install --frozen-lockfile", "bun run build"]);
+    expect(web.steps[3]["working-directory"]).toBe("play/site");
+    expect(web.steps[3].run).toBe("bun run test");
+    expect(JSON.stringify(web)).not.toContain("test:physics");
+    for (const j of [api, web]) expect([j.needs, j.if, j["timeout-minutes"]]).toEqual(["tested", "needs.tested.outputs.skip != 'true'", 20]);
+    // the required check keeps its name, needs both, runs whatever they did, and is green only when both are
+    expect(checks.name).toBe("API and site");
+    expect(checks.needs).toEqual(["tested", "api", "site"]);
+    expect(checks.if).toBe("always()");
+    const gate = checks.steps[0];
+    expect(gate.env).toEqual({ TESTED: "${{ needs.tested.result }}", SKIP: "${{ needs.tested.outputs.skip }}", API: "${{ needs.api.result }}", SITE: "${{ needs.site.result }}" });
+    expect(lines(gate).slice(1)).toEqual([
+      '[ "$TESTED" = success ] || exit 1',
+      'if [ "$SKIP" = true ]; then [ "$API" = skipped ] && [ "$SITE" = skipped ] && exit 0; exit 1; fi',
+      '[ "$API" = success ] && [ "$SITE" = success ]',
     ]);
-    const awaited = steps[at("The site's tests")];
-    expect(awaited.if).toBe("steps.tested.outputs.skip != 'true'");
-    expect(awaited.run).toContain('until [ -f "$RUNNER_TEMP/site-tests.exit" ]');
-    expect(awaited["working-directory"]).toBe("play/site");
-    expect(lines(awaited).slice(-2)).toEqual(['[ "$(cat "$RUNNER_TEMP/site-tests.exit")" = 0 ] || exit 1', "bun run test:bun"]);
-    expect(at("The site's tests, started")).toBeGreaterThan(at("Postgres"));
-    expect(at("The site's tests, started")).toBeLessThan(at("The API"));
-    expect(at("The site")).toBeGreaterThan(at("The API"));
-    expect(at("The site's tests")).toBeGreaterThan(at("The site"));
-    expect(at("The site's tests")).toBeLessThan(at("Tested tree"));
-    expect(lines(steps[at("The site")])).toEqual(["bun install --frozen-lockfile", "bun run build"]);
-    // the physics are never in the required job
-    expect(JSON.stringify(p.jobs.checks)).not.toContain("test:physics");
+    // the physics are not in it: on main they'd hold it past the 13 minutes production's Main is green waits
+    expect(checks.needs).not.toContain("physics");
+  });
+  test("the site's tests: the required check's gate, run as a step: green only when the API and the site are, or both skipped for a tested tree", () => {
+    const gate = lines(p.jobs.checks.steps[0]).slice(1).join("\n");
+    const run = (TESTED: string, SKIP: string, API: string, SITE: string) =>
+      Bun.spawnSync(["bash", "-c", gate], { env: { TESTED, SKIP, API, SITE } }).exitCode === 0;
+    expect(run("success", "", "success", "success")).toBe(true);
+    expect(run("success", "false", "success", "success")).toBe(true);
+    expect(run("success", "true", "skipped", "skipped")).toBe(true);
+    for (const [a, b] of [["failure", "success"], ["success", "failure"], ["cancelled", "success"], ["success", "skipped"], ["skipped", "skipped"]])
+      expect([a, b, run("success", "", a, b)]).toEqual([a, b, false]);
+    expect(run("failure", "", "skipped", "skipped")).toBe(false);
+    expect(run("success", "true", "success", "failure")).toBe(false);
   });
   test("the site's tests: Sandbox 2's physics are their own job, on a pull request that changes them and on every push to main", () => {
     const j = p.jobs.physics;

@@ -1,11 +1,12 @@
 # play's checks, called by main.yml: the API's tests against a real Postgres (play/api/test), its types, and the site's
-# build (play/site), which also holds the copied modules to resolving, and its tests (intent 417af727): the site's fast
-# suite (`bun run test`: every file but Sandbox 2's physics) in two parts. Its vitest part starts at the job's beginning,
-# in the background beside the API's tests and the build, on one worker at the lowest priority (the API's tests time out
-# at 5 s when the cores are shared more), and is awaited at the job's end; its Bun part (`bun run test:bun`, the Old City
-# film's world on Bun's workers, ~95 s on every core) runs then. Sandbox 2's physics (`bun run test:physics`, about ten
-# minutes) is its own job, not a required check: on a pull request that touches play/site/src/lib/sandbox-2/, and on
-# every push to main.
+# build (play/site), which also holds the copied modules to resolving, and its tests (intent 417af727).
+#
+# Each on a runner of its own, in parallel (they starved each other's 5 s timeouts on one): the job "API" (Postgres,
+# the API's types and its whole suite, alone), the job "Site" (its build, then its fast suite: vitest without Sandbox
+# 2's physics, then its *.bun.test.ts with Bun), and Sandbox 2's physics (`bun run test:physics`, its own job and check,
+# on a pull request that touches play/site/src/lib/sandbox-2/ and on every push to main; not in the required check:
+# on main it would hold it past the 13 minutes production's Main is green waits). The required check keeps its name:
+# the job "API and site" needs "API" and "Site" and is green only when both are.
 #
 # On a pull request they always run in full, and end by noting the tree they tested ("Tested tree"). On a push to main
 # (intent 5ab64b8e) they pass without running again only when the pushed tree is that very tree, for the pull request
@@ -20,15 +21,17 @@ permissions:
   contents: read
 
 jobs:
-  checks:
-    name: API and site
+  tested:
+    name: The tested tree
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 5
     permissions:
       contents: read
       actions: read
       checks: read
       pull-requests: read
+    outputs:
+      skip: ${{ steps.tested.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
       - name: The tested tree
@@ -41,25 +44,22 @@ jobs:
           CHECK: play / API and site
           GH_TOKEN: ${{ github.token }}
         run: bash .github/workflows/tested-tree.sh
+
+  api:
+    name: API
+    needs: tested
+    if: needs.tested.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
       - name: Postgres
-        if: steps.tested.outputs.skip != 'true'
         # room for the tests in parallel (intent aa59f248): each test file's pool and each play-api a test starts take up to 20
         run: docker run -d --name postgres -e POSTGRES_PASSWORD=play -p 5432:5432 postgres:17-alpine -c max_connections=500
       - uses: oven-sh/setup-bun@v2
-        if: steps.tested.outputs.skip != 'true'
         with:
           bun-version: 1.4.4
-      # the site's fast suite's vitest part, in the background: its output and exit code kept for "The site's tests" to
-      # await. One worker at the lowest priority, so the API's tests beside it keep the cores they need
-      - name: The site's tests, started
-        if: steps.tested.outputs.skip != 'true'
-        working-directory: play/site
-        run: |
-          bun install --frozen-lockfile
-          bunx svelte-kit sync
-          nohup nice -n 19 bash -c 'bun run test:vitest --maxWorkers=1 > "$RUNNER_TEMP/site-tests.log" 2>&1; echo $? > "$RUNNER_TEMP/site-tests.exit"' > /dev/null 2>&1 &
       - name: The API
-        if: steps.tested.outputs.skip != 'true'
         working-directory: play/api
         env:
           TEST_DATABASE_URL: postgres://postgres:play@localhost:5432/postgres
@@ -71,24 +71,50 @@ jobs:
           docker exec postgres pg_isready -h 127.0.0.1 -U postgres
           # the whole suite, every file, one worker per core (each file its own database; intent aa59f248)
           bun test --parallel
+
+  site:
+    name: Site
+    needs: tested
+    if: needs.tested.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
       - name: The site
-        if: steps.tested.outputs.skip != 'true'
         working-directory: play/site
         run: |
           bun install --frozen-lockfile
           bun run build
       - name: The site's tests
-        if: steps.tested.outputs.skip != 'true'
         working-directory: play/site
+        # the fast suite: vitest without Sandbox 2's physics, then the *.bun.test.ts with Bun
+        run: bun run test
+
+  checks:
+    name: API and site
+    needs: [tested, api, site]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: The API's and the site's jobs
+        env:
+          TESTED: ${{ needs.tested.result }}
+          SKIP: ${{ needs.tested.outputs.skip }}
+          API: ${{ needs.api.result }}
+          SITE: ${{ needs.site.result }}
         run: |
-          start=$SECONDS
-          until [ -f "$RUNNER_TEMP/site-tests.exit" ]; do sleep 2; done
-          cat "$RUNNER_TEMP/site-tests.log"
-          echo "the site's vitest part: awaited $((SECONDS - start)) s after the build"
-          [ "$(cat "$RUNNER_TEMP/site-tests.exit")" = 0 ] || exit 1
-          bun run test:bun
+          echo "the tested tree: $TESTED (skip: ${SKIP:-false}); API: $API; Site: $SITE"
+          [ "$TESTED" = success ] || exit 1
+          if [ "$SKIP" = true ]; then [ "$API" = skipped ] && [ "$SITE" = skipped ] && exit 0; exit 1; fi
+          [ "$API" = success ] && [ "$SITE" = success ]
+      - uses: actions/checkout@v4
+        if: needs.tested.outputs.skip != 'true'
       - name: Tested tree
-        if: steps.tested.outputs.skip != 'true'
+        if: needs.tested.outputs.skip != 'true'
         run: echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"
 
   physics:
