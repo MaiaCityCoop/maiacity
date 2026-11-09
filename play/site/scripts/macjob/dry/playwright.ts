@@ -122,13 +122,13 @@ async function inPage(fn: Function | string, arg: unknown, at: string) {
 
 class Page {
 	inits: string[] = [];
-	video: string | null;
+	film: string | null;
 	mouse = { click: async () => {}, move: async () => {}, down: async () => {}, up: async () => {}, wheel: async () => {} };
 	keyboard = { down: async () => {}, up: async () => {}, press: async () => {}, type: async () => {} };
 	constructor(o: { recordVideo?: { dir: string } } = {}) {
 		blank();
-		this.video = o.recordVideo ? join(o.recordVideo.dir, `${Math.random().toString(36).slice(2)}.webm`) : null;
-		if (this.video) mkdirSync(dirname(this.video), { recursive: true }), writeFileSync(this.video, '');
+		this.film = o.recordVideo ? join(o.recordVideo.dir, `${Math.random().toString(36).slice(2)}.webm`) : null;
+		if (this.film) mkdirSync(dirname(this.film), { recursive: true }), writeFileSync(this.film, '');
 	}
 	on(ev: string, cb: (x: any) => void) {
 		if (ev === 'pageerror') listeners.add(cb);
@@ -228,7 +228,7 @@ class Page {
 }
 // `video()` as Playwright has it: the recording, its path once the page is closed
 (Page.prototype as any).video = function (this: Page) {
-	const p = this.video;
+	const p = this.film;
 	return p && { path: async () => p, saveAs: async (to: string) => writeFileSync(to, ''), delete: async () => {} };
 };
 
