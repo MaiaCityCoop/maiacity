@@ -2,13 +2,14 @@
 // the world kit's page, the places list pointing at it; the page reads its planet, biomes and sites from its sandbox's
 // config, and the code under src/lib/content/sandbox-7 and src/routes/sandbox-7 holds none of their values (no shade, no
 // lift, no map's hash, no site's place), nor anything of the old repository.
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PLACES } from '../game/places.js';
 import { biomes, planet, sites } from './fixture.test';
 
-const SITE = join(import.meta.dir, '../../../..');
+const SITE = fileURLToPath(new URL('../../../../', import.meta.url));
 const read = (p: string) => readFileSync(join(SITE, p), 'utf8');
 const ROUTE = 'src/routes/sandbox-7/+page.svelte';
 const COVER = '88528c9521de8682f676c3e2539c3a19ffd2a4731a2343410761025e27fde55e';
