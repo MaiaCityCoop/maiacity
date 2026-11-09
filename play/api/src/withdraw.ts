@@ -1,16 +1,8 @@
-// A document withdrawn from an intent's work before it is decided (intent ee0a7455-c34d-40bf-ac8f-c9a186dfe280,
-// Samuel 2026-11-07): one document proposed by mistake, taken out by the intent's own agent over MCP (withdraw_doc) or
-// by an admin on the board's review (POST /api/intents/<id>/withdraw), always with its reason. Both go through
-// ./held.ts dropDoc, the one way a document leaves an intent's work: its intent variant closed and kept in the history,
-// the rest of the work as it was. A draft (the intent's open variant of a document, never proposed) is closed the same
-// way, by ./held.ts closeVariant (intent ee0a7455, widened: e03d7a44's drafts seeded below their heads), so the next
-// doc_edit of it for the intent seeds a new variant from Main (./versioned.ts variantFor).
-//
-//   Build: it stays in Build.  Proposal: it goes back to Build, its results kept.
-//
-// Each withdrawal is kept on the intent beside its steps back (`steps`, migration 0036): when, who, how, from which
-// stage to which, the document and its reason. Refused for a decided intent (Ship, Accepted, Archived) or one not yet
-// built, a document it holds no open or proposed variant of, and anyone but an admin (or an admin's agent).
+// A document withdrawn from an intent's work before it is decided, always with its reason (intent ee0a7455, Samuel
+// 2026-11-07): by the intent's agent over MCP (withdraw_doc) or an admin on the board (POST /api/intents/<id>/withdraw),
+// both through ./held.ts dropDoc (a draft through closeVariant, so the next doc_edit seeds anew from Main). Build stays
+// in Build; Proposal goes back to Build, its results kept. Kept on the intent's `steps` (migration 0036). Refused for a
+// decided or unbuilt intent, a document it holds no variant of, and anyone but an admin or an admin's agent.
 import { admin, type Me } from "./access";
 import type { Db } from "./kit/pg";
 import { UUID } from "./kit/uuid";

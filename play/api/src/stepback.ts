@@ -1,15 +1,8 @@
-// An intent one stage back, over MCP, always with its reason (intent 5a78e0b7-c221-4f3f-9148-590727d1e154, Samuel
-// 2026-11-07: "the step back to Specify should be exposed via MCP and never be a manual button, to self-serve"). The
-// agent that finds its spec unbuildable sends it back itself and specifies it again; the admin's gate stays where it is:
-// only Approve spec moves it forward again (./intents.ts decideIntent), so until then no check is recorded for it and
-// nothing is proposed for it.
-//
-//   Build, or Proposal with no work of play's waiting → Specify: its spec kept; its approval and results cleared.
-//   Specify → Idea: its spec dropped, its whole text kept with the step in the intent's history.
-//
-// Refused at Idea, at Proposal while work of play's waits there (it is decided first), and in Ship, Accepted and
-// Archived. Each step is kept on the intent (`steps`, migration 0036): when, who (over MCP), from which stage to which,
-// its reason, and the spec it dropped; the board shows them under the intent's note.
+// An intent one stage back over MCP, always with its reason (intent 5a78e0b7, Samuel 2026-11-07: "the step back to
+// Specify should be exposed via MCP and never be a manual button, to self-serve"); only Approve spec moves it forward
+// again. Build (or Proposal with no work of play's waiting) → Specify, spec kept, approval and results cleared;
+// Specify → Idea, spec dropped and kept in the history. Refused at Idea, while work waits at Proposal, and once decided.
+// Kept on the intent's `steps` (migration 0036), shown under its note.
 import { admin, type Me } from "./access";
 import type { Queryable } from "./kit/pg";
 import { INTENT_ADMINS, intentRow, waiting, reasonOf, moveBack } from "./intents";
