@@ -59,7 +59,7 @@ export const CSP = frameCsp({ script: "'self' 'unsafe-inline' blob:", open: { 'i
 export const FRAME = { sandbox: SANDBOX, allow: `autoplay; ${DENY}` };
 
 /** a film's frame in pixels: its short side 1080 */
-export function sizeOf(format: string | undefined): [number, number] {
+function sizeOf(format: string | undefined): [number, number] {
 	const [a, b] = String(format ?? '9:16').split(':').map(Number);
 	if (!(a > 0 && b > 0)) return [1080, 1920];
 	return a >= b ? [Math.round((1080 * a) / b), 1080] : [1080, Math.round((1080 * b) / a)];
