@@ -61,7 +61,7 @@ function slotsNamed(configs: Record<string, unknown>): { slot: string; config: s
   const walk = (o: unknown, config: string, path: Key[]) => {
     if (Array.isArray(o)) o.forEach((x, i) => walk(x, config, [...path, i]));
     else if (o && typeof o === "object") {
-      if (typeof (o as any).slot === "string") out.push({ slot: (o as any).slot, config, path });
+      if ("slot" in o && typeof o.slot === "string") out.push({ slot: o.slot, config, path });
       for (const [k, v] of Object.entries(o)) if (k !== "slot") walk(v, config, [...path, k]);
     }
   };
@@ -180,7 +180,7 @@ export async function applyEdits(q: Queryable, from: SandboxState, edits: unknow
   const pinChanged = (slot: string, before: Pin | null) => {
     if (!firstPin.has(slot)) firstPin.set(slot, before);
   };
-  for (const [i, e] of (edits as any[]).entries()) {
+  for (const [i, e] of edits.entries()) {
     const where = `Edit ${i + 1} (${e?.op ?? "?"})`;
     if (!e || typeof e !== "object") throw new SandboxError(`${where}: an edit is an object.`);
     if (e.op === "pin") {
@@ -529,7 +529,7 @@ export async function proposedState(db: Queryable, me: Me | null, sandbox: strin
  */
 export async function ensureLayouts(db: Db): Promise<number> {
   const { rows: has } = await db.query(`SELECT to_regclass('play.sandbox_changes_kept') AS t`);
-  if (!(has[0] as any)?.t) return 0;
+  if (!has[0]?.t) return 0;
   return db.transaction(async (q) => {
     await q.query(lockSql(LOCK.layoutsMove));
     const { rows: sandboxes } = await q.query<{ id: string }>(
