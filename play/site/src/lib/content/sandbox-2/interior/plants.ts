@@ -1,9 +1,4 @@
-/**
- * The food forest under the glass: mango, avocado and citrus trees with their
- * fruit hanging in them, coconut palms, bananas, an understorey of shrubs and
- * beds of herbs. Geometry and materials are shared between every plant of a
- * kind, so a dome can hold a hundred trees and stay light.
- */
+/** The food forest under the glass, its geometry and materials shared by every plant of a kind, so a dome holds a hundred trees lightly. */
 import * as THREE from 'three'
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
 import { bark, frond, leaves } from './textures'
@@ -26,8 +21,7 @@ const bananaStemMat = shared(() => new THREE.MeshStandardMaterial({ color: '#6f8
 const bananaLeafMat = shared(() => new THREE.MeshStandardMaterial({ color: '#5d9a3c', side: THREE.DoubleSide, roughness: 0.55 }))
 const card = shared(() => new THREE.PlaneGeometry(1, 1))
 const trunkGeo = shared(() => new THREE.CylinderGeometry(0.7, 1, 1, 8, 1).translate(0, 0.5, 0))
-// fruit, berries and flowers: twenty triangles each (a forest carries tens of thousands), shaded
-// smooth across its corners so it still reads as round
+// fruit, berries and flowers: twenty triangles each (a forest carries tens of thousands), shaded smooth
 const sphere = shared(() => {
 	const g = new THREE.IcosahedronGeometry(1, 0)
 	g.deleteAttribute('normal')
@@ -84,9 +78,8 @@ function trunk(group: THREE.Group, height: number, radius: number, lean = 0) {
 export type Plant = { object: THREE.Group; radius: number }
 
 /**
- * What a stand-in plant is, written on it (`userData.legacy`), so that Sandbox 5 can put the plant of our own library
- * ($content/plants) in its place (./legacy.js): a bed of a crop `len` long, a plant in a pot standing `ph` above its foot,
- * a tuft of herbs, a vine along a rail, a pergola's vines, or a whole plant of a kind.
+ * What a stand-in plant is (`userData.legacy`), so Sandbox 5 puts our library's plant in its place (./legacy.js): a
+ * crop's bed `len` long, a potted plant `ph` above its foot, a herb tuft, a vine on a rail or pergola, or a whole plant.
  */
 export type Legacy =
 	| { crop: Crop; len: number }
@@ -518,11 +511,7 @@ function lettuceHead(g: THREE.Group, r: Rand, x: number, z: number, red: boolean
 	}
 }
 
-/**
- * One bed's crop, planted over `len` metres of a bed one metre wide, the soil at y 0.
- * The crops a greenhouse is for: salads, tomatoes, cucumbers, peppers and
- * aubergines, chard and kale, beans, strawberries, herbs.
- */
+/** One bed's crop over `len` m of a bed 1 m wide, soil at y 0: the greenhouse crops. */
 export type Crop = 'lettuce' | 'tomato' | 'cucumber' | 'pepper' | 'aubergine' | 'chard' | 'beans' | 'strawberry' | 'herbs' | 'radish' | 'kale'
 export const CROPS: Crop[] = ['lettuce', 'tomato', 'cucumber', 'pepper', 'chard', 'beans', 'aubergine', 'strawberry', 'herbs']
 export function crop(kind: Crop, seed: number, len: number): THREE.Group {
