@@ -105,6 +105,12 @@ if command -v bun > /dev/null; then
 else
   say "no bun in this image"
 fi
+# main's history beside the checkout (intent 7af6e162): a check that compares a head with main (`git merge-base HEAD
+# origin/main`, the census at main) needs origin/main and the commits back to where the head left it; a runner's
+# checkout has one commit and no other branch
+if command -v git > /dev/null && [ "$(git -C "$ROOT" rev-parse --is-shallow-repository 2>/dev/null)" = true ] && ! git -C "$ROOT" rev-parse -q --verify origin/main > /dev/null; then
+  (cd "$ROOT" && as_owner timeout 120 git fetch -q --no-tags --deepen=100 origin +refs/heads/main:refs/remotes/origin/main) && say "origin/main fetched, 100 commits deep" || say "could not fetch origin/main"
+fi
 # the workflows' lint (intent aa59f248), pinned, built once into the cache of whoever runs the gate (the user sudo ran
 # this for, on GitHub's runner)
 if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then
