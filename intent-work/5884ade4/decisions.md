@@ -207,3 +207,15 @@ Kinds' format texts for agents moved into their seed schemas' `description`, rea
 tool descriptions byte-identical. No migration. Left: the mirrored work columns on play.intents (site reads them, the
 held assetdocs writes them), play.story_versions as a second store (one writer only), the `shipWork` global and the
 seed steps out of migrations.ts (the tests builder's), tobucket.ts/migrate.ts.
+
+### Merged: site-content (fix 3), 10:12Z
+
+17 moves (`log/site-content.md`), merged cleanly; gate green (all, 60 s); census-same: Sandbox 1, Sandbox 3 and the
+Worlds page the same at d5346b7 and the merged head (Sandbox 3 counted three times alike: the builder's varying
+draws came under a machine load of 9–17). `measure.ts content` passes all bounds, `cycles` too: sandbox pages 297/296
+→ 26/35 lines (one DomeCellPage.svelte), hash patterns 21 → 4 (kernel/hash.js), `pin:${` outside catalog 4 → 0, box
+→ content/assets 2 → 0 (box/engines.js), cache.js 732 → 2 (split into cache/), sandbox slugs 26 → 1 (sandbox5.js: the
+held village.ts types the film name), places.js gone (film registry by UUID), geometry ↔ simulation cycle gone. One
+file reader: kernel/files.js `fileUrl`, cache/files.js `playFile` (content can't import lib/api.ts without a cycle
+through lib/recipes.ts). Not looked at by hand: Sandbox 2's labs, Sandbox 4, the Factories (no census; pinned by
+SSR and unit tests where moved).
