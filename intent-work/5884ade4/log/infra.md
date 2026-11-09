@@ -108,3 +108,10 @@ committed before and as now, every call they make logged and diffed):
   the two `*-latin-wght-normal.woff2` faces only aven/kernel's view engine inlined go.
 - vite.config.ts without `as never` (vite 8 types `tsconfig`; the website's tsc and svelte-check are clean).
 - Pinned: `bash play/avenbox/gate.sh website` (check and build) green.
+
+## 7. The image's context takes required-checks.json (completes move 1)
+
+- `play/Dockerfile.dockerignore` excludes everything but play's site, API and media: without `!.github/
+  required-checks.json` the image's COPY of it (move 1) would fail. Docker's ignore file re-includes a file under an
+  excluded folder by its `!` line (unlike Git's). No Docker daemon here to build the image: the deploy's image job is
+  its test.
