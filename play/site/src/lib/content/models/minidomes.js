@@ -1,17 +1,7 @@
 /*
- * MINI DOMES — the coops, hutches and playgrounds of the village again, each as a tiny geodesic dome: the same
- * triangles as the village's great domes, small enough to step over a hen.
- *
- * The hen dome (v2 of the chicken coop) is a dome of timber struts 5.6 m across, low and wide: wire in its lower
- * band to see the hens through, clear panels over the run, and a cedar-shingled back where they roost — a ladder of
- * perches, three nesting boxes on straw with the day's eggs in them (and one laid out on the straw, as a hen will),
- * a feeder and a water trough. The rabbit dome (v2 of the hutch) is wire all over against foxes and hawks, on grass,
- * a little wooden dome inside to sleep in, a hay rack, a water bowl, a log to hide in. The play dome (v2 of the
- * playground) is the sandpit ringed with stumps round a climbing dome of round logs with a platform in it and a
- * slide out of its side, a swing on an arch of logs, balance logs and stepping stumps.
- *
- * Each builder returns its group and the circles it takes up (for walking round it), in its own frame: its run or
- * its sand at +z, as the timber coop's is; at real measure (metres), the ground at y = 0.
+ * The village's coops, hutches and playgrounds as tiny geodesic domes (the hen dome 5.6 m across, the rabbit dome wired
+ * all over against foxes and hawks, the play dome round a sandpit). Each builder returns its group and the circles it
+ * takes up (for walking round it), in its own frame at real measure: its run or its sand at +z, the ground at y = 0.
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';

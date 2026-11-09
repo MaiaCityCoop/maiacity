@@ -129,3 +129,4 @@ name and body, `// the next thing` lines.
 25. **`content/factories`** (30, our files only): the headers of `lifetrac-kit.js` (its list of the machines defined
     below), `assets.js` and `index.js`, keeping the dates, Samuel's 2026-11-04 decision and the OSE v25 source. AirSup's
     `world.js`, `kit.js` and `des.js` are kept "line for line theirs" (their header says so; MIT): not touched.
+26. **`content/models`** (10): `minidomes.js`'s header listed every perch and egg its builders' own docs describe.
