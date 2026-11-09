@@ -869,7 +869,7 @@ function patch(r: Rand, radius: number, mat: THREE.Material, y: number): THREE.M
 	return m
 }
 
-export type FloorKind = 'moss' | 'mycelium' | 'earth' | 'anthill' | 'log' | 'branches' | 'stones' | 'rock'
+type FloorKind = 'moss' | 'mycelium' | 'earth' | 'anthill' | 'log' | 'branches' | 'stones' | 'rock'
 export const FLOOR_KINDS: FloorKind[] = ['moss', 'mycelium', 'earth', 'anthill', 'log', 'branches', 'stones', 'rock']
 
 export function forestFloor(kind: FloorKind, seed: number): THREE.Group {

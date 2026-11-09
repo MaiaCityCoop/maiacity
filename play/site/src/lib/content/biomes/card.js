@@ -1,6 +1,6 @@
 /*
- * A BIOME AS ITS CARD SAYS IT — a biome is an asset of the `biomes` group like any other (./floors.js): built in the box
- * as a patch of its floor (./patch.js), its card made there and kept in the Maia City vault beside its recipe. Its parts
+ * A BIOME AS ITS CARD SAYS IT — a biome is an asset of the `biomes` group like any other: built in the box
+ * as a patch of its floor, its card made there and kept in the Maia City vault beside its recipe. Its parts
  * are what a floor is made of, each with its numbers as the card's specs:
  *
  *   the ground   each surface it is painted with (`ground-<surface>`) and its weight

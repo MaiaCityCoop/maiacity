@@ -10,11 +10,12 @@
  * second co-working space's laptops and the second art studio's paintings were their own).
  *
  * What stands in the walker's way is the world's (`WALK`): each Thing's footprint as circles in its builder's ground,
- * the ones its builder hands back with it (./things.test.js holds them to it), put where the copy stands
+ * the ones its builder hands back with it, put where the copy stands
  * (`collidersAt`). A list of Things says where each one's builder's ground is put (x, z, turned by `turn`); a Thing the
  * library brings to its own middle stands that far off it (`MIDDLE`, `placeOf`).
  */
 import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { slotRef } from '$lib/content/assets/catalog.js';
 import { coopsAround } from './spaces';
 
 /**
@@ -22,7 +23,7 @@ import { coopsAround } from './spaces';
  * the heads of its version, $content/assets/vault.js `WORLD_PIN`), with the values it is built with.
  * @param {string} key @param {string} [query]
  */
-export const villageAsset = (key, query = '') => `pin:${SANDBOX.one}/${key}${query ? `?${query}` : ''}`;
+export const villageAsset = (key, query = '') => slotRef(SANDBOX.one, key, query);
 
 /** the Things the village puts down, each at the version its config pins */
 export const THINGS = {
@@ -149,7 +150,7 @@ export const WALK = {
  * rotation.y).
  * @param {string} ref @param {number} x @param {number} z @param {number} turn
  */
-export function collidersAt(ref, x, z, turn) {
+function collidersAt(ref, x, z, turn) {
 	const c = Math.cos(turn), s = Math.sin(turn);
 	return (WALK[ref] ?? []).map((p) => ({ x: x + p.x * c + p.z * s, z: z - p.x * s + p.z * c, r: p.r }));
 }
@@ -185,7 +186,7 @@ export const workshopsOf = (rr) => WORKSHOPS.map(([a, k]) => ({ ref: THINGS[k], 
  * Where a copy of a Thing stands for its builder's ground put at x, z turned by `turn`, in a ground standing at `at`.
  * @param {{ ref: string, x: number, z: number, turn: number }} t @param {number[]} [at]
  */
-export function placeOf(t, at = [0, 0, 0]) {
+function placeOf(t, at = [0, 0, 0]) {
 	const m = MIDDLE[t.ref], c = Math.cos(t.turn), s = Math.sin(t.turn);
 	const dx = m ? m.x * c + m.z * s : 0, dz = m ? -m.x * s + m.z * c : 0;
 	return { x: at[0] + t.x + dx, y: at[1], z: at[2] + t.z + dz, turn: t.turn, scale: 1 };

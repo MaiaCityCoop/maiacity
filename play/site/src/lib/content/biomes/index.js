@@ -31,7 +31,7 @@ export { MASKS } from './masks.js';
  * @property {Surface} [on] the surface it grows on (it is met there, and seldom elsewhere)
  * @property {number} [fill] how full its colonies are (0…1, 0.85 if not said)
  * @property {string} [ref] the asset it is, as a biome's card names it (./card.js): the cover's kind at its seed; where a
- *   biome says none, ./built.js `coverRef` of its kind and ./index.js `coverSeed`
+ *   biome says none, its kind at `coverSeed`
  * @property {{ spacing: number, along: number, jitter?: number }} [rows] a kind a machine sowed: on row lines `spacing`
  *   apart, one every `along` m, `jitter` m off at most (./stream.js `coverTile`'s `rows`), none in its tramlines, as
  *   dense as its rows make it
@@ -202,7 +202,7 @@ export function mix(a, b, t) {
  * colonies share by their shares. `hidden`: the kinds left out (the explorer's toggles).
  * @param {Recipe} recipe @param {() => number} r @param {number} x @param {number} z @param {Set<number>} [hidden]
  */
-export function coverAt(recipe, r, x, z, hidden) {
+function coverAt(recipe, r, x, z, hidden) {
 	const here = surfacesAt(recipe.surface, x, z);
 	let empty = 1, total = 0;
 	const w = recipe.cover.map((c, i) => {
@@ -238,7 +238,7 @@ export function colonyAt(recipe, i, x, z) {
 }
 
 /** A kind's build seed, by its place and name: each kind a little different, the same every time. @param {number} i @param {Cover} kind */
-export const coverSeed = (i, kind) => 7100 + i * 13 + kind.length * 31;
+const coverSeed = (i, kind) => 7100 + i * 13 + kind.length * 31;
 
 /**
  * @typedef {{ m: Float32Array, rank: Float32Array, tint?: Float32Array }[]} TileKinds each kind's plants in a tile, by
