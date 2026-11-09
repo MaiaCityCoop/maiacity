@@ -10,7 +10,7 @@ import type { Db, Queryable } from "./kit/pg";
 import { admin, must, type Me } from "./access";
 import { canonical } from "./kit/hash";
 import { UUID } from "./kit/uuid";
-import { readableRefs } from "../import/plan";
+import { readableRefs } from "./recipes";
 import { assetSeen } from "./owners";
 import * as docs from "./docs";
 import { SCHEMA } from "./kit/ids";

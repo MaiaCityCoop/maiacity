@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { canonical } from "../src/kit/hash";
 import { versionId } from "../src/versions";
-import { RECIPE_HEAD, labelOf, parseRef, readableRefs } from "../import/plan";
+import { RECIPE_HEAD, labelOf, readableRefs } from "../src/recipes";
 
 const tail = (id: string, v: number, variant: string | null) =>
   `\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, ${JSON.stringify(variant)});\n});\n`;
@@ -28,13 +28,6 @@ describe("version ids", () => {
   });
 });
 
-describe("pins", () => {
-  test("refs parse", () => {
-    expect(parseRef("actors/goat@2:goat-pied?detail=1")).toEqual({ asset: "actors/goat", number: 2, variant: "goat-pied", params: { detail: "1" } });
-    expect(() => parseRef("goat")).toThrow(/not an asset ref/);
-  });
-});
-
 describe("every asset by hash", () => {
   test("a readable ref to another asset is found, its own ref is not", () => {
     const card = { card: { ref: "biomes/meadow@1", cover: [{ kind: "fern", ref: "biomes/cover@1:fern?seed=7" }, { ref: "ab".repeat(32) }] } };
@@ -43,5 +36,10 @@ describe("every asset by hash", () => {
     // its own names, several: the group it is in and the one it moves to (intent dc3c0b3e)
     expect(readableRefs({ card: { preset: "actors/stand-in@11:stand-in?belt=1" } }, ["actors/stand-in", "characters/stand-in"])).toEqual([]);
     expect(readableRefs({ card: { with: "actors/elder-woman@2" } }, ["actors/stand-in", "characters/stand-in"])).toEqual(["actors/elder-woman@2"]);
+  });
+  test("a sandbox's layout, which is no asset, names none by a readable ref (sandboxes.ts asks with no self)", () => {
+    const layout = { pins: { tree: "ab".repeat(32) }, configs: { garden: [{ asset: "plants/apple@3:red", at: [1, 2] }, { note: "plants grow here" }] } };
+    expect(readableRefs(layout, "")).toEqual(["plants/apple@3:red"]);
+    expect(readableRefs({ pins: { tree: "ab".repeat(32) }, configs: {} }, "")).toEqual([]);
   });
 });

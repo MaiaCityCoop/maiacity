@@ -57,3 +57,13 @@ left for Samuel.
   fold proposes on the new timeline first, and holdVariant has just put one in.
 - Pinned first by a new withdraw.test case (its own commit, green on the code before): the last document withdrawn
   leaves `work` and every ref column null.
+
+## 6. readableRefs lives in src/recipes.ts; parseRef gone (re-api#8)
+
+- `readableRefs` (a check every layout edit runs) moved from import/plan.ts into src/recipes.ts; sandboxes.ts imports
+  it from there, so runtime code no longer imports the deploy's import folder. import/plan.ts is a one-line re-export
+  kept for the held src/assetdocs.ts (Next untangles: assetdocs imports ./recipes, plan.ts goes).
+- `parseRef` and `RefError` deleted: nothing in play called them but plan.test. plan.ts' re-exports of `labelOf`,
+  `RECIPE_HEAD`, `Label` (only plan.test read them through it) gone; plan.test imports src/recipes.ts.
+- plan.test's "refs parse" case went with parseRef; in its place a case for what sandboxes.ts actually asks (no self:
+  every readable ref in a layout is found), which nothing tested. Count unchanged (356).
