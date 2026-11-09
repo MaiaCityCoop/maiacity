@@ -122,8 +122,9 @@ const lum = (/** @type {number[]} */ c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.072
 
 /**
  * The sky's light on a surface facing up (its irradiance: the dome without its disc, summed over the sky, cosine
- * weighted), white-balanced as a camera would: Preetham's sky is bluer than the eye sees it, and a third of its blue is
- * kept, so the shadows stay cool and not cyan. `gain` is that balance, laid on the environment.
+ * weighted), white-balanced as a camera would: Preetham's sky is bluer than the eye sees it, and three quarters of
+ * its blue is kept, so the shadows stay cool and not cyan (0b4c007b: at 0.85 kept, Sandbox 1's shade under the trees came
+ * out navy; at 0.35, every noon sepia). `gain` is that balance, laid on the environment.
  * @param {THREE.Vector3} sun
  */
 export function skyIrradiance(sun) {
@@ -136,7 +137,7 @@ export function skyIrradiance(sun) {
 			for (let k = 0; k < 3; k++) e[k] += c[k] * w;
 		}
 	}
-	const y = lum(e), gain = e.map((v) => Math.pow(y / Math.max(v, 1e-9), 0.15));
+	const y = lum(e), gain = e.map((v) => Math.pow(y / Math.max(v, 1e-9), 0.25));
 	return { e: e.map((v, k) => v * gain[k]), gain };
 }
 
