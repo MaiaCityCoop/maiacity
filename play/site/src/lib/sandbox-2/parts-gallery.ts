@@ -55,7 +55,7 @@ export class PartsGallery {
   }
   setActive(active:boolean){this.active=active;this.controls.enabled=active;}
   resize(width:number,height:number){this.camera.aspect=width/height;this.camera.updateProjectionMatrix();}
-  render(renderer:THREE.WebGLRenderer){this.controls.update();renderer.render(this.scene,this.camera);}
+  render(renderer:import('three/webgpu').WebGPURenderer){this.controls.update();renderer.render(this.scene,this.camera);}
   private label(text:string,width=2.3,height=.34) {
     const canvas=document.createElement('canvas');canvas.width=512;canvas.height=96;const ctx=canvas.getContext('2d')!;
     ctx.fillStyle='#26382c';ctx.font='600 48px "DM Sans Variable", system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,256,48,500);
