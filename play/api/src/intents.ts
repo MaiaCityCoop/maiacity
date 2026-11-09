@@ -35,6 +35,7 @@ const reduces = (spec: Spec | null) => !!spec && (spec.checks.some((c) => c.step
 /** where a check's result was run: in avenBOX by the agent, or on main by .github/workflows/intents.yml after the merge */
 export const WHERES = ["avenBOX", "main"] as const;
 export type Where = (typeof WHERES)[number];
+type ResultGiven = { check: string; pass: boolean; evidence?: unknown; where?: Where | "" | null; commit?: unknown; link?: unknown } | null | undefined;
 /** box: recorded by avenBOX's token (the GitHub run of the intent's checks: play/avenbox/intent.ts); link: that run */
 export type Result = { pass: boolean; evidence: string; by: string | null; at: string; where?: Where; commit?: string; box?: true; link?: string };
 /** what play says to a token that is not avenBOX's when it records what only the box's run may (play/SPEC.md §4.12) */
@@ -415,7 +416,7 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   if (!Array.isArray(list) || (!list.length && named === undefined)) throw new HttpError("Give each check's result: { check: 'c1', pass: true | false, evidence }.");
   // (code beside play's work, intent 7c8986c5: its run records its checks at Proposal too, its work waiting with it)
   const moves = intent.stage === "build" || (intent.stage === "proposal" && intent.approved_at && (!waiting(intent) || !!intent.pull_request));
-  const confirms = list.length > 0 && named === undefined && !!intent.approved_at && list.every((r: any) => r?.where === "main");
+  const confirms = list.length > 0 && named === undefined && !!intent.approved_at && list.every((r: ResultGiven) => r?.where === "main");
   if (!moves && !confirms)
     throw new HttpError(
       `Intent ${intent.id} is at the ${intent.stage} stage: checks are recorded while it is being built (its spec approved)${intent.stage === "proposal" ? ", or at Proposal while no work of it waits there" : ""}; main's results (where main) in any stage once its spec is approved.`,
@@ -432,8 +433,8 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   const checkOf = new Map<string, Check>((intent.spec?.checks ?? []).map((c: Check) => [c.id, c]));
   if (!who.box) {
     if (named !== undefined) throw new HttpError(`Intent ${intent.id}: its pull request is named by its run, not by hand: ${BOX_ONLY}.`, 403);
-    for (const r of list as any[]) {
-      const c = checkOf.get(r?.check);
+    for (const r of list as ResultGiven[]) {
+      const c = r && checkOf.get(r.check);
       if (!c || c.how === "look") continue;
       const code = !!intent.pull_request || (r?.commit !== undefined && r?.commit !== null && r?.commit !== "") || r?.where === "main";
       if (code) throw new HttpError(`${c.id} (${c.how}) of intent ${intent.id}: ${BOX_ONLY}.`, 403);
@@ -442,8 +443,8 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   const ids = new Set(checkOf.keys());
   const results: Record<string, Result> = { ...(intent.results ?? {}) };
   const at = new Date().toISOString();
-  for (const r of list as any[]) {
-    if (!ids.has(r?.check)) throw new HttpError(`${r?.check} is not one of this intent's checks (${[...ids].join(", ")}).`);
+  for (const r of list as ResultGiven[]) {
+    if (!r || !ids.has(r.check)) throw new HttpError(`${r?.check} is not one of this intent's checks (${[...ids].join(", ")}).`);
     if (typeof r?.pass !== "boolean") throw new HttpError(`${r.check}: pass is true or false.`);
     const evidence = textOf(r?.evidence, `${r.check}'s evidence (the command and what it printed, the value measured, what was compared)`, 4000, true);
     const where = r?.where === undefined || r?.where === null || r?.where === "" ? "avenBOX" : r.where;
@@ -679,7 +680,7 @@ export async function putAtProposal(q: Queryable, who: Me, o: { intent?: string 
   // variants of work decided before (archived, the intent back in Build) are no longer its work
   await unhold(q, id, null);
   const refs: Record<string, unknown> = { kind: o.work.kind };
-  for (const k of REFS) if ((o.work as any)[k] != null) refs[k] = (o.work as any)[k];
+  for (const k of REFS) if (o.work[k] != null) refs[k] = o.work[k];
   if (o.work.retire) refs.retire = o.work.retire;
   await holdVariant(q, who, id, o.work.doc_id, Number(o.work.doc_variant), refs);
   await ownColumns(q, id);
