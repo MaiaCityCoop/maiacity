@@ -35,8 +35,9 @@ import {
 const handlers = new WeakMap();
 
 /**
- * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: one of the kit's (`isKit`)
- * drawn into a target comes out linear and untoned, as three's own do; every other as the handler draws it.
+ * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: every node material drawn
+ * into a target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for the
+ * screen), the sky's and the environment three bakes from it too.
  * @param {THREE.WebGLRenderer} r
  */
 export function install(r) {
@@ -45,17 +46,14 @@ export function install(r) {
 	r.setNodesHandler(h);
 	const screen = h.getOutputCallback;
 	const onScreen = () => r.getRenderTarget() === null;
-	// only the kit's own are drawn linear and untoned into a target (keyed apart as 'target'); every other node material
-	// keeps the handler's key and output (cb16b7a5)
-	let keying = null;
+	// the object being keyed, for the kit's shapes (shapeOf)
 	const keyOf = h.customProgramCacheKeyCallback;
 	h.customProgramCacheKeyCallback = function () {
-		keying = this;
 		drawing = h.nodeFrame.object;
 		try {
 			return keyOf.call(this);
 		} finally {
-			keying = drawing = null;
+			drawing = null;
 		}
 	};
 	// three builds a node material once per program (a mesh's shadows, a target) but keeps only its last build. Its
@@ -73,8 +71,12 @@ export function install(r) {
 		if (own) (q.uniforms = own.uniforms), (m._latestBuilder = own.builder);
 		meet(m, p, q);
 	};
-	h.getOutputCallback = (node, builder) => (onScreen() || !(builder?.material ?? h.nodeFrame.material)?.isKit ? screen(node, builder) : node);
-	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() || !(keying ?? h.nodeFrame.material)?.isKit ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
+	// in a target three's own materials come out linear and untoned, the screen alone tone mapped and encoded: so do
+	// ours, every node material, the sky's too (544485e2: the viewers' sky, toned in its own shader and again at the
+	// post stack's output, came out a dark olive under AgX, a washed cream under Neutral). Keyed apart, the screen's
+	// program by the renderer's tone and colour space, a target's as one.
+	h.getOutputCallback = (node, builder) => (onScreen() ? screen(node, builder) : node);
+	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
 	handlers.set(r, h);
 	return h;
 }
@@ -266,8 +268,9 @@ const I3 = new THREE.Matrix3();
 /** the object being keyed (install) */
 let drawing = null;
 /** What makes two of our shaders differ beside three's node hash: the kit's settings, each texture slot's kind and
- * the drawn geometry (a map reads `uv`, vertex colours `color`: 660ad67f). @param {any} m @param {any} o */
-function shapeOf(m, o) {
+ * the drawn geometry (a map reads `uv`, vertex colours `color`: 660ad67f); the object being keyed unless one is named
+ * (./tsl.js keys ours by it too). @param {any} m @param {any} [o] */
+export function shapeOf(m, o = drawing) {
 	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}|${o?.type}${o?.instanceColor ? 'ic' : ''}`;
 	const g = o?.geometry;
 	for (const [k, a] of Object.entries(g?.attributes ?? {}).sort()) s += `|${k}${a.itemSize}${a.array?.constructor.name}${a.normalized ? 'n' : ''}${a.isInstancedBufferAttribute ? 'i' : ''}`;
@@ -289,7 +292,8 @@ const KINDS = {
 };
 /** the settings kept behind accessors, which a material's own keys miss */
 const HIDDEN = ['alphaTest', 'clearcoat', 'sheen', 'iridescence', 'transmission', 'anisotropy', 'dispersion'];
-const SKIP = new Set(['uuid', 'id', 'type', 'version', 'defines', 'onBeforeCompile', 'customProgramCacheKey', 'onBeforeRender', 'userData']);
+/** what is never carried over: who it is, its defines and data, its program's key, and its hooks (every `on…`) */
+const SKIP = new Set(['uuid', 'id', 'type', 'version', 'defines', 'customProgramCacheKey', 'userData']);
 
 /** whether `nodeOf` has a node material for `m` */
 export const drawnAsNode = (m) => !!m?.isNodeMaterial || !!KINDS[m?.type];
@@ -305,7 +309,7 @@ export function nodeOf(m) {
 	if (!K) return m;
 	const n = new K();
 	for (const k of [...Object.keys(m), ...HIDDEN]) {
-		if (SKIP.has(k) || k.startsWith('_') || k.startsWith('is') || !(k in n) || !(k in m)) continue;
+		if (SKIP.has(k) || k.startsWith('_') || k.startsWith('is') || k.startsWith('on') || !(k in n) || !(k in m)) continue;
 		const v = m[k];
 		if (n[k]?.copy && v?.copy && !v.isTexture) n[k].copy(v);
 		else n[k] = v;

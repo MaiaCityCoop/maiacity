@@ -89,7 +89,8 @@ describe('the one renderer', () => {
 		const parameters = {};
 		h.build(material, mesh, parameters);
 		h.renderEnd();
-		expect(parameters.isRawShaderMaterial).toBe(true);
+		// handed to three as a raw GLSL3 program
+		expect(parameters.glslVersion).toBe(THREE.GLSL3);
 		expect(parameters.vertexShader).toMatch(/void main\s*\(/);
 		expect(parameters.fragmentShader).toMatch(/void main\s*\(/);
 		// the colour node's uniform is in the program, and the renderer's tone mapping is applied in it
