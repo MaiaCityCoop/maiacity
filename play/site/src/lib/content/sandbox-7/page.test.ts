@@ -6,7 +6,7 @@ import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLACES } from '../game/places.js';
-import { biomes, planet, sites } from './fixture';
+import { biomes, planet, sites } from './fixture.test';
 
 const SITE = join(import.meta.dir, '../../../..');
 const read = (p: string) => readFileSync(join(SITE, p), 'utf8');

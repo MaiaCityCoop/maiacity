@@ -4,7 +4,7 @@
 import { describe, expect, test } from 'bun:test';
 import * as THREE from 'three';
 import { BIOMES, census, WATER } from './globe';
-import { biomes, planet, tiles } from './fixture';
+import { biomes, planet, tiles } from './fixture.test';
 import { colourOf, topOf, treesOn } from './scene';
 
 /**
