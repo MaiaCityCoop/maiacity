@@ -78,10 +78,10 @@ const open = async (url) => {
 		log(`open ${url} (attempt ${attempt})`);
 		await page.goto(url, { waitUntil: 'domcontentloaded' });
 		// the world is up once its cover is gone (sandbox-kit/WorldPage.svelte: its bar shown while it loads)
-		const up = await page
-			.waitForFunction(() => window.__walker && window.__assets && !document.querySelector('.progress'), null, { timeout: 25 * 60e3, polling: 2000 })
-			.then(() => true)
-			.catch(() => false);
+		let up = false;
+		// up, or a module that failed to load (loaded again at once), or 25 minutes
+		for (const end = Date.now() + 25 * 60e3; !up && !broken && Date.now() < end; await page.waitForTimeout(3000))
+			up = await page.evaluate(() => !!(window.__walker && window.__assets && !document.querySelector('.progress'))).catch(() => false);
 		if (up && !broken) break;
 		const step = await page.evaluate(() => document.querySelector('.step')?.textContent ?? null).catch(() => null);
 		log(`not up (${broken ? 'a module failed to load' : 'timed out'}; at "${step}")`);
