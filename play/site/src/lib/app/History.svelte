@@ -62,11 +62,8 @@
 		failed = '',
 		onPick
 	}: {
-		/** the document's UUID (the asset's, the story's, the factory's …) */
 		doc: string;
-		/** the version the view shows */
 		shown?: number | null;
-		/** what the thing is called, in its captions */
 		label?: string;
 		/** the view's own list of versions (else Main's, from the history) */
 		versions?: ChainVersion[] | null;
