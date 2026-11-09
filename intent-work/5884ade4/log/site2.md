@@ -28,6 +28,9 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    Held, the test's imports are set aside, so the cycle stays uncounted (held-free folder cycles 0); its
    `render/nodes → content/assets` stays among the layers, held. `render.mjs` still names the bench at
    `src/lib/content/assets/RenderBench.svelte` (now `src/routes/render/`): Next untangles.
+   **Done again** (freed when 660ad67f landed): the move and its split are back (4 tests, passing). The scripts
+   `flyover.mjs`, `render.mjs`, `story-parity.ts` and `stories/world.test.ts` are held (3a8b135a, c1bee1f8, ed6694c3)
+   and left exactly as the untangle branch has them.
 3. **Comments naming a file that is gone: 3 (6 after move 1) → 0** (comments only). The bench's own `./catalog.js`,
    `./clips.js` and `./render/crowd.js` name `content/assets/…` now; three of play/api's tests named
    `./intents.ts` and `./select.ts` beside them, which are `../src/intents.ts` and `play/avenbox/select.ts`.
@@ -56,7 +59,10 @@ Before (`measure.ts all`): folder cycles a held file does not close 2 (≤ 1), l
    numbers). Pinned: `kernel/random.test.js` (the old copies' numbers, written down); census-same: same for Sandbox 1,
    Sandbox 3 and the Worlds page; gate site; the map's, biomes' and models' tests. Left: `sandbox-2/interior/textures.ts`
    `rng` and `maiacity-v2/world.js` `rng` (held), `factory.ts`'s two inline LCGs, `box/clips.js` (the box's), the test
-   world's own (a recipe, self-contained) and AirSup's `des.js` (theirs).
+   world's own (a recipe, self-contained) and AirSup's `des.js` (theirs). Later, with move 2 done again, `biomes`
+   importing `kernel` made it less stable than `content/assets` (I 0.43 → 0.50: layers 11 → 12), so `noise.js` has
+   its own `rng` back as before (the same numbers as the kernel's, pinned by random.test.js's values); it goes once
+   `biomes` is stabler (Next untangles).
 7. **A document's version, the API's type** (re-audit: a type drifted between api and site). `GET /api/docs/<uuid>`
    lists its versions as `versioned.ts` `versionsNamed` makes them; the site wrote that shape out four times (Aside's
    history, History's `Version`, the Game editor's and the Factories' `Version`), two with `acceptedBy` optional, none
