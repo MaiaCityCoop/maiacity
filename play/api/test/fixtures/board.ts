@@ -1,5 +1,5 @@
 // A board as play's holds it (intent 2cb70fb8): hundreds of decided intents beside the open ones, each with a note and
-// a spec the size of a real one. Seeded straight into play.intents, for ../board.test.ts and ../../scripts/board-speed.ts.
+// a spec the size of a real one. Seeded straight into play.intents, for ../board.test.ts.
 import { COOP } from "../../src/access";
 import type { Queryable } from "../../src/kit/pg";
 import { newId } from "../../src/kit/uuid";

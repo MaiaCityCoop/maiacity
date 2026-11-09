@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import type { Db } from "../src/kit/pg";
-import { heavy, type Heavy } from "../scripts/heavy";
+import { heavy, type Heavy } from "./fixtures/heavy";
 import { type Api, appOn, cookieFor, type Fresh, freshDb, human, request, suite, tempStore } from "./kit";
 
 /** a database of its own, migrated, with an admin and the API */

@@ -65,3 +65,11 @@ behaviour is pinned, and for every test removed why it could not fail or only re
    kit's `until(what, ok, { withinMs })`, which fails naming what it waited for; the SIGTERM test's race with a 2.5 s
    sleep is the kit's `within(promise, ms, late)`. Removes api-tests#31. Pinned: ship.test "one ship at a time, in the
    order accepted", deploy-speed's SIGTERM test, the whole suite. Sleeps in play/api: 6 → 1 (the kit's poll).
+5. **The accepted intents' measure scripts out (F7; `dead`).** play/api/scripts' board-speed.ts (intent 2cb70fb8's c3,
+   Accepted 2026-11-07), detail-size.ts and seed-look.ts (intent 2df30a21's) are deleted: no workflow, gate step or
+   package script runs them, and each copied the database bootstrap. heavy.ts, which detailfast.test uses, is
+   `test/fixtures/heavy.ts`; its comment names what uses it now (it named ./seed-heavy.ts, a file that never was), its
+   `COOP` is imported, and `motion`, `pieceSource`, `hostSource`, `building` are its own (no one else used them: the
+   dead-export list's `hostSource`). tsconfig no longer includes the gone folder. import/plan.ts stays: it is alive
+   (src/sandboxes.ts and the held src/assetdocs.ts import `readableRefs`; plan.test pins it). Removes api-tests#26,
+   #27. Pinned: detailfast.test (the heavy intent's detail and Accept), board.test.
