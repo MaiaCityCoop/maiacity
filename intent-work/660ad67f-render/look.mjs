@@ -26,11 +26,15 @@ const counting = () => {
 };
 const BAD = /uniform\dfv|@@iterator|did not load|cannot be converted to a sequence|is not an object \(evaluating 'sky\.sun|reading 'position'/;
 const results = [];
-let failed = false;
+let failed = false, finished = false;
+// a job that ends before its results are written failed, whatever its exit code says
+process.on('beforeExit', () => { if (!finished) { console.error('FAILED: the job ended before its results were written'); process.exit(1); } });
+const step = (s) => console.error(`look: ${s}`);
 for (const [name, type, opts] of [
 	['chromium', chromium, { args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] }],
 	['webkit', webkit, {}]
 ]) {
+	step(`${name}: launch`);
 	const browser = await type.launch({ headless: true, ...opts });
 	const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 	await page.addInitScript(counting);
@@ -39,6 +43,7 @@ for (const [name, type, opts] of [
 	page.on('pageerror', (e) => said.push(`pageerror: ${String(e.message).slice(0, 300)}`));
 	const ev = (f, d = null) => page.evaluate(f).catch(() => d);
 	// Sandbox 5: built, then walked
+	step(`${name}: Sandbox 5`);
 	await page.goto(`${site}/sandbox-5/`, { waitUntil: 'load' });
 	const t0 = Date.now();
 	await page.waitForFunction(() => window.__assets?.stats && !['out', 'in', 'library'].some((k) => window.__assets.stats()[k]?.building), null, { timeout: 120_000, polling: 1000 }).catch(() => {});
@@ -53,6 +58,7 @@ for (const [name, type, opts] of [
 	await page.screenshot({ path: `${out}/${name}-sandbox-5.png` });
 	const s5 = { said: said.splice(0) };
 	// Sandbox 1: its film stepped
+	step(`${name}: Sandbox 1`);
 	await page.goto(`${site}/sandbox-1/`, { waitUntil: 'load' });
 	await page.waitForFunction(() => window.__world?.film?.advance, null, { timeout: 180_000, polling: 1000 });
 	const film = await page.evaluate(async () => {
@@ -75,6 +81,7 @@ for (const [name, type, opts] of [
 	console.log(`${name} (${gpu}): Sandbox 5 built in ${built.toFixed(0)} s, ${walked} programs linked walking, ${bad.length} uniform/load errors; Sandbox 1's film ${film}`);
 	await browser.close();
 }
+finished = true;
 writeFileSync(`${out}/results.json`, JSON.stringify(results, null, 2));
 console.log(failed ? 'FAILED: see results.json' : 'OK: no uniform error, no plant failed to load, the film advanced');
 process.exit(failed ? 1 : 0);
