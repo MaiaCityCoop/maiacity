@@ -245,12 +245,13 @@ const ours = (Base) =>
 			const G = glossy(model.constructor, float(this.gloss));
 			return Object.assign(new G(), model);
 		}
-		// each material its own program: three's key hashes only a node material's nodes, and two of ours whose shaders
-		// differ by what is beside them (their pictures, the sky's environment) would share one program, each uploading
-		// its own uniforms by name into the other's layout (a sky's cube map into a vec3: the frame throws, the loop dies).
-		// The same source compiles once in the browser's shader cache.
+		// a program for each shape, not for each material: three's key hashes only a node material's nodes, so the
+		// textures beside them (a picture drawn into a target, the sky's cube map) and our own settings join the key, and
+		// two of ours whose shaders differ never share a program (else each uploads its uniforms by name into the other's
+		// layout). Keyed by the material's id instead, every copy compiled its own: walking Sandbox 5, Safari linked 88
+		// programs in 8 frames, one at a time (bd087014).
 		customProgramCacheKey() {
-			return `${super.customProgramCacheKey()}#${this.id}${this.gloss === 1 ? "" : `g${this.gloss}`}`;
+			return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
 		}
 		copy(source) {
 			super.copy(source);
@@ -258,6 +259,23 @@ const ours = (Base) =>
 			return this;
 		}
 	};
+
+const I3 = new THREE.Matrix3();
+/**
+ * What makes two of our materials' shaders differ beside three's node hash: the kit's own settings (fade, cut, cap,
+ * gloss) and, for every texture slot, how it is read (drawn into, cube, data, array, compressed, its channel, colour
+ * space, flipY and a matrix that is not the identity). The same shape is the same program.
+ * @param {any} m
+ */
+function shapeOf(m) {
+	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}`;
+	for (const k of Object.keys(m).sort()) {
+		const t = m[k];
+		if (!t?.isTexture) continue;
+		s += `|${k}:${t.isRenderTargetTexture ? 'rt' : ''}${t.isCubeTexture ? 'cube' : ''}${t.isDataTexture ? 'd' : ''}${t.isDataArrayTexture || t.isArrayTexture ? 'a' : ''}${t.isCompressedTexture ? 'z' : ''}${t.channel}${t.colorSpace}${t.flipY ? 'y' : ''}${t.matrixAutoUpdate && !t.matrix.equals(I3) ? 'm' : ''}`;
+	}
+	return s;
+}
 
 const KINDS = {
 	MeshStandardMaterial: ours(MeshStandardNodeMaterial),
