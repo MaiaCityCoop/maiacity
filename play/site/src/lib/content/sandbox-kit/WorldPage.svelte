@@ -242,7 +242,6 @@
 
 
 
-	/* ── a narrow screen ── */
 	@media (max-width: 640px) {
 		.notice {
 			max-width: calc(100vw - 2rem);

@@ -68,7 +68,6 @@
 		pointer-events: auto;
 	}
 
-	/* ── a phone: slimmer pills, closer to the edge ── */
 	@media (max-width: 640px), (max-height: 500px) {
 		.bar {
 			top: calc(0.5rem + env(safe-area-inset-top, 0px));
@@ -83,7 +82,6 @@
 		}
 	}
 
-	/* ── upright: the name alone ── */
 	@media (max-width: 640px) {
 		.title span {
 			display: none;
