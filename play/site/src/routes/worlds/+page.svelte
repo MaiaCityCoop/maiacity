@@ -15,7 +15,7 @@
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type ChainVersion, type Pick } from '$lib/app/Aside.svelte';
 	import { api } from '$lib/api';
-	import { catalogReady } from '$lib/recipes';
+	import { catalogReady } from '$lib/content/assets/catalog.js';
 	import { INDEX, admitProposed, source } from '$lib/content/assets/catalog.js';
 	import WorldStage from '$lib/content/worlds/WorldStage.svelte';
 

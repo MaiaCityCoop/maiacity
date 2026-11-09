@@ -20,7 +20,7 @@
 	import { INDEX, admitProposed, source as catalogSource } from '$lib/content/assets/catalog.js';
 	import { markdown } from '$lib/site/markdown/index.js';
 	import { detailOf, isCode, notLive, shipsAgain, STAGE_NAME, TABS, type Check, type Intent, type Kind, type Results, type ShipStep, type Stage, type TabId, type Work } from './detail';
-	import { took } from '$lib/format';
+	import { took, when } from '$lib/format';
 
 	let {
 		intent: i,
@@ -53,7 +53,6 @@
 	const REPO_URL = 'https://github.com/MyAvenCEO/maiacity';
 	const KIND_NAME: Record<Kind, string> = { idea: 'Make', fix: 'Fix', improve: 'Improve' };
 	const TAB_NAME = Object.fromEntries(TABS) as Record<TabId, string>;
-	const when = (s: string) => new Date(s).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 	const shortWhen = (s: string) => new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 	const md = (s: string | null | undefined) => markdown(s ?? '');
 	const workKindName = (k: string) => (k === 'code' ? 'code' : (schemaNames.get(k) ?? k));

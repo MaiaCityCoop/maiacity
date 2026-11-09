@@ -18,7 +18,7 @@
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type ChainVersion, type Pick } from './Aside.svelte';
 	import { api, fileUrl, may } from '$lib/api';
-	import { catalogReady } from '$lib/recipes';
+	import { catalogReady } from '$lib/content/assets/catalog.js';
 	import { admitProposed, recipeInfo, source } from '$lib/content/assets/catalog.js';
 
 	type Listed = { id: string; grp: string; slug: string; label: string; head: number; versions: number };

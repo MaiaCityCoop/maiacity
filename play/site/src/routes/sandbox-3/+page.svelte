@@ -38,7 +38,7 @@
 		let gone = false;
 		(async () => {
 			try {
-				await (await import('$lib/recipes')).catalogReady((await import('$lib/kernel/sandboxes.js')).SANDBOX.three);
+				await (await import('$lib/content/assets/catalog.js')).catalogReady((await import('$lib/kernel/sandboxes.js')).SANDBOX.three);
 				const { createWorld } = await import('$lib/content/maiacity-v2/world.js');
 				if (gone || !canvas) return;
 				const onRoam = (r: { on: boolean; near?: boolean; driving?: boolean }) => {
