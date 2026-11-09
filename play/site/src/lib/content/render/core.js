@@ -121,29 +121,15 @@ export function createRenderer(o = {}) {
 /**
  * three's WebGLNodesHandler installed on a renderer, so a NodeMaterial (TSL) is built into GLSL and drawn by it. With a
  * handler, three's `compile` draws the shadow maps first (node materials read them as they are built); a compile is
- * held from that extra shadow pass. Every node material's build is paired with its own program as soon as three has
- * it, in a warm-up (`compile`, which never calls the handler's onUpdateProgram) as in a frame: met later, the handler
- * would pair the program with whichever build came last (cb16b7a5: the sky's PMREM handed to a vec3). So the kit's
- * node materials are warmed by `precompile` like the rest, and link while their level loads, not mid-walk (660ad67f).
+ * held from that extra shadow pass. The kit's node materials are compiled with the rest (`precompile`), so their programs
+ * link while a level loads, not mid-walk (ed6694c3): each build meets its own program through the handler
+ * (./nodes/index.js `install`), whether a frame or a warm-up made it.
  * @param {THREE.WebGLRenderer} renderer
  */
 export function nodes(renderer) {
 	const r = /** @type {any} */ (renderer);
 	if (typeof r.setNodesHandler !== 'function') return;
-	const h = install(r); // three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light)
-	/** the material whose build waits to be paired with the program three acquired for it */
-	let built = null;
-	const pair = () => {
-		const m = built, p = m && r.properties.get(m);
-		built = null;
-		if (p?.currentProgram && !h.programCache.get(m)?.has(p.currentProgram)) h.onUpdateProgram(m, p.currentProgram, p);
-	};
-	const build = h.build.bind(h);
-	h.build = (m, o, params) => {
-		pair();
-		build(m, o, params);
-		built = m;
-	};
+	install(r); // three's handler, with what it lacks for us (./nodes/index.js: targets drawn linear, shadows from the light)
 	const compile = r.compile;
 	if (typeof compile !== 'function') return;
 	r.compile = function (scene, camera, target = null) {
@@ -152,7 +138,6 @@ export function nodes(renderer) {
 		try {
 			return compile.call(this, scene, camera, target);
 		} finally {
-			pair();
 			sm.autoUpdate = auto;
 			sm.needsUpdate = need;
 		}
