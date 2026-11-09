@@ -223,3 +223,13 @@ SSR and unit tests where moved).
   village.ts). **Found, not fixed (a behaviour change):** the pieces page (`routes/pieces/+page.svelte`) has passed
   its piece head and history snippets to Frame as `asideHead`/`history`, props Frame doesn't take, since c47c5a1 (the
   one-aside change), so a piece's Info and History aside never shows there. Its own fix, for Samuel to decide.
+
+### Merged: sweep-rest (fixes 4, 5, 7 outside play/site and play/api's tests), 10:30Z
+
+35 commits (`log/sweep-rest.md`), one file or folder each, code and comments never in one commit; merged cleanly, gate
+green (all, 76 s). `as any` in play/api/src 36 → 1 (the one left is the words "as any work" in a tool description kept
+byte for byte), the repo's 116 → 79 (`special`'s bound ≤ 90 passes); play/api/src comment lines 1,928 → 1,602; no
+comment in its area names a gone file. Swallowed errors in tools/avenbox 4 → 2 (the two left are Chromium/Playwright
+look-ups where a failing try is the design, each saying so). Three now say what failed: pr-intent.ts notes a pull
+request it can't read as "unread: <why>" (was "closed"), ground-sets warns on an unreadable AO map (output unchanged),
+plant/organ.mjs throws saying where it looked for Playwright.
