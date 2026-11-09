@@ -13,6 +13,7 @@
 // merged its pull request on main, else its commits on main. It is live when each is an ancestor of the running commit.
 // It prints every mismatch (live and not Accepted, Accepted and not live), and exits 0 only with none.
 import { resolve } from "node:path";
+import { intentsIn } from "../api/src/kit/ids";
 import { tool as playTool } from "./play";
 
 const ROOT = resolve(import.meta.dir, "../..");
@@ -56,7 +57,7 @@ const mergeOf = new Map<number, string>();
 for (const entry of log.split("\x01")) {
   const [sha, message = ""] = entry.trim().split("\x00");
   if (!sha) continue;
-  for (const m of message.matchAll(/^Intent:\s*([0-9a-f-]{36})\s*$/gim)) trailers.set(m[1].toLowerCase(), [...(trailers.get(m[1].toLowerCase()) ?? []), sha]);
+  for (const id of intentsIn(message)) trailers.set(id, [...(trailers.get(id) ?? []), sha]);
   const pr = message.match(/^Merge pull request #(\d+) /) ?? message.split("\n")[0].match(/\(#(\d+)\)$/);
   if (pr && !mergeOf.has(+pr[1])) mergeOf.set(+pr[1], sha);
 }

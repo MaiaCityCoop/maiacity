@@ -74,3 +74,17 @@ export const RULE = {
   /** the first rule (Samuel 2026-11-07): an artifact added or corrected over MCP needs no tap */
   artifacts: "0f05a3ee-1aa8-43a2-a3e8-958456f04128",
 } as const;
+
+// ---- the `Intent: <uuid>` trailer every change names its intent by (play/SPEC.md §4.12): read by the reconcile
+// (../ship.ts), the pull request's check (play/avenbox/pr-intent.ts), the live audit (play/avenbox/live-audit.ts) and,
+// as a grep, .github/workflows/intents.yml
+
+const TRAILER_UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+/** a line `Intent: <uuid>` of a commit message or a pull request's body, any case, the UUID its group 1 */
+const TRAILER = new RegExp(`^Intent:\\s*(${TRAILER_UUID})\\s*$`, "gim");
+/** the same line indented too: what the pull request's check (play/avenbox/pr-intent.ts) has always taken */
+const TRAILER_INDENTED = new RegExp(`^\\s*Intent:\\s*(${TRAILER_UUID})\\s*$`, "gim");
+
+/** the intents a text names on its trailer lines, lower case, in order (`indented`: lines indented count too) */
+export const intentsIn = (text: string | null | undefined, o: { indented?: boolean } = {}) =>
+  [...`${text ?? ""}`.matchAll(o.indented ? TRAILER_INDENTED : TRAILER)].map((m) => m[1].toLowerCase());

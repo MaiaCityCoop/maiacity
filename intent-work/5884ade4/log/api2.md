@@ -29,3 +29,21 @@ left for Samuel.
 
 - `namesOf(q, ids)` in kinds.ts (dedupes, drops nulls); `named`, versioned.ts' versionsNamed and docHistory's variants
   use it. Same query, same Map. Pinned by the suite (doc_history's and versions' authors are asserted in docs/api tests).
+
+## 4. One `Intent:` trailer (re-api#5)
+
+- `intentsIn(text, { indented? })` in play/api/src/kit/ids.ts, over one module-private `TRAILER` (and its indented
+  twin, built from the same UUID pattern). ship.ts' trailersOf (its regex named `UUID`, shadowing kit/uuid's, gone),
+  play/avenbox/pr-intent.ts and play/avenbox/live-audit.ts call it. `TRAILER` is not exported: every caller wants the
+  ids, and an export nothing reads would be dead.
+- Each caller's accepted set kept as it was (checked over CRLF, tabs, indents, case, a UUID on the next line, a
+  malformed 36-character id: scratch trailer-eq.ts, all the same):
+  - ship.ts and live-audit.ts: strict. live-audit's own `[0-9a-f-]{36}` took malformed ids too, but it only ever
+    looks one up by a real intent's UUID, so the strict pattern answers the same.
+  - pr-intent.ts: `{ indented: true }`, as it always took. **For Samuel:** this accepts what none of the others do: a
+    PR whose only trailer is indented passes "Intent named" while the reconcile and intents.yml never see it. Kept.
+  - Also kept, for Samuel: every JS reader's `\s*` takes `Intent:` and the UUID on the next line, which the workflow's
+    grep (spaces only, one line) does not.
+- .github/workflows/intents.yml keeps its grep (a bun one-liner would not do exactly the same, and bun is set up only
+  after that step): one comment line names the constant. Nothing else touched there (infra2 works in .github).
+- Pinned by workflows.test (pr-intent's judge), ship/allwork/depends tests (the reconcile's trailers).

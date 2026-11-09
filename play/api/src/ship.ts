@@ -1,7 +1,8 @@
 // Accept ships it (play/SPEC.md §4.12 says it all; Samuel 2026-11-06): Ship's queue and its steps (watched by
 // ./watcher.ts), main merged in (./mainmerge.ts, intent f28822d9), the reconcile (intent 9876ef00), work of play's
 // beside code accepted as its code goes live (intent 7c8986c5). SHIP_TOKEN never leaves this server.
-import { admin, COOP, meOf, type Me } from "./access";
+import { admin, meOf, type Me } from "./access";
+import { COOP, intentsIn } from "./kit/ids";
 import type { Db, Queryable } from "./kit/pg";
 import { canonical } from "./kit/hash";
 import { ACCEPTED_CONTEXT, intentLink, keepSeen, readPull, type GitHub, type Job, type Pull, type Run } from "./github";
@@ -374,7 +375,6 @@ export function runningCommit(env: Record<string, string | undefined> = process.
 }
 
 const HISTORY_PAGES = 200;
-const UUID = /^Intent:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/gim;
 
 async function history(gh: GitHub, ref: string) {
   const all = new Map<string, string>();
@@ -388,7 +388,7 @@ async function history(gh: GitHub, ref: string) {
 
 function trailersOf(main: Map<string, string>) {
   const by = new Map<string, string[]>();
-  for (const [sha, message] of main) for (const m of message.matchAll(UUID)) by.set(m[1].toLowerCase(), [...(by.get(m[1].toLowerCase()) ?? []), sha]);
+  for (const [sha, message] of main) for (const id of intentsIn(message)) by.set(id, [...(by.get(id) ?? []), sha]);
   return by;
 }
 

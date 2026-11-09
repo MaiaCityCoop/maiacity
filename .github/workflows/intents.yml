@@ -39,6 +39,7 @@ jobs:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
+          # the trailer as play/api/src/kit/ids.ts TRAILER reads it (a grep: spaces only, one line; bun is not set up yet here)
           uuid='[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
           if [ -n "$GIVEN" ]; then
             echo "$GIVEN" | grep -qxE "$uuid" || { echo "::error::An intent is named by its id, a UUID: $GIVEN"; exit 1; }
