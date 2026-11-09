@@ -27,7 +27,7 @@ const { fakeGL } = await import(lib('content/render/nodes/fakegl.js'));
 const { install } = await import(lib('content/render/nodes/index.js'));
 const { catalogReady } = await import(lib('recipes'));
 await catalogReady();
-const { source, INDEX } = await import(lib('content/assets/catalog.js'));
+const { source, INDEX, admitProposed } = await import(lib('content/assets/catalog.js'));
 const { AssetBox } = await import(lib('content/assets/box/host.js'));
 const { vaultBuild } = await import(lib('content/assets/sources/viewer.js'));
 const { forStage, heroOf } = await import(lib('content/assets/hero.js'));
@@ -54,8 +54,11 @@ for (const id of ids) {
 		const chain = await (await fetch(`/api/assets/${id}`)).json();
 		const v = chain.versions[0];
 		r.label = chain.label;
+		// the intent's variant as the page admits a proposed build (AssetLibrary.svelte), else the newest version
 		const mine = intent ? await fetch(`/api/assets/${id}/recipe?intent=${intent}`) : null;
-		const hash = mine?.ok ? (await mine.json()).hash : (v.recipe ?? v.variants?.find((x: any) => x.name === v.defaultVariant)?.recipe ?? v.variants?.[0]?.recipe);
+		const proposed = mine?.ok ? await mine.json() : null;
+		if (proposed) await admitProposed([proposed]);
+		const hash = proposed?.hash ?? v.recipe ?? v.variants?.find((x: any) => x.name === v.defaultVariant)?.recipe ?? v.variants?.[0]?.recipe;
 		step = 'build';
 		const got = await turning(vaultBuild(source, hash, {}, { box, keep: false }));
 		step = 'stage';
