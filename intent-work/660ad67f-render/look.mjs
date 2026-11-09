@@ -29,7 +29,7 @@ const counting = () => {
 const BAD = /uniform\dfv|@@iterator|did not load|cannot be converted to a sequence|uniform buffer that is too small|is not an object \(evaluating 'sky\.sun|reading 'position'/;
 const VEHICLES = [['pickup', '5bf0a85d-2f01-5a78-acc5-84fd63d05731'], ['city-bus', 'edbd06d9-5a01-4e57-9fbc-d0d017bf8631'], ['delivery-van', '53d1af5a-bbcf-4eba-9fe0-3a147baedd34'], ['fiat-500', '33e29d24-08b9-40f7-b098-1ce81d37ef23']];
 const results = [];
-let failed = false, finished = false;
+let failed = false, finished = false, overWalk = false;
 // a job that ends before its results are written failed, whatever its exit code says
 process.on('beforeExit', () => { if (!finished) { console.error('FAILED: the job ended before its results were written'); process.exit(1); } });
 const step = (s) => console.error(`look: ${s}`);
@@ -120,6 +120,7 @@ for (const [name, type, opts] of [
 	// reported only: the walk's bound is intent ed6694c3's (Samuel's split, 10:58); c6 is the draw fix
 	if (bad.length || film.startsWith('threw')) failed = true;
 	r.walkOverBound = slow;
+	overWalk ||= slow;
 	r.bad = bad;
 	results.push(r);
 	console.log(`${name} (${gpu}): Sandbox 5 built in ${built.toFixed(0)} s, walk ${walk ? `${walk.frames} frames, mean ${walk.mean} ms, p95 ${walk.p95}, ${walk.over100} over 100 ms, max ${walk.max}` : 'not walked'}, ${walked} programs linked walking, ${bad.length} uniform/load errors, ${s5.clashes.length} clashes caught; Sandbox 1's film ${film}`);
@@ -129,5 +130,5 @@ for (const [name, type, opts] of [
 }
 finished = true;
 writeFileSync(`${out}/results${only ? `-${only}` : ''}.json`, JSON.stringify(results, null, 2));
-console.log(failed ? 'FAILED: see results.json' : `OK: no uniform error, no plant failed to load, the film advanced${slow ? ' (the walk over 31.2 ms: ed6694c3\'s)' : ''}`);
+console.log(failed ? 'FAILED: see results.json' : `OK: no uniform error, no plant failed to load, the film advanced${overWalk ? ' (the walk over 31.2 ms: ed6694c3\'s)' : ''}`);
 process.exit(failed ? 1 : 0);
