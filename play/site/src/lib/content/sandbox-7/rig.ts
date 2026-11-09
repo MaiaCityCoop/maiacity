@@ -177,11 +177,15 @@ export class GlobeRig {
 		return !!this.flight;
 	}
 
-	/** advance by `dt` seconds: a flight, keys, inertia, the eased zoom, then place the camera */
-	update(dt: number) {
+	/**
+	 * advance by `dt` seconds of real time: a flight keeps to the clock (it lands on time however few frames a slow
+	 * screen draws); keys, inertia and the eased zoom step at most a tenth of a second a frame, so a stall never jumps
+	 */
+	update(seconds: number) {
+		const dt = Math.min(0.1, seconds);
 		if (this.flight) {
 			const f = this.flight;
-			f.t = Math.min(1, f.t + dt / FLIGHT);
+			f.t = Math.min(1, f.t + seconds / FLIGHT);
 			const s = smooth(0, 1, f.t);
 			// along the great circle, rising a little in the middle of a long flight so the way is seen
 			const angle = f.from.angleTo(f.to);

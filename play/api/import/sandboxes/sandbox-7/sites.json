@@ -254,7 +254,18 @@
 				"temp": "Ongerup 1991-2020: July mean about 10.6 C (5.8/15.3), January mean about 21.4 C (14.1/28.7)",
 				"land_price": "The Great Southern median was AUD 8,493/ha in 2023 (Rural Bank), about EUR 4,800. The drier eastern shires sell for less; AUD 3,000-6,000/ha there is an estimate. Converted at about EUR 0.57 per AUD."
 			},
-			"sources": []
+			"sources": [
+				{
+					"artifact": "5249d53f-4a53-4316-8ab0-f57f6c08af85",
+					"title": "Gondwana Link achievements: 1,000 km of reconnected bush in SW WA",
+					"url": "https://gondwanalink.org/about-us/our-achievements/"
+				},
+				{
+					"artifact": "bbea298a-26e9-4952-8e32-9b9b832859da",
+					"title": "WA farmland values 2023: records in Great Southern and South West",
+					"url": "https://www.farmweekly.com.au/story/8630998/wa-farmland-outlook-2024-regional-growth/"
+				}
+			]
 		},
 		{
 			"name": "South Iceland eroded lowlands: Rangárvellir / Rangárþing ytra",

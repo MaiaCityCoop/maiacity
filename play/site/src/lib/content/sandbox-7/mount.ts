@@ -85,11 +85,11 @@ export async function mountPlanet(stage: HTMLDivElement, onProgress: (label: str
 	let last = performance.now(), live = true;
 	renderer.setAnimationLoop((now: number) => {
 		if (!live) return;
-		rig.update(Math.min(0.1, (now - last) / 1000));
+		rig.update((now - last) / 1000);
 		last = now;
 		placeSun();
 		// the pins big enough to see from orbit, a tree's height on the ground
-		built.sizePins(Math.min(4, Math.max(0.5, rig.altitude * 0.012)));
+		built.sizePins(Math.min(4, Math.max(0.5, rig.altitude * 0.03)));
 		world.adapt(now);
 		renderer.render(scene, camera);
 	});

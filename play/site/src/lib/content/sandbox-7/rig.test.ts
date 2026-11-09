@@ -79,4 +79,13 @@ describe('from orbit to a walk', () => {
 		expect(r.altitude).toBeLessThan(288);
 		expect(r.altitude).toBeCloseTo(r.altitudeAt(0.62), 3);
 	});
+	test('a flight lands on time however few frames are drawn: two seconds in three frames', () => {
+		const r = rig();
+		r.flyTo(-33.85, 118.55);
+		for (let k = 0; k < 3; k++) r.update(0.7);
+		expect(r.flying).toBe(false);
+		const [lat, lon] = latLonOf(r.pos.toArray());
+		expect(lat).toBeCloseTo(-33.85, 3);
+		expect(lon).toBeCloseTo(118.55, 3);
+	});
 });
