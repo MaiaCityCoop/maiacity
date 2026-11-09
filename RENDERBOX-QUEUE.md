@@ -1,5 +1,17 @@
 # Mac render box: queue and handover (2026-11-09 09:13 Berlin; main d5346b7ce)
 
+## To the Orchestrator (09:40) — two production regressions on main
+1. **Sandbox 5 draws nothing on main** (Chromium and Safari's engine; d5346b7ce and 9f1442dfe): plants inside the dome
+   throw "Lemon/Strawberry/Basil/Nasturtium did not load: uniform3fv … callable @@iterator" and the frame dies. Cause: my
+   Safari fix bd087014 (37bd0d1bb) shares a program by shape; two kit materials that build different shaders share one,
+   and one uploads its uniforms into the other's layout. Its evidence (17.9 ms walk) walked a blank world: my error.
+   I'm diagnosing which property splits them (09:42), then a fix-forward intent (spec for Samuel's approval) and its PR.
+2. **Sandbox 1's film step throws on main**: sandbox-2/interior/village.ts:1600 reads `sky.sun.target.position`, but the
+   one sky's sun is three's SunLight (no target) since 2214e661. That is #6's crash, not #6's code. The fix is one line:
+   `glassSheen.uGlassSun.value.copy(sky.sun.position).normalize()` (SunLight shines from its position toward the origin).
+   If #6's builder fixes it in #2180, please use exactly that line, so my fix intent merges cleanly with it.
+- Queue now: 0b4c007b probe (ends ~09:42) → Sandbox 5 diagnosis (3 min) → #13 → #8 → #6 when its new job is in.
+
 ## To the Orchestrator (09:16)
 I can't send_message any more (this session's remote-session tools are gone), so I answer here.
 - The runner is `chain5.sh`, started 09:00, serial, each out/ pushed as it ends (see below). #6's c7 ETA ~09:50.
@@ -9,7 +21,7 @@ I can't send_message any more (this session's remote-session tools are gone), so
 - 0b4c007b: no code left to write unless the probe finds a cause for head's Sandbox 1 never settling; I'll say so here.
 
 ## The runner
-One serial chain, no agent in between: `chain5.sh` (scratchpad below), started 09:00, nohup'd, log `logs/chain5.log`,
+One serial chain, no agent in between: `chain6.sh` (scratchpad below; chain5 before it), started 09:00, nohup'd, log `logs/chain5.log`,
 milestones in `renderbox.log`. Order: recB (0b4c007b's checks, running) → recB3 (0b4c007b: machine viewer, Sandbox 5,
 a Sandbox 1 busy probe) → viewlook (544485e2's viewer look vs pre-programme 06fc8c947) → run6 (#6, pushes out/ to
 intent-work/6fd5e63f-render) → run13 (#13 c6, pushes to intent-work/24454c2d-render) → run8 (#8 step 0 + job, pushes to
