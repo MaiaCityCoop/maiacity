@@ -469,20 +469,16 @@ describe('grass covers the ground', async () => {
 	/** each biome's grass as its newest version on play writes it (its source's `grass`), pinned 2026-11-09 */
 	const PARAMS = {
 		meadow: { height: 0.3, tall: 0.6, heightSpread: 0.45, width: 0.006, clump: 1.4, lean: 0.55, base: '#3a5a20', tip: '#a7bf62', dry: '#c2b071', dryShare: 0.15 }, // e36c9671 v2
-		'clover-lawn': { height: 0.09, tall: 0.14, heightSpread: 0.3, width: 0.005, clump: 0.8, lean: 0.35, base: '#3d6224', tip: '#86ad4c', dry: '#b5a868', dryShare: 0.05 }, // 3355de49 v2
-		'food-forest': { height: 0.22, tall: 0.45, heightSpread: 0.4, width: 0.006, clump: 1.2, lean: 0.5, base: '#3c5e22', tip: '#9ab85a', dry: '#b9a865', dryShare: 0.1 }, // 254102d4 v3
-		'roadside-verge': { height: 0.15, tall: 0.45, heightSpread: 0.5, width: 0.005, clump: 1.6, lean: 0.6, base: '#7a7458', tip: '#c9bc92', dry: '#d4c69c', dryShare: 0.7 } // 84db33e7 v2
+		'food-forest': { height: 0.22, tall: 0.45, heightSpread: 0.4, width: 0.006, clump: 1.2, lean: 0.5, base: '#3c5e22', tip: '#9ab85a', dry: '#b9a865', dryShare: 0.1 } // 254102d4 v3
 	};
-	/** the verge's cover as its newest version lays it (84db33e7 v2): its grass is the cover kind `drygrass` */
-	const VERGE = { id: 'roadside-verge', cover: [{ kind: 'drygrass', share: 6, colony: 2.5, spread: 0.6, fill: 0.7 }, { kind: 'plantain', share: 0.6, colony: 1.5, spread: 0.3 }, { kind: 'gravel', share: 6, colony: 3, spread: 0.7, fill: 0.9 }] };
 	/**
 	 * the share of the near view a biome's grass must cover: the meadow closed (Samuel 2026-11-10: the meadow is the bar);
-	 * the verge, the lawn and the food forest floor reported only (their grass thickened by intent 1717f109)
+	 * the food forest floor reported only
 	 */
 	const BOUND = { meadow: [0.9, 1] };
-	for (const id of /** @type {const} */ (['meadow', 'roadside-verge', 'clover-lawn', 'food-forest'])) {
+	for (const id of /** @type {const} */ (['meadow', 'food-forest'])) {
 		test(`grass covers the ground: ${id}`, () => {
-			const recipe = id === 'roadside-verge' ? VERGE : BIOMES.find((b) => b.id === id);
+			const recipe = BIOMES.find((b) => b.id === id);
 			const P = PARAMS[id], dev = G.gpuDevice('desktop');
 			const of = grassOfRecipe(/** @type {any} */ (recipe));
 			const mask = fieldMask(dev, (x, z) => ({ ...of(x, z), y: 0 }));

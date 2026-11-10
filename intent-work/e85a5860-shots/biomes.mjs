@@ -25,7 +25,7 @@ const log = (s) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${s}
 const browser = await chromium.launch({ args: ['--disable-gpu-watchdog', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--enable-unsafe-webgpu', '--use-webgpu-adapter=swiftshader', '--ignore-gpu-blocklist'] });
 const png = (name, url) => writeFileSync(join(OUT, `${name}.png`), Buffer.from(url.split(',')[1], 'base64'));
 const results = {};
-for (const biome of ['meadow', 'roadside-verge', 'clover-lawn', 'food-forest']) {
+for (const biome of ['meadow', 'food-forest']) {
 	const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 	page.setDefaultTimeout(10 * 60e3);
 	page.on('pageerror', (e) => log(`${biome}: page error: ${String(e).slice(0, 200)}`));

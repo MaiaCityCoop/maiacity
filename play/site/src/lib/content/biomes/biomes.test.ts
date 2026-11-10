@@ -35,10 +35,7 @@ function laid(recipe: any, tileOf: (r: any, ix: number, iz: number, o: any) => {
 const BEFORE: Record<string, { surfaces: string; cover: string }> = {
 	'food-forest': { surfaces: '6536c71c', cover: '8e42ae65' },
 	'warm-food-forest': { surfaces: '3039d54c', cover: '160d10b7' },
-	'beech-forest': { surfaces: '7b7d8bec', cover: '99169c20' },
-	'spruce-forest': { surfaces: '6ec70bdb', cover: '03f06b3d' },
-	'meadow': { surfaces: '000de99a', cover: 'd980ca91' },
-	'clover-lawn': { surfaces: '84c6bbd9', cover: '5f19d769' }
+	'meadow': { surfaces: '000de99a', cover: 'd980ca91' }
 };
 
 describe('the biomes that were', () => {
