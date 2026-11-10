@@ -1,15 +1,20 @@
 // A fake GitHub for play's tests (src/github.ts): GitHub's REST API for one repository answered here, behind the real
 // client, so every request play makes (its path, its body, its Bearer) is seen.
-import { gitHub, type Job, type Pull, type Run } from "../../src/github";
+import { gitHub, type Job, type Pull, type Run, type Says } from "../../src/github";
 
 export const TOKEN = "github_pat_SHIPTOKEN_not_to_be_seen_0123456789";
 export const REPO = "MyAvenCEO/maiacity";
 export const sha = (n: number) => n.toString(16).padStart(40, "0");
 
-type Call = { method: string; path: string; auth: string | null; body: any };
+/** `status` GitHub's answer: a 304 (unchanged since the ETag sent) counts against no limit */
+type Call = { method: string; path: string; auth: string | null; body: any; status?: number; etag?: string | null };
 
 /** GitHub's REST API for one repository, as play reads and writes it; `calls` is every request it got */
-export function fakeGitHub() {
+export function fakeGitHub(o: { says?: (s: Says) => void } = {}) {
+  /** the client's clock (GitHub's limit is waited out by it); Date.now unless a test sets `clock.at` */
+  const clock: { at: number | null } = { at: null };
+  /** every call answered so, where set: GitHub's limit (403/429 with its headers) or a refused token (401) */
+  let answerAll: { status: number; message: string; headers?: Record<string, string>; only?: RegExp } | null = null;
   const pulls = new Map<number, Pull>();
   const checks = new Map<string, any[]>();
   const runs: Record<string, Run[]> = { "main.yml": [], "release.yml": [], "production.yml": [] };
@@ -22,7 +27,7 @@ export function fakeGitHub() {
   let mergeRefused: string | null = null;
   // the repository's commits (each its parents and message) and main's head: a merge makes a merge commit on main
   const ROOT = "f".repeat(40);
-  const graph = new Map<string, { parents: string[]; message: string; files?: string[] }>([[ROOT, { parents: [], message: "the first commit" }]]);
+  const graph = new Map<string, { parents: string[]; message: string; files?: string[]; at?: string }>([[ROOT, { parents: [], message: "the first commit", at: new Date(0).toISOString() }]]);
   const main = { head: ROOT };
   /** each pull request's changed paths (GET /pulls/<n>/files); update-branch refused with `updateRefused` where set */
   const pullFiles = new Map<number, string[]>();
@@ -30,7 +35,7 @@ export function fakeGitHub() {
   let made = 0xabc000;
   /** a commit of `message` on top of `parents` (main's head by default), main moved to it where `onMain`, changing `files` */
   const commit = (sha_: string, message: string, parents = [main.head], onMain = true, files: string[] = []) => {
-    graph.set(sha_, { parents, message, files });
+    graph.set(sha_, { parents, message, files, at: new Date().toISOString() });
     if (onMain) main.head = sha_;
     return sha_;
   };
@@ -49,6 +54,21 @@ export function fakeGitHub() {
   const reply = (status: number, body?: unknown, headers: Record<string, string> = {}) =>
     new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
   const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const r = await answer(input, init);
+    const c = calls.at(-1)!;
+    const sent = new Headers(init?.headers).get("if-none-match");
+    // ETags as GitHub's: a GET answered 200 carries one; sent back unchanged, it is a 304 that counts against no limit
+    if ((init?.method ?? "GET") === "GET" && r.status === 200 && !`${input}`.includes("logs.github.test")) {
+      const text = await r.text();
+      const etag = `W/"${Bun.hash(text).toString(16)}"`;
+      if (sent === etag) return (c.status = 304), new Response(null, { status: 304, headers: { etag } });
+      c.status = 200;
+      return new Response(text, { status: 200, headers: { "content-type": "application/json", etag } });
+    }
+    c.status = r.status;
+    return r;
+  }) as typeof globalThis.fetch;
+  const answer = async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(`${input}`);
     const headers = new Headers(init?.headers);
     if (url.host === "logs.github.test") {
@@ -58,7 +78,8 @@ export function fakeGitHub() {
     const method = init?.method ?? "GET";
     const path = url.pathname.replace(`/repos/${REPO}`, "") + url.search;
     const body = init?.body ? JSON.parse(`${init.body}`) : null;
-    calls.push({ method, path, auth: headers.get("authorization"), body });
+    calls.push({ method, path, auth: headers.get("authorization"), body, etag: headers.get("if-none-match") });
+    if (answerAll && (!answerAll.only || answerAll.only.test(path))) return reply(answerAll.status, { message: answerAll.message }, answerAll.headers);
     const p = url.pathname.replace(`/repos/${REPO}`, "");
     const q = url.searchParams;
     let m: RegExpMatchArray | null;
@@ -72,7 +93,8 @@ export function fakeGitHub() {
       if (!graph.has(from)) return reply(422, { message: `No commit found for SHA: ${from}` });
       const per = Number(q.get("per_page") ?? 30);
       const page = Number(q.get("page") ?? 1);
-      const list = reach(from).slice((page - 1) * per, page * per);
+      const since = q.get("since");
+      const list = reach(from).filter((c) => !since || (graph.get(c)!.at ?? "") >= since).slice((page - 1) * per, page * per);
       return reply(200, list.map((c) => ({ sha: c, commit: { message: graph.get(c)!.message }, parents: graph.get(c)!.parents.map((x) => ({ sha: x })) })));
     }
     if (method === "GET" && p === "/git/ref/heads/main") return reply(200, { ref: "refs/heads/main", object: { sha: main.head, type: "commit" } });
@@ -131,12 +153,16 @@ export function fakeGitHub() {
     if (method === "POST" && p.match(/^\/actions\/runs\/\d+\/rerun-failed-jobs$/)) return reply(201, {});
     if (method === "GET" && (m = p.match(/^\/actions\/jobs\/(\d+)\/logs$/))) return reply(302, undefined, { location: `https://logs.github.test/${m[1]}` });
     return reply(404, { message: `no route ${method} ${p}` });
-  }) as typeof globalThis.fetch;
+  };
   return {
     pulls, checks, runs, branchRuns, jobs, logs, calls, merges, graph, main, commit, pullFiles,
     refuseMerge: (why: string | null) => (mergeRefused = why),
     refuseUpdate: (how: { status: number; message: string } | null) => (updateRefused = how),
-    gh: gitHub({ token: TOKEN, repo: REPO, fetch, api: "https://api.github.test" }),
+    answerAll: (how: typeof answerAll) => (answerAll = how),
+    clock,
+    /** the calls GitHub counts against play's limit: every one but a 304 */
+    counted: () => calls.filter((c) => c.status !== 304),
+    gh: gitHub({ token: TOKEN, repo: REPO, fetch, api: "https://api.github.test", now: () => clock.at ?? Date.now(), says: o.says }),
     fetch,
     /** what play wrote to GitHub: statuses posted, merges, dispatches, re-runs */
     writes: () => calls.filter((c) => c.method !== "GET"),
