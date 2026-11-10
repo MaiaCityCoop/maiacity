@@ -34,7 +34,7 @@ export function keyOf(...parts: (string | Uint8Array)[]) {
 }
 
 /** a question's own bytes: what a worker is posted, as the structured clone would carry it */
-export const bytesOf = (question: unknown) => new Uint8Array(serialize(question));
+const bytesOf = (question: unknown) => new Uint8Array(serialize(question));
 
 /** the answers kept in `dir`; none kept (every get undefined, every put dropped) where dir is null */
 export function keptIn(dir: string | null): Kept {
@@ -48,7 +48,7 @@ export function keptIn(dir: string | null): Kept {
 			if (!existsSync(file)) return undefined;
 			try {
 				const answer = deserialize(Bun.zstdDecompressSync(readFileSync(file)));
-				// used now: what a store lets go first is what was used longest ago (`trim`)
+				// used now: what a store lets go is what was not used for long (`trimmed`)
 				utimesSync(file, new Date(), new Date());
 				counted.read++;
 				return answer;
@@ -86,14 +86,14 @@ export function trimmed(dir: string, days: number, now: number) {
 }
 
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"]([^'"\n]+)['"]/g;
-const real = (f: string) => [f, `${f}.js`, `${f}.ts`, join(f, 'index.js'), join(f, 'index.ts')].find((x) => existsSync(x) && !x.endsWith('/'));
+const real = (f: string) => [f, `${f}.js`, `${f}.ts`, join(f, 'index.js'), join(f, 'index.ts')].find((x) => existsSync(x) && statSync(x).isFile());
 
 /**
  * The code a module is: the hash of its text and of every module it imports by a relative path, and for each package
  * it imports the version installed in `modules` (node_modules). Two trees whose simplifier reads the same answer alike.
  */
 export function codeOf(file: string, modules: string) {
-	const seen = new Map<string, string>(), packages = new Map<string, string>();
+	const seen = new Map<string, string>(), packages = new Map<string, string>(), missing = new Set<string>();
 	const follow = (f: string) => {
 		if (seen.has(f)) return;
 		const text = readFileSync(f, 'utf8');
@@ -102,8 +102,9 @@ export function codeOf(file: string, modules: string) {
 			const s = m[1];
 			if (s.startsWith('.')) {
 				const to = real(resolve(dirname(f), s));
-				if (!to) throw new Error(`census: ${f} imports ${s}, which is no file`);
-				follow(to);
+				// (what reads like an import and names no file, a comment's example: part of the text already)
+				if (to) follow(to);
+				else missing.add(s);
 			} else {
 				const name = s.split('/').slice(0, s.startsWith('@') ? 2 : 1).join('/');
 				const pkg = join(modules, name, 'package.json');
@@ -115,8 +116,15 @@ export function codeOf(file: string, modules: string) {
 	// by each module's place from the first one, so the same code in another checkout is the same code
 	const from = dirname(resolve(file));
 	const parts = [...seen].map(([f, text]) => `${f.startsWith(from) ? f.slice(from.length) : f}\n${text}`).sort();
-	return keyOf(...parts, JSON.stringify([...packages].sort()));
+	return keyOf(...parts, JSON.stringify([[...packages].sort(), [...missing].sort()]));
 }
+
+/**
+ * The questions a worker holds now, each until it is answered (or its worker ends): a build in the asset box, a kind
+ * with the simplifier. Empty, no worker builds anything for the world, whichever of its renderers asked: what a
+ * census waits for before it counts (./run.ts `quiet`), beside what the page itself says of its renderers.
+ */
+export const atWork = new Set<object>();
 
 type Listener = ((e: { data: any }) => void) | null;
 
@@ -126,7 +134,17 @@ type Listener = ((e: { data: any }) => void) | null;
  */
 export function keptWorker(make: () => Worker, kept: Kept, code: string) {
 	let worker: Worker | null = null;
-	const asked = new Map<unknown, string>();
+	/** each question the worker holds: the key its answer is kept under, and its place in `atWork` */
+	const asked = new Map<unknown, { key: string; held: object }>();
+	const answered = (id: unknown) => {
+		const a = asked.get(id);
+		asked.delete(id);
+		if (a) atWork.delete(a.held);
+		return a?.key;
+	};
+	const ended = () => {
+		for (const id of [...asked.keys()]) answered(id);
+	};
 	const self = {
 		onmessage: null as Listener,
 		onerror: null as ((e: ErrorEvent) => void) | null,
@@ -139,23 +157,25 @@ export function keptWorker(make: () => Worker, kept: Kept, code: string) {
 			if (!worker) {
 				worker = make();
 				worker.onmessage = (e: MessageEvent) => {
-					const k = asked.get(e.data?.id);
-					asked.delete(e.data?.id);
+					const k = answered(e.data?.id);
 					if (k && !e.data.error) {
 						const { id: _, ...made } = e.data;
 						kept.put(k, made);
 					}
 					self.onmessage?.(e);
 				};
-				worker.onerror = (e: ErrorEvent) => self.onerror?.(e);
+				// (a worker that stopped answers nothing more: the page makes its levels itself)
+				worker.onerror = (e: ErrorEvent) => (ended(), self.onerror?.(e));
 			}
-			asked.set(id, key);
+			const held = {};
+			asked.set(id, { key, held });
+			atWork.add(held);
 			worker.postMessage(m);
 		},
 		terminate() {
 			worker?.terminate();
 			worker = null;
-			asked.clear();
+			ended();
 		}
 	};
 	return self;

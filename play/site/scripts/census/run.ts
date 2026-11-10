@@ -1,7 +1,9 @@
 /*
  * THE CENSUS, ONE WORLD — a world built on the CPU (./setup.ts) and counted from named cameras (intent bba45d6e). For
  * each view: the walker placed there (as the Mac's runs place it, selector-shots.mjs), frames turned until its
- * streaming settles (`quiet`), then a measured run of frames, every draw counted (./counting.js). Per view:
+ * streaming settles (`quiet`: the page's renderers quiet and no worker building, ./kept.ts `atWork`), then a measured
+ * run of frames, every draw counted (./counting.js). The frames only turned are not read, and the page counts nothing
+ * for them (`turn`; intent 629840f2). Per view:
  *
  * - `frames`: each measured frame's triangles and draws; `tris` the median frame's triangles, as the Mac takes it;
  * - `totals`: the median frame's draws by pass (main, shadow, into targets), meshes and instanced batches, and what
@@ -13,6 +15,7 @@
 import { setup, frame, lib, fetched, built, smoked } from './setup';
 import { CountingRenderer } from './counting.js';
 import { refusedContexts } from './dom';
+import { atWork } from './kept';
 import { quietness } from '../quiet.js';
 
 /** Sandbox 1's views, as the Mac's runs (selector-shots.mjs): x, z (m; the cell's middle the master dome), yaw, pitch;
@@ -131,7 +134,9 @@ async function steady(ms: number, hold: number, band = 0) {
 let still = 0;
 function quiet() {
 	const q = quietness(g);
-	return q === 0 || q === null ? ++still > 60 : ((still = 0), false);
+	// and no worker builds for it (./kept.ts `atWork`): the page's look sees three of its renderers, not Sandbox 5's
+	// dome's own, whose kinds came in after its near view was counted once the frames stopped being slow (intent 629840f2)
+	return (q === 0 || q === null) && atWork.size === 0 ? ++still > 60 : ((still = 0), false);
 }
 
 /** frames turned until the world is quiet, at most `ms`: whether it was (./settle.ts) */

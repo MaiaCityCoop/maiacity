@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { frameWindow } from './box';
 import { El } from './dom';
-import { codeOf, keptIn, keptWorker, keyOf, trimmed } from './kept';
+import { atWork, codeOf, keptIn, keptWorker, keyOf, trimmed } from './kept';
 
 const TMP = mkdtempSync(join(tmpdir(), 'census-kept-'));
 const dir = (name: string) => join(TMP, name);
@@ -117,6 +117,38 @@ test('kept: a worker asked the same again answers from what was kept, and is not
 	expect(kept.counted.made).toBe(4);
 });
 
+test('kept: a question is at work until its worker answers it, fails or ends; one read as kept never is', async () => {
+	const kept = keptIn(dir('at-work'));
+	/** a worker that answers only when told to */
+	const held: { id: unknown }[] = [];
+	const w = { onmessage: null as any, onerror: null as any, postMessage: (m: { id: unknown }) => void held.push(m), terminate() {} };
+	const k = keptWorker(() => w as unknown as Worker, kept, 'code');
+	const heard: any[] = [];
+	k.onmessage = (e) => heard.push(e.data);
+	expect(atWork.size).toBe(0);
+	k.postMessage({ id: 1, q: 'a' } as { id: unknown });
+	k.postMessage({ id: 2, q: 'b' } as { id: unknown });
+	expect(atWork.size).toBe(2);
+	w.onmessage({ data: { id: 1, out: 'A' } });
+	expect(atWork.size).toBe(1);
+	expect(heard).toEqual([{ id: 1, out: 'A' }]);
+	// an error answers it too, and a worker that stops holds nothing more
+	w.onmessage({ data: { id: 2, error: 'refused' } });
+	expect(atWork.size).toBe(0);
+	k.postMessage({ id: 3, q: 'c' } as { id: unknown });
+	expect(atWork.size).toBe(1);
+	w.onerror({ message: 'stopped' });
+	expect(atWork.size).toBe(0);
+	k.postMessage({ id: 4, q: 'd' } as { id: unknown });
+	k.terminate();
+	expect(atWork.size).toBe(0);
+	// what was kept is read: no worker holds it
+	k.postMessage({ id: 5, q: 'a' } as { id: unknown });
+	expect(atWork.size).toBe(0);
+	await new Promise((r) => setTimeout(r, 5));
+	expect(heard.at(-1)).toEqual({ id: 5, out: 'A' });
+});
+
 /** a box whose engine numbers its builds, as the shell boots it (kernel/sandbox/frame.js): what the page hears */
 function box(store: string, engine = '') {
 	const heard: any[] = [];
@@ -142,6 +174,8 @@ test('kept: the box builds a recipe once: the same recipe, values and engine ask
 	const one = box(dir('box'));
 	expect(await one.ask(1, { id: 1, op: 'build', recipe, given: { stage: '1' }, engine: 'e' })).toEqual({ id: 1, ok: true, op: 'build', n: 1, room: 1 });
 	expect(await one.ask(1, { id: 2, op: 'build', recipe, given: { stage: '2' }, engine: 'e' })).toMatchObject({ id: 2, n: 2 });
+	// answered, nothing is at work; a build left unanswered as its box goes is not left at work
+	expect(atWork.size).toBe(0);
 	one.close();
 
 	// another run: a fresh worker would answer n 1; what was kept answers as it was built, in the room it is asked in

@@ -33,8 +33,9 @@
  *
  * A world's kinds are built once (./census/kept.ts; intent 629840f2): what the asset box and the simplifier answer is
  * kept in $CENSUS_CACHE/kept (~/.cache/maiacity-census) under the hash of its code and its question, so a second
- * census, of this commit or another, builds only what changed (Sandbox 1: about 8 minutes with nothing kept, under 3
- * with all of it). `CENSUS_KEPT=0` keeps and reads nothing.
+ * census, of this commit or another, builds only what changed (Sandbox 1: about 7 minutes with nothing kept, one
+ * with all of it). `CENSUS_KEPT=0` keeps and reads nothing. A view is counted once the page's renderers are quiet,
+ * no worker builds for it and its frames draw the same for three seconds (./census/run.ts).
  *
  * Prints per view: triangles a frame (main pass and shadows), draws (meshes, instanced batches), what culling removed,
  * each asset renderer's triangles, draws, copies, pictures and ghosts (copies put away yet still drawn: ./census/run.ts
