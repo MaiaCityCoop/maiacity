@@ -1,0 +1,12 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+const { kindsOf } = await import('/home/user/maiacity/play/site/scripts/census/kinds.ts');
+const { lib } = await import('/home/user/maiacity/play/site/scripts/census/setup.ts');
+const { kinds } = await kindsOf(24, mkdtempSync(join(tmpdir(), 'dump-')));
+const { resolved } = await import(lib('content/assets/box/pieces.js'));
+const out = [];
+for (const k of kinds) out.push({ label: k.label, engine: k.engine, recipe: await resolved(k.recipe) });
+writeFileSync(process.argv[2], JSON.stringify(out));
+console.log(out.length, out.map((o) => o.engine).join(','), out.reduce((a, o) => a + o.recipe.code.length, 0));
+process.exit(0);

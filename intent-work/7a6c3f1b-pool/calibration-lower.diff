@@ -1,0 +1,20 @@
+--- lower.js.orig	2026-11-10 21:56:03.667217063 +0000
++++ lower.js.hack	2026-11-10 21:57:48.431422881 +0000
+@@ -7,7 +7,8 @@
+  */
+ import * as THREE from 'three';
+ import { LEFT, lowerDraws } from './simplify.js';
+-import { buildTurn } from '../../render/budget.js';
++import { buildTurn, budget } from '../../render/budget.js';
++import { waitingBuilds } from '../box/pool.js';
+ 
+ /** a typed array on a buffer of its own, so that sending it copies only itself */
+ const own = (A) => (A.byteOffset === 0 && A.byteLength === A.buffer.byteLength ? A : A.slice());
+@@ -146,6 +147,7 @@
+ 		// show its plants, are not held up behind every level still to be made lighter). The job is chosen only once its
+ 		// turn has come: what is wanted most by then. In the page (no workers) one at a time, a step between frames.
+ 		if (asking || !jobs.length || ((gone || typeof Worker === 'undefined') && running)) return;
++		if (waitingBuilds.n > budget().builds) return void setTimeout(pump, 20);
+ 		asking = true;
+ 		buildTurn().then((back) => {
+ 			asking = false;

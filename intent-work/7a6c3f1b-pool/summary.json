@@ -1,0 +1,1218 @@
+{
+ "intent": "7a6c3f1b-6088-4a3a-b5dc-c1e202b74e1a",
+ "commit": "34424dfa (origin/main, with the every-core pool ab3cc92; before 405f7a85)",
+ "box": "avenBOX: 4 cores, 15 GB; Chromium (Playwright headless shell) with the graphics card stood in for by the census's device that only answers (scripts/census/fakegpu.js), so the cores count the building and no software picture; the site's build served as play serves it, /api from the pinned inputs; a fresh profile; Sandbox 1; the pool's size set in the built budget (builds)",
+ "how": "probe.ts: every build answer from the boxes (its own ms), every page worker's jobs, a Chromium trace of category toplevel; count: each thread's top-level tasks, their CPU time (tdur) and wall time (dur); quiet = the page's renderers build and keep nothing, three looks 2 s apart",
+ "by_boxes": {
+  "1": {
+   "boxes": 1,
+   "world_shown_s": 368.7,
+   "quiet_s": 557.9,
+   "steps": [
+    "3.2 s Letting the stream in\u2026",
+    "5.4 s Covering the ground\u2026",
+    "65.9 s Growing the forest: 10 of 198 kinds\u2026",
+    "74 s Growing the forest: 40 of 198 kinds\u2026",
+    "78 s Growing the forest: 50 of 198 kinds\u2026",
+    "164.2 s Growing the forest: 60 of 198 kinds\u2026",
+    "250.5 s Growing the forest: 70 of 198 kinds\u2026",
+    "300.6 s Growing the forest: 80 of 198 kinds\u2026",
+    "318.7 s Growing the forest: 90 of 198 kinds\u2026",
+    "338.7 s Growing the forest: 100 of 198 kinds\u2026",
+    "340.7 s Growing the forest: 120 of 198 kinds\u2026",
+    "342.7 s Growing the forest: 130 of 198 kinds\u2026",
+    "344.7 s Growing the forest: 170 of 198 kinds\u2026",
+    "346.8 s Opening the doors\u2026",
+    "348.8 s Growing the forest: the plants near you\u2026",
+    "368.7 s Welcome"
+   ],
+   "builds_answered": 365,
+   "recipes": 171,
+   "workers_that_built": 333,
+   "worker_threads": 341,
+   "builds_own_seconds": 146.6,
+   "level_jobs_over_5s": [
+    {
+     "asked_s": 13,
+     "took_s": 27,
+     "triangles": 754718
+    },
+    {
+     "asked_s": 43,
+     "took_s": 21,
+     "triangles": 887690
+    },
+    {
+     "asked_s": 84,
+     "took_s": 39,
+     "triangles": 1586890
+    },
+    {
+     "asked_s": 126,
+     "took_s": 15,
+     "triangles": 636082
+    },
+    {
+     "asked_s": 142,
+     "took_s": 17,
+     "triangles": 741564
+    },
+    {
+     "asked_s": 163,
+     "took_s": 34,
+     "triangles": 1270618
+    },
+    {
+     "asked_s": 201,
+     "took_s": 13,
+     "triangles": 493199
+    },
+    {
+     "asked_s": 215,
+     "took_s": 30,
+     "triangles": 1679476
+    },
+    {
+     "asked_s": 249,
+     "took_s": 26,
+     "triangles": 951296
+    },
+    {
+     "asked_s": 279,
+     "took_s": 21,
+     "triangles": 740888
+    },
+    {
+     "asked_s": 304,
+     "took_s": 12,
+     "triangles": 501625
+    },
+    {
+     "asked_s": 317,
+     "took_s": 16,
+     "triangles": 543606
+    },
+    {
+     "asked_s": 382,
+     "took_s": 23,
+     "triangles": 887690
+    },
+    {
+     "asked_s": 427,
+     "took_s": 27,
+     "triangles": 754718
+    },
+    {
+     "asked_s": 455,
+     "took_s": 10,
+     "triangles": 617298
+    },
+    {
+     "asked_s": 477,
+     "took_s": 6,
+     "triangles": 384445
+    },
+    {
+     "asked_s": 487,
+     "took_s": 6,
+     "triangles": 244906
+    },
+    {
+     "asked_s": 499,
+     "took_s": 30,
+     "triangles": 716177
+    }
+   ],
+   "to_world": {
+    "box_workers_cpu_s": 80.0,
+    "page_workers_cpu_s": 276.9,
+    "workers_cpu_s": 356.8,
+    "workers_task_wall_s": 369.1,
+    "main_cpu_s": 23.2
+   },
+   "whole_visit": {
+    "box_workers_cpu_s": 137.2,
+    "page_workers_cpu_s": 393.9,
+    "workers_cpu_s": 531.2,
+    "workers_task_wall_s": 556.1
+   },
+   "renderers": {
+    "out": {
+     "kinds": 198,
+     "builds": 201,
+     "boxed": 201,
+     "derived": 24,
+     "taken": 76,
+     "keptLevels": 0
+    },
+    "in": {
+     "kinds": 129,
+     "builds": 129,
+     "boxed": 96,
+     "derived": 30,
+     "taken": 64,
+     "keptLevels": 0
+    },
+    "library": {
+     "kinds": 32,
+     "builds": 32,
+     "boxed": 32,
+     "derived": 64,
+     "taken": 0,
+     "keptLevels": 0
+    }
+   }
+  },
+  "2": {
+   "boxes": 2,
+   "world_shown_s": 213.3,
+   "quiet_s": 429.4,
+   "steps": [
+    "3 s Letting the stream in\u2026",
+    "5.1 s Covering the ground\u2026",
+    "19.4 s Growing the forest: 10 of 198 kinds\u2026",
+    "47.5 s Growing the forest: 20 of 198 kinds\u2026",
+    "49.5 s Growing the forest: 40 of 198 kinds\u2026",
+    "51.5 s Growing the forest: 50 of 198 kinds\u2026",
+    "79.7 s Growing the forest: 60 of 198 kinds\u2026",
+    "139.8 s Growing the forest: 70 of 198 kinds\u2026",
+    "168 s Growing the forest: 80 of 198 kinds\u2026",
+    "186 s Growing the forest: 90 of 198 kinds\u2026",
+    "190 s Growing the forest: 100 of 198 kinds\u2026",
+    "192.1 s Growing the forest: 110 of 198 kinds\u2026",
+    "194.1 s Growing the forest: 120 of 198 kinds\u2026",
+    "196.1 s Growing the forest: 130 of 198 kinds\u2026",
+    "198.1 s Growing the forest: 160 of 198 kinds\u2026",
+    "200.1 s Growing the forest: 190 of 198 kinds\u2026",
+    "202.1 s Growing the forest: the plants near you\u2026",
+    "213.3 s Welcome"
+   ],
+   "builds_answered": 396,
+   "recipes": 177,
+   "workers_that_built": 384,
+   "worker_threads": 395,
+   "builds_own_seconds": 199.9,
+   "level_jobs_over_5s": [
+    {
+     "asked_s": 14,
+     "took_s": 28,
+     "triangles": 754718
+    },
+    {
+     "asked_s": 18,
+     "took_s": 24,
+     "triangles": 887690
+    },
+    {
+     "asked_s": 59,
+     "took_s": 19,
+     "triangles": 636082
+    },
+    {
+     "asked_s": 64,
+     "took_s": 46,
+     "triangles": 1586890
+    },
+    {
+     "asked_s": 78,
+     "took_s": 37,
+     "triangles": 1270618
+    },
+    {
+     "asked_s": 110,
+     "took_s": 18,
+     "triangles": 741564
+    },
+    {
+     "asked_s": 122,
+     "took_s": 13,
+     "triangles": 493199
+    },
+    {
+     "asked_s": 128,
+     "took_s": 29,
+     "triangles": 1679476
+    },
+    {
+     "asked_s": 140,
+     "took_s": 27,
+     "triangles": 951296
+    },
+    {
+     "asked_s": 162,
+     "took_s": 23,
+     "triangles": 740888
+    },
+    {
+     "asked_s": 171,
+     "took_s": 14,
+     "triangles": 501625
+    },
+    {
+     "asked_s": 190,
+     "took_s": 16,
+     "triangles": 543606
+    },
+    {
+     "asked_s": 228,
+     "took_s": 26,
+     "triangles": 887690
+    },
+    {
+     "asked_s": 245,
+     "took_s": 30,
+     "triangles": 754718
+    },
+    {
+     "asked_s": 260,
+     "took_s": 11,
+     "triangles": 617298
+    },
+    {
+     "asked_s": 282,
+     "took_s": 7,
+     "triangles": 384445
+    },
+    {
+     "asked_s": 286,
+     "took_s": 8,
+     "triangles": 244906
+    },
+    {
+     "asked_s": 298,
+     "took_s": 36,
+     "triangles": 716177
+    }
+   ],
+   "to_world": {
+    "box_workers_cpu_s": 86.6,
+    "page_workers_cpu_s": 293.6,
+    "workers_cpu_s": 380.2,
+    "workers_task_wall_s": 421.1,
+    "main_cpu_s": 21.8
+   },
+   "whole_visit": {
+    "box_workers_cpu_s": 162.7,
+    "page_workers_cpu_s": 422.3,
+    "workers_cpu_s": 585.1,
+    "workers_task_wall_s": 662.0
+   },
+   "renderers": {
+    "out": {
+     "kinds": 198,
+     "builds": 201,
+     "boxed": 201,
+     "derived": 24,
+     "taken": 76,
+     "keptLevels": 0
+    },
+    "in": {
+     "kinds": 129,
+     "builds": 129,
+     "boxed": 120,
+     "derived": 30,
+     "taken": 64,
+     "keptLevels": 0
+    },
+    "library": {
+     "kinds": 32,
+     "builds": 32,
+     "boxed": 32,
+     "derived": 64,
+     "taken": 0,
+     "keptLevels": 0
+    }
+   }
+  },
+  "3": {
+   "boxes": 3,
+   "world_shown_s": 165.5,
+   "quiet_s": 320.3,
+   "steps": [
+    "3.6 s Letting the stream in\u2026",
+    "6 s Covering the ground\u2026",
+    "16.9 s Growing the forest: 10 of 198 kinds\u2026",
+    "29.1 s Growing the forest: 20 of 198 kinds\u2026",
+    "31.1 s Growing the forest: 40 of 198 kinds\u2026",
+    "35.1 s Growing the forest: 50 of 198 kinds\u2026",
+    "61.2 s Growing the forest: 60 of 198 kinds\u2026",
+    "103.4 s Growing the forest: 70 of 198 kinds\u2026",
+    "121.5 s Growing the forest: 80 of 198 kinds\u2026",
+    "135.7 s Growing the forest: 90 of 198 kinds\u2026",
+    "147.7 s Growing the forest: 100 of 198 kinds\u2026",
+    "149.8 s Growing the forest: 120 of 198 kinds\u2026",
+    "151.8 s Growing the forest: 150 of 198 kinds\u2026",
+    "153.8 s Growing the forest: 180 of 198 kinds\u2026",
+    "155.9 s Growing the forest: the plants near you\u2026",
+    "165.5 s Welcome"
+   ],
+   "builds_answered": 396,
+   "recipes": 177,
+   "workers_that_built": 378,
+   "worker_threads": 393,
+   "builds_own_seconds": 236.3,
+   "level_jobs_over_5s": [
+    {
+     "asked_s": 16,
+     "took_s": 32,
+     "triangles": 754718
+    },
+    {
+     "asked_s": 17,
+     "took_s": 30,
+     "triangles": 887690
+    },
+    {
+     "asked_s": 48,
+     "took_s": 51,
+     "triangles": 1586890
+    },
+    {
+     "asked_s": 51,
+     "took_s": 23,
+     "triangles": 636082
+    },
+    {
+     "asked_s": 59,
+     "took_s": 20,
+     "triangles": 741564
+    },
+    {
+     "asked_s": 80,
+     "took_s": 38,
+     "triangles": 1270618
+    },
+    {
+     "asked_s": 81,
+     "took_s": 14,
+     "triangles": 493199
+    },
+    {
+     "asked_s": 97,
+     "took_s": 30,
+     "triangles": 1679476
+    },
+    {
+     "asked_s": 104,
+     "took_s": 29,
+     "triangles": 951296
+    },
+    {
+     "asked_s": 121,
+     "took_s": 23,
+     "triangles": 740888
+    },
+    {
+     "asked_s": 131,
+     "took_s": 16,
+     "triangles": 501625
+    },
+    {
+     "asked_s": 138,
+     "took_s": 17,
+     "triangles": 543606
+    },
+    {
+     "asked_s": 178,
+     "took_s": 26,
+     "triangles": 887690
+    },
+    {
+     "asked_s": 191,
+     "took_s": 11,
+     "triangles": 617298
+    },
+    {
+     "asked_s": 196,
+     "took_s": 29,
+     "triangles": 754718
+    },
+    {
+     "asked_s": 210,
+     "took_s": 7,
+     "triangles": 384445
+    },
+    {
+     "asked_s": 217,
+     "took_s": 8,
+     "triangles": 244906
+    },
+    {
+     "asked_s": 224,
+     "took_s": 35,
+     "triangles": 716177
+    }
+   ],
+   "to_world": {
+    "box_workers_cpu_s": 82.5,
+    "page_workers_cpu_s": 303.6,
+    "workers_cpu_s": 386.0,
+    "workers_task_wall_s": 484.0,
+    "main_cpu_s": 21.9
+   },
+   "whole_visit": {
+    "box_workers_cpu_s": 145.3,
+    "page_workers_cpu_s": 421.0,
+    "workers_cpu_s": 566.2,
+    "workers_task_wall_s": 731.4
+   },
+   "renderers": {
+    "out": {
+     "kinds": 198,
+     "builds": 201,
+     "boxed": 201,
+     "derived": 24,
+     "taken": 76,
+     "keptLevels": 0
+    },
+    "in": {
+     "kinds": 129,
+     "builds": 129,
+     "boxed": 120,
+     "derived": 30,
+     "taken": 64,
+     "keptLevels": 0
+    },
+    "library": {
+     "kinds": 32,
+     "builds": 32,
+     "boxed": 32,
+     "derived": 64,
+     "taken": 0,
+     "keptLevels": 0
+    }
+   }
+  },
+  "4": {
+   "boxes": 4,
+   "world_shown_s": 153.5,
+   "quiet_s": 370.8,
+   "steps": [
+    "3.7 s Letting the stream in\u2026",
+    "6 s Covering the ground\u2026",
+    "15 s Growing the forest: 10 of 198 kinds\u2026",
+    "23.3 s Growing the forest: 20 of 198 kinds\u2026",
+    "25.4 s Growing the forest: 30 of 198 kinds\u2026",
+    "27.4 s Growing the forest: 40 of 198 kinds\u2026",
+    "29.4 s Growing the forest: 50 of 198 kinds\u2026",
+    "43.5 s Growing the forest: 60 of 198 kinds\u2026",
+    "69.6 s Growing the forest: 70 of 198 kinds\u2026",
+    "107.8 s Growing the forest: 80 of 198 kinds\u2026",
+    "122.1 s Growing the forest: 90 of 198 kinds\u2026",
+    "128.1 s Growing the forest: 100 of 198 kinds\u2026",
+    "132.2 s Growing the forest: 110 of 198 kinds\u2026",
+    "134.2 s Growing the forest: 120 of 198 kinds\u2026",
+    "136.2 s Growing the forest: 130 of 198 kinds\u2026",
+    "138.2 s Growing the forest: 160 of 198 kinds\u2026",
+    "140.2 s Growing the forest: 190 of 198 kinds\u2026",
+    "142.2 s Growing the forest: the plants near you\u2026",
+    "153.5 s Welcome"
+   ],
+   "builds_answered": 392,
+   "recipes": 177,
+   "workers_that_built": 376,
+   "worker_threads": 394,
+   "builds_own_seconds": 303.2,
+   "level_jobs_over_5s": [
+    {
+     "asked_s": 14,
+     "took_s": 39,
+     "triangles": 754718
+    },
+    {
+     "asked_s": 19,
+     "took_s": 34,
+     "triangles": 887690
+    },
+    {
+     "asked_s": 40,
+     "took_s": 24,
+     "triangles": 741564
+    },
+    {
+     "asked_s": 45,
+     "took_s": 58,
+     "triangles": 1586890
+    },
+    {
+     "asked_s": 60,
+     "took_s": 23,
+     "triangles": 636082
+    },
+    {
+     "asked_s": 63,
+     "took_s": 19,
+     "triangles": 493199
+    },
+    {
+     "asked_s": 69,
+     "took_s": 46,
+     "triangles": 1270618
+    },
+    {
+     "asked_s": 83,
+     "took_s": 35,
+     "triangles": 1679476
+    },
+    {
+     "asked_s": 85,
+     "took_s": 34,
+     "triangles": 951296
+    },
+    {
+     "asked_s": 108,
+     "took_s": 28,
+     "triangles": 740888
+    },
+    {
+     "asked_s": 120,
+     "took_s": 21,
+     "triangles": 501625
+    },
+    {
+     "asked_s": 124,
+     "took_s": 22,
+     "triangles": 543606
+    },
+    {
+     "asked_s": 169,
+     "took_s": 32,
+     "triangles": 887690
+    },
+    {
+     "asked_s": 179,
+     "took_s": 36,
+     "triangles": 754718
+    },
+    {
+     "asked_s": 181,
+     "took_s": 15,
+     "triangles": 617298
+    },
+    {
+     "asked_s": 198,
+     "took_s": 8,
+     "triangles": 384445
+    },
+    {
+     "asked_s": 205,
+     "took_s": 9,
+     "triangles": 244906
+    },
+    {
+     "asked_s": 211,
+     "took_s": 35,
+     "triangles": 716177
+    }
+   ],
+   "to_world": {
+    "box_workers_cpu_s": 99.0,
+    "page_workers_cpu_s": 311.9,
+    "workers_cpu_s": 410.9,
+    "workers_task_wall_s": 558.5,
+    "main_cpu_s": 22.1
+   },
+   "whole_visit": {
+    "box_workers_cpu_s": 159.2,
+    "page_workers_cpu_s": 433.5,
+    "workers_cpu_s": 592.7,
+    "workers_task_wall_s": 851.8
+   },
+   "renderers": {
+    "out": {
+     "kinds": 198,
+     "builds": 201,
+     "boxed": 201,
+     "derived": 24,
+     "taken": 76,
+     "keptLevels": 0
+    },
+    "in": {
+     "kinds": 129,
+     "builds": 129,
+     "boxed": 116,
+     "derived": 30,
+     "taken": 64,
+     "keptLevels": 0
+    },
+    "library": {
+     "kinds": 32,
+     "builds": 32,
+     "boxed": 32,
+     "derived": 64,
+     "taken": 0,
+     "keptLevels": 0
+    }
+   }
+  },
+  "8": {
+   "boxes": 8,
+   "world_shown_s": 158.6,
+   "quiet_s": 342.7,
+   "steps": [
+    "3 s Letting the stream in\u2026",
+    "5.3 s Covering the ground\u2026",
+    "16.4 s Growing the forest: 10 of 198 kinds\u2026",
+    "18.7 s Growing the forest: 30 of 198 kinds\u2026",
+    "20.7 s Growing the forest: 40 of 198 kinds\u2026",
+    "22.7 s Growing the forest: 50 of 198 kinds\u2026",
+    "33.4 s Growing the forest: 60 of 198 kinds\u2026",
+    "45 s Growing the forest: 70 of 198 kinds\u2026",
+    "47 s Growing the forest: 80 of 198 kinds\u2026",
+    "59.4 s Growing the forest: 90 of 198 kinds\u2026",
+    "77.5 s Growing the forest: 100 of 198 kinds\u2026",
+    "81.5 s Growing the forest: 110 of 198 kinds\u2026",
+    "87.5 s Growing the forest: 120 of 198 kinds\u2026",
+    "91.6 s Growing the forest: 130 of 198 kinds\u2026",
+    "93.6 s Growing the forest: 140 of 198 kinds\u2026",
+    "95.6 s Growing the forest: 150 of 198 kinds\u2026",
+    "97.6 s Growing the forest: 170 of 198 kinds\u2026",
+    "99.6 s Growing the forest: 180 of 198 kinds\u2026",
+    "101.6 s Growing the forest: 190 of 198 kinds\u2026",
+    "104 s Growing the forest: the plants near you\u2026",
+    "158.6 s Welcome"
+   ],
+   "builds_answered": 372,
+   "recipes": 177,
+   "workers_that_built": 358,
+   "worker_threads": 387,
+   "builds_own_seconds": 503.3,
+   "level_jobs_over_5s": [
+    {
+     "asked_s": 17,
+     "took_s": 62,
+     "triangles": 754718
+    },
+    {
+     "asked_s": 20,
+     "took_s": 56,
+     "triangles": 887690
+    },
+    {
+     "asked_s": 31,
+     "took_s": 36,
+     "triangles": 493199
+    },
+    {
+     "asked_s": 35,
+     "took_s": 45,
+     "triangles": 741564
+    },
+    {
+     "asked_s": 41,
+     "took_s": 44,
+     "triangles": 636082
+    },
+    {
+     "asked_s": 45,
+     "took_s": 94,
+     "triangles": 1270618
+    },
+    {
+     "asked_s": 52,
+     "took_s": 78,
+     "triangles": 1679476
+    },
+    {
+     "asked_s": 59,
+     "took_s": 68,
+     "triangles": 951296
+    },
+    {
+     "asked_s": 74,
+     "took_s": 82,
+     "triangles": 1586890
+    },
+    {
+     "asked_s": 79,
+     "took_s": 56,
+     "triangles": 740888
+    },
+    {
+     "asked_s": 81,
+     "took_s": 34,
+     "triangles": 501625
+    },
+    {
+     "asked_s": 84,
+     "took_s": 40,
+     "triangles": 543606
+    },
+    {
+     "asked_s": 168,
+     "took_s": 5,
+     "triangles": 432785
+    },
+    {
+     "asked_s": 186,
+     "took_s": 5,
+     "triangles": 73751
+    },
+    {
+     "asked_s": 193,
+     "took_s": 13,
+     "triangles": 617298
+    },
+    {
+     "asked_s": 194,
+     "took_s": 7,
+     "triangles": 384445
+    },
+    {
+     "asked_s": 194,
+     "took_s": 10,
+     "triangles": 244906
+    },
+    {
+     "asked_s": 196,
+     "took_s": 37,
+     "triangles": 716177
+    }
+   ],
+   "to_world": {
+    "box_workers_cpu_s": 108.0,
+    "page_workers_cpu_s": 293.4,
+    "workers_cpu_s": 401.4,
+    "workers_task_wall_s": 1009.1,
+    "main_cpu_s": 21.2
+   },
+   "whole_visit": {
+    "box_workers_cpu_s": 160.3,
+    "page_workers_cpu_s": 374.9,
+    "workers_cpu_s": 535.3,
+    "workers_task_wall_s": 1300.3
+   },
+   "renderers": {
+    "out": {
+     "kinds": 198,
+     "builds": 201,
+     "boxed": 201,
+     "derived": 24,
+     "taken": 76,
+     "keptLevels": 0
+    },
+    "in": {
+     "kinds": 129,
+     "builds": 129,
+     "boxed": 96,
+     "derived": 26,
+     "taken": 64,
+     "keptLevels": 4
+    },
+    "library": {
+     "kinds": 32,
+     "builds": 32,
+     "boxed": 32,
+     "derived": 64,
+     "taken": 0,
+     "keptLevels": 0
+    }
+   }
+  }
+ },
+ "kinds_without_levels_of_their_own_over_150k_triangles": [
+  {
+   "renderer": "out",
+   "label": "plants/moringa",
+   "levels": [
+    [
+     "box",
+     754718
+    ],
+    [
+     "made",
+     365645
+    ],
+    [
+     "made",
+     56115
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Mango",
+   "levels": [
+    [
+     "box",
+     887690
+    ],
+    [
+     "made",
+     365736
+    ],
+    [
+     "made",
+     26335
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Sweet chestnut",
+   "levels": [
+    [
+     "box",
+     1586890
+    ],
+    [
+     "made",
+     331934
+    ],
+    [
+     "made",
+     43963
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Sweet chestnut",
+   "levels": [
+    [
+     "box",
+     636082
+    ],
+    [
+     "made",
+     246262
+    ],
+    [
+     "made",
+     53651
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Walnut",
+   "levels": [
+    [
+     "box",
+     741564
+    ],
+    [
+     "made",
+     364059
+    ],
+    [
+     "made",
+     6331
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Sweet chestnut",
+   "levels": [
+    [
+     "box",
+     1270618
+    ],
+    [
+     "made",
+     344033
+    ],
+    [
+     "made",
+     56353
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Walnut",
+   "levels": [
+    [
+     "box",
+     493199
+    ],
+    [
+     "made",
+     273405
+    ],
+    [
+     "made",
+     12612
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Walnut",
+   "levels": [
+    [
+     "box",
+     1679476
+    ],
+    [
+     "made",
+     272918
+    ],
+    [
+     "made",
+     17773
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Sweet chestnut",
+   "levels": [
+    [
+     "box",
+     951296
+    ],
+    [
+     "made",
+     307870
+    ],
+    [
+     "made",
+     56384
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Hazel: Tree",
+   "levels": [
+    [
+     "box",
+     740888
+    ],
+    [
+     "made",
+     253642
+    ],
+    [
+     "made",
+     9742
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Hazel: Tree",
+   "levels": [
+    [
+     "box",
+     501625
+    ],
+    [
+     "made",
+     231900
+    ],
+    [
+     "made",
+     7886
+    ]
+   ]
+  },
+  {
+   "renderer": "out",
+   "label": "Hazel: Tree",
+   "levels": [
+    [
+     "box",
+     543606
+    ],
+    [
+     "made",
+     212099
+    ],
+    [
+     "made",
+     23272
+    ]
+   ]
+  },
+  {
+   "renderer": "in",
+   "label": "Mango",
+   "levels": [
+    [
+     "box",
+     887690
+    ],
+    [
+     "kept",
+     365736
+    ],
+    [
+     "kept",
+     26335
+    ]
+   ]
+  },
+  {
+   "renderer": "in",
+   "label": "plants/yam",
+   "levels": [
+    [
+     "box",
+     432785
+    ],
+    [
+     "made",
+     129830
+    ],
+    [
+     "made",
+     34623
+    ]
+   ]
+  },
+  {
+   "renderer": "in",
+   "label": "plants/yam",
+   "levels": [
+    [
+     "box",
+     194556
+    ],
+    [
+     "made",
+     58366
+    ],
+    [
+     "made",
+     15564
+    ]
+   ]
+  },
+  {
+   "renderer": "in",
+   "label": "plants/yam",
+   "levels": [
+    [
+     "box",
+     433083
+    ],
+    [
+     "made",
+     129923
+    ],
+    [
+     "made",
+     34646
+    ]
+   ]
+  },
+  {
+   "renderer": "in",
+   "label": "plants/moringa",
+   "levels": [
+    [
+     "box",
+     754718
+    ],
+    [
+     "kept",
+     365645
+    ],
+    [
+     "kept",
+     56115
+    ]
+   ]
+  },
+  {
+   "renderer": "in",
+   "label": "Mango",
+   "levels": [
+    [
+     "box",
+     617298
+    ],
+    [
+     "made",
+     278568
+    ],
+    [
+     "made",
+     34256
+    ]
+   ]
+  },
+  {
+   "renderer": "in",
+   "label": "Mango",
+   "levels": [
+    [
+     "box",
+     384445
+    ],
+    [
+     "made",
+     178278
+    ],
+    [
+     "made",
+     5314
+    ]
+   ]
+  },
+  {
+   "renderer": "in",
+   "label": "plants/yam",
+   "levels": [
+    [
+     "box",
+     350355
+    ],
+    [
+     "made",
+     105104
+    ],
+    [
+     "made",
+     28027
+    ]
+   ]
+  },
+  {
+   "renderer": "in",
+   "label": "plants/moringa",
+   "levels": [
+    [
+     "box",
+     244906
+    ],
+    [
+     "made",
+     195636
+    ],
+    [
+     "made",
+     19495
+    ]
+   ]
+  },
+  {
+   "renderer": "in",
+   "label": "plants/moringa",
+   "levels": [
+    [
+     "box",
+     716177
+    ],
+    [
+     "made",
+     365409
+    ],
+    [
+     "made",
+     11783
+    ]
+   ]
+  }
+ ],
+ "worker_microbench": "bench.ts: a worker of box engine 5 from new Worker to ready: 29 ms (median of 20); 24 pinned plants: first build in a fresh worker 11.5 s in all, the same again in a second fresh worker 11.7 s, the same again in the worker that built it 5.8 s",
+ "beside_prototype": {
+  "what": "beside.ts: 48 pinned plants in the page's pool, the levels of the 4 heaviest asked as each is built (Bun, real workers, turns 3)",
+  "main": "builds beside their levels 34.1 s against 8.9 s alone (382 %), 85 % of one box; CPU 136 s against 145 s in one box (93 %)",
+  "with_a_build_before_a_level": "builds beside their levels 9.1 s against 9.3 s alone (97 %), 23 % of one box; CPU 129 s against 136 s (95 %)"
+ },
+ "reading": "The work is not multiplied: the workers' CPU for a whole first visit is 531 to 593 s at every pool size. What grows with the pool is the tasks' wall time (556 s with one box, 1,300 s with eight on four cores): a task waiting for a core counts as busy, which is what the Mac's count summed. About 150 s of the work is the 396 builds; about 400 s is level-making, nearly all of it 12 tree kinds outside (and 15 inside) that have no levels of their own and are simplified from 0.5 to 1.7 million triangles, 12 to 94 s a kind. Each turn a build gives back goes to a waiting level job first (the box asks for its next turn a moment later), so the level jobs take every turn and the builds the world waits for stand still behind them."
+}

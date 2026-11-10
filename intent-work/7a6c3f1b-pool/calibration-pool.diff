@@ -1,0 +1,20 @@
+--- pool.js.orig	2026-11-10 21:56:03.665718509 +0000
++++ pool.js.hack	2026-11-10 21:57:48.428850792 +0000
+@@ -23,6 +23,7 @@
+  * @param {{ engine: number, size?: number, box?: () => Pick<AssetBox, 'start' | 'build' | 'stop'> }} o `box`: how a box
+  *   is made (a test's stand-in)
+  */
++export const waitingBuilds = { n: 0 };
+ export function createPool({ engine, size = budget().builds, box = () => new AssetBox({ engine, rooms: 1 }) }) {
+ 	/** @type {{ box: ReturnType<typeof box> | null, busy: boolean, starting: boolean, up: boolean }[]} */
+ 	const slots = Array.from({ length: Math.max(1, size) }, () => ({ box: null, busy: false, starting: false, up: false }));
+@@ -83,7 +84,8 @@
+ 		/** @param {{ hash: string, code: string, pieces?: string[] }} recipe @param {Record<string, string>} [given] */
+ 		build(recipe, given, { rank = 0, unwanted, ...o } = {}) {
+ 			return new Promise((ok, no) => {
+-				line.push({ rank, recipe, given, o, unwanted, ok, no });
++				waitingBuilds.n++;
++				line.push({ rank, recipe, given, o, unwanted, ok: (v) => (waitingBuilds.n--, ok(v)), no: (e) => (waitingBuilds.n--, no(e)) });
+ 				pump();
+ 			});
+ 		},
