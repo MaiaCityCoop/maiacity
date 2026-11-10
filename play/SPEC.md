@@ -314,8 +314,13 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   levels by the one renderer (`play/site`'s `content/assets/render/`), chosen by its size on screen alone (`lod.js`:
   `LEVELS`, `HOLD`, `BAND`, its budgets): **L0** its build; **L1 and L2** its recipe's own where it declares them,
   `module.exports.levels = [{ values: { … } }, …]` (a plain literal; each the same recipe built with those values,
-  which its params declare), else derived from its build by simplifying it (`simplify.js`, in a worker), each within
-  its budget; **L3** its picture from eight sides (`impostors.js`). A new version names which on its card, `lod:
+  which its params declare), else derived from its build by simplifying it (`simplify.js`, in workers), each within
+  its budget; **L3** its picture from eight sides (`impostors.js`). **Built on every core but one** (intent 08d00b84):
+  every build a page asks for, whichever renderer or crowd asks and whichever frozen engine its recipe is made for,
+  waits in the page's one pool of asset boxes (`content/assets/box/pool.js`), the most wanted first, as many built
+  side by side as the device's budget lets work at once (`render/budget.js` `builds`: every core but one on a
+  desktop, two on a phone), and the levels derived of them are made on those same turns (`render/lower.js`); a build
+  is its recipe's and its values' alone, the same in whichever worker it is made. A new version names which on its card, `lod:
   { levels: 'declared' | 'derived', budgets? }` (`propose_asset`'s `lod`, a card field of the asset's document):
   `propose_asset`, the page's proposal and `propose_doc_version` refuse a new version without it, or a declared one
   whose source exports none, or a derived one whose source does (`play/api/src/lod.ts`); play reads a declared one's
