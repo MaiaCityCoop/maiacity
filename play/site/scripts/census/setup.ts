@@ -13,17 +13,22 @@
  *   goes to play and nowhere else); a file by its hash kept on disk once fetched (`/api/files/<hash>`: what it names
  *   never changes); every other route read from `inputs`, the world's inputs pinned as they were (./run5/), where it is
  *   pinned there; the site's static files from its `static/` (the frozen engines from this checkout's: they never change).
- * - OPFS (`navigator.storage`) on disk: the asset cache keeps its builds between runs, as a browser does, so a second
- *   census reads them instead of building them again.
+ * - What its workers build, kept between runs (./kept.ts; intent 629840f2): each recipe the asset box builds and each
+ *   lower level the simplifier makes, under the hash of its code and its question, so a kind is built once whichever
+ *   commit or world asks next. The page's own device cache (OPFS, `navigator.storage`; ./opfs.ts) is off: it is
+ *   bounded for a device and kept nothing of a whole world between runs; only ./settle.ts, which measures it, asks for it.
  */
 import { plugin } from 'bun';
 import { compileModule } from 'svelte/compiler';
 import { hashOf } from '../../src/lib/content/assets/box/headless.js';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { El, VIEWPORT, contexts, makeDocument } from './dom';
 import { SEEDED_RANDOM, frameWindow } from './box';
 import { opfs } from './opfs';
+import { codeOf, keptIn, keptWorker } from './kept';
+import { CACHE } from './tree';
 import { fileOf, pinFile, pinnedFile, pinnedRoute } from './pinned';
 
 const HERE = dirname(new URL(import.meta.url).pathname);
@@ -43,8 +48,9 @@ export type Setup = {
 	/** with `record`: read every route live and pin it anew, not only the routes not pinned yet (an asset's chain pinned
 	 * before an Accept is stale after it: the viewer's census then builds the version before; intent e5ddf0b2) */
 	fresh?: boolean;
-	/** where files by hash and the asset cache are kept between runs */
-	cache?: string;
+	/** the page's own cache of its builds on disk (OPFS, ./opfs.ts), as a browser keeps it: only ./settle.ts, which
+	 *  measures that cache, asks for it. A census keeps what its workers build itself (./kept.ts), whole and unbounded */
+	device?: boolean;
 	/** log every route fetched */
 	verbose?: boolean;
 	/** the switch's backend the page is asked for (`?renderer=`, intent c1bee1f8): webgl, webgpu or webgl2; none: the
@@ -55,7 +61,7 @@ export type Setup = {
 	real?: boolean;
 };
 
-let done: Required<Pick<Setup, 'root' | 'cache'>> & Setup;
+let done: Required<Pick<Setup, 'root'>> & Setup & { /** where files by hash and what the workers built are kept between runs (./tree.ts) */ cache: string };
 
 /** the census's own clock: callbacks asked for the next frame, run by `frame` */
 let rafs = new Map<number, FrameRequestCallback>();
@@ -71,12 +77,15 @@ export function frame(now = performance.now()) {
 /** the smoke's WebGL 2 contexts (setup's `real`): each one's shaders, and every draw sent to any */
 export const smoked = { shaders: [] as string[][], draws: 0 };
 
+/** what the workers' answers came from (./kept.ts): read from what was kept, or made now and kept */
+export let built = { read: 0, made: 0 };
+
 /** what was fetched, for the census's report: each route once */
 export const fetched = { live: new Set<string>(), pinned: new Set<string>(), files: 0 };
 
 export function setup(o: Setup = {}) {
 	if (done) return done;
-	done = { ...o, root: resolve(o.root ?? SITE), cache: resolve(o.cache ?? join(process.env.HOME ?? '/tmp', '.cache/maiacity-census')) };
+	done = { ...o, root: resolve(o.root ?? SITE), cache: CACHE };
 	const root = done.root;
 	mkdirSync(done.cache, { recursive: true });
 
@@ -125,6 +134,10 @@ export function setup(o: Setup = {}) {
 		}
 	});
 
+	// what the workers build, kept between runs under its code and its question (./kept.ts)
+	const kept = keptIn(process.env.CENSUS_KEPT === '0' ? null : join(done.cache, 'kept'));
+	built = kept.counted;
+
 	// ── the page ──
 	const g = globalThis as any;
 	(0, eval)(SEEDED_RANDOM);
@@ -132,7 +145,7 @@ export function setup(o: Setup = {}) {
 	const make = document.createElement;
 	document.createElement = (t: string) => {
 		const e = make(t);
-		if (t.toLowerCase() === 'iframe') e.contentWindow = frameWindow(e);
+		if (t.toLowerCase() === 'iframe') e.contentWindow = frameWindow(e, kept);
 		if (t.toLowerCase() === 'img') imageOf(e);
 		return e;
 	};
@@ -239,7 +252,7 @@ export function setup(o: Setup = {}) {
 			deviceMemory: 8,
 			maxTouchPoints: 0,
 			onLine: true,
-			storage: opfs(join(done.cache, 'opfs')),
+			storage: o.device ? opfs(join(done.cache, 'opfs')) : undefined,
 			gpu: undefined,
 			xr: undefined,
 			clipboard: { writeText: async () => {} },
@@ -253,6 +266,8 @@ export function setup(o: Setup = {}) {
 	const BunWorker = g.Worker;
 	g.Worker = function (url: string | URL, opts?: WorkerOptions) {
 		if (String(url).includes('cache.worker')) throw new Error('census: no cache worker (the page writes the cache)');
+		// the simplifier's levels kept under its code and the drawings it is given
+		if (String(url).includes('simplify.worker')) return keptWorker(() => new BunWorker(url, opts), kept, codeOf(fileURLToPath(url), join(SITE, 'node_modules')));
 		return new BunWorker(url, opts);
 	} as unknown as typeof Worker;
 

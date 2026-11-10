@@ -433,9 +433,10 @@ describe("intents-pr.yml: main measured beside the head's checks", () => {
     expect(w.jobs.main.needs).toBe("spec");
     // the head's vs-main calls measure the head only, into a directory handed to compare; main's measures never reach it
     const checks = steps("run").find((s) => s.name === "The intent's checks on the head (no token)");
-    expect(checks.env).toEqual({ VS_MAIN_HEAD_OUT: "${{ runner.temp }}/vs-head" });
+    expect(checks.env).toEqual({ VS_MAIN_HEAD_OUT: "${{ runner.temp }}/vs-head", CENSUS_CACHE: "${{ runner.temp }}/census-cache" });
     expect(steps("run").some((s) => s.uses?.startsWith("actions/download-artifact") && s.with?.name === "vs-main")).toBe(false);
-    expect(steps("run").some((s) => s.uses?.startsWith("actions/cache"))).toBe(false);
+    // of GitHub's cache the head reads one thing, main's kept builds, and writes nothing
+    expect(steps("run").filter((s) => s.uses?.startsWith("actions/cache")).map((s) => [s.uses, s.with.path])).toEqual([["actions/cache/restore@v4", "${{ runner.temp }}/census-cache/kept"]]);
     const up = steps("run").find((s) => s.uses?.startsWith("actions/upload-artifact") && s.with.name === "vs-head");
     expect(up.with.path).toBe("${{ runner.temp }}/vs-head");
     // main's intent.ts names each check to its command, so a deferred call is folded into its own check
@@ -481,6 +482,41 @@ describe("intents-pr.yml: main measured beside the head's checks", () => {
     const measure = main.find((s) => s.run?.includes("--main-of"));
     expect(measure.run).toContain('bun code/play/avenbox/vs-main.ts --main-of "$RUNNER_TEMP/box/spec.json" --main "$BASE" --repo base --out "$RUNNER_TEMP/vs-main/main.json"');
     expect(measure.env.VS_MAIN_CACHE).toBe("${{ runner.temp }}/vs-main-cache");
+  });
+});
+
+describe("intents-pr.yml: what a census builds travels in GitHub's cache (intent 629840f2)", () => {
+  const w = yaml(".github/workflows/intents-pr.yml");
+  const steps = (job: string) => w.jobs[job].steps as any[];
+  const KEPT = "${{ runner.temp }}/census-cache/kept";
+  const kept = (job: string) => steps(job).filter((s) => s.uses?.startsWith("actions/cache") && s.with.path === KEPT);
+
+  test("kept builds: main's measure reads the newest store and saves it only when it built something new", () => {
+    const [restore, save] = kept("main");
+    expect(restore.uses).toBe("actions/cache/restore@v4");
+    // never an exact hit: the newest store whatever its key
+    expect(restore.with).toEqual({ path: KEPT, key: "census-kept-${{ github.run_id }}", "restore-keys": "census-kept-" });
+    const measure = steps("main").find((s) => s.id === "measure");
+    expect(measure.env.CENSUS_CACHE).toBe("${{ runner.temp }}/census-cache");
+    // let go of what was not used for two weeks, then named by what it holds: the same store is not saved twice
+    expect(measure.run).toContain('bun code/play/site/scripts/census/kept.ts --trim 14 "$CENSUS_CACHE/kept"');
+    expect(measure.run).toContain('[ "$(kept)" = "$before" ] || echo "kept=$(kept)" >> "$GITHUB_OUTPUT"');
+    expect(save).toEqual({ uses: "actions/cache/save@v4", if: "steps.measure.outputs.kept", with: { path: KEPT, key: "census-kept-${{ steps.measure.outputs.kept }}" } });
+    expect(steps("main").indexOf(restore)).toBeLessThan(steps("main").indexOf(measure));
+    expect(steps("main").indexOf(measure)).toBeLessThan(steps("main").indexOf(save));
+  });
+
+  test("kept builds: the head's run reads main's store, only for a spec that counts a world, and never saves one", () => {
+    expect(kept("run").map((s) => s.uses)).toEqual(["actions/cache/restore@v4"]);
+    const [restore] = kept("run");
+    expect(restore.with).toEqual({ path: KEPT, key: "census-kept-${{ github.run_id }}", "restore-keys": "census-kept-" });
+    expect(restore.if).toBe("steps.census.outputs.counted");
+    expect(steps("run").find((s) => s.id === "census").run).toContain('grep -q census "$RUNNER_TEMP/box/spec.json"');
+    const checks = steps("run").find((s) => s.name === "The intent's checks on the head (no token)");
+    expect(steps("run").indexOf(restore)).toBeLessThan(steps("run").indexOf(checks));
+    // no other job touches it
+    for (const job of ["spec", "compare", "record"]) expect(JSON.stringify(w.jobs[job])).not.toContain("census-kept");
+    expect(JSON.stringify(w.jobs.run)).not.toContain("actions/cache/save");
   });
 });
 

@@ -685,10 +685,13 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     --spec-out`, with avenBOX's token), **main** (main's measures, no secret: the merge base from GitHub's compare,
     checked out alone at depth 1 and sparse, measured by main's `play/avenbox/vs-main.ts --main-of <spec>` for every
     vs-main call in the spec, kept in GitHub's cache by the git objects of what those calls read, so a main that leaves
-    them as they are is not measured again), **run** (the head checked out with `persist-credentials: false`, no secret
+    them as they are is not measured again; what a census builds, each kind and each lower level, is kept under the hash
+    of its code and its question, `play/site/scripts/census/kept.ts`, and that store is saved to GitHub's cache here
+    and nowhere else, so a world is built once and only what a change touches again: intent 629840f2), **run** (the
+    head checked out with `persist-credentials: false`, no secret
     and a read-only `GITHUB_TOKEN`; main's intent.ts, handed over by spec, runs the spec's checks with `--from <spec>
     --results-out <file> --root <head>`; a vs-main call there measures the head only, `VS_MAIN_HEAD_OUT`, kept for
-    its check), **compare** (main's `vs-main.ts --fold`, no secret: once both sides are measured, each of the head's
+    its check; a spec that counts a world reads main's kept builds, and never saves any), **compare** (main's `vs-main.ts --fold`, no secret: once both sides are measured, each of the head's
     calls against main's measure, into its check's result and evidence; main's measure missing fails that check,
     saying so) and **record** (main's `intent.ts <uuid> --record-from <compared results> --pr <n> --head <sha>`, with
     avenBOX's token, refusing results of another intent or another commit; its `GITHUB_TOKEN` read only, skipped when
