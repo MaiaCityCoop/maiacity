@@ -5,9 +5,8 @@
  * layered litter), stones, roots, worm burrows, and marks (rust mottles and grey where water stands, white lime, black
  * charcoal, white fungal threads). ./ground.js paints a pit's faces with them in the world's own metres.
  *
- * A biome names its soil (`SOIL_OF`): a forest garden a deep dark garden humus, the beech wood a brown earth, the spruce
- * wood a podzol bleached grey under its needles, the meadow a black earth, the warm food forest a red tropical earth
- * under its mulch's humus, the lawn a ploughed garden loam.
+ * A biome names its soil (`SOIL_OF`): a forest garden a deep dark garden humus, the meadow a black earth, the warm food
+ * forest a red tropical earth under its mulch's humus, the old city's fields a ploughed loam; any other a brown earth.
  *
  * A horizon: `name`, `to` its lower boundary (m below the surface), `col`/`col2` its matrix colours (sRGB, moist) and
  * `ped` its structure: { kind, size (m), dark (how dark its pores and cracks are, 0…1), vary (how far one ped's shade
@@ -72,21 +71,6 @@ const SOILS = {
 			{ name: 'C', to: 9, col: '#a8946e', col2: '#b8a47c', ped: { kind: 'massive', size: 0.05, dark: 0.3, vary: 0.15 }, roots: 0.02, stones: { share: 0.45, size: 0.09 } }
 		]
 	},
-	podzol: {
-		id: 'podzol',
-		label: 'Podzol',
-		kind: 'Podzol / Spodosol',
-		note: 'A spruce wood’s soil: rust needles over a black, matted mor humus white with fungal threads, an ash-grey bleached sand the acid water has washed clean, then the black and rust bands where it left the humus and the iron.',
-		stone: '#9a948a',
-		horizons: [
-			{ name: 'Oi', to: 0.025, col: '#6b4a2d', col2: '#8f6a45', ped: { kind: 'litter', size: 0.006, dark: 0.6, vary: 0.5 }, wave: 0.008, sharp: 0.005 },
-			{ name: 'Oa', to: 0.09, col: '#251b14', col2: '#33261b', ped: { kind: 'peat', size: 0.003, dark: 0.45, vary: 0.2 }, roots: 0.7, hyphae: 1, wave: 0.02, sharp: 0.01 },
-			{ name: 'E', to: 0.21, col: '#a49b8d', col2: '#b8af9f', ped: { kind: 'grain', size: 0.0006, dark: 0.25, vary: 0.2 }, roots: 0.2, stones: { share: 0.05, size: 0.02 }, wave: 0.04, sharp: 0.012, tongue: 0.08 },
-			{ name: 'Bh', to: 0.27, col: '#3d271c', col2: '#4c3020', ped: { kind: 'massive', size: 0.02, dark: 0.3, vary: 0.15 }, roots: 0.15, wave: 0.03, sharp: 0.015 },
-			{ name: 'Bs', to: 0.56, col: '#9c5b2a', col2: '#b56c32', ped: { kind: 'grain', size: 0.0007, dark: 0.3, vary: 0.25 }, roots: 0.12, stones: { share: 0.08, size: 0.03 }, wave: 0.06, sharp: 0.05 },
-			{ name: 'C', to: 9, col: '#b09a72', col2: '#c0ab84', ped: { kind: 'grain', size: 0.0008, dark: 0.25, vary: 0.2 }, stones: { share: 0.32, size: 0.06 } }
-		]
-	},
 	'black-earth': {
 		id: 'black-earth',
 		label: 'Black earth',
@@ -104,7 +88,7 @@ const SOILS = {
 		id: 'garden-loam',
 		label: 'Garden loam',
 		kind: 'Ploughed loam (Ap over Bw)',
-		note: 'A lawn’s soil: a turf of clover and grass roots, a dug or ploughed dark loam that ends on a straight line where the spade or plough stopped, over the brown subsoil.',
+		note: 'A field’s soil: a thin mat of roots, a ploughed dark loam that ends on a straight line where the plough stopped, over the brown subsoil.',
 		stone: '#8e877c',
 		horizons: [
 			{ name: 'turf', to: 0.04, col: '#3a3024', col2: '#4b3e2e', ped: { kind: 'crumb', size: 0.0025, dark: 0.55, vary: 0.25 }, roots: 1, worms: 0.6, wave: 0.006, sharp: 0.015 },
@@ -119,10 +103,10 @@ const SOILS = {
 const SOIL_OF = {
 	'food-forest': 'garden-humus',
 	'warm-food-forest': 'tropical-red',
-	'beech-forest': 'brown-earth',
-	'spruce-forest': 'podzol',
 	meadow: 'black-earth',
-	'clover-lawn': 'garden-loam'
+	// the old city's fields lie on the ploughed loam (intent 66b6b406: it was the clover lawn's)
+	'cereal-stubble': 'garden-loam',
+	'tilled-soil': 'garden-loam'
 };
 
 /** the soil a biome lies on @param {string} [biome] its id @returns {Soil} */

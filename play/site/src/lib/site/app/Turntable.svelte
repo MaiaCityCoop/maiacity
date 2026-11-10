@@ -8,9 +8,12 @@
 
 	and anything else floating over the canvas itself as its children (a joystick, a hint, a button). A block in the
 	page's column, laid out by the room the column gives it rather than the screen's: the deck over the canvas where the
-	column is wide, under it where it is not. Its `head` (its name and the bar's chips) stands above the canvas and stays
-	at the top of the column while the rest of it scrolls by. `compact`, in a card that has its own answers under it (an
-	intent's review), keeps only the head and a short canvas; `fill` makes it as tall as the column.
+	column is wide, under it where it is not. Its `head` (its name and the bar's chips) floats over the canvas's top edge
+	with no band of its own, each label and chip a pill in the nav pill's look ($lib/site/app/NavPill.svelte: its
+	translucent paper and blur), so the scene fills the whole height (intent cd431267); `room` is the height it takes,
+	for the camera to frame its thing clear of it ($lib/site/app/turntable.js `fit`). `compact`, in a card that has its
+	own answers under it (an intent's review), keeps only the head and a short canvas; `fill` makes it as tall as the
+	column.
 -->
 <script>
 	/**
@@ -21,6 +24,7 @@
 	 *   stage?: HTMLDivElement,
 	 *   compact?: boolean,
 	 *   fill?: boolean,
+	 *   room?: number,
 	 *   head?: import('svelte').Snippet,
 	 *   bar?: import('svelte').Snippet,
 	 *   panel?: import('svelte').Snippet,
@@ -28,11 +32,11 @@
 	 *   children?: import('svelte').Snippet
 	 * }}
 	 */
-	let { name, canvas = $bindable(), stage = $bindable(), compact = false, fill = false, head, bar, panel, readout, children } = $props();
+	let { name, canvas = $bindable(), stage = $bindable(), compact = false, fill = false, room = $bindable(0), head, bar, panel, readout, children } = $props();
 </script>
 
-<div class="turntable inline {name}" class:compact class:fill>
-	{#if head}<header class="head">{@render head()}</header>{/if}
+<div class="turntable inline {name}" class:compact class:fill style:--head-room="{room}px">
+	{#if head}<header class="head" bind:offsetHeight={room}>{@render head()}</header>{/if}
 	<section class="view">
 		<div class="stage" bind:this={stage}>
 			<div class="canvas" bind:this={canvas}></div>
@@ -189,32 +193,75 @@
 		container-type: inline-size;
 	}
 
-	/* at the top of the column it scrolls in: up through the column's own top margin where the page says how far
-	   (`--turntable-top`, below 0), as a scroller keeps a sticky box inside its padding */
+	/* the head floats over the canvas's top edge, the scene full height behind it: no band of its own, only its pills
+	   take taps (a drag between them turns the thing); clear of the notch where it stands at the screen's top */
 	.turntable.inline > .head {
-		position: sticky;
-		top: var(--turntable-top, 0px);
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
 		z-index: 3;
 		display: flex;
 		flex-direction: column;
+		align-items: flex-start;
 		gap: 0.4rem;
-		padding: 0.65rem 0.8rem;
-		border-bottom: 1px solid rgb(0 0 0 / 0.08);
-		background: rgb(255 255 255 / 0.94);
+		padding: max(0.65rem, env(safe-area-inset-top, 0px)) 0.8rem 0.65rem;
+		background: transparent;
+		pointer-events: none;
+	}
+
+	.turntable.inline > .head > :global(*) {
+		pointer-events: auto;
+	}
+
+	.turntable.inline > .head > :global(.chips) {
+		align-self: stretch;
+		pointer-events: none;
+	}
+
+	.turntable.inline > .head :global(.chips > *) {
+		pointer-events: auto;
+	}
+
+	/* each label and chip of the head a pill of its own, in the nav pill's look: its paper, translucent and blurred,
+	   its hairline and shadow, readable over a bright sky and a dark scene alike */
+	.turntable.inline > .head :global(:is(.chip, .label, .views-of, .latin, .name)) {
+		border: 1px solid var(--line, rgb(38 56 44 / 0.12));
+		border-radius: 999px;
+		background: var(--overlay-paper, rgb(250 248 242 / 0.75));
+		box-shadow: 0 2px 6px rgb(38 56 44 / 0.14);
 		-webkit-backdrop-filter: blur(10px);
 		backdrop-filter: blur(10px);
+	}
+
+	.turntable.inline > .head :global(:is(.label, .latin, .name)) {
+		flex: none;
+		margin: 0;
+		padding: 0.3rem 0.65rem;
+		line-height: normal;
+		opacity: 1;
+	}
+
+	.turntable.inline > .head :global(.label) {
+		color: rgb(31 42 35 / 0.7);
+	}
+
+	.turntable.inline > .head :global(.chip.on) {
+		background: #1f2a23;
+		border-color: #1f2a23;
 	}
 
 	.turntable.inline > .head:not(:has(*)) {
 		display: none;
 	}
 
+	/* the row scrolls sideways edge to edge, room kept round its pills for their shadows (a scroller clips them) */
 	.turntable.inline .head :global(.chips) {
 		flex-wrap: nowrap;
 		overflow-x: auto;
 		scrollbar-width: none;
-		margin: -0.2rem -0.8rem;
-		padding: 0.2rem 0.8rem;
+		margin: -0.65rem -0.8rem;
+		padding: 0.65rem 0.8rem;
 	}
 
 	.turntable.inline .head :global(.chips)::-webkit-scrollbar {
@@ -244,11 +291,6 @@
 		height: 100%;
 	}
 
-	.turntable.inline.fill > .head {
-		position: relative;
-		top: auto;
-	}
-
 	.turntable.inline.fill .view {
 		flex: 1;
 		min-height: 0;
@@ -258,12 +300,6 @@
 		flex: 1;
 		height: auto;
 		min-height: 17rem;
-	}
-
-	/* compact: in a card that scrolls on its own, its head stays in its place */
-	.turntable.inline.compact > .head {
-		position: relative;
-		top: auto;
 	}
 
 	.turntable.inline.compact .stage {
@@ -370,7 +406,7 @@
 				'bar bar'
 				'readout panel';
 			gap: 0.75rem 1rem;
-			padding: 1rem;
+			padding: calc(var(--head-room, 0px) + 0.25rem) 1rem 1rem;
 			border-top: 0;
 			pointer-events: none;
 		}
