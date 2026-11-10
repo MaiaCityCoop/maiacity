@@ -6,12 +6,12 @@
  * A page draws through a RenderPipeline: its scene passes are drawn and counted as the main pass (the scene once for
  * the depth and normals, once lit), their shadows with them, the picture's own triangle last (intent 009e04d3).
  *
- *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-5|sandbox-3|worlds] [--view near|mid|far|open|all] [--at <commit>]
+ *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-5|sandbox-3|worlds] [--view near|mid|far|open|home|all] [--at <commit>]
  *                                   [--asset <uuid>] [--inputs <dir> | --live] [--record] [--json <file>] [--copies]
  *                                   [--renderer webgl|webgpu|webgl2] [--smoke] [--settle <seconds>] [--frames <n>]
  *
  * --world         Sandbox 1 (the village: near, mid, far), Sandbox 5 (the forest dome alone in the cell, the same views;
- *                 intent 009e04d3), Sandbox 3 (the old city) or the worlds view (a world asset:
+ *                 intent 009e04d3), Sandbox 3 (the old city: as it opens; `home`, the walker turned to the tent, only when asked by name) or the worlds view (a world asset:
  *                 --asset names it by its UUID, else the first world play lists), the last two as they open (`open`)
  *
  * --at <commit>   that commit's play/site (./census/tree.ts, with this checkout's node_modules and frozen engines),

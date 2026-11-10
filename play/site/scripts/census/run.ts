@@ -22,10 +22,13 @@ export const VIEWS = {
 	mid: { x: 0, z: 235, yaw: 0, pitch: -0.05 },
 	far: { x: 0, z: 370, yaw: 0, pitch: -0.12 }
 } as const;
-export type ViewName = keyof typeof VIEWS | 'open';
+export type ViewName = keyof typeof VIEWS | 'open' | 'home';
 export type World = 'sandbox-1' | 'sandbox-5' | 'sandbox-3' | 'worlds';
 /** the views each world is counted from: the dome cells' named cameras; the others as they open */
 export const VIEWS_OF: Record<World, ViewName[]> = { 'sandbox-1': ['near', 'mid', 'far'], 'sandbox-5': ['near', 'mid', 'far'], 'sandbox-3': ['open'], worlds: ['open'] };
+/** views counted only when asked for by name (`--view home`): `all` stays what main counts, so a bound against main
+ *  compares like with like (main's own census measures main in the box's run) */
+export const ASKED_VIEWS: Partial<Record<World, ViewName[]>> = { 'sandbox-3': ['home'] };
 /** Sandbox 5's one building (play/site/src/routes/sandbox-5/+page.svelte): the forest dome by its UUID, and its gates' bearings */
 const SOLO = { asset: 'cac16350-08a4-4d51-8cdf-3ade5f61836e', gates: [Math.PI, Math.PI / 2, -Math.PI / 2, 0] };
 /** the hour every census is taken at: noon, lamps out (the Mac's runs); the world's clock held (s): fish, birds still */
@@ -186,6 +189,12 @@ export async function mount(world: World, o: { asset?: string; log?: (s: string)
 	return world === 'sandbox-1' ? mountSandbox1(log) : world === 'sandbox-5' ? mountSandbox1(log, SOLO) : world === 'sandbox-3' ? mountSandbox3() : mountWorlds(log, o.asset);
 }
 
+/** Sandbox 3's `home` view (intent 8f41cd9b): the walker's eye turned half round (a drag of the page's own `look`), to
+ *  the tent, the packs and the powercube; still, as the walk's camera is (`open` walks with its back to the tent) */
+function lookHome(world: any) {
+	world?.look(Math.PI / 0.0065, 0);
+}
+
 /** frames turned while a promise is open */
 async function turnUntil<T>(p: Promise<T>) {
 	let done = false;
@@ -209,13 +218,13 @@ function frameTally() {
 export async function censusOf(o: { world: World; views?: ViewName[]; asset?: string; settleMs?: number; measureFrames?: number; log?: (s: string) => void }): Promise<ViewCensus[]> {
 	const log = o.log ?? ((s: string) => console.error(s));
 	// walked near to far whatever order they are asked in: what one view leaves is the next one's
-	const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
-	if (o.views?.some((v) => !views.includes(v))) throw new Error(`census: ${o.world} has the views ${VIEWS_OF[o.world].join(', ')}`);
+	const views = o.views ? [...VIEWS_OF[o.world], ...(ASKED_VIEWS[o.world] ?? [])].filter((v) => o.views!.includes(v)) : VIEWS_OF[o.world];
+	if (o.views?.some((v) => !views.includes(v))) throw new Error(`census: ${o.world} has the views ${[...VIEWS_OF[o.world], ...(ASKED_VIEWS[o.world] ?? [])].join(', ')}`);
 	const t0 = performance.now();
 	// the plants that did not grow, as the forests count them (a tree from before intent 4a199916 counts none)
 	const flora = await import(lib('content/sandbox-2/interior/flora.js'));
 	const didNotGrow = (): { kind: string; error: string }[] => [...(flora.didNotGrow ?? [])];
-	await mount(o.world, { asset: o.asset, log });
+	const made = await mount(o.world, { asset: o.asset, log });
 	// a dome cell where it opens, all streamed in round the eye, the domes' insides built ahead too (each copy it ever
 	// put down stays held by its renderer, put away: `Copy`'s ghosts)
 	const up = !(o.world === 'sandbox-1' || o.world === 'sandbox-5') || (await run(o.settleMs ?? 180_000, quiet));
@@ -223,9 +232,10 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 	log(`census: ${o.world} built in ${((performance.now() - t0) / 1000).toFixed(1)} s${up ? '' : ' (still building)'} (${fetched.live.size} routes live, ${fetched.pinned.size} pinned, ${fetched.files} files)`);
 	const out: ViewCensus[] = [];
 	for (const name of views) {
-		const v = name === 'open' ? null : VIEWS[name];
+		const v = name === 'open' || name === 'home' ? null : VIEWS[name];
 		const ts = performance.now();
 		if (v) g.__walker.place(v.x, v.z, v.yaw, v.pitch);
+		if (name === 'home') lookHome(made);
 		// as the Mac: a moment, then until its streaming has settled (at most settleMs)
 		await run(1500);
 		const settled = await run(o.settleMs ?? 180_000, quiet);
@@ -265,6 +275,9 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 	return out;
 }
 
+/** three's warnings that mean a part of the picture was left out */
+const LEFT_OUT = /Light node not found/;
+
 /**
  * The smoke (intent c1bee1f8, ../census.ts --smoke): the world built by its own code on three's own WebGPURenderer (its
  * WebGL 2 backend over a context that only answers: setup's `real`), walked to each of its views and `frames` frames
@@ -284,6 +297,14 @@ export async function smokeOf(o: { world: World; views?: ViewName[]; asset?: str
 		if (typeof first === 'string' && (first.startsWith('census:') || first.startsWith('smoke:') || first.startsWith('  '))) return error(...a);
 		keep(a.map((x) => (x instanceof Error ? `${x.message}\n${x.stack}` : String(x))).join(' '));
 	};
+	// three says what it leaves out of the picture as a warning, and draws on: a light with no node lights nothing
+	// (Sandbox 3 stood unlit, intent 8f41cd9b). Such a warning is an error here
+	const warn = console.warn;
+	console.warn = (...a: unknown[]) => {
+		const said = a.map(String).join(' ');
+		if (LEFT_OUT.test(said)) keep(said);
+		warn(...a);
+	};
 	const onError = (e: unknown) => keep(e);
 	process.on('uncaughtException', onError);
 	process.on('unhandledRejection', onError);
@@ -295,18 +316,20 @@ export async function smokeOf(o: { world: World; views?: ViewName[]; asset?: str
 		}
 	};
 	const out: { view: string; frames: number; draws: number }[] = [];
+	let made: any;
 	try {
 		const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
 		const t0 = performance.now();
 		try {
-			await mount(o.world, { asset: o.asset, log });
+			made = await mount(o.world, { asset: o.asset, log });
 		} catch (e) {
 			keep(e);
 		}
 		log(`smoke: ${o.world} built in ${((performance.now() - t0) / 1000).toFixed(1)} s on WebGPURenderer (WebGL 2 backend)`);
 		for (const name of views) {
-			const v = name === 'open' ? null : VIEWS[name];
+			const v = name === 'open' || name === 'home' ? null : VIEWS[name];
 			if (v) g.__walker?.place(v.x, v.z, v.yaw, v.pitch);
+			if (name === 'home') lookHome(made);
 			const end = performance.now() + (o.settleMs ?? 20_000);
 			while (performance.now() < end) {
 				turn();
@@ -321,6 +344,7 @@ export async function smokeOf(o: { world: World; views?: ViewName[]; asset?: str
 		}
 	} finally {
 		console.error = error;
+		console.warn = warn;
 		process.off('uncaughtException', onError);
 		process.off('unhandledRejection', onError);
 	}
