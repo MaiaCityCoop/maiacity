@@ -67,6 +67,9 @@ export function drawOf(object, geometry, material, group) {
 	}
 	let instances = 1;
 	if (object.isInstancedMesh) instances = object.count;
+	// an instanced mesh with no instance is not drawn at all (three's RenderObject.getDrawParameters gives none): a kind's
+	// coarsest drawings whose copies are only cast (assets/render/index.js `castCoarse`) draw nothing in the main pass
+	if (instances === 0) return { tris: 0, instances: 0, prims: 0, calls: 0 };
 	else if (geometry.isInstancedBufferGeometry) instances = Math.min(geometry.instanceCount, geometry._maxInstanceCount ?? Infinity);
 	return { tris: (instances * count) / 3, instances, prims: count };
 }
@@ -288,7 +291,7 @@ export class CountingRenderer {
 			const n = drawOf(object, geometry, material, group);
 			// a see-through material drawn from both sides is drawn twice, its back then its front (three's renderObject)
 			const passes = material.transparent === true && material.side === THREE.DoubleSide && material.forceSinglePass === false ? 2 : 1;
-			for (let p = 0; p < passes; p++) this.#count(n.tris, n.calls ?? 1, toScreen, false, object, n);
+			if (n.calls !== 0) for (let p = 0; p < passes; p++) this.#count(n.tris, n.calls ?? 1, toScreen, false, object, n);
 			object.onAfterRender(this, scene, camera, geometry, material, group);
 		}
 		if (scene.isScene === true) scene.onAfterRender(this, scene, camera);

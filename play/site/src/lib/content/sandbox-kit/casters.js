@@ -11,23 +11,32 @@ export const SMALL = 20 / 1080;
 /** it casts again only once it looks this much bigger than SMALL, so one on the line does not flicker */
 const HOLD = 1.1;
 
-const _c = new THREE.Vector3(), _m = new THREE.Matrix4(), _s = new THREE.Vector3();
+const _c = new THREE.Vector3(), _m = new THREE.Matrix4();
 
-/** a mesh's ball where it stands: its middle (into `_c`) and its radius; an instanced one's, of all its copies @param {any} o */
+/** a mesh's ball where it stands: its middle (into `_c`) and its radius @param {any} o */
 function ballOf(o) {
-	const b = o.isInstancedMesh ? (o.boundingSphere ?? (o.computeBoundingSphere(), o.boundingSphere)) : (o.geometry.boundingSphere ?? (o.geometry.computeBoundingSphere(), o.geometry.boundingSphere));
+	const b = o.geometry.boundingSphere ?? (o.geometry.computeBoundingSphere(), o.geometry.boundingSphere);
 	_c.copy(b.center).applyMatrix4(o.matrixWorld);
 	return b.radius * o.matrixWorld.getMaxScaleOnAxis();
 }
 
-/** how big one copy of an instanced mesh is (its first's, kept on it): what its shadow is seen by @param {any} o */
-function copyOf(o) {
-	if (o.userData.copyRadius === undefined) {
-		if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
-		o.getMatrixAt(0, _m);
-		o.userData.copyRadius = o.geometry.boundingSphere.radius * _s.setFromMatrixScale(_m).length() * 0.5774 * o.matrixWorld.getMaxScaleOnAxis();
+/**
+ * An instanced mesh's copies as its shadow is seen by: where each stands in the world and how big the biggest is, kept
+ * on it until its copies are set anew (`instanceMatrix.version`). @param {any} o @returns {{ at: Float32Array, radius: number }}
+ */
+function copiesOf(o) {
+	const kept = o.userData.copies;
+	if (kept?.version === o.instanceMatrix.version && kept.n === o.count) return kept;
+	const r = o.geometry.boundingSphere ?? (o.geometry.computeBoundingSphere(), o.geometry.boundingSphere);
+	const at = new Float32Array(o.count * 3);
+	let radius = 0;
+	for (let i = 0; i < o.count; i++) {
+		o.getMatrixAt(i, _m);
+		_m.premultiply(o.matrixWorld);
+		_c.copy(r.center).applyMatrix4(_m).toArray(at, i * 3);
+		radius = Math.max(radius, r.radius * _m.getMaxScaleOnAxis());
 	}
-	return o.userData.copyRadius;
+	return (o.userData.copies = { version: o.instanceMatrix.version, n: o.count, at, radius });
 }
 
 /**
@@ -40,15 +49,23 @@ function copyOf(o) {
  */
 export function castBySize(root, camera) {
 	const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (camera.zoom || 1);
-	const eye = camera.getWorldPosition(_s.set(0, 0, 0)).clone();
+	const eye = camera.getWorldPosition(new THREE.Vector3());
 	let changed = false;
 	root.traverseVisible((/** @type {any} */ o) => {
 		if (!o.isMesh || !o.frustumCulled || o.isSkinnedMesh || !o.geometry?.attributes?.position) return;
 		const made = (o.userData.casts ??= o.castShadow);
 		if (!made) return;
-		const all = ballOf(o);
-		const far = Math.max(1e-3, _c.distanceTo(eye) - (o.isInstancedMesh ? all : 0));
-		const size = (o.isInstancedMesh ? copyOf(o) : all) / (far * tanHalf);
+		let radius = 0, far = Infinity;
+		if (o.isInstancedMesh) {
+			const copies = copiesOf(o);
+			radius = copies.radius;
+			for (let i = 0; i < copies.at.length; i += 3) far = Math.min(far, (copies.at[i] - eye.x) ** 2 + (copies.at[i + 1] - eye.y) ** 2 + (copies.at[i + 2] - eye.z) ** 2);
+			far = Math.sqrt(far);
+		} else {
+			radius = ballOf(o);
+			far = _c.distanceTo(eye);
+		}
+		const size = radius / (Math.max(far, 1e-3) * tanHalf);
 		const casts = size >= SMALL * (o.castShadow ? 1 : HOLD);
 		if (casts !== o.castShadow) (o.castShadow = casts), (changed = true);
 	});
