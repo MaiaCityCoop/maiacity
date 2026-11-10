@@ -9,8 +9,9 @@
 #   EVENT=push REPO=<owner/name> SHA=<pushed commit> PART=play|website GH_TOKEN=… bash tested-tree.sh
 #
 # Writes skip=true to $GITHUB_OUTPUT only then: the same bytes passed already, so the job passes without running them
-# again. Anything else (another event, no such run, a run that failed, was cancelled, is still going or is another
-# workflow's, event's or repository's, the job not passed, any error of the API): skip=false, and the job runs its
+# again; a run still finishing counts once that job passed (the queue moves main as the required checks pass, perhaps
+# before the run itself is marked done). Anything else (another event, no such run, a run that failed or was
+# cancelled or is another workflow's, event's or repository's, the job not passed, any error of the API): skip=false, and the job runs its
 # checks in full. It never fails the job itself.
 set -uo pipefail
 API=${GITHUB_API_URL:-https://api.github.com}
@@ -33,9 +34,9 @@ get() {
 [ -n "${REPO:-}" ] && [ -n "${CHECK:-}" ] || decide false "no repository or required check named: the checks run"
 
 runs=$(get "actions/runs?event=merge_group&head_sha=$SHA&per_page=100" | jq -er --arg r "$REPO" --arg w "$WORKFLOW" --arg s "$SHA" \
-  '[.workflow_runs[] | select(.path == $w and .event == "merge_group" and .head_sha == $s and .status == "completed" and .conclusion == "success"
+  '[.workflow_runs[] | select(.path == $w and .event == "merge_group" and .head_sha == $s and (.conclusion == null or .conclusion == "success")
      and (.repository.full_name | ascii_downcase) == ($r | ascii_downcase))] | sort_by(.id) | reverse | map(.id) | .[]') \
-  || decide false "no successful merge_group run of $WORKFLOW for ${SHA::7}: the checks run"
+  || decide false "no passing merge_group run of $WORKFLOW for ${SHA::7}: the checks run"
 for run in $runs; do
   if get "actions/runs/$run/jobs?per_page=100" | jq -e --arg c "$CHECK" \
     'any(.jobs[]; .name == $c and .status == "completed" and .conclusion == "success")' > /dev/null; then

@@ -647,15 +647,17 @@ describe("merge queue: checks on merge_group", () => {
         expect([PART, r.skip]).toEqual([PART, "skip=true"]);
         expect(r.said).toContain("not run again");
       }
+      // the run still finishing, its required job passed: counted (the queue moves main as the checks pass)
+      expect((await decide({ ...queued(), runs: [groupRun(11, { status: "in_progress", conclusion: null })] })).skip).toBe("skip=true");
       // an older failed group of the same commit does not stand in the way of a newer passed one
       expect((await decide({ runs: [groupRun(10, { conclusion: "failure" }), groupRun(11)], jobs: { 10: [], 11: [passed(21, required.play)] } })).skip).toBe("skip=true");
     });
 
-    test("merge queue: checks on merge_group: a failed, cancelled or unfinished run, another sha, event pull_request, another workflow or repository, an API error: the checks run", async () => {
+    test("merge queue: checks on merge_group: a failed or cancelled run, its job not passed, another sha, event pull_request, another workflow or repository, an API error: the checks run", async () => {
       const cases: [string, World, Record<string, string>?][] = [
         ["the run failed", { ...queued(), runs: [groupRun(11, { conclusion: "failure" })] }],
         ["the run was cancelled", { ...queued(), runs: [groupRun(11, { conclusion: "cancelled" })] }],
-        ["the run is still going", { ...queued(), runs: [groupRun(11, { status: "in_progress", conclusion: null })] }],
+        ["the run is still going, its job too", { ...queued(), runs: [groupRun(11, { status: "in_progress", conclusion: null })], jobs: { 11: [{ ...passed(21, required.play), status: "in_progress", conclusion: null }] } }],
         ["the group tested another sha", { ...queued(), runs: [groupRun(11, { head_sha: OTHER })] }],
         ["a pull_request run of this sha", { ...queued(), runs: [groupRun(11, { event: "pull_request" })] }],
         ["another workflow's run", { ...queued(), runs: [groupRun(11, { path: ".github/workflows/other.yml" })] }],

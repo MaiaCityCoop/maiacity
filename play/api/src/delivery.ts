@@ -6,7 +6,7 @@
 //   Build     approved_at → its must results     an agent building, its checks run (the last must result recorded in
 //                                                avenBOX, never main's: when it reached Proposal, or re-recorded there)
 //   Proposal  → decided_at                       a person: Accept
-//   Ship      decided_at → ship.ended            CI: its turn and GitHub ("Ready to merge"), then each ship step
+//   Ship      decided_at → ship.ended            CI: the merge queue ("In the merge queue"), then each ship step
 //
 // Per day over a window (`days`, 7 by default, 1–30): intents accepted, their median and longest Idea→Accepted and each
 // stage's median; each intent held to BUDGETS, an open stage counted to now. With GitHub (SHIP_TOKEN) and `ci`, each

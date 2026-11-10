@@ -4,7 +4,7 @@
 import { admin, meOf, type Me } from "./access";
 import { COOP, intentsIn } from "./kit/ids";
 import type { Db, Queryable } from "./kit/pg";
-import { ACCEPTED_CONTEXT, GitHubError, intentLink, quiet, keepSeen, postStatus, readPull, wake, type GitHub, type Job, type QueueEntry, type Run } from "./github";
+import { ACCEPTED_CONTEXT, GitHubError, intentLink, quiet, keepSeen, keptFrom, postStatus, readPull, wake, type GitHub, type Job, type QueueEntry, type Run } from "./github";
 import { INTENT_ADMINS, byOf, decisions, getIntent, mustMove } from "./intents";
 import { decidable, short, sub } from "./substate";
 import type { BlobStore } from "./blobs";
@@ -100,7 +100,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
   await mustMove(db, first, "ship");
   if (!gh) refuse("play holds no SHIP_TOKEN, so it cannot ship: set the repository secret SHIP_TOKEN and deploy (deploy/README.md).");
   const read = await readPull(gh!, first.pull_request).catch((e) => refuse(`Pull request #${first.pull_request} could not be read: ${(e as Error).message}.`));
-  const { pr, seen } = read;
+  const pr = read.pr, seen = keptFrom(first.pr_seen, read.seen);
   if (!pr.merged && !(await gh!.mergeQueue("main"))) refuse(NO_QUEUE);
   await keepSeen(db, first.id, seen);
   await db.transaction(async (tx) => {
@@ -131,7 +131,8 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
     } else {
       // the head checked, posted 'Intent accepted' (main's ruleset requires it on the head enqueued), then queued at that head
       const head = pr.head.sha;
-      await postStatus(tx, gh!, intent.id, seen, ACCEPTED_CONTEXT, "success", `Accepted by ${who_} on play`, { head });
+      await postStatus(tx, gh!, intent.id, seen, ACCEPTED_CONTEXT, "success", `Accepted by ${who_} on play`, { head }).catch((e) =>
+        refuse(`GitHub took no '${ACCEPTED_CONTEXT}' on #${pr.number}'s head: ${(e as Error).message}`));
       let entry: { position: number } | null;
       try {
         entry = await gh!.enqueue(pr.node_id ?? "", head);

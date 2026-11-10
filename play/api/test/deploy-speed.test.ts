@@ -288,7 +288,7 @@ describe("the workflows", () => {
     }
     expect(STEPS.find((s) => s.key === "backup")).toEqual({ key: "backup", name: "Backup", job: "The backup" });
     expect(STEPS.map((s) => s.name)).not.toContain("Main is green");
-    expect(STEPS.map((s) => s.key)).toEqual(["ready", "merged", "main", "release", "image", "backup", "server", "website"]);
+    expect(STEPS.map((s) => s.key)).toEqual(["queued", "merged", "main", "release", "image", "backup", "server", "website"]);
   });
 });
 

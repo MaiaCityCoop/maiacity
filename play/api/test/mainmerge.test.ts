@@ -1,9 +1,9 @@
-// Main merged into open intent pull requests by play (src/mainmerge.ts, play/SPEC.md §4.12; intent
-// f28822d9-6ef1-49d9-aa2c-e52f1897ee89) against a real Postgres and a fake GitHub (./fixtures/github.ts).
+// Main moving and the open intent pull requests (src/mainmerge.ts, play/SPEC.md §4.12; intents
+// f28822d9-6ef1-49d9-aa2c-e52f1897ee89, f7721142-936b-4c1c-8be8-23e8cff21f89): nothing reset, only a conflict shown;
+// against a real Postgres and a fake GitHub (./fixtures/github.ts).
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
-import { mainMergeState, mergeMain } from "../src/mainmerge";
 import { type Db } from "../src/kit/pg";
 import { watchPulls, watchTick } from "../src/watcher";
 import { type Pull, INTENT_CONTEXT, MERGES_CONTEXT } from "../src/github";
@@ -21,7 +21,7 @@ const SPEC = {
   ],
 };
 
-suite("main merged into open intent pull requests", () => {
+suite("main moving and open intent pull requests", () => {
   let f: Fresh, db: Db;
   let api: Api;
   let store: BlobStore;
@@ -50,7 +50,6 @@ suite("main merged into open intent pull requests", () => {
   beforeEach(async () => {
     await db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage NOT IN ('accepted', 'archived')`);
     gh.pulls.clear();
-    gh.refuseUpdate(null);
   });
 
   const call = (method: string, path: string, body?: unknown) => request(api, { cookie: cookie }, method, path, body);
@@ -95,134 +94,43 @@ suite("main merged into open intent pull requests", () => {
     openPull(pr, head, i.title, { draft: true, ...more });
     return { ...i, pr, head };
   };
-  const updates = (from: number) => gh.calls.slice(from).filter((c) => c.method === "PUT" && c.path.includes("/update-branch"));
+  /** anything that changes a branch: none, ever (play/SPEC.md §4.12; intent f7721142) */
+  const updates = (from: number) => gh.calls.slice(from).filter((c) => c.method === "PUT");
   const merges = (from: number) => gh.calls.slice(from).filter((c) => c.method === "PUT" && c.path.endsWith("/merge"));
   const mergesStatuses = (from: number) => gh.calls.slice(from).filter((c) => c.method === "POST" && c.path.startsWith("/statuses/") && c.body.context === MERGES_CONTEXT);
 
-  test("main moved: update-branch once, with expected_head_sha, for each open intent pull request in Build or at Proposal that is mergeable and behind; none for one in Ship, Accepted or Archived, up to date, closed, merged, into another branch or naming no intent; never a merge", async () => {
-    const state = mainMergeState();
-    const atProposal = await codeAtProposal();
-    const inBuild = await codeInBuild();
-    const others: Record<string, number> = {};
-    for (const stage of ["ship", "accepted", "archived"]) {
-      const c = await codeAtProposal();
-      await db.query(`UPDATE play.intents SET stage = $2 WHERE id = $1`, [c.id, stage]);
-      others[stage] = c.pr;
+  test("main moves, nothing reset: every open intent pull request keeps its head, its results and its waiting sub-state, no call changes a branch; one GitHub finds not mergeable is failed 'conflicts with main' with Merges with main red", async () => {
+    const state = new Map<string, string>();
+    const p1 = await codeAtProposal();
+    const p2 = await codeAtProposal();
+    const b = await codeInBuild();
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
+    const before = await Promise.all([p1, p2, b].map((x) => intent(x.id)));
+    expect(before[0].sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
+    expect(before[1].sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
+    // main moves twice; GitHub says p2 now conflicts
+    mainMoves();
+    mainMoves(["play/api/src/x.ts"]);
+    gh.pullFiles.set(p2.pr, ["play/api/src/x.ts"]);
+    gh.pulls.get(p2.pr)!.mergeable = false;
+    const from = gh.calls.length;
+    for (let k = 0; k < 3; k++) await watchTick(db, gh.gh, store, Date.now(), null, state);
+    // no branch changed: nothing put, no update-branch, no merge, no enqueue
+    expect(gh.calls.slice(from).filter((c) => c.method === "PUT" || c.path.includes("update-branch") || `${c.body?.query ?? ""}`.startsWith("mutation"))).toEqual([]);
+    const after = await Promise.all([p1, p2, b].map((x) => intent(x.id)));
+    for (const [k, x] of [p1, p2, b].entries()) {
+      expect(gh.pulls.get(x.pr)!.head.sha).toBe(x.head);
+      expect(after[k].pr_seen.head).toBe(x.head);
+      expect(after[k].results).toEqual(before[k].results);
     }
-    const closed = await codeAtProposal({ state: "closed" });
-    const merged = await codeAtProposal({ state: "closed", merged: true });
-    const elsewhere = await codeAtProposal({ base: { ref: "release" } });
-    const nameless = ++prs;
-    openPull(nameless, branch(), "names no intent");
-    // a first look: nothing is behind main yet
-    let from = gh.calls.length;
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    expect(updates(from)).toEqual([]);
-    // main moves: the two behind it are updated, each once, from the head read
-    const behindToo = await codeAtProposal();
-    mainMoves();
-    // one opened after main moved is up to date
-    const fresh = await codeAtProposal();
-    from = gh.calls.length;
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    const made = updates(from);
-    expect(made.map((c) => c.path).sort()).toEqual([`/pulls/${atProposal.pr}/update-branch`, `/pulls/${inBuild.pr}/update-branch`, `/pulls/${behindToo.pr}/update-branch`].sort());
-    for (const c of made) {
-      const which = [atProposal, inBuild, behindToo].find((x) => c.path === `/pulls/${x.pr}/update-branch`)!;
-      expect(c.body).toEqual({ expected_head_sha: which.head });
-    }
-    for (const pr of [...Object.values(others), closed.pr, merged.pr, elsewhere.pr, nameless, fresh.pr]) expect(made.some((c) => c.path === `/pulls/${pr}/update-branch`)).toBe(false);
-    // looked at again, main where it was: nothing more
-    from = gh.calls.length;
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    expect(updates(from)).toEqual([]);
-    expect(merges(0)).toEqual([]);
-    expect(gh.calls.filter((c) => c.method === "POST" && c.path.startsWith("/statuses/") && c.body.context !== MERGES_CONTEXT && c.body.context !== INTENT_CONTEXT)).toEqual([]);
-    // main merged in: its head is GitHub's merge commit, main's head in it
-    const pr = gh.pulls.get(atProposal.pr)!;
-    expect(pr.head.sha).not.toBe(atProposal.head);
-    expect(gh.graph.get(pr.head.sha)!.parents).toEqual([atProposal.head, gh.main.head]);
-  });
-
-  test("a builder's push wins: update-branch refused because the head moved (422) changes nothing on the intent, and the next tick reads the new head before anything else is done", async () => {
-    const state = mainMergeState();
-    const c = await codeAtProposal();
-    await watchPulls(db, gh.gh, store);
-    mainMoves();
-    // the builder pushes after the watcher read the head and before it updates
-    const pushed = gh.commit(sha(++commits), "the builder's push", [c.head], false);
-    gh.pulls.get(c.pr)!.head.sha = pushed;
-    const { rows: [before] } = await db.query<any>(`SELECT stage, pr_seen, results, ship FROM play.intents WHERE id = $1`, [c.id]);
-    let from = gh.calls.length;
-    await mergeMain(db, gh.gh, state);
-    const refused = updates(from);
-    expect(refused.map((x) => x.body)).toEqual([{ expected_head_sha: c.head }]);
-    const { rows: [after] } = await db.query<any>(`SELECT stage, pr_seen, results, ship FROM play.intents WHERE id = $1`, [c.id]);
-    expect(after).toEqual(before);
-    expect(after.pr_seen.merged_in).toBeUndefined();
-    // the next tick: the pull request read first, then main merged into the head it read
-    from = gh.calls.length;
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    const mine = gh.calls.slice(from).filter((x) => x.path.startsWith(`/pulls/${c.pr}`));
-    expect(mine[0]).toMatchObject({ method: "GET", path: `/pulls/${c.pr}` });
-    expect(updates(from).map((x) => x.body)).toEqual([{ expected_head_sha: pushed }]);
-    // any other refusal of GitHub's is not taken as done: it is tried again
-    const d = await codeAtProposal();
-    await watchPulls(db, gh.gh, store);
-    mainMoves();
-    gh.refuseUpdate({ status: 500, message: "GitHub is down" });
-    from = gh.calls.length;
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    gh.refuseUpdate(null);
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    expect(updates(from).filter((x) => x.path === `/pulls/${d.pr}/update-branch`).length).toBe(2);
-  });
-
-  test("working, then waiting: after the update the intent is working while GitHub makes the new head and its required checks run there, then waiting, its results kept across main's merge; the box's red on the new head is failed; a builder's push after it carries nothing", async () => {
-    const state = mainMergeState();
-    const c = await codeAtProposal();
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
-    mainMoves();
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    // GitHub has made the new head, not yet read by the watcher
-    const head = gh.pulls.get(c.pr)!.head.sha;
-    expect(head).not.toBe(c.head);
-    // between the update and the read of the new head: working, never waiting (Accept takes no head play is moving)
-    const { rows: [row] } = await db.query<any>(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id]);
-    expect(row.pr_seen.merged_in).toEqual([{ from: c.head, main: gh.main.head, at: expect.any(String) }]);
-    let s = (await intent(c.id)).sub;
-    expect(s).toMatchObject({ state: "working", tag: "main merged in", why: `main merged in: GitHub makes #${c.pr}'s new head` });
-    const refused = await call("POST", `/api/intents/${c.id}/accept`);
-    expect(refused.status).toBe(409);
-    // the new head read, its required checks not run yet: working, c1 kept once they are green
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    const { rows: [read] } = await db.query<any>(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id]);
-    expect(read.pr_seen.merged_in).toEqual([{ from: c.head, main: gh.main.head, at: expect.any(String), to: head }]);
-    s = (await intent(c.id)).sub;
-    expect(s.state).toBe("working");
-    expect(s.why).toContain(`c1 passed on ${c.head.slice(0, 7)}, kept across main's merge once the required checks are green on ${head.slice(0, 7)}`);
-    // its required checks green: waiting, c1 kept
-    gh.checks.set(head, [green("play / API and site"), green("website / build")]);
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    const kept = { state: "waiting", tag: "Accept and ship", why: `Accept and ship: c1 passed on ${c.head.slice(0, 7)}, kept across main's merge` };
-    expect((await intent(c.id)).sub).toEqual(kept);
-    expect((await intent(c.id)).stage).toBe("proposal");
-    // the box's run records every must on the new head: waiting, nothing kept any more
-    expect((await tool("check_intent", { intent: c.id, pr: c.pr, results: [{ check: "c1", pass: true, evidence: "0 fail", commit: head }] })).stage).toBe("proposal");
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
-    // and a builder's push after it is the head moved, as before (not main merged in)
-    const pushed = gh.commit(sha(++commits), "the builder's push", [head], false);
-    gh.pulls.get(c.pr)!.head.sha = pushed;
-    gh.checks.set(pushed, [green("play / API and site"), green("website / build")]);
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    expect((await intent(c.id)).sub.why).toContain("moved past the checked commit");
+    expect(after[0].sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
+    expect(after[2].sub).toEqual(before[2].sub);
+    expect(after[1].sub).toEqual({ state: "failed", tag: "conflicts with main", why: "conflicts with main: play/api/src/x.ts" });
+    expect(mergesStatuses(from).map((x) => [x.path, x.body.state, x.body.description])).toEqual([[`/statuses/${p2.head}`, "failure", "conflicts with main: play/api/src/x.ts"]]);
   });
 
   test("a conflict is failed: mergeable false gives failed, conflicts with main and the files both sides changed; Merges with main posted as failure on the head with that line, as success once it merges again; no update-branch is tried", async () => {
-    const state = mainMergeState();
+    const state = new Map<string, string>();
     const c = await codeAtProposal({}, ["play/api/src/ship.ts", "play/SPEC.md", "play/api/src/new.ts"]);
     const b = await codeInBuild({}, ["CLAUDE.md"]);
     gh.pullFiles.set(c.pr, ["play/api/src/ship.ts", "play/SPEC.md", "play/api/src/new.ts"]);
@@ -305,7 +213,7 @@ suite("main merged into open intent pull requests", () => {
       const reset = t0 + 40 * 60_000;
       lim.clock.at = t0;
       lim.answerAll({ status: 403, message: "API rate limit exceeded", headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": `${reset / 1000}` } });
-      const state = mainMergeState();
+      const state = new Map<string, string>();
       await watchTick(db, lim.gh, store, t0, null, state);
       expect(lim.calls.length).toBe(1);
       // until the reset: no call at all, look after look
@@ -348,7 +256,7 @@ suite("main merged into open intent pull requests", () => {
 
   test("budget per tick: six open intent pull requests unchanged, a tick makes at most 7 calls GitHub counts", async () => {
     for (let k = 0; k < 6; k++) await codeAtProposal();
-    const state = mainMergeState();
+    const state = new Map<string, string>();
     await watchTick(db, gh.gh, store, Date.now(), null, state);
     await watchTick(db, gh.gh, store, Date.now(), null, state);
     const from = gh.calls.length;

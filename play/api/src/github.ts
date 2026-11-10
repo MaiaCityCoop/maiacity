@@ -285,6 +285,9 @@ export async function readSeen(gh: GitHub, n: number, was: PrSeen | null | undef
   const etags = { pull: p ? p.etag : old!.etags?.pull, head, checks: c ? c.etag : old!.etags?.checks };
   return { pr: base.pr, head, draft: base.draft, mergeable: base.mergeable, state: base.state, merged: base.merged, base: base.base, checks, at: new Date(at).toISOString(), etags };
 }
+/** a pull request read again, with what play keeps across reads: the statuses it posted, the conflict's files at the same head */
+export const keptFrom = (was: PrSeen | null | undefined, seen: PrSeen): PrSeen =>
+  was?.pr !== seen.pr ? seen : { ...seen, ...(was.posted ? { posted: was.posted } : {}), ...(was.conflicts?.head === seen.head ? { conflicts: was.conflicts } : {}) };
 /** a pull request as just read, kept as its intent's pr_seen */
 export const keepSeen = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UPDATE play.intents SET pr_seen = ($2::text)::jsonb WHERE id = $1`, [id, JSON.stringify(seen)]);
 

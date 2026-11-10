@@ -6,8 +6,7 @@ import type { BlobStore } from "./blobs";
 import type { Db } from "./kit/pg";
 import { canonical } from "./kit/hash";
 import { mergeMain } from "./mainmerge";
-import type { PrSeen } from "./substate";
-import { adoptDrafts, keepSeen, openPulls, postAgain, quiet, readSeen, wake, type GitHub } from "./github";
+import { adoptDrafts, keepSeen, keptFrom, openPulls, postAgain, quiet, readSeen, wake, type GitHub } from "./github";
 import { acceptGroups, advance, reconcile, runningCommit, saveShip, type Ship } from "./ship";
 import { autoMove } from "./decide";
 
@@ -60,10 +59,6 @@ export async function watchPulls(db: Db, gh: GitHub, store: BlobStore, at = Date
     await autoMove({ db, store }, id, { gh }).catch((e) => console.warn(`auto: intent ${id} not looked at: ${(e as Error).message}`));
   }
 }
-
-/** what play keeps on a pull request across its reads: the statuses it posted, the conflict's files at the same head */
-const keptFrom = (was: PrSeen | null | undefined, seen: PrSeen): PrSeen =>
-  was?.pr !== seen.pr ? seen : { ...seen, ...(was.posted ? { posted: was.posted } : {}), ...(was.conflicts?.head === seen.head ? { conflicts: was.conflicts } : {}) };
 
 /** the merge groups' commits 'Intent accepted' was posted on, and how */
 const GROUPS = new Map<string, string>();

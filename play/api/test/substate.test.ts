@@ -74,9 +74,8 @@ describe("subStateOf", () => {
       ["code, a draft", row({ pr_seen: seen({ draft: true }) }), "failed", "is a draft"],
       ["code, pr_seen stale", row({ pr_seen: seen({ at: new Date(now - 61_000).toISOString() }) }), "working", "reading #7 on GitHub"],
       ["code, not read yet", row({ pr_seen: null }), "working", "reading #7 on GitHub"],
-      ["in Ship, queued", row({ stage: "ship", ship: { pending: { kind: "merge" }, steps: [{ key: "ready", note: "Queued · behind The engine" }] } }), "idle", "Queued · behind The engine"],
-      ["in Ship, waiting for GitHub", row({ stage: "ship", ship: { pending: { kind: "merge" }, steps: [{ key: "ready", note: "Waiting for #7's checks (website / build)" }] } }), "working", "Waiting for #7's checks"],
-      ["in Ship, on its way", row({ stage: "ship", ship: { pending: null, steps: [{ key: "ready", state: "green" }, { key: "merged", state: "green" }, { key: "main", name: "main's checks", state: "running" }] } }), "working", "main's checks"],
+      ["in Ship, in the merge queue", row({ stage: "ship", ship: { steps: [{ key: "queued", state: "running", note: "2nd in the merge queue · its group 1234567: 1 of 2 checks done" }] } }), "working", "2nd in the merge queue"],
+      ["in Ship, on its way", row({ stage: "ship", ship: { steps: [{ key: "queued", state: "green" }, { key: "merged", state: "green" }, { key: "main", name: "main's checks", state: "running" }] } }), "working", "main's checks"],
     ];
     for (const [what, r, state, why] of table) {
       const s = of(r);
