@@ -127,10 +127,20 @@ export class CountingRenderer {
 		this._clear = new THREE.Color(0x000000);
 		this._clearAlpha = parameters.alpha ? 0 : 1;
 		this._loop = null;
-		this.tally = newTally();
-		this.tally.reset = () => Object.assign(this.tally, newTally(), { reset: this.tally.reset });
+		this._tally = newTally();
+		this._tally.reset = () => Object.assign(this._tally, newTally(), { reset: this._tally.reset });
 		/** every counting renderer made (the census holds them to one) */
 		CountingRenderer.made.push(this);
+	}
+
+	/**
+	 * What the frame drew, for the census; to a page, the sign that it is counted, not drawn (the grass then counts its
+	 * blades on the CPU, seconds a frame while its ground streams in: grass-compute.js `mirror`). Undefined on a frame the
+	 * census only turns and reads nothing of (`CountingRenderer.unread`: a world building or settling), so the page pays
+	 * for the count only where it is read (intent 629840f2).
+	 */
+	get tally() {
+		return CountingRenderer.unread ? undefined : this._tally;
 	}
 
 	// ── the canvas and its size ──
@@ -305,7 +315,7 @@ export class CountingRenderer {
 	#count(tris, calls, toScreen, shadow, object, n) {
 		this.info.render.calls += calls;
 		this.info.render.triangles += tris;
-		const t = this.tally;
+		const t = this._tally;
 		if (shadow) (t.shadowCalls += calls), (t.shadowTris += tris);
 		else if (!toScreen) (t.targetCalls += calls), (t.targetTris += tris);
 		else {
@@ -340,8 +350,8 @@ export class CountingRenderer {
 						}
 					} else if (material.visible) list.push({ object, geometry, material, group: null });
 				} else if (toScreen) {
-					this.tally.culledObjects++;
-					this.tally.culledTris += trianglesOf(object);
+					this._tally.culledObjects++;
+					this._tally.culledTris += trianglesOf(object);
 				}
 			}
 		}
@@ -354,6 +364,8 @@ export class CountingRenderer {
 }
 /** every counting renderer made in this process */
 CountingRenderer.made = [];
+/** whether the census reads nothing of the frames it turns now (`tally`) */
+CountingRenderer.unread = false;
 
 /** triangles of the sphere WebGPU's Background draws a texture or node background on (SphereGeometry(1, 32, 32)) */
 export const BACKGROUND_SPHERE_TRIS = 32 * 32 * 2 - 2 * 32;
@@ -431,7 +443,7 @@ export class CountingWebGPURenderer extends CountingRenderer {
 		if (list.length === 0 || list.some((n) => n?.isComputeNode !== true)) throw new Error('THREE.Renderer: ".compute()" expects a "ComputeNode".');
 		if (dispatchSize !== null && list.some((n) => n.count !== null || n.dispatchSize !== null))
 			throw new Error('THREE.Renderer: A dispatch size cannot be passed to "renderer.compute()" for nodes created with "compute( count )". Use "computeKernel()" instead.');
-		this.tally.computes += 1;
+		this._tally.computes += 1;
 	}
 	computeAsync(nodes, dispatchSize = null) {
 		return Promise.resolve(this.compute(nodes, dispatchSize));
@@ -479,7 +491,7 @@ export class CountingWebGPURenderer extends CountingRenderer {
 	_countDraw(tris, toScreen) {
 		this.info.render.calls += 1;
 		this.info.render.triangles += tris;
-		const t = this.tally;
+		const t = this._tally;
 		if (toScreen) (t.calls += 1), (t.tris += tris);
 		else (t.targetCalls += 1), (t.targetTris += tris);
 	}
@@ -511,7 +523,7 @@ export class CountingWebGPURenderer extends CountingRenderer {
 				cam.updateMatrixWorld();
 				_proj.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
 				_shadowFrustum.setFromProjectionMatrix(_proj, cam.coordinateSystem, cam.reversedDepth);
-				this.tally.shadowPasses++;
+				this._tally.shadowPasses++;
 				this._shadowWalk(scene, layers, cam);
 			}
 			shadow.needsUpdate = false;
@@ -549,7 +561,7 @@ export class CountingWebGPURenderer extends CountingRenderer {
 	_countShadow(tris) {
 		this.info.render.calls += 1;
 		this.info.render.triangles += tris;
-		(this.tally.shadowCalls += 1), (this.tally.shadowTris += tris);
+		(this._tally.shadowCalls += 1), (this._tally.shadowTris += tris);
 	}
 }
 
