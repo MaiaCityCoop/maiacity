@@ -1,6 +1,21 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+**15:51 Berlin, MAC JOB 3, 8f41cd9b (Sandbox 3): not reproduced on this Mac.** Pushed `intent-work/8f41cd9b-render`
+(`e53771d39`). Production `672ae57`, WebGPU, a fresh profile each:
+- **Chromium 153:** ground, grass, bushes, the workshop, the walker; tilted up, the sky, clouds and horizon. Frame over
+  20 s: median **16.7 ms**, p95 **50 ms**; 615 draws, 0.92 M triangles a frame (meter: cpu 12.3, gpu 17.7 ms).
+- **WebKit 26.6 (Safari's engine):** the same picture (the walker a few seconds later). Median **23 ms**, p95 **121 ms**;
+  333 draws, 0.84 M triangles.
+- Console, both: **16× `THREE.LightsNode.setupNodeLights: Light node not found for be`**; the dev build of 672ae57
+  names it: **`SunLight`** (registered in `render/nodes/index.js:26`, the sky's sun `sandbox-kit/sky.js:246`); 1× the
+  aside's 401; 1× three's `Source` renamed; WebKit also 4× the box frame's CSP stylesheet refusal.
+- **Bisect not run**: it needs a broken end, and 672ae57 draws the whole world on both engines I can drive. What Samuel
+  saw has to be looked at in his Safari (26.1, older than Playwright's WebKit 26.6), and **real Safari refuses automation:
+  "Allow remote automation" is off** (Safari Settings, Developer); that's his to switch on (job 2's part 1 stopped there
+  too). With it on, the same loads and the bisect run in his Safari.
+Job 2 (405f7a85): part 2's frames are measured; the census and the load profile next.
+
 **15:06 Berlin, ffd02ebf ("The sandboxes load again"), the Mac's four loads: all four show their world, production and
 the revert alike.** Pushed to `intent-work/ffd02ebf-render` (`2481d1742`: out/summary.json, out/errors.txt, 4 shots).
 Apple M1, Chromium 153 on Metal, **WebGPU** every time, a fresh profile each, one at a time:
