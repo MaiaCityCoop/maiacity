@@ -1,7 +1,7 @@
 /*
  * The page's pool of asset boxes (./pool.js, intent 08d00b84): N builds asked together are built in min(N, cores − 1)
  * boxes at once, the most wanted first, each in whichever box is free. Stand-in boxes the test answers by hand: no
- * clock, no worker. (The same builds from real workers: scripts/census/pool.test.ts.)
+ * clock, no worker. (The same builds from real workers: scripts/census/pool.bun.test.ts.)
  */
 import { describe, expect, it, vi } from 'vitest'
 import { createPool } from './pool.js'

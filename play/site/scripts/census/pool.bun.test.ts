@@ -4,7 +4,7 @@
  * and one after another, give the same build byte for byte; and a recipe made for an older engine than the newest (all
  * of play's) is built side by side too, where one box built them one at a time.
  *
- *   cd play/site && bun test scripts/census/pool.test.ts
+ *   cd play/site && bun test scripts/census/pool.bun.test.ts
  */
 import { beforeAll, expect, test } from 'bun:test';
 import { mkdtempSync } from 'node:fs';

@@ -1,7 +1,7 @@
 /*
  * A WORLD'S KINDS, BUILT BY REAL WORKERS (intent 08d00b84) — play's plants as the census pins them (./inputs/, nothing
  * read from play), built by the frozen box engine in Bun workers through the page's own pool (src/lib/content/assets/box/
- * pool.js), for ./pool.test.ts (the same builds side by side as alone) and ./cores.ts (how much sooner).
+ * pool.js), for ./pool.bun.test.ts (the same builds side by side as alone) and ./cores.ts (how much sooner).
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
