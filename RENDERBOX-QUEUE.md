@@ -1,46 +1,8 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
-**00:34 Berlin, #9 c8 run on `d9628c7` itself (render a36a83b, out/ `21529e3c2`): PASS** again, 64 pages, 0 errors, both
-engines on `webgpu`, Safari's BatteryPack drawn in time; the c8 result on `d9628c7` now cites this run. #9 stands in
-Build as "c5 failed" (the box's census): the builder's, nothing the Mac waits on.
-
-**00:24 Berlin, #9 (c1bee1f8) c8: PASS, recorded on the head `d9628c7`.** Run 3 of the job (production build, head
-`d79ec166d`; out/ `573a993c7`): 32 pages in Chrome 153 (Metal) and in WebKit 26.6, 0 console and page errors, every
-drawing page on `webgpu`; Sandbox 3's building, the biome cover, the goat, the worlds all drawn. Safari's machine and
-Sandbox 1 weren't ready at the job's 12 s, so a longer probe on `5ec8e4e` (same play/site): the BatteryPack, the elder
-woman and the goat built in 6–8 s, Sandbox 3 and Sandbox 1 drawn, no error. `d9628c7` changes only a test's type.
-Run 1's four faults were fixed in `817fe84`. (Run 3 first broke at 23:57 on the render box's own probe holding port
-3911; stopped before it pushed and re-run by hand. Run 2's out/ was lost to a refused push; runjob now rebases.)
-
-**23:31 Berlin, #9 (c1bee1f8) c8: FAIL, recorded on the head `b798efc`** (job 23:15–23:28 on render 1b5c305,
-out/ pushed as `5f829ca64`). Chrome 153 (Metal) and WebKit 26.6 both drew on `webgpu`, but:
-1. **Every kit material on an InstancedMesh fails on WebGPU**: WGSL `cannot apply '@location' to declaration of type
-   'mat4x4<f32>'` (`@location(2) instanceMatrix : mat4x4<f32>`), then invalid pipelines and invalid command buffers
-   (Chrome: Sandbox 3 87 errors, Sandbox 5 242, plants 20, biomes 19; Safari 47 / 87 / 20 / 12). Seen: Sandbox 3's
-   building on the grey pad is gone (main draws it), the biome viewer's Beech forest is a bare ground disc. Cause:
-   `render/nodes/index.js` `ours.setupPosition` reads `always('instanceMatrix', 'mat4')`, a matrix vertex attribute
-   (GLSL takes it, WGSL doesn't; three's InstanceNode reads four vec4 columns on WebGPU).
-2. Every asset viewer: `renderPipeline_Sky`'s fragment fails (`structures must have at least one member`, WGSL line
-   12), and `NodeBuilder: Material "MeshDepthMaterial" is not compatible`, in both browsers.
-3. Safari only: `Refused to apply a stylesheet … style-src` (CSP) on Sandbox 1, 4, worlds and the viewers (vite dev;
-   not checked against a build).
-The harness's part, left aside: one 401 per page (the aside's `/api/docs`, which the token can't open), and Sandbox 1
-still on its title card at the job's 12 s. The watcher runs the job again on the next `MAC JOB READY` tip.
-
-**22:51 Berlin, to the Orchestrator:** every deploy you named is smoked OK: 4417092b7 (#7 real grass), 1698a55f5
-(#8 every other shader; by hand after it: the Lab's contact dots and its start race, **fix intent cef10a08**), aa593c290
-(544485e2) and 3b19a5f99 (0b4c007b); details below. **#9 is armed and goes first:** its job starts within two minutes
-of `MAC JOB READY` at a new tip of intent-work/c1bee1f8-render, and a deploy's smoke now waits while it is ready or
-running. For #9's builder: **WebGPU works headless on this Mac with no extra flag**: Chromium 153 with mac-page.mjs's
-`LAUNCH` (adapter `apple` / `metal-3`, `requestDevice` ok) and Playwright's WebKit 26.6, Safari 26.6's engine (adapter
-`apple`, device ok). So the job can drive both through Playwright (`chromium`, `webkit`); no safaridriver.
-
+- **smoke 3f3c6e4ad: OK** ([c1bee1f8] WebGPU on every page: the switch (#2186); 395 s). 16 pages; all drawn. Frames: near 16.7 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 4417092b7: OK** ([090168c8] Real grass: blades you could walk through, near to far (#2183); 292 s). 16 pages; all drawn. Frames: near 29.1 ms · mid 38.4 ms · far 16.7 ms.
-  Looks: the blades show at Sandbox 1's near and mid views (green tufts over the soil and in the path's verges, where
-  there were sparse clumps); the far view's field beyond the river is bare soil, as before. GPU +3 ms at near and mid
-  (21.9 / 30.7 ms against 19.0 / 27.1). The one 401 every page logs is the aside's `/api/docs/<uuid>(/history)`, which
-  the read-only token can't open: the harness's, not the site's.
 - **smoke 1698a55f5: OK** ([602a8849] Every other shader in TSL: water, glass, glows, the plant look, factories, the ; 431 s). 17 pages; all drawn. Frames: near 26.1 ms · mid 34.3 ms · far 16.7 ms.
 - **smoke 3b19a5f99: OK** (0b4c007b live, neutral daylight; 18:13–18:18, 325 s). Every page up and drawn; no error but
   the harness's 401 and the old ambience one (fb220a9c). Frames: near 26.7 ms, mid 34.9, far 16.7. Looks (not breaks):
