@@ -21,7 +21,7 @@ const PAPAYA_STORY = "7adaf0b3-01a9-8bb9-b250-d2bee7016c4c";
 import { COOP } from "../src/kit/ids";
 import { randomUUID } from "node:crypto";
 import { leveled } from "./fixtures/lod";
-import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, unlockReads } from "./kit";
 import * as fx from "./fixtures/intents";
 
 const recipe = (id: string, v: number, variant: string | null = null, note = "") =>
@@ -40,6 +40,8 @@ suite("play API", () => {
     db = f.db;
     store = folderStore(mkdtempSync(join(tmpdir(), "play-blobs-")));
     api = appOn(db, { store });
+    // its traveler and citizen read the assets and sandboxes, as their rules gave before intent aa751ecb
+    await unlockReads(db);
     for (const [n, level] of [["ada", "admin"], ["eve", "admin"], ["cit", "citizen"], ["cit2", "citizen"], ["trav", null]] as const) who[n] = await human(db, n, level);
   });
 

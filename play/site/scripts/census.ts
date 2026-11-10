@@ -76,8 +76,11 @@ for (const v of got) {
 	const t = v.totals;
 	console.log(`\n${v.world} ${v.view}${tree ? ` at ${tree.sha.slice(0, 9)}` : ''} on ${drewWith}${v.settled ? '' : ' (still building)'}`);
 	console.log(`  triangles a frame  ${n(t.tris)}  (main ${n(t.mainTris)}, shadow ${n(t.shadowTris)}, into targets ${n(t.targetTris)})`);
-	console.log(`  draws              ${n(t.calls)}  (meshes ${n(t.meshes)}, instanced batches ${n(t.instanced)} of ${n(t.instances)} instances, shadow ${n(t.shadowCalls)})`);
+	console.log(`  draws              ${n(t.calls)}  (meshes ${n(t.meshes)}, instanced batches ${n(t.instanced)}, indirect ${n(t.indirect)}, of ${n(t.instances)} instances, shadow ${n(t.shadowCalls)}; compute passes ${n(t.computes)})`);
 	console.log(`  culled             ${n(t.culledObjects)} objects, ${n(t.culledTris)} triangles`);
+	// a plant that did not grow is a failure the census reports, each by its kind (flora.js `didNotGrow`)
+	console.log(`  plants not grown   ${n(v.didNotGrow.length)}`);
+	for (const f of v.didNotGrow) console.log(`    flora: ${f.kind} did not grow: ${f.error}`);
 	for (const [k, r] of Object.entries(v.renderers)) if (r) console.log(`  ${k.padEnd(8)}           ${n(r.tris)} triangles, ${r.calls} draws, ${n(r.copies)} copies (${n(r.pictures)} pictures, ${n(v.copies.filter((c) => c.renderer === k && c.ghost).length)} ghosts), shapes ${n(v.shapeTris[k] ?? 0)} triangles`);
 	if (argv.includes('--copies')) {
 		const rows = new Map<string, { renderer: string; kind: string; shapes: number; pictures: number; tris: number; farthest: number }>();

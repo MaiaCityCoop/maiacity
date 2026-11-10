@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD } from "../src/recipes";
-import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool, unlockReads } from "./kit";
 
 /** Sandbox 2, as migration 0003 made it (its UUID from 0017) */
 const S2 = "7a7894a9-f37a-8181-9164-920389ee7675";
@@ -26,6 +26,8 @@ suite("a sandbox's layout as a document", () => {
 
   beforeAll(async () => {
     f = await freshDb();
+    // its citizen reads the sandboxes, as the citizen's rule gave before intent aa751ecb
+    await unlockReads(f.db);
     db = f.db;
     api = appOn(db);
     who.ada = await human(db, "ada");
