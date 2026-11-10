@@ -3,7 +3,7 @@
 // behind main updated with GitHub's update-branch (its results carried over: ./substate.ts countsOn, intent b17a4980);
 // one in conflict failed, the status 'Merges with main' posted on its head. Never an intent in Ship or done, nor a merge.
 import type { Db } from "./kit/pg";
-import { GitHubError, keepSeen, MERGES_CONTEXT, openPulls, postStatus, type GitHub } from "./github";
+import { GitHubError, keepSeen, MERGES_CONTEXT, openPulls, postStatus, quiet, type GitHub } from "./github";
 import { conflictWhy, short, type PlayMerge, type PrSeen } from "./substate";
 
 /** what the watcher keeps between ticks: main's head last seen, and each pull request's head looked at against it */
@@ -57,6 +57,7 @@ export async function mergeMain(db: Db, gh: GitHub, state: MainMergeState, at = 
     state.main = main;
   }
   for (const { id, pull_request, pr_seen } of await openPulls(db)) {
+    if (gh.says()?.until) break;
     const seen = pr_seen;
     if (!seen || seen.pr !== pull_request || seen.state !== "open" || seen.merged || seen.base !== "main") continue;
     try {
@@ -66,7 +67,7 @@ export async function mergeMain(db: Db, gh: GitHub, state: MainMergeState, at = 
         await update(db, gh, state, id, seen, main, at);
       }
     } catch (e) {
-      console.warn(`ship: main not merged into #${pull_request} of intent ${id}: ${(e as Error).message}`);
+      if (!quiet(e)) console.warn(`ship: main not merged into #${pull_request} of intent ${id}: ${(e as Error).message}`);
     }
   }
 }

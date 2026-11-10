@@ -647,6 +647,63 @@ suite("accept ships it", () => {
     expect(runningCommit({})).toBeNull();
   });
 
+  // ---- GitHub's limit (intent b3f83e0b): one compare per shipped intent, tried again each look until it lands
+
+  /** three intents shipped green, in Ship, the watcher's look against a play that runs none of them */
+  const threeGreen = async (base: number) => {
+    await clearShips();
+    const out: { id: string; merge: string }[] = [];
+    for (let k = 0; k < 3; k++) {
+      const c = await codeAtProposal(`Shipped ${base} ${k}`);
+      expect((await call("ada", "POST", `/api/intents/${c.id}/accept`)).data.ship.merge).toBe(c.merge);
+      allGreen(c.merge, base + k * 10);
+      await watchShips(db, gh.gh, store, Date.now(), null);
+      expect(await intent(c.id)).toMatchObject({ stage: "ship", ship: { outcome: "green" } });
+      out.push(c);
+    }
+    return out;
+  };
+
+  test("reconcile: one compare per shipped intent, main's history never walked", async () => {
+    const three = await threeGreen(9800);
+    // the watcher's look as play runs main's head: the reconcile of the three green in Ship, one compare each
+    let from = gh.calls.length;
+    await watchShips(db, gh.gh, store, Date.now(), gh.main.head);
+    const asked = gh.calls.slice(from).map((c) => `${c.method} ${c.path.split("?")[0]}`);
+    expect(asked.filter((c) => c.startsWith("GET /compare/")).length).toBeLessThanOrEqual(3);
+    expect(asked.filter((c) => c === "GET /commits")).toEqual([]);
+    expect(asked.length).toBeLessThanOrEqual(3);
+    for (const c of three) expect(await intent(c.id)).toMatchObject({ stage: "accepted", ship: { live: true, commit: gh.main.head } });
+    // the whole reconcile at a later commit: every Accepted intent live at the last one asked by one compare, not each
+    const next = gh.commit(sha(++commits), "another commit on main");
+    from = gh.calls.length;
+    await reconcile(db, gh.gh, store, next);
+    const compares = gh.calls.slice(from).filter((c) => c.path.startsWith("/compare/"));
+    expect(compares.filter((c) => c.path === `/compare/${next}...${three[0].merge}`)).toEqual([]);
+    expect(gh.calls.slice(from).filter((c) => c.path.startsWith("/commits?") && !c.path.includes("since="))).toEqual([]);
+  });
+
+  test("reconcile retries: a failed look as the ship ends leaves it in Ship; the next good look accepts it; no green in Ship, no reconcile", async () => {
+    await clearShips();
+    const c = await codeAtProposal("Live, its first look failed");
+    await call("ada", "POST", `/api/intents/${c.id}/accept`);
+    allGreen(c.merge, 9900);
+    // GitHub fails every compare as the ship ends green: still in Ship, green, going live
+    gh.answerAll({ status: 502, message: "Server Error", only: /^\/compare\// });
+    await watchShips(db, gh.gh, store, Date.now(), c.merge);
+    expect(await intent(c.id)).toMatchObject({ stage: "ship", ship: { outcome: "green" }, sub: { tag: "green, going live" } });
+    // the next look, GitHub answering: Accepted by the reconcile, no ship ending again
+    gh.answerAll(null);
+    await watchShips(db, gh.gh, store, Date.now(), c.merge);
+    const done = await intent(c.id);
+    expect(done).toMatchObject({ stage: "accepted", decided_by: "ada", ship: { live: true, commit: c.merge } });
+    expect(done.ship.note).toContain("Accepted by the reconcile");
+    // nothing green in Ship: a look asks GitHub nothing for the reconcile
+    const from = gh.calls.length;
+    await watchShips(db, gh.gh, store, Date.now(), c.merge);
+    expect(gh.calls.slice(from)).toEqual([]);
+  });
+
   test("SHIP_TOKEN never leaves play's server: not in an answer, not in a log", async () => {
     expect(shipGitHub({})).toBeNull();
     expect(shipGitHub({ SHIP_TOKEN: "  " })).toBeNull();

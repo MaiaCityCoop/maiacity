@@ -7,6 +7,7 @@ import { mainMergeState, mergeMain } from "../src/mainmerge";
 import { type Db } from "../src/kit/pg";
 import { watchPulls, watchTick } from "../src/watcher";
 import { type Pull, INTENT_CONTEXT, MERGES_CONTEXT } from "../src/github";
+import { githubSays } from "../src/substate";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
 import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
 
@@ -261,5 +262,97 @@ suite("main merged into open intent pull requests", () => {
     expect(updates(from)).toEqual([]);
     expect((await intent(c.id)).sub.state).toBe("working");
     expect(merges(0)).toEqual([]);
+  });
+
+  // ---- GitHub's limit (intent b3f83e0b): conditional reads, the limit obeyed and shown, a budget per tick
+
+  test("conditional reads: an unchanged pull request and its check runs are asked with their ETags, answered 304, kept fresh; a changed one read as before", async () => {
+    const c = await codeAtProposal();
+    const t0 = Date.now();
+    await watchPulls(db, gh.gh, store, t0);
+    const first = (await db.query(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id])).rows[0].pr_seen;
+    expect(first.etags).toMatchObject({ pull: expect.any(String), head: c.head, checks: expect.any(String) });
+    // read again, nothing changed: both asked with the ETags kept, both 304, pr_seen fresh and otherwise as it was
+    const from = gh.calls.length;
+    await watchPulls(db, gh.gh, store, t0 + 30_000);
+    const again = gh.calls.slice(from).filter((x) => x.path === `/pulls/${c.pr}` || x.path.startsWith(`/commits/${c.head}/check-runs`));
+    expect(again.map((x) => [x.etag, x.status])).toEqual([[first.etags.pull, 304], [first.etags.checks, 304]]);
+    const kept = (await db.query(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id])).rows[0].pr_seen;
+    expect(kept.at).toBe(new Date(t0 + 30_000).toISOString());
+    expect({ ...kept, at: first.at }).toEqual(first);
+    // the pull request changed (GitHub works out it conflicts): read as before, its new ETag kept
+    gh.pulls.get(c.pr)!.mergeable = false;
+    const changed = gh.calls.length;
+    await watchPulls(db, gh.gh, store, t0 + 60_000);
+    expect(gh.calls.slice(changed).find((x) => x.path === `/pulls/${c.pr}`)!.status).toBe(200);
+    const now = (await db.query(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id])).rows[0].pr_seen;
+    expect(now.mergeable).toBe(false);
+    expect(now.etags.pull).not.toBe(first.etags.pull);
+  });
+
+  test("GitHub limit: a 403 with no calls left stops every call until its reset, the board saying when, the log once; a 429 with retry-after the same; a 401 names the token", async () => {
+    const lim = fakeGitHub({ says: (x) => (githubSays.now = x) });
+    const said: string[] = [];
+    const warn = console.warn;
+    console.warn = (...a: unknown[]) => (said.push(a.join(" ")), warn(...a));
+    try {
+      const c = await codeAtProposal();
+      lim.pulls.set(c.pr, gh.pulls.get(c.pr)!);
+      lim.checks.set(c.head, gh.checks.get(c.head)!);
+      const t0 = Date.parse("2026-11-10T09:20:00Z");
+      const reset = t0 + 40 * 60_000;
+      lim.clock.at = t0;
+      lim.answerAll({ status: 403, message: "API rate limit exceeded", headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": `${reset / 1000}` } });
+      const state = mainMergeState();
+      await watchTick(db, lim.gh, store, t0, null, state);
+      expect(lim.calls.length).toBe(1);
+      // until the reset: no call at all, look after look
+      for (const m of [1, 10, 39]) {
+        lim.clock.at = t0 + m * 60_000;
+        await watchTick(db, lim.gh, store, lim.clock.at, null, state);
+      }
+      expect(lim.calls.length).toBe(1);
+      expect((await intent(c.id)).sub).toEqual({ state: "working", tag: "GitHub's limit", why: "GitHub's limit: play reads again at 10:00" });
+      expect(said.filter((l) => l.includes("GitHub's limit"))).toEqual(["ship: GitHub's limit: play reads again at 10:00"]);
+      // the reset passed, GitHub answering: read again, the board as before
+      lim.answerAll(null);
+      lim.clock.at = reset + 1_000;
+      await watchTick(db, lim.gh, store, lim.clock.at, null, state);
+      expect(lim.calls.length).toBeGreaterThan(1);
+      expect(lim.gh.says()).toBeNull();
+
+      // a 429 with retry-after: none until it has passed
+      await db.query(`UPDATE play.intents SET pr_seen = NULL WHERE id = $1`, [c.id]);
+      const t1 = reset + 5 * 60_000;
+      lim.clock.at = t1;
+      lim.answerAll({ status: 429, message: "slow down", headers: { "retry-after": "120" } });
+      const n = lim.calls.length;
+      await watchTick(db, lim.gh, store, t1, null, state);
+      lim.clock.at = t1 + 60_000;
+      await watchTick(db, lim.gh, store, lim.clock.at, null, state);
+      expect(lim.calls.length).toBe(n + 1);
+      expect((await intent(c.id)).sub.why).toBe(`GitHub's limit: play reads again at ${new Date(t1 + 120_000).toISOString().slice(11, 16)}`);
+
+      // a refused token: named as such
+      lim.clock.at = t1 + 3 * 60_000;
+      lim.answerAll({ status: 401, message: "Bad credentials" });
+      await watchTick(db, lim.gh, store, lim.clock.at, null, state);
+      expect((await intent(c.id)).sub).toEqual({ state: "working", tag: "GitHub refuses the token", why: "GitHub refuses play's token (SHIP_TOKEN)" });
+    } finally {
+      console.warn = warn;
+      githubSays.now = null;
+    }
+  });
+
+  test("budget per tick: six open intent pull requests unchanged, a tick makes at most 7 calls GitHub counts", async () => {
+    for (let k = 0; k < 6; k++) await codeAtProposal();
+    const state = mainMergeState();
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
+    const from = gh.calls.length;
+    await watchTick(db, gh.gh, store, Date.now(), null, state);
+    const counted = gh.calls.slice(from).filter((x) => x.status !== 304);
+    expect(counted.length).toBeLessThanOrEqual(7);
+    expect(gh.calls.slice(from).filter((x) => x.status === 304).length).toBe(12);
   });
 });
