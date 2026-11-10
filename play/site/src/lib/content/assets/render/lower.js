@@ -15,9 +15,11 @@ const own = (A) => A.slice();
 /**
  * Triangles from which a shape is heavy to make lighter: the simplifier holds many times its size while it works, and
  * its memory (wasm) never shrinks while its worker lives (intent 1893a631: 1.2 GB after one tree of 1.6 million
- * triangles). So only one heavy shape is made lighter at a time, and its worker ends with it.
+ * triangles). So a heavy shape's worker ends with it, and the shapes being made lighter at once hold no more than
+ * `AT_ONCE` triangles between them (one shape alone may: a heavy one is made by itself), whatever the device's cores.
  */
-export const HEAVY = 150_000;
+export const HEAVY = 100_000;
+export const AT_ONCE = 150_000;
 
 /** the buffers of a job's drawings, to hand over with them */
 const buffersOf = (draws) => [...new Set(draws.flatMap((d) => [d.index.buffer, d.locals.buffer, ...Object.values(d.attributes).map((a) => a.array.buffer)]))];
@@ -96,11 +98,11 @@ export function createLowering(o = {}) {
 	 *  those that can wait (`later`) after all the others */
 	/** @type {{ source: any, plans: any[], later: boolean, raw: boolean, rank?: (() => number) | null, ok: Function, no: Function }[]} */
 	const jobs = [];
-	/** the jobs being made, those of them heavy, and whether a turn is asked for and not yet given */
-	let running = 0, heavy = 0, asking = false;
-	const heavyJob = (j) => j.source.tris >= HEAVY;
-	/** the jobs that may start now: a heavy one only while no other heavy one is being made */
-	const ready = () => (heavy ? jobs.filter((j) => !heavyJob(j)) : jobs);
+	/** the jobs being made, the triangles they hold between them, and whether a turn is asked for and not yet given */
+	let running = 0, held = 0, asking = false;
+	const trisOf = (j) => j.source.tris || 0;
+	/** the jobs that may start now: any while none is being made, else those that fit beside the ones that are (`AT_ONCE`) */
+	const ready = () => (running ? jobs.filter((j) => held + trisOf(j) <= AT_ONCE) : jobs);
 
 	/** a worker with nothing to do: one started before, else a new one; none where there are no workers (the page makes it) */
 	function free() {
@@ -181,15 +183,15 @@ export function createLowering(o = {}) {
 			if (!may.length) return back();
 			const job = may.reduce((best, j) => (wanted(j) > wanted(best) ? j : best), may[0]);
 			jobs.splice(jobs.indexOf(job), 1);
-			const big = heavyJob(job);
+			const tris = trisOf(job), big = tris >= HEAVY;
 			running++;
-			if (big) heavy++;
+			held += tris;
 			Promise.resolve()
 				.then(() => run(() => job.source.draws.map(plainOf), job.plans, big))
 				.then((made) => job.ok(job.raw ? made : made.map((m) => levelOf(job.source, m))), job.no)
 				.finally(() => {
 					running--;
-					if (big) heavy--;
+					held -= tris;
 					job.done();
 					back();
 					pump();

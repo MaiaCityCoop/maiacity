@@ -40,6 +40,7 @@ import { budget, dropOnUpload } from '../../render/budget.js';
 import { precompile } from '../../render/core.js';
 import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, thresholdsOf } from './lod.js';
 import { lowerer } from './lower.js';
+import { LET_GO, letGoAfter, mayLetGo } from './hold.js';
 import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
@@ -293,7 +294,7 @@ export function createAssets(o) {
 		// left out where its shape would end), keeps a light shape further, down to PICTURE (./lod.js HEAVY).
 		// And every level hands over no later than DENSITY lets it, by its own triangles (./lod.js `heldTo`)
 		const last = k.levels.length - 1;
-		const tris = k.levels[last].level?.tris ?? budgetOf(last, k.levels[k.base].level.tris);
+		const tris = k.levels[last].level?.tris ?? budgetOf(last, k.levels[k.base].level?.tris ?? k.tris[k.base]);
 		k.thresholds = heldTo(k.names.length > 1 && k.picture ? thresholdsOf(k.levels.length) : thresholdsOf(k.levels.length, tris), k.tris);
 	}
 
@@ -425,14 +426,14 @@ export function createAssets(o) {
 	}
 
 	/**
-	 * A level's corners let go in the page once the graphics card has them, where the device's budget says so (a phone
-	 * keeps one copy of what it draws, not two: ../../render/budget.js `release`). Never the coarsest built (the other
-	 * levels are lowered from it, and a world measures and picks its plants by it), a level kept whole for its controls,
+	 * A level's corners let go in the page once the graphics card has them, on every device (one copy of what is drawn,
+	 * not two: ../../render/budget.js `dropOnUpload`). Never the coarsest built (the other levels are lowered from it,
+	 * and a world measures and picks its plants by it: it goes whole, ./hold.js), a level kept whole for its controls,
 	 * one drawn as another, or any corners it shares with those.
 	 */
 	function letGo(k, L) {
 		const lv = k.levels[L];
-		if (!budget().release || gone || L === k.base || lv.as >= 0 || lv.obj || !lv.level) return;
+		if (gone || L === k.base || lv.as >= 0 || lv.obj || !lv.level) return;
 		const kept = keptBeside(k, lv);
 		lv.released = true;
 		for (const d of lv.level.draws) for (const a of cornersOf(d)) if (!kept.has(a)) dropOnUpload(a);
@@ -441,24 +442,23 @@ export function createAssets(o) {
 	/** a drawing's attributes and index */
 	const cornersOf = (d) => [...Object.values(d.geometry.attributes), d.geometry.index].filter(Boolean);
 	/** the attributes the kind's other levels keep (its coarsest built, one kept whole, one not let go of) */
-	function keptBeside(k, lv) {
+	function keptBeside(k, lv, all = false) {
 		const kept = new Set();
 		for (const [j, other] of k.levels.entries())
-			if (other.level && other !== lv && (j === k.base || other.obj || !other.released)) for (const d of other.level.draws) for (const a of cornersOf(d)) kept.add(a);
+			if (other.level && other !== lv && (all || j === k.base || other.obj || !other.released)) for (const d of other.level.draws) for (const a of cornersOf(d)) kept.add(a);
 		return kept;
 	}
 
 	/**
-	 * A level no copy was drawn at for the device's budget's `evict` time let go of, all of it: its drawings, and the
+	 * A level no copy was drawn at for a while (./hold.js `letGoAfter`) let go of, all of it: its drawings, and the
 	 * graphics card's copy of its corners (but those its kind's other levels keep). Asked for again when a copy wants it
-	 * (from the device's cache, or lowered again from the coarsest). Never the coarsest built, nor one kept whole.
+	 * (from the device's cache, or lowered again from the coarsest). Which may go is ./hold.js `mayLetGo`: a kind's
+	 * full build too, once its lighter levels stand.
 	 */
 	function evict(k, L) {
 		const lv = k.levels[L];
-		// (one built from its recipe only where this device's cache holds it: built again, it would cost what the budget
-		// saves; one drawn as another, or with no drawings, holds nothing)
-		if (gone || L === k.base || lv.state !== 'ready' || lv.obj || (lv.name && !lv.kept) || lv.as >= 0 || !lv.meshes?.length) return;
-		const kept = keptBeside(k, lv);
+		if (gone || !mayLetGo(k, L)) return;
+		const kept = keptBeside(k, lv, L === k.base);
 		for (const { mesh } of lv.meshes ?? []) {
 			mesh.removeFromParent();
 			// its own instance arrays; its shape's corners only where no other level keeps them (three lets a shape's
@@ -470,7 +470,7 @@ export function createAssets(o) {
 		}
 		// its materials given back (the last use of one gone, it and its pictures go: read again, a level's are new ones)
 		for (const m of lv.mats ?? []) presets.release(m);
-		Object.assign(lv, { state: 'idle', level: null, meshes: null, mats: null, promise: null, released: false, kept: false, as: -1, from: undefined, seen: 0 });
+		Object.assign(lv, LET_GO);
 		dirty = shadows = true;
 	}
 
@@ -1000,11 +1000,15 @@ export function createAssets(o) {
 		counted.pictures = pictures.drawn;
 		counted.tris = tris;
 		counted.calls = calls;
-		// the levels no copy wanted for a while let go of (the device's budget: a phone's memory holds the near ones only)
-		const after = held ? 0 : budget().evict;
-		if (after && now - swept > 2000) {
+		// the levels no copy wanted for a while let go of (./hold.js: a kind's full build on every device, its other
+		// levels by the device's budget: a phone's memory holds the near ones only); none while a film keeps every shape
+		if (!held && now - swept > 2000) {
 			swept = now;
-			for (const k of kinds.values()) k.levels.forEach((lv, L) => lv.state === 'ready' && L !== k.base && now - (lv.seen ?? now) > after && evict(k, L));
+			for (const k of kinds.values())
+				k.levels.forEach((lv, L) => {
+					const after = letGoAfter(k, L, budget().evict);
+					if (after && lv.state === 'ready' && now - (lv.seen ?? now) > after) evict(k, L);
+				});
 		}
 		// what casts a shadow changed: the shadows drawn again (a world whose sky draws them only when it must)
 		if (shadows) {

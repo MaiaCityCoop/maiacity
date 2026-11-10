@@ -6,7 +6,7 @@
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import { HEAVY, createLowering } from './lower.js'
+import { AT_ONCE, HEAVY, createLowering } from './lower.js'
 import { lowerDraws } from './simplify.js'
 import { prepare } from './prepare.js'
 import { budgetOf, errorOf, smallestOf } from './lod.js'
@@ -162,11 +162,14 @@ describe("a world's lower levels are made on every core but one", () => {
 		w.answer(w.made[1]!, [])
 		await second
 		// heavy shapes: one at a time whatever the turns, each worker ended with its job though others wait
-		const big = { ...source, tris: HEAVY }
+		const big = { ...source, tris: AT_ONCE }
+		expect(AT_ONCE).toBeGreaterThanOrEqual(HEAVY)
 		const many = [0, 1, 2].map(() => lowering.lower(big, plansOf(source), false, true))
-		const light = lowering.lower(source, plansOf(source), false, true)
+		const light = lowering.lower({ ...source, tris: 0 }, plansOf(source), false, true)
 		await settled()
+		// a heavy one and the light one beside it, never two heavy ones
 		expect(w.open().length).toBe(Math.min(2, turns))
+		expect(w.open().filter((x) => x.moved.reduce((n, b) => n + b.byteLength, 0) > 0).length).toBe(Math.min(2, turns))
 		expect(lowering.workers).toBeLessThanOrEqual(turns)
 		for (let left = 4; left > 0; left--) {
 			const x = w.open()[0]!
