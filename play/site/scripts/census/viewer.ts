@@ -21,7 +21,8 @@
  */
 import { join, resolve } from 'node:path';
 
-import { setup, lib, frame } from './setup';
+import { opened } from './built';
+import { lib } from './setup';
 
 const argv = process.argv.slice(2);
 const flag = (f: string) => (argv.includes(f) ? argv[argv.indexOf(f) + 1] : undefined);
@@ -32,48 +33,28 @@ const total = flag('--total');
 if (argv.includes('--total') && total !== 'tris' && total !== 'draws') throw new Error('viewer: --total tris or --total draws');
 const count = argv.includes('--count') || !!total;
 // play's routes as pinned in ./inputs (no token: a check sees none), `--record` pinning what it reads live (PLAY_MCP_TOKEN)
-setup({ root, inputs: join(import.meta.dir, 'inputs'), record: argv.includes('--record'), fresh: true });
+const { read, build } = await opened({ root, record: argv.includes('--record') });
 const THREE = await import(join(import.meta.dir, '../../node_modules/three/build/three.module.js'));
 const { makeRenderer } = await import(lib('content/render/core.js'));
-const { catalogReady } = await import(lib('recipes'));
-await catalogReady();
-const { source, INDEX, admitProposed } = await import(lib('content/assets/catalog.js'));
-const { AssetBox } = await import(lib('content/assets/box/host.js'));
-const { vaultBuild } = await import(lib('content/assets/load.js'));
 const { forStage, heroOf } = await import(lib('content/assets/hero.js'));
 const { Stage } = await import(lib('content/assets/stage.js'));
 const { camerawork } = await import(lib('content/assets/viewer.js'));
 // a frame of the stage as the page's loop turns it (VaultAsset.svelte): its update, then its own frame
 const { update: turn, render: draw } = Stage.prototype;
 
-async function turning<T>(p: Promise<T>) {
-	let done = false;
-	const q = p.finally(() => (done = true));
-	while (!done) {
-		frame();
-		await new Promise((r) => setTimeout(r, 5));
-	}
-	return q;
-}
-
 if (group) ids.push(...(await (await fetch(`/api/assets?group=${group}`)).json()).map((a: any) => a.id).filter((id: string) => !ids.includes(id)));
-const box = new AssetBox({ engine: INDEX.engine });
 type Counts = { tris: number; draws: number; mainTris: number; mainDraws: number; shadowTris: number; shadowDraws: number; targetTris: number; targetDraws: number };
 const out: ({ id: string; label?: string; step: string; ok: boolean; built?: true; error?: string } & Partial<Counts>)[] = [];
 for (const id of ids) {
 	let step = 'read';
 	const r: (typeof out)[number] = { id, step, ok: false };
 	try {
-		const chain = await (await fetch(`/api/assets/${id}`)).json();
-		const v = chain.versions[0];
+		// the intent's variant where it holds one, else the newest version
+		const { chain, v, proposed } = await read(id, intent);
 		r.label = chain.label;
-		// the intent's variant as the page admits a proposed build (AssetLibrary.svelte), else the newest version
-		const mine = intent ? await fetch(`/api/assets/${id}/recipe?intent=${intent}`) : null;
-		const proposed = mine?.ok ? await mine.json() : null;
-		if (proposed) await admitProposed([proposed]);
 		const hash = proposed?.hash ?? v.recipe ?? v.variants?.find((x: any) => x.name === v.defaultVariant)?.recipe ?? v.variants?.[0]?.recipe;
 		step = 'build';
-		const got = await turning(vaultBuild(source, hash, {}, { box, keep: false }));
+		const got = await build(hash);
 		step = 'stage';
 		// the viewer's renderer and camera as its page makes them (viewer.js openStage: render/stage.js createStageRenderer)
 		const renderer = await makeRenderer({ pixelRatio: 1, shadows: 'pcf' });
