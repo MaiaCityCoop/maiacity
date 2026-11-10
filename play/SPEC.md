@@ -1443,6 +1443,23 @@ library**, private to you; Maia City, the coop's, as before; its owner named on 
 over MCP. It stays an admin's app for now; opening it to every member, each their own library, is one flag
 (`LIBRARY_OPEN_TO` in `play/api/src/library.ts`).
 
+**A page open across a deploy** (intent `8333276b-9143-4eac-8754-9aaedb8de2ae`; Samuel 2026-11-10: a review on the
+board said "This browser couldn't open the 3D stage: 'text/html' is not a valid JavaScript MIME type"). play deploys
+many times a day, and an open tab still names the chunks of its own build. Two things hold it:
+- **A file that is gone is a 404** (`play/api/src/site.ts`, the one handler production, `scripts/serve-built.ts` and
+  `scripts/gpu.ts` serve the build with): a path under `/_app/` (the build) or `/engines/` (the asset box's frozen
+  engines) that is no file is `404`, `no-store`, never the page; every other path that is no file is still the app's
+  `200.html`.
+- **The page moves itself to the new build**, decided in one module, `play/site/src/lib/site/app/newbuild.ts`
+  (`svelte.config.js` `version.pollInterval`, SvelteKit's `updated`): on the next navigation; when the tab comes back
+  into view (not in a sandbox or the game, which go on until their next navigation); and on a chunk it cannot load
+  (Vite's `vite:preloadError`, a failed dynamic import: the board is a modal, so opening a review is no navigation),
+  where it checks for a new build and reloads **once**, the board open again on the same intent (the board's
+  `intentsModal.at`, kept in the tab's `sessionStorage` across the reload). Never a loop: the build it reloaded from
+  is kept for the tab and never reloads again; with no newer build nothing reloads and the real error is said. The
+  asset viewer tells the two apart (`play/site/src/lib/content/assets/stage-error.js`): "A part of this page could not
+  be loaded …" for a chunk, "This browser couldn’t open the 3D stage …" only for a browser that gives no 3D.
+
 ## 9. Deploy
 
 - `play-api` service + a Caddy block for `play.maia.city`; DNS to the same machine.
