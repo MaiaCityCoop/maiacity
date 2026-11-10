@@ -1,0 +1,23 @@
+main: loaded in 316 s, backend webgl2, settled false at 685 s
+main far-5.56: settled false
+main far-12: settled false
+main orbit-00: settled false
+main orbit-05: settled false
+main orbit-10: settled false
+main orbit-15: settled false
+main orbit-20: settled false
+main: 2 errors
+  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+  Failed to load resource: net::ERR_CONNECTION_RESET
+head: loaded in 422 s, backend webgl2, settled false at 850 s
+head far-5.56: settled false
+head far-12: settled false
+head orbit-00: settled false
+head orbit-05: settled false
+head orbit-10: settled false
+head orbit-15: settled false
+head orbit-20: settled false
+head: 10 errors
+  Failed to load resource: the server responded with a status of 401 (Unauthorized)
+  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+  Failed to load resource: net::ERR_CONNECTION_RESET
