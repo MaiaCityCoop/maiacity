@@ -1,18 +1,13 @@
 <!--
 	The sandboxes' layouts (play/SPEC.md §4.6): this opens the first one's, at /sandboxes/<uuid>/ (./[id]/+page.svelte).
-	Admins only.
+	Admins only, behind the one gate of the game and the sandboxes ($lib/site/admins, intent aa751ecb).
 -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin, session } from '$lib/session.svelte';
 
-	adminsOnly();
 	let error = $state('');
 	$effect(() => {
-		if (!session.me) return;
-		if (!isAdmin()) return;
 		api<{ id: string }[]>('/docs?kind=sandbox').then(
 			(l) => void (l[0] ? goto(`/sandboxes/${l[0].id}/`, { replaceState: true }) : (error = 'No sandboxes yet.')),
 			(e) => (error = e.message)

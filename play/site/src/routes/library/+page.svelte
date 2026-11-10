@@ -17,8 +17,6 @@
 	import type { LibraryFile } from '$wire';
 	import { libraryAddress, storyHref } from '$lib/address';
 	import { api, fileText, fileUrl as url } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 	import { acting, asCity } from '$lib/acting.svelte';
 	import { listWhen as when } from '$lib/format';
 	import { playIfAllowed } from '$lib/kernel/media.js';
@@ -48,8 +46,6 @@
 	let saving = $state(false);
 	let copied = $state(false);
 	let owner = $state<Owner | null>(null);
-	adminsOnly();
-	const admin = $derived(isAdmin());
 	/** the library of whoever the person acts as: Maia City's (the coop's) or their own */
 	const library = $derived<'coop' | 'personal'>(asCity() ? 'coop' : 'personal');
 	// a document is Markdown (a plant's data sheet, its sheet's brief); the rest by their media type
@@ -82,7 +78,6 @@
 		loaded = true;
 	}
 	onMount(() => {
-		if (!admin) return;
 		// a link straight to one file (the asset library's data sheet and brief): the search for its hash
 		({ kind, q: query } = libraryAddress(new URLSearchParams(location.search)));
 	});
@@ -90,7 +85,7 @@
 	let shown = '';
 	$effect(() => {
 		const now = `${library}:${acting.as}`;
-		if (!admin || now === shown) return;
+		if (now === shown) return;
 		shown = now;
 		open = null;
 		void load();
@@ -201,63 +196,61 @@
 	{/if}
 {/snippet}
 
-{#if admin}
-	<div class="pg">
-		<Frame nav={loaded ? shelf : undefined} aside={open ? about : undefined} navLabel="The Library's kinds" asideLabel="The file opened" navIcon="library" asideIcon="info" flush>
-			{#if !loaded}
-				<p class="note soft">Opening the Library…</p>
-			{:else}
-				<div class="sheet">
-					{#if owner}
-						<header class="owner" class:own={owner.library === 'personal'}>
-							<span class="who"><Icon name={owner.library === 'personal' ? 'lock' : 'users'} size={18} /></span>
-							<span class="what">
-								<b>{owner.library === 'personal' ? `${owner.name}'s library` : "Maia City's library"}</b>
-								<small>{owner.library === 'personal' ? 'Private to you: no one else sees or lists these files. Act as Maia City for the coop’s.' : 'The coop’s files, for its admins. Act as yourself for your own library.'}</small>
-							</span>
-						</header>
-					{/if}
-					<div class="bar">
-						<b>{KINDS.find((k) => k.id === kind)?.label}</b>
-						<span class="soft">{total.toLocaleString('en-US')} {total === 1 ? 'file' : 'files'}{query.trim() ? ` matching “${query.trim()}”` : ''} · newest first</span>
-					</div>
-					{#if error}<p class="bad">{error}</p>{/if}
-					<div class="wall" class:busy>
-						{#each files as f (f.hash)}
-							<button class="tile" class:on={open?.hash === f.hash} onclick={() => show(f)} title={f.label ?? f.hash}>
-								<span class="pic">
-									{#if kindOf(f) === 'video'}
-										<video src="{url(f.hash)}#t=0.5" muted playsinline preload="metadata" onmouseenter={(e) => playIfAllowed(e.currentTarget as HTMLVideoElement)} onmouseleave={(e) => (e.currentTarget as HTMLVideoElement).pause()}></video>
-										<span class="badge">Video</span>
-									{:else if kindOf(f) === 'audio'}
-										<span class="sound"><Icon name="audio" size={30} /></span>
-										<span class="badge">Recording</span>
-									{:else if kindOf(f) === 'document'}
-										<span class="sound"><Icon name="article" size={30} /></span>
-										<span class="badge">Document</span>
-									{:else}
-										<img src={url(f.hash)} alt="" loading="lazy" />
-									{/if}
-									{#if f.used.length}<span class="used">{f.used.length} {f.used.length === 1 ? 'use' : 'uses'}</span>{/if}
-								</span>
-								<span class="name">{f.label ?? f.hash.slice(0, 12)}</span>
-								<small class="soft">{f.media_type.split('/')[1]} · {size(f.size)}</small>
-							</button>
-						{:else}
-							<p class="note soft">
-								Nothing here{query.trim() ? ' matches that' : ' yet'}.{#if !query.trim() && owner?.library === 'personal'}
-									Your files come in over MCP: your agent adds them with <code>add_story_frame</code> or <code>add_document</code> and <code>library: "personal"</code>.{/if}
-							</p>
-						{/each}
-						{#if files.length < total}
-							<div class="more"><button class="chip" disabled={busy} onclick={() => load(true)}>{busy ? 'Loading…' : `Show more (${total - files.length} left)`}</button></div>
-						{/if}
-					</div>
+<div class="pg">
+	<Frame nav={loaded ? shelf : undefined} aside={open ? about : undefined} navLabel="The Library's kinds" asideLabel="The file opened" navIcon="library" asideIcon="info" flush>
+		{#if !loaded}
+			<p class="note soft">Opening the Library…</p>
+		{:else}
+			<div class="sheet">
+				{#if owner}
+					<header class="owner" class:own={owner.library === 'personal'}>
+						<span class="who"><Icon name={owner.library === 'personal' ? 'lock' : 'users'} size={18} /></span>
+						<span class="what">
+							<b>{owner.library === 'personal' ? `${owner.name}'s library` : "Maia City's library"}</b>
+							<small>{owner.library === 'personal' ? 'Private to you: no one else sees or lists these files. Act as Maia City for the coop’s.' : 'The coop’s files, for its admins. Act as yourself for your own library.'}</small>
+						</span>
+					</header>
+				{/if}
+				<div class="bar">
+					<b>{KINDS.find((k) => k.id === kind)?.label}</b>
+					<span class="soft">{total.toLocaleString('en-US')} {total === 1 ? 'file' : 'files'}{query.trim() ? ` matching “${query.trim()}”` : ''} · newest first</span>
 				</div>
-			{/if}
-		</Frame>
-	</div>
-{/if}
+				{#if error}<p class="bad">{error}</p>{/if}
+				<div class="wall" class:busy>
+					{#each files as f (f.hash)}
+						<button class="tile" class:on={open?.hash === f.hash} onclick={() => show(f)} title={f.label ?? f.hash}>
+							<span class="pic">
+								{#if kindOf(f) === 'video'}
+									<video src="{url(f.hash)}#t=0.5" muted playsinline preload="metadata" onmouseenter={(e) => playIfAllowed(e.currentTarget as HTMLVideoElement)} onmouseleave={(e) => (e.currentTarget as HTMLVideoElement).pause()}></video>
+									<span class="badge">Video</span>
+								{:else if kindOf(f) === 'audio'}
+									<span class="sound"><Icon name="audio" size={30} /></span>
+									<span class="badge">Recording</span>
+								{:else if kindOf(f) === 'document'}
+									<span class="sound"><Icon name="article" size={30} /></span>
+									<span class="badge">Document</span>
+								{:else}
+									<img src={url(f.hash)} alt="" loading="lazy" />
+								{/if}
+								{#if f.used.length}<span class="used">{f.used.length} {f.used.length === 1 ? 'use' : 'uses'}</span>{/if}
+							</span>
+							<span class="name">{f.label ?? f.hash.slice(0, 12)}</span>
+							<small class="soft">{f.media_type.split('/')[1]} · {size(f.size)}</small>
+						</button>
+					{:else}
+						<p class="note soft">
+							Nothing here{query.trim() ? ' matches that' : ' yet'}.{#if !query.trim() && owner?.library === 'personal'}
+								Your files come in over MCP: your agent adds them with <code>add_story_frame</code> or <code>add_document</code> and <code>library: "personal"</code>.{/if}
+						</p>
+					{/each}
+					{#if files.length < total}
+						<div class="more"><button class="chip" disabled={busy} onclick={() => load(true)}>{busy ? 'Loading…' : `Show more (${total - files.length} left)`}</button></div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+	</Frame>
+</div>
 
 <style>
 	.pg {

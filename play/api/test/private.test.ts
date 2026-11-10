@@ -12,7 +12,7 @@ import { randomUUID } from "node:crypto";
 import { app } from "../src/app";
 import { SANDBOX } from "../src/kit/ids";
 import { type Db } from "../src/kit/pg";
-import { agentToken, type Answer, type Api, appOn, type Fresh, freshDb, human, request, suite, tool as mcpTool } from "./kit";
+import { agentToken, type Answer, type Api, appOn, type Fresh, freshDb, human, request, suite, tool as mcpTool, unlockReads } from "./kit";
 
 const SPEC = {
   goal: "A private thing of one person's.",
@@ -77,6 +77,8 @@ suite("private to its owner", () => {
     f = await freshDb({ prefix: "play_private" });
     db = f.db;
     api = appOn(db);
+    // its traveler reads the assets, as the traveler's rule gave before intent aa751ecb: what is private stays so
+    await unlockReads(db);
     A = await person("ada", "admin");
     B = await person("bo", "admin");
     T = await person("tim", "traveler");

@@ -12,8 +12,6 @@
 	import type { StoryItem } from '$wire';
 	import { storyAddress, storyHash } from '$lib/address';
 	import { api, fileUrl } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 	import StoryPlayer from '$lib/stories/StoryPlayer.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Aside, { type ChainVersion, type Pick } from '$lib/app/Aside.svelte';
@@ -21,8 +19,6 @@
 
 	type Item = StoryItem;
 
-	adminsOnly();
-	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let story = $state<Story | null>(null);
 	let picked = $state('');
@@ -55,9 +51,7 @@
 		loading = false;
 	}
 	onMount(async () => {
-		// admins only (Samuel 2026-11-03): anyone else is taken back to the dashboard, as from the Factories and the
-		// Proposals; the API hands stories to admins alone
-		if (!admin) return;
+		// behind the one gate ($lib/site/gate): only one who may read stories reaches here, as the API asks
 		try {
 			list = await api<Item[]>('/stories');
 		} catch (e) {
@@ -120,21 +114,19 @@
 	</Aside>
 {/snippet}
 
-{#if admin}
-	<div class="storyframe"><Frame aside={story ? side : undefined} asideLabel="The story's info and history">
-		<main class="stories" class:framed={!!story}>
-			{#if story}
-				<!-- one player for every version and step, so the history bar keeps hold while it is dragged -->
-				<StoryPlayer {story} list={listCol} head={headRow} />
-			{:else}
-				{@render listCol()}
-				<section class="main">
-					{#if error}<p class="error">{error}</p>{:else if loading}<p class="muted">Reading it…</p>{/if}
-				</section>
-			{/if}
-		</main>
-	</Frame></div>
-{/if}
+<div class="storyframe"><Frame aside={story ? side : undefined} asideLabel="The story's info and history">
+	<main class="stories" class:framed={!!story}>
+		{#if story}
+			<!-- one player for every version and step, so the history bar keeps hold while it is dragged -->
+			<StoryPlayer {story} list={listCol} head={headRow} />
+		{:else}
+			{@render listCol()}
+			<section class="main">
+				{#if error}<p class="error">{error}</p>{:else if loading}<p class="muted">Reading it…</p>{/if}
+			</section>
+		{/if}
+	</main>
+</Frame></div>
 
 <style>
 	.storyframe { position: fixed; inset: 0; background: var(--cream); --soft: rgb(38 56 44 / 0.6); --accent: var(--brand-green); }
