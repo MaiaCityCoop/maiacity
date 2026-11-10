@@ -44,3 +44,36 @@ What it would take (its own intent, in the morning). One of:
    kind but still builds each tree at a million triangles (the suspect for the memory of intent 1893a631).
 
 The first is the smallest and removes the cause.
+
+## 2026-11-10 23:25–23:50 UTC · Build, round 1 (pull request #2256, branch intent/7a6c3f1b-turns)
+
+Approved 23:22 UTC (the dependency on 405f7a85 dropped by the Orchestrator). Branched from origin/main eadbf2f7.
+
+| round | the change | before (main) | after | kept |
+|---|---|---|---|---|
+| 1 | `content/render/turns.js`: one line of turns, the most wanted first, a build before a level; the pool, the box, the level maker on it; the renderer's cache reads on a line of the same kind (`lineOf`) | beside.ts: 382 % of alone, 85 % of one box, 93 % of its CPU | 99 %, 42 %, 96 % | kept |
+| 1 | c1: places that pick the most wanted under content/assets | 4 | 0 | kept |
+| 1 | c2: lines of pool.js, host.js, lower.js, budget.js, turns.js | 609 | 605 | kept |
+| 1 | `render/levels.js` `once`: a level two renderers ask for at once is made once a page | two makings | one (levels.test.ts "made once a page") | kept |
+| 1 | vitest content/render, assets/box, assets/render | 233 pass | 234 pass (one moved, new cases) | |
+| 1 | `gate.sh site` | green | green (130 s) | |
+
+Decisions.
+- A pool given a `size` (a test's, cores.ts's, beside.ts's "one box" arm) is a pool apart with a line of its own; the
+  page's own pool (`poolOf`) takes the page's turns. So every existing pool test stands unchanged.
+- A box of the pool takes no turn itself (`turns: false`): the pool took one for its build. A box used alone (a
+  viewer's, the live box) still takes the page's turn for each build, as before.
+- No turn is kept free for a build that may come while only levels work: a build asked then waits for the next level
+  job to end (as on main, where it waited for all of them). Keeping one free would cost a core through the whole
+  level phase; left for a measure on a real world if it shows.
+- c9 (nice: a recipe's next build in the box that built it) not built: c2 leaves 4 lines, and it is 7 % of a visit at
+  most. Left red, as specified.
+- Merges with the load path's branch: `git merge --no-commit origin/intent/405f7a85-worlds-fast` in a scratch worktree
+  goes through by itself (render/index.js, render/levels.js, SPEC.md auto-merged). levels.js is written for that:
+  405f7a85's changed lines (the rank handed to the level maker) are not touched; `once` stands in for the keeper's
+  level maker for one asking and passes every argument on, the rank too.
+- 1893a631 (memory): its "one maker of lighter shapes a page" replaces `createLowering(` in render/index.js and its
+  workers' lifetime is in lower.js `free`/`run`; this change touches lower.js only where a job takes its turn
+  (`lower`, `dispose`), and index.js only at the reads' line.
+
+Marked ready 23:50 UTC; the box's run records.
