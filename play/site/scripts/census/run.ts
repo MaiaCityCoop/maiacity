@@ -186,11 +186,10 @@ export async function mount(world: World, o: { asset?: string; log?: (s: string)
 	return world === 'sandbox-1' ? mountSandbox1(log) : world === 'sandbox-5' ? mountSandbox1(log, SOLO) : world === 'sandbox-3' ? mountSandbox3() : mountWorlds(log, o.asset);
 }
 
-/** Sandbox 3's `home` view (intent 8f41cd9b): out of the walk, the camera where the page first looks, at our hex from
- *  above: the tent, the packs, the powercube and the walker in one picture (`open` walks with its back to the tent) */
+/** Sandbox 3's `home` view (intent 8f41cd9b): the walker's eye turned half round (a drag of the page's own `look`), to
+ *  the tent, the packs and the powercube; still, as the walk's camera is (`open` walks with its back to the tent) */
 function lookHome(world: any) {
-	world?.freeWalk(false);
-	world?.focus('tribe', { now: true });
+	world?.look(Math.PI / 0.0065, 0);
 }
 
 /** frames turned while a promise is open */
