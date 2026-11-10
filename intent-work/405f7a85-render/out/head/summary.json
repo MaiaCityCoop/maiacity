@@ -1,0 +1,355 @@
+{
+ "intent": "405f7a85-ce6a-47ae-856c-4df5e38dfebb",
+ "head": "ed90418122b348c6f7bac8a44eaa62c7ce497f84 (origin/intent/405f7a85-worlds-fast)",
+ "production": "672ae57977efc7d52d2d1d9542b77b31182cc1e9",
+ "when_berlin": "2026-11-10 17:34-19:45",
+ "mac": "Apple M1 (8 GB); Chromium 153 on Metal and Playwright's WebKit 26.6, WebGPU in both; each load alone (the load average under 3 before each); a fresh persistent profile for the first visit, the same for the second; the hour pinned at noon (window.__interiorHour) so the looks compare; the head's build served by vite preview, /api through the read-only proxy (the token to play.maia.city only)",
+ "how": {
+  "shown": "the loading card (div.loading[role=status]) gone, looked at every 2 s",
+  "hold": "a 20 ms heartbeat in the page: every gap over 200 ms, with whether the card was on before it",
+  "grown": "__assets.stats(): building and keeping 0 in every renderer three looks in a row, at most 300 s",
+  "views": "Sandbox 1 the census near, mid, far (census/run.ts VIEWS); Sandbox 5 where it opens, then near and far; each after it is quiet again (at most 30 s)",
+  "frame": "the meter (meter.js) over 20 s standing at near once grown"
+ },
+ "verdict": "The head shows both worlds 3-10x sooner on every first and second visit (Chromium 28 s / 16 s and 38 s / 11 s against production's 169 / 31 and 149 / 157; WebKit 60 / 20 and 60 / 21 against 200 / 169 and 118 / 115), and no page is ever blank. But: (1) its frames once grown are worse at the same draws and triangles (Chromium Sandbox 1 61 ms against 42, Sandbox 5 68.5 against 37, GPU time about doubled; WebKit 304 against 81 and 187 against 102.5, CPU and GPU both up); (2) it holds the page longer: WebKit's first visit 38 s and 40 s with the card on, Chromium Sandbox 1's second visit 17 s right after the world shows; (3) the far forest looks different (Sandbox 1's palms and bananas gone from the far ring); (4) in WebKit the ground from the device's cache is broken (Sandbox 5 red, streaked soil; Sandbox 1 black ground patches as it opens). Not the same look; not shippable as it is by these measures.",
+ "notes": [
+  "the head never went quiet within 300 s in three of four first visits (Sandbox 1 Chromium building 1; Sandbox 5 Chromium keeping 14; Sandbox 1 WebKit building 61), so part of its frame cost may be its own building and keeping while measured",
+  "WebKit's storage was not cleared with its profile folder: the head's Sandbox 5 'first visit' in WebKit read 48 kept levels (boxed 0)",
+  "production's Sandbox 1 second visit in Chromium showed at 31 s (the browser's HTTP cache); its Sandbox 5 second visit did not speed up",
+  "Chromium's head Sandbox 1 second visit has no 'shown' shot: the screenshot timed out inside its 17 s hold"
+ ],
+ "rows": [
+  {
+   "world": "sandbox-1",
+   "engine": "chromium",
+   "shown_s": {
+    "production_first": 169.2,
+    "production_second": 30.8,
+    "head_first": 28,
+    "head_second": 16.4
+   },
+   "second_visit_built_in_boxes": {
+    "production": 97,
+    "head": 0,
+    "head_kept_levels_read": 50
+   },
+   "longest_hold": {
+    "production_first": {
+     "ms": 6550,
+     "at_s": 376.8,
+     "card_on": false
+    },
+    "production_second": {
+     "ms": 3886,
+     "at_s": 37.7,
+     "card_on": false
+    },
+    "head_first": {
+     "ms": 6881,
+     "at_s": 401,
+     "card_on": false
+    },
+    "head_second": {
+     "ms": 17144,
+     "at_s": 16.6,
+     "card_on": false
+    }
+   },
+   "holds_over_1s": {
+    "production_first": 6,
+    "head_first": 5,
+    "head_second": 5
+   },
+   "blank": "never (the card gone and nothing drawn: the page dark green in at most 9 % of the screen in every shot)",
+   "grown": {
+    "production": true,
+    "head": false,
+    "head_at_grown": {
+     "card": false,
+     "line": null,
+     "kinds": 359,
+     "loaded": 359,
+     "building": 1,
+     "keeping": 0,
+     "boxed": 326,
+     "builds": 362,
+     "keptLevels": 2,
+     "keptPictures": 0,
+     "taken": 140,
+     "backend": "webgpu"
+    }
+   },
+   "frame_grown_near_20s": {
+    "production": {
+     "frame_ms": 42,
+     "frame_p95": 50.1,
+     "cpu_ms": 41.5,
+     "gpu_ms": 28.7,
+     "calls": 3575,
+     "triangles": 7464732,
+     "bound": "cpu"
+    },
+    "head": {
+     "frame_ms": 61.4,
+     "frame_p95": 66.7,
+     "cpu_ms": 38.9,
+     "gpu_ms": 54,
+     "calls": 3581,
+     "triangles": 7471343,
+     "bound": "gpu"
+    }
+   },
+   "same_look": false,
+   "look": "near and mid the same; FAR differs: production's far ring shows bananas, palms and tall mixed trees, the head's only rounded, speckled broadleaf crowns (no palms, no bananas) - a loss a person would see (far-zoom.jpg)"
+  },
+  {
+   "world": "sandbox-1",
+   "engine": "webkit",
+   "shown_s": {
+    "production_first": 199.6,
+    "production_second": 169.3,
+    "head_first": 60.5,
+    "head_second": 19.7
+   },
+   "second_visit_built_in_boxes": {
+    "production": 207,
+    "head": 0,
+    "head_kept_levels_read": 42
+   },
+   "longest_hold": {
+    "production_first": {
+     "ms": 21691,
+     "at_s": 202.8,
+     "card_on": false
+    },
+    "production_second": {
+     "ms": 5306,
+     "at_s": 161.9,
+     "card_on": true
+    },
+    "head_first": {
+     "ms": 38276,
+     "at_s": 20.2,
+     "card_on": true
+    },
+    "head_second": {
+     "ms": 7516,
+     "at_s": 8.1,
+     "card_on": true
+    }
+   },
+   "holds_over_1s": {
+    "production_first": 14,
+    "head_first": 27,
+    "head_second": 12
+   },
+   "blank": "never (the card gone and nothing drawn: the page dark green in at most 9 % of the screen in every shot)",
+   "grown": {
+    "production": false,
+    "head": false,
+    "head_at_grown": {
+     "card": false,
+     "line": null,
+     "kinds": 359,
+     "loaded": 305,
+     "building": 61,
+     "keeping": 0,
+     "boxed": 281,
+     "builds": 308,
+     "keptLevels": 4,
+     "keptPictures": 0,
+     "taken": 114,
+     "backend": "webgpu"
+    }
+   },
+   "frame_grown_near_20s": {
+    "production": {
+     "frame_ms": 81.4,
+     "frame_p95": 101,
+     "cpu_ms": 50.1,
+     "gpu_ms": 35.1,
+     "calls": 3565,
+     "triangles": 7428069,
+     "bound": "cpu"
+    },
+    "head": {
+     "frame_ms": 303.7,
+     "frame_p95": 545,
+     "cpu_ms": 181.6,
+     "gpu_ms": 50.2,
+     "calls": 1957,
+     "triangles": 6240542,
+     "bound": "cpu"
+    }
+   },
+   "same_look": false,
+   "look": "near and mid the same; FAR differs as in Chromium (the head's uniform broadleaf line); and the second visit opens with BLACK patches in the ground under the master dome's arcade where production shows soil (v2-shown.jpg)"
+  },
+  {
+   "world": "sandbox-5",
+   "engine": "chromium",
+   "shown_s": {
+    "production_first": 149.2,
+    "production_second": 156.5,
+    "head_first": 38,
+    "head_second": 10.9
+   },
+   "second_visit_built_in_boxes": {
+    "production": 202,
+    "head": 0,
+    "head_kept_levels_read": 38
+   },
+   "longest_hold": {
+    "production_first": {
+     "ms": 4680,
+     "at_s": 198,
+     "card_on": false
+    },
+    "production_second": {
+     "ms": 4783,
+     "at_s": 157.7,
+     "card_on": false
+    },
+    "head_first": {
+     "ms": 7708,
+     "at_s": 449.1,
+     "card_on": false
+    },
+    "head_second": {
+     "ms": 2175,
+     "at_s": 6.7,
+     "card_on": true
+    }
+   },
+   "holds_over_1s": {
+    "production_first": 5,
+    "head_first": 6,
+    "head_second": 2
+   },
+   "blank": "never (the card gone and nothing drawn: the page dark green in at most 9 % of the screen in every shot)",
+   "grown": {
+    "production": true,
+    "head": false,
+    "head_at_grown": {
+     "card": false,
+     "line": null,
+     "kinds": 196,
+     "loaded": 196,
+     "building": 0,
+     "keeping": 14,
+     "boxed": 202,
+     "builds": 202,
+     "keptLevels": 0,
+     "keptPictures": 0,
+     "taken": 58,
+     "backend": "webgpu"
+    }
+   },
+   "frame_grown_near_20s": {
+    "production": {
+     "frame_ms": 37,
+     "frame_p95": 50,
+     "cpu_ms": 23.4,
+     "gpu_ms": 32.7,
+     "calls": 1755,
+     "triangles": 8392037,
+     "bound": "gpu"
+    },
+    "head": {
+     "frame_ms": 68.5,
+     "frame_p95": 83.3,
+     "cpu_ms": 28.3,
+     "gpu_ms": 64.1,
+     "calls": 1849,
+     "triangles": 8564054,
+     "bound": "gpu"
+    }
+   },
+   "same_look": false,
+   "look": "open and near the same; FAR differs: the head's far trees more speckled and browner (a large orange-brown crown on the right); production's mix of conifers reads cleaner (far-zoom.jpg)"
+  },
+  {
+   "world": "sandbox-5",
+   "engine": "webkit",
+   "shown_s": {
+    "production_first": 118.3,
+    "production_second": 114.9,
+    "head_first": 60.4,
+    "head_second": 20.5
+   },
+   "second_visit_built_in_boxes": {
+    "production": 197,
+    "head": 0,
+    "head_kept_levels_read": 44
+   },
+   "longest_hold": {
+    "production_first": {
+     "ms": 22380,
+     "at_s": 189.6,
+     "card_on": false
+    },
+    "production_second": {
+     "ms": 4293,
+     "at_s": 108.5,
+     "card_on": true
+    },
+    "head_first": {
+     "ms": 40009,
+     "at_s": 12.7,
+     "card_on": true
+    },
+    "head_second": {
+     "ms": 5794,
+     "at_s": 11.4,
+     "card_on": true
+    }
+   },
+   "holds_over_1s": {
+    "production_first": 8,
+    "head_first": 13,
+    "head_second": 6
+   },
+   "blank": "never (the card gone and nothing drawn: the page dark green in at most 9 % of the screen in every shot)",
+   "grown": {
+    "production": true,
+    "head": true,
+    "head_at_grown": {
+     "card": false,
+     "line": null,
+     "kinds": 196,
+     "loaded": 196,
+     "building": 0,
+     "keeping": 0,
+     "boxed": 4,
+     "builds": 202,
+     "keptLevels": 52,
+     "keptPictures": 0,
+     "taken": 58,
+     "backend": "webgpu"
+    }
+   },
+   "frame_grown_near_20s": {
+    "production": {
+     "frame_ms": 102.5,
+     "frame_p95": 102,
+     "cpu_ms": 63.3,
+     "gpu_ms": 38.7,
+     "calls": 1885,
+     "triangles": 8587478,
+     "bound": "cpu"
+    },
+    "head": {
+     "frame_ms": 187,
+     "frame_p95": 200,
+     "cpu_ms": 107.8,
+     "gpu_ms": 65.5,
+     "calls": 1972,
+     "triangles": 9192791,
+     "bound": "cpu"
+    }
+   },
+   "same_look": false,
+   "look": "open the same but for red bare soil right of the path; NEAR: the head's ground flat orange-red with streaks where production shows textured litter; FAR: the head's ground a flat olive plane with a patch of herringbone streaks (s5-webkit-zoom.jpg) - broken; this 'first visit' read 48 levels from the device's cache (WebKit's storage was shared across profile folders), so the cache's restore is the likely path"
+  }
+ ]
+}
