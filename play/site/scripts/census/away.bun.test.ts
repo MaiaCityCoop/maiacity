@@ -3,7 +3,7 @@
  * (play/site/src/lib/content/assets/render/index.js) built in the census's headless world, one of Sandbox 1's kinds
  * drawn by the counting renderer, its copy given and taken again.
  *
- *   cd play/site && bun test scripts/census/away.test.ts
+ *   cd play/site && bun test scripts/census/away.bun.test.ts
  */
 import { beforeAll, expect, test } from 'bun:test';
 import { join } from 'node:path';

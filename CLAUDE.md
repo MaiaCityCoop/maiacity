@@ -60,7 +60,9 @@ a dry run of intents-pr.yml (`workflow_dispatch`, the pull request's number) giv
 world shown whole, the device held); the runner is a small VM, so its seconds and frames are not a Mac's and compare
 only with that runner's own. Every must green, the intent moves to Proposal by itself: **stop there**; any
 red, the intent stays in Build, failed on the board, its pull request as it is: fix and push. Each push to a ready pull
-request is run and recorded again (a newer head cancels the older head's run, which records nothing).
+request is run and recorded again (a newer head cancels the older head's run, which records nothing); a re-run of the
+head's run, whole or its failed jobs, records as a first run does, and a re-run of an older head's run records nothing
+(intent 090ef921).
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
 play's intents' board takes **only a waiting intent** (play/SPEC.md §4.12 *Sub-states*: its pull request's head the
 checked one, mergeable, its required checks green; working or failed, Accept is refused with why; so is every Accept
