@@ -355,7 +355,7 @@ export const tallest = (p) => Math.max(p.height, p.tall) * (1 + p.heightSpread) 
  * the sward closes from the eye (c4, `coverOf`: a meadow's near view 90 % covered at 1280 × 720, where the fallback's
  * numbers cover 57 %); the card culls what the view doesn't see one blade at a time, so it can stand them so thick.
  */
-export const GPU = { desktop: { near: 4, stands: 3 }, small: { near: 3, stands: 3 }, viewer: {} };
-/** @param {'desktop' | 'small' | 'viewer'} device */
+export const GPU = { desktop: { near: 4, stands: 3 }, small: { near: 3, stands: 3 } };
+/** @param {'desktop' | 'small'} device */
 export const gpuDevice = (device) => ({ ...DEVICES[device], ...GPU[device] });
 
