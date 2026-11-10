@@ -294,6 +294,8 @@ export function createUniverse(o = {}) {
 			U.night.value = U.moonLight.value = nightOf(alt);
 			U.stars.value = through.value = starsOf(alt);
 		},
+		/** the clouds where the wind has them at an hour of the sky @param {number} hour */
+		blow: (hour) => void (U.wind.value = windOf(hour)),
 		dispose() {
 			dome.geometry.dispose();
 			material.dispose();

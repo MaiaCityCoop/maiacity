@@ -333,8 +333,10 @@ vec3 skyHorizon(vec3 dir) {
 		scene.environment = envTarget.texture;
 	};
 
+	/** the sky's hour at a world's hour: a world with its own day has it spread over the sky's */
+	const skyHour = (/** @type {number} */ hour) => (worldDay ? onSkyDay(hour, worldDay) : hour);
 	const set = (hour = clock.hour()) => {
-		const sky = worldDay ? onSkyDay(hour, worldDay) : hour;
+		const sky = skyHour(hour);
 		const pinned = mood && !mood.indoor ? sunFrom(Math.max(mood.sun, -18), mood.az) : options.sun ? sunFrom(options.sun.elevation, options.sun.azimuth) : null;
 		const l = pinned ? lightOf(pinned, hour) : lightAt(sky);
 		// a real place's sky: the sky's own, mirrored north for south; then turned to where this world's north is
@@ -390,6 +392,8 @@ vec3 skyHorizon(vec3 dir) {
 		hour: clock.hour,
 		set,
 		tick: (now = performance.now()) => {
+			// the clouds drift every frame (one number): the sky's light follows once a second
+			universe.blow(skyHour(clock.hour()));
 			const c = dev.__interiorHour !== undefined ? `film ${dev.__interiorHour}` : skyTime.auto ? 'auto' : `hand ${skyTime.hour}`;
 			if (c === control && now - checked < 1000) return;
 			control = c;
