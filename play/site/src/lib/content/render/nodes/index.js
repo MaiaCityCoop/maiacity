@@ -18,12 +18,7 @@
  */
 import * as THREE from 'three';
 import { AttributeNode, MeshBasicNodeMaterial, MeshLambertNodeMaterial, MeshPhongNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
-import { SunLight } from 'three/addons/lights/SunLight.js';
-import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
 import { applyGraph } from './graph.js';
-
-// the sky's sun (three's SunLight, its cascaded shadows) lights node materials as it lights three's own
-SunLight.registerNode(SunLightNode);
 import {
 	If, abs, atan, int, uniformArray, cameraPosition, cameraViewMatrix, clamp, diffuseColor, dot, float, floor, fract, frontFacing, instanceColor, length, mat3, materialMetalness, materialNormal,
 	materialOpacity, materialRoughness, max, mix, mod, nodeObject, normalLocal, normalView, normalize, output, positionLocal, positionView, positionViewDirection, positionWorld, pow,
