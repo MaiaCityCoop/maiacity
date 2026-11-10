@@ -109,18 +109,16 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
   if (!first.pull_request) return null;
   await mustMove(db, first, "ship");
   if (!gh) refuse("play holds no SHIP_TOKEN, so it cannot merge: set the repository secret SHIP_TOKEN and deploy (deploy/README.md).");
-  const read = await readPull(gh!, first.pull_request).catch((e) => refuse(`Pull request #${first.pull_request} could not be read: ${(e as Error).message}.`));
-  const pr = read.pr;
-  // what play keeps of its main merge goes on (./mainmerge.ts): main merged in and GitHub not done yet is working
-  const seen = await carried(gh!, first.pr_seen, read.seen);
-  await keepSeen(db, first.id, seen);
+  const { pr, seen: fresh } = await readPull(gh!, first.pull_request).catch((e) => refuse(`Pull request #${first.pull_request} could not be read: ${(e as Error).message}.`));
   await db.transaction(async (tx) => {
-    // one Accept at a time: a second press waits here, then finds it in Ship
+    // one Accept at a time, none while play merges main in (./mainmerge.ts update), its merges carried on under the lock; refused, what it read kept
     await tx.query(`SELECT 1 FROM play.intents WHERE id = $1 FOR UPDATE`, [first.id]);
     const intent = await getIntent(tx, first.id);
     await mustMove(tx, intent, "ship");
+    const seen = await carried(gh!, intent.pr_seen, fresh);
+    await keepSeen(tx, intent.id, seen);
     const s = sub.of({ ...intent, pr_seen: seen }, seen);
-    if (!decidable(intent, s)) refuse(s ? `${s.why}.` : `Intent ${intent.id} is at the ${intent.stage} stage now.`);
+    if (!decidable(intent, s)) return s ? `${s.why}.` : `Intent ${intent.id} is at the ${intent.stage} stage now.`;
     const was: Ship | null = intent.ship ?? null;
     const at = now();
     let ship: Ship;
@@ -154,7 +152,7 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
     // the one decision path (./intents.ts decided): a person's Accept, or a rule's
     await decisions.decided(tx, intent.id, "ship", byOf(me), { ship });
     console.log(`ship: intent ${intent.id} accepted by ${who_}: in Ship (#${ship.pr}, ${ship.pending!.kind})`);
-  });
+  }).then((no) => no && refuse(no));
   await startIfReady(db, gh!, first.id).catch((e) => console.warn(`ship: intent ${first.id} not started yet: ${(e as Error).message}`));
   return getIntent(db, first.id);
 }
@@ -220,27 +218,26 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
       return;
     }
 
-    // a merge: GitHub ready, the head as checked, its checks green (./substate.ts prBlock, at the head it was accepted on)
-    const read = await readPull(gh, ship.pr, at);
-    const { pr, runs } = read;
-    // play's main merges carried on (./mainmerge.ts): results kept across them count at the head it was accepted on
-    const seen = await carried(gh, row.pr_seen, read.seen);
+    // a merge: GitHub ready, its checks green on the head accepted or on the one play's main merges made of it (./substate.ts prBlock)
+    const { pr, runs, seen: fresh } = await readPull(gh, ship.pr, at);
+    const seen = await carried(gh, row.pr_seen, fresh);
     await keepSeen(tx, id, seen);
     const block = prBlock(row, seen, pending.head);
     if (block?.state === "failed") return red(block.why, (block.why.startsWith("'") && runs.get(block.why.split("'")[1])?.html_url) || pr.html_url);
     if (block) return wait(block.why, true);
 
     const by = ship.by;
+    const head = (ship.head = seen.head);
     try {
-      await postStatus(tx, gh, id, seen, ACCEPTED_CONTEXT, "success", `Accepted by ${by} on play`, { head: pending.head });
+      await postStatus(tx, gh, id, seen, ACCEPTED_CONTEXT, "success", `Accepted by ${by} on play`, { head });
     } catch (e) {
       return red(`GitHub took no '${ACCEPTED_CONTEXT}' on #${pr.number}'s head: ${(e as Error).message}`, pr.html_url);
     }
     let merged: { sha: string };
     try {
-      merged = await gh.merge(pr.number, pending.head, `${pr.title} (#${pr.number})`, `Accepted by ${by} on play: ${intentLink(id)}\n\nIntent: ${id}`);
+      merged = await gh.merge(pr.number, head, `${pr.title} (#${pr.number})`, `Accepted by ${by} on play: ${intentLink(id)}\n\nIntent: ${id}`);
     } catch (e) {
-      await postStatus(tx, gh, id, seen, ACCEPTED_CONTEXT, "failure", "Accepted, but not merged: accept it again", { head: pending.head }).catch((e) => console.warn(`ship: intent ${id}: not merged, and its head not marked so: ${(e as Error).message}`));
+      await postStatus(tx, gh, id, seen, ACCEPTED_CONTEXT, "failure", "Accepted, but not merged: accept it again", { head }).catch((e) => console.warn(`ship: intent ${id}: not merged, and its head not marked so: ${(e as Error).message}`));
       return red(`GitHub did not merge #${pr.number}: ${(e as Error).message}`, pr.html_url);
     }
     Object.assign(ready, { state: "green", finished: iso, note: `#${pr.number} ready, its checks green` });

@@ -179,6 +179,148 @@ suite("accept ships it", () => {
     expect((await call("ada", "POST", `/api/intents/${d.id}/accept`)).status).toBe(409);
   });
 
+  // intent d3b44f49: Accept and Ship ride over play's own main merges
+  const RUNNING = { ...green("website / build"), status: "in_progress", conclusion: null };
+  /** an intent at Proposal, its musts passed on its head X; main moves and play merges it in: GitHub made Y, its checks running */
+  const left: string[] = [];
+  /** what these cases leave at Proposal behind main, archived so no later watcher merges main into it */
+  const archiveLeft = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE id = ANY($1) AND stage = 'proposal'`, [left.splice(0)]);
+  const ridden = async (title: string) => {
+    const c = await codeAtProposal(title);
+    left.push(c.id);
+    gh.commit(c.head, "the intent's change", [gh.main.head], false);
+    await watchPulls(db, gh.gh, store);
+    gh.commit(sha(++commits), "another intent's merge on main");
+    await mergeMain(db, gh.gh, mainMergeState());
+    const y = gh.pulls.get(c.pr)!.head.sha;
+    expect(gh.graph.get(y)!.parents).toEqual([c.head, gh.main.head]);
+    gh.checks.set(y, [green("play / API and site"), RUNNING]);
+    return { ...c, y };
+  };
+  /** accepted at X while GitHub still makes Y (its head read as X), then GitHub has made it */
+  const acceptedAtX = async (title: string) => {
+    await clearShips();
+    const c = await ridden(title);
+    gh.pulls.get(c.pr)!.head.sha = c.head;
+    expect((await call("ada", "POST", `/api/intents/${c.id}/accept`)).data.stage).toBe("ship");
+    expect(await shipOf(c.id)).toMatchObject({ pending: { kind: "merge", head: c.head } });
+    expect((await readyOf(c.id)).note).toBe(`main merged in: GitHub makes #${c.pr}'s new head`);
+    gh.pulls.get(c.pr)!.head.sha = c.y;
+    return { ...c, from: gh.calls.length };
+  };
+  const mergedAt = async (c: { id: string; pr: number; merge: string }, head: string, from: number) => {
+    const writes = writesSince(from).filter((w) => w.path === `/statuses/${head}` || w.path.startsWith(`/pulls/${c.pr}/`));
+    expect(writes.map((w) => `${w.method} ${w.path}`)).toEqual([`POST /statuses/${head}`, `PUT /pulls/${c.pr}/merge`]);
+    expect(writes[1].body).toMatchObject({ merge_method: "merge", sha: head });
+    expect(await intent(c.id)).toMatchObject({ stage: "ship", ship: { head, merge: c.merge, pending: null } });
+  };
+  const redAt = async (id: string, says: string) => {
+    const i = await intent(id);
+    expect(i).toMatchObject({ stage: "proposal", ship: { outcome: "red", report: { step: "Ready to merge" } } });
+    expect(i.ship.report.why).toContain(says);
+  };
+
+  test("Accept during main merge: musts passed on X, play's merge X→Y made, Y's checks running: in Ship at once, waiting for Y's checks; refused as today for a failed must, a conflict, a red required check, a push", async () => {
+    await clearShips();
+    const a = await ridden("Accepted while main's merge runs");
+    let from = gh.calls.length;
+    const r = await call("ada", "POST", `/api/intents/${a.id}/accept`);
+    expect(r.status).toBe(200);
+    expect(r.data).toMatchObject({ stage: "ship", ship: { pr: a.pr, pending: { kind: "merge", head: a.y } } });
+    expect(await readyOf(a.id)).toMatchObject({ state: "running" });
+    expect((await readyOf(a.id)).note).toContain(`main merged in: waiting for #${a.pr}'s checks on ${a.y.slice(0, 7)}`);
+    expect((await intent(a.id)).sub.state).toBe("working");
+    expect(writesSince(from)).toEqual([]);
+    // Y's checks green: 'Intent accepted' on Y and Y merged
+    gh.checks.set(a.y, [green("play / API and site"), green("website / build")]);
+    from = gh.calls.length;
+    await watchShips(db, gh.gh, store);
+    await mergedAt(a, a.y, from);
+
+    const refused = async (title: string, after: (c: Awaited<ReturnType<typeof ridden>>) => Promise<unknown> | void, says: string) => {
+      await clearShips();
+      const c = await ridden(title);
+      await after(c);
+      const no = await call("ada", "POST", `/api/intents/${c.id}/accept`);
+      expect(no.status).toBe(409);
+      expect(no.data.error).toContain(says);
+      expect((await intent(c.id)).stage).toBe("proposal");
+    };
+    await refused("A failed must", (c) => db.query(`UPDATE play.intents SET results = jsonb_set(results, '{c1,pass}', 'false') WHERE id = $1`, [c.id]), "c1 (Its tests pass): failed");
+    await refused("A conflict", (c) => void (gh.pulls.get(c.pr)!.mergeable = false), "conflicts with main");
+    await refused("A red required check", (c) => void gh.checks.set(c.y, [green("play / API and site"), { ...green("website / build"), conclusion: "failure" }]), "'website / build' is failure");
+    await refused("A push after play's merge", (c) => {
+      const z = gh.commit(sha(++commits), "the builder's push", [c.y], false);
+      gh.pulls.get(c.pr)!.head.sha = z;
+      gh.checks.set(z, [green("play / API and site"), green("website / build")]);
+    }, "moved past the checked commit");
+    await archiveLeft();
+  });
+
+  test("ship rides main merge: accepted at X, Y made by play's merge: Ready to merge waits for Y's checks, then 'Intent accepted' on Y and Y merged; red for a red check on Y or a failed must recorded on Y", async () => {
+    const c = await acceptedAtX("Rides main's merge");
+    await watchShips(db, gh.gh, store);
+    expect(await readyOf(c.id)).toMatchObject({ state: "running" });
+    expect((await readyOf(c.id)).note).toContain(`main merged in: waiting for #${c.pr}'s checks on ${c.y.slice(0, 7)}`);
+    expect(writesSince(c.from)).toEqual([]);
+    gh.checks.set(c.y, [green("play / API and site"), green("website / build")]);
+    await watchShips(db, gh.gh, store);
+    await mergedAt(c, c.y, c.from);
+
+    const r = await acceptedAtX("Rides into a red check");
+    gh.checks.set(r.y, [green("play / API and site"), { ...green("website / build"), conclusion: "failure" }]);
+    await watchShips(db, gh.gh, store);
+    await redAt(r.id, `'website / build' is failure on #${r.pr}'s head ${r.y.slice(0, 7)}`);
+    expect(gh.pulls.get(r.pr)!.merged).toBe(false);
+
+    // the box's run records a failed must on Y
+    const b = await acceptedAtX("Rides into a failed must");
+    await db.query(`UPDATE play.intents SET results = jsonb_set(results, '{c1}', ($2::text)::jsonb) WHERE id = $1`, [b.id, JSON.stringify({ pass: false, commit: b.y, at: new Date().toISOString() })]);
+    await watchShips(db, gh.gh, store);
+    await redAt(b.id, `c1 failed on ${b.y.slice(0, 7)}`);
+    expect(gh.pulls.get(b.pr)!.merged).toBe(false);
+    await archiveLeft();
+  });
+
+  test("a push still stops a ship: a head moved by a commit that is not play's own main merge is red at Ready to merge", async () => {
+    const c = await acceptedAtX("Pushed to while it ships");
+    const z = gh.commit(sha(++commits), "the builder's push", [c.head], false);
+    gh.pulls.get(c.pr)!.head.sha = z;
+    gh.checks.set(z, [green("play / API and site"), green("website / build")]);
+    await watchShips(db, gh.gh, store);
+    await redAt(c.id, `#${c.pr}'s head moved from ${c.head.slice(0, 7)} to ${z.slice(0, 7)} while it waited: its checks are recorded on the new head, then Accept again`);
+    // a push on top of play's merge too
+    const d = await acceptedAtX("Pushed to after main's merge");
+    await watchShips(db, gh.gh, store);
+    const z2 = gh.commit(sha(++commits), "the builder's push", [d.y], false);
+    gh.pulls.get(d.pr)!.head.sha = z2;
+    gh.checks.set(z2, [green("play / API and site"), green("website / build")]);
+    await watchShips(db, gh.gh, store);
+    await redAt(d.id, `#${d.pr}'s head moved from ${d.head.slice(0, 7)} to ${z2.slice(0, 7)}`);
+    expect(gh.pulls.get(d.pr)!.merged).toBe(false);
+    await archiveLeft();
+  });
+
+  test("Accept and main merge race: Accept and play's update-branch in one tick never end red; the ship merges the head play made once its checks are green", async () => {
+    // the interleaving where Accept read X before play's update and decides after it is acceptedAtX's; here both at once
+    await clearShips();
+    const c = await codeAtProposal("Accepted as main is merged in");
+    left.push(c.id);
+    gh.commit(c.head, "the intent's change", [gh.main.head], false);
+    await watchPulls(db, gh.gh, store);
+    gh.commit(sha(++commits), "another intent's merge on main");
+    const [, r] = await Promise.all([mergeMain(db, gh.gh, mainMergeState()), call("ada", "POST", `/api/intents/${c.id}/accept`)]);
+    expect(r.status).toBe(200);
+    const head = gh.pulls.get(c.pr)!.head.sha;
+    gh.checks.set(head, [green("play / API and site"), green("website / build")]);
+    await watchShips(db, gh.gh, store);
+    const i = await intent(c.id);
+    expect(i.ship.outcome).not.toBe("red");
+    expect(i).toMatchObject({ stage: "ship", ship: { head, merge: c.merge, pending: null } });
+    expect(gh.calls.filter((w) => w.path === `/pulls/${c.pr}/merge`).at(-1)!.body).toMatchObject({ sha: head });
+    await archiveLeft();
+  });
+
   test("Accept takes only a waiting intent: GitHub working out whether it merges, or its checks running, refuse it with the reason; another ship ahead, it waits in Ship", async () => {
     await clearShips();
     // GitHub hasn't worked it out yet (mergeable null): working, Accept refused, nothing written (intent 2bf8af96)
