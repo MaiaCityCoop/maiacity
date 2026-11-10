@@ -1,6 +1,7 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+- **smoke 9cbf7c1af: OK** ([e85a5860] Grass by the million: blades culled and chosen on the graphics card (#2224); 429 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 5c9edac10: OK** ([a5faafad] GPU 14/14 · Recipes bring their own shaders, safely: TSL node graphs as checked; 397 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 3f3c6e4ad: OK** ([c1bee1f8] WebGPU on every page: the switch (#2186); 395 s). 16 pages; all drawn. Frames: near 16.7 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 4417092b7: OK** ([090168c8] Real grass: blades you could walk through, near to far (#2183); 292 s). 16 pages; all drawn. Frames: near 29.1 ms · mid 38.4 ms · far 16.7 ms.
