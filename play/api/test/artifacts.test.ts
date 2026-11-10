@@ -278,7 +278,8 @@ suite("artifacts", () => {
     expect(wordsOf(fixed.summary)).toBe(700);
     expect(fixed.authors.map((a: any) => a.name)).toEqual(["Jane Doe", "John Roe"]);
     expect(fixed.updated_by).toBe("Bea");
-    expect(Date.now() - new Date(fixed.updated_at).getTime()).toBeLessThan(60_000);
+    // Postgres wrote it at its own clock: held to that one, not to the tests' pinned Date (play/avenbox/clock.ts)
+    expect((await db.query(`SELECT now() - $1::timestamptz < interval '1 minute' AS fresh`, [fixed.updated_at])).rows[0].fresh).toBe(true);
     expect(fixed.agent.id).toBe(AVENMAIA);
     expect(fixed.operator.id).toBe(who.Samuel.id);
     expect(fixed.origin).toBe("human");

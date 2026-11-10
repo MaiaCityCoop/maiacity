@@ -191,7 +191,7 @@ suite("delivery", () => {
   });
 
   test("read: GET /api/delivery answers an admin, refuses a traveler and no session; the MCP tool delivery is listed and answers the same", async () => {
-    // the route reads at the real clock: accepted an hour ago
+    // the route reads at the clock (the tests' pinned one): accepted an hour ago
     const ago = (m: number) => new Date(Date.now() - m * MIN).toISOString();
     const id = await intent({ stage: "accepted", created: ago(120), decided_at: ago(60) });
     const ok = await call("GET", "/api/delivery?days=3");
