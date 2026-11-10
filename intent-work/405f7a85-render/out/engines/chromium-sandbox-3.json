@@ -1,0 +1,305 @@
+{
+ "tag": "chromium-sandbox-3",
+ "browser": "chromium",
+ "path": "/sandbox-3/",
+ "lines": [
+  {
+   "t": 10,
+   "card": false,
+   "line": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 20,
+   "card": false,
+   "line": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 30,
+   "card": false,
+   "line": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 40,
+   "card": false,
+   "line": null,
+   "backend": "webgpu"
+  }
+ ],
+ "shown_s": 40,
+ "info": {
+  "backend": "webgpu",
+  "walker": false,
+  "canvas": [
+   [
+    1440,
+    900
+   ]
+  ]
+ },
+ "A": {
+  "standing": {
+   "frames": 596,
+   "frame_ms": 16.7,
+   "frame_p95": 16.8,
+   "cpu_ms": 7.8,
+   "gpu_ms": 8.7,
+   "calls": 621,
+   "triangles": 926435,
+   "bound": "vsync"
+  },
+  "walking": {
+   "frames": 597,
+   "frame_ms": 16.7,
+   "frame_p95": 16.7,
+   "cpu_ms": 6.1,
+   "gpu_ms": 8.3,
+   "calls": 463,
+   "triangles": 903197,
+   "bound": "vsync"
+  }
+ },
+ "B": {
+  "standing": {
+   "frames": 600,
+   "js_ms_mean": 6.29,
+   "js_ms_median": 6.3,
+   "js_ms_p95": 6.5,
+   "api_ms_per_frame": 1.82,
+   "js_outside_api_ms": 4.47,
+   "table": [
+    {
+     "call": "queue.writeBuffer",
+     "calls_per_frame": 987.4,
+     "ms_per_frame": 0.908
+    },
+    {
+     "call": "queue.submit",
+     "calls_per_frame": 25,
+     "ms_per_frame": 0.179
+    },
+    {
+     "call": "encoder.finish",
+     "calls_per_frame": 25,
+     "ms_per_frame": 0.128
+    },
+    {
+     "call": "encoder.beginRenderPass",
+     "calls_per_frame": 23,
+     "ms_per_frame": 0.121
+    },
+    {
+     "call": "pass.drawIndexed",
+     "calls_per_frame": 369.4,
+     "ms_per_frame": 0.088
+    },
+    {
+     "call": "device.createBuffer",
+     "calls_per_frame": 45.9,
+     "ms_per_frame": 0.076
+    },
+    {
+     "call": "buffer.mapAsync",
+     "calls_per_frame": 23,
+     "ms_per_frame": 0.064
+    },
+    {
+     "call": "device.createCommandEncoder",
+     "calls_per_frame": 25,
+     "ms_per_frame": 0.051
+    },
+    {
+     "call": "pass.setVertexBuffer",
+     "calls_per_frame": 120.8,
+     "ms_per_frame": 0.039
+    },
+    {
+     "call": "pass.setBindGroup",
+     "calls_per_frame": 102.8,
+     "ms_per_frame": 0.036
+    },
+    {
+     "call": "buffer.destroy",
+     "calls_per_frame": 45.9,
+     "ms_per_frame": 0.034
+    },
+    {
+     "call": "pass.setPipeline",
+     "calls_per_frame": 52.9,
+     "ms_per_frame": 0.024
+    },
+    {
+     "call": "device.createQuerySet",
+     "calls_per_frame": 23,
+     "ms_per_frame": 0.023
+    },
+    {
+     "call": "pass.setIndexBuffer",
+     "calls_per_frame": 26,
+     "ms_per_frame": 0.01
+    },
+    {
+     "call": "pass.draw",
+     "calls_per_frame": 27,
+     "ms_per_frame": 0.009
+    },
+    {
+     "call": "texture.createView",
+     "calls_per_frame": 1,
+     "ms_per_frame": 0.007
+    },
+    {
+     "call": "encoder.copyBufferToBuffer",
+     "calls_per_frame": 23,
+     "ms_per_frame": 0.007
+    },
+    {
+     "call": "encoder.copyTextureToTexture",
+     "calls_per_frame": 2,
+     "ms_per_frame": 0.007
+    },
+    {
+     "call": "encoder.resolveQuerySet",
+     "calls_per_frame": 23,
+     "ms_per_frame": 0.006
+    },
+    {
+     "call": "pass.end",
+     "calls_per_frame": 23,
+     "ms_per_frame": 0.003
+    }
+   ]
+  },
+  "walking": {
+   "frames": 602,
+   "js_ms_mean": 6.53,
+   "js_ms_median": 6.3,
+   "js_ms_p95": 6.7,
+   "api_ms_per_frame": 1.93,
+   "js_outside_api_ms": 4.6,
+   "table": [
+    {
+     "call": "queue.writeBuffer",
+     "calls_per_frame": 1082.5,
+     "ms_per_frame": 0.978
+    },
+    {
+     "call": "queue.submit",
+     "calls_per_frame": 25.1,
+     "ms_per_frame": 0.185
+    },
+    {
+     "call": "encoder.beginRenderPass",
+     "calls_per_frame": 23.1,
+     "ms_per_frame": 0.129
+    },
+    {
+     "call": "encoder.finish",
+     "calls_per_frame": 25.1,
+     "ms_per_frame": 0.125
+    },
+    {
+     "call": "pass.drawIndexed",
+     "calls_per_frame": 396.1,
+     "ms_per_frame": 0.093
+    },
+    {
+     "call": "device.createBuffer",
+     "calls_per_frame": 46.3,
+     "ms_per_frame": 0.077
+    },
+    {
+     "call": "buffer.mapAsync",
+     "calls_per_frame": 23.1,
+     "ms_per_frame": 0.069
+    },
+    {
+     "call": "device.createCommandEncoder",
+     "calls_per_frame": 25.1,
+     "ms_per_frame": 0.049
+    },
+    {
+     "call": "pass.setBindGroup",
+     "calls_per_frame": 129.4,
+     "ms_per_frame": 0.046
+    },
+    {
+     "call": "pass.setVertexBuffer",
+     "calls_per_frame": 143.6,
+     "ms_per_frame": 0.043
+    },
+    {
+     "call": "buffer.destroy",
+     "calls_per_frame": 46.3,
+     "ms_per_frame": 0.032
+    },
+    {
+     "call": "pass.setPipeline",
+     "calls_per_frame": 53.4,
+     "ms_per_frame": 0.029
+    },
+    {
+     "call": "device.createQuerySet",
+     "calls_per_frame": 23.1,
+     "ms_per_frame": 0.025
+    },
+    {
+     "call": "pass.setIndexBuffer",
+     "calls_per_frame": 35.5,
+     "ms_per_frame": 0.014
+    },
+    {
+     "call": "pass.draw",
+     "calls_per_frame": 39.1,
+     "ms_per_frame": 0.009
+    },
+    {
+     "call": "encoder.copyTextureToTexture",
+     "calls_per_frame": 2,
+     "ms_per_frame": 0.009
+    },
+    {
+     "call": "texture.createView",
+     "calls_per_frame": 1,
+     "ms_per_frame": 0.007
+    },
+    {
+     "call": "encoder.copyBufferToBuffer",
+     "calls_per_frame": 23.1,
+     "ms_per_frame": 0.007
+    },
+    {
+     "call": "encoder.resolveQuerySet",
+     "calls_per_frame": 23.1,
+     "ms_per_frame": 0.005
+    },
+    {
+     "call": "pass.end",
+     "calls_per_frame": 23.1,
+     "ms_per_frame": 0.004
+    },
+    {
+     "call": "pass.setViewport",
+     "calls_per_frame": 0.1,
+     "ms_per_frame": 0
+    }
+   ]
+  }
+ },
+ "console": [
+  {
+   "n": 16,
+   "m": "THREE.LightsNode.setupNodeLights: Light node not found for be"
+  },
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 ()"
+  },
+  {
+   "n": 1,
+   "m": "THREE.Source: \"Source\" has been renamed to \"TextureSource\". Please update your code to use \"THREE.TextureSource\" instead."
+  }
+ ]
+}

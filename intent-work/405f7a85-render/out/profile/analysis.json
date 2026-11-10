@@ -1,0 +1,277 @@
+{
+ "cpu_profile": {
+  "window_s": [
+   61.0,
+   205.0
+  ],
+  "sampled_ms": 143883,
+  "top_self": [
+   {
+    "fn": "(idle)",
+    "self_ms": 108618,
+    "share": 0.755
+   },
+   {
+    "fn": "(program)",
+    "self_ms": 20317,
+    "share": 0.141
+   },
+   {
+    "fn": "(anonymous) MPswbtAQ.js:1",
+    "self_ms": 1210,
+    "share": 0.008
+   },
+   {
+    "fn": "(garbage collector)",
+    "self_ms": 1197,
+    "share": 0.008
+   },
+   {
+    "fn": "j -r-ceGi2.js:1",
+    "self_ms": 749,
+    "share": 0.005
+   },
+   {
+    "fn": "Gd BPIJtPFW.js:269",
+    "self_ms": 683,
+    "share": 0.005
+   },
+   {
+    "fn": "(anonymous) BWuxuwiM.js:2",
+    "self_ms": 589,
+    "share": 0.004
+   },
+   {
+    "fn": "(anonymous) Bwf3OmIY.js:1",
+    "self_ms": 533,
+    "share": 0.004
+   },
+   {
+    "fn": "createAttribute BPIJtPFW.js:518",
+    "self_ms": 361,
+    "share": 0.003
+   },
+   {
+    "fn": "build DKRTe-6J.js:3",
+    "self_ms": 299,
+    "share": 0.002
+   },
+   {
+    "fn": "G DE7o4ob4.js:1",
+    "self_ms": 295,
+    "share": 0.002
+   },
+   {
+    "fn": "_draw BPIJtPFW.js:519",
+    "self_ms": 246,
+    "share": 0.002
+   },
+   {
+    "fn": "updateForRender BPIJtPFW.js:6",
+    "self_ms": 214,
+    "share": 0.001
+   },
+   {
+    "fn": "#e CNzzWrKt.js:1",
+    "self_ms": 201,
+    "share": 0.001
+   },
+   {
+    "fn": "getX DFHh0sxs.js:1",
+    "self_ms": 198,
+    "share": 0.001
+   },
+   {
+    "fn": "getZ DFHh0sxs.js:1",
+    "self_ms": 190,
+    "share": 0.001
+   },
+   {
+    "fn": "O -r-ceGi2.js:1",
+    "self_ms": 190,
+    "share": 0.001
+   },
+   {
+    "fn": "applyMatrix4 DFHh0sxs.js:1",
+    "self_ms": 183,
+    "share": 0.001
+   },
+   {
+    "fn": "k -r-ceGi2.js:1",
+    "self_ms": 163,
+    "share": 0.001
+   },
+   {
+    "fn": "get BPIJtPFW.js:1",
+    "self_ms": 163,
+    "share": 0.001
+   },
+   {
+    "fn": "updateAttribute BPIJtPFW.js:518",
+    "self_ms": 157,
+    "share": 0.001
+   },
+   {
+    "fn": "getY DFHh0sxs.js:1",
+    "self_ms": 151,
+    "share": 0.001
+   },
+   {
+    "fn": "(anonymous) DaHrKJUI.js:1",
+    "self_ms": 147,
+    "share": 0.001
+   },
+   {
+    "fn": "h BWuxuwiM.js:2",
+    "self_ms": 141,
+    "share": 0.001
+   },
+   {
+    "fn": "update BPIJtPFW.js:6",
+    "self_ms": 140,
+    "share": 0.001
+   },
+   {
+    "fn": "fromBufferAttribute DFHh0sxs.js:1",
+    "self_ms": 140,
+    "share": 0.001
+   },
+   {
+    "fn": "Me DaHrKJUI.js:1",
+    "self_ms": 140,
+    "share": 0.001
+   },
+   {
+    "fn": "xn MPswbtAQ.js:1",
+    "self_ms": 136,
+    "share": 0.001
+   },
+   {
+    "fn": "add BWuxuwiM.js:2",
+    "self_ms": 129,
+    "share": 0.001
+   },
+   {
+    "fn": "e DFHh0sxs.js:1",
+    "self_ms": 116,
+    "share": 0.001
+   }
+  ]
+ },
+ "long_tasks": {
+  "count": 46,
+  "sum_ms": 8634,
+  "max_ms": 3652,
+  "over_1s": [
+   [
+    194025,
+    3652
+   ]
+  ]
+ },
+ "trace": {
+  "threads_busy": [
+   {
+    "thread": "DedicatedWorker thread",
+    "process": "Renderer",
+    "busy_s": 117.0,
+    "share": 0.81
+   },
+   {
+    "thread": "CrRendererMain",
+    "process": "Renderer",
+    "busy_s": 16.1,
+    "share": 0.11
+   },
+   {
+    "thread": "CrGpuMain",
+    "process": "GPU Process",
+    "busy_s": 4.7,
+    "share": 0.03
+   },
+   {
+    "thread": "CrBrowserMain",
+    "process": "Browser",
+    "busy_s": 2.4,
+    "share": 0.02
+   }
+  ],
+  "gpu_main_top": [
+   {
+    "event": "RunTask",
+    "ms": 4681,
+    "n": 13215
+   },
+   {
+    "event": "ThreadControllerImpl::RunTask",
+    "ms": 4656,
+    "n": 11895
+   },
+   {
+    "event": "Scheduler::RunTask",
+    "ms": 4496,
+    "n": 6652
+   },
+   {
+    "event": "GpuChannel::ExecuteDeferredRequest",
+    "ms": 2715,
+    "n": 5774
+   },
+   {
+    "event": "GPUTask",
+    "ms": 2674,
+    "n": 5770
+   },
+   {
+    "event": "CommandBuffer::Flush",
+    "ms": 2626,
+    "n": 5195
+   },
+   {
+    "event": "CommandBufferStub::OnAsyncFlush",
+    "ms": 2619,
+    "n": 5195
+   },
+   {
+    "event": "CommandBufferService:PutChanged",
+    "ms": 2602,
+    "n": 5194
+   },
+   {
+    "event": "WebGPU",
+    "ms": 2332,
+    "n": 4907
+   },
+   {
+    "event": "IOSurfaceImageBacking::WaitForCommandsToBeScheduled",
+    "ms": 1499,
+    "n": 795
+   },
+   {
+    "event": "IOSurfaceImageBacking::WaitForCommandsToBeScheduled::Dawn",
+    "ms": 1497,
+    "n": 237
+   },
+   {
+    "event": "RendererRasterWorker",
+    "ms": 203,
+    "n": 396
+   },
+   {
+    "event": "RasterDecoderImpl::DoEndRasterCHROMIUM",
+    "ms": 196,
+    "n": 182
+   },
+   {
+    "event": "RasterDecoderImpl::DoEndRasterCHROMIUM::Flush",
+    "ms": 191,
+    "n": 182
+   },
+   {
+    "event": "ImageTransportSurfaceOverlayMac::Present",
+    "ms": 51,
+    "n": 239
+   }
+  ]
+ }
+}

@@ -1,0 +1,133 @@
+  Letting in the light
+  Laying the paths
+array texture: TypeError: Failed to construct 'Request': Invalid URL "/api/files/7dfe9fb28bb41b928199d3b6e1e12c188ad5f3b689388c4967f06125295f8db9"
+ code: "ERR_INVALID_URL"
+
+      at Request (unknown:1:1)
+      at load (/Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/build/three.core.js:45612:19)
+      at load (/Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/examples/jsm/loaders/KTX2Loader.js:406:10)
+      at /Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/build/three.core.js:45332:10
+      at Promise (unknown:1:11)
+      at loadAsync (/Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/build/three.core.js:45330:14)
+      at read (/Users/samuelandert/Documents/Development/probe-main/play/site/src/lib/content/render/arrays.js:30:66)
+      at map (unknown:1:11)
+      at arrayOf (/Users/samuelandert/Documents/Development/probe-main/play/site/src/lib/content/render/arrays.js:46:42)
+      at need (/Users/samuelandert/Documents/Development/probe-main/play/site/src/lib/content/render/nodes/ground.js:37:3)
+
+array texture: TypeError: Failed to construct 'Request': Invalid URL "/api/files/ff6b3a42b3284ed1ff5f8c7dceb9014f2c2aac6551b284645c69b6a1dd418a4f"
+ code: "ERR_INVALID_URL"
+
+      at Request (unknown:1:1)
+      at load (/Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/build/three.core.js:45612:19)
+      at load (/Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/examples/jsm/loaders/KTX2Loader.js:406:10)
+      at /Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/build/three.core.js:45332:10
+      at Promise (unknown:1:11)
+      at loadAsync (/Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/build/three.core.js:45330:14)
+      at read (/Users/samuelandert/Documents/Development/probe-main/play/site/src/lib/content/render/arrays.js:30:66)
+      at map (unknown:1:11)
+      at arrayOf (/Users/samuelandert/Documents/Development/probe-main/play/site/src/lib/content/render/arrays.js:46:42)
+      at need (/Users/samuelandert/Documents/Development/probe-main/play/site/src/lib/content/render/nodes/ground.js:37:3)
+
+array texture: TypeError: Failed to construct 'Request': Invalid URL "/api/files/9afb02540afb77638205f5f5b68371d2f6ea6a071897b97b15306aeaf4ab7f39"
+ code: "ERR_INVALID_URL"
+
+      at Request (unknown:1:1)
+      at load (/Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/build/three.core.js:45612:19)
+      at load (/Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/examples/jsm/loaders/KTX2Loader.js:406:10)
+      at /Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/build/three.core.js:45332:10
+      at Promise (unknown:1:11)
+      at loadAsync (/Users/samuelandert/Documents/Development/probe-main/play/site/node_modules/three/build/three.core.js:45330:14)
+      at read (/Users/samuelandert/Documents/Development/probe-main/play/site/src/lib/content/render/arrays.js:30:66)
+      at map (unknown:1:11)
+      at arrayOf (/Users/samuelandert/Documents/Development/probe-main/play/site/src/lib/content/render/arrays.js:46:42)
+      at need (/Users/samuelandert/Documents/Development/probe-main/play/site/src/lib/content/render/nodes/ground.js:37:3)
+
+  Letting the stream in
+  Raising the master domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Planting the edges
+  Sowing the fields
+  Planting the canopy
+  Planting the canopy
+  Planting the canopy
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the shrubs
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+THREE.MeshPhysicalMaterial: The "iridescenceThicknessRange" property has been replaced by "iridescenceThicknessMinimum" and "iridescenceThicknessMaximum".
+THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+  Growing the forest: 10 of 198 kinds
+  Growing the forest: 20 of 198 kinds
+  Growing the forest: 30 of 198 kinds
+  Growing the forest: 40 of 198 kinds
+  Growing the forest: 50 of 198 kinds
+  Growing the forest: 60 of 198 kinds
+  Growing the forest: 70 of 198 kinds
+  Growing the forest: 80 of 198 kinds
+  Growing the forest: 90 of 198 kinds
+  Growing the forest: 100 of 198 kinds
+  Growing the forest: 110 of 198 kinds
+  Growing the forest: 120 of 198 kinds
+  Growing the forest: 130 of 198 kinds
+  Growing the forest: 140 of 198 kinds
+  Growing the forest: 150 of 198 kinds
+  Growing the forest: 160 of 198 kinds
+  Growing the forest: 170 of 198 kinds
+  Growing the forest: 180 of 198 kinds
+  Growing the forest: 190 of 198 kinds
+  Growing the forest: 198 of 198 kinds
+  Growing the forest
+  Opening the doors
+  Growing the forest: the plants near you
+  ready
+census: sandbox-1 built in 237.6 s (0 routes live, 2 pinned, 107 files)
+census: sandbox-1 near: 23,280,383 triangles a frame (7,676,973 main, 15,603,410 shadow), 11383 draws
+census: sandbox-1 mid: 30,775,665 triangles a frame (11,918,613 main, 18,857,052 shadow), 8611 draws
+census: sandbox-1 far: 5,661,607 triangles a frame (3,105,699 main, 2,555,908 shadow), 3627 draws
+
+sandbox-1 near on WebGPURenderer
+  triangles a frame  23,280,383  (main 7,676,973, shadow 15,603,410, into targets 0)
+  draws              11,383  (meshes 2,129, instanced batches 1,464, indirect 6, of 73,216 instances, shadow 7,784; compute passes 3)
+  culled             1,644 objects, 2,484,016 triangles
+  plants not grown   0
+  out                610,810 triangles, 72 draws, 8,411 copies (3,103 pictures, 0 ghosts), shapes 599,894 triangles
+  in                 17,106 triangles, 8 draws, 753 copies (688 pictures, 0 ghosts), shapes 15,730 triangles
+  library            167,531 triangles, 117 draws, 4,767 copies (0 pictures, 0 ghosts), shapes 19,478 triangles
+
+sandbox-1 mid on WebGPURenderer
+  triangles a frame  30,775,665  (main 11,918,613, shadow 18,857,052, into targets 0)
+  draws              8,611  (meshes 2,421, instanced batches 1,152, indirect 6, of 101,980 instances, shadow 5,032; compute passes 3)
+  culled             142 objects, 20,872 triangles
+  plants not grown   0
+  out                2,851,162 triangles, 113 draws, 8,590 copies (4,910 pictures, 0 ghosts), shapes 2,576,525 triangles
+  in                 100 triangles, 1 draws, 50 copies (50 pictures, 0 ghosts), shapes 0 triangles
+  library            206,038 triangles, 35 draws, 9,691 copies (0 pictures, 0 ghosts), shapes 28,787 triangles
+
+sandbox-1 far on WebGPURenderer
+  triangles a frame  5,661,607  (main 3,105,699, shadow 2,555,908, into targets 0)
+  draws              3,627  (meshes 1,143, instanced batches 618, indirect 6, of 59,132 instances, shadow 1,860; compute passes 3)
+  culled             0 objects, 0 triangles
+  plants not grown   0
+  out                67,861 triangles, 7 draws, 8,473 copies (7,447 pictures, 0 ghosts), shapes 52,967 triangles
+  in                 0 triangles, 0 draws, 0 copies (0 pictures, 0 ghosts), shapes 0 triangles
+  library            41,980 triangles, 25 draws, 11 copies (0 pictures, 0 ghosts), shapes 0 triangles
+
+census: 3 views in 316.1 s

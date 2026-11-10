@@ -1,0 +1,533 @@
+{
+ "tag": "webkit-sandbox-5",
+ "browser": "webkit",
+ "path": "/sandbox-5/",
+ "lines": [
+  {
+   "t": 10,
+   "card": true,
+   "line": "Letting the stream in…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 20,
+   "card": true,
+   "line": "Planting round the dome…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 30,
+   "card": true,
+   "line": "Growing the forest: 10 of 180 kinds…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 40,
+   "card": true,
+   "line": "Growing the forest: 30 of 180 kinds…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 50,
+   "card": true,
+   "line": "Growing the forest: 30 of 180 kinds…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 60,
+   "card": true,
+   "line": "Growing the forest: 40 of 180 kinds…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 70,
+   "card": true,
+   "line": "Growing the forest: 40 of 180 kinds…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 80,
+   "card": true,
+   "line": "Growing the forest: 60 of 180 kinds…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 90,
+   "card": true,
+   "line": "Growing the forest: 80 of 180 kinds…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 100,
+   "card": true,
+   "line": "Growing the forest: 170 of 180 kinds…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 110,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 120,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 130,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 140,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 150,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 160,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 170,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 180,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "backend": "webgpu"
+  },
+  {
+   "t": 191,
+   "card": true,
+   "line": "Welcome",
+   "backend": "webgpu"
+  },
+  {
+   "t": 200,
+   "card": false,
+   "line": null,
+   "backend": "webgpu"
+  }
+ ],
+ "shown_s": 200,
+ "info": {
+  "backend": "webgpu",
+  "walker": true,
+  "canvas": [
+   [
+    1440,
+    900
+   ]
+  ]
+ },
+ "A": {
+  "standing": {
+   "frames": 316,
+   "frame_ms": 63.5,
+   "frame_p95": 72,
+   "cpu_ms": 23.2,
+   "gpu_ms": 40.9,
+   "calls": 1513,
+   "triangles": 9528945,
+   "bound": "gpu"
+  },
+  "walking": {
+   "frames": 72,
+   "frame_ms": 281.9,
+   "frame_p95": 2123,
+   "cpu_ms": 226.9,
+   "gpu_ms": 39.7,
+   "calls": 1783,
+   "triangles": 8122657,
+   "bound": "cpu"
+  }
+ },
+ "B": {
+  "standing": {
+   "frames": 136,
+   "js_ms_mean": 30.01,
+   "js_ms_median": 27,
+   "js_ms_p95": 49,
+   "api_ms_per_frame": 5.74,
+   "js_outside_api_ms": 24.27,
+   "table": [
+    {
+     "call": "queue.writeBuffer",
+     "calls_per_frame": 2140.7,
+     "ms_per_frame": 1.809
+    },
+    {
+     "call": "pass.setVertexBuffer",
+     "calls_per_frame": 4235.2,
+     "ms_per_frame": 0.89
+    },
+    {
+     "call": "pass.drawIndexed",
+     "calls_per_frame": 1415.5,
+     "ms_per_frame": 0.647
+    },
+    {
+     "call": "pass.setBindGroup",
+     "calls_per_frame": 1767.6,
+     "ms_per_frame": 0.625
+    },
+    {
+     "call": "pass.setIndexBuffer",
+     "calls_per_frame": 984.2,
+     "ms_per_frame": 0.39
+    },
+    {
+     "call": "pass.setPipeline",
+     "calls_per_frame": 616.7,
+     "ms_per_frame": 0.375
+    },
+    {
+     "call": "encoder.finish",
+     "calls_per_frame": 31.8,
+     "ms_per_frame": 0.184
+    },
+    {
+     "call": "encoder.beginRenderPass",
+     "calls_per_frame": 24.5,
+     "ms_per_frame": 0.162
+    },
+    {
+     "call": "queue.submit",
+     "calls_per_frame": 31.8,
+     "ms_per_frame": 0.14
+    },
+    {
+     "call": "device.createBuffer",
+     "calls_per_frame": 64.9,
+     "ms_per_frame": 0.125
+    },
+    {
+     "call": "device.createCommandEncoder",
+     "calls_per_frame": 31.8,
+     "ms_per_frame": 0.081
+    },
+    {
+     "call": "encoder.beginComputePass",
+     "calls_per_frame": 6,
+     "ms_per_frame": 0.059
+    },
+    {
+     "call": "buffer.mapAsync",
+     "calls_per_frame": 30.5,
+     "ms_per_frame": 0.051
+    },
+    {
+     "call": "encoder.copyTextureToTexture",
+     "calls_per_frame": 2,
+     "ms_per_frame": 0.029
+    },
+    {
+     "call": "buffer.destroy",
+     "calls_per_frame": 61.7,
+     "ms_per_frame": 0.022
+    },
+    {
+     "call": "device.createQuerySet",
+     "calls_per_frame": 30.5,
+     "ms_per_frame": 0.022
+    },
+    {
+     "call": "encoder.resolveQuerySet",
+     "calls_per_frame": 30.5,
+     "ms_per_frame": 0.022
+    },
+    {
+     "call": "pass.end",
+     "calls_per_frame": 24.5,
+     "ms_per_frame": 0.022
+    },
+    {
+     "call": "device.createBindGroup",
+     "calls_per_frame": 1.5,
+     "ms_per_frame": 0.022
+    },
+    {
+     "call": "encoder.copyBufferToBuffer",
+     "calls_per_frame": 30.5,
+     "ms_per_frame": 0.015
+    },
+    {
+     "call": "device.createRenderPipeline",
+     "calls_per_frame": 0.3,
+     "ms_per_frame": 0.015
+    },
+    {
+     "call": "compute.dispatchWorkgroups",
+     "calls_per_frame": 6,
+     "ms_per_frame": 0.007
+    },
+    {
+     "call": "texture.createView",
+     "calls_per_frame": 1,
+     "ms_per_frame": 0.007
+    },
+    {
+     "call": "pass.drawIndexedIndirect",
+     "calls_per_frame": 11.9,
+     "ms_per_frame": 0.007
+    },
+    {
+     "call": "device.createShaderModule",
+     "calls_per_frame": 0.4,
+     "ms_per_frame": 0.007
+    },
+    {
+     "call": "device.createPipelineLayout",
+     "calls_per_frame": 0.3,
+     "ms_per_frame": 0.007
+    },
+    {
+     "call": "compute.setPipeline",
+     "calls_per_frame": 6,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "compute.setBindGroup",
+     "calls_per_frame": 6,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "compute.end",
+     "calls_per_frame": 6,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "pass.draw",
+     "calls_per_frame": 83.9,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "pass.setViewport",
+     "calls_per_frame": 0.2,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "device.createBindGroupLayout",
+     "calls_per_frame": 0.2,
+     "ms_per_frame": 0
+    }
+   ]
+  },
+  "walking": {
+   "frames": 70,
+   "js_ms_mean": 129.4,
+   "js_ms_median": 45,
+   "js_ms_p95": 572,
+   "api_ms_per_frame": 6.94,
+   "js_outside_api_ms": 122.46,
+   "table": [
+    {
+     "call": "queue.writeBuffer",
+     "calls_per_frame": 3059.6,
+     "ms_per_frame": 2.029
+    },
+    {
+     "call": "pass.setVertexBuffer",
+     "calls_per_frame": 4034,
+     "ms_per_frame": 0.914
+    },
+    {
+     "call": "pass.setBindGroup",
+     "calls_per_frame": 1851.5,
+     "ms_per_frame": 0.714
+    },
+    {
+     "call": "pass.drawIndexed",
+     "calls_per_frame": 1532.3,
+     "ms_per_frame": 0.586
+    },
+    {
+     "call": "pass.setIndexBuffer",
+     "calls_per_frame": 1003,
+     "ms_per_frame": 0.471
+    },
+    {
+     "call": "pass.setPipeline",
+     "calls_per_frame": 612.4,
+     "ms_per_frame": 0.414
+    },
+    {
+     "call": "encoder.finish",
+     "calls_per_frame": 33.2,
+     "ms_per_frame": 0.371
+    },
+    {
+     "call": "encoder.beginRenderPass",
+     "calls_per_frame": 26.6,
+     "ms_per_frame": 0.357
+    },
+    {
+     "call": "device.createBuffer",
+     "calls_per_frame": 75.7,
+     "ms_per_frame": 0.286
+    },
+    {
+     "call": "device.createCommandEncoder",
+     "calls_per_frame": 33.2,
+     "ms_per_frame": 0.129
+    },
+    {
+     "call": "queue.writeTexture",
+     "calls_per_frame": 1.7,
+     "ms_per_frame": 0.114
+    },
+    {
+     "call": "queue.submit",
+     "calls_per_frame": 33.2,
+     "ms_per_frame": 0.1
+    },
+    {
+     "call": "encoder.beginComputePass",
+     "calls_per_frame": 5.9,
+     "ms_per_frame": 0.086
+    },
+    {
+     "call": "device.createQuerySet",
+     "calls_per_frame": 32.5,
+     "ms_per_frame": 0.057
+    },
+    {
+     "call": "buffer.mapAsync",
+     "calls_per_frame": 32.5,
+     "ms_per_frame": 0.043
+    },
+    {
+     "call": "pass.end",
+     "calls_per_frame": 26.6,
+     "ms_per_frame": 0.043
+    },
+    {
+     "call": "device.createRenderPipeline",
+     "calls_per_frame": 0.7,
+     "ms_per_frame": 0.043
+    },
+    {
+     "call": "encoder.resolveQuerySet",
+     "calls_per_frame": 32.5,
+     "ms_per_frame": 0.029
+    },
+    {
+     "call": "texture.createView",
+     "calls_per_frame": 1,
+     "ms_per_frame": 0.029
+    },
+    {
+     "call": "pass.draw",
+     "calls_per_frame": 98,
+     "ms_per_frame": 0.029
+    },
+    {
+     "call": "device.createBindGroup",
+     "calls_per_frame": 4.4,
+     "ms_per_frame": 0.029
+    },
+    {
+     "call": "buffer.destroy",
+     "calls_per_frame": 66.6,
+     "ms_per_frame": 0.014
+    },
+    {
+     "call": "compute.setBindGroup",
+     "calls_per_frame": 5.9,
+     "ms_per_frame": 0.014
+    },
+    {
+     "call": "compute.end",
+     "calls_per_frame": 5.9,
+     "ms_per_frame": 0.014
+    },
+    {
+     "call": "encoder.copyBufferToBuffer",
+     "calls_per_frame": 32.5,
+     "ms_per_frame": 0.014
+    },
+    {
+     "call": "pass.drawIndexedIndirect",
+     "calls_per_frame": 11.8,
+     "ms_per_frame": 0.014
+    },
+    {
+     "call": "compute.setPipeline",
+     "calls_per_frame": 5.9,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "compute.dispatchWorkgroups",
+     "calls_per_frame": 5.9,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "encoder.copyTextureToTexture",
+     "calls_per_frame": 2,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "pass.setViewport",
+     "calls_per_frame": 0.8,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "device.createBindGroupLayout",
+     "calls_per_frame": 0.5,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "device.createShaderModule",
+     "calls_per_frame": 1.1,
+     "ms_per_frame": 0
+    },
+    {
+     "call": "device.createPipelineLayout",
+     "calls_per_frame": 0.7,
+     "ms_per_frame": 0
+    }
+   ]
+  }
+ },
+ "console": [
+  {
+   "n": 586,
+   "m": "THREE.AttributeNode: Vertex attribute \"aWind\" not found on geometry."
+  },
+  {
+   "n": 4,
+   "m": "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed."
+  },
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 ()"
+  },
+  {
+   "n": 1,
+   "m": "THREE.Source: \"Source\" has been renamed to \"TextureSource\". Please update your code to use \"THREE.TextureSource\" instead."
+  },
+  {
+   "n": 1,
+   "m": "THREE.MeshPhysicalMaterial: The \"iridescenceThicknessRange\" property has been replaced by \"iridescenceThicknessMinimum\" and \"iridescenceThicknessMaximum\"."
+  },
+  {
+   "n": 1,
+   "m": "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+  }
+ ]
+}
