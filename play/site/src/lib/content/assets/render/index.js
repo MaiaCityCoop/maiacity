@@ -39,7 +39,7 @@ import { createImpostors } from './impostors.js';
 import { budget, dropOnUpload } from '../../render/budget.js';
 import { precompile } from '../../render/core.js';
 import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, thresholdsOf } from './lod.js';
-import { createLowering } from './lower.js';
+import { lowerer } from './lower.js';
 import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
@@ -112,7 +112,7 @@ export function createAssets(o) {
 	const wind = o.wind === null ? null : (o.wind ?? windNodes(TSL));
 	const presets = createPresets({ wind });
 	const pictures = createImpostors(renderer, { px: o.px });
-	const lowering = createLowering();
+	const lowering = lowerer();
 	// every level and picture made here kept on this device by its build (./levels.js)
 	const kept = createKept({ lowering, keep: o.cache !== false });
 	group.add(pictures.group);
