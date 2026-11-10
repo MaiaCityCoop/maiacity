@@ -229,6 +229,8 @@ export function createAssets(o) {
 			S: new Float32Array(0),
 			alive: new Uint8Array(0),
 			was: new Int8Array(0),
+			/** when each copy was put down after the world was first drawn (ms; 0: before, or its fade is done): it fades in (`arrive`) */
+			born: new Float64Array(0),
 			/** each copy as the cover grows it: its rank + 1 (0 for none), its stream's near, reach and thin */
 			C: new Float32Array(0),
 			/** whether any copy of it ever was cover (its drawings then carry where each copy grows) */
@@ -598,6 +600,15 @@ export function createAssets(o) {
 	const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _m4 = new THREE.Matrix4();
 
 	/**
+	 * A copy put down once the world has been drawn fades in over `o.arrive` ms (its dither, as between levels) where a
+	 * world asks for it: a plant whose kind was built behind the shown world, or one the eye came near, does not snap in
+	 * (intent 405f7a85). Those put down before the first frame stand whole from it; a film's forced level fades none.
+	 */
+	const ARRIVE = o.arrive ?? 0;
+	let drawnOnce = false;
+	const arrived = () => (ARRIVE && drawnOnce && forced < 0 ? performance.now() : 0);
+
+	/**
 	 * A copy of a kind put down: at x, y, z, turned by `turn` about the upright, at `scale`; or by a whole matrix.
 	 * @param {any} k a kind (`use`) or a ref
 	 * @param {{ x?: number, y?: number, z?: number, turn?: number, scale?: number } | THREE.Matrix4} at
@@ -619,10 +630,12 @@ export function createAssets(o) {
 			k.C = grow(k.C, 4);
 			k.K = grow(k.K, 3);
 			k.was = grow(k.was, 1);
+			k.born = grow(k.born, 1);
 			k.cap = cap;
 		}
 		const i = k.n++;
 		k.was[i] = -1;
+		k.born[i] = arrived();
 		grows(k, i, cover);
 		set(k, i, at);
 		dirty = true;
@@ -685,6 +698,7 @@ export function createAssets(o) {
 		if (typeof k === 'string') k = use(k);
 		const c = k.free.pop();
 		if (!c) return place(k, at, cover);
+		k.born[c.i] = arrived();
 		grows(k, c.i, cover);
 		move(c, at);
 		return c;
@@ -924,6 +938,10 @@ export function createAssets(o) {
 		const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (camera.zoom || 1);
 		counted.levels.fill(0);
 		counted.culled = counted.posed = counted.tris = counted.calls = 0;
+		// the copies still fading in as they arrive: drawn again next frame
+		const at = performance.now();
+		let arriving = false;
+		drawnOnce = true;
 		pictures.begin();
 		for (const k of kinds.values()) {
 			for (const lv of k.levels) for (const d of lv.meshes ?? []) d.used = d.cast = 0;
@@ -965,14 +983,23 @@ export function createAssets(o) {
 				// moved by its controls: its own tree, once it is ready
 				const p = k.posed.size ? k.posed.get(i) : undefined;
 				if (p && drawPosed(k, i, p, level)) continue;
-				const drawn = draw(k, i, level, 1);
+				// just put down behind the shown world: so much of it showing (whole where its level is not here yet)
+				let shown = 1;
+				if (k.born[i]) {
+					shown = Math.max(0.02, (at - k.born[i]) / ARRIVE);
+					if (shown < 1) arriving = true;
+					else (k.born[i] = 0), (shown = 1);
+				}
+				let drawn = draw(k, i, level, shown);
+				if (drawn < 0 && shown < 1) drawn = draw(k, i, level, 1);
 				if (C >= 0 && drawn >= 0 && drawn < k.levels.length && as(k, drawn) !== C) finer.push(i);
 				// the coarser one fading in under it, unless it already stands in whole, or is the same drawing
-				if (fade > 0 && drawn !== level + 1 && as(k, drawn) !== as(k, level + 1)) draw(k, i, level + 1, fade);
+				if (fade > 0 && shown >= 1 && drawn !== level + 1 && as(k, drawn) !== as(k, level + 1)) draw(k, i, level + 1, fade);
 			}
 			if (C >= 0) castCoarse(k, C, finer);
 		}
 		pictures.end();
+		dirty ||= arriving;
 		for (const k of kinds.values())
 			for (const p of k.posed.values())
 				if (p.tree && p.tree.visible !== p.shown) {

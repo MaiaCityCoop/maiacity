@@ -199,7 +199,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	const foots: { x: number; z: number; R: number; ext: number }[] = solo ? [soloFoot] : domes
 	/** Sandbox 5: our plants drawn by the universal renderer (./drawn.js, $content/assets/render), each kind built in the asset
 	 *  box: the cell's, and the domes' insides' */
-	const plantsOut = flora ? createFlora({ renderer, camera, scene, shadows: staleShadows }) : null
+	const plantsOut = flora ? createFlora({ renderer, camera, scene, shadows: staleShadows, arrive: 900 }) : null
 	const plantsIn = flora ? createFlora({ renderer, camera, scene, shadows: staleShadows, streams: STREAMS.inside }) : null
 	/** Sandbox 5: the cell's forest of our plants (./flora.js), planted below with the food forest; the stand-in plants of
 	 *  Sandbox 4's squares traded for its plants too (./legacy.js) */

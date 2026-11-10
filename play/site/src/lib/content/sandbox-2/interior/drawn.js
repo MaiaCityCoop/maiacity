@@ -11,12 +11,12 @@ import { STREAMS } from './flora.js';
 /**
  * A renderer of assets in `scene`, its copies kept for the next that wants one.
  * @param {{
- *   renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, shadows?: () => void
+ *   renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, shadows?: () => void, arrive?: number
  * }} o `shadows`: told when what casts a shadow changed, instead of the shadows
- *   drawn again
+ *   drawn again; `arrive`: a copy put down once the world is drawn fades in over so many ms
  */
 export function createDrawn(o) {
-	const assets = createAssets({ renderer: o.renderer, camera: o.camera, onShadows: o.shadows });
+	const assets = createAssets({ renderer: o.renderer, camera: o.camera, onShadows: o.shadows, arrive: o.arrive });
 	o.scene.add(assets.group);
 	return {
 		assets,
@@ -52,12 +52,12 @@ const tanOf = (camera) => Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (
 /**
  * The renderer a world's plants are drawn by (./flora.js).
  * `streams`: how far off its small plants are put down at all (./flora.js STREAMS: the village's, or under a dome's glass).
- * @param {{ renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, shadows?: () => void, streams?: import('./flora.js').Streams }} o
+ * @param {{ renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, shadows?: () => void, streams?: import('./flora.js').Streams, arrive?: number }} o `arrive`: a plant put down once the world is drawn fades in over so many ms ($content/assets/render)
  * @returns {import('./flora.js').FloraDrawn & ReturnType<typeof createDrawn>}
  */
 export function createFlora(o) {
 	const streams = o.streams ?? STREAMS.village;
-	const drawn = createDrawn({ renderer: o.renderer, camera: o.camera, scene: o.scene, shadows: o.shadows });
+	const drawn = createDrawn({ renderer: o.renderer, camera: o.camera, scene: o.scene, shadows: o.shadows, arrive: o.arrive });
 	return {
 		...drawn,
 		/**

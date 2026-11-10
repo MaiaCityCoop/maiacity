@@ -78,6 +78,8 @@ describe('flora: a plant that does not grow', () => {
  */
 function deviceOf(quota: number, weigh: number) {
 	const files = new Map<string, { bytes: Uint8Array; at: number }>()
+	/** the files this device will not hand back (a read that throws) */
+	const unreadable = new Set<string>()
 	let clock = 0
 	const missing = (name: string) => Object.assign(new Error(`${name}: not found`), { name: 'NotFoundError' })
 	const handle = (name: string) => ({
@@ -85,6 +87,7 @@ function deviceOf(quota: number, weigh: number) {
 		getFile: async () => {
 			const f = files.get(name)
 			if (!f) throw missing(name)
+			if (unreadable.has(name)) throw Object.assign(new Error(`${name}: the file could not be read`), { name: 'NotReadableError' })
 			return { size: f.bytes.byteLength * weigh, lastModified: f.at, arrayBuffer: async () => f.bytes.slice().buffer }
 		},
 		createWritable: async () => {
@@ -104,7 +107,7 @@ function deviceOf(quota: number, weigh: number) {
 			for (const name of [...files.keys()]) yield [name, handle(name)] as const
 		}
 	}
-	return { files, storage: { getDirectory: async () => ({ getDirectoryHandle: async () => folder }), estimate: async () => ({ quota }) } }
+	return { files, unreadable, storage: { getDirectory: async () => ({ getDirectoryHandle: async () => folder }), estimate: async () => ({ quota }) } }
 }
 
 describe('flora: a world visited again', () => {
@@ -181,6 +184,39 @@ describe('flora: a world visited again', () => {
 		const fourth = await visit(upgraded)
 		expect(fourth.built).toEqual([])
 		expect(fourth.read).toHaveLength(180)
+	})
+
+	it('second visit builds nothing but what the device kept short or will not hand back: those are built again and written over, never an error', async () => {
+		vi.useFakeTimers()
+		const device = deviceOf(20 * 1024 ** 3, 4096)
+		vi.stubGlobal('navigator', { storage: device.storage, hardwareConcurrency: 8 })
+		const world = Array.from({ length: 40 }, (_, i) => planted(i))
+		expect((await visit(world)).built).toHaveLength(40)
+
+		// a tab ended in the middle of a write: three entries cut short (one to its header, one to nothing), and one the
+		// browser throws on when it is read
+		const builds = [...device.files.keys()].filter((n) => n.startsWith('build-')).sort()
+		expect(builds).toHaveLength(40)
+		const cut = (name: string, to: (n: number) => number) => {
+			const f = device.files.get(name)!
+			device.files.set(name, { ...f, bytes: f.bytes.slice(0, to(f.bytes.length)) })
+		}
+		cut(builds[3]!, (n) => n >> 1)
+		cut(builds[11]!, () => 16)
+		cut(builds[19]!, () => 0)
+		device.unreadable.add(builds[27]!)
+
+		const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+		const second = await visit(world)
+		expect(second.built).toHaveLength(4)
+		expect(second.read).toHaveLength(36)
+		expect(errors).not.toHaveBeenCalled()
+
+		// written over whole: read back the next time (the one the browser would not hand back, once it does)
+		device.unreadable.clear()
+		const third = await visit(world)
+		expect(third.built).toEqual([])
+		expect(third.read).toHaveLength(40)
 	})
 })
 
