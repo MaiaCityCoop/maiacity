@@ -285,7 +285,7 @@ describe("the box run's Postgres", () => {
     // the same container as CI's, its values main's (the spec job's copy), never the head's
     const run = lines(pg);
     expect(run[0]).toBe('. "$RUNNER_TEMP/box/box.env"');
-    expect(run[1]).toBe(lines(ci).find((l) => l.startsWith("docker run")));
+    expect(run[1]).toBe(lines(ci).find((l) => l.startsWith("docker run"))!);
     expect(run.slice(2)).toEqual(['for i in $(seq 1 60); do docker exec postgres pg_isready -h 127.0.0.1 -U postgres > /dev/null && break; sleep 1; done', "docker exec postgres pg_isready -h 127.0.0.1 -U postgres"]);
   });
   test("setup.sh installs no Postgres when 17 already answers on its port", () => {
