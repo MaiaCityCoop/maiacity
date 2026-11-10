@@ -26,7 +26,7 @@
  * section hatch). The page around it (the turntable's canvas, its camera and controls) is the caller's.
  *
  * Under the sky (`sky: true`, every asset viewer's, ./viewer.js): no paper studio but a clear afternoon (the one sky, $content/sandbox-kit/sky.js), the
- * sun in the back behind the asset, the sky lighting its front, the floor running out to a horizon.
+ * sun at four in front of the asset and to the side opposite the camera (./portrait.js), the floor running out to a horizon.
  *
  * It shows any build of the box's as well, through ./hero.js, which is a sealed asset made of the build's checked data
  * (its solver running in the box): with what a rigged one adds, a part found by the group of its skinned mesh
@@ -38,6 +38,7 @@ import { ClippingGroup } from 'three/webgpu';
 import { NodePass, createPost } from '$lib/content/render/post.js';
 import { dot, float, fract, length, mix, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl';
 import { createSky } from '$lib/content/sandbox-kit/sky.js';
+import { HOUR, portraitSun } from './portrait.js';
 import { isWebGPU, precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
 import { budget } from '$lib/content/render/budget.js';
 import { floorMaterial } from '../render/nodes/index.js';
@@ -113,17 +114,21 @@ export class Stage {
 		// the studio's light is its environment's (no hemisphere: the soft boxes fill as it did)
 		this.scene.environmentIntensity = paper ? 0.95 : 1;
 		/**
-		 * the one sky, when shown under it ($content/sandbox-kit/sky.js): a clear afternoon, the sun pinned low in the back
-		 * (its bearing behind the asset as the viewer first frames it, ./viewer.js `camerawork`), so it lights its edges
-		 * and throws its shadow toward the eye; its dome behind everything, its light the environment's; the key below is
-		 * its sun, framed to the asset
+		 * the one sky, when shown under it ($content/sandbox-kit/sky.js): a clear afternoon at four, the sun pinned in
+		 * front of the asset on the side opposite the camera as the viewer first frames it (./portrait.js, ./viewer.js
+		 * `camerawork`), lighting it like a portrait (Rembrandt's triangle; intent 0b9f05f8); its dome behind everything,
+		 * its light the environment's; the key below is its sun, framed to the asset
 		 */
 		this.sky = null;
 		if (sky) {
 			this.scene.environment.dispose();
 			this.scene.environment = null;
 			this.scene.background = null;
-			this.sky = createSky(renderer, this.scene, { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25, ...(hour === undefined ? {} : { clock: () => hour }) });
+			// the viewer's own: a portrait's sun at four (./portrait.js), placed from its first view; a page that names its
+			// own hour (a story's live shot) keeps the low sun in the back it was made with
+			const sun = hour === undefined ? portraitSun() : { elevation: 14, azimuth: 218 };
+			const at = hour ?? HOUR;
+			this.sky = createSky(renderer, this.scene, { sun, light: false, fog: null, clouds: 0.25, clock: () => at });
 			this.sky.stars.visible = false;
 			// the sky is no surface: the occlusion's normal and depth pass leaves it out (as it did the old viewer sky), else
 			// its box shades the sky above the asset dark
@@ -277,7 +282,7 @@ export class Stage {
 		key.target.position.copy(centre);
 		key.position.copy(centre).add(new THREE.Vector3(-3.2, 6.5, 4.2).multiplyScalar(s));
 		if (this.sky) {
-			// the sun's light from where it stands: the afternoon's shadows, toward the eye
+			// the sun's light from where it stands: the afternoon's shadows, behind the asset and to the camera's side
 			key.position.copy(centre).addScaledVector(this.sky.sunDir, 9 * s);
 		}
 		const sc = key.shadow.camera;
