@@ -2,10 +2,10 @@
 // play.doc_branches, the main line the rows whose branch is NULL. A test that builds a database as it stood at an older
 // migration (0017, 0029, 0031) writes its documents with these, then migrates it and reads it with today's store.
 import type { LoroDoc } from "loro-crdt";
-import type { Queryable } from "../../src/pg";
+import type { Queryable } from "../../src/kit/pg";
 import { applyEdits, contentHash, fromBytes, jsonOf, newDoc, patchTo, seed, type Edit, type Frontiers } from "../../src/docs/core";
-import { seedType } from "../../src/docs/schemas";
-import { SCHEMA } from "../../src/ids";
+import { seedType } from "../../src/docs/seed";
+import { SCHEMA } from "../../src/kit/ids";
 
 /** a type as play's code wrote it then, by its old name: the seed's v1 */
 const OLD: Record<string, string> = { "story/1": SCHEMA.story, "asset/1": SCHEMA.asset, "factory/1": SCHEMA.factory, "levels/1": SCHEMA.levels, "skill/1": SCHEMA.skill };

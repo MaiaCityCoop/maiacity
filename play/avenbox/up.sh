@@ -14,11 +14,14 @@
 # made to answer.
 set -u
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-PORT=5432
-URL="postgres://postgres:play@127.0.0.1:$PORT/postgres"
+. "$ROOT/play/avenbox/box.env"
+PORT=$PG_PORT
+URL=$BOX_DATABASE_URL
 export PATH="$HOME/.bun/bin:$PATH"
 say() { echo "avenBOX: $*"; }
 ready() { pg_isready -q -h 127.0.0.1 -p "$PORT" 2> /dev/null; }
+# up to 10 s for it to answer
+wait_ready() { for _ in $(seq 1 40); do ready && return 0; sleep 0.25; done; return 1; }
 # starting a cluster is root's (avenBOX runs as root; main's runner has sudo)
 as_root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo -n "$@"; fi; }
 # the cluster set to our port (pg_lsclusters: version, name, port …)
@@ -38,20 +41,20 @@ if ! ready; then
       as_root pg_ctlcluster "$V" "$C" start > /dev/null 2>&1
     }
   fi
-  for _ in $(seq 1 40); do ready && break; sleep 0.25; done
+  wait_ready
 fi
 if ! ready; then
   say "PostgreSQL does not answer on 127.0.0.1:$PORT (see /var/log/postgresql/); the checks that need it will fail"
   exit 1
 fi
 
-# room for the API's tests in parallel (intent aa59f248; setup.sh sets it on a new cluster): a box made before has 100
-MAXC=500
-pq() { PGPASSWORD=play psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc "$1" postgres 2> /dev/null; }
+# a box made before setup.sh set max_connections has 100
+MAXC=$PG_MAX_CONNECTIONS
+pq() { PGPASSWORD=$PG_PASSWORD psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc "$1" postgres 2> /dev/null; }
 if [ "$(pq 'show max_connections')" -lt "$MAXC" ] 2> /dev/null; then
   read -r V C <<< "$(ours)"
   pq "ALTER SYSTEM SET max_connections = $MAXC" > /dev/null && [ -n "${V:-}" ] && as_root pg_ctlcluster "$V" "$C" restart > /dev/null 2>&1
-  for _ in $(seq 1 40); do ready && break; sleep 0.25; done
+  wait_ready
   say "max_connections: $(pq 'show max_connections')"
 fi
 
@@ -73,5 +76,5 @@ fi
 # the workflows' lint (intent aa59f248), built once if it is missing
 bash "$ROOT/play/avenbox/actionlint.sh" --install > /dev/null 2>&1 || say "could not install actionlint (gate.sh lint tries again)"
 
-version=$(PGPASSWORD=play psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc 'show server_version' postgres 2> /dev/null | cut -d' ' -f1)
+version=$(PGPASSWORD=$PG_PASSWORD psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc 'show server_version' postgres 2> /dev/null | cut -d' ' -f1)
 say "PostgreSQL ${version:-?} on 127.0.0.1:$PORT; TEST_DATABASE_URL=$URL"

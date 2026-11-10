@@ -8,13 +8,6 @@
 	import samuelImage from '$lib/images/samuel.jpg';
 	import FounderCounter from '$lib/FounderCounter.svelte';
 	import { PLAY } from '$lib/play';
-	// Public page artwork ships with the site, independent of any session.
-
-	// the banner is optional: without the illustration the headline simply
-	// stands on the page
-	import type { Snippet } from 'svelte';
-
-	let { banner = false, afterHero }: { banner?: boolean; afterHero?: Snippet } = $props();
 
 	const visions = [
 		'a million founders uniting behind one vision, and discovering what humans have always been able to do the moment they stop competing for scraps.',
@@ -34,28 +27,26 @@
 
 <article class="manifesto">
 	<!-- the banner fills the screen edge to edge, the story told on top of it -->
-	{#if banner}
-		<header class="banner">
-			<img
-				src={bannerImage}
-				width="2400"
-				height="1339"
-				alt="A mother and her son overlooking a green city of domes beside a river at sunset."
-				fetchpriority="high"
-			/>
-			<!-- set like a magazine cover: a kicker, the headline in two weights, a rule, the deck beside a big number -->
-			<div class="story">
-				<h1 class="cover">
-					<span class="opening">This is the story</span>
-					<span class="founders"><span class="light">how</span>{' '}<FounderCounter />{' '}<span class="light">of</span>{' '}1,346,269 founders build their own <em>solarpunk</em> city</span>
-					<span class="deck">
-						<span class="years">in just <span class="number">16</span> years,</span>
-						<span class="when">first in game, then in real.</span>
-					</span>
-				</h1>
-			</div>
-		</header>
-	{/if}
+	<header class="banner">
+		<img
+			src={bannerImage}
+			width="2400"
+			height="1339"
+			alt="A mother and her son overlooking a green city of domes beside a river at sunset."
+			fetchpriority="high"
+		/>
+		<!-- set like a magazine cover: a kicker, the headline in two weights, a rule, the deck beside a big number -->
+		<div class="story">
+			<h1 class="cover">
+				<span class="opening">This is the story</span>
+				<span class="founders"><span class="light">how</span>{' '}<FounderCounter />{' '}<span class="light">of</span>{' '}1,346,269 founders build their own <em>solarpunk</em> city</span>
+				<span class="deck">
+					<span class="years">in just <span class="number">16</span> years,</span>
+					<span class="when">first in game, then in real.</span>
+				</span>
+			</h1>
+		</div>
+	</header>
 
 	<!-- the prize: what the game is for, set as a feature spread — a headline, a column of text, the path in numbers -->
 	<section class="prize">
@@ -99,14 +90,12 @@
 
 	<section class="spread">
 		<p class="kicker"><span>Manifesto</span></p>
-		<svelte:element this={banner ? 'h2' : 'h1'} class="headline">
+		<h2 class="headline">
 			<span class="survive">We were never built to survive.</span>
 			<span class="thrive">We were built to <mark>thrive.</mark></span>
-		</svelte:element>
+		</h2>
 	</section>
 
-	<!-- whatever the page wants seen before the first chapter — the Day 01 film -->
-	{#if afterHero}<div class="after-hero">{@render afterHero()}</div>{/if}
 
 	<section class="chapter">
 		<p class="marker">I<span>The old blueprint</span></p>
@@ -174,14 +163,6 @@
 		position: relative;
 		padding-block: 4rem 3.5rem;
 		border-bottom: 1px solid var(--ink);
-	}
-
-	.after-hero {
-		margin: 2.5rem 0 1rem;
-	}
-
-	.after-hero :global(.player) {
-		margin: 0;
 	}
 
 	/* Full height and full width: the banner breaks out of the page's column

@@ -2,7 +2,7 @@
      from outside, keyed with sliding basalt keys, capped at its nodes and clamped by a ring cable, on one clock. -->
 <script>
 	import Aside from '$lib/app/Aside.svelte';
-	import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+	import { SANDBOX } from '$lib/kernel/sandboxes.js';
 	const joint = import('$lib/sandbox-4/Joint.svelte');
 </script>
 

@@ -1,13 +1,7 @@
 /**
- * The master dome's working life: the ring under its gallery holds the
- * village's workshops (co-working desks, a woodshop, an art studio, a pottery,
- * a bakery and a cooking school, a library, a repair bench) and round it, just
- * outside the arcade, a ring of café squares where people eat in the open.
- *
- * Each space is drawn in its own frame: x runs along the ring, +z points out
- * toward the glass, and the space is placed on the ring by `place`. The
- * workshops are Things of the library ($content/models/domerooms.js), and the
- * master dome puts copies of them down on its ring (./things.js `workshopsOf`).
+ * The master dome's working life: workshops in the ring under its gallery (desks, woodshop, studio, pottery, bakery,
+ * library, repair bench) and café squares outside the arcade. Each space in its own frame (x along the ring, +z out to
+ * the glass), placed by `place`; the workshops are Things ($content/models/domerooms.js, ./things.js `workshopsOf`).
  */
 import * as THREE from 'three'
 import { coop, hutch } from '$lib/content/models/timber.v1.js'
@@ -117,8 +111,6 @@ function place(space: Space, rr: number, a: number): Space {
 	const [ox, oz] = polar(rr, a)
 	return { group: space.group, colliders: space.colliders.map((p) => ({ x: ox + p.x * c + p.z * s, z: oz - p.x * s + p.z * c, r: p.r })) }
 }
-
-/* ── inside: the workshops under the gallery ────────────────────────────── */
 
 function cowork(k: Kit, seed: number): Space {
 	const g = new THREE.Group()
@@ -419,8 +411,6 @@ function repair(k: Kit): Space {
 	return { group: g, colliders: cs }
 }
 
-/* ── outside: the café squares round the master dome ───────────────────── */
-
 function parasol(k: Kit, x: number, z: number, mat: THREE.Material): THREE.Group {
 	const g = new THREE.Group()
 	g.add(k.box(0.05, 2.4, 0.05, k.dark, x, 0, z))
@@ -587,8 +577,6 @@ export function cafes(k: Kit, rr: number): Space[] {
 		return place(s, rr, a)
 	})
 }
-
-/* ── outside: the hens ─────────────────────────────────────────────────── */
 
 
 /** The coops, in the forest just beyond the squares, between them: hens' and rabbits' in turn. */

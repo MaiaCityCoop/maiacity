@@ -1,23 +1,7 @@
-// THE FILM CAMERA AS DATA — every camera move of a world shot is a plain object (JSON), and one evaluator turns it
-// into a pose at any moment. A pose is [x, y, z, yaw, pitch], as Sandbox 4's camera takes it (`__village.fly`).
-//
-//   { kind: 'move',  from, to, aimFrom, aimTo, curve }          from one position and aim to another
-//   { kind: 'orbit', centre: [x, z], a0, a1, r0, r1, y0, y1, aim, curve }   round a centre, looking at `aim`
-//   { kind: 'turn',  at, yaw0, yaw1, pitch0, pitch1, curve }      turn in place
-//   { kind: 'fly',   keys: [[position, aim], …], curve }         a drone flight through points (Catmull-Rom)
-//   { kind: 'whip',  path: <camera>, out, into, d }                a whip pan at the end (out) or start (into)
-//   { kind: 'keys',  keys: [{ t, position, aim } | { t, position, yaw, pitch }, … + fov?], curve }
-//                                                                  keyframes in shot seconds (a recorded flight)
-//   { kind: 'world' }                                             the world's own camera: whatever the world shows
-//                                                                  at that moment (a game's coded moves), no pose here
-//
-// Any of them may name a `frame`: one of the world's own frames its poses are in (a van, a pickup), where the world
-// says that stands at each moment (maia/content/sandbox-kit/film.js `frames`), so the camera rides with it however the
-// world got it there; without one, the poses are the world's.
-//
-// `curve` is one of CURVES by name. The maths is exactly maia/content/scripts/film/camera.mjs's (which is now built on this file),
-// so a shot list written with camera.mjs becomes data without a single pose changing.
-// Plain JavaScript, shared by the browser (film mode), the worker, the API and the scripts.
+// The film camera as data: every camera move of a world shot is a plain object (JSON), evaluated to a pose
+// [x, y, z, yaw, pitch] at any moment, as Sandbox 4's camera takes it (`__village.fly`). `fly` passes through its
+// points (Catmull-Rom), `whip` pans at its end (`out`) or start (`into`), `world` leaves the camera to the world. Any may
+// name a `frame` of the world's own (a van) its poses are in, where the world says it stands (../../sandbox-kit/film.js).
 
 /** @typedef {[number, number, number, number, number]} Pose  x, y, z, yaw, pitch */
 /** @typedef {[number, number, number]} Vec3 */
@@ -46,10 +30,7 @@ export const landing = (/** @type {number} */ t) => 1 - (1 - t) * (1 - t);
 export const drift = (/** @type {number} */ t) => t * t * (3 - 2 * t);
 
 /** @type {Record<CurveName, (t: number) => number>} */
-export const CURVES = { glide, ease, landing, drift };
-
-/** The name of a curve function, if it is one of CURVES. */
-export const curveName = (/** @type {Function} */ fn) => /** @type {CurveName | undefined} */ (Object.keys(CURVES).find((k) => CURVES[/** @type {CurveName} */ (k)] === fn));
+const CURVES = { glide, ease, landing, drift };
 
 const curveOf = (/** @type {string | undefined} */ name) => {
 	if (name === undefined) return glide;
@@ -69,10 +50,8 @@ const cr = (/** @type {number[]} */ p0, /** @type {number[]} */ p1, /** @type {n
 	p1.map((_, i) => 0.5 * (2 * p1[i] + (-p0[i] + p2[i]) * u + (2 * p0[i] - 5 * p1[i] + 4 * p2[i] - p3[i]) * u * u + (-p0[i] + 3 * p1[i] - 3 * p2[i] + p3[i]) * u * u * u));
 
 /**
- * The camera's path: a function of the shot's progress (0 at its first frame, 1 at its end) giving a pose.
- * `seconds` is the shot's length (only keyframed cameras, whose keys are in seconds, need it).
- * @param {Camera} cam @param {number} [seconds]
- * @returns {(t: number) => Pose}
+ * The camera's path: progress (0 first frame, 1 end) to a pose; `seconds` the shot's length (keyframed cameras need it).
+ * @param {Camera} cam @param {number} [seconds] @returns {(t: number) => Pose}
  */
 export function pathOf(cam, seconds = 1) {
 	switch (cam.kind) {
@@ -155,10 +134,7 @@ function sampleKeys(/** @type {{ t: number, v: number[] }[]} */ keys, /** @type 
 	return { pose: /** @type {Pose} */ (v.slice(0, 5)), fov: Number.isFinite(v[5]) ? v[5] : undefined };
 }
 
-/**
- * The lens a keyframed camera sets at progress t (keys may carry fov), else undefined.
- * @param {Camera} cam @param {number} t @param {number} seconds
- */
+/** The lens a keyframed camera sets at progress t (keys may carry fov), else undefined. @param {Camera} cam @param {number} t @param {number} seconds */
 export function fovOf(cam, t, seconds) {
 	if (cam.kind === 'whip') return fovOf(cam.path, t, seconds);
 	if (cam.kind !== 'keys' || !cam.keys.some((k) => Number.isFinite(k.fov))) return undefined;
@@ -169,10 +145,7 @@ export function fovOf(cam, t, seconds) {
 const finite = (/** @type {unknown} */ v) => typeof v === 'number' && Number.isFinite(v);
 const vec = (/** @type {unknown} */ v, /** @type {number} */ n) => Array.isArray(v) && v.length === n && v.every(finite);
 
-/**
- * A camera checked: the right fields, every number finite. Throws an Error naming what is wrong.
- * @param {any} cam @param {string} [where] @returns {Camera}
- */
+/** A camera checked (fields, every number finite); throws naming what is wrong. @param {any} cam @param {string} [where] @returns {Camera} */
 export function checkCamera(cam, where = 'camera') {
 	const bad = (/** @type {string} */ s) => {
 		throw new Error(`${where}: ${s}`);
@@ -221,38 +194,4 @@ function checkKind(cam, where, bad) {
 		default:
 			return bad(`unknown kind "${cam.kind}"`);
 	}
-}
-
-/**
- * Thin a recorded flight into keyframes: poses sampled at `t` (seconds), smoothed with a small moving average, and
- * thinned so a key is kept only where the path turns or speeds up — within `tolerance` metres / radians.
- * @param {{ t: number, pose: Pose, fov?: number }[]} samples
- * @param {{ smooth?: number, tolerance?: number }} [opts]
- * @returns {Key[]}
- */
-export function keysFromFlight(samples, { smooth = 2, tolerance = 0.05 } = {}) {
-	if (!samples.length) return [];
-	const s = samples.map((x) => ({ ...x, pose: /** @type {Pose} */ ([...x.pose]) }));
-	for (let i = 1; i < s.length; i++) {
-		while (s[i].pose[3] - s[i - 1].pose[3] > Math.PI) s[i].pose[3] -= 2 * Math.PI;
-		while (s[i].pose[3] - s[i - 1].pose[3] < -Math.PI) s[i].pose[3] += 2 * Math.PI;
-	}
-	const sm = s.map((x, i) => {
-		// a window centred on the sample, narrowed at the ends so the first and last poses stay where they were
-		const r = Math.min(smooth, i, s.length - 1 - i), lo = i - r, hi = i + r, n = hi - lo + 1;
-		const pose = /** @type {Pose} */ ([0, 1, 2, 3, 4].map((k) => s.slice(lo, hi + 1).reduce((a, y) => a + y.pose[k], 0) / n));
-		return { t: x.t, pose, fov: x.fov };
-	});
-	const keep = [0];
-	for (let i = 1; i < sm.length - 1; i++) {
-		const a = sm[keep.at(-1) ?? 0], b = sm[i + 1], u = (sm[i].t - a.t) / Math.max(1e-9, b.t - a.t);
-		const off = sm[i].pose.reduce((m, v, k) => Math.max(m, Math.abs(v - lerp(a.pose[k], b.pose[k], u))), 0);
-		if (off > tolerance) keep.push(i);
-	}
-	if (sm.length > 1) keep.push(sm.length - 1);
-	const r = (/** @type {number} */ v) => Math.round(v * 1e4) / 1e4;
-	return keep.map((i) => {
-		const x = sm[i];
-		return { t: r(x.t), position: /** @type {Vec3} */ ([r(x.pose[0]), r(x.pose[1]), r(x.pose[2])]), yaw: r(x.pose[3]), pitch: r(x.pose[4]), ...(x.fov !== undefined ? { fov: r(x.fov) } : {}) };
-	});
 }

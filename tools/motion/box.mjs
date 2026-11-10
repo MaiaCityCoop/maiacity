@@ -3,7 +3,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-const SITE = new URL('../../play/site/node_modules/', import.meta.url).pathname;
+import { SITE as PLAY_SITE } from '../site.cjs';
+const SITE = `${PLAY_SITE}/node_modules/`;
 const HERE = new URL('.', import.meta.url).pathname;
 export const THREE = await import(pathToFileURL(SITE + 'three/build/three.module.js').href);
 const addons = {};
@@ -11,7 +12,6 @@ for (const a of ['utils/BufferGeometryUtils.js', 'geometries/RoundedBoxGeometry.
 const req = createRequire(SITE + 'x.js');
 const { blake3 } = await import(pathToFileURL(req.resolve('@noble/hashes/blake3.js')).href);
 export const hash = (text) => Buffer.from(blake3(new TextEncoder().encode(text))).toString('hex');
-/** every piece of the mirror by its hash, and each file's hash by its name */
 const byHash = new Map();
 export const files = {};
 for (const dir of ['pieces', 'assets'])
@@ -22,9 +22,8 @@ for (const dir of ['pieces', 'assets'])
 	}
 // the one runner of readable sources outside the browser (play/site/src/lib/content/assets/box/headless.js);
 // run(code, name, more): `more`, pieces beside the mirror's, by hash (a baseline, a piece from play's files)
-const { runner } = await import(new URL('../../play/site/src/lib/content/assets/box/headless.js', import.meta.url).href);
+const { runner } = await import(pathToFileURL(`${PLAY_SITE}/src/lib/content/assets/box/headless.js`).href);
 export const run = runner({ three: THREE, addons, piece: (h) => byHash.get(h) });
-/** a mirrored piece's exports, by its file's name */
 export const piece = (name) => run(`module.exports = require('${files[`pieces/${name}.js`]}')`);
 /** an asset of the mirror built at its defaults: its cast ({ rig, clips, gears, poses }) */
 export const asset = (name) => run(readFileSync(`${HERE}assets/${name}.js`, 'utf8'), name).recipe('x', 14, null).build();

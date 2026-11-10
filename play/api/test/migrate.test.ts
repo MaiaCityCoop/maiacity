@@ -1,47 +1,36 @@
-// play's migrations against a real Postgres (set TEST_DATABASE_URL, as for ./api.test.ts).
-//
-// They run twice at once on a deploy: play-api migrates as it starts, and the import run beside it migrates too
-// (2026-11-06: the second ran 0029-one-record again after the first had, and the deploy failed on "column work already
-// exists"). Two migrate() calls at once on a fresh database: both finish, every migration ran exactly once, and a third
-// finds nothing to run.
-//
+// play's migrations against a real Postgres (TEST_DATABASE_URL, as for ./api.test.ts). They run twice at once on a
+// deploy, play-api's and the import's (2026-11-06: the second ran 0029-one-record again and the deploy failed on "column
+// work already exists"): two migrate() calls at once on a fresh database both finish, each migration ran exactly once,
+// and a third finds nothing to run.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { MIGRATIONS, MIGRATIONS_DIR, badId, loadMigrations, migrate } from "../src/migrations";
-import { fromBunSql } from "../src/pg";
+import { seed } from "../src/seed";
+import { fromBunSql } from "../src/kit/pg";
 import { copyFileSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
+import { createHuman, initSessions } from "../src/auth";
 import { folderStore } from "../src/blobs";
-import { hashText } from "../src/hash";
-import { Rate } from "../src/limits";
+import { hashText } from "../src/kit/hash";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 import { storyVersionId } from "../src/versions";
 import { oldAccept, oldBranch, oldCommit, oldCreate, oldPropose } from "./fixtures/olddocs";
-import { problemsOf, readDoc, typeFor } from "../src/docs";
-import { SCHEMA } from "../src/ids";
-import "../src/versioned";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { problemsOf, readDoc, typeFor, type Edit } from "../src/docs";
+import type { Me } from "../src/access";
+import { COOP, SCHEMA } from "../src/kit/ids";
+import "../src/allkinds";
+import { appOn, cookieFor, type Fresh, freshDb, suite } from "./kit";
 
 suite("migrate, twice at once", () => {
-  let admin: Bun.SQL, a: Bun.SQL, b: Bun.SQL, name: string;
+  let f: Fresh, a: Bun.SQL, b: Bun.SQL;
   beforeAll(async () => {
-    name = `play_migrate_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    a = new Bun.SQL(u.toString());
-    b = new Bun.SQL(u.toString());
+    f = await freshDb({ prefix: "play_migrate", migrate: false });
+    a = f.sql;
+    b = new Bun.SQL(f.url);
   });
   afterAll(async () => {
-    await a?.close();
     await b?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("both finish, each migration runs once", async () => {
@@ -53,35 +42,21 @@ suite("migrate, twice at once", () => {
   }, 60_000);
 });
 
-// Migration 0032-versioned (play/SPEC.md "Version control"): a database made at 0031 holding work of every kind at
-// Proposal and accepted (an asset's, a story's, a factory's, a config's, a skill's), migrated: doc_variants and
-// doc_edits replace doc_branches and doc_updates, every intent's work names its doc_id and doc_variant and keeps its
-// stage, the columns per kind are gone, and every intent is still reviewed and decided. Then 202611070117-847c5d38-intent-variants
-// (intent 847c5d38): every intent's document and variant a row of play.intent_variants, the intent's own columns gone,
-// and an artifact kept before (its authors in order) its v1, read as a document like any other.
-const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
-// every intent with work has a spec (no work without an intent, 706ed873: its migration archives one waiting without),
-// so the intents a test seeds with work are specified and approved, as production's at Proposal were
+// Migration 0032-versioned (play/SPEC.md "Version control"), then 202611070117-847c5d38-intent-variants, on a database at
+// 0031 holding work of every kind: nothing lost, every intent still reviewed and decided (seeded specified: intent 706ed873).
 const SPEC = JSON.stringify({ goal: "Its work is in.", scope: "A migration's fixture.", checks: [{ id: "c1", check: "It holds", how: "test", by: "a test", run: "true", must: true, step: "mvp" }] });
 
 suite("migration 0032-versioned", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, name: string;
+  let f: Fresh;
   beforeAll(async () => {
-    name = `play_migrate32_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
+    f = await freshDb({ prefix: "play_migrate32", migrate: false });
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("work of every kind at Proposal and accepted: its document's variant named on the intent, its stage kept, still reviewed and decided", async () => {
-    const db = fromBunSql(sql);
+    const db = f.db;
     expect((await migrate(db, { until: "0031-skills" })).at(-1)).toBe("0031-skills");
     const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
     const ada = (await createHuman(db, "ada")).id;
@@ -117,12 +92,12 @@ suite("migration 0032-versioned", () => {
       await db.query(`INSERT INTO ${k.table} (id, coop_id, label${k.prefix === "skill" ? ", grp" : ""}) VALUES ($1, $2, $3${k.prefix === "skill" ? ", 'tests'" : ""})`, [id, COOP, k.json.label]);
       await oldCreate(db, { id: doc, schema: k.schema, json: k.json, author, message: "v1", version: "its first" });
       const won = await oldBranch(db, doc, { author, note: "accepted" });
-      await oldCommit(db, doc, { branch: won, edits: [{ op: "set", ...k.a } as any], message: "the accepted edit", author });
+      await oldCommit(db, doc, { branch: won, edits: [{ op: "set", ...k.a } as Edit], message: "the accepted edit", author });
       await oldPropose(db, won, "accepted");
       await oldAccept(db, doc, won, author, "accepted");
       made.push({ id: await intent("accepted", k.kind, { [k.col]: id, doc_branch: won }), kind: k.kind, stage: "accepted", doc, branch: won });
       const waits = await oldBranch(db, doc, { author, note: "waiting" });
-      await oldCommit(db, doc, { branch: waits, edits: [{ op: "set", ...k.b } as any], message: "the waiting edit", author });
+      await oldCommit(db, doc, { branch: waits, edits: [{ op: "set", ...k.b } as Edit], message: "the waiting edit", author });
       await oldPropose(db, waits, "waiting");
       made.push({ id: await intent("proposal", k.kind, { [k.col]: id, doc_branch: waits }), kind: k.kind, stage: "proposal", doc, branch: waits });
     }
@@ -214,8 +189,8 @@ suite("migration 0032-versioned", () => {
     expect(rest.slice(0, 2)).toEqual(["0033-build", "0034-schemas"]);
     expect(rest.some((id) => id.endsWith("-847c5d38-intent-variants"))).toBe(true);
     expect(await migrate(db)).toEqual(rest);
-    // every schema a document, v1 from the seed; every document made before names its schema's UUID and version, and
-    // is still valid against that schema as Postgres holds it (play/SPEC.md "Version control")
+    await seed(db);
+    // every schema a document, every document naming its schema's UUID and version, still valid against it
     const schemas = await q(`SELECT d.id, d.schema_id, (SELECT max(number) FROM play.doc_versions v WHERE v.doc_id = d.id) AS n FROM play.docs d WHERE d.id LIKE 'schema:%' ORDER BY d.id`);
     expect(schemas.map((r) => r.id.split(":")[1]).sort()).toEqual(Object.values(SCHEMA).sort());
     for (const r of schemas) expect([r.schema_id, r.n]).toEqual([SCHEMA.meta, 1]);
@@ -238,8 +213,8 @@ suite("migration 0032-versioned", () => {
 
     // and every one still reviewed and decided
     await initSessions(db);
-    const api = app({ db, store, rate: new Rate(0) });
-    const as = (method: string, path: string) => api.fetch(new Request(`http://play.test${path}`, { method, headers: { cookie: `play_session=${tokenFor(ada)}` } })).then(async (r) => ({ status: r.status, data: await r.json() }));
+    const api = appOn(db, { store });
+    const as = (method: string, path: string) => api.fetch(new Request(`http://play.test${path}`, { method, headers: { cookie: cookieFor(ada) } })).then(async (r) => ({ status: r.status, data: await r.json() }));
     for (const m of made) {
       const got = await as("GET", `/api/intents/${m.id}`);
       expect(got.status).toBe(200);
@@ -268,29 +243,19 @@ suite("migration 0032-versioned", () => {
   }, 60_000);
 });
 
-// Migration 202611070115-d2f50bf1-sandbox-layouts and ensureLayouts (play/SPEC.md §4.6): a database made at 0037 holding a sandbox's pins and configs and
-// its changes as the intents' sandbox_* columns kept them (one accepted, one archived, one at Proposal that still
-// holds, one that no longer does), migrated: the layout is sandbox:<uuid>, its v1 its pins and configs as they were;
-// every change an intent variant of it, each intent keeping its stage; the columns gone; and the one waiting reviewed
-// and accepted as the layout's v2, its rows written for the worlds.
+// Migration 202611070115-d2f50bf1-sandbox-layouts and ensureLayouts (play/SPEC.md §4.6) on a database at 0037 holding
+// a sandbox's pins, configs and changes: its layout document, each change an intent variant, the waiting one accepted as v2.
 suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, name: string;
+  let f: Fresh;
   beforeAll(async () => {
-    name = `play_migrate33_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
+    f = await freshDb({ prefix: "play_migrate33", migrate: false });
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("every layout its v1, every sandbox change an intent variant, each intent's stage kept, the waiting one still decided", async () => {
-    const db = fromBunSql(sql);
+    const db = f.db;
     expect((await migrate(db, { until: "0037-intent-depends" })).at(-1)).toBe("0037-intent-depends");
     const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
     const ada = (await createHuman(db, "ada")).id;
@@ -332,9 +297,9 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
     const gone = await change("proposal", [{ op: "unpin", slot: "nowhere" }], [{ kind: "pin", slot: "nowhere", before: pin(v1), after: null }]);
     const wasPins = await q(`SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1 ORDER BY slot`, [S2]);
 
-    // ---- the migration, then ensureLayouts at the end of migrate()
-    // (and every migration after it: 847c5d38's intent-variants holds each intent's documents)
+    // ---- the migration, then ensureLayouts as the seed runs it (and every migration after: 847c5d38's intent-variants)
     expect((await migrate(db))[0]).toEqual("202611070115-d2f50bf1-sandbox-layouts");
+    await seed(db);
     expect(await q(`SELECT intent_id FROM play.sandbox_changes_kept WHERE NOT moved`)).toEqual([]);
     const cols = (await q(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'play' AND table_name = 'intents'`)).map((r) => r.column_name);
     for (const gone of ["sandbox_id", "sandbox_base", "sandbox_change", "sandbox_diff"]) expect(cols).not.toContain(gone);
@@ -353,8 +318,8 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
 
     // reviewed and decided as every document's work is
     await initSessions(db);
-    const api = app({ db, store, rate: new Rate(0) });
-    const as = (method: string, path: string) => api.fetch(new Request(`http://play.test${path}`, { method, headers: { cookie: `play_session=${tokenFor(ada)}` } })).then(async (r) => ({ status: r.status, data: await r.json() }));
+    const api = appOn(db, { store });
+    const as = (method: string, path: string) => api.fetch(new Request(`http://play.test${path}`, { method, headers: { cookie: cookieFor(ada) } })).then(async (r) => ({ status: r.status, data: await r.json() }));
     const old = (await as("GET", `/api/intents/${accepted}`)).data;
     expect(old).toMatchObject({ stage: "accepted", work: { kind: "sandbox_version", doc: S2 } });
     expect(old.review.pins).toEqual([{ slot: "gate", before: expect.objectContaining({ label: "Old pawpaw", number: 1 }), after: expect.objectContaining({ label: "Old pawpaw", number: 2 }) }]);
@@ -372,10 +337,8 @@ suite("migration 202611070115-d2f50bf1-sandbox-layouts", () => {
   }, 60_000);
 });
 
-// One file per migration (play/SPEC.md "Migrations"): every shipped migration a file `<id>.sql` of
-// play/api/migrations, its SQL byte for byte as it ran (the SHA-256 list frozen from main's array at b5d019e,
-// ./fixtures/migrations.sha256.json); the runner reads the folder, runs each file once in name order, and refuses a
-// duplicate or malformed id, naming the file.
+// One file per migration (play/SPEC.md "Migrations"), byte for byte as it ran (./fixtures/migrations.sha256.json, frozen
+// at b5d019e), run once each in name order; a duplicate or malformed id refused, naming the file.
 describe("migrations, one file each", () => {
   const frozen: Record<string, string> = JSON.parse(readFileSync(join(import.meta.dir, "fixtures", "migrations.sha256.json"), "utf8"));
   const sha = (s: string) => new Bun.CryptoHasher("sha256").update(s).digest("hex");
@@ -424,14 +387,9 @@ describe("migrations, one file each", () => {
     expect(ok.at(-1)!.id).toBe("209901010000-e9afc2d5-files");
   });
 
-  const suiteDb = URL_ ? test : test.skip;
-  suiteDb("runs each file once, in name order", async () => {
-    const admin = new Bun.SQL(URL_!);
-    const names = [1, 2].map(() => `play_migfiles_${Date.now()}_${Math.floor(Math.random() * 1e6)}`);
-    const conns: Bun.SQL[] = [];
+  test("runs each file once, in name order (needs TEST_DATABASE_URL)", async () => {
+    const dbs = [await freshDb({ prefix: "play_migfiles", migrate: false }), await freshDb({ prefix: "play_migfiles", migrate: false })];
     try {
-      for (const n of names) await admin.unsafe(`CREATE DATABASE ${n}`);
-      const at = (n: string) => { const u = new URL(URL_!); u.pathname = `/${n}`; const s = new Bun.SQL(u.toString()); conns.push(s); return fromBunSql(s); };
       const extra = {
         "209901010000-e9afc2d5-files.sql": "CREATE TABLE play.mig_probe (n INT); INSERT INTO play.mig_probe VALUES (1);",
         "209901010001-0badc0de-second.sql": "INSERT INTO play.mig_probe VALUES (2);",
@@ -440,7 +398,7 @@ describe("migrations, one file each", () => {
       const shipped = Object.keys(frozen);
 
       // as production stands: 0001–0034 applied; migrating with only the shipped ones runs nothing
-      const prod = at(names[0]);
+      const prod = dbs[0].db;
       expect(await migrate(prod, { migrations: MIGRATIONS.filter((m) => m.id in frozen) })).toEqual(shipped);
       expect(await migrate(prod, { migrations: MIGRATIONS.filter((m) => m.id in frozen) })).toEqual([]);
       // the rest then run (the ones landed since b5d019e and the new files), each once, in name order
@@ -448,7 +406,7 @@ describe("migrations, one file each", () => {
       expect(await migrate(prod, { migrations: all })).toEqual([]);
 
       // a fresh one runs every file in name order, the new-style ids after 0034-schemas
-      const fresh = at(names[1]);
+      const fresh = dbs[1].db;
       const ran = await migrate(fresh, { migrations: all });
       expect(ran).toEqual(all.map((m) => m.id));
       expect(ran).toEqual([...ran].sort());
@@ -458,38 +416,25 @@ describe("migrations, one file each", () => {
       expect(rows.map((r) => r.n)).toEqual([1, 2]);
       expect(await migrate(fresh, { migrations: all })).toEqual([]);
     } finally {
-      for (const c of conns) await c.close();
-      for (const n of names) await admin.unsafe(`DROP DATABASE IF EXISTS ${n} WITH (FORCE)`);
-      await admin.close();
+      for (const d of dbs) await d.drop();
     }
   }, 120_000);
 });
 
-// Migration 202611070120-7c8085db-breeds and the import after it (play/SPEC.md "Breeds"; intent 7c8085db, its check c3): a database made
-// just before it holding assets of variants (a plant's kinds, each its own recipe in every frozen version), one with its
-// document made already (its variants in Main) and one without, and a sandbox pinning a variant by its name. Migrated
-// and imported: every asset's variants are breeds of its document with the same sources and cards (each breed built
-// gives its variant's recipe hash of the newest version, byte for byte), Main holds none, and every frozen version, its
-// variants' rows and the pin are as they were.
+// Migration 202611070120-7c8085db-breeds and the import after it (play/SPEC.md "Breeds"; intent 7c8085db, check c3): each
+// asset's variants become breeds building the same recipes, byte for byte; frozen versions, rows and pins unchanged.
 const BREEDS = "202611070120-7c8085db-breeds";
 suite("migration 202611070120-7c8085db-breeds", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, name: string;
+  let f: Fresh;
   beforeAll(async () => {
-    name = `play_migrate34_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
+    f = await freshDb({ prefix: "play_migrate34", migrate: false });
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("every asset's variants become breeds with the same sources and cards; frozen versions and pins unchanged", async () => {
-    const db = fromBunSql(sql);
+    const db = f.db;
     // the database as it stands before breeds: every migration before it, the schemas as documents
     const before_ = MIGRATIONS[MIGRATIONS.findIndex((m) => m.id === BREEDS) - 1].id;
     expect((await migrate(db, { until: before_ })).at(-1)).toBe(before_);
@@ -532,7 +477,7 @@ suite("migration 202611070120-7c8085db-breeds", () => {
     const kjson = { schema: "asset/1", label: "Kiwi", source: src("a kiwi vine"), engine: 5, card: { card: { label: "kiwi: Female" }, variant: "female" }, defaultVariant: "female", variants: kv.map((x: any) => ({ name: x.name, card: x.card })) };
     // (written by the store before breeds, its variants in Main)
     const { createDoc } = await import("../src/docs");
-    const { SCHEMA } = await import("../src/ids");
+    const { SCHEMA } = await import("../src/kit/ids");
     await createDoc(db, { id: `asset:${kiwi}`, schema: SCHEMA.asset, json: kjson, author: { human: null, via: "import" }, message: "v1", version: "v1", number: 1 });
     // a sandbox pinning a papaya by its variant's name
     await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, variant) SELECT id, 'papaya-tree', $1, 'male' FROM play.sandboxes ORDER BY id LIMIT 1`, [p2]);
@@ -543,8 +488,7 @@ suite("migration 202611070120-7c8085db-breeds", () => {
     ];
     const before = await frozen();
 
-    // ---- the breeds migration, then every one after it (the migrations that land after breeds run too: 4ea6b2ed's
-    // avenBOX token column first), and the import's breeds
+    // ---- the breeds migration and every one after (4ea6b2ed's avenBOX token column first), then the import's breeds
     const rest = MIGRATIONS.map((m) => m.id).slice(MIGRATIONS.findIndex((m) => m.id === BREEDS));
     expect(rest[0]).toBe(BREEDS);
     expect(await migrate(db)).toEqual(rest);
@@ -569,44 +513,32 @@ suite("migration 202611070120-7c8085db-breeds", () => {
         expect(b.json.card).toEqual(x.card);
       }
     }
-    // a second import changes nothing
     expect((await ensureAssetDocs(db, store, mkdtempSync(join(tmpdir(), "play-history-")))).breeds).toBe(0);
     // every frozen version, its variants' rows and the pin as they were
     expect(await frozen()).toEqual(before);
   }, 60_000);
 });
 
-// Migration 202611070945-1d9995c3-skills-records (intent 1d9995c3): a skill's row is play.records' (kind 'skill'), as
-// a schema's and a piece's are, so a new skill is made over MCP as any schema-alone document. Every play.skills row
-// moves with its id, label and times; the table goes; avenMAIA and the Intents skill keep their documents, versions
-// and history, and are served as before.
+// Migration 202611070945-1d9995c3-skills-records (intent 1d9995c3): skills' rows into play.records, nothing of them lost.
 const SKILLS_RECORDS = "202611070945-1d9995c3-skills-records";
 suite(`migration ${SKILLS_RECORDS}`, () => {
-  let admin: Bun.SQL, sql: Bun.SQL, name: string;
+  let f: Fresh;
   beforeAll(async () => {
-    name = `play_migrate_skills_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
+    f = await freshDb({ prefix: "play_migrate_skills", migrate: false });
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("skills become records: every row moves with its id, label and times, play.skills goes, avenMAIA and Intents served as before", async () => {
-    const db = fromBunSql(sql);
+    const db = f.db;
     const q = async (text: string, args: unknown[] = []) => (await db.query<any>(text, args)).rows;
-    // the database as it stands before: every migration before it, the schemas as documents, the two skills as the
-    // import wrote them then (each its play.skills row and its document's v1)
+    // the database before: every migration before it, schemas as documents, the two skills as the import wrote them then
     const before_ = MIGRATIONS[MIGRATIONS.findIndex((m) => m.id === SKILLS_RECORDS) - 1].id;
     expect((await migrate(db, { until: before_ })).at(-1)).toBe(before_);
     await (await import("../src/docs/schemas")).ensureSchemas(db);
     const docs = await import("../src/docs");
-    const { SKILL } = await import("../src/ids");
+    const { SKILL } = await import("../src/kit/ids");
     const { avenmaia, intents } = await import("../import/skills");
     const seeded = [
       { id: SKILL.avenmaia, json: avenmaia(), at: "2026-11-06T12:00:00Z" },
@@ -633,7 +565,7 @@ suite(`migration ${SKILLS_RECORDS}`, () => {
     expect(await skills.instructionsOf(db)).toBe(`${avenmaia().system.trim()}\n\n${intents().system.trim()}`);
     expect(await skills.briefOf(db, { id: "00000000-0000-4000-8000-000000000000", title: "A test", stage: "build" })).toContain("A test");
     const { listDocs } = await import("../src/versioned");
-    const listed = await listDocs(db, { id: "x", name: "x", level: "admin", rule: {}, founder_number: null } as any, "skill");
+    const listed = await listDocs(db, { id: "x", name: "x", level: "admin", rule: {}, founder_number: null } as Me, "skill");
     expect(listed.map((d: any) => [d.id, d.label, d.group])).toEqual(expect.arrayContaining([[SKILL.avenmaia, "avenMAIA", "agents"], [SKILL.intents, "Intents", "intents"]]));
     expect(await migrate(db)).toEqual([]);
   }, 60_000);

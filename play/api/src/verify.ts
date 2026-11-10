@@ -2,7 +2,7 @@
 // (.github/workflows/restore.yml): every file play.files names is in the store (PLAY_BLOBS or the bucket) and its bytes
 // hash to its name; every asset's head is one of its versions; every version's recipe is a file play keeps. Prints what
 // it counted and found as JSON, and exits 1 on any problem. Reads only.
-import { connect } from "./pg";
+import { connect } from "./kit/pg";
 import { blobStore } from "./blobs";
 
 const db = connect();

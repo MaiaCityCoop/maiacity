@@ -1,29 +1,20 @@
 #!/usr/bin/env bun
 /**
- * An asset's reference sheet: one clean-lit photographic plate of the one real thing, every view and detail the model
- * is held to, made by Google's image model (Nano Banana Pro on fal) from its brief and data sheet, and kept on play
- * among its files by its BLAKE3 hash. One tool for every kind; only the plate's prompt differs: a plant's is a
- * botanical plate of specimens (plant-skill, "The reference sheet"), a machine's a studio turnaround with close-ups
- * (machine-skill), a character's a casting turnaround of one real person from their own photos (actor-skill, "Your own
- * character").
+ * An asset's reference sheet: one clean-lit photographic plate of the real thing, made by Nano Banana Pro on fal from
+ * its brief and data sheet and kept on play by its BLAKE3 hash. Only the prompt differs by kind: a plant's botanical
+ * plate (plant-skill), a machine's studio turnaround (machine-skill), a character's casting turnaround from the
+ * person's own photos (actor-skill).
  *
  *   bun tools/sheet/sheet.ts --kind plant|machine|character --brief <brief.md> --out <dir> [--datasheet <datasheet.md>]
  *       [--ref <photo>]… [--library coop|personal] [--label "Lemon 'Femminello Santa Teresa'"]
  *       [--model fal-ai/nano-banana-pro] [--resolution 4K] [--aspect 16:9] [--n 1] [--search] [--no-upload] [--dry-run]
  *   bun tools/sheet/sheet.ts --upload <file.jpg> --label <label> [--library coop|personal]
  *
- * The brief is the thing and the plate's layout, row by row (the sub skill's rows); the data sheet, when given, goes
- * to the model as context. Reference images (--ref, repeated; image 1, 2 … in the order given, the brief saying what
- * each is the truth for) send the plate to the edit model (fal-ai/nano-banana-pro/edit) with them as its images; a
- * character is always made from the person's own photos. Each image is written as sheet-<k>.png (as made) and
- * sheet-<k>.jpg (for play: at most 4 MB), with prompt.txt and result.json beside them, and kept at once on play (MCP
- * add_story_frame, the session's PLAY_MCP_TOKEN), labelled "Reference sheet · <label> · <k>" (--label, else the
- * brief's first line), its hash printed and written to sheet-<k>.hash: the one the user gives the go for is named on
- * the asset's card as `sheet`. It goes to Maia City's Library, or with --library personal to the operator's own,
- * private to them; a character's sheet only ever to the personal one (--library coop is refused). Keep a person's
- * photos, brief and sheet out of the repository (it is public): --out a scratch folder. --no-upload keeps them only
- * here; --dry-run writes prompt.txt and request.json and calls nothing; --upload keeps one more (the same image is the
- * same hash, its label replaced).
+ * --ref images (in order, the brief saying what each is the truth for) send it to the edit model. Writes
+ * sheet-<k>.png/.jpg (≤ 4 MB), prompt.txt, result.json, sheet-<k>.hash, and keeps each on play at once (add_story_frame,
+ * "Reference sheet · <label> · <k>"); the one the user approves is the card's `sheet`. A character's sheet goes only to
+ * the operator's personal library (--library coop refused). Keep a person's photos and sheet out of the public
+ * repository (--out a scratch folder). --dry-run calls nothing.
  */
 import { mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import { join } from "node:path";

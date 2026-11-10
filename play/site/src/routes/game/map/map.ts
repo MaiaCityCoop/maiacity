@@ -1,25 +1,15 @@
-// The game's world map, grown from a seed: a river, a few lakes, five biomes, and the plots (Grundstücke) people will
-// build on, in a valley ringed by hills and mountains.
-//
-// The plots are the cells of a jittered hex grid cut by Voronoi (each one a soft, slightly irregular hexagon), inset so
-// that roads run between them and with rounded corners. A cell's biome comes from two noise fields (height and
-// wetness) and its distance to water; the outer ring of cells and the cells under the river and the lakes stay wild
-// land, and a plot by the water ends at its shore. What stands on the land (trees, rocks, peaks) is a list of
-// features. The same seed always gives the same map, and the game has one (SEED). Nothing here touches the DOM or
-// three.js: ./scene.ts draws it.
-//
-// Geometry is in map units (x runs east, y runs south, 6720 × 4470 of them); the map's real size follows from its
-// people: PEOPLE inhabitants with M2_PER_PERSON each, so every map's buildable land is exactly PEOPLE × M2_PER_PERSON
-// m² and one map unit is `scale` metres (about 11). The map holds
-// exactly PLOTS plots (villages, about 1500 people and 2.25 km² each), all buildable (shore, forest, grassland,
-// sand): mountains are no plots but wild land, raised into real hills (terrain); the water itself is no land at all.
+// The game's world map from one seed (SEED): a river, lakes, five biomes and the plots (Grundstücke) people will build on,
+// in a valley ringed by hills; ./scene.ts draws it. Map units: x east, y south, 6720 × 4470, one `scale` m (about 11);
+// exactly PLOTS plots of ~1500 people and 2.25 km², mountains wild land, water no land at all.
+
+import { seededRandom } from '$lib/kernel/random.js';
 
 export type P = [number, number];
 export type Biome = 'grass' | 'forest' | 'sand' | 'mountain' | 'river';
 /** the biomes nobody builds on: they stay wild land, never plots */
 export const UNBUILDABLE: Biome[] = ['mountain'];
 
-/** what each biome is and what it gives (the ten base resources of maia/content/aven-city/GAME-MECHANICS.md) */
+/** what each biome is and what it gives (the ten base resources of maia/content/aven-city/GAME-MECHANICS.md on SNAPSHOT_2611101) */
 export const BIOMES: Record<Biome, { label: string; gives: [string, string]; colour: string }> = {
 	river: { label: 'Shore', gives: ['Water', 'Clay'], colour: '#4f8a8b' },
 	forest: { label: 'Forest', gives: ['Wood', 'Herbs'], colour: '#3f5e4a' },
@@ -40,7 +30,6 @@ export const FILL: Record<Biome, string> = {
 export interface Plot {
 	id: number;
 	biome: Biome;
-	/** its outline, corners rounded */
 	outline: P[];
 	centre: P;
 	/** real m² */
@@ -86,8 +75,7 @@ export interface Massif {
 	land: P[];
 }
 
-/** how many plots the map holds: 1,346,269 (the Fibonacci number F31, a coop's whole supply of minds at its thirtieth
- * milestone) divided by 1500 */
+/** how many plots the map holds: 1,346,269 (F31, a coop's whole supply of minds at its thirtieth milestone) / 1500 */
 export const PEOPLE = 1346269;
 /** the land each inhabitant has, m² */
 export const M2_PER_PERSON = 1500;
@@ -100,8 +88,6 @@ const GAP = 7; // half a road
 const BANK = 42; // half the river with its banks
 const SHORE = 24; // a lake's shore, beyond its water
 
-// ── randomness ──────────────────────────────────────────────────────────────
-
 export function hashSeed(s: string): number {
 	let h = 2166136261;
 	for (let i = 0; i < s.length; i++) {
@@ -109,15 +95,6 @@ export function hashSeed(s: string): number {
 		h = Math.imul(h, 16777619);
 	}
 	return h >>> 0;
-}
-
-export function mulberry32(a: number) {
-	return () => {
-		a = (a + 0x6d2b79f5) | 0;
-		let t = Math.imul(a ^ (a >>> 15), 1 | a);
-		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
 }
 
 /** smooth value noise in [0,1], summed over a few octaves */
@@ -150,8 +127,6 @@ export function fbmNoise(rand: () => number) {
 		return sum / norm;
 	};
 }
-
-// ── geometry ────────────────────────────────────────────────────────────────
 
 /** keep the part of a convex polygon where nx·x + ny·y ≤ c */
 function clip(poly: P[], nx: number, ny: number, c: number): P[] {
@@ -247,8 +222,6 @@ function scatter(poly: P[], count: number, gap: number, rand: () => number): P[]
 	return out;
 }
 
-// ── the map ─────────────────────────────────────────────────────────────────
-
 interface Cell {
 	c: P;
 	full: P[];
@@ -266,7 +239,7 @@ interface Cell {
 export const SEED = 'one-world';
 
 export function generateMap(seed: string): WorldMap {
-	const rand = mulberry32(hashSeed(seed));
+	const rand = seededRandom(hashSeed(seed));
 	const height = fbmNoise(rand), wet = fbmNoise(rand), wobble = fbmNoise(rand);
 
 	// the river: from the top edge to the bottom, meandering
@@ -403,8 +376,7 @@ export function generateMap(seed: string): WorldMap {
 	}
 	const massif: Massif = { peaks: cells.filter((k) => k.biome === 'mountain').map((k) => k.c), land: cells.filter((k) => k.biome !== 'mountain').map((k) => k.c) };
 
-	// exactly PLOTS plots: beyond that count the outermost (by their distance from the centre, as an oval) go back to
-	// the wild, so the settled land ends in a soft round edge
+	// exactly PLOTS plots: past that the outermost (by oval distance from the centre) go wild, so settled land ends round
 	const settled = cells.filter((k) => !k.wild);
 	const outer = (k: Cell) => Math.hypot(k.c[0] / WIDTH - 0.5, k.c[1] / HEIGHT - 0.5);
 	settled.sort((a, b) => outer(b) - outer(a));
@@ -414,7 +386,6 @@ export function generateMap(seed: string): WorldMap {
 		k.inner = voronoi(cells.indexOf(k), 10);
 	}
 
-	// ── what stands on the land, on each cell, wild or plot ──
 	const features: Feature[] = [];
 	let onPlot = false;
 	const put = (kind: FeatureKind, x: number, y: number, s: number, extra: Partial<Feature> = {}) =>
@@ -424,8 +395,7 @@ export function generateMap(seed: string): WorldMap {
 		if (k.wild) continue;
 		plotList.push({ id: plotList.length + 1, biome: k.biome, outline: rounded(k.plot, 18), centre: centroid(k.plot), area: area(k.plot), people: 0 });
 	}
-	// the real scale: all buildable land is PEOPLE × M2_PER_PERSON; each plot's people by its share of it (largest
-	// remainders, so they add up to PEOPLE exactly)
+	// the real scale: buildable land is PEOPLE × M2_PER_PERSON; each plot's people by its share (largest remainders: exact)
 	const units = plotList.reduce((t, p) => t + p.area, 0);
 	const scale = Math.sqrt((PEOPLE * M2_PER_PERSON) / units);
 	const shares = plotList.map((p) => (p.area / units) * PEOPLE);
@@ -514,7 +484,7 @@ export const RIM = 700;
 
 /** the ground's height (m) at a point: flat in the valley, rising into hills and mountains beyond its edges */
 export function terrain(seed: string, river: P[], massif: Massif): (x: number, y: number) => number {
-	const rand = mulberry32(hashSeed(`${seed}/terrain`));
+	const rand = seededRandom(hashSeed(`${seed}/terrain`));
 	const hills = fbmNoise(rand), ridges = fbmNoise(rand);
 	const smooth = (a: number, b: number, v: number) => {
 		const t = Math.max(0, Math.min(1, (v - a) / (b - a)));
@@ -543,8 +513,7 @@ export function terrain(seed: string, river: P[], massif: Massif): (x: number, y
 	};
 }
 
-/** the distance from a point to a line (its pieces' nearest), or `reach` if it is farther: only the pieces whose grid
- * cells come within reach of the point are measured */
+/** the distance from a point to a line's nearest piece, or `reach` if farther (only pieces whose grid cells come within reach) */
 export function nearLine(line: P[], reach: number): (x: number, y: number) => number {
 	const S = 150, key = (gx: number, gy: number) => (gx + 1000) * 4096 + gy + 1000, grid = new Map<number, number[]>();
 	for (let i = 1; i < line.length; i++) {

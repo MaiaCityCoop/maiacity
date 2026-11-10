@@ -18,7 +18,7 @@ const LIST = `${SITE}/src/lib/kernel/sandbox/engines.json`;
 const ENGINE = `${SITE}/src/lib/content/assets/box/engine.js`;
 
 /** the engine as one script, three.js in it, as the box runs it */
-export async function bundleEngine(): Promise<string> {
+async function bundleEngine(): Promise<string> {
 	const b = await rolldown({ input: ENGINE, platform: 'browser', resolve: { alias: { $lib: `${SITE}/src/lib` } }, logLevel: 'silent' });
 	try {
 		const { output } = await b.generate({ format: 'iife', minify: true, codeSplitting: false } as any);

@@ -1,15 +1,15 @@
 // @ts-nocheck — plain JS, trusted: runs in the page and in a story's frame
 /*
- * WHAT A BUILD PLANTS, READ OFF IT — its nodes named `use:<recipe hash>?its=values`, each where that build is to stand
- * (./plantings.js draws them on a page; a story's world shot, ../../stories/live-runtime.ts, in its frame). Only three.js:
- * nothing here loads or draws.
+ * WHAT A BUILD PLANTS, READ OFF IT — its `use:<recipe hash>?its=values` nodes, each where that build stands (drawn by
+ * ./plantings.js on a page, ../../stories/live-runtime.ts in a story's frame). Only three.js: nothing loads or draws.
  */
+import { HEX } from '../../kernel/hash.js';
+
 /** a node's name that plants a build: `use:` and the build */
-export const USE = /^use:([0-9a-f]{64}(?:\?[A-Za-z0-9=&._%-]*)?)$/;
+export const USE = new RegExp(`^use:(${HEX}(?:\\?[A-Za-z0-9=&._%-]*)?)$`);
 
 /**
- * Every build a build plants, with where: its nodes named `use:<build>`, each its build's name and its matrix in the
- * world (the build as it stands in the scene).
+ * Every build a build plants: its `use:<build>` nodes, each the build's name and its world matrix (as it stands).
  * @param {THREE.Object3D} root @returns {{ ref: string, matrix: THREE.Matrix4, node: THREE.Object3D }[]}
  */
 export function plantingsOf(root) {

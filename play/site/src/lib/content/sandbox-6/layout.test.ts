@@ -103,7 +103,7 @@ describe('centre hex', () => {
 		const held = T.storeys!.reduce((x, s) => x + s.m2, 0);
 		expect(Math.abs(held - T.gfa!) / T.gfa!).toBeLessThan(0.15);
 		expect(T.gfa!).toBeLessThanOrEqual(327_000 / 5);
-		console.log(`the tower: ${Math.round(T.gfa!)} m² gross, ${Math.round(T.shape!.D)} m at its foot, ${Math.round(T.shape!.H)} m high, ${T.storeys!.length} storeys (the old shape: ${Math.round(T.full)} m²)`);
+		console.log(`the tower: ${Math.round(T.gfa!)} m² gross, ${Math.round(T.shape!.D)} m at its foot, ${Math.round(T.shape!.H!)} m high, ${T.storeys!.length} storeys (the old shape: ${Math.round(T.full)} m²)`);
 	});
 	test('the page never calls it Tower180', () => {
 		const shown = JSON.stringify(V.plans.tower.sites.map((s) => s.name)) + JSON.stringify(V.plans.tower.programme);

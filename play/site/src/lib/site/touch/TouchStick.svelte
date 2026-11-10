@@ -149,7 +149,7 @@
 	.stick {
 		display: none;
 		position: absolute;
-		/* in the lower left corner, as far from the left edge as from the foot, beside the app's nav pill (maia/site/app.css) */
+		/* in the lower left corner, as far from the left edge as from the foot, beside the app's nav pill (src/app.css) */
 		left: calc(var(--stick-edge, 1.5rem) + env(safe-area-inset-left, 0px));
 		bottom: var(--stick-edge, 1.5rem);
 		z-index: 2;

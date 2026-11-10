@@ -1,20 +1,10 @@
 /*
- * A BIOME'S COVER, STREAMED — the one program that lays a biome's cover, in every world, sandbox, dome and the asset
- * viewer (intent 11ead007). A biome's floor is dense where it is full (six or ten plants to a square metre inside a
- * carpet of them), too dense to lay out over a whole world at once. So it is laid out in small tiles round the eye as
- * it goes: each tile worked out from its place alone (the same tile, the same plants, every time it is built), a tile
- * or so a frame so walking never stutters, and the tiles left behind let go.
- *
- * Every plant of it is one copy of its kind as play built it (the kind's `ref`, a build by hash, from the biome's
- * card), drawn by the universal renderer ($lib/content/assets/render): each put down once, when its tile is built,
- * whole and with its rank (0…1, drawn when it is placed). It fades with distance rather than ending: near the eye all
- * of it stands, further off fewer and fewer (`thin`), and each plant grows up out of the ground or sinks back into it
- * as the eye comes and goes — on the graphics card, every frame, by the render kit's TSL ($lib/content/render/nodes
- * `aCover`), so nothing pops, the cover has no edge and nothing of it is moved while you walk. The tiles are built
- * beyond where the cover shows, so a new one is never seen arriving.
- *
- * `coverStream({ drawn, recipe, open, … })` → `{ update(x, z, budget), show(on), count(), dispose() }`: `update` with
- * where the eye is (in the floor's own ground) every frame.
+ * A BIOME'S COVER, STREAMED — the one program laying a biome's cover everywhere (intent 11ead007). Too dense for a whole
+ * world at once (six to ten plants a square metre in a carpet), it is laid in small tiles round the eye, each from its
+ * place alone, a tile or so a frame, the tiles left behind let go. Every plant is a copy of its kind's build (its card's
+ * `ref`) drawn by $lib/content/assets/render, put down once with its rank; it thins with distance and grows out of or
+ * sinks into the ground on the GPU ($lib/content/render/nodes `aCover`), so nothing pops and it has no edge. Tiles are
+ * built beyond where it shows. `update(x, z, budget)` every frame with the eye in the floor's ground.
  */
 import * as THREE from 'three';
 import { GRASSY, layTile } from './index.js';
@@ -28,19 +18,13 @@ import { GRASSY, layTile } from './index.js';
  *   origin?: [number, number], at?: [number, number, number], hidden?: boolean, heightAt?: (x: number, z: number) => number,
  *   sown?: number, trunks?: import('./masks.js').Trunk[], blades?: boolean
  * }} o
- *   drawn: the renderer it is drawn by (its kinds used, copies taken and given back); recipe: the biome, each kind of
- *   its cover naming its build (`ref`); open: whether cover may stand at x, z (not on a path, in the water, in a
- *   trunk…); tile: a tile's size (m); reach: how far from the eye it is drawn (m); near: how far every plant of it
- *   stands, beyond which it thins out; thin: how much of it is left at its reach (0…1); perFrame: how many tiles may be
- *   built a frame; density: the biome's, if it should be other (fewer on a slow device); origin: where this ground's
- *   0, 0 lies in the world (a dome's floor laid in its own ground), so its colonies stand on the surfaces its ground
- *   is painted with; at: where the floor's own ground lies in the world it is drawn in; hidden: none of it drawn until
- *   it is shown; heightAt: the floor's height at x, z of its own ground where it is not flat (and its relief, for a biome's wet and
- *   slope masks); sown: the way a field's lines run (radians from +x towards +z; ./surfaces.js `rowsOf`), for the
- *   kinds a machine sowed; trunks: the trees standing on it, each its place and crown's radius in its own ground, for
- *   a biome's canopy masks (./masks.js). `open` may take a third argument, a margin: how far a kind keeps clear;
- *   blades: its grass drawn blade by blade by a grass field beside it (./grass.js, intent 090168c8), so its grass
- *   kinds (not sown) are laid as before, the other kinds where they were, but none of their copies drawn here
+ *   drawn: the renderer (kinds used, copies taken and given back); recipe: the biome, each kind naming its build (`ref`);
+ *   open: whether cover may stand at x, z, its third argument a kind's margin; tile, reach, near (all stands within it),
+ *   thin (left at reach): m and 0…1; perFrame: tiles a frame; density: the biome's, if other (a slow device); origin:
+ *   this ground's 0, 0 in the world (its colonies' noise); at: the floor's ground in the drawn world; hidden: not drawn
+ *   until shown; heightAt: its relief (and the wet and slope masks); sown: a field's lines (./surfaces.js `rowsOf`);
+ *   trunks: its trees, for the canopy masks (./masks.js); blades: its grass drawn as blades beside it (./grass.js,
+ *   intent 090168c8), so its unsown grass kinds are laid but not drawn here
  */
 export function coverStream(o) {
 	const tile = o.tile ?? 12, reach = o.reach ?? 30, perFrame = o.perFrame ?? 1, seed = o.seed ?? 1;
@@ -58,7 +42,6 @@ export function coverStream(o) {
 	const tiles = new Map();
 	let hidden = !!o.hidden;
 	const m = new THREE.Matrix4();
-	/** a tile's plants put down, each whole with its rank: the graphics card grows them */
 	const lay = (/** @type {number} */ ix, /** @type {number} */ iz) => {
 		const copies = [];
 		layTile(recipe, ix, iz, { tile, seed, density: o.density, open: o.open, origin: [ox, oz], sown: o.sown, trunks: o.trunks, heightAt: o.heightAt }).forEach(({ m: M, rank, tint }, k) => {
@@ -98,14 +81,12 @@ export function coverStream(o) {
 			for (const [, tx, tz] of want.slice(0, budget)) tiles.set(`${tx},${tz}`, { ix: tx, iz: tz, copies: lay(tx, tz) });
 			for (const [key, t] of tiles) if (Math.hypot((t.ix + 0.5) * tile - x, (t.iz + 0.5) * tile - z) - tile * 0.71 > out + tile) drop(key);
 		},
-		/** none of it drawn (a dome's floor while its inside is not shown), or drawn again from the next update @param {boolean} on */
+		/** none of it drawn (a dome's floor while hidden), or drawn again from the next update @param {boolean} on */
 		show(on) {
 			hidden = !on;
 			if (hidden) for (const key of [...tiles.keys()]) drop(key);
 		},
-		/** how many plants of it are put down now, for a look at its weight */
 		count: () => [...tiles.values()].reduce((a, t) => a + t.copies.length, 0),
-		/** every copy handed back to the renderer's keeping */
 		dispose() {
 			hidden = true;
 			for (const key of [...tiles.keys()]) drop(key);
@@ -114,8 +95,5 @@ export function coverStream(o) {
 }
 /** @typedef {ReturnType<typeof coverStream>} Cover */
 
-/**
- * One tile of a biome's cover, worked out from its place alone, in one pass (./index.js `layTile`: a biome with masks
- * by its masks, one without exactly as before). @type {typeof layTile}
- */
+/** One tile of a biome's cover from its place alone (./index.js `layTile`). @type {typeof layTile} */
 export const coverTile = layTile;

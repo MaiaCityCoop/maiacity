@@ -1,24 +1,10 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * A PLANT'S GROUND ON THE STAGE — its biome's floor out to the horizon, its roots out of sight in the earth; tilt the
- * camera below the ground line and the frame splits there, as a split-level shot does: plant above, soil and roots below.
- *
- *   the floor   the biome's surfaces as the worlds draw them ($content/biomes `groundMaterial`), fading into the
- *               backdrop or the sky's horizon ($content/sandbox-kit/sky.js); a ring of mulch round the stem; its cover streamed round the
- *               plant (`coverStream`). It faces up only: from below, the eye sees on into the garden
- *   the earth   below the ground line: a face just beyond the farthest root, square to the eye (eased), its edges never
- *               seen, the ground line its top; drawn only while the eye is below; between eye and face earth and cover
- *               are left out, a band of turf standing on the ground line; darker and of one colour the further off
- *   the soil    on those faces in world metres (one 3D field, TSL): the biome's horizons from ./soils.js at their real
- *               depths, their boundaries waved and run together, the peds of each, stones, roots, worm burrows,
- *               mottles, lime, charcoal and fungal threads; what is under two pixels fades to its colour, not worked out
- *   the roots   the plant's own, crisp in the earth's clear middle
- *
- * A biome shown on its own stands on the same floor, its own (intent 119a02d1): its patch's cover where the patch lies,
- * its floor and cover on out to the horizon round it, no mulch ring (`fit(root, { open })`).
- *
- * `groundOf(stage, { drawn })` → { group, biome(recipe, id), fit(root, { open }), show(on), update(camera, dt), below, rootsView(camera),
- * soil, dispose }.
+ * A PLANT'S GROUND ON THE STAGE — its biome's floor to the horizon (`floorMaterial`), the earth and its soil
+ * (./soils.js) behind the roots once the camera tilts below the ground line, splitting the frame as a split-level shot
+ * does. A biome shown on its own stands on the same floor, its patch's cover within it, no mulch ring (intent
+ * 119a02d1). `groundOf(stage, { drawn })` → { group, biome, fit(root, { open }), show, update, below, rootsView, soil,
+ * dispose }.
  */
 import * as THREE from 'three';
 import { MeshStandardNodeMaterial } from 'three/webgpu';
@@ -41,9 +27,8 @@ const greenness = (recipe) => {
 };
 
 /**
- * The library's biomes a plant can stand on: each one's newest accepted version, read off its card (one whose card is
- * no floor's is left out), the greenest first (Samuel 2026-11-04: every plant is shown on one green floor, the
- * first), then by name. Each is known by `key`, its asset's UUID (its id where the index gives none).
+ * The library's biomes a plant can stand on, each one's newest accepted version (none whose card is no floor's), the
+ * greenest first (Samuel 2026-11-04: every plant is shown on one green floor, the first), then by name; `key` its UUID.
  * @param {{ index: { recipes: Record<string, any> }, cardOf: (hash: string) => any }} source
  * @returns {{ key: string, id: string, label: string, hash: string, recipe: any }[]}
  */
@@ -132,11 +117,7 @@ const ref = (u, type) => reference('value', type, u);
 
 const Soil = struct({ c: 'vec3', hgt: 'float', rough: 'float' });
 
-/**
- * the soil's material for the earth's faces, seen from inside: a soil's horizons as uniforms, the field worked out per
- * pixel, darkening with its distance from the eye
- * @param {ReturnType<typeof groundUniforms>} g
- */
+/** The soil's material for the earth's faces, worked out per pixel. @param {ReturnType<typeof groundUniforms>} g */
 function soilMaterial(g) {
 	const arr = (make, type) => uniformArray(Array.from({ length: MOST }, make), type);
 	const u = {
@@ -169,8 +150,7 @@ function soilMaterial(g) {
 		const b = sTo.element(i).add(e.x.mul(gN(q).mul(0.7).add(gN(q.mul(2.7).add(1.3)).mul(0.3)).mul(2).sub(1)));
 		return b.add(e.z.mul(pow(gN(vec3(p.xz.div(max(e.z.mul(0.8), 0.02)), i.toFloat().mul(5.1).add(2))), 4)).mul(2.2));
 	};
-	// the earth at p (m, the surface at y 0): its colour, its relief (m, how far the cut face stands out or sinks there:
-	// the height a bump map reads) and how rough it is
+	// the earth at p (m, surface at y 0): its colour, its relief (m, as a bump map reads it) and its roughness
 	const gSoil = Fn(([p, px]) => {
 		const hgt = float(0).toVar(), rough = float(0.95).toVar(), d = p.y.negate();
 		// which horizon: below each boundary that lies above it, each run into the next over as wide as it says
@@ -282,8 +262,7 @@ function soilMaterial(g) {
 			const fill = h.greaterThan(0).select(sCol.element(h.sub(1)), sCol2.element(h.add(1)));
 			mixIn(c, fill.mul(gN(p.mul(40)).mul(0.2).add(0.9)), kr);
 		});
-		// fine roots, a millimetre or so thick, running mostly downwards: each a short straight piece in the earth, so the
-		// face shows them as the spade cut them, a dash where it runs along one, a pale dot where it cut across
+		// fine roots (~1 mm) running mostly down, short straight pieces: a dash where the face runs along one, a dot across
 		If(bits.z.greaterThan(0), () => {
 			const cell = gV(p.div(0.012).add(23)).toVar(), v = cell.get('v'), toC = cell.get('to');
 			const rh = gH3(vec3(v.z.mul(97), v.z.mul(13), 5));
@@ -322,9 +301,8 @@ function soilMaterial(g) {
 			mixIn(c, vec3(0.012, 0.011, 0.01), ch);
 			rough.assign(mix(rough, 0.45, ch));
 		});
-		// worm burrows: cut across, round dark holes lined with darker earth (the walls they coat with their casts), from
-		// the endogeic worms' in the topsoil, 2–5 mm, to the anecic worm's that run upright a metre and more, 6–9 mm; and
-		// where a face runs along one, its channel
+		// worm burrows: round dark holes lined with casts, the endogeic worms' 2–5 mm in the topsoil, the anecic worm's
+		// 6–9 mm running upright a metre and more; and a channel where a face runs along one
 		const poreShare = crumb.select(0.3, kind.lessThanEqual(PED.prismatic).select(0.12, 0.04)).mul(ped.z);
 		If(bits.w.greaterThan(0).or(poreShare.greaterThan(0)), () => {
 			const v = gV(p.div(0.016).add(13)).get('v');
@@ -362,8 +340,7 @@ function soilMaterial(g) {
 		const s = gSoil(sp, px).toVar();
 		// less light the deeper it lies
 		const col = s.get('c').mul(ceil.select(0.55, 1)).mul(clamp(w.y.negate().div(max(u.uDeep, 1e-3)), 0, 1).mul(-0.22).add(1));
-		// the relief as the light sees it, measured across the pixel (as a bump map is); the underside lit as the face
-		// is, so the corner where they meet does not show as a seam
+		// the relief as the light sees it, across the pixel; the underside lit as the face is, so their corner shows no seam
 		const dh = vec2(dFdx(s.get('hgt')), dFdy(s.get('hgt'))).mul(1.6), n = normalView;
 		const sx = normalize(dFdx(positionView)), sy = normalize(dFdy(positionView)), r1 = cross(sy, n), r2 = cross(n, sx);
 		const det = dot(sx, r1).mul(faceDirection);
@@ -400,11 +377,7 @@ function setSoil(m, soil) {
 	u.uHazeC.value.set(top.col).multiplyScalar(0.5);
 }
 
-/**
- * the floor: a biome's surfaces (the worlds' ground), a ring of mulch round the stem, fading into the backdrop far off;
- * facing up only, so the eye below the ground sees on past it
- * @param {ReturnType<typeof groundUniforms>} g @param {THREE.Color} bg @param {THREE.Vector2} fade
- */
+/** The floor, facing up only. @param {ReturnType<typeof groundUniforms>} g @param {THREE.Color} bg @param {THREE.Vector2} fade */
 function floorMaterial(g, bg, fade, sky) {
 	const m = groundMaterial(BARE);
 	const xz = positionWorld.xz, bw = vec2(xz.x, xz.y.negate()), c = ref(g.uC, 'vec3'), ring = ref(g.uRing, 'float');
@@ -430,8 +403,7 @@ function floorMaterial(g, bg, fade, sky) {
 }
 
 /**
- * A plant's ground on the stage.
- * @param {import('./stage.js').Stage} stage
+ * A plant's ground on the stage. @param {import('./stage.js').Stage} stage
  * @param {{ cover?: boolean, drawn?: any }} [o] `cover`: its biome's cover streamed round the plant (not on a phone's
  *   budget); `drawn`: the renderer it is drawn by (./plantings.js `drawn`: play's builds of its kinds), none without
  */
@@ -444,12 +416,10 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 	const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 128).rotateX(-Math.PI / 2), floorMaterial(g, stage.bg, fade, stage.sky));
 	floor.receiveShadow = true;
 	const soil = soilMaterial(g);
-	// the earth behind the roots, seen from below the ground line: one face of it standing just beyond the farthest root,
-	// square to the eye, wide and deep enough that its edges are never seen (they are lost in its haze), the ground line
-	// its top; lit by the studio's lights but in no shadow (the crown's would fall on it as if no earth lay above)
-	// and from deeper down, the underside of the ground from the plant back to the face, so a root near the surface is
-	// seen against earth and not the sky (the ground line then runs through the stem's foot, from any depth). Both in
-	// the earth's own frame: at the plant, turned to face the eye
+	// the earth behind the roots, seen from below: one face just beyond the farthest root, square to the eye, its edges
+	// lost in its haze, the ground line its top, lit but in no shadow (the crown's would fall as if no earth lay above);
+	// and the underside of the ground from plant to face, so a root near the surface is seen against earth, not sky.
+	// Both in the earth's frame: at the plant, turned to the eye
 	const under = new THREE.Group();
 	under.name = 'underground';
 	under.visible = false;
@@ -479,14 +449,13 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 	const coverFor = () => {
 		stream?.dispose();
 		stream = null;
-		// the cover is drawn to be seen from standing height: round a seedling, seen from a few centimetres, its clover
-		// heads and twigs would stand like trees, so a small plant stands on its floor alone
+		// the cover is drawn for standing height (round a seedling its clover would stand like trees): none for a small plant
 		if (!cover || !drawn || !tall || !recipe?.cover?.length) return;
 		const ring = ringAt, cx = g.uC.value.x, cz = g.uC.value.z;
 		// out to where the floor starts fading into the backdrop, never beyond it (no plants standing in the haze)
 		const reach = reachAt;
-		// on a turntable the plant is the middle of what is seen: the cover stands full round it and thins outwards; and
-		// while the eye is below the ground, only beyond the earth's face (`update`, the render kit's `coverAway`)
+		// on a turntable the cover stands full round the plant and thins outwards; while the eye is below the ground,
+		// only beyond the earth's face (`update`, the render kit's `coverAway`)
 		drawn.round(new THREE.Vector3(cx, 0, cz));
 		try {
 			stream = coverStream({ drawn, recipe, open: (x, z) => Math.hypot(x - cx, z - cz) > ring, tile: Math.max(1.5, Math.min(4, reach / 3)), reach, near: reach * 0.45, thin: 0.2, perFrame: 4, seed: 77 });
@@ -513,14 +482,8 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 			setSoil(soil, soilNow);
 			coverFor();
 		},
-		/**
-		 * sized to a plant: the earth as deep as its deepest root and a little more, wide round its roots; the floor out
-		 * to the horizon, its mulch ring as wide as its crown is near the ground. The ground's surface at 0. With `open`
-		 * (a biome's patch, its radius in metres): no mulch ring, and the cover streamed only beyond that radius, the
-		 * patch's own cover within it.
-		 * @param {THREE.Object3D} root
-		 * @param {{ open?: number }} [o]
-		 */
+		/** Sized to a plant's roots and crown; surface at 0. With `open` (a biome's patch, its radius in metres): no mulch
+		 *  ring, the cover streamed only beyond it. @param {THREE.Object3D} root @param {{ open?: number }} [o] */
 		fit(root, o = {}) {
 			root.updateMatrixWorld(true);
 			root.getWorldPosition(at);
@@ -589,16 +552,14 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 			if (!on) below = under.visible = false;
 		},
 		/**
-		 * Where the camera stands for the split-level view of the roots: on the ground line (a hair under it), so the line
-		 * lies level through the whole frame as a split-level shot's waterline does, tilted down until the line is two
-		 * fifths down the frame, the stem's foot on it and all of the roots under it; from the side it looks from now.
+		 * Where the camera stands for the split-level view: a hair under the ground line, so it lies level through the
+		 * frame like a waterline, tilted down until it is two fifths down, the roots all under it; from its present side.
 		 * @param {THREE.PerspectiveCamera} camera
 		 */
 		rootsView(camera) {
 			const h = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), aspect = camera.aspect || 1;
 			const D = Math.max(fitted.deep, fitted.reach * 0.03), S = Math.max(fitted.spread, D * 0.5);
-			// tilted down so the horizon (the ground line) is 0.2 of the half-height over the middle; the deepest root 0.85
-			// of it under the middle; the roots' spread in the width
+			// the horizon 0.2 of the half-height over the middle, the deepest root 0.85 under it; the roots' spread in width
 			const tilt = Math.atan(0.2 * h);
 			const d = Math.max((1.06 * D) / Math.tan(tilt + Math.atan(0.85 * h)), (1.15 * S) / (h * aspect));
 			const y = -fitted.reach * 0.004;
