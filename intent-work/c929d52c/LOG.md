@@ -41,3 +41,31 @@ bent by the slow octave so no outline runs along the lattice. `box/round3.png`: 
 edge, broken small clouds toward the horizon, thinning into the haze; night: faint dark shapes against the stars.
 Honest: these are good stylised fair-weather clouds, **not yet photographic**: the outlines are still rounded noise
 (no cauliflower tops, no wisps), and one layer has no parallax.
+
+`box/round3-phone.png`: round 3 at 390 × 844 (dawn, noon, dusk, night): soft at a phone's size too.
+
+## Round 4–5 · billows (23:34)
+
+The fine three octaves billow (|noise|: round bulges, sharp creases between them) on the two coarse octaves' bodies.
+Round 4 broke the clouds into scattered puffs (the billows' mean was below zero and ate the bodies); round 5 centres
+them. `box/round5.png`: outlines now have lobes and bays like a cumulus seen from below, and small clouds break off
+the big ones. Still one flat tone inside by day.
+
+## 23:33 · Samuel's word, relayed by the Orchestrator
+
+"We still need absolute realism, high quality screens", and no before-against-after: main's sky is what he finds bad.
+So the pull request shows the result alone, judged against real skies, one honest line a picture. References I judge
+against (from knowledge of such photographs, none fetched): fair-weather cumulus humilis from the ground at midday
+(white sunlit rims, flat blue-grey bases, crisp lobed tops, rows flattening into haze at the horizon); the same field
+ten minutes after sunrise or before sunset (bases and sun-facing sides rose to orange, far sides slate-blue, the sky
+behind still blue overhead); a moonless night with broken cloud (dark shapes that hide stars, no light of their own).
+
+## Round 6–7 · the sun's own colour (23:38)
+
+At this sky's dawn and dusk (sun 4° up; the first --sky hours, 6.6 and 17.4, were mid-morning and afternoon: fixed to
+5.35 and 19.65) the clouds stayed grey-white: they were lit by the air's extinction along the *eye's* line, not along
+the sun's. Now `airOf` works out once a move what is left of the sun where the clouds are (Preetham's extinction along
+the sun's path) and a low sun also lights the bases. `box/round7.png`: **rose clouds at dawn and dusk with slate
+shadows, white at noon.** Against the references: colour and softness right; dawn clouds are evenly rose where a real
+field goes from orange near the sun to grey away from it; noon bodies still lack a firm bright rim against a darker
+base; one layer, no parallax; no cirrus above.
