@@ -41,7 +41,7 @@ async function decideOne(ctx: Ctx, me: Me | null, w: any, verdict: IntentVerdict
   if (w.kind && w.stage === "proposal" && (verdict === "accept" || verdict === "archive" || verdict === "reject")) {
     const { id: _id, intent: _i, stage: _s, why, ...r }: any = await decide(ctx, me, w.id, verdict === "accept" ? "accept" : "archive");
     decision = { ...r, ...(r.message ?? why ? { message: r.message ?? why } : {}) };
-  } else await decideIntent(db, me, w.id, verdict === "archive" ? "reject" : verdict);
+  } else await decideIntent(db, me, w.id, verdict === "archive" ? "reject" : verdict, gh);
   const said = decision ? { decision, ...(decision.message ? { message: decision.message } : {}) } : {};
   if (me?.level !== "admin") return { id: w.id, stage: (await workOf(db, w.id))?.stage, ...said };
   return { ...(await getIntent(db, w.id)), ...said };
