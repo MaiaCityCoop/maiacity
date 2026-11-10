@@ -25,8 +25,8 @@
  */
 import * as THREE from 'three';
 import { CAST, SECOND_HOME } from './cast.js';
-import { createControls } from '$lib/content/render/core.js';
-import { worldRenderer } from '$lib/content/render/world.js';
+import { createControls, ready } from '$lib/content/render/core.js';
+import { worldFinish, worldRenderer } from '$lib/content/render/world.js';
 import { blend } from '$lib/content/assets/clips.js';
 import { SPEED } from '$lib/content/models/units.js';
 import { lineDur } from './tour.js';
@@ -3675,7 +3675,7 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 		if (!drawn_) return;
 		light(t);
 		drawn.update();
-		if (own) renderer.render(scene, camera);
+		if (own) finish ? finish.render(film ? t : undefined) : renderer.render(scene, camera);
 		if (++frame % 4 === 0) {
 			const w = canvas.clientWidth;
 			const h = canvas.clientHeight;
@@ -3705,7 +3705,14 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 			if (r.on !== roamSeen.on || r.near !== roamSeen.near || r.driving !== roamSeen.driving || r.waterNear !== roamSeen.waterNear || r.waterDistance !== roamSeen.waterDistance || r.treeNear !== roamSeen.treeNear) ((roamSeen = r), onRoam(r));
 		}
 	}
-	if (own) loop();
+	// its own frames once the renderer is ready (WebGPU's device asked for; on WebGL at once), unless left before
+	let left = false;
+	/** @type {import('$lib/content/render/world.js').WorldFinish | null} the picture finished (intent 1f0c6f79): the haze, the device's pipeline */
+	let finish = null;
+	const made = ready(renderer).then(() => {
+		if (!left) finish = worldFinish(renderer, scene, camera, { sky, film });
+	});
+	if (own) void made.then(() => !left && loop());
 
 	/** the film's hold on the world (./film.js): the world brought back to how a moment of the story starts, whatever
 	 *  came before it, so the same moment always plays the same way */
@@ -3795,7 +3802,7 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 		},
 		/** settles once every library asset asked for so far is there to draw (or failed) */
 		get ready() {
-			return drawn.ready();
+			return made.then(() => drawn.ready());
 		},
 		/** settles once every library asset in the camera's view (as the next frame is drawn) is there to draw (or
 		 *  failed): what the shot on screen shows, the rest perhaps still coming */
@@ -3805,6 +3812,7 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 		/** what the renderer draws of the library */
 		stats: () => drawn.stats(),
 		dispose() {
+			left = true;
 			cancelAnimationFrame(raf);
 			drawn.dispose();
 			ro.disconnect();
@@ -3815,6 +3823,7 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 			window.removeEventListener('keydown', onKey);
 			window.removeEventListener('keyup', onKey);
 			controls.dispose();
+			finish?.dispose();
 			sky.dispose();
 			renderer.dispose();
 		}

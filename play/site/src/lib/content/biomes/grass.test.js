@@ -238,8 +238,8 @@ describe('variation', () => {
 });
 
 describe('the grass is never warmed by a direct compile', () => {
-	// three's WebGLNodesHandler never resolves a renderer.compileAsync of a node material: a warm-up of the grass goes
-	// through render/core.js's precompile or is the first frame that draws it (the Orchestrator's rule, from cb16b7a5)
+	// a warm-up of the grass goes through render/core.js's precompile (one at a time on a renderer) or is the first
+	// frame that draws it (the Orchestrator's rule, from cb16b7a5)
 	test('no compile or compileAsync in the grass or where it is laid', async () => {
 		const { readFileSync } = await import('node:fs');
 		const { fileURLToPath } = await import('node:url');

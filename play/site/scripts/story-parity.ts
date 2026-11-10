@@ -118,7 +118,8 @@ try {
 		else run(['ffmpeg', '-y', '-loglevel', 'error', '-i', film, '-vf', `select=eq(n\\,${Math.round(t * story.fps)})`, '-frames:v', '1', join(work, `render-${t}.png`)]);
 	// the player's picture at each second
 	// in Chrome (else the renderer's own headless shell), with the renderer's font and colour flags
-	const flags = { args: ['--font-render-hinting=none', '--force-color-profile=srgb'] };
+	// and WebGPU where the browser has it (intent c1bee1f8; else the page falls back to its WebGL 2 backend by itself)
+	const flags = { args: ['--font-render-hinting=none', '--force-color-profile=srgb', '--enable-unsafe-webgpu'] };
 	const cache = join(homedir(), '.cache/puppeteer');
 	const shell = existsSync(cache) ? [...new Bun.Glob('chrome-headless-shell/*/*/chrome-headless-shell').scanSync({ cwd: cache, absolute: true })].sort().pop() : undefined;
 	const browser = await chromium.launch({ ...flags, channel: 'chrome' }).catch(() => chromium.launch({ ...flags, executablePath: shell }));
@@ -132,6 +133,9 @@ try {
 	for (let i = 0; !inner && i < 600; i++) await page.waitForTimeout(100), (inner = page.frames().find((f) => f !== page.mainFrame()));
 	if (!inner) throw new Error("the player's frame never came");
 	await inner.waitForFunction(() => (window as any).__renderReady === true, null, { timeout: 300_000, polling: 250 });
+	// which backend the film's world drew with, said in the evidence (intent c1bee1f8 c9: WebGPU, or its WebGL 2 fallback
+	// where this headless Chrome has no WebGPU)
+	console.log(`drawn with: ${await inner.evaluate(() => (window as any).__rendererBackend ?? 'webgl').catch(() => 'unknown')}${await inner.evaluate(() => !!(navigator as any).gpu).catch(() => false) ? '' : ' (this browser offers no WebGPU)'}`);
 	for (const t of at) {
 		await page.evaluate((s) => (window as any).at(s), t);
 		// and drawn in its frame (its own process, its WebGL slow without a GPU): two of its frames after the seek

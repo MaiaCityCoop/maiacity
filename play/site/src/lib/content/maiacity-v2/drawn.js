@@ -37,7 +37,9 @@ const modules = () =>
 // fetched with the world's code, so the first builds don't wait for the first frame's shader compile
 if (typeof window !== 'undefined' && window.document?.createElement) modules().catch(() => {});
 
-/** @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Scene }} o */
+/**
+ * @param {{ renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, scene: THREE.Scene }} o
+ */
 export function createDrawn({ renderer, camera, scene }) {
 	let assets = null;
 	let gone = false;

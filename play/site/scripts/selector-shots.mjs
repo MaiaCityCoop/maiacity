@@ -28,7 +28,7 @@
  * a table on stdout.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { openSite, gpuOf, settle } from './mac-page.mjs';
+import { openSite, gpuOf, settle, webgpuOf } from './mac-page.mjs';
 import { playProxy } from './macjob/proxy.mjs';
 
 const argv = process.argv.slice(2);
@@ -143,7 +143,7 @@ for (const site of sites) {
 	const page = await ctx.newPage();
 	await page.addInitScript(countTriangles, HOUR);
 	if (meterScript) await page.addInitScript(meterScript);
-	console.log(`${site.name}: GPU ${await gpuOf(page)}`);
+	console.log(`${site.name}: GPU ${await gpuOf(page)}, WebGPU ${await webgpuOf(page)}`);
 	// opened once to warm the page's asset cache (a profile's first load builds and photographs every kind), then measured
 	for (const load of cold ? ['first'] : ['first', 'measured']) {
 		const t0 = Date.now();

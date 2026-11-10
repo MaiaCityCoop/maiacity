@@ -26,7 +26,9 @@ import { SunLight } from 'three/addons/lights/SunLight.js';
 import { airOf, createUniverse, groundStars, horizonRing, skyAt } from './universe.js';
 import { skyHour, skyTime } from './skyTime.svelte.js';
 import { budget } from '../render/budget.js';
-import { setExposure, tonemap, untonemap } from '../render/core.js';
+import { isWebGPU, ready, setExposure, tonemap, untonemap } from '../render/core.js';
+import { CubeRenderTarget } from 'three/webgpu';
+import { SUN as GRAPH_SUN } from '../render/nodes/graph.js';
 
 /**
  * @typedef {{ hour: number, e: number, day: number, low: number, night: number }} SkyLight
@@ -73,7 +75,7 @@ import { setExposure, tonemap, untonemap } from '../render/core.js';
  *   north?: number,
  *   map?: boolean,
  *   day?: [number, number],
- *   onHour?: (light: SkyLight, parts: { sun: SunLight, renderer: THREE.WebGLRenderer, scene: THREE.Scene }) => void
+ *   onHour?: (light: SkyLight, parts: { sun: SunLight, renderer: import('three/webgpu').WebGPURenderer, scene: THREE.Scene }) => void
  * }} SkyOptions
  *   clock: the hour, 0…24 (the time control's); sun: the sun pinned (degrees: its height, its bearing from +z toward
  *   +x), whatever the hour; light: false for no sun light (a stage with its own key); shadowReach: how far from the eye
@@ -212,7 +214,7 @@ export function createSkyClock({ clock = skyHour } = {}) {
 
 /**
  * Put the sky over a world.
- * @param {THREE.WebGLRenderer} renderer
+ * @param {import('three/webgpu').WebGPURenderer} renderer
  * @param {THREE.Scene} scene
  * @param {SkyOptions} [options]
  * @returns {SkyHandle}
@@ -230,9 +232,14 @@ export function createSky(renderer, scene, options = {}) {
 	// into the same targets, so every material keeps the one environment it was compiled with
 	const envSky = createUniverse({ clouds: 0, mirror: map, disc: false });
 	const envScene = new THREE.Scene().add(envSky.dome);
-	const cube = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType });
+	// on WebGPU (intent c1bee1f8) the cube is three/webgpu's and is the environment itself: its node system filters it
+	// each time the cube camera draws it (PMREMNode), so no PMREMGenerator; and nothing is drawn before it is initialised
+	const gpu = isWebGPU(renderer);
+	const cube = gpu ? new CubeRenderTarget(128, { type: THREE.HalfFloatType }) : new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType });
 	const cubeCamera = new THREE.CubeCamera(0.1, 100, cube);
-	const pmrem = new THREE.PMREMGenerator(renderer);
+	const pmrem = gpu ? null : new THREE.PMREMGenerator(renderer);
+	/** a bake asked for before a WebGPURenderer may draw, made once it may (unless the sky is gone) */
+	let waiting = false, gone = false;
 	/** @type {THREE.WebGLRenderTarget | null} */
 	let envTarget = null;
 
@@ -301,6 +308,21 @@ vec3 skyHorizon(vec3 dir) {
 
 	const bake = (/** @type {number[]} */ gain) => {
 		envSky.U.gain.value.fromArray(gain);
+		if (!pmrem) {
+			if (!(/** @type {any} */ (renderer).initialized)) {
+				if (!waiting) {
+					waiting = true;
+					void ready(renderer).then(() => {
+						waiting = false;
+						if (!gone) bake(envSky.U.gain.value.toArray());
+					});
+				}
+				return;
+			}
+			cubeCamera.update(renderer, envScene);
+			scene.environment = cube.texture;
+			return;
+		}
 		cubeCamera.update(renderer, envScene);
 		envTarget = pmrem.fromCubemap(cube.texture, envTarget);
 		scene.environment = envTarget.texture;
@@ -322,6 +344,8 @@ vec3 skyHorizon(vec3 dir) {
 		universe.set(view);
 		envSky.set(view);
 		sunDir.copy(l.dir);
+		// the sun every asset's own look may read (a graph's `sun`, ../render/nodes/graph.js)
+		GRAPH_SUN.value.copy(l.dir);
 		sun.position.copy(l.from);
 		sun.color.copy(l.sun.color);
 		// under a mood's lid (an overcast, a smog) the sun is a smear: most of the light comes from the sky
@@ -391,10 +415,11 @@ vec3 skyHorizon(vec3 dir) {
 			universe.dispose();
 			envSky.dispose();
 			sun.dispose();
+			gone = true;
+			if (scene.environment === envTarget?.texture || scene.environment === cube.texture) scene.environment = null;
 			cube.dispose();
-			if (scene.environment === envTarget?.texture) scene.environment = null;
 			envTarget?.dispose();
-			pmrem.dispose();
+			pmrem?.dispose();
 		}
 	};
 }

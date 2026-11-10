@@ -27,7 +27,8 @@
  */
 
 import * as THREE from 'three'
-import { blurMaterial, cutBy, cutOf, ghostMaterial, nodeOf, poolMaterial } from '../render/nodes/index.js'
+import { blurMaterial, cutBy, cutOf, depthMaterial, ghostMaterial, nodeOf, poolMaterial } from '../render/nodes/index.js'
+import { pmremFor } from '../render/core.js'
 
 export { THREE, ghostMaterial }
 export const LAYER_FX = 1 // transparent effects: kept out of the AO and contact shadow passes
@@ -95,7 +96,7 @@ export function studioEnvironment(renderer, theme) {
   box(8, 3, 6, 1.5, 12, paper ? 1.4 : 1.6)                  // low front fill
   // black flags: long dark reflections give metal its shape on a white set
   box(5, 16, 12, 4, 7, 0.02); box(4, 16, -13, 4, -2, 0.02); box(16, 3, 0, -1, -14, 0.03)
-  const pm = new THREE.PMREMGenerator(renderer)
+  const pm = pmremFor(renderer) // three/webgpu's on WebGPU (the stage is made once its renderer may draw)
   const rt = pm.fromScene(s, 0.02)
   pm.dispose()
   return rt.texture
@@ -122,10 +123,9 @@ export class ContactShadow {
     plane.position.y = lab.groundY + 0.002 * scale; plane.scale.y = -1; plane.renderOrder = 1; plane.layers.set(LAYER_FX)
     lab.scene.add(plane, this.cam)
     this.plane = plane
-    // three's own depth (white near the floor): the first blur turns it into the pool's darkness (`DARK`)
-    this.depthMat = new THREE.MeshDepthMaterial()
-    this.depthMat.depthTest = false; this.depthMat.depthWrite = false
-    this.depthMat.clippingPlanes = LAB_PLANES; this.depthMat.clipIntersection = true
+    // the depth (white near the floor): the first blur turns it into the pool's darkness (`DARK`); cut by the stage's
+    // ClippingGroup as what it draws is (intent c1bee1f8)
+    this.depthMat = depthMaterial()
     this.hb = blurMaterial(this.rt.texture); this.vb = blurMaterial(this.rtB.texture)
     this.quad = new THREE.Mesh(new THREE.PlaneGeometry(W, W).rotateX(Math.PI / 2), this.hb); this.quad.frustumCulled = false; this.quad.position.y = lab.groundY + 0.01 * scale
   }
@@ -144,8 +144,7 @@ export class ContactShadow {
     this.cuts ??= new Map()
     let d = this.cuts.get(m)
     if (!d) {
-      d = this.depthMat.clone()
-      d.map = m.map; d.alphaMap = m.alphaMap; d.alphaTest = m.alphaTest; d.side = m.side
+      d = depthMaterial(m)
       this.cuts.set(m, d)
     }
     return d

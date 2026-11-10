@@ -20,11 +20,17 @@
  * Format 5 (engine 6, intent 6fd5e63f): a material says what it is (`look`, ../look.js: leaf, grass, petal, bark, stem,
  * fruit or stone, with its translucency, stiffness and flutter), as its recipe set it on `userData.look`, so the page's
  * own shaders draw it (the wind, light through leaves); the page checks it.
+ * Format 6 (engine 7, intent a5faafad): a material with a shader of its own brings it as data, a node graph checked
+ * against the one allowlist (`graph`, ./graph.js), or the kit's section caps (`cap`); one with any other shader of its
+ * own is refused, saying which, and no longer goes out silently as a plain one (no `custom` flag).
  */
 import { ShaderChunk, Vector3 } from 'three';
 import { plainLook } from '../look.js';
+import { checkGraph, GRAPHS_MOST } from './graph.js';
 
-export const FORMAT = 5;
+export const FORMAT = 6;
+/** the kinds a graph may be given: those the page draws as node materials (../../render/nodes/index.js `nodeOf`) */
+export const GRAPHED = ['MeshStandardMaterial', 'MeshPhysicalMaterial', 'MeshBasicMaterial', 'MeshLambertMaterial', 'MeshPhongMaterial'];
 /** the lights that go out as lights */
 export const LIGHTS = { PointLight: 'point', SpotLight: 'spot', DirectionalLight: 'directional', AmbientLight: 'ambient', HemisphereLight: 'hemisphere' };
 
@@ -82,7 +88,9 @@ export async function serialize(root, { controls = [], view } = {}) {
 	const imageAt = new Map();
 	const buffers = new Set();
 	const pending = [];
-	const stats = { tris: 0, custom: 0, skinned: 0 };
+	const stats = { tris: 0, skinned: 0 };
+	/** the different graphs given so far, as JSON */
+	const graphs = new Set();
 
 	const array = (a) => {
 		buffers.add(a.buffer);
@@ -132,16 +140,31 @@ export async function serialize(root, { controls = [], view } = {}) {
 	const material = (m) => {
 		if (matAt.has(m)) return matAt.get(m);
 		const type = MATERIALS.includes(m.type) ? m.type : 'MeshStandardMaterial';
-		const custom = !MATERIALS.includes(m.type) || (m.onBeforeCompile && m.onBeforeCompile.toString() !== m.constructor.prototype.onBeforeCompile?.toString());
-		if (custom) stats.custom++;
+		// a shader of its own: another kind, or code patched into three's (onBeforeCompile)
+		const patched = !!m.onBeforeCompile && m.onBeforeCompile.toString() !== m.constructor.prototype.onBeforeCompile?.toString();
+		const own = !MATERIALS.includes(m.type) || patched;
 		const params = {};
 		for (const k of PLAIN) if (k in m && (typeof m[k] === 'number' || typeof m[k] === 'boolean')) params[k] = m[k];
 		for (const k of COLORS) if (m[k]?.isColor) params[k] = m[k].getHex(); else if (Array.isArray(m.uniforms?.[k]?.value)) params[k] = m.uniforms[k].value;
 		if (type !== 'MeshStandardMaterial' || !m.isShaderMaterial) for (const k of MAPS) if (m[k]?.isTexture) params[k] = texture(m[k]);
 		if (m.normalScale?.isVector2) params.normalScale = [m.normalScale.x, m.normalScale.y];
-		const cap = custom ? capOf(m) : null;
+		const what = `material ${materials.length}${m.name ? ` (${String(m.name).slice(0, 40)})` : ''}`;
+		// its look as data: a node graph of the one allowlist, checked here as the page and play check it
+		let graph = null;
+		if (m.userData?.graph !== undefined) {
+			if (!GRAPHED.includes(type)) throw new Error(`${what}: a graph is given to ${GRAPHED.join(', ')}, not a ${type}`);
+			try {
+				graph = checkGraph(m.userData.graph, { slots: MAPS.filter((k) => k in params) });
+			} catch (e) {
+				throw new Error(`${what}: its graph is refused: ${e?.message ?? e}`);
+			}
+			graphs.add(JSON.stringify(graph));
+			if (graphs.size > GRAPHS_MOST) throw new Error(`more than ${GRAPHS_MOST} different graphs in one build: share them between the materials that look alike`);
+		}
+		const cap = own ? capOf(m) : null;
 		const look = plainLook(m.userData?.look);
-		materials.push({ type, params, name: m.name, custom: !!custom, ...(cap && { cap }), ...(look && { look }) });
+		if (own && !graph && !cap) throw new Error(`${what}: a shader of its own (${m.type}${patched ? ', onBeforeCompile' : ''}) never leaves the box: give its look as a node graph (material.userData.graph, ./graph.js)`);
+		materials.push({ type, params, name: m.name, ...(cap && { cap }), ...(look && { look }), ...(graph && { graph }) });
 		matAt.set(m, materials.length - 1);
 		return materials.length - 1;
 	};

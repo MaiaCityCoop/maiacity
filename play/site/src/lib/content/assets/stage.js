@@ -34,10 +34,11 @@
  * `ground`, a plant's soil at 0 rather than under its roots).
  */
 import * as THREE from 'three';
+import { ClippingGroup } from 'three/webgpu';
 import { NodePass, createPost } from '$lib/content/render/post.js';
 import { dot, float, fract, length, mix, sin, smoothstep, uniform, vec2, vec3, vec4 } from 'three/tsl';
 import { createSky } from '$lib/content/sandbox-kit/sky.js';
-import { precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
+import { isWebGPU, precompile, setExposure, untonemap, withTone } from '$lib/content/render/core.js';
 import { budget } from '$lib/content/render/budget.js';
 import { floorMaterial } from '../render/nodes/index.js';
 import { CUT, ContactShadow, LAB_PLANES, LAYER_FX, approach, clamp, cutOut, ease, ghostMaterial, lerp, studioEnvironment } from './kit.js';
@@ -60,7 +61,7 @@ const touchFirst = () => typeof matchMedia === 'function' && matchMedia('(pointe
 
 export class Stage {
 	/**
-	 * @param {THREE.WebGLRenderer} renderer the page's renderer (its tone mapping is set while the stage draws)
+	 * @param {import('three/webgpu').WebGPURenderer} renderer the page's renderer (its tone mapping is set while the stage draws)
 	 * @param {THREE.PerspectiveCamera} camera
 	 * @param {{ theme?: 'paper' | 'night', low?: boolean, sky?: boolean, hour?: number }} [o] `low`: a phone's budget (no occlusion pass, 2× multisampling,
 	 *   a smaller, softer-sampled shadow), so it draws smoothly and fits in a phone's memory ($content/render/core.js);
@@ -73,6 +74,17 @@ export class Stage {
 		this.theme = theme;
 		this.low = low;
 		this.scene = new THREE.Scene();
+		/** what the asset stands in: the scene, or on WebGPU (intent c1bee1f8), whose materials take no clipping planes
+		 *  of their own, a ClippingGroup cut by the section planes, its shadows too (a rigged actor's plain materials) */
+		this.holder = this.scene;
+		if (isWebGPU(renderer)) {
+			const cut = new ClippingGroup();
+			cut.clippingPlanes = LAB_PLANES;
+			cut.clipIntersection = true;
+			cut.clipShadows = true;
+			this.scene.add(cut);
+			this.holder = cut;
+		}
 		this.state = { explode: 0, cut: 0, xray: 0, labels: 0, slow: 0 };
 		this.target = { explode: 0, cut: 0, xray: 0, labels: 0, slow: 0 };
 		this.paused = false;
@@ -182,6 +194,8 @@ export class Stage {
 	_ao(ao) {
 		ao.blendIntensity = this.theme === 'paper' ? 0.85 : 1;
 		ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
+		// WebGPU: what the WebGL pass hides from its normal pass is kept out by the post's mask, each frame (_render)
+		if (ao.exclude) return void (this._aoOut = ao.exclude);
 		// effects and see-through parts are not solid: keep them out of the normal and depth pass; so are parts cut out
 		// by a picture (a leaf on a bigger sheet), which that pass would draw whole (./kit.js cutOut)
 		const aoRender = ao.render.bind(ao);
@@ -231,7 +245,7 @@ export class Stage {
 		this.clear();
 		this.root = root;
 		this.asset = asset ?? root.userData.asset;
-		this.scene.add(root);
+		this.holder.add(root);
 		root.updateMatrixWorld(true);
 		const box = new THREE.Box3().setFromObject(root);
 		this.box = box;
@@ -319,7 +333,7 @@ export class Stage {
 			this.resetBreak();
 			this.asset?.pose(0, 1);
 			this._cutTo(0);
-			this.scene.remove(this.root);
+			this.holder.remove(this.root);
 		}
 		if (this.floor) {
 			this.scene.remove(this.floor);
@@ -672,12 +686,13 @@ export class Stage {
 	 * @returns {Promise<void>}
 	 */
 	compile() {
-		if (!this.composer) this._post();
+		if (!this.post) this._post();
 		this._gloss();
 		const r = this.renderer;
 		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, rt: r.getRenderTarget() };
 		r.localClippingEnabled = true;
-		r.setRenderTarget(this.composer.readBuffer);
+		// into the post's target, as it draws (WebGPU's pipeline has its own, and builds what it draws as it draws it)
+		if (this.composer) r.setRenderTarget(this.composer.readBuffer);
 		let done = Promise.resolve();
 		// the one warm-up (core.js `precompile`): the sky's dome and stars, node materials, built at their first frame
 		done = precompile(r, this.scene, this.camera);
@@ -700,7 +715,7 @@ export class Stage {
 	}
 
 	render() {
-		if (!this.composer) this._post();
+		if (!this.post) this._post();
 		if ((this._glossed = (this._glossed ?? 0) + 1) % 12 === 1) this._gloss();
 		const r = this.renderer;
 		const was = { tm: withTone(r, 'agx'), clip: r.localClippingEnabled, exposure: r.toneMappingExposure };
@@ -709,7 +724,10 @@ export class Stage {
 		setExposure(r, lens);
 		// the bloom's threshold in the lens's units: the scene's light is the sky's, its radiance far over 1 (544485e2:
 		// a threshold in the scene's units bloomed the whole sky into a haze over every asset)
-		if (this.post?.bloom) this.post.bloom.threshold = this.bloomAt / lens;
+		// (WebGPU's bloom keeps its threshold in a uniform: intent c1bee1f8's post on a RenderPipeline)
+		const bloom = this.post?.bloom;
+		if (bloom?.threshold?.isNode) bloom.threshold.value = this.bloomAt / lens;
+		else if (bloom) bloom.threshold = this.bloomAt / lens;
 		r.localClippingEnabled = true;
 		this.camera.layers.enable(LAYER_FX);
 		this.camera.updateMatrixWorld();
@@ -724,7 +742,14 @@ export class Stage {
 			r.shadowMap.needsUpdate = true;
 			this._shadowWas = sig;
 		}
-		this.composer.render();
+		if (this._aoOut) {
+			// effects, the parts marked noAO and those cut out by a picture keep out of the occlusion (post.js's mask)
+			this.scene.traverse((m) => {
+				if (!m.isMesh || !m.visible || !(m.userData.noAO || cutOut(m) || m.layers.isEnabled(LAYER_FX))) return;
+				for (const x of Array.isArray(m.material) ? m.material : [m.material]) this._aoOut(x);
+			});
+		}
+		this.post.render();
 		r.shadowMap.autoUpdate = auto;
 		was.tm();
 		setExposure(r, was.exposure);
@@ -759,7 +784,7 @@ export class Stage {
 
 	/** the canvas changed size @param {number} w @param {number} h */
 	resize(w, h) {
-		if (!this.composer) return;
+		if (!this.post) return;
 		this.post.setSize(w, h, this.renderer.getPixelRatio()); // the page may lower its pixel ratio while frames are slow
 		const s = this.renderer.getDrawingBufferSize(new THREE.Vector2());
 		this.grade.uniforms.uRes.value.set(s.x, s.y);
@@ -772,3 +797,4 @@ export class Stage {
 		this.scene.environment?.dispose();
 	}
 }
+

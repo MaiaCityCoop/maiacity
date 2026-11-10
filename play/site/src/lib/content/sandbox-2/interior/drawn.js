@@ -11,8 +11,9 @@ import { STREAMS } from './flora.js';
 /**
  * A renderer of assets in `scene`, its copies kept for the next that wants one.
  * @param {{
- *   renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void
- * }} o `boxes` how many build side by side; `shadows`: told when a caster changed, instead of redrawing the shadows
+ *   renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void
+ * }} o `boxes` how many build side by side; `shadows`: told when what casts a shadow changed, instead of the shadows
+ *   drawn again
  */
 export function createDrawn(o) {
 	const assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes: o.boxes, onShadows: o.shadows });
@@ -49,9 +50,10 @@ export function createDrawn(o) {
 const tanOf = (camera) => Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (camera.zoom || 1);
 
 /**
- * The renderer a world's plants are drawn by (./flora.js), as many boxes as Sandbox 4 always grew its forest in;
- * `streams`: how far off small plants are put down (./flora.js STREAMS: the village's, or under a dome).
- * @param {{ renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void, streams?: import('./flora.js').Streams }} o
+ * The renderer a world's plants are drawn by (./flora.js). Its boxes as many as the workers Sandbox 4 always grew its
+ * forest in.
+ * `streams`: how far off its small plants are put down at all (./flora.js STREAMS: the village's, or under a dome's glass).
+ * @param {{ renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void, streams?: import('./flora.js').Streams }} o
  * @returns {import('./flora.js').FloraDrawn & ReturnType<typeof createDrawn>}
  */
 export function createFlora(o) {

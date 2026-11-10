@@ -30,6 +30,11 @@
  * the looks of materials (colour, glow, opacity, roughness, metalness) and lights (colour, brightness, reach,
  * fall-off), in a control's samples (./bake.js) and in each step's answer (./live.js: `shapes`, `looks`, `lights`).
  *
+ * Version 7 adds (format 6, intent a5faafad): a material's own look as data, a node graph checked against the one
+ * allowlist (./graph.js) on its `userData.graph`, built by the page into TSL; the kit's section caps as their look; and
+ * a shader of its own given any other way refuses the build, naming the material, where engines 1–6 sent it out
+ * silently as a plain material.
+ *
  * Messages: { id, op: 'build', recipe: { hash, code }, given?, args?, engine } is answered with
  * { id, ok: true, data, card, ms } or { id, ok: false, error }; { id, op: 'live', recipe, given?, nodes } with
  * { id, ok: true, session, nodes }; { id, op: 'tick', session, ask } with { id, ok: true, nodes, trs, visible, morph,

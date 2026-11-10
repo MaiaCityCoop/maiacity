@@ -26,7 +26,7 @@ import { appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm,
 import { antHills, apiary, fishes, herd } from './animals'
 import { nearReady as actorsReady, wantNear as actorsNear } from '$lib/content/assets/render/crowd.js'
 import { flow, pond, shore, stream } from './water'
-import { createWorldRenderer } from '$lib/content/render/world.js'
+import { createWorldRenderer, worldFinish } from '$lib/content/render/world.js'
 import { createSky, SUN } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
@@ -118,6 +118,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	}
 	// the canvas, the camera and the sky are every sandbox's own ($content/sandbox-kit)
 	const stage = createWorldRenderer(container)
+	// nothing is drawn before the renderer may draw (WebGPU's device asked for; on WebGL at once)
+	await stage.ready
 	const { renderer, scene, camera } = stage
 	// where the eye is (the walker's, or the film camera's): the animals near it move every bone
 	const eye = () => camera.position
@@ -234,6 +236,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			for (const dm of built.values()) dm.setHour(hour)
 		}
 	})
+	// the picture finished as every world's (intent 1f0c6f79): the haze from the one sky, the device's pipeline
+	const finish = worldFinish(renderer, scene, camera, { sky })
 	await pause('Letting in the light')
 
 	/* ── the ground: the hexagon of the cell, meadow beyond ── */
@@ -1565,7 +1569,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// the film camera draws the canvas itself while it holds it (maia/content/film)
 		// every shadow pass counts as the animals' (the sun's, a level's, the grid's): theirs waits a second from it
 		if (renderer.shadowMap.needsUpdate) herdShadows = now
-		if (!filmDraws()) renderer.render(scene, camera)
+		if (!filmDraws()) finish.render()
 		// keep it smooth; while a film is shot every frame is rendered at the resolution it asks for
 		stage.adapt(now, filmHoldsSize())
 		frame = requestAnimationFrame(tick)
@@ -1799,6 +1803,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			sound.dispose()
 			world.disconnect()
 			walker.dispose()
+			finish.dispose()
 			sky.dispose()
 			stage.dispose()
 		}
