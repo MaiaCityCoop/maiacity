@@ -25,7 +25,10 @@ export const VIEWS = {
 export type ViewName = keyof typeof VIEWS | 'open' | 'home';
 export type World = 'sandbox-1' | 'sandbox-5' | 'sandbox-3' | 'worlds';
 /** the views each world is counted from: the dome cells' named cameras; the others as they open */
-export const VIEWS_OF: Record<World, ViewName[]> = { 'sandbox-1': ['near', 'mid', 'far'], 'sandbox-5': ['near', 'mid', 'far'], 'sandbox-3': ['open', 'home'], worlds: ['open'] };
+export const VIEWS_OF: Record<World, ViewName[]> = { 'sandbox-1': ['near', 'mid', 'far'], 'sandbox-5': ['near', 'mid', 'far'], 'sandbox-3': ['open'], worlds: ['open'] };
+/** views counted only when asked for by name (`--view home`): `all` stays what main counts, so a bound against main
+ *  compares like with like (main's own census measures main in the box's run) */
+export const ASKED_VIEWS: Partial<Record<World, ViewName[]>> = { 'sandbox-3': ['home'] };
 /** Sandbox 5's one building (play/site/src/routes/sandbox-5/+page.svelte): the forest dome by its UUID, and its gates' bearings */
 const SOLO = { asset: 'cac16350-08a4-4d51-8cdf-3ade5f61836e', gates: [Math.PI, Math.PI / 2, -Math.PI / 2, 0] };
 /** the hour every census is taken at: noon, lamps out (the Mac's runs); the world's clock held (s): fish, birds still */
@@ -215,8 +218,8 @@ function frameTally() {
 export async function censusOf(o: { world: World; views?: ViewName[]; asset?: string; settleMs?: number; measureFrames?: number; log?: (s: string) => void }): Promise<ViewCensus[]> {
 	const log = o.log ?? ((s: string) => console.error(s));
 	// walked near to far whatever order they are asked in: what one view leaves is the next one's
-	const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
-	if (o.views?.some((v) => !views.includes(v))) throw new Error(`census: ${o.world} has the views ${VIEWS_OF[o.world].join(', ')}`);
+	const views = o.views ? [...VIEWS_OF[o.world], ...(ASKED_VIEWS[o.world] ?? [])].filter((v) => o.views!.includes(v)) : VIEWS_OF[o.world];
+	if (o.views?.some((v) => !views.includes(v))) throw new Error(`census: ${o.world} has the views ${[...VIEWS_OF[o.world], ...(ASKED_VIEWS[o.world] ?? [])].join(', ')}`);
 	const t0 = performance.now();
 	// the plants that did not grow, as the forests count them (a tree from before intent 4a199916 counts none)
 	const flora = await import(lib('content/sandbox-2/interior/flora.js'));

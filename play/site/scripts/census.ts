@@ -11,7 +11,7 @@
  *                                   [--renderer webgl|webgpu|webgl2] [--smoke] [--settle <seconds>] [--frames <n>]
  *
  * --world         Sandbox 1 (the village: near, mid, far), Sandbox 5 (the forest dome alone in the cell, the same views;
- *                 intent 009e04d3), Sandbox 3 (the old city: as it opens, and `home`, the walker turned to the tent) or the worlds view (a world asset:
+ *                 intent 009e04d3), Sandbox 3 (the old city: as it opens; `home`, the walker turned to the tent, only when asked by name) or the worlds view (a world asset:
  *                 --asset names it by its UUID, else the first world play lists), the last two as they open (`open`)
  *
  * --at <commit>   that commit's play/site (./census/tree.ts, with this checkout's node_modules and frozen engines),
