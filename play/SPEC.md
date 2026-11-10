@@ -797,6 +797,24 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     Never an intent in Ship, Accepted or Archived, never a pull request into another branch or naming no intent, never a
     merge into main or production. Ship itself (its queue, steps and re-read at its turn), the reconcile and how checks
     are recorded stay as they are.
+  - **play wakes each builder the moment it must act** (intent 40397205, Samuel 2026-11-10: "The hourly orchestrator
+    sweep is bad, so we need a real-time solution"): every commit status play puts on GitHub (`Intent accepted`,
+    `Merges with main`, `Intent`) goes through one poster, `github.ts` `postStatus`, each line once per head and context,
+    its memory on the intent's `pr_seen.posted`. The status **`Intent`** (not a required check), on the head of the
+    intent's pull request, its target the intent's link: checks recorded with a must failed, `failure`, the failed musts
+    each with its evidence's first line (*c1 failed: 2 fail*, fitted to GitHub's 140 characters), on the commit they ran
+    on; every must passed, Build → Proposal, `success` *at Proposal: waits for Accept*; a spec approved, `pending`
+    *approved: build it*; a step back, `failure` *stepped back to \<stage\>: \<reason\>*; a red Ship step, back at
+    Proposal, `failure` *\<step\> red: \<report's first line\>* on the head it shipped; Accepted by the reconcile,
+    `success` *Accepted: live*. A GitHub error posting it never fails what play was doing (the record, the approval,
+    the step back, the ship): it is logged and kept unsent, and the watcher's next tick posts it (`postAgain`). **A
+    draft at Specify**: a draft pull request may name an intent at Specify (*Intent named* green, "a draft while its spec
+    waits"); marked ready it still needs Build, Proposal or Ship. Each tick play takes such a draft, the only open one
+    naming the intent in its body, as the intent's pull request (`adoptDrafts`) and reads it, so approval posts on it.
+    Nothing is recorded or proposed before Build. **Builders watch, never poll**: a builder opens its draft at its first
+    commit (at Specify too, as soon as it is started) and subscribes to it at once (`subscribe_pr_activity`); it is
+    woken by `Intent`, `Merges with main`, CI and reviews and acts on each; it schedules no check-ins and runs no sweeps,
+    and no orchestrator sweeps or relays for it.
   - **production follows main** (`.github/workflows/release.yml`): once main.yml is green for a push to main, or by
     `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
     with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no

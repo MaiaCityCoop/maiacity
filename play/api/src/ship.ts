@@ -4,7 +4,7 @@ import { admin, meOf, type Me } from "./access";
 import { COOP, intentsIn } from "./kit/ids";
 import type { Db, Queryable } from "./kit/pg";
 import { canonical } from "./kit/hash";
-import { ACCEPTED_CONTEXT, GitHubError, intentLink, quiet, keepSeen, readPull, type GitHub, type Job, type Pull, type Run } from "./github";
+import { ACCEPTED_CONTEXT, GitHubError, intentLink, quiet, keepSeen, postStatus, readPull, wake, type GitHub, type Job, type Pull, type Run } from "./github";
 import { INTENT_ADMINS, byOf, decisions, gate, getIntent, mustMove } from "./intents";
 import { carried } from "./mainmerge";
 import { decidable, prBlock, short, sub } from "./substate";
@@ -179,6 +179,7 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
       ship.pending = null;
       ship.again = pending.kind === "merge" ? undefined : pending.kind;
       await save("proposal");
+      await wake(tx, gh, id, "failure", `${ready.name} red: ${why.split("\n")[0]}`, ship.head);
       console.log(`ship: intent ${id} is red before it started (${why}): back to Proposal`);
     };
     const wait = async (why: string, timed: boolean) => {
@@ -231,7 +232,7 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
 
     const by = ship.by;
     try {
-      await gh.status(pending.head, { state: "success", description: `Accepted by ${by} on play`, target_url: intentLink(id) });
+      await postStatus(tx, gh, id, seen, ACCEPTED_CONTEXT, "success", `Accepted by ${by} on play`, { head: pending.head });
     } catch (e) {
       return red(`GitHub took no '${ACCEPTED_CONTEXT}' on #${pr.number}'s head: ${(e as Error).message}`, pr.html_url);
     }
@@ -239,7 +240,7 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
     try {
       merged = await gh.merge(pr.number, pending.head, `${pr.title} (#${pr.number})`, `Accepted by ${by} on play: ${intentLink(id)}\n\nIntent: ${id}`);
     } catch (e) {
-      await gh.status(pending.head, { state: "failure", description: "Accepted, but not merged: accept it again", target_url: intentLink(id) }).catch((e) => console.warn(`ship: intent ${id}: not merged, and its head not marked so: ${(e as Error).message}`));
+      await postStatus(tx, gh, id, seen, ACCEPTED_CONTEXT, "failure", "Accepted, but not merged: accept it again", { head: pending.head }).catch((e) => console.warn(`ship: intent ${id}: not merged, and its head not marked so: ${(e as Error).message}`));
       return red(`GitHub did not merge #${pr.number}: ${(e as Error).message}`, pr.html_url);
     }
     Object.assign(ready, { state: "green", finished: iso, note: `#${pr.number} ready, its checks green` });
@@ -439,7 +440,11 @@ export async function reconcile(db: Db, gh: GitHub, store: BlobStore, commit: st
         );
         return done.length ? (await acceptWorkLive(tx, store, i.id), done) : done;
       });
-      if (done.length) out.accepted.push(i.id), console.log(`reconcile: intent ${i.id} (${i.stage}) is live at ${short(commit)}: accepted`);
+      if (done.length) {
+        await wake(db, gh, i.id, "success", "Accepted: live", i.ship?.head);
+        out.accepted.push(i.id);
+        console.log(`reconcile: intent ${i.id} (${i.stage}) is live at ${short(commit)}: accepted`);
+      }
     } else if (!isLive && (i.stage === "accepted" || i.stage === "ship")) {
       await db.query(
         `UPDATE play.intents SET ship = COALESCE(ship, jsonb_build_object('pr', pull_request, 'steps', '[]'::jsonb)) || ($3::text)::jsonb WHERE id = $1 AND stage = $2`,
