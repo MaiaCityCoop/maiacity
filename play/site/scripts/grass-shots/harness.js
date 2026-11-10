@@ -4,7 +4,7 @@
  * by the dev server like any module, so avenBOX's Chromium in software (SwiftShader) can shoot the grass on WebGPU
  * where a whole world can't stay up (intent e85a5860's c4; ../../../../intent-work/e85a5860-shots/shots.mjs loads it).
  *
- * Inlined as a module into a page of the dev server's origin, its address `?backend=webgpu|webgl2&biome=<id>`: no biome,
+ * Inlined as a module into a page of the dev server's origin, its address `?backend=webgpu|webgl2&biome=<id>&device=small`: no biome,
  * the made-up meadow below; a biome's id (meadow, roadside-verge, clover-lawn, food-forest), its own grass where its
  * recipe grows grass (`grassOfRecipe`) and its grass as its newest version on play writes it (pinned 2026-11-09, as
  * grass.test.js's cover measure); sets `window.__h`:
@@ -24,6 +24,8 @@ const THREE = await import(threeAt);
 
 const which = new URLSearchParams(location.search).get('backend') ?? 'webgpu';
 const biome = new URLSearchParams(location.search).get('biome');
+// whose budget: a desktop's, or a phone's (`small`), as the asset viewer and the worlds choose it
+const device = new URLSearchParams(location.search).get('device') === 'small' ? 'small' : 'desktop';
 document.body.style.margin = '0';
 const canvas = document.createElement('canvas');
 canvas.style.cssText = 'display:block;width:100vw;height:100vh';
@@ -117,7 +119,7 @@ window.__h = {
 		return field;
 	},
 	ready: ready(renderer).then(() => {
-		field = grassFieldOn(renderer, { at, device: 'desktop', ...(own ? { params: own.params } : {}) });
+		field = grassFieldOn(renderer, { at, device, ...(own ? { params: own.params } : {}) });
 		scene.add(field.object);
 		look(0, 1.65, 0, 0, -0.12);
 	})
