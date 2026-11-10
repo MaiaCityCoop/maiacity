@@ -475,8 +475,11 @@ describe('grass covers the ground', async () => {
 	};
 	/** the verge's cover as its newest version lays it (84db33e7 v2): its grass is the cover kind `drygrass` */
 	const VERGE = { id: 'roadside-verge', cover: [{ kind: 'drygrass', share: 6, colony: 2.5, spread: 0.6, fill: 0.7 }, { kind: 'plantain', share: 0.6, colony: 1.5, spread: 0.3 }, { kind: 'gravel', share: 6, colony: 3, spread: 0.7, fill: 0.9 }] };
-	/** the share of the near view a biome's grass must cover: closed, or patchy between its litter as in nature */
-	const BOUND = { meadow: [0.9, 1], 'roadside-verge': [0.9, 1], 'clover-lawn': [0.9, 1], 'food-forest': [0.4, 0.85] };
+	/**
+	 * the share of the near view a biome's grass must cover: the meadow closed (Samuel 2026-11-10: the meadow is the bar);
+	 * the verge, the lawn and the food forest floor reported only (their grass thickened by intent 1717f109)
+	 */
+	const BOUND = { meadow: [0.9, 1] };
 	for (const id of /** @type {const} */ (['meadow', 'roadside-verge', 'clover-lawn', 'food-forest'])) {
 		test(`grass covers the ground: ${id}`, () => {
 			const recipe = id === 'roadside-verge' ? VERGE : BIOMES.find((b) => b.id === id);
@@ -490,9 +493,11 @@ describe('grass covers the ground', async () => {
 			const c = coverOf({ field, params: P, eye, yaw: 0, pitch: -0.3, width: 1280, height: 720 });
 			const per = keptPerM2(field, eye, 23);
 			console.log(`${id}: grass covers ${(c.cover * 100).toFixed(1)} % of the ground 1.5–10 m from the eye (${c.blades} blades); kept a square metre: near ${per.near}, mid ${per.mid}, far ${per.far}`);
-			const [lo, hi] = BOUND[id];
-			expect(c.cover).toBeGreaterThanOrEqual(lo);
-			expect(c.cover).toBeLessThanOrEqual(hi);
+			expect(c.ground).toBeGreaterThan(0);
+			const bound = /** @type {Record<string, [number, number]>} */ (BOUND)[id];
+			if (!bound) return;
+			expect(c.cover).toBeGreaterThanOrEqual(bound[0]);
+			expect(c.cover).toBeLessThanOrEqual(bound[1]);
 		}, 120_000);
 	}
 });
