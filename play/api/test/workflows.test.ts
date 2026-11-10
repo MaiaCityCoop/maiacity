@@ -270,6 +270,36 @@ describe("Intent named", async () => {
 
 // The box run in about 3 minutes (intent 006eb26a): main measured beside the head's checks, compared once both are in,
 // main fetched shallow, and kept in GitHub's cache by what it reads.
+// intent a3c81d24 (Samuel 2026-11-10: "use the same pg from GitHub"): apt.postgresql.org held a box run's setup for 15
+// minutes; the box run starts the PostgreSQL CI runs, and setup.sh installs none when 17 already answers
+describe("the box run's Postgres", () => {
+  const steps = yaml(".github/workflows/intents-pr.yml").jobs.run.steps;
+  const ci = yaml(".github/workflows/play-checks.yml").jobs.api.steps.find((s: any) => s.name === "Postgres");
+  const lines = (s: any) => String(s.run).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  test("the box starts CI's Postgres container before setup.sh, from main's box.env", () => {
+    const at = (f: (s: any) => boolean) => steps.findIndex(f);
+    const pg = steps[at((s: any) => s.name === "Postgres (CI's container)")];
+    expect(pg).toBeDefined();
+    expect(at((s: any) => s.name === "Postgres (CI's container)")).toBeLessThan(at((s: any) => s.name?.startsWith("avenBOX")));
+    expect(at((s: any) => s.uses === "actions/download-artifact@v4")).toBeLessThan(at((s: any) => s.name === "Postgres (CI's container)"));
+    // the same container as CI's, its values main's (the spec job's copy), never the head's
+    const run = lines(pg);
+    expect(run[0]).toBe('. "$RUNNER_TEMP/box/box.env"');
+    expect(run[1]).toBe(lines(ci).find((l) => l.startsWith("docker run"))!);
+    expect(run.slice(2)).toEqual(['for i in $(seq 1 60); do docker exec postgres pg_isready -h 127.0.0.1 -U postgres > /dev/null && break; sleep 1; done', "docker exec postgres pg_isready -h 127.0.0.1 -U postgres"]);
+  });
+  test("setup.sh installs no Postgres when 17 already answers on its port", () => {
+    const sh = text("play/avenbox/setup.sh");
+    const served = sh.indexOf("SERVED=1;");
+    expect(served).toBeGreaterThan(-1);
+    expect(sh).toContain(`case "$(PGPASSWORD=$PG_PASSWORD timeout 10 psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc 'show server_version_num' postgres 2> /dev/null)" in`);
+    // both the install and the cluster wait on it
+    expect(sh).toContain('if [ $SERVED = 0 ] && [ ! -x "/usr/lib/postgresql/$PG/bin/postgres" ]; then');
+    expect(sh).toContain("if [ $SERVED = 1 ]; then");
+    expect(served).toBeLessThan(sh.indexOf("apt-get install"));
+  });
+});
+
 describe("intents-pr.yml: main measured beside the head's checks", () => {
   const w = yaml(".github/workflows/intents-pr.yml");
   const steps = (job: string) => w.jobs[job].steps as any[];

@@ -1,11 +1,13 @@
 // play's API (play/SPEC.md §7): one handler, `app({ db, store }).fetch(req)`, so the tests call it without a port.
 // The site and the API share an origin (play.maia.city, /api behind Caddy), so there is no CORS. A visitor gets 401
-// everywhere but the health check and the passkey ceremonies.
+// everywhere but the health check and the passkey ceremonies. Every read is admins' only by default (intent aa751ecb,
+// Samuel 2026-11-10): a GET route names the right it needs (`READ`), checked with must(…, "read", …) before its handler,
+// and one that names none needs an admin (admin(…)); a level's rule (play.level_rules) unlocks a read by giving its right.
 import type { BlobStore } from "./blobs";
 import { HASH } from "./kit/hash";
 import { UUID } from "./kit/uuid";
 import type { Db } from "./kit/pg";
-import { admin, COOP, meOf, must } from "./access";
+import { admin, COOP, meOf, must, type Me } from "./access";
 import { SANDBOX } from "./kit/ids";
 import { assetOf, catalogOf, configOf, listAssets, versionOf } from "./assets";
 import { fileFor, maskEdges } from "./owners";
@@ -27,15 +29,23 @@ import { delivery } from "./delivery";
 import { INTENT_ADMINS, intentCounts, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
 import { listStories, storyAt, storyOf } from "./stories";
-import { labelFile, listLibrary } from "./library";
+import { labelFile, LIBRARY_ADMINS, listLibrary } from "./library";
 import { proposeAsset, recipeAt } from "./assetdocs";
-import { getAuthor, listAuthors, listArtifacts, artifactOf } from "./artifacts";
+import { ARTIFACT_ADMINS, getAuthor, listAuthors, listArtifacts, artifactOf } from "./artifacts";
 import { HttpError } from "./kit/errors";
 import { statusOf } from "./fault";
 import "./allkinds";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
-type Route = { method: string; path: string; pattern: RegExp; keys: string[]; handler: Handler };
+/** what a GET route needs (intent aa751ecb): `open` anyone, `{ read }` that right of the level's rule, else an admin
+ *  (`{ admin }` with the route's own words for why not) */
+type Need = "open" | { read: string } | { admin: string };
+const OPEN = "open" as const;
+const READ = (what: string): Need => ({ read: what });
+const ADMIN = (why: string): Need => ({ admin: why });
+/** why a read with no right of its own named is refused to a member who is no admin */
+export const ADMINS_READ = "Only Maia City's admins may read this, for now.";
+type Route = { method: string; path: string; pattern: RegExp; keys: string[]; handler: Handler; need?: "open" | { read: string } | "admin" };
 
 const json = (body: unknown, init: ResponseInit = {}) => Response.json(body, init);
 
@@ -55,29 +65,45 @@ async function body(req: Request): Promise<any> {
 
 export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)), github = null, commit = runningCommit() }: { db: Db; store: BlobStore; rate?: Rate; github?: GitHub | null; commit?: string | null }) {
   const routes: Route[] = [];
-  const on = (method: string, path: string, handler: Handler) => {
+  // who a request is: its session, or on the world's read-only routes an admin's MCP token (Samuel 2026-11-03); asked
+  // once a request (the guard below, then its handler)
+  const whoOf = new WeakMap<Request, Promise<Me | null>>();
+  const me = (req: Request) => {
+    let who = whoOf.get(req);
+    if (!who) {
+      const human = humanIdFrom(req);
+      who = human || req.method !== "GET" || !READ_BY_TOKEN.some((r) => r.test(new URL(req.url).pathname)) ? meOf(db, human) : adminByToken(db, req);
+      whoOf.set(req, who);
+    }
+    return who;
+  };
+  /** a route; a GET one is guarded by what it needs (admins' only by default: intent aa751ecb) before its handler runs */
+  const on = (method: string, path: string, handler: Handler, need?: Need) => {
     const keys: string[] = [];
     const pattern = new RegExp(`^${path.replace(/:([a-z]+)/g, (_, k) => (keys.push(k), "([^/]+)"))}$`);
-    routes.push({ method, path, pattern, keys, handler });
-  };
-  // who a request is: its session, or on the world's read-only routes an admin's MCP token (Samuel 2026-11-03)
-  const me = async (req: Request) => {
-    const human = humanIdFrom(req);
-    if (human || req.method !== "GET" || !READ_BY_TOKEN.some((r) => r.test(new URL(req.url).pathname))) return meOf(db, human);
-    return adminByToken(db, req);
+    const guarded: Handler =
+      method !== "GET" || need === OPEN
+        ? handler
+        : async (req, params) => {
+            const m = await me(req);
+            if (need && "read" in need) must(m, "read", need.read);
+            else admin(m, need?.admin ?? ADMINS_READ);
+            return handler(req, params);
+          };
+    routes.push({ method, path, pattern, keys, handler: guarded, ...(method === "GET" ? { need: need === undefined || (need !== OPEN && "admin" in need) ? "admin" : need } : {}) });
   };
   const signedIn = (h: { id: string; name: string }, extra: unknown = {}) =>
     json({ id: h.id, name: h.name, ...(extra as object) }, { headers: { "Set-Cookie": sessionCookie(tokenFor(h.id)) } });
 
-  on("GET", "/api/health", () => json({ ok: true }));
+  on("GET", "/api/health", () => json({ ok: true }), OPEN);
   // the commit play runs (PLAY_COMMIT, ./ship.ts runningCommit), public: what a code intent's stage is held to (./ship.ts
   // reconcile) and play/avenbox/live-audit.ts reads; null where built without one
-  on("GET", "/api/version", () => json({ commit }, { headers: { "Cache-Control": "no-store" } }));
+  on("GET", "/api/version", () => json({ commit }, { headers: { "Cache-Control": "no-store" } }), OPEN);
   // how many build Maia City: the number alone, public, for the website's manifesto (maia.city, website/src/lib/FounderCounter.svelte)
   on("GET", "/api/founders", async () => {
     const { rows } = await db.query<{ n: string }>(`SELECT count(*) AS n FROM play.memberships WHERE coop_id = $1`, [COOP]);
     return json({ count: Number(rows[0].n) }, { headers: { "Access-Control-Allow-Origin": "https://maia.city", "Cache-Control": "public, max-age=30" } });
-  });
+  }, OPEN);
 
   // ---- who
   on("POST", "/api/passkey/register/options", async (req) => {
@@ -99,18 +125,18 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const m = await me(req);
     if (!m) return json({ error: "Please sign in first." }, { status: 401 });
     return json({ id: m.id, name: m.name, level: m.level, may: m.rule, founder: m.founder_number == null ? null : Number(m.founder_number) });
-  });
+  }, OPEN);
 
   // ---- assets
   on("GET", "/api/assets", async (req) => {
     const m = must(await me(req), "read", "assets");
     return json(await listAssets(db, new URL(req.url).searchParams.get("group") ?? undefined, m));
-  });
+  }, READ("assets"));
   on("GET", "/api/assets/:id", async (req, p) => {
     const m = must(await me(req), "read", "assets");
     if (!UUID.test(p.id)) throw new HttpError("An asset is named by its id, a UUID.", 404);
     return json(await assetOf(db, p.id, m));
-  });
+  }, READ("assets"));
   // the recipe file at an edit (?edit=<seq>) or an intent's variant (?intent=<id>) for the History tab, admins only
   // (before /:id/:v, which it would match)
   on("GET", "/api/assets/:id/recipe", async (req, p) => {
@@ -124,11 +150,11 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const n = Number(p.v);
     if (!Number.isInteger(n) || n < 1) throw new HttpError(`${p.v} is not a version.`, 404);
     return json(await versionOf(db, p.id, n, m));
-  });
+  }, READ("assets"));
   on("GET", "/api/catalog", async (req) => {
     const m = must(await me(req), "read", "assets");
     return json(await catalogOf(db, m), { headers: { "Cache-Control": "private, max-age=60" } });
-  });
+  }, READ("assets"));
   on("GET", "/api/files/:hash", async (req, p) => {
     const m = must(await me(req), "read", "assets");
     if (!HASH.test(p.hash)) throw new HttpError("That is not a file's hash.", 404);
@@ -154,7 +180,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       return new Response(Buffer.from(bytes.subarray(from, to + 1)), { status: 206, headers: { ...headers, "Content-Range": `bytes ${from}-${to}/${bytes.length}` } });
     }
     return new Response(Buffer.from(bytes), { headers });
-  });
+  }, READ("assets"));
 
   // ---- sandboxes
   on("GET", "/api/sandboxes/:id/config", async (req, p) => {
@@ -170,7 +196,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     const v = q.get("v"), edit = q.get("edit");
     if (v || edit) return json(await configOf(db, p.id, await layoutAt(db, m, p.id, v ? { version: Number(v) } : { edit: Number(edit) })));
     return json(await configOf(db, p.id));
-  });
+  }, READ("sandboxes"));
 
   // ---- intents (./intents.ts, its work ./held.ts; play/SPEC.md §4.12): decided by its admins here
   on("GET", "/api/intents", async (req) => {
@@ -186,7 +212,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       return json({ intents: await maskEdges(db, m, page.intents), next: page.next, ...(q.has("counts") ? { counts: await intentCounts(db, m) } : {}) });
     }
     return json(await maskEdges(db, m, await listIntents(db, m, stages, work)));
-  });
+  }, ADMIN(INTENT_ADMINS));
   // where intents' time goes (./delivery.ts, intent 2f19fe30): admins only, read-only; ?ci=1 reads GitHub too
   on("GET", "/api/delivery", async (req) => {
     const q = new URL(req.url).searchParams;
@@ -195,12 +221,12 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/intents/:id", async (req, p) => {
     const m = await me(req);
     return json(await maskEdges(db, m, await intentOf(db, m, p.id)));
-  });
+  }, ADMIN(INTENT_ADMINS));
   // one document of its work, read when opened (intent 2df30a21); ?variant= names one of a piece's versions
   on("GET", "/api/intents/:id/docs/:doc", async (req, p) => {
     const v = new URL(req.url).searchParams.get("variant");
     return json(await intentDocOf(db, await me(req), p.id, p.doc, v == null || v === "" ? null : Number(v)));
-  });
+  }, ADMIN(INTENT_ADMINS));
   // to propose is to put an intent at Proposal: the one named, held to its gate (no work without an intent)
   on("POST", "/api/intents", async (req) => {
     const b = await body(req);
@@ -256,7 +282,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("POST", "/api/members/:id/name", async (req, p) => json(await renameMember(db, await me(req), p.id, (await body(req))?.name)));
   on("DELETE", "/api/members/:id", async (req, p) => json(await removeMember(db, await me(req), p.id)));
   on("POST", "/api/invites", async (req) => json(await makeInvite(db, await me(req)), { status: 201 }));
-  on("GET", "/api/invites/:code", async (req, p) => json({ open: await inviteOpen(db, p.code) }));
+  // whether an invite can still be used: what the sign-up page asks before anyone is signed in
+  on("GET", "/api/invites/:code", async (req, p) => json({ open: await inviteOpen(db, p.code) }), OPEN);
 
   // an admin's access tokens (./tokens.ts) and play's MCP server (./mcp.ts), as the token's admin; no tool decides
   on("GET", "/api/tokens", async (req) => json(await listTokens(db, await me(req))));
@@ -265,7 +292,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("DELETE", "/api/tokens/:id", async (req, p) => json(await revokeToken(db, await me(req), p.id)));
   const mcpServer = mcp({ db, store, github, commit });
   on("POST", "/api/mcp", (req) => mcpServer(req));
-  on("GET", "/api/mcp", (req) => mcpServer(req));
+  // (the MCP server takes an admin's token itself: ./mcp.ts)
+  on("GET", "/api/mcp", (req) => mcpServer(req), OPEN);
 
   // the admins' window into play's Postgres, read only, secrets hidden (./tables.ts)
   const tablesAdmin = async (req: Request) => admin(await me(req), "Only Maia City's admins may look into the database.");
@@ -283,7 +311,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(
       await listLibrary(db, await me(req), { kind: q.get("kind"), q: q.get("q"), offset: Number(q.get("offset") ?? 0), limit: Number(q.get("limit") ?? 60), library: q.get("library") ?? undefined }),
     );
-  });
+  }, ADMIN(LIBRARY_ADMINS));
   on("POST", "/api/library/:hash/label", async (req, p) => {
     const b = await body(req);
     return json(await labelFile(db, await me(req), p.hash, b?.label, b?.library));
@@ -298,21 +326,21 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
         offset: Number(q.get("offset") ?? 0), limit: Number(q.get("limit") ?? 50),
       }),
     );
-  });
-  on("GET", "/api/artifacts/:id", async (req, p) => json(await artifactOf(db, await me(req), p.id)));
-  on("GET", "/api/authors", async (req) => json(await listAuthors(db, await me(req), { q: new URL(req.url).searchParams.get("q") })));
-  on("GET", "/api/authors/:id", async (req, p) => json(await getAuthor(db, await me(req), p.id)));
+  }, ADMIN(ARTIFACT_ADMINS));
+  on("GET", "/api/artifacts/:id", async (req, p) => json(await artifactOf(db, await me(req), p.id)), ADMIN(ARTIFACT_ADMINS));
+  on("GET", "/api/authors", async (req) => json(await listAuthors(db, await me(req), { q: new URL(req.url).searchParams.get("q") })), ADMIN(ARTIFACT_ADMINS));
+  on("GET", "/api/authors/:id", async (req, p) => json(await getAuthor(db, await me(req), p.id)), ADMIN(ARTIFACT_ADMINS));
 
   // Stories (./stories.ts), read with what they link at their head, ?v=, ?edit= or ?intent=; their history is
   // /api/docs/<id>/history. They change only by proposal, over MCP
-  on("GET", "/api/stories", async (req) => json(await listStories(db, await me(req))));
+  on("GET", "/api/stories", async (req) => json(await listStories(db, await me(req))), READ("stories"));
   on("GET", "/api/stories/:id", async (req, p) => {
     const q = new URL(req.url).searchParams;
     const m = await me(req);
     if (q.get("intent")) return json(await storyAt(db, m, p.id, { intent: q.get("intent")! }));
     if (q.get("edit") != null) return json(await storyAt(db, m, p.id, { edit: Number(q.get("edit")) }));
     return json(await storyOf(db, m, p.id, q.get("v") == null ? undefined : Number(q.get("v"))));
-  });
+  }, READ("stories"));
 
   async function fetch(req: Request, server?: Parameters<typeof clientOf>[1]): Promise<Response> {
     if (costly(req) && !rate.allows(clientOf(req, server)))
@@ -340,7 +368,9 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json({ error: "Not found." }, { status: 404 });
   }
   const table = () => routes.map((r) => `${r.method} ${r.path}`);
-  return { fetch, routes: table };
+  /** every GET route and what it needs: `open`, `{ read }` or `admin` (intent aa751ecb) */
+  const reads = () => routes.filter((r) => r.method === "GET").map((r) => ({ path: r.path, need: r.need! }));
+  return { fetch, routes: table, reads };
 }
 
 /** the one byte range (inclusive) a Range header asks of `size` bytes; null for the whole (none, several, another unit); "unsatisfiable" past its end */

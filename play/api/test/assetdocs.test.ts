@@ -306,6 +306,28 @@ suite("assets as documents", () => {
     expect(old.versions.map((v: any) => v.lod)).toEqual([{ levels: "derived" }, { levels: "derived" }]);
   });
 
+  // intent a5faafad (c3): a recipe's own look only as a node graph of the one allowlist, checked when it is proposed
+  test("a recipe's graphs are checked when it is proposed: an unsafe one refused with the validator's reason", async () => {
+    const ada = (await me("ada"))!;
+    const make = async (source: string) => proposeAsset(db, store, ada, { new: { group: "things", label: "Glowing mushroom" }, note: "graphs", source, card: { lod: { levels: "derived" } }, intent: await building("A glowing mushroom") });
+    const graph = (g: string) => `${src("a mushroom that glows")}module.exports.graphs = {\n  glow: ${g},\n};\n`;
+    const GOOD = `{ format: 1, nodes: [{ op: 'time' }, { op: 'sin', in: [0] }, { op: 'color', value: 0x2bd4a8 }, { op: 'mul', in: [2, 1] }], out: { emissive: 3 } }`;
+    const before = (await db.query(`SELECT count(*)::int AS n FROM play.asset_versions`)).rows[0].n;
+    // refused, saying why, and nothing written: storage, the screen, an endless loop, an undeclared picture, code
+    await expect(make(graph(`{ format: 1, nodes: [{ op: 'storage' }], out: { color: 0 } }`))).rejects.toThrow(/Its graph glow is refused: .*may not read storage buffers/);
+    await expect(make(graph(`{ format: 1, nodes: [{ op: 'viewportTexture' }], out: { color: 0 } }`))).rejects.toThrow(/may not read the screen/);
+    await expect(make(graph(`{ format: 1, nodes: [{ op: 'float', value: 0 }, { op: 'loop', in: [0], count: 100000, body: [{ op: 'acc' }] }], out: { opacity: 1 } }`))).rejects.toThrow(/count is a whole number from 1 to 16/);
+    await expect(make(graph(`{ format: 1, nodes: [{ op: 'uv' }, { op: 'texture', in: [0], slot: 'map' }], out: { opacity: 1 } }`))).rejects.toThrow(/not declared in textures/);
+    await expect(make(`${src("x")}module.exports.graphs = { glow: makeGraph() };\n`)).rejects.toThrow(/plain literal/);
+    await expect(make(`${src("x")}const m = new THREE.MeshStandardMaterial();\nm.onBeforeCompile = (s) => s;\n`)).rejects.toThrow(/a shader of its own \(code patched into three's shaders/);
+    await expect(make(`${src("x")}const m = new THREE.ShaderMaterial({});\n`)).rejects.toThrow(/a shader of its own \(a ShaderMaterial\)/);
+    expect((await db.query(`SELECT count(*)::int AS n FROM play.asset_versions`)).rows[0].n).toBe(before);
+    // a shader named only in a comment is none; a valid graph is taken
+    const ok = await make(`// no onBeforeCompile here, a graph instead\n${graph(GOOD)}`);
+    const row = (await db.query<any>(`SELECT source_hash FROM play.asset_versions WHERE id = $1`, [ok.version])).rows[0];
+    expect(row.source_hash).toBeTruthy();
+  });
+
   test("over MCP: doc_edit, doc_history, get_asset at an edit", async () => {
     const ada = await me("ada");
     const { token } = await makeToken(db, ada, "test");

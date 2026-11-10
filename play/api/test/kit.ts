@@ -107,6 +107,16 @@ export async function human(db: Db, name: string, level: "admin" | "citizen" | "
   return { id: h.id, cookie: cookieFor(h.id) };
 }
 
+/**
+ * The levels' rules as they stood before everything became admins' only (0001-ownership; intent aa751ecb emptied the
+ * traveler's and the citizen's): a suite whose traveler or citizen is a reader of the assets and sandboxes, to test what
+ * they read and not who may, gives them these rights back. Unlocking a read is only this: a right in a level's rule.
+ */
+export async function unlockReads(db: Db) {
+  await db.query(`UPDATE play.level_rules SET rule = '{"read": ["sandboxes", "assets"]}'::jsonb WHERE level = 'traveler'`);
+  await db.query(`UPDATE play.level_rules SET rule = '{"read": ["sandboxes", "assets", "game"], "propose": ["asset_version"]}'::jsonb WHERE level = 'citizen'`);
+}
+
 export type Answer = { status: number; data: any; headers: Headers; text: string };
 
 export async function request(api: Api, who: { cookie?: string | null; bearer?: string | null }, method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<Answer> {

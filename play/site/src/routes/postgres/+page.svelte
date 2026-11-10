@@ -3,16 +3,14 @@
 	maia/site/routes/app/postgres on SNAPSHOT_2611101), laid out as the asset viewer is (its Frame): the tables down the left
 	like the asset shelf, a table's rows in the middle as tall and as wide as it is, and down the right what is opened —
 	a row whole, titled by its table and its first value, or, none opened, the table's columns. A column that keeps a
-	secret or a credential is never sent, only that it is there. Maia City's admins alone (the API says so too); anyone
-	else is taken back to the dashboard.
+	secret or a credential is never sent, only that it is there. Maia City's admins alone (the API says so too), behind
+	the one gate ($lib/site/gate): anyone else sees "Coming soon".
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import { api } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 
 	const PAGE = 50;
 
@@ -28,8 +26,6 @@
 	let busy = $state(false);
 	/** the row opened whole, by its place on the page */
 	let open = $state(-1);
-	adminsOnly();
-	const admin = $derived(isAdmin());
 	const found = $derived(tables.filter((t) => t.name.includes(query.trim().toLowerCase())));
 	const table = $derived(tables.find((t) => t.name === chosen));
 	const row = $derived(data && open >= 0 ? data.rows[open] : null);
@@ -49,7 +45,6 @@
 	}
 
 	onMount(() => {
-		if (!admin) return;
 		void load();
 	});
 
@@ -133,52 +128,50 @@
 	{/if}
 {/snippet}
 
-{#if admin}
-	<div class="pg">
-		<Frame nav={loaded ? shelf : undefined} aside={table ? about : undefined} navLabel="Postgres's tables" asideLabel="The row or the table" navIcon="database" asideIcon="info" flush>
-			{#if !loaded}
-				<p class="soft note">One moment…</p>
-			{:else if !tables.length}
-				<p class="note">{error || 'No tables yet.'}</p>
-			{:else if data}
-				<div class="sheet">
-					<div class="bar">
-						<b class="mono">{data.name}</b>
-						<span class="soft">{data.total.toLocaleString('en-US')} {data.total === 1 ? 'row' : 'rows'} · {data.columns.length} columns</span>
-						{#if pages > 1}
-							<span class="pager">
-								<button class="chip" disabled={busy || at <= 1} onclick={() => data && show(data.name, data.offset - data.limit)}>Back</button>
-								<span class="soft">Page {at} of {pages}</span>
-								<button class="chip" disabled={busy || at >= pages} onclick={() => data && show(data.name, data.offset + data.limit)}>Next</button>
-							</span>
-						{/if}
-					</div>
-					{#if error}<p class="bad">{error}</p>{/if}
-					{#if data.rows.length}
-						<div class="grid" class:busy>
-							<table>
-								<thead>
-									<tr>{#each data.columns as c (c.name)}<th title={c.type}>{c.name}{#if c.hidden}<small> · hidden</small>{/if}</th>{/each}</tr>
-								</thead>
-								<tbody>
-									{#each data.rows as r, i (i)}
-										<tr class:open={open === i} onclick={() => (open = open === i ? -1 : i)}>
-											{#each data.columns as c (c.name)}<td class:soft={r[c.name] == null || r[c.name]?.hidden}>{short(r[c.name])}</td>{/each}
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
-					{:else}
-						<p class="note">This table is empty.</p>
+<div class="pg">
+	<Frame nav={loaded ? shelf : undefined} aside={table ? about : undefined} navLabel="Postgres's tables" asideLabel="The row or the table" navIcon="database" asideIcon="info" flush>
+		{#if !loaded}
+			<p class="soft note">One moment…</p>
+		{:else if !tables.length}
+			<p class="note">{error || 'No tables yet.'}</p>
+		{:else if data}
+			<div class="sheet">
+				<div class="bar">
+					<b class="mono">{data.name}</b>
+					<span class="soft">{data.total.toLocaleString('en-US')} {data.total === 1 ? 'row' : 'rows'} · {data.columns.length} columns</span>
+					{#if pages > 1}
+						<span class="pager">
+							<button class="chip" disabled={busy || at <= 1} onclick={() => data && show(data.name, data.offset - data.limit)}>Back</button>
+							<span class="soft">Page {at} of {pages}</span>
+							<button class="chip" disabled={busy || at >= pages} onclick={() => data && show(data.name, data.offset + data.limit)}>Next</button>
+						</span>
 					{/if}
 				</div>
-			{:else if error}
-				<p class="bad note">{error}</p>
-			{/if}
-		</Frame>
-	</div>
-{/if}
+				{#if error}<p class="bad">{error}</p>{/if}
+				{#if data.rows.length}
+					<div class="grid" class:busy>
+						<table>
+							<thead>
+								<tr>{#each data.columns as c (c.name)}<th title={c.type}>{c.name}{#if c.hidden}<small> · hidden</small>{/if}</th>{/each}</tr>
+							</thead>
+							<tbody>
+								{#each data.rows as r, i (i)}
+									<tr class:open={open === i} onclick={() => (open = open === i ? -1 : i)}>
+										{#each data.columns as c (c.name)}<td class:soft={r[c.name] == null || r[c.name]?.hidden}>{short(r[c.name])}</td>{/each}
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				{:else}
+					<p class="note">This table is empty.</p>
+				{/if}
+			</div>
+		{:else if error}
+			<p class="bad note">{error}</p>
+		{/if}
+	</Frame>
+</div>
 
 <style>
 	/* the asset viewer's frame and colours (routes/assets): the whole screen, the nav pill floating over it */

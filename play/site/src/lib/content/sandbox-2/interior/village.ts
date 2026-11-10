@@ -19,14 +19,15 @@ import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, ty
 import { water } from './textures'
 import { groundMaterial } from '$lib/content/biomes'
 import { biomeOr } from '$lib/content/assets/sources/biome.js'
-import { grassField, grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js'
+import { grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js'
+import { grassFieldOn } from '$lib/content/render/nodes/grass-compute.js'
 import { smallDevice } from '$lib/content/render/budget.js'
 import { songbirds } from './birds.js'
 import { appleTree, banana, berryBush, canopyTree, climber, clover, coconutPalm, comfrey, fruitTree, ginger, herb, papaya, passionVine, seeded, smallFruitTree, squash, strawberries, tropicalShrub, forestFloor, FLOOR_KINDS, floorPick, type Plant } from './plants'
 import { antHills, apiary, fishes, herd } from './animals'
 import { nearReady as actorsReady, wantNear as actorsNear } from '$lib/content/assets/render/crowd.js'
 import { flow, pond, shore, stream } from './water'
-import { createWorldRenderer } from '$lib/content/render/world.js'
+import { createWorldRenderer, worldFinish } from '$lib/content/render/world.js'
 import { createSky, SUN } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
@@ -236,6 +237,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			for (const dm of built.values()) dm.setHour(hour)
 		}
 	})
+	// the picture finished as every world's (intent 1f0c6f79): the haze from the one sky, the device's pipeline
+	const finish = worldFinish(renderer, scene, camera, { sky })
 	await pause('Letting in the light')
 
 	/* ── the ground: the hexagon of the cell, meadow beyond ── */
@@ -1024,7 +1027,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	const grassOf = grassBiome && growsGrass(grassBiome) ? grassOfRecipe(grassBiome, (x, z, margin) => floorOpen(x, z, margin), { trunks: floorTrunks, heightAt: groundY }) : flora ? null : () => ({ grass: 0.9, tall: 0.3 })
 	let grassOpen = false
 	const grass = grassOf
-		? grassField({
+		? grassFieldOn(renderer, {
 				params: grassBiome?.grass,
 				device: smallDevice() ? 'small' : 'desktop',
 				// on the ground's relief (groundY), as every plant and the cover stand; off the paths' stones (their points
@@ -1567,7 +1570,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// the film camera draws the canvas itself while it holds it (maia/content/film)
 		// every shadow pass counts as the animals' (the sun's, a level's, the grid's): theirs waits a second from it
 		if (renderer.shadowMap.needsUpdate) herdShadows = now
-		if (!filmDraws()) renderer.render(scene, camera)
+		if (!filmDraws()) finish.render()
 		// keep it smooth; while a film is shot every frame is rendered at the resolution it asks for
 		stage.adapt(now, filmHoldsSize())
 		frame = requestAnimationFrame(tick)
@@ -1581,7 +1584,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	if (plantsOut) {
 		onProgress('Growing the forest: the plants near you')
 		forestTick()
-		for (let waited = 0; waited < 120000 && !(plantsOut.settled() && plantsIn!.settled() && library.settled()); waited += 100) {
+		// two minutes at most by the clock (each tick grows plants: on a slow device a count of ticks waits far longer)
+		for (const until = performance.now() + 120000; performance.now() < until && !(plantsOut.settled() && plantsIn!.settled() && library.settled()); ) {
 			await new Promise((r) => setTimeout(r, 100))
 			forestTick()
 		}
@@ -1801,6 +1805,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			sound.dispose()
 			world.disconnect()
 			walker.dispose()
+			finish.dispose()
 			sky.dispose()
 			stage.dispose()
 		}

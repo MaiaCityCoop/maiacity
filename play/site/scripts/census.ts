@@ -76,7 +76,7 @@ for (const v of got) {
 	const t = v.totals;
 	console.log(`\n${v.world} ${v.view}${tree ? ` at ${tree.sha.slice(0, 9)}` : ''} on ${drewWith}${v.settled ? '' : ' (still building)'}`);
 	console.log(`  triangles a frame  ${n(t.tris)}  (main ${n(t.mainTris)}, shadow ${n(t.shadowTris)}, into targets ${n(t.targetTris)})`);
-	console.log(`  draws              ${n(t.calls)}  (meshes ${n(t.meshes)}, instanced batches ${n(t.instanced)} of ${n(t.instances)} instances, shadow ${n(t.shadowCalls)})`);
+	console.log(`  draws              ${n(t.calls)}  (meshes ${n(t.meshes)}, instanced batches ${n(t.instanced)}, indirect ${n(t.indirect)}, of ${n(t.instances)} instances, shadow ${n(t.shadowCalls)}; compute passes ${n(t.computes)})`);
 	console.log(`  culled             ${n(t.culledObjects)} objects, ${n(t.culledTris)} triangles`);
 	// a plant that did not grow is a failure the census reports, each by its kind (flora.js `didNotGrow`)
 	console.log(`  plants not grown   ${n(v.didNotGrow.length)}`);
