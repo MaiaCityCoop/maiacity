@@ -15,14 +15,16 @@ concurrency:
 
 jobs:
   probe:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.os }} ${{ matrix.browser }}
     if: github.event.pull_request.head.repo.full_name == github.repository
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, macos-26]
+        include:
+          - { os: macos-15, browser: chromium }
+          - { os: macos-26, browser: webkit }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -43,13 +45,13 @@ jobs:
           time bunx playwright install chromium webkit
           time bun run build
       - name: Sandbox 5 on this machine's GPU
-        run: time bun play/site/scripts/gpu.ts --world /sandbox-5/ --out "$RUNNER_TEMP/gpu" || echo "::warning::the world was not shown in every browser"
+        run: time bun play/site/scripts/gpu.ts --world /sandbox-5/ --browser ${{ matrix.browser }} --timeout 900 --steps --out "$RUNNER_TEMP/gpu" || echo "::warning::the world was not shown in every browser"
       - name: The report
         if: always()
         run: cat "$RUNNER_TEMP/gpu/gpu.json" >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: gpu-${{ matrix.os }}
+          name: gpu-${{ matrix.os }}-${{ matrix.browser }}
           path: ${{ runner.temp }}/gpu
           retention-days: 7

@@ -8,12 +8,13 @@
  *
  *   bun play/site/scripts/gpu.ts [--world /sandbox-5/] [--browser chromium,webkit] [--out <dir>]
  *        [--world-within <seconds>] [--frame-within <ms>] [--settle <seconds>] [--timeout <seconds>]
- *        [--inputs <dir>] [--software] [--record]
+ *        [--inputs <dir>] [--software] [--record] [--steps]
  *
  * --world          the page's route: a sandbox, or an asset's viewer
  * --world-within   the world is shown within that many seconds of the navigation, in every browser asked
- * --frame-within   a frame takes at most that many ms (the mean over 3 s once the world has settled)
+ * --frame-within   a frame takes at most that many ms (the mean over 10 s once the world has settled)
  * --settle         how long the world may take to settle before its frames are measured and it is photographed (60)
+ * --steps          prints what the page's cover said on the way to the world, each step with the second it began
  * --software       measure even where there is no GPU (the box's software renderer): for this script's own plumbing.
  *                  Without it a machine without a GPU measures nothing and fails, saying so: what needs a GPU is
  *                  not decided in a software renderer.
@@ -87,9 +88,12 @@ export type Measure = {
 	shown: boolean;
 	/** seconds from the navigation to the world */
 	world_s: number | null;
+	/** what the cover said on the way, each step with the second it began */
+	steps: string[];
 	/** seconds more until it had settled (./lib/quiet.js), or null where it had not within --settle */
 	settled_s: number | null;
-	/** the frame meter's 3 s once settled: frames' mean and p95 interval, CPU and GPU ms a frame, draws, triangles */
+	/** the frame meter's 10 s once settled: the frames it saw, their mean and p95 interval, CPU and GPU ms a frame, draws, triangles */
+	frames: number | null;
 	frame_ms: number | null;
 	frame_p95: number | null;
 	cpu_ms: number | null;
@@ -115,12 +119,12 @@ export function judge(m: Measure, b: Bounds = {}): string[] {
 
 /** one line a browser, as the check's evidence keeps it */
 export const lineOf = (m: Measure, why: string[]) =>
-	`${why.length ? '✗' : '✓'} ${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world in ${m.world_s ?? '—'} s, settled ${m.settled_s === null ? 'not' : `in ${m.settled_s} s more`} · frame ${m.frame_ms ?? '—'} ms (p95 ${m.frame_p95 ?? '—'}, CPU ${m.cpu_ms ?? '—'}, GPU ${m.gpu_ms ?? '—'}) · ${m.calls ?? '—'} draws, ${m.triangles ?? '—'} triangles · ${m.painted ?? '—'} painted${why.length ? ` · ${why.join('; ')}` : ''}`;
+	`${why.length ? '✗' : '✓'} ${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world in ${m.world_s ?? '—'} s, settled ${m.settled_s === null ? 'not' : `in ${m.settled_s} s more`} · ${m.frames ?? '—'} frames in 10 s, ${m.frame_ms ?? '—'} ms each (p95 ${m.frame_p95 ?? '—'}, CPU ${m.cpu_ms ?? '—'}, GPU ${m.gpu_ms ?? '—'}) · ${m.calls ?? '—'} draws, ${m.triangles ?? '—'} triangles · ${m.painted ?? '—'} painted${why.length ? ` · ${why.join('; ')}` : ''}`;
 
 const BROWSERS: Record<string, [BrowserType, object]> = { chromium: [chromium, LAUNCH], webkit: [webkit, { headless: true }] };
 
 async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number }): Promise<Measure> {
-	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, settled_s: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, painted: null, errors: [] };
+	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, steps: [], settled_s: null, frames: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, painted: null, errors: [] };
 	let browser: Browser | undefined;
 	try {
 		browser = await BROWSERS[name][0].launch(BROWSERS[name][1]);
@@ -136,15 +140,22 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 		await page.goto(origin + o.world, { waitUntil: 'commit' });
 		[m.webgpu, m.webgl] = [await webgpuOf(page), await gpuOf(page)];
 		// up: a canvas drawn into, and the page's cover open (WorldPage.svelte: its `mount` answered) or its pill gone
-		await page.waitForFunction(() => !!document.querySelector('canvas') && !document.querySelector('.world .loading:not(.opening), .world .status'), null, { timeout: o.timeout, polling: 100 });
-		m.world_s = Math.round((performance.now() - t0) / 100) / 10;
+		// each step the cover says on the way, with the second it began: where a slow load spends its time
+		const secs = () => Math.round((performance.now() - t0) / 100) / 10;
+		for (let said = ''; ; await page.waitForTimeout(200)) {
+			const at = await page.evaluate(() => ({ up: !!document.querySelector('canvas') && !document.querySelector('.world .loading:not(.opening), .world .status'), step: document.querySelector('.world .loading .step, .world .status')?.textContent?.trim() ?? '' })).catch(() => ({ up: false, step: '' }));
+			if (at.up) break;
+			if (at.step && at.step !== said) m.steps.push(`${secs()} s ${(said = at.step)}`);
+			if (performance.now() - t0 > o.timeout) throw new Error(`the world was not up within ${o.timeout / 1000} s (at: ${said || 'nothing said'})`);
+		}
+		m.world_s = secs();
 		m.backend = await page.evaluate(() => (window as any).__rendererBackend ?? null);
 		const t1 = performance.now();
 		for (let zero = 0; performance.now() - t1 < o.settle * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
 		if ((await page.evaluate(quietness).catch(() => null)) === 0) m.settled_s = Math.round((performance.now() - t1) / 100) / 10;
 		await page.waitForFunction(() => !document.querySelector('.world .loading'), null, { timeout: 10_000 }).catch(() => {});
-		const s = await page.evaluate(() => (window as any).__meter.sample(3));
-		Object.assign(m, { frame_ms: s.frame_ms, frame_p95: s.frame_p95, cpu_ms: s.cpu_ms, gpu_ms: s.gpu_ms, calls: s.calls, triangles: s.triangles });
+		const s = await page.evaluate(() => (window as any).__meter.sample(10));
+		Object.assign(m, { frames: s.frames, frame_ms: s.frames > 1 ? s.frame_ms : null, frame_p95: s.frame_p95, cpu_ms: s.cpu_ms, gpu_ms: s.gpu_ms, calls: s.calls, triangles: s.triangles });
 		const png = await page.screenshot({ path: join(o.out, `${name}.png`) });
 		// how much of the picture is painted, counted in the page (its own decoder)
 		m.painted = await page.evaluate(async (b64) => {
@@ -216,6 +227,7 @@ if (import.meta.main) {
 		const why = judge(m, bounds);
 		measures.push({ ...m, why });
 		console.log(lineOf(m, why));
+		if (argv.includes('--steps')) for (const st of m.steps) console.log(`    ${st}`);
 	}
 	if (unpinned.size) console.log(`not pinned (answered 404; --record pins a picture's): ${[...unpinned].slice(0, 6).join(' ')}${unpinned.size > 6 ? ` … ${unpinned.size} in all` : ''}`);
 	writeFileSync(join(out, 'gpu.json'), JSON.stringify({ world, gpu, platform: `${process.platform} ${process.arch}`, bounds, measures, unpinned: [...unpinned] }, null, '\t') + '\n');
