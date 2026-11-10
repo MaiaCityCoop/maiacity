@@ -758,7 +758,14 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     396 s (WebKit) to Sandbox 5, nearly all of it the CPU growing the forest's 180 kinds, then 9 and 20 frames a
     second; so a time bound there (`--world-within`, `--frame-within`) compares only with other runs on that runner,
     and a Mac's own frame time is still Samuel's Mac's. The job's setup is half a minute, one world in one browser six
-    to seven. `--steps` prints what the cover said on the way, each step with its second. A builder gets the same
+    to seven. `--steps` prints what the cover said on the way, each step with its second. **`--sky`** (intent c929d52c)
+    takes the sky's pictures too, once the world is measured: the eye turned up where it stands (the film camera's
+    hold, `window.__world`), the hour pinned as a film pins it, at dawn, noon, dusk and night (`SKY_HOURS`: the sun 4°
+    up at either end of the day), at 1440 × 900 and at a phone's 390 × 844, `<browser>-sky-<hour>-<size>.png` beside
+    the world's own; a world that gives none fails. The sky's clouds are noise in its shader
+    (`play/site/src/lib/content/sandbox-kit/clouds.js`), and that noise only ever reads small numbers: the hour reaches
+    it as a fraction of the day and every octave's lattice repeats, since a GPU's 32-bit float fed coordinates in the
+    hundred thousands leaves no fraction of a cell and draws flat blocks (`clouds.test.js` holds it). A builder gets the same
     measure on a draft by a dry run (`workflow_dispatch` with the pull request's number). Main's re-run leaves these
     checks out (`intent.ts --record --where main --no-gpu`): they were measured on the head.
   - **Dirty.** `.gitignore` ignores `.claude/settings.local.json`, the per-user file the Claude app writes; a dirty run
