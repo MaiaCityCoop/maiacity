@@ -7,7 +7,7 @@ import { NodeMaterial } from 'three/webgpu';
 import { Fn, acos, atan, attribute, cameraPosition, cameraProjectionMatrix, cameraViewMatrix, clamp, cos, dot, exp, float, length, log2, max, min, mix, modelViewProjection, modelWorldMatrix, normalize, positionGeometry, positionWorld, pow, sin, smoothstep, sub, uniform, uv, varying, vec2, vec3, vec4 } from 'three/tsl';
 import { seededMinStd } from '../../kernel/random.js';
 import { withTone } from '../render/core.js';
-import { cloudsOver, driftOf } from './clouds.js';
+import { cloudsOver, windOf } from './clouds.js';
 
 /** Where the worlds stand on their planet: the celestial pole stands this high in the north (+z on the ground). */
 const LATITUDE = 45;
@@ -140,7 +140,7 @@ function skyMaterial() {
 		betaM: uniform(new THREE.Vector3()),
 		disc: uniform(1),
 		clouds: uniform(0),
-		drift: uniform(0),
+		wind: uniform(0),
 		moon: uniform(new THREE.Vector3(0, 1, 0)),
 		moonLight: uniform(0),
 		stars: uniform(0),
@@ -175,7 +175,7 @@ function skyMaterial() {
 		const lin = pow(ratio.mul(U.sunE).mul(sub(1, fex)), vec3(1.5)).mul(mix(vec3(1), pow(ratio.mul(U.sunE).mul(fex), vec3(0.5)), clamp(pow(sub(1, U.sun.y), 5), 0, 1)));
 		const disc = clamp(cosT.sub(0.9999566769).mul(50000), 0, 1).mul(U.disc);
 		const sky = lin.add(fex.mul(0.1)).mul(0.04).add(min(fex.mul(U.sunE), 80).mul(760 * 0.04).mul(disc)).add(vec3(0, 0.0003, 0.00075)).toVar();
-		cloudsOver(sky, { d, lin, fex, sun: U.sun, sunE: U.sunE, cover: U.clouds, drift: U.drift });
+		cloudsOver(sky, { d, lin, fex, sun: U.sun, sunE: U.sunE, cover: U.clouds, wind: U.wind });
 		// the universe behind the air: space, the Milky Way's uneven glow along the galactic plane, the full moon
 		const gb = dot(d, U.pole);
 		const band = exp(gb.mul(gb).mul(-55)).mul(sin(atan(d.z, d.x).mul(3).add(gb.mul(9))).mul(0.35).add(0.65));
@@ -277,7 +277,7 @@ export function createUniverse(o = {}) {
 			U.sunE.value = air.sunE;
 			U.betaR.value.fromArray(air.betaR);
 			U.betaM.value.fromArray(air.betaM);
-			U.drift.value = driftOf(v.hour ?? 0);
+			U.wind.value = windOf(v.hour ?? 0);
 			U.moon.value.copy(v.moon);
 			turn.copy(v.stars);
 			// the Milky Way's glow lies along the stars as they are drawn, mirrored with them for a real place
