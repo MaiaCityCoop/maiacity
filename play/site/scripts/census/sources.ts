@@ -34,14 +34,19 @@ export async function* sources(o: { intent?: string; record?: boolean }): AsyncG
 		}
 }
 
-/** every asset checked by `why` (what is wrong with a source, in words; none: fine): the failing ones printed, a count a group; whether all pass */
-export async function checkAll(o: { intent?: string; record?: boolean }, why: (text: string) => string[], what: string) {
+/** every asset checked by `why` (what is wrong with a source, in words; none: fine): the failing ones printed, a count a
+ * group; whether all pass. An asset in `known` (by its UUID) is printed, `KNOWN`, and fails nothing while it is found;
+ * known and fine, it fails: its exception has no reason left */
+export async function checkAll(o: { intent?: string; record?: boolean; known?: string[] }, why: (text: string) => string[], what: string) {
 	const groups = new Map(GROUPS.map((g) => [g, { n: 0, bad: 0 }]));
 	for await (const s of sources(o)) {
 		const g = groups.get(s.group)!;
 		const found = new Set(s.texts.flatMap(why));
 		g.n++;
-		if (found.size) g.bad++, console.log(`FAIL ${s.group}/${s.slug} (${s.id}) ${s.at}: ${[...found].join(', ')}`);
+		const known = o.known?.includes(s.id);
+		if (known && found.size) console.log(`KNOWN ${s.group}/${s.slug} (${s.id}) ${s.at}: ${[...found].join(', ')}`);
+		else if (known) g.bad++, console.log(`FAIL ${s.group}/${s.slug} (${s.id}) ${s.at}: named --known, and nothing is found in it any more: drop its --known`);
+		else if (found.size) g.bad++, console.log(`FAIL ${s.group}/${s.slug} (${s.id}) ${s.at}: ${[...found].join(', ')}`);
 	}
 	for (const [group, g] of groups) console.log(`${g.bad ? 'FAIL' : 'ok  '} ${group}: ${g.bad} of ${g.n} ${what}`);
 	return [...groups.values()].every((g) => !g.bad);
