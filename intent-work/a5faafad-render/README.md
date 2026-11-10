@@ -2,7 +2,7 @@
 
 The test asset `play/site/src/lib/content/assets/box/fixtures/glow-mushroom.js` (a cap whose look is its own node graph:
 teal, mottled by `fbm`, its glow pulsing, its top swaying with the wind), main against head
-(`intent/a5faafad-recipe-shaders` @ 8796d65db, engine 7; main @ 12837b65e), by `play/site/scripts/render.mjs` in avenBOX's Chromium (SwiftShader):
+(`intent/a5faafad-recipe-shaders` @ 1e67ab55c, engine 7, on GPU 9's switch: WebGPURenderer, its WebGL 2 backend in avenBOX; main @ 12837b65e), by `play/site/scripts/render.mjs` in avenBOX's Chromium (SwiftShader):
 
 - `*-viewer.png` — the render bench (`/render`: the asset box, the viewer's studio), front, side, close.
 - `*-world.png` — five of it standing in `world.js` on the world bench (`/worlds/bench/`, the renderer every world
