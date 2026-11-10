@@ -101,7 +101,6 @@ export function createImpostors(renderer, o = {}) {
 		const cap = Math.max(need, page.cap * 2, 64);
 		const make = (name, size) => {
 			const a = new THREE.InstancedBufferAttribute(new Float32Array(cap * size), size);
-			a.setUsage(THREE.DynamicDrawUsage);
 			const old = page.attrs?.[name];
 			if (old) a.array.set(old.array.subarray(0, page.n * size));
 			page.geo.setAttribute(name, a);

@@ -25,7 +25,10 @@ import { WORLD } from './grade.js';
  * @typedef {object} Plan
  * @property {Device} device
  * @property {boolean} film
- * @property {null | { kind: 'ssao', scale: number, radius: number, intensity: number }} ao on the ambient light only
+ * @property {null | { kind: 'ssao', scale: number, radius: number, intensity: number, from: 'scene' | 'prepass' }} ao on the
+ *   ambient light only, made from the depth and normals of `from`: the `scene` itself, a frame late (the scene is drawn
+ *   once: only where the edges are temporal, as each pixel finds where it was by its velocity), or a `prepass` drawn
+ *   first (the scene drawn twice)
  * @property {'traa' | 'taau' | 'msaa'} aa
  * @property {number} samples the scene pass's multisampling (MSAA's 4, else 0: TRAA and TAAU resolve their own edges)
  * @property {boolean} jitter whether the camera is jittered frame to frame (TRAA, TAAU)
@@ -43,8 +46,9 @@ export const LIMITS = /** @type {const} */ ({ ms: 2.0, smallScale: [0.6, 0.75], 
 /**
  * Each pass's cost, ms, at 1440 × 900 on the Mac's GPU (Apple M-series, Metal through WebGPU), at the resolution the
  * plan draws it (AO, bloom and the contact shadows at half): three's examples measured there, rounded up. `prepass` is
- * the depth and normals AO reads before the scene is lit (only the ambient light takes AO): geometry-bound, an estimate
- * at Sandbox 1's near view, its fragments as cheap as can be. The Mac job (c5) measures them all.
+ * the depth and normals AO reads before the scene is lit where they are not the scene's own (`ao.from`): an estimate
+ * of its fragments at Sandbox 1's near view. Its real cost is the main thread's: every draw of the scene sent a second
+ * time, which is what bounds a frame in Safari (intent 416c555c), so a visitor's plan draws none.
  */
 export const COST = /** @type {const} */ ({ prepass: 0.35, ssao: 0.5, denoise: 0.15, traa: 0.3, taau: 0.4, msaa: 0.25, bloom: 0.3, grade: 0.08, contact: 0.25, finite: 0.02, output: 0.05 });
 
@@ -79,7 +83,8 @@ export function finishing(o = {}) {
 	return {
 		device,
 		film,
-		ao: small ? null : { kind: 'ssao', scale: 0.5, radius: 0.6, intensity: 1 },
+		// a film's frame reads no frame before it, and MSAA has no velocity: their occlusion is from a prepass
+		ao: small ? null : { kind: 'ssao', scale: 0.5, radius: 0.6, intensity: 1, from: aa === 'msaa' ? 'prepass' : 'scene' },
 		aa,
 		samples: aa === 'msaa' ? 4 : 0,
 		jitter: aa !== 'msaa',
@@ -101,7 +106,8 @@ export function costOf(p, at = /** @type {[number, number]} */ ([...LIMITS.at]))
 	const k = (at[0] * at[1]) / (LIMITS.at[0] * LIMITS.at[1]), s = k * p.scale * p.scale;
 	/** @type {Record<string, number>} */
 	const passes = { output: COST.output * k, finite: COST.finite * s };
-	if (p.ao) (passes.prepass = COST.prepass * s), (passes.ssao = COST.ssao * s), (passes.denoise = COST.denoise * s);
+	if (p.ao) (passes.ssao = COST.ssao * s), (passes.denoise = COST.denoise * s);
+	if (p.ao?.from === 'prepass') passes.prepass = COST.prepass * s;
 	if (p.contact) passes.contact = COST.contact * s;
 	passes[p.aa] = COST[p.aa] * (p.aa === 'taau' ? k : s);
 	if (p.bloom) passes.bloom = COST.bloom * k;
@@ -110,7 +116,8 @@ export function costOf(p, at = /** @type {[number, number]} */ ([...LIMITS.at]))
 	return { passes, ms };
 }
 
-/** the passes `?finish=` may leave out, to see what each does: `?finish=off` draws the scene unfinished, `?finish=-bloom,-ao` drops those */
+/** the passes `?finish=` may leave out, to see what each does: `?finish=off` draws the scene unfinished, `?finish=-bloom,-ao`
+ *  drops those; `?finish=prepass` makes the occlusion from a prepass (the scene drawn twice), to compare */
 export const DROPS = /** @type {const} */ (['ao', 'bloom', 'contact', 'grade', 'fog', 'aa']);
 
 /**
@@ -125,11 +132,12 @@ export function withDrops(p, spec) {
 	if (words.includes('off')) return null;
 	const q = { ...p };
 	if (words.includes('ao')) q.ao = null;
+	if (words.includes('prepass') && q.ao) q.ao = { ...q.ao, from: 'prepass' };
 	if (words.includes('bloom')) q.bloom = null;
 	if (words.includes('contact')) q.contact = null;
 	if (words.includes('grade')) q.grade = { vig: 0, grain: 0, sat: 1, lut: 0 };
 	if (words.includes('fog')) q.fog = { reach: 0 };
-	if (words.includes('aa')) (q.aa = 'msaa'), (q.samples = 0), (q.jitter = false), (q.scale = 1), (q.upscale = null);
+	if (words.includes('aa')) (q.aa = 'msaa'), (q.samples = 0), (q.jitter = false), (q.scale = 1), (q.upscale = null), q.ao && (q.ao = { ...q.ao, from: 'prepass' });
 	return q;
 }
 
