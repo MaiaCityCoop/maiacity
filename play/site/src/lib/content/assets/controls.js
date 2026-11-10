@@ -1,18 +1,8 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * AN ASSET'S CONTROLS, PLAYED — a tent pitched, a pickup's doors opened, a machine drawn apart or built up, from the
- * numbers the box wrote down when it played its builder's own functions (./box/bake.js) and the page checked
- * (./box/rebuild.js `userData.controls`). Each control is a value from `from` to `to`; at any value its parts stand
- * where the box saw them, between the two samples nearest (their places and sizes blended, their turns turned the
- * short way), shown as at the nearer one. Its own page and the renderer (./render/index.js) play them alike.
- *
- * Several controls may move one part (a machine's explode and its build): the controls at rest are played first, in
- * their order, then the ones moved from it, so the last one moved has the last word.
- *
- * From engine 5 a control also carries the meshes it reshapes (their positions and normals at each sample), the looks
- * of the materials it changes and the lights it changes (./box/bake.js): played the same way, between the two samples
- * nearest. A copy of a build shares its meshes and materials with it (`clone`): `own` gives the copy its own of those
- * its controls change, so that one copy pitched does not pitch them all.
+ * An asset's controls (a tent pitched, a machine drawn apart) played from the box's numbers (./box/bake.js), alike on its
+ * page and in the renderer (./render/index.js). Several moving one part: those at rest first, the last moved has the last
+ * word. A copy shares meshes and materials (`clone`): `own` gives it its own of those its controls change.
  */
 import * as THREE from 'three';
 import { LIGHT, MAT, putLight, putLook } from './box/bake.js';
@@ -37,10 +27,8 @@ export const walk = (root) => {
 };
 
 /**
- * The controls of an object as the page rebuilt it, or of a copy of that object (`clone`: the same tree, walked the
- * same), ready to play.
- * @param {THREE.Object3D} root
- * @param {object[]} [controls] its controls (`root.userData.controls`; a copy hands the original's)
+ * The controls of an object as rebuilt, or of a `clone` of it (the same tree, walked the same), ready to play.
+ * @param {THREE.Object3D} root @param {object[]} [controls] its controls (`root.userData.controls`; a copy hands the original's)
  * @param {{ own?: boolean }} [o] `own`: a copy's meshes and materials its controls change made its own first
  */
 export function poserOf(root, controls = root.userData.controls ?? [], { own = false } = {}) {
@@ -156,7 +144,6 @@ export function poserOf(root, controls = root.userData.controls ?? [], { own = f
 	return {
 		/** its controls: each its id, its name, its ends, its rest, whether it is a choice */
 		list: controls.map((c) => ({ id: c.id, label: labelOf(c.id), from: c.from, to: c.to, rest: c.rest, choice: c.choice })),
-		/** a control's value now */
 		get: (id) => values.get(id),
 		/** a control set to `v` (kept between its ends); its parts moved */
 		set(id, v) {
@@ -168,12 +155,10 @@ export function poserOf(root, controls = root.userData.controls ?? [], { own = f
 			for (const [id, v] of given instanceof Map ? given : Object.entries(given)) any = put(id, v) || any;
 			if (any) apply();
 		},
-		/** every control back at its rest */
 		reset() {
 			for (const c of controls) values.set(c.id, c.rest);
 			apply();
 		},
-		/** whether any control is away from its rest */
 		get moved() {
 			return controls.some((c) => values.get(c.id) !== c.rest);
 		}

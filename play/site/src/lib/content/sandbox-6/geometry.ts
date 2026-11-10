@@ -1,11 +1,10 @@
 /**
- * SANDBOX 6 · THE GEOMETRY — the shapes the village is made of, as maths: the hex, a glazed cap, a home block under its
- * shell, the tower's profile and storeys. Every size comes in from the village config (its layout document's `village`,
- * play/SPEC.md §4.6); nothing here is a number of the village's own. x runs east, z south (north is −z), in metres.
+ * SANDBOX 6 · THE GEOMETRY — the village's shapes as maths, every size from the village config (play/SPEC.md §4.6).
+ * x runs east, z south (north is −z), in metres.
  */
 
 export type Kind = { D: number; freq?: number; home?: HomeShape; pond?: { in: number; band: number; half: number }; H?: number; top?: number; storey?: number; core?: number; facade?: number };
-export type HomeShape = { front: number; depth: number; storey: number; clear: number; balcony: number };
+type HomeShape = { front: number; depth: number; storey: number; clear: number; balcony: number };
 export type Site = { id: string; kind: string; x: number; z: number; use: string; name: string; door: number };
 export type Road = { pts: [number, number][]; w: number };
 export type Ring = { x: number; z: number; r: number; w: number };
@@ -48,13 +47,12 @@ export function capOf(D: number) {
 	return { D, a, h, R, floor: Math.PI * a * a, shell: 2 * Math.PI * R * h, volume: (Math.PI * h * h * (3 * R - h)) / 3, rim: Math.PI * D };
 }
 /** the height of a cap's shell over the floor, `r` from its middle */
-export const capHeight = (c: ReturnType<typeof capOf>, r: number) => Math.max(0, Math.sqrt(Math.max(0, c.R * c.R - r * r)) - (c.R - c.h));
+const capHeight = (c: ReturnType<typeof capOf>, r: number) => Math.max(0, Math.sqrt(Math.max(0, c.R * c.R - r * r)) - (c.R - c.h));
 
 /**
- * A home dome's block (Samuel 2026-10-08): one straight block across the north of the dome, east to west, its long face
- * south over the dome's food garden. Each storey runs as far east and west as the shell lets it at its back corners
- * (`clear` over its ceiling), so it narrows storey by storey; a storey under 6 m long is left out. The fish pond fills
- * the floor between the block and the north rim.
+ * A home dome's block (Samuel 2026-10-08): one straight block across the dome's north, east to west, its long face south
+ * over the food garden; each storey as long as the shell allows at its back corners (`clear` over its ceiling), so it
+ * narrows upward, a storey under 6 m left out. The fish pond fills the floor between the block and the north rim.
  */
 export function homeBlock(D: number, o: HomeShape) {
 	const c = capOf(D), back = o.front + o.depth;
@@ -75,7 +73,7 @@ export function homeBlock(D: number, o: HomeShape) {
 }
 
 /** the radius of the tower's shell at a height: the settlers game's tower profile, at full size */
-export function towerRadius(T: Kind, y: number) {
+function towerRadius(T: Kind, y: number) {
 	const H = T.H!, top = T.top!, R = T.D / 2;
 	if (y >= H - top) return Math.sqrt(Math.max(0, top * top - (y - (H - top)) ** 2));
 	const t = Math.min(1, Math.max(0, y / (H - top)));

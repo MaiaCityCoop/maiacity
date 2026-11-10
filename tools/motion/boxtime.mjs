@@ -13,7 +13,8 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 const HERE = new URL('.', import.meta.url).pathname;
-const SITE = new URL('../../play/site/', import.meta.url).pathname;
+import { SITE as PLAY_SITE } from '../site.cjs';
+const SITE = `${PLAY_SITE}/`;
 const B = await import('./box.mjs');
 
 const args = process.argv.slice(2);
@@ -54,7 +55,7 @@ if (args.includes('--clips')) {
 }
 
 // ---- a whole build in the box's own engine ----
-// (as play/site/src/lib/content/assets/engines.js writes a recipe file)
+// (as play/site/src/lib/content/assets/box/engines.js writes a recipe file)
 const RECIPE_HEAD = 'defineRecipe(function (require) {\n"use strict";\nvar module = { exports: {} }, exports = module.exports;\n';
 const recipeTail = (id, v, variant) => `\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, ${JSON.stringify(variant ?? null)});\n});\n`;
 const engines = JSON.parse(readFileSync(`${SITE}src/lib/kernel/sandbox/engines.json`, 'utf8')).box;
@@ -64,7 +65,6 @@ if (B.hash(engine) !== LATEST.blake3) throw new Error(`engine-v${LATEST.v}.js do
 const PIECE = /^[0-9a-f]{64}$/;
 const requires = (c) => [...new Set([...c.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]))].filter((n) => PIECE.test(n));
 
-/** a file of play's, by hash, held to it */
 async function playFile(hash) {
 	const res = await fetch(`https://play.maia.city/api/files/${hash}`, { headers: { authorization: `Bearer ${process.env.PLAY_MCP_TOKEN}` } });
 	if (!res.ok) throw new Error(`play's file ${hash.slice(0, 12)}…: HTTP ${res.status}`);

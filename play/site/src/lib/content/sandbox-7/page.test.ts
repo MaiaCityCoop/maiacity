@@ -1,14 +1,16 @@
 // Sandbox 7 is a page of play (intent 8d683ad6, c4): a tile on the dashboard with the old planet's picture, its route on
-// the world kit's page, the places list pointing at it; the page reads its planet, biomes and sites from its sandbox's
+// the world kit's page, the film registry pointing at it; the page reads its planet, biomes and sites from its sandbox's
 // config, and the code under src/lib/content/sandbox-7 and src/routes/sandbox-7 holds none of their values (no shade, no
 // lift, no map's hash, no site's place), nor anything of the old repository.
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PLACES } from '../game/places.js';
+import { fileURLToPath } from 'node:url';
+import { SANDBOX } from '../../kernel/sandboxes.js';
+import { WORLDS } from '../game/film/worlds.js';
 import { biomes, planet, sites } from './fixture.test';
 
-const SITE = join(import.meta.dir, '../../../..');
+const SITE = fileURLToPath(new URL('../../../../', import.meta.url));
 const read = (p: string) => readFileSync(join(SITE, p), 'utf8');
 const ROUTE = 'src/routes/sandbox-7/+page.svelte';
 const COVER = '88528c9521de8682f676c3e2539c3a19ffd2a4731a2343410761025e27fde55e';
@@ -27,10 +29,10 @@ describe('Sandbox 7 on play', () => {
 		expect(page).toContain("import { WorldPage } from '$lib/content/sandbox-kit'");
 		expect(page).toContain('<WorldPage');
 	});
-	test('the places list points the planet at /sandbox-7/', () => {
-		const place = PLACES.find((p) => p.id === 'sandbox-2');
-		expect(place?.route).toBe('/sandbox-7/');
-		expect(place?.label).toBe('Sandbox 7');
+	test('the film registry points the planet at /sandbox-7/', () => {
+		const world = WORLDS[SANDBOX.seven];
+		expect(world?.route).toBe('/sandbox-7/');
+		expect(world?.label).toMatch(/^Sandbox 7/);
 	});
 });
 

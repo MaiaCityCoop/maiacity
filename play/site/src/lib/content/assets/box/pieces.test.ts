@@ -2,8 +2,8 @@
 // its hash, and the frozen engine builds the recipe with it. The engine is played here as it loads a recipe (engine
 // v5: `self.defineRecipe` set, the script run, the function it was handed called with the engine's `require`).
 import { afterEach, describe, expect, it } from 'vitest'
-import { hashText } from '../../game/hash.js'
-import { RECIPE_HEAD, recipeTail } from '../engines.js'
+import { hashText } from '../../../kernel/hash.js'
+import { RECIPE_HEAD, recipeTail } from './engines.js'
 import { MOST_DEEP, piecesFor, resolved } from './pieces.js'
 
 const g = globalThis as any

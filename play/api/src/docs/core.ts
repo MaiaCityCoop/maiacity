@@ -1,10 +1,10 @@
-// A document in Loro, without the database (play/SPEC.md §4.4): its JSON written into Loro containers as its type's
-// hints say (./validate.ts; its schema a document, ./schemas.ts), edits applied as Loro operations, a whole new state turned into the few operations that
-// make it (so a proposal that sends its whole body still lands as small steps), the state read back as plain JSON at
-// any point of its history, and two states compared field by field.
+// A document in Loro, without the database (play/SPEC.md §4.4): its JSON in Loro containers as its type's hints say
+// (./validate.ts; ./schemas.ts), edits as Loro operations, a whole new state turned into the few operations that make it
+// (a whole-body proposal still lands as small steps), any point of its history read as JSON, two states compared.
 import { LoroDoc, LoroList, LoroMap, LoroMovableList, LoroText } from "loro-crdt";
-import { canonical, hashText } from "../hash";
+import { canonical, hashText } from "../kit/hash";
 import { nodeAt, problemsOf, SchemaError, type DocType, type Node } from "./validate";
+import { HttpError } from "../kit/errors";
 
 /** the one root container every document lives under */
 export const ROOT = "doc";
@@ -30,7 +30,6 @@ export function fromBytes(snapshot: Uint8Array | null, updates: Uint8Array[]): L
   return d;
 }
 
-/** the document as plain JSON */
 export const jsonOf = (d: LoroDoc): any => (d.toJSON() as Record<string, unknown>)[ROOT] ?? null;
 /** the BLAKE3 of a state's canonical JSON: what a named version records */
 export const contentHash = (json: unknown): string => hashText(canonical(json));
@@ -45,16 +44,15 @@ function putInMap(m: LoroMap, key: string, v: unknown, n: Node): void {
     if ((v as string).length) t.insert(0, v as string);
   } else if (Array.isArray(v)) fill(m.setContainer(key, new LoroMovableList()), v, n);
   else if (isObj(v)) fill(m.setContainer(key, new LoroMap()), v, n);
-  else m.set(key, v as any);
+  else m.set(key, v);
 }
-/** inserts `v` as its schema says at `i` of list `l` */
 function putInList(l: LoroMovableList, i: number, v: unknown, n: Node): void {
   if (isText(n, v)) {
     const t = l.insertContainer(i, new LoroText());
     if ((v as string).length) t.insert(0, v as string);
   } else if (Array.isArray(v)) fill(l.insertContainer(i, new LoroMovableList()), v, n);
   else if (isObj(v)) fill(l.insertContainer(i, new LoroMap()), v, n);
-  else l.insert(i, v as any);
+  else l.insert(i, v);
 }
 function fill(c: LoroMap | LoroMovableList, v: unknown, n: Node): void {
   if (c instanceof LoroMap) for (const [k, x] of Object.entries(v as object)) putInMap(c, k, x, nodeAt(n, [k]));
@@ -77,9 +75,8 @@ export function seed(d: LoroDoc, t: DocType, json: unknown): void {
 }
 
 /**
- * Turns the document into `target` with the fewest operations it can: texts by their changed lines or characters,
- * a list of objects that carry an `id` by its items (removed, inserted, moved, each kept item changed in place),
- * maps by their changed keys, anything else set where it differs. Not yet committed.
+ * Turns the document into `target` with the fewest operations: texts by changed lines or characters, lists of objects
+ * with an `id` by item (removed, inserted, moved, changed in place), maps by changed keys, else set. Not yet committed.
  */
 export function patchTo(d: LoroDoc, t: DocType, target: unknown): void {
   const problems = problemsOf(t, target);
@@ -99,7 +96,7 @@ function patchChild(parent: LoroMap | LoroMovableList, key: string | number, cur
   const same = !(cur instanceof LoroMap || cur instanceof LoroMovableList || cur instanceof LoroText || cur instanceof LoroList) && !isObj(v) && !Array.isArray(v) && !isText(n, v) && cur === v;
   if (same) return;
   if (parent instanceof LoroMap) {
-    if (!(cur instanceof LoroMap || cur instanceof LoroMovableList || cur instanceof LoroText) && !isObj(v) && !Array.isArray(v) && !isText(n, v)) parent.set(key as string, v as any);
+    if (!(cur instanceof LoroMap || cur instanceof LoroMovableList || cur instanceof LoroText) && !isObj(v) && !Array.isArray(v) && !isText(n, v)) parent.set(key as string, v);
     else putInMap(parent, key as string, v, n);
   } else {
     const i = key as number;
@@ -146,7 +143,13 @@ export type Edit =
   | { op: "move"; path: Path; to: number } // a list's item, the path ending with its index, to index `to`
   | { op: "text"; path: Path; index: number; delete?: number; insert?: string }; // a range of a text
 
-export class EditError extends Error {}
+export class EditError extends HttpError {}
+
+export class DocError extends HttpError {
+  constructor(message: string, status = 400, public extra: Record<string, unknown> = {}) {
+    super(message, status);
+  }
+}
 
 /** the container the path leads into (all but its last step), and that last step */
 function parentOf(d: LoroDoc, path: Path): [LoroMap | LoroMovableList, string | number] {
@@ -164,6 +167,14 @@ function parentOf(d: LoroDoc, path: Path): [LoroMap | LoroMovableList, string | 
   return [at, last];
 }
 export const fmt = (p: Path) => "$" + p.map((x) => (typeof x === "number" ? `[${x}]` : `.${x}`)).join("");
+
+/** `json`, a document of type `t`, as `edits` would leave it (nothing kept); the caller checks the result against its type */
+export function applied(t: DocType, json: unknown, edits: Edit[]): any {
+  const d = newDoc();
+  seed(d, t, json);
+  applyEdits(d, t, edits);
+  return jsonOf(d);
+}
 
 /** applies `edits` (not yet committed); the caller checks the whole result against its type */
 export function applyEdits(d: LoroDoc, t: DocType, edits: Edit[]): void {
@@ -196,7 +207,7 @@ export function applyEdits(d: LoroDoc, t: DocType, edits: Edit[]): void {
       const len = cur.length, del = e.delete ?? 0;
       if (!Number.isInteger(e.index) || e.index < 0 || e.index > len || del < 0 || e.index + del > len) throw new EditError(`${fmt(e.path)}: the range ${e.index}+${del} is outside the text of ${len}`);
       cur.splice(e.index, del, e.insert ?? "");
-    } else throw new EditError(`an edit is one of set, insert, delete, move, text, not ${JSON.stringify((e as any).op)}`);
+    } else throw new EditError(`an edit is one of set, insert, delete, move, text, not ${JSON.stringify((e as { op: unknown }).op)}`);
   }
 }
 
@@ -214,10 +225,7 @@ export function jsonAt(d: LoroDoc, frontiers: Frontiers): any {
 
 export type Change = { path: string; kind: "added" | "removed" | "changed"; from?: unknown; to?: unknown };
 
-/**
- * What changed from `a` to `b`, field by field. Lists of objects with an `id` are followed by their ids (an item
- * added, removed or changed where it is), other lists item by item.
- */
+/** What changed from `a` to `b`, field by field: lists of objects with an `id` followed by id, other lists item by item. */
 export function diff(a: unknown, b: unknown, path = "$", out: Change[] = []): Change[] {
   if (canonical(a) === canonical(b)) return out;
   if (isObj(a) && isObj(b)) {

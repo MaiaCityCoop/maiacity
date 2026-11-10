@@ -1,6 +1,6 @@
 // Sandbox 6's village draws cheaply (intent 67f0404a, c10): built on the CPU from the village config, each dome size's
 // glazed panels are one InstancedMesh (its frame a second), and all seven hexes stay under 400 draw objects.
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import * as THREE from 'three';
 import village from '../../../../../api/import/sandboxes/sandbox-6/village.json';
 import type { Village } from './geometry';

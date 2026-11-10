@@ -1,88 +1,46 @@
-// One intent holds all its work (intent 7c8986c5; play/SPEC.md §4.12 and §4.15), against a real Postgres
-// (TEST_DATABASE_URL, as for ./api.test.ts) and a fake GitHub (./fixtures/github.ts):
-// - documents: two assets' versions, a story's and a skill's proposed on one intent sit side by side, each its own intent
-//   variant; get_intent lists all four; Accept freezes each document's next version in one transaction; archive closes
-//   all of them; proposing one again replaces only that one;
-// - ship: an intent naming a pull request and holding play's work goes Accept and ship; its work waits while it ships;
-//   the reconcile seeing its merge commit live marks it Accepted and accepts its work in that step; a red step brings it
-//   back to Proposal with its work still waiting.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
-import { Rate } from "../src/limits";
-import { reconcile, watchShips, type Pull } from "../src/ship";
+// One intent holds all its work (intent 7c8986c5; play/SPEC.md §4.12, §4.15) against a real Postgres and a fake GitHub.
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import type { BlobStore } from "../src/blobs";
+import { type Db } from "../src/kit/pg";
+import { reconcile } from "../src/ship";
+import { watchShips } from "../src/watcher";
+import { type Pull } from "../src/github";
+import type { Rule } from "../src/rules";
 import { seedDoc } from "../src/versioned";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { agentToken, type Api, appOn, type Fresh, freshDb, human, quiet, request, suite, tempStore, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 
 suite("one intent holds all its work", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
-  const keep = { log: console.log, warn: console.warn };
+  let restore = () => {};
 
   beforeAll(async () => {
-    console.log = () => {};
-    console.warn = () => {};
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    restore = quiet();
+    f = await freshDb();
+    db = f.db;
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
-    const h = await createHuman(db, "ada");
-    who.ada = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
-    const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
-    token = made.token;
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
+    who.ada = await human(db, "ada");
     // the GitHub runs' token: a code intent's checks are recorded with it alone
-    expect((await call("POST", `/api/tokens/${made.id}/avenbox`, { avenbox: true })).data.avenbox).toBe(true);
+    token = (await agentToken(api, who.ada.cookie, { avenbox: true })).token;
   });
 
   afterAll(async () => {
-    Object.assign(console, keep);
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    restore();
+    await f?.drop();
   });
 
-  const call = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie: who.ada.cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    const text = await r.text();
-    return { status: r.status, data: text ? JSON.parse(text) : null };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>) => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: who.ada.cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
 
   const SPEC = {
     goal: "Two people and their film change together.",
@@ -91,13 +49,7 @@ suite("one intent holds all its work", () => {
     checks: [{ check: "It looks right", how: "look", by: "the board beside the sheet" }],
   };
   /** an intent at Proposal, its one must passed, ready to take work */
-  const ready = async (title: string) => {
-    const i = await tool("add_intent", { title, kind: "improve" });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "seen" }] })).stage).toBe("proposal");
-    return i.id as string;
-  };
+  const ready = (title: string) => fx.readyIntent({ tool, approve: (id) => call("POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, add: { kind: "improve" }, evidence: "seen", strict: true });
   const asset = (label: string, intent: string) => tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label, source: SOURCE, note: `${label}, its first version`, intent });
   const story = (title: string, intent: string) =>
     tool("propose_story", { title, note: "its first cut", intent, body: { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] } });
@@ -184,6 +136,25 @@ suite("one intent holds all its work", () => {
     expect(await headOf(g2.asset)).toBeNull();
   });
 
+  test("each document's own note: one intent, two assets and a skill, each merge into Main and each version named with its own document's note (intent 119a02d1)", async () => {
+    const skill = crypto.randomUUID();
+    await seedDoc(db, "skill", { id: skill, json: { schema: "skill/1", label: "A notes skill", group: "tests", system: "Say it once." }, note: "its first version" });
+    const id = await ready("Two machines and a skill, each its own note");
+    const a = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Pickup", source: SOURCE, note: "Pickup: its own note", intent: id });
+    const b = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "BatteryPack", source: SOURCE, note: "BatteryPack: its own note", intent: id });
+    const s = await tool("propose_doc_version", { doc: skill, note: "The skill: its own note", edits: [{ op: "set", path: ["note"], value: "noted" }], intent: id });
+    for (const p of [a, b, s]) expect(p.error).toBeUndefined();
+    expect((await call("POST", `/api/intents/${id}/accept`)).data.stage).toBe("accepted");
+    for (const [doc, note] of [[a.asset, "Pickup: its own note"], [b.asset, "BatteryPack: its own note"], [skill, "The skill: its own note"]] as const) {
+      const h = await tool("doc_history", { doc });
+      const merges = h.edits.filter((e: any) => e.kind === "merge");
+      expect(merges.length).toBe(1);
+      expect(merges[0].message).toContain(note);
+      for (const other of ["Pickup: its own note", "BatteryPack: its own note", "The skill: its own note"].filter((n) => n !== note)) expect(merges[0].message).not.toContain(other);
+      expect(h.versions.at(-1).note).toBe(note);
+    }
+  });
+
   // ---- code beside play's work
 
   const CODE_SPEC = {
@@ -217,7 +188,7 @@ suite("one intent holds all its work", () => {
     gh.merges.set(pr, sha(++commits));
     return { id: i.id as string, pr, head, merge: gh.merges.get(pr)!, assets: [a, b] };
   };
-  const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
+  const clearShips = () => fx.clearShips(db);
   const intent = async (id: string) => (await call("GET", `/api/intents/${id}`)).data;
 
   test("ship: code and two assets go Accept and ship; the work waits while it ships; the reconcile seeing its merge live accepts it in that step", async () => {
@@ -240,12 +211,12 @@ suite("one intent holds all its work", () => {
     gh.runs["release.yml"].push(run(31002, c.merge, { display_title: `release ${c.merge}`, event: "workflow_run", status: "completed", conclusion: "success" }));
     gh.runs["production.yml"].push(run(31003, c.merge, { event: "workflow_dispatch", status: "completed", conclusion: "success" }));
     gh.jobs.set(31003, [job(311, "The image", "completed", "success"), job(312, "The backup", "completed", "success"), job(313, "The server", "completed", "success"), job(314, "The website", "completed", "success")]);
-    await watchShips(db, gh.gh, Date.now(), null);
+    await watchShips(db, gh.gh, store, Date.now(), null);
     expect(await intent(c.id)).toMatchObject({ stage: "ship", ship: { outcome: "green" }, work: { status: "proposal" } });
-    await reconcile(db, gh.gh, old);
+    await reconcile(db, gh.gh, store, old);
     for (const a of c.assets) expect(await headOf(a.asset)).toBeNull();
     // play runs its merge: Accepted, and its work accepted in that same step
-    const done = await reconcile(db, gh.gh, c.merge);
+    const done = await reconcile(db, gh.gh, store, c.merge);
     expect(done.accepted).toContain(c.id);
     const after = await intent(c.id);
     expect(after).toMatchObject({ stage: "accepted", decided_by: "ada", ship: { live: true, commit: c.merge }, work: { status: "accepted" } });
@@ -267,7 +238,7 @@ suite("one intent holds all its work", () => {
       job(324, "The website", "completed", "success"),
     ]);
     gh.logs.set(322, "line 1\n");
-    await watchShips(db, gh.gh, Date.now(), null);
+    await watchShips(db, gh.gh, store, Date.now(), null);
     const red = await intent(c.id);
     expect(red).toMatchObject({ stage: "proposal", ship: { outcome: "red", report: { step: "Backup" } }, work: { status: "proposal" } });
     for (const a of c.assets) expect(await headOf(a.asset)).toBeNull();
@@ -284,10 +255,10 @@ suite("one intent holds all its work", () => {
     const { factsOf, matchRule } = await import("../src/rules");
     const f = await factsOf(db, c.id);
     expect(f.both).toBe(true);
-    expect(matchRule(f, "accept", { rules: [{ id: crypto.randomUUID(), label: "everything", gates: ["accept"], match: {}, reason: "test" } as any] })).toBeNull();
+    expect(matchRule(f, "accept", { rules: [{ id: crypto.randomUUID(), label: "everything", gates: ["accept"], match: {}, reason: "test" } as Rule] })).toBeNull();
     // what the board reads of GitHub: Accept and ship once its pull request is read
-    const { watchPulls } = await import("../src/ship");
-    await watchPulls(db, gh.gh);
+    const { watchPulls } = await import("../src/watcher");
+    await watchPulls(db, gh.gh, store);
     expect((await intent(c.id)).sub).toMatchObject({ state: "waiting", tag: "Accept and ship" });
   });
 });

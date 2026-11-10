@@ -1,0 +1,89 @@
+// An admin's decision on an intent, whatever its stage, and a rule's in a person's place (play/SPEC.md §4.12): the one
+// place an intent is decided; an auto-accept rule (./rules.ts) takes the same path, written as who decided.
+import { meOf, type AutoBy, type Me } from "./access";
+import type { GitHub } from "./github";
+import type { Ctx } from "./kinds";
+import { workOf } from "./held";
+import { decideIntent, gate, getIntent, intentRow, noSuchIntent, type IntentVerdict, type Move } from "./intents";
+import { seesIntent } from "./owners";
+import { factsOf, matchRule, ruleSetOf } from "./rules";
+import { acceptAndShip, acceptCode, runningCommit } from "./ship";
+import { decide } from "./versioned";
+import { answerOf } from "./fault";
+
+/**
+ * An admin's decision on an intent, whatever its stage: work of play's at Proposal accepted or archived (decide); code in
+ * a pull request shipped (./ship.ts acceptAndShip), on main by its trailer the reconcile's (./ship.ts acceptCode,
+ * Accepted once play runs it); anything else the intent's own (./intents.ts decideIntent). Gives back the intent and
+ * the decision's message where it has one.
+ */
+export async function decideAny(ctx: Ctx, me: Me | null, id: string, verdict: IntentVerdict | "archive", gh: GitHub | null = null, commit = runningCommit(), by?: AutoBy) {
+  const db = ctx.db;
+  const w = await workOf(db, id);
+  // an intent whose work is another's private asset is decided by its owner alone, and to anyone else is as one that never was (./owners.ts)
+  if (!w || (me && !(await seesIntent(db, me, w.id)))) throw noSuchIntent();
+  // a rule decides (./decide.ts autoMove): a person's path, the rule written as who decided
+  if (by && me) me = { ...me, auto: by };
+  const out = await decideOne(ctx, me, w, verdict, gh, commit);
+  // a person's Accept: the intents it held are asked again (a rule may move them now); a rule's asks itself
+  if (!by && out?.stage === "accepted" && w.stage !== "accepted") await autoAfter(ctx, w.id, { me, gh, commit });
+  return out;
+}
+
+async function decideOne(ctx: Ctx, me: Me | null, w: any, verdict: IntentVerdict | "archive", gh: GitHub | null, commit: string | null) {
+  const db = ctx.db;
+  // code ships, with the work of play's it holds beside it accepted once it is live (intent 7c8986c5)
+  if (verdict === "accept" && (!w.kind || w.pull_request)) {
+    const shipped = (await acceptAndShip(db, gh, me, w.id)) ?? (await acceptCode(db, gh, ctx.store, me, w.id, commit));
+    if (shipped) return shipped;
+  }
+  let decision: { status: string; number?: number; version?: string; merged?: boolean; message?: string } | undefined;
+  if (w.kind && w.stage === "proposal" && (verdict === "accept" || verdict === "archive" || verdict === "reject")) {
+    const { id: _id, intent: _i, stage: _s, why, ...r }: any = await decide(ctx, me, w.id, verdict === "accept" ? "accept" : "archive");
+    decision = { ...r, ...(r.message ?? why ? { message: r.message ?? why } : {}) };
+  } else await decideIntent(db, me, w.id, verdict === "archive" ? "reject" : verdict);
+  const said = decision ? { decision, ...(decision.message ? { message: decision.message } : {}) } : {};
+  if (me?.level !== "admin") return { id: w.id, stage: (await workOf(db, w.id))?.stage, ...said };
+  return { ...(await getIntent(db, w.id)), ...said };
+}
+
+// ---- auto-accept rules (play/SPEC.md §4.12 "Auto-accept rules", ./rules.ts): a rule takes the move a person would
+
+/** what autoMove did: the gate a rule decided at and the rule, or why the move it matched was refused */
+type AutoMoved = { gate: "approve" | "accept"; rule: string; refused?: string };
+
+/**
+ * Intent `id` decided by a matching rule: at Specify its spec approved, at Proposal accepted, by a person's path
+ * (decideAny) with the rule as who decided; only where the gate (mayMove) allows and matchRule gives a rule. A refusal on
+ * that path (a pull request not ready) leaves it, saying why; accepted, the intents it held are asked again. `me` the
+ * admin whose request it is (else its author); `gh` Ship's GitHub for code. Null where no rule decides.
+ */
+export async function autoMove(ctx: Ctx, id: string, o: { me?: Me | null; gh?: GitHub | null; commit?: string | null } = {}): Promise<AutoMoved | null> {
+  const db = ctx.db;
+  const intent = await intentRow(db, id);
+  const at = intent.stage === "specify" ? ("approve" as const) : intent.stage === "proposal" ? ("accept" as const) : null;
+  if (!at) return null;
+  const move: Move = at === "approve" ? "build" : intent.pull_request ? "ship" : intent.work ? "accept_work" : "accept";
+  if (await gate.mayMove(db, intent, move)) return null;
+  const set = await ruleSetOf(db);
+  const facts = await factsOf(db, intent.id);
+  const rule = matchRule(facts, at, set);
+  if (!rule || !set) return null;
+  const actor = o.me?.level === "admin" ? o.me : await meOf(db, facts.author);
+  if (actor?.level !== "admin") return null;
+  const by: AutoBy = { rule: rule.id, label: rule.label, rules: set.hash, reason: rule.reason };
+  try {
+    await decideAny(ctx, actor, intent.id, at, o.gh ?? null, o.commit, by);
+  } catch (e) {
+    if (answerOf(e) !== null) return { gate: at, rule: rule.id, refused: (e as Error).message };
+    throw e;
+  }
+  if ((await intentRow(db, intent.id)).stage === "accepted") await autoAfter(ctx, intent.id, o);
+  return { gate: at, rule: rule.id };
+}
+
+/** once intent `id` is Accepted, every intent it held is asked again (autoMove): a rule may move it now */
+async function autoAfter(ctx: Ctx, id: string, o: { me?: Me | null; gh?: GitHub | null; commit?: string | null } = {}) {
+  const { rows } = await ctx.db.query<{ intent_id: string }>(`SELECT intent_id FROM play.intent_depends WHERE depends_on = $1 ORDER BY at, intent_id`, [id]);
+  for (const r of rows) await autoMove(ctx, r.intent_id, o).catch((e) => console.warn(`auto: intent ${r.intent_id} not looked at: ${(e as Error).message}`));
+}

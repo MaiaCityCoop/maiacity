@@ -1,22 +1,16 @@
 #!/usr/bin/env bun
 /**
- * Redraw the wrong cells of a reference sheet, keeping the rest of the plate as it is: Nano Banana Pro's edit model on
- * fal (`fal-ai/nano-banana-pro/edit`), the sheet as its first image and a prompt naming each cell and what it must show;
- * reference images (--ref, repeated: image 2, 3 … in the order given) go with it, a person's real photos when a
- * character's face has drifted. The redrawn plate is written as <out>.png and <out>.jpg (at most 4 MB) and kept at once
- * on play, labelled: in Maia City's Library, or with --library personal in the operator's own; a character's
- * (--kind character) only ever there.
+ * Redraw the wrong cells of a reference sheet, keeping the rest: Nano Banana Pro's edit model on fal, the sheet as
+ * image 1 and --ref images after it (a person's real photos when a character's face drifted). Written as <out>.png and
+ * .jpg (≤ 4 MB) and kept on play, labelled (a character's only in the operator's personal library).
  *
  *   bun tools/sheet/sheet-edit.ts --sheet <sheet.jpg> --fix <fix.txt> --out <dir/sheet-3>
  *       --label "Reference sheet · Orange 'Tarocco' · 3 (sheet 1, cells redrawn)" [--ref <photo>]…
  *       [--library coop|personal] [--kind character] [--no-upload]
  *
- * The fix prompt: first "Keep the whole plate exactly as it is … Redraw ONLY these cells", then one numbered paragraph
- * a cell, its row and label, what is wrong with it and what the real organ looks like, with the data sheet's numbers
- * (orange 'Tarocco', 2026-11-05: the old bark, the trunk's cut, the colour-break fruit, the ripe fruit's collar and its
- * flesh were redrawn this way and the rest of the plate stayed). For a face: "image 1 is the sheet; images 2 … are
- * real photos of this person: redraw the face in cells … to be exactly the person in the photos". Read the result
- * again like the first one: an edit can move what it was not asked to.
+ * The fix prompt: "Keep the whole plate exactly as it is … Redraw ONLY these cells", then a numbered paragraph a cell
+ * (what is wrong, what the real organ looks like, the data sheet's numbers; orange 'Tarocco', 2026-11-05, was fixed so).
+ * Read the result again: an edit can move what it was not asked to.
  */
 import { mkdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";

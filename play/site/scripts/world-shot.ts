@@ -1,23 +1,19 @@
 /**
- * A world shot, built on the CPU (intent 90de96fb): a world version from play's files, built in Bun as a story's world
- * shot builds it in the Stories player (src/lib/stories/world-build.ts, the live runtime's own build), through the
- * frozen box engine (static/engines, held to its BLAKE3 hash) as workers. No DOM, no WebGL: what it checks is the
- * build, its time, its workers and the places it gives each frame, not a picture (that is a Mac job).
+ * A world shot built on the CPU (intent 90de96fb): a world version from play's files built in Bun as the Stories player
+ * builds it (src/lib/stories/world-build.ts), on the frozen box engine (static/engines, held to its BLAKE3 hash) as
+ * workers. No DOM, no WebGL: it checks the build, its time, workers and each frame's places, not a picture (a Mac job).
  *
  *   bun scripts/world-shot.ts --asset <world UUID> --version <its version's hash> [--fps 24] [--duration 6]
  *       [--within <s>] [--most-workers <n>] [--moving <t1>,<t2>]
  *   bun scripts/world-shot.ts --story <story UUID> [--intent <intent UUID>] --world-shots <n>
  *
- * --within: ready (the world, every guest build and every frame) within that many seconds; --most-workers: never more
- * engine workers alive at once; --moving t1,t2: built twice, the vehicles (guests of the group machines) stand in at
- * least 10 other places at story time t2 than at t1, and the two builds give the same places at both, to the byte.
- * --story: the story (as the intent's variant makes it, if one is named: doc_at; else its head: get_story; over play's MCP) has at least n world shots,
- * each its own camera path, each but the last going into the next with a cut.
+ * --within: ready (world, guest builds, every frame) within that many seconds; --most-workers: never more engine workers
+ * at once; --moving t1,t2: built twice, the vehicles (guests of group machines) stand in at least 10 other places at t2
+ * than t1, both builds giving the same places, to the byte. --story: the story (its intent's variant if named, doc_at;
+ * else its head, get_story) has at least n world shots, each its own camera path, each but the last cut into the next.
  *
- * With PLAY_MCP_TOKEN (avenBOX's, sent to play only) it reads play: the asset, its files, the story. An intent's checks
- * run with no token at all (play/avenbox/intent.ts), so what they read is kept beside the code, written from play with
- * --fetch: a world version's files in src/lib/stories/fixtures/worlds/<version>/ (its manifest, and each file under its
- * hash, held to it as it is read), a story's timeline as an intent makes it in src/lib/stories/fixtures/stories/.
+ * With PLAY_MCP_TOKEN (avenBOX's, sent to play only) it reads play; an intent's checks run with no token
+ * (play/avenbox/intent.ts), so what they read is kept beside the code, written from play with --fetch (src/lib/stories/fixtures/).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -28,7 +24,7 @@ import type { WorkerLike } from '../src/lib/stories/world-build';
 const LIB = resolve(import.meta.dir, '../src/lib') + '/';
 Bun.plugin({ name: 'lib', setup: (b) => void b.onResolve({ filter: /^\$lib\// }, (a) => ({ path: Bun.resolveSync('./' + a.path.slice(5), LIB) })) });
 const { enginesOf } = await import('../src/lib/kernel/engines.js');
-const { hashText } = await import('../src/lib/content/game/hash.js');
+const { hashText } = await import('../src/lib/kernel/hash.js');
 const { piecesOf } = await import('../src/lib/content/assets/box/pieces.js');
 const { plantingsOf } = await import('../src/lib/content/assets/uses.js');
 const { frameOf, framesOf } = await import('../src/lib/stories/live');
@@ -45,13 +41,11 @@ const fail = (why: string): never => {
 };
 const fetching = args.includes('--fetch');
 if (fetching && !token) fail('--fetch reads play with PLAY_MCP_TOKEN (avenBOX\'s token)');
-/** where what play gave is kept: read from play while fetching, else from here */
 const KEPT = resolve(import.meta.dir, '../src/lib/stories/fixtures');
 const online = fetching;
 const auth = { Authorization: `Bearer ${token}` };
 let keptAt = '';
 
-/** a file of play's as text, held to its hash */
 const files = new Map<string, string>();
 async function file(hash: string) {
 	if (files.has(hash)) return files.get(hash)!;
@@ -70,7 +64,6 @@ async function file(hash: string) {
 	files.set(hash, text);
 	return text;
 }
-/** every piece a code requires, to any depth, read */
 async function deep(code: string, seen = new Set<string>()): Promise<string[]> {
 	for (const h of piecesOf(code) as string[]) if (!seen.has(h)) seen.add(h), await deep(await file(h), seen);
 	return [...seen];
@@ -85,8 +78,6 @@ const workerOf = (v: number) => {
 	}
 };
 
-/** a world version as the Stories player hands it to the frame (StoryPlayer.svelte worldAssets): its recipe, pieces,
- *  engine, and the guests its build plants, each with its pieces */
 async function worldSpec(asset: string, version: string, fps: number, duration: number) {
 	keptAt = join(KEPT, 'worlds', version);
 	let v: any;
@@ -124,7 +115,6 @@ async function worldSpec(asset: string, version: string, fps: number, duration: 
 	return { engine: { v: engine, hash: enginesOf('box').find((x: { v: number }) => x.v === engine)!.blake3 }, recipe: v.recipe, pieces, guests, fps, frames: framesOf(duration, fps) };
 }
 
-/** a world shot's places at story time t, as the runtime draws them */
 const placesAt = (got: { places: Float32Array[] }, t: number, fps: number, frames: number) => got.places[Math.min(frameOf(t, fps, frames), got.places.length - 1)];
 
 async function checkWorld() {
@@ -171,7 +161,6 @@ async function checkWorld() {
 	process.exit(bad ? 1 : 0);
 }
 
-/** a play MCP tool's result as JSON */
 async function tool(name: string, a: Record<string, unknown>) {
 	const r = await fetch(`${PLAY}/api/mcp`, { method: 'POST', headers: { ...auth, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: a } }) });
 	const text = await r.text();
@@ -183,7 +172,6 @@ async function tool(name: string, a: Record<string, unknown>) {
 
 async function checkStory() {
 	const story = opt('--story')!, intent = opt('--intent'), want = Number(opt('--world-shots') ?? 1);
-	// as the intent's variant makes it (open or proposed: doc_at reads both), else its head; kept beside the code
 	const at = join(KEPT, 'stories', `${story}${intent ? `.${intent}` : ''}.json`);
 	let s: any;
 	if (online) {

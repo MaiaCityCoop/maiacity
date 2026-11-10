@@ -1,14 +1,12 @@
 /**
- * THE BELL TENT — where a settler sleeps on the first nights, before any dome
- * stands: a cotton canvas bell tent four metres across, on one pole, room for
- * two to sleep and to sit up in. Two mats and sleeping bags at the back, a
- * lantern on the pole, a crate for a table; outside, the campfire and two
- * chairs.
+ * THE BELL TENT — where a settler sleeps the first nights, before any dome: a cotton canvas bell tent 4 m across on one
+ * pole, room for two to sleep and sit up; mats and sleeping bags at the back, a lantern on the pole, a crate for a table;
+ * outside the campfire and two chairs.
  */
 import * as THREE from 'three'
 import type { Mats } from './interior'
 
-export type TentCtx = {
+type TentCtx = {
 	scene: THREE.Scene
 	R: number
 	m: Mats
@@ -16,7 +14,7 @@ export type TentCtx = {
 	bake: (g: THREE.Group, shadows?: boolean) => THREE.Group
 }
 
-export const TENT = { wall: 0.75, pole: 3, doorHalf: 0.55, doorTop: 1.8 }
+const TENT = { wall: 0.75, pole: 3, doorHalf: 0.55, doorTop: 1.8 }
 
 const adiff = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b))
 

@@ -1,22 +1,12 @@
 /*
- * A BIOME AS ITS CARD SAYS IT — a biome is an asset of the `biomes` group like any other (./floors.js): built in the box
- * as a patch of its floor (./patch.js), its card made there and kept in the Maia City vault beside its recipe. Its parts
- * are what a floor is made of, each with its numbers as the card's specs:
- *
- *   the ground   each surface it is painted with (`ground-<surface>`) and its weight
- *   the cover    how many plants stand on a square metre inside their colonies (`density`), and each kind
- *                (`cover-<kind>`): the asset it is (its `ref`, the cover's kind at its seed), its share, how big its
- *                colonies are, how much of the ground they take, how full they are and the surface they grow on;
- *                a kind a machine sowed, its rows (how far apart, how far along them, how far off its line)
- *   the grass    its grass as single blades (`grass`, of the assembly `grass`; ./grass.js): how tall, how tall where the
- *                tall grass grows, how much a blade's height differs, its width, how big its clumps are, how far it
- *                leans, its colours (foot, tip, dry) and how much of it is dry; a card without it grows ./grass.js's
- *                `GRASS` where its cover has grass
- *   the field    a field's tramlines (`tramlines`, of the assembly `field`): every how many metres, the gauge and the
- *                tyre's width; a biome may keep other parts there (its rows' depth, its colours), read by nobody here
- *
- * A world reads a biome from its card alone (`biomeOfCard`), as the vault hands it out, never from the repo's list: the
- * vault's biome at the version a world names is the floor it lays. Every number is checked on the way in.
+ * A BIOME AS ITS CARD SAYS IT — a biome is an asset of the `biomes` group built in the box as a patch of its floor, its
+ * card kept beside its recipe, its parts the floor's makings with their numbers as specs:
+ *   the ground   each surface (`ground-<surface>`) and its weight
+ *   the cover    `density`, and each kind (`cover-<kind>`): its `ref`, share, colony size, spread, fill, surface, rows
+ *   the grass    its blades (`grass`, ./grass.js): heights, spread, width, clumps, lean, colours, dryness; without it
+ *                ./grass.js `GRASS` where its cover has grass
+ *   the field    tramlines (`tramlines`, assembly `field`): spacing, gauge, tyre width
+ * A world reads a biome from its card alone (`biomeOfCard`), never the repo's list, every number checked on the way in.
  */
 import { SURFACE, SURFACES } from './surfaces.js';
 
@@ -44,14 +34,12 @@ const MASK_SPECS = /** @type {const} */ ([
 	['across', 'Colour regions', ' m', 1, 500]
 ]);
 
-/** a number as a spec writes it: as it is, so it reads back the same @param {number} n */
+/** @param {number} n */
 const num = (n) => String(Number(n));
 
 /**
- * A biome's parts as a card's catalog: its surfaces and its cover, each with its numbers.
- * @param {import('./index.js').Recipe} recipe
- * @param {{ ref: (kind: string, i: number) => string, label: (kind: string) => string }} kinds the asset each kind of its
- *   cover is, and its name
+ * A biome's parts as a card's catalog. @param {import('./index.js').Recipe} recipe
+ * @param {{ ref: (kind: string, i: number) => string, label: (kind: string) => string }} kinds each kind's asset and name
  */
 export function biomeCatalog(recipe, kinds) {
 	const ground = SURFACES.filter((s) => (recipe.surface[s] ?? 0) > 0).map((s) => ({
@@ -121,9 +109,8 @@ export function biomeCatalog(recipe, kinds) {
 export class BiomeCardError extends Error {}
 
 /**
- * The biome a card is: its surfaces, its density and its cover, each kind with the asset it is (`ref`). Throws
- * (BiomeCardError) on a card that isn't a biome's, or whose numbers aren't what a floor can be.
- * @param {any} card a card as the vault holds it (checked against the card's schema already)
+ * The biome a card is; throws BiomeCardError on a card that isn't a biome's or whose numbers no floor can have.
+ * @param {any} card as the vault holds it (checked against the card's schema already)
  * @returns {import('./index.js').Recipe & { version: number }}
  */
 export function biomeOfCard(card) {

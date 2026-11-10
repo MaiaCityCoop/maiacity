@@ -1,5 +1,11 @@
 # play's checks, called by main.yml: the API's tests against a real Postgres (play/api/test), its types, and the site's
-# build (play/site), which also holds the copied modules to resolving.
+# build (play/site), which also holds the copied modules to resolving, and its tests (intent 417af727).
+#
+# Each on a runner of its own, in parallel (they starved each other's 5 s timeouts on one): the job "API" (Postgres,
+# the API's types and its whole suite, alone) and the job "Site" (its build, then its fast suite: vitest without Sandbox
+# 2's physics, then its *.bun.test.ts with Bun). Sandbox 2's physics are switched off (intent 94c11a28; Samuel
+# 2026-11-09): no workflow runs them; they run by hand only (play/avenbox/gate.sh physics). The required
+# check keeps its name: the job "API and site" needs "API" and "Site" and is green only when both are.
 #
 # On a pull request they always run in full, and end by noting the tree they tested ("Tested tree"). On a push to main
 # (intent 5ab64b8e) they pass without running again only when the pushed tree is that very tree, for the pull request
@@ -14,15 +20,17 @@ permissions:
   contents: read
 
 jobs:
-  checks:
-    name: API and site
+  tested:
+    name: The tested tree
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 5
     permissions:
       contents: read
       actions: read
       checks: read
       pull-requests: read
+    outputs:
+      skip: ${{ steps.tested.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
       - name: The tested tree
@@ -32,36 +40,79 @@ jobs:
           EVENT: ${{ github.event_name }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
-          CHECK: play / API and site
+          PART: play
           GH_TOKEN: ${{ github.token }}
         run: bash .github/workflows/tested-tree.sh
+
+  api:
+    name: API
+    needs: tested
+    if: needs.tested.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
       - name: Postgres
-        if: steps.tested.outputs.skip != 'true'
-        # room for the tests in parallel (intent aa59f248): each test file's pool and each play-api a test starts take up to 20
-        run: docker run -d --name postgres -e POSTGRES_PASSWORD=play -p 5432:5432 postgres:17-alpine -c max_connections=500
+        # avenBOX's version, password, port and room for the tests in parallel (play/avenbox/box.env)
+        run: |
+          . play/avenbox/box.env
+          docker run -d --name postgres -e POSTGRES_PASSWORD="$PG_PASSWORD" -p "$PG_PORT:5432" "postgres:$PG_VERSION-alpine" -c "max_connections=$PG_MAX_CONNECTIONS"
+          echo "TEST_DATABASE_URL=$BOX_DATABASE_URL" >> "$GITHUB_ENV"
       - uses: oven-sh/setup-bun@v2
-        if: steps.tested.outputs.skip != 'true'
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - name: The API
-        if: steps.tested.outputs.skip != 'true'
         working-directory: play/api
-        env:
-          TEST_DATABASE_URL: postgres://postgres:play@localhost:5432/postgres
         run: |
           bun install --frozen-lockfile
-          bunx tsc --noEmit -p .
           # over TCP: the image's first start (initdb) answers only on its socket until it is ready
           for i in $(seq 1 60); do docker exec postgres pg_isready -h 127.0.0.1 -U postgres > /dev/null && break; sleep 1; done
           docker exec postgres pg_isready -h 127.0.0.1 -U postgres
-          # the whole suite, every file, one worker per core (each file its own database; intent aa59f248)
-          bun test --parallel
+          # avenBOX's gate, the part whole: its types, then every test file in parallel, red if one is skipped
+          bash ../avenbox/gate.sh api --no-up
+
+  site:
+    name: Site
+    needs: tested
+    if: needs.tested.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
       - name: The site
-        if: steps.tested.outputs.skip != 'true'
         working-directory: play/site
         run: |
           bun install --frozen-lockfile
           bun run build
+      - name: The site's tests
+        working-directory: play/site
+        # the fast suite: vitest without Sandbox 2's physics, then the *.bun.test.ts with Bun
+        run: bun run test
+
+  checks:
+    name: API and site
+    needs: [tested, api, site]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: The API's and the site's jobs
+        env:
+          TESTED: ${{ needs.tested.result }}
+          SKIP: ${{ needs.tested.outputs.skip }}
+          API: ${{ needs.api.result }}
+          SITE: ${{ needs.site.result }}
+        run: |
+          echo "the tested tree: $TESTED (skip: ${SKIP:-false}); API: $API; Site: $SITE"
+          [ "$TESTED" = success ] || exit 1
+          if [ "$SKIP" = true ]; then [ "$API" = skipped ] && [ "$SITE" = skipped ] && exit 0; exit 1; fi
+          [ "$API" = success ] && [ "$SITE" = success ]
+      - uses: actions/checkout@v4
+        if: needs.tested.outputs.skip != 'true'
       - name: Tested tree
-        if: steps.tested.outputs.skip != 'true'
+        if: needs.tested.outputs.skip != 'true'
         run: echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"
+

@@ -1,10 +1,11 @@
 // Sandbox 6's village keeps the old layout (intent 67f0404a, c5 and c6), read from the village config as proposed in
 // its layout document (play/api/import/sandboxes/sandbox-6/village.json): seven hexes of one size, the living hexes laid out as
 // Samuel's layout B, the centre hex with the tower, its ring road, its eight works and the village centre, no homes.
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import village from '../../../../../api/import/sandboxes/sandbox-6/village.json';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import audit from '../../../../../api/import/sandboxes/sandbox-6/audit.json';
 import { auditOf, type Audit } from './audit';
 import { capOf, edgeDistance, hexOf, type Village } from './geometry';
@@ -102,12 +103,12 @@ describe('centre hex', () => {
 		const held = T.storeys!.reduce((x, s) => x + s.m2, 0);
 		expect(Math.abs(held - T.gfa!) / T.gfa!).toBeLessThan(0.15);
 		expect(T.gfa!).toBeLessThanOrEqual(327_000 / 5);
-		console.log(`the tower: ${Math.round(T.gfa!)} m² gross, ${Math.round(T.shape!.D)} m at its foot, ${Math.round(T.shape!.H)} m high, ${T.storeys!.length} storeys (the old shape: ${Math.round(T.full)} m²)`);
+		console.log(`the tower: ${Math.round(T.gfa!)} m² gross, ${Math.round(T.shape!.D)} m at its foot, ${Math.round(T.shape!.H!)} m high, ${T.storeys!.length} storeys (the old shape: ${Math.round(T.full)} m²)`);
 	});
 	test('the page never calls it Tower180', () => {
 		const shown = JSON.stringify(V.plans.tower.sites.map((s) => s.name)) + JSON.stringify(V.plans.tower.programme);
 		expect(shown).not.toContain('Tower180');
-		const dir = join(import.meta.dir);
+		const dir = fileURLToPath(new URL('.', import.meta.url));
 		for (const f of readdirSync(dir).filter((f) => !f.endsWith('.test.ts'))) expect(`${f}: ${readFileSync(join(dir, f), 'utf8').includes('Tower180')}`).toBe(`${f}: false`);
 	});
 });

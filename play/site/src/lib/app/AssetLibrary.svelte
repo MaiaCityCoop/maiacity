@@ -17,8 +17,8 @@
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type ChainVersion, type Pick } from './Aside.svelte';
-	import { api, may } from '$lib/api';
-	import { catalogReady } from '$lib/recipes';
+	import { api, fileUrl, may } from '$lib/api';
+	import { catalogReady } from '$lib/content/assets/catalog.js';
 	import { admitProposed, recipeInfo, source } from '$lib/content/assets/catalog.js';
 
 	type Listed = { id: string; grp: string; slug: string; label: string; head: number; versions: number };
@@ -29,6 +29,7 @@
 	const viewer = import('$lib/content/assets/VaultAsset.svelte');
 	const partsList = import('$lib/content/assets/Parts.svelte');
 	import { GROUPS } from './groups';
+	import { libraryHref, pieceHref } from '$lib/address';
 
 	/** the one group this view shows (its key in play's database), or every group */
 	let { group }: { group?: string } = $props();
@@ -195,16 +196,16 @@
 					<dt>Pieces</dt>
 					<dd class="pieces">
 						{#each v.pieces as p (p.hash)}
-							<a href="/pieces/?piece={p.piece}&v={p.version}" title={p.hash}>{p.label} v{p.version} <span class="mono">{short(p.hash)}</span></a>
+							<a href={pieceHref(p.piece, p.version)} title={p.hash}>{p.label} v{p.version} <span class="mono">{short(p.hash)}</span></a>
 						{/each}
 					</dd>
 				{/if}
 			</dl>
 			<!-- its reference sheet (a plant's plate of every stage and organ), its data sheet and the sheet's brief, kept in the Library -->
-			{#if v.sheet}<a class="sheet" href="/api/files/{v.sheet}" target="_blank" rel="noopener"><img src="/api/files/{v.sheet}" alt="v{v.number}'s reference sheet" loading="lazy" /><span>Reference sheet</span></a>{/if}
-			{#if v.datasheet || v.brief}<p class="docs">{#if v.datasheet}<a href="/library/?kind=document&q={v.datasheet}">Data sheet</a>{/if}{#if v.brief}<a href="/library/?kind=document&q={v.brief}">Sheet brief</a>{/if}</p>{/if}
+			{#if v.sheet}<a class="sheet" href={fileUrl(v.sheet)} target="_blank" rel="noopener"><img src={fileUrl(v.sheet)} alt="v{v.number}'s reference sheet" loading="lazy" /><span>Reference sheet</span></a>{/if}
+			{#if v.datasheet || v.brief}<p class="docs">{#if v.datasheet}<a href={libraryHref('document', v.datasheet)}>Data sheet</a>{/if}{#if v.brief}<a href={libraryHref('document', v.brief)}>Sheet brief</a>{/if}</p>{/if}
 			<div bind:this={details}></div>
-			{#if catalog}{#await partsList then { default: Parts }}<h4 class="side-head">Parts {catalog.parts.length}</h4><Parts {catalog} own={shownHash ?? undefined} bind:picked bind:solo hrefOf={unitHref} nameOf={unitName} />{/await}{/if}
+			{#if catalog}{#await partsList then { default: Parts }}<!-- its parts list carries its own "Parts N" heading (intent 119a02d1) --><Parts {catalog} own={shownHash ?? undefined} bind:picked bind:solo hrefOf={unitHref} nameOf={unitName} />{/await}{/if}
 		{/snippet}
 	</Aside>
 {/snippet}
@@ -266,7 +267,6 @@
 	.sheet { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0 0; font-size: 0.78rem; color: inherit; text-decoration: none; }
 	.sheet img { width: 5.5rem; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 0.35rem; border: 1px solid var(--line, #e5e1d8); background: #fff; }
 	.docs { display: flex; gap: 0.75rem; margin: 0.2rem 0 0; font-size: 0.78rem; }
-	.side-head { margin: 0.9rem 0 0.4rem; color: var(--soft); font-family: var(--font-body); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 	dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.2rem 0.8rem; margin: 0.2rem 0 0; }
 	dt { opacity: 0.6; }
 	dd { margin: 0; overflow-wrap: anywhere; }

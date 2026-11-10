@@ -19,6 +19,7 @@
 -->
 <script lang="ts" module>
 	import type { Edit } from './Changes.svelte';
+	import type { DocVersion } from '$wire';
 	export type { Edit };
 	export type Variant = {
 		id: number;
@@ -45,9 +46,10 @@
 </script>
 
 <script lang="ts">
+	import { figuresDay, shortWhen } from '$lib/format';
 	import { untrack, type Snippet } from 'svelte';
 	import { api } from '$lib/api';
-	import { session } from '$lib/session.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 	import Changes from './Changes.svelte';
 
 	let {
@@ -61,11 +63,8 @@
 		failed = '',
 		onPick
 	}: {
-		/** the document's UUID (the asset's, the story's, the factory's …) */
 		doc: string;
-		/** the version the view shows */
 		shown?: number | null;
-		/** what the thing is called, in its captions */
 		label?: string;
 		/** the view's own list of versions (else Main's, from the history) */
 		versions?: ChainVersion[] | null;
@@ -79,8 +78,8 @@
 		onPick: (p: Pick | null) => void | Promise<void>;
 	} = $props();
 
-	type Version = { number: number; note: string; at: string; acceptedBy?: string | null };
-	const admin = $derived(session.me?.level === 'admin');
+	type Version = DocVersion;
+	const admin = $derived(isAdmin());
 	const edits = $derived(h?.edits ?? []);
 	const mainVersions = $derived(h?.versions ?? []);
 	const variants = $derived(h?.variants ?? []);
@@ -101,8 +100,8 @@
 			playing = false;
 		});
 	});
-	const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
-	const day = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString('en-GB') : '');
+	const when = (iso: string | null | undefined) => (iso ? shortWhen(iso) : '');
+	const day = (iso: string | null | undefined) => (iso ? figuresDay(iso) : '');
 	const index = $derived(at ? edits.findIndex((e) => e.seq === at!.seq) : -1);
 	/** the chain: the view's versions, else Main's, newest first */
 	const chain = $derived<ChainVersion[]>(

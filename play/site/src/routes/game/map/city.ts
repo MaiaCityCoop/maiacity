@@ -1,12 +1,11 @@
-// The world map built up as a city (the map's City view, Samuel 2026-11-05): on every plot its village, its tower at the
-// centre with the master dome beside it, larger domes round them and smaller ones further out, fruit trees between the
-// domes; and between the plots, deep jungle, on all the valley floor that is no plot, no water and no hill. It is only
-// a picture of what the map could hold (nothing is built in the game yet), grown from the map's own seed, so the same
-// map always gets the same city. Sizes are in map units and stylised like the map's trees: a tower is 2 × 15.3 high
-// (its 180 m foot and height), the master dome 12 across, the others 10, 7.5, 5.5 and 4.5 (`DOMES`). Nothing here
-// touches the DOM or three.js: ./scene.ts draws it.
+// The world map built up as a city (its City view, Samuel 2026-11-05): on every plot its village (the tower at the centre,
+// the master dome beside it, larger domes round them, smaller further out, fruit trees between), and deep jungle on all
+// the valley floor that is no plot, water or hill. Only a picture of what the map could hold, grown from its seed, so
+// the same map gets the same city. Map units, stylised like its trees: a tower 2 × 15.3 high (its 180 m foot and
+// height), the master dome 12 across, others 10, 7.5, 5.5 and 4.5 (`DOMES`). No DOM or three.js: ./scene.ts draws it.
 
-import { hashSeed, inside, mulberry32, nearLine, terrain, type Feature, type P, type WorldMap } from './map';
+import { hashSeed, inside, nearLine, terrain, type Feature, type P, type WorldMap } from './map';
+import { seededRandom } from '$lib/kernel/random.js';
 
 export type DomeKind = 'tower' | 'master' | 'dome';
 /** a dome or a tower on a plot: where its centre stands and its radius at the foot (map units) */
@@ -45,7 +44,7 @@ const GAP = 3;
 const TREE_GAP = 4;
 
 export function buildCity(map: WorldMap): City {
-	const rand = mulberry32(hashSeed(`${map.seed}:city`));
+	const rand = seededRandom(hashSeed(`${map.seed}:city`));
 	const domes: Dome[] = [], trees: Feature[] = [], jungle: Feature[] = [];
 
 	for (const p of map.plots) {
@@ -105,7 +104,6 @@ export function buildCity(map: WorldMap): City {
 	return { domes, trees, jungle };
 }
 
-/** whether a point is in the river or on its banks */
 export function byRiver(map: WorldMap, x: number, y: number): boolean {
 	const reach = map.bank + 4;
 	let near = rivers.get(map);

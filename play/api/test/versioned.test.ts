@@ -1,32 +1,12 @@
-// One version control (src/versioned.ts, play/SPEC.md "Version control") against a real Postgres: set TEST_DATABASE_URL,
-// as for ./api.test.ts.
-//
-// c1: a kind is one entry. A kind registered here alone (a gadget, its type and its row table made in this file) gets
-// everything every kind gets: listed, read at a version, an edit and an intent's variant, its history with its
-// variants, edited, proposed with an intent, reviewed and accepted or archived, over MCP (list_docs, doc_at,
-// doc_history, doc_edit, propose_doc_version), over HTTP (/api/docs/<uuid>, /history, /changes) and in the board's
-// review, with no other file changed.
-//
-// c2: every kind play keeps round-trips through the one module: an asset, a story, a factory, a levels config and a
-// skill each edited twice in an intent variant, proposed, reviewed field by field, accepted as Main's next version (an
-// asset's and a story's frozen rows written), archived, and a clash on a moved seed archived; get_asset and get_story
-// read an intent's variant too.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+// One version control (src/versioned.ts, play/SPEC.md "Version control") against a real Postgres (as ./api.test.ts).
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createDoc } from "../src/docs";
-import { COOP, SCHEMA } from "../src/ids";
-import { Rate } from "../src/limits";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
-import { register, seedDoc, unregister } from "../src/versioned";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { COOP, SCHEMA } from "../src/kit/ids";
+import { type Db } from "../src/kit/pg";
+import { seedDoc } from "../src/versioned";
+import { register, unregister } from "../src/kinds";
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 /** the test's own kind: a gadget, a label, a count of cogs and a note */
 /** the gadget's schema: a document of the meta-schema like every schema, made here as its test's setup */
@@ -51,79 +31,38 @@ const GADGET = {
 const gadgetCheck = (doc: any) => [...(doc.cogs === 13 ? ["a gadget never has 13 cogs"] : []), ...(doc.colour && doc.colour === doc.label ? ["a gadget is never named its colour"] : [])];
 
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
-const SPEC = {
-  goal: "A document says more.",
-  nothing_to_reduce: "A test fixture: nothing to reduce.",
-  scope: "One document. Nothing else changes.",
-  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
-};
+const SPEC = fx.spec("A document says more.", "One document. Nothing else changes.");
 
 suite("one version control", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
 
   beforeAll(async () => {
-    name = `play_versioned_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     // c1's kind: its row table and its entry, here and nowhere else
     await db.query(`CREATE TABLE play.gadgets (id UUID PRIMARY KEY, coop_id UUID NOT NULL REFERENCES play.coops(id), label TEXT NOT NULL, created TIMESTAMPTZ NOT NULL DEFAULT now())`);
     await db.query(`INSERT INTO play.records (id, coop_id, kind, label) VALUES ($1, $2, 'schema', 'Gadget')`, [GADGET_SCHEMA, COOP]);
     await createDoc(db, { id: `schema:${GADGET_SCHEMA}`, schema: SCHEMA.meta, json: GADGET, author: { human: null, via: "import" }, version: "v1" });
     register({ name: "gadget", prefix: "gadget", schema: GADGET_SCHEMA, check: gadgetCheck, work: "gadget_version", table: "play.gadgets", label: "gadget", group: "gadgets", item: (j) => ({ cogs: j.cogs }) });
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
-    for (const n of ["ada", "cit"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [who.ada.id]);
+    api = appOn(db);
+    who.ada = await human(db, "ada");
+    who.cit = await human(db, "cit", null);
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.cit.id]);
     token = (await call("ada", "POST", "/api/tokens", { name: "agent" })).data.token;
   });
   afterAll(async () => {
     unregister("gadget");
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string | null, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = {};
-    if (as) headers.cookie = who[as].cookie;
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
+  const call = (as: string | null, method: string, path: string, body?: unknown) => request(api, { cookie: as ? who[as].cookie : null }, method, path, body);
   /** a tool called over MCP by ada's token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** an intent in Build, its spec approved, its one must check passed: ready to take work */
-  const readyIntent = async (title: string) => {
-    const i = await tool("add_intent", { title });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
-    return i.id as string;
-  };
+  const readyIntent = (title: string) => fx.readyIntent({ tool, approve: (id) => call("ada", "POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, strict: true });
 
   // ---- c1
 
@@ -133,7 +72,7 @@ suite("one version control", () => {
     expect(await seedDoc(db, "gadget", { id: G, json: { schema: "gadget/1", label: "Again", cogs: 1 }, note: "x" })).toBe(false);
 
     // listed, by its kind; read at Main's newest version
-    const tools = (await (await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) }))).json()).result.tools;
+    const tools = (await kitRpc(api, token, "tools/list")).json.result.tools;
     expect(tools.find((t: any) => t.name === "list_docs").inputSchema.properties.kind.enum).toContain("gadget");
     expect(await tool("list_docs", { kind: "gadget" })).toEqual([expect.objectContaining({ id: G, kind: "gadget", label: "A gadget", number: 1, versions: 1, cogs: 3 })]);
     expect((await call("ada", "GET", "/api/docs?kind=gadget")).data).toEqual([expect.objectContaining({ id: G, kind: "gadget" })]);
@@ -362,8 +301,7 @@ suite("one version control", () => {
       const b = await tool("propose_doc_version", { doc: id, note: `${k.kind}: B`, edits: k.clash("B"), intent: await readyIntent(`${k.kind}: B`) });
       expect((await call("ada", "POST", `/api/intents/${a.intent}/accept`)).data.decision).toMatchObject({ status: "accepted", number: was + 2 });
       if (k.kind === "asset") {
-        // an asset's work goes in only on the head it was made on: the other work on that head is archived at once, its
-        // intent (specified, as every intent with work is) back in Build
+        // an asset's work goes in only on its own head: other work on it archived at once, its intent back in Build
         expect((await call("ada", "GET", `/api/intents/${b.intent}`)).data).toMatchObject({ stage: "build", review: { status: "archived" } });
       } else {
         expect((await call("ada", "GET", `/api/intents/${b.intent}`)).data.review.moved).toBe(true);
@@ -462,7 +400,6 @@ suite("one version control", () => {
     expect((await call("ada", "POST", `/api/intents/${i}/accept`)).data.stage).toBe("accepted");
     expect(await both(i, e.variant)).toEqual({ stage: "accepted", status: "accepted" });
 
-    // another, archived: archived
     const gone = await readyIntent("A variant archived");
     const g = await tool("propose_doc_version", { doc: D, note: "teal", edits: [{ op: "set", path: ["colour"], value: "teal" }], intent: gone });
     expect((await call("ada", "POST", `/api/intents/${gone}/archive`)).data.decision.status).toBe("archived");

@@ -1,21 +1,15 @@
-// Runs play's migrations (../migrations: the schema's history, one file `<id>.sql` per migration, its SQL as it ran,
-// kept outside the live code; play/SPEC.md "Migrations"). They run in name order, each once, in one transaction; a
-// migration is never edited after it has shipped, only followed by another. `until` stops after that migration (a test
-// builds a database as it stood then).
-//
-// A new migration's id is `<UTC time YYYYMMDDHHMM>-<the intent's first 8 hex>-<slug>` (202611071200-e9afc2d5-files):
-// it sorts after every numbered one, and two intents never pick the same, so adding one touches only its own new file.
-// The numbered ids (0001-ownership … up to LAST_NUMBERED) are the ones shipped before, kept as play.migrations names them.
+// Runs play's migrations (../migrations: one file `<id>.sql` each, its SQL as it ran; play/SPEC.md "Migrations") in name
+// order, each once, in one transaction; a shipped migration is never edited, only followed. `until` stops after that one
+// (a test builds a database as it stood then). What SQL can't write is ./seed.ts, run after it by every entry point.
+// A new id is `<UTC YYYYMMDDHHMM>-<the intent's first 8 hex>-<slug>` (202611071200-e9afc2d5-files): it sorts after every
+// numbered one and two intents never pick the same. The numbered ids (0001-ownership … LAST_NUMBERED) shipped before.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Db } from "./pg";
-import { ensureSchemas } from "./docs/schemas";
-import { ensureLayouts } from "./sandboxes";
-import { ensureRules } from "./rules";
+import type { Db } from "./kit/pg";
+import { LOCK, lockSql } from "./kit/locks";
 
 export type Migration = { id: string; sql: string };
 
-/** the folder the migrations are read from */
 export const MIGRATIONS_DIR = join(import.meta.dir, "..", "migrations");
 /** the last hand-numbered migration (0037-intent-depends, landed in the old array beside this change): none after it */
 const LAST_NUMBERED = 37;
@@ -45,24 +39,19 @@ export function loadMigrations(dir = MIGRATIONS_DIR): Migration[] {
   });
 }
 
-/** play's migrations, as the folder holds them */
 export const MIGRATIONS: Migration[] = loadMigrations();
-
-/** The advisory lock every migration step holds: play-api and the import start together on a deploy, and both migrate. */
-const MIGRATION_LOCK = 4_711_029;
 
 /** Runs every migration not yet run, each in its own transaction. */
 export async function migrate(db: Db, o: { until?: string; migrations?: Migration[] } = {}): Promise<string[]> {
   const all = o.migrations ?? MIGRATIONS;
   const last = o.until === undefined ? all.length - 1 : all.findIndex((x) => x.id === o.until);
   if (last < 0 && o.until !== undefined) throw new Error(`migrate: no migration ${o.until}`);
-  // Two processes migrate the same database at once on a deploy (play-api as it starts, and the import beside it;
-  // 2026-11-06 the second ran 0029 again after the first had, and failed on its ALTER). So every step takes one
-  // advisory lock for its transaction and looks again whether its migration has run, under the lock.
-  // In production the role play owns the schema but may not create one in the database (play/deploy/setup.sql makes
-  // it), and CREATE SCHEMA IF NOT EXISTS checks that right even when the schema is there: so only create it if missing.
+  // Two processes migrate at once on a deploy (play-api and the import; 2026-11-06 the second ran 0029 again and failed
+  // on its ALTER), so each step takes one advisory lock and looks again, under it, whether its migration has run. In
+  // production play's role owns the schema but may not create one (play/deploy/setup.sql), and CREATE SCHEMA IF NOT
+  // EXISTS checks that right even when it exists: so only create it if missing.
   await db.transaction(async (tx) => {
-    await tx.query(`SELECT pg_advisory_xact_lock(${MIGRATION_LOCK})`);
+    await tx.query(lockSql(LOCK.migrations));
     await tx.query(`DO $$ BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'play') THEN CREATE SCHEMA play; END IF;
       END $$`);
@@ -74,7 +63,7 @@ export async function migrate(db: Db, o: { until?: string; migrations?: Migratio
   for (const m of all.slice(0, last + 1)) {
     if (done.has(m.id)) continue;
     const did = await db.transaction(async (tx) => {
-      await tx.query(`SELECT pg_advisory_xact_lock(${MIGRATION_LOCK})`);
+      await tx.query(lockSql(LOCK.migrations));
       if ((await tx.query("SELECT 1 FROM play.migrations WHERE id = $1", [m.id])).rows.length) return false;
       await tx.query(m.sql);
       await tx.query("INSERT INTO play.migrations (id) VALUES ($1)", [m.id]);
@@ -82,13 +71,5 @@ export async function migrate(db: Db, o: { until?: string; migrations?: Migratio
     });
     if (did) ran.push(m.id);
   }
-  // then the schemas, each a document of the meta-schema, made from the seed where absent (play/SPEC.md "Version
-  // control"); a database built only up to an older migration stands as it stood then
-  if (o.until === undefined) await ensureSchemas(db);
-  // then the sandboxes' layouts, each a document, and every sandbox change kept by 202611070115-d2f50bf1-sandbox-layouts
-  // an intent variant of its layout (play/SPEC.md §4.6): SQL can't write a Loro document
-  if (o.until === undefined) await ensureLayouts(db);
-  // then the auto-accept rules' v1 (play/SPEC.md §4.12 "Auto-accept rules"): one document, made only where absent
-  if (o.until === undefined) await ensureRules(db);
   return ran;
 }

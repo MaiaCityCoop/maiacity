@@ -41,6 +41,9 @@ export type Setup = {
 	inputs?: string;
 	/** write every route read live into `inputs` (to pin them) */
 	record?: boolean;
+	/** with `record`: read every route live and pin it anew, not only the routes not pinned yet (an asset's chain pinned
+	 * before an Accept is stale after it: the viewer's census then builds the version before; intent e5ddf0b2) */
+	fresh?: boolean;
 	/** where files by hash and the asset cache are kept between runs */
 	cache?: string;
 	/** log every route fetched */
@@ -283,7 +286,7 @@ export function setup(o: Setup = {}) {
 				return new Response(bytes, { status: 200, headers: { 'content-type': 'application/octet-stream' } });
 			}
 			const pinnedAt = done.inputs && join(done.inputs, `${createHash('sha256').update(route).digest('hex').slice(0, 20)}.json.gz`);
-			if (pinnedAt && existsSync(pinnedAt)) {
+			if (pinnedAt && existsSync(pinnedAt) && !(done.record && done.fresh)) {
 				const p = JSON.parse(gunzipSync(readFileSync(pinnedAt)).toString('utf8'));
 				fetched.pinned.add(route);
 				return new Response(p.body, { status: p.status, headers: { 'content-type': p.type } });

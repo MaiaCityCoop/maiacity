@@ -1,12 +1,17 @@
 #!/bin/bash
-# The checks CI runs, in avenBOX (play/SPEC.md §4.12, "Checks run in avenBOX"): what .github/workflows/play-checks.yml
-# and website-checks.yml run, in their order, here, before a push; and the workflows' lint.
+# The checks, in avenBOX (play/SPEC.md §4.12, "Checks run in avenBOX"): run here before a push, and by CI itself
+# (.github/workflows/play-checks.yml: `api` and `site`; website-checks.yml: `website`); and the workflows' lint.
 #
 #   bash play/avenbox/gate.sh                       # what this change touched (intent aa59f248; ./select.ts)
 #   bash play/avenbox/gate.sh --all                 # everything, as CI and main run it
 #   bash play/avenbox/gate.sh --plan                # what it would run, and why; runs nothing
 #   bash play/avenbox/gate.sh api|site|website|lint # one part, whole (as before: other intents' checks run these)
+#   bash play/avenbox/gate.sh deploy               # the deploy's own tests (deploy/test_publish_site.py)
+#   bash play/avenbox/gate.sh physics               # Sandbox 2's physics, by hand only (about ten minutes): switched
+#                                                   # off everywhere else (intent 94c11a28; Samuel 2026-11-09)
 #   bash play/avenbox/gate.sh lint <file>…          # the lint on these workflow files
+#   bash play/avenbox/gate.sh api --no-up           # without up.sh: the caller has Postgres answering at
+#                                                   # TEST_DATABASE_URL and the part's dependencies installed (CI)
 #
 # What a change touched: since the merge base with origin/main, plus the working tree (GATE_CHANGED="<paths>" names
 # them instead). play/api's tests are the ones that import a changed file or name it; all of them when a change is
@@ -18,14 +23,15 @@
 # tests run in parallel (one worker per core, each test file its own database).
 set -u
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-PART=all ALL=0 PLAN=0 FILES=()
+PART=all ALL=0 PLAN=0 UP=1 FILES=()
 for a in "$@"; do
   case "$a" in
     --all) ALL=1 ;;
     --plan) PLAN=1 ;;
-    all | api | site | website | lint) PART=$a ;;
-    -*) echo "gate.sh [all|api|site|website|lint] [--all] [--plan]"; exit 2 ;;
-    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|lint] [--all] [--plan]"; exit 2; } ;;
+    --no-up) UP=0 ;;
+    all | api | site | website | deploy | lint | physics) PART=$a ;;
+    -*) echo "gate.sh [all|api|site|website|deploy|lint|physics] [--all] [--plan] [--no-up]"; exit 2 ;;
+    *) [ "$PART" = lint ] && FILES+=("$a") || { echo "gate.sh [all|api|site|website|deploy|lint|physics] [--all] [--plan] [--no-up]"; exit 2; } ;;
   esac
 done
 export PATH="$HOME/.bun/bin:$PATH"
@@ -33,6 +39,8 @@ export PATH="$HOME/.bun/bin:$PATH"
 # the plan: every step with --all, else select.ts's for what changed; one part keeps only its own steps
 if [ ${#FILES[@]} -gt 0 ]; then
   PLANNED="step lint"
+elif [ "$PART" = physics ]; then
+  PLANNED="step site-physics"
 elif [ $ALL = 1 ] || [ "$PART" != all ]; then
   PLANNED=$(bun "$ROOT/play/avenbox/select.ts" --all)
 else
@@ -42,7 +50,9 @@ case "$PART" in
   api) KEEP='^step api-|^test ' ;;
   site) KEEP='^step site-' ;;
   website) KEEP='^step website-' ;;
+  deploy) KEEP='^step deploy-' ;;
   lint) KEEP='^step lint' ;;
+  physics) KEEP='^step site-physics' ;;
   *) KEEP='^step |^test ' ;;
 esac
 STEPS=$(echo "$PLANNED" | grep -E "$KEEP" | grep '^step ' | cut -c6-)
@@ -62,10 +72,11 @@ if [ $PLAN = 1 ]; then
 fi
 
 has() { echo "$STEPS" | grep -qx "$1"; }
-if has api-types || has api-tests || has site-build || has website-check; then
+if [ $UP = 1 ] && { has api-types || has api-tests || has site-build || has site-tests || has site-physics || has website-check; }; then
   bash "$ROOT/play/avenbox/up.sh" || exit 1
 fi
-export TEST_DATABASE_URL="${TEST_DATABASE_URL:-postgres://postgres:play@127.0.0.1:5432/postgres}"
+. "$ROOT/play/avenbox/box.env"
+export TEST_DATABASE_URL="${TEST_DATABASE_URL:-$BOX_DATABASE_URL}"
 LOG=$(mktemp -d)
 
 # step <name> <dir> <command…>: runs it in <dir>, its output kept in a log and its tail shown when it fails
@@ -77,9 +88,11 @@ step() {
   if (cd "$ROOT/$dir" && "$@") > "$log" 2>&1; then
     local counts
     counts=$(grep -E '^ +[0-9]+ (pass|skip|fail)$' "$log" | xargs | sed 's/ \([0-9]\)/, \1/g')
+    # on GitHub the whole output, folded (a runner keeps no log file)
+    [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::$name" && cat "$log" && echo "::endgroup::"
     echo "✓ $name ($((SECONDS - start)) s${counts:+; $counts})"
   else
-    tail -40 "$log"
+    if [ -n "${GITHUB_ACTIONS:-}" ]; then cat "$log"; else tail -40 "$log"; fi
     echo "✗ $name ($((SECONDS - start)) s; the whole output: $log)"
     exit 1
   fi
@@ -87,6 +100,8 @@ step() {
 # play/api's tests (the files given, or every one), in parallel; red when one fails or is skipped
 api_tests() {
   local out s
+  # the database every test file copies, made once before they start (play/api/test/template.ts)
+  bun test/template.ts || return 1
   out=$(bun test --parallel "$@" 2>&1)
   s=$?
   echo "$out"
@@ -104,8 +119,13 @@ if has api-tests; then
   fi
 fi
 has site-build && step "play/site build" play/site bun run build
+# the site's fast suite (every file but Sandbox 2's physics), after its build, as CI runs it (intent 417af727)
+has site-tests && step "play/site tests" play/site bun run test
+# Sandbox 2's physics, only by name (gate.sh physics): switched off for every change (intent 94c11a28)
+has site-physics && step "play/site Sandbox 2's physics" play/site bun run test:physics
 has website-check && step "website check" website bun run check
 has website-build && step "website build" website bun run build
+has deploy-tests && step "deploy tests (publish-site.py)" . python3 -m unittest deploy/test_publish_site.py
 has lint && step "workflows' lint (actionlint)" . bash play/avenbox/actionlint.sh "${FILES[@]}"
 [ -n "$STEPS" ] || echo "nothing of the gate's touched by this change (gate.sh --all runs everything)"
 echo "avenBOX gate: green ($PART$([ $ALL = 1 ] && echo ', --all'); $((SECONDS - START)) s)"

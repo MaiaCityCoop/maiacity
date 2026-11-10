@@ -1,13 +1,10 @@
 /*
- * THE SURFACES — what the ground itself is: a biome's floor is a few of these run into each other in patches, each at
- * its own size (`patch`, m), as a real floor is (./index.js): litter (fallen leaves), humus, needles, moss, green (the
- * living mat: clover, grass, small leaves), soil, tilled (ploughed, rows 0.36 m apart), stubble (drill rows 12.5 cm
- * apart) and dust (a verge's dust and gravel). `tilled` and `stubble` lie in rows (`rows`, m) along the direction a
- * material is given (`rowsOf`), a field's tramlines (`tramlines`) pressed across them.
- *
- * Each is a scanned real surface (./sets.js: CC0, its colour and height, normal, AO and roughness, by their hashes).
- * `groundMaterial(weights)` draws them blended (../render/nodes/ground.js): each surface's patches from the shared noise
- * (./noise.js), its weight how much of the floor it takes, the patches meeting by height, never repeating.
+ * THE SURFACES — what the ground is: a biome's floor is a few of these in patches, each at its own size (`patch`, m), as
+ * a real floor is (./index.js): litter, humus, needles, moss, green (clover, grass, small leaves), soil, tilled (rows
+ * 0.36 m apart), stubble (drill rows 12.5 cm apart) and dust (a verge's). Rows (`rows`, m) run along the material's
+ * direction (`rowsOf`), a field's `tramlines` pressed across them. Each is a scanned real surface (./sets.js: CC0, by
+ * hashes); `groundMaterial(weights)` blends them (../render/nodes/ground.js), patches from the shared noise (./noise.js)
+ * meeting by height, never repeating.
  */
 import * as THREE from 'three';
 import { fbm2 } from './noise.js';
@@ -17,9 +14,8 @@ import { PER, groundNodes } from '../render/nodes/ground.js';
 /** @type {Surface[]} the order is the shader's: a new surface comes last, so the ones before keep their patches */
 export const SURFACES = ['litter', 'humus', 'needles', 'moss', 'green', 'soil', 'tilled', 'stubble', 'dust'];
 /**
- * @type {Record<Surface, { label: string, patch: number, tile: number, rows?: number, track?: string }>} its name, how
- * big its patches are (m), how much ground one tile of its scan covers (m: its real size); a surface in rows, how far
- * apart they are (m, a whole number of them to a tile) and the colour of a wheel track pressed into it (sRGB)
+ * @type {Record<Surface, { label: string, patch: number, tile: number, rows?: number, track?: string }>} its name, patch
+ * size (m), ground one scan tile covers (m: real size); a row surface's spacing (m, whole rows a tile) and track colour (sRGB)
  */
 export const SURFACE = {
 	litter: { label: 'Leaf litter', patch: 6, tile: 3 },
@@ -33,11 +29,7 @@ export const SURFACE = {
 	dust: { label: 'Dust and gravel', patch: 5, tile: 2.48 }
 };
 
-/**
- * The way a floor's rows run (radians from the world's +x towards +z), from its mesh: `rows:<degrees>` in its name
- * (`biome:<hash> rows:30`), else the way the mesh's own +x points in the world. 0 where there is no mesh.
- * @param {THREE.Object3D} [mesh]
- */
+/** A floor's rows' way (radians from +x to +z): `rows:<degrees>` in its mesh's name, else its mesh's +x; 0 without. @param {THREE.Object3D} [mesh] */
 export function rowsOf(mesh) {
 	const m = /rows:(-?[0-9]+(?:\.[0-9]+)?)/.exec(mesh?.name ?? '');
 	if (m) return (Number(m[1]) * Math.PI) / 180;
@@ -52,11 +44,7 @@ export function rowsOf(mesh) {
  *   `gauge` apart (centre to centre, m), each `tyre` wide, one pair every `every` metres across the rows
  */
 
-/**
- * Whether a point `across` metres across the rows (from the rows' origin) lies in a tramline's track: how deeply,
- * 0…1. The same sum as the shader's.
- * @param {Tramlines | null | undefined} t @param {number} across
- */
+/** How deeply (0…1) a point `across` m across the rows lies in a tramline's track, as the shader sums it. @param {Tramlines | null | undefined} t @param {number} across */
 export function inTrack(t, across) {
 	if (!t) return 0;
 	const d = Math.abs(across - t.every * Math.round(across / t.every));
@@ -67,10 +55,8 @@ export function inTrack(t, across) {
 /** @typedef {Partial<Record<Surface, number>>} Weights how much of the floor each surface takes (any scale) */
 
 /**
- * How much of the floor at x, z (world metres) each surface is: the same sums as the shader's. (Ground laid flat:
- * its other axis runs −z.)
- * @param {Weights} weights @param {number} x @param {number} z
- * @returns {Record<Surface, number>}
+ * How much of the floor at x, z (world m) each surface is, as the shader sums it (ground laid flat: its other axis −z).
+ * @param {Weights} weights @param {number} x @param {number} z @returns {Record<Surface, number>}
  */
 export function surfacesAt(weights, x, z) {
 	const u = x, v = -z;
@@ -90,11 +76,10 @@ export function surfacesAt(weights, x, z) {
 }
 
 /**
- * The ground drawn with a biome's surfaces (`weights`): a node material for a mesh in world metres (../render/nodes/
- * ground.js). Its weights can be changed live: `material.userData.weigh(weights)`. A surface in rows (tilled, stubble)
- * runs its rows the way `rows` says (radians from +x towards +z; `rowsOf(mesh)`), `material.userData.rows(angle)` to
- * turn them, and a field's `tramlines` are pressed into them. `material.userData.map(texture, [x, z, w, d])`: a world's
- * ground map (R shade under its crowns, G wet) over that rectangle of it.
+ * The ground drawn with a biome's surfaces: a node material for a mesh in world metres (../render/nodes/ground.js).
+ * `material.userData.weigh(weights)` changes them live; row surfaces run as `rows` says (`rowsOf(mesh)`;
+ * `userData.rows(angle)` turns them) with `tramlines` pressed in; `userData.map(texture, [x, z, w, d])` lays a world's
+ * ground map (R shade under crowns, G wet) over that rectangle.
  * @param {Weights} weights @param {{ rows?: number, tramlines?: Tramlines | null }} [o]
  */
 export function groundMaterial(weights, o = {}) {

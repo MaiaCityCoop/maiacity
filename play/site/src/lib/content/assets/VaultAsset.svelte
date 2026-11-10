@@ -1,7 +1,7 @@
 <!--
 	ONE OF A VAULT'S ASSETS, SHOWN FROM THE VAULT ALONE — as the asset library shows it: a build of
 	a recipe the Maia City vault keeps, its source its entry's file, read from the vault and held to its hash before
-	anything else (./sources/viewer.js `vaultBuild`), then this device's cache or the box, which runs it on the frozen
+	anything else (./load.js `vaultBuild`), then this device's cache or the box, which runs it on the frozen
 	engine its entry names, checked either way, and shown on the asset stage (./stage.js, ./hero.js) as every asset
 	viewer shows a build (the viewer's core, ./viewer.js, and what it draws round the stage, ./ViewerParts.svelte), in
 	the same turntable ($lib/app/Turntable.svelte, in its place in the page): above the canvas, staying at the top of
@@ -30,9 +30,11 @@
 	import TouchStick from '$lib/site/touch/TouchStick.svelte';
 	import { valuesOf } from './params.js';
 	import { groundOf, groundsIn } from './ground.js';
+	import { biomeOfCard } from '$lib/content/biomes/card.js';
+	import { keepAbove, maxPolar } from './camerafloor.js';
 	import { createPlantings } from './plantings.js';
-	import { buildName, vaultBuild } from './sources/viewer.js';
-	import { plantOf } from './catalog.js';
+	import { vaultBuild } from './load.js';
+	import { buildOf, plantOf } from './catalog.js';
 	import { VIEWS, asker, camerawork, letGoOf, loop, measure, movesOf, onTap, openStage, safeArea, tabbed, viewsOf } from './viewer.js';
 	import { builtRows, heroReading, labRows, longNote, moveChips, paramTabs, scaleBar, tagLines, viewChips } from './ViewerParts.svelte';
 
@@ -40,15 +42,9 @@
 	 * @type {{ source: typeof import('./catalog.js').source, hash: string, title?: string,
 	 *   note?: string, about?: import('svelte').Snippet, catalog?: any, picked?: string | null, solo?: boolean,
 	 *   compact?: boolean, fill?: boolean, named?: boolean, details?: HTMLElement | null, onStir?: (read: () => void) => (() => void) }}
-	 *   `source` the vault's recipes (the page's `vaultSource`), `hash` the recipe shown, `title` and `note`
-	 *   what its entry calls it and says of it, `about` what the page says of its entry, at the foot of the panel;
-	 *   `catalog` its parts as built (null where it lists none), `picked` the part picked, `solo` whether it is shown on
-	 *   its own; `compact`, its name, its moves and views and a short canvas alone, in a card with its own answers
-	 *   (an intent's review); `onStir` the page's watch of the device's sync,
-	 *   so a file still arriving is read again as it moves; `fill`, the canvas as tall as the page's column; `named`,
-	 *   false where the page names it already (its aside), its name not repeated over the canvas; `details`, an element
-	 *   of the page (its aside) that what is said of the asset (the readout, then the panel) goes into instead of round
-	 *   the canvas
+	 *   `source` the vault's recipes, `hash` the recipe shown; `compact` a short card (an intent's review); `onStir` the
+	 *   page's watch of the device's sync (a file still arriving read again); `named` false where the page names it;
+	 *   `details`, the page's aside the readout and panel go into
 	 */
 	let { source, hash, title = '', note = '', about, catalog = $bindable(null), picked = $bindable(null), solo = true, compact = false, fill = false, named = true, details = null, onStir } = $props();
 
@@ -74,13 +70,10 @@
 		}
 	});
 	/** the build asked for: its recipe and the values changed here (one the vault doesn't hold is refused as it is asked) */
-	const wanted = $derived(hash ? buildName(hash, asked) : '');
+	const wanted = $derived(hash ? buildOf(hash, asked) : '');
 	/** the parameter it grows by (a plant's stage), and the stage it stands at, named */
 	const staged = $derived(params.find((p) => p.id === 'stage' && tabbed(p)) ?? null);
-	/**
-	 * a plant's view of itself or of its fruit (its `fruit` parameter: Plant | Fruit), a switch of its own at the top of
-	 * the bar, never lost along the row of stages; the bar's other tabs without it
-	 */
+	/** a plant's Plant | Fruit switch (its `fruit` parameter), its own at the top of the bar, never lost in the stages */
 	const fruitView = $derived(params.find((p) => p.id === 'fruit' && tabbed(p)) ?? null);
 	const barParams = $derived(fruitView ? params.filter((p) => p !== fruitView) : params);
 	const stageName = $derived(staged && Number.isFinite(values.stage) ? staged.names[Math.min(staged.names.length - 1, Math.round(values.stage - staged.min))] : '');
@@ -90,8 +83,7 @@
 	let building = $state(false);
 	let buildPhase = $state('file');
 	let error = $state('');
-	/** its file is still arriving on this device (`Unread`: read while the device was behind, Freshness.lean): shown as
-	 *  loading, and built again by itself as the device's sync moves, never "Not shown" */
+	/** its file still arriving on this device (`Unread`, Freshness.lean): loading, built again as the sync moves */
 	let arriving = $state(false);
 	let lost = $state(false);
 	/** where the build came from (this device's cache or the box), its measure, and a plant's above and below its soil */
@@ -104,15 +96,11 @@
 	/** the camera below the ground line (the frame split there, the roots in the earth), and the one tap down to them or back up */
 	let below = $state(false);
 	let toRoots = null;
-	/** a plant shown (in its soil, or its fruit on its own), its Latin name, and Roots asked from the fruit view: down
-	 *  to them once the plant is built again */
+	/** a plant shown (in its soil, or its fruit alone), its Latin name, and Roots asked from the fruit view (once rebuilt) */
 	let plantShown = $state(false);
 	let latin = $state.raw(null);
 	let wantRoots = false;
-	/**
-	 * Every plant's one switch, top centre: the plant, its fruit (where its recipe has the Fruit view) and its roots (the
-	 * camera down below the ground line), whichever is shown pressed (Samuel 2026-11-05)
-	 */
+	/** Every plant's one switch, top centre: plant, fruit (where it has the view) or roots, the shown one pressed (Samuel 2026-11-05) */
 	const fruitOn = $derived(!!fruitView && Math.round(values[fruitView.id]) !== fruitView.min);
 	const viewTabs = $derived.by(() => {
 		if (!plantShown && !fruitView) return [];
@@ -127,9 +115,8 @@
 		return tabs;
 	});
 	/**
-	 * A plant's Latin name, from its own recipe's label as the plant skill writes it ("Banana 'Dwarf Cavendish' · Musa
-	 * acuminata": Musa acuminata 'Dwarf Cavendish'); else from play's record of the plant (its Latin name before any
-	 * " · " aside); else none
+	 * A plant's Latin name from its recipe's label as the plant skill writes it ("Banana 'Dwarf Cavendish' · Musa
+	 * acuminata": Musa acuminata 'Dwarf Cavendish'); else play's record of it (before any " · "); else none
 	 */
 	function latinOf(label, hash) {
 		const m = typeof label === 'string' && label.match(/^(.*?)(?:\s+'([^']+)')?\s+·\s+([A-Z][a-z]+(?:\s+[×x])?\s+[a-z][a-z-]+.*)$/);
@@ -139,7 +126,6 @@
 		return null;
 	}
 	let moving = $state('run');
-	/** its solver's sliders and its reading */
 	let sliders = $state({});
 	let reading = $state.raw({ value: 0, state: '', sub: '', bad: false });
 	let tags = $state.raw([]);
@@ -209,13 +195,24 @@
 		}
 		// for a test in a browser to read what is shown, as AssetViewer's `__viewer`
 		window.__vaultAsset = { stage, camera, controls, plantings, get hero() { return hero; }, get picked() { return picked; }, get building() { return building; }, get phase() { return buildPhase; }, get error() { return error; }, get values() { return values; }, get wanted() { return wanted; }, set: (id, v) => setParam(id, v) };
-		// a plant's ground: its biome's floor to the horizon, whole, the plant's roots in the earth under it, seen by
-		// tilting the camera below the ground line (./ground.js); never under its fruit on its own, which stands on the
-		// studio's floor. One floor for every plant, not chosen (Samuel 2026-11-04): the library's greenest biome
+		// a plant's ground (./ground.js), never under its fruit alone; one floor for every plant (Samuel 2026-11-04)
 		const earth = groundOf(stage, { drawn: plantings.drawn });
 		const green = groundsIn(source)[0];
 		earth.biome(green?.recipe ?? null, green?.id);
 		soilShown = earth.soil;
+		/** the camera's floor (./camerafloor.js): the shown asset's group, whether it stands in its soil, and its ground's height */
+		const floorCam = { group: '', soiled: false, y: 0, margin: 0.005 };
+		/** the biome the earth is the floor of now: the greenest under a plant, a biome's own under it (null: the greenest) */
+		let floorOf = null;
+		/** a biome shown on its own (intent 119a02d1): its recipe as its card says it, or null where it is no floor */
+		const biomeShown = (card) => {
+			if (card?.group !== 'biomes' || card.id === 'cover') return null;
+			try {
+				return biomeOfCard(card);
+			} catch {
+				return null;
+			}
+		};
 
 		const letGo = letGoOf(stage);
 		const asks = asker();
@@ -224,8 +221,7 @@
 		const cam = camerawork(THREE, camera, controls);
 		/** the part the camera was last brought to, if one */
 		let focused = null;
-		// down to the roots: the camera glides to just below the ground line, the frame split there (./ground.js
-		// `rootsView`); and back up, to the plant framed as built
+		// down to the roots: just below the ground line, the frame split there (./ground.js `rootsView`); and back up
 		toRoots = () => {
 			if (!cam.framed) return;
 			if (earth.below) return void cam.frame(true);
@@ -251,12 +247,34 @@
 				const bounds = new THREE.Box3().setFromObject(got.obj);
 				// a plant stands in its soil; its fruit, shown on its own, on the floor
 				const soiled = got.card?.group === 'plants' && !(got.values?.fruit >= 1);
-				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: soiled ? 0 : undefined, keep: shownHash === h0, studio: !soiled });
-				if (soiled) earth.fit(got.obj);
-				earth.show(soiled);
+				// a biome stands on its own floor run out to the horizon, not on its patch alone (intent 119a02d1; Samuel
+				// 2026-11-09: "full ground floor, not just the circle"): the earth draws its surfaces everywhere, so the
+				// patch's own flat ground is put away and its cover stands where it lies, the earth's cover beyond it
+				const biome = biomeShown(got.card);
+				const own = biome ? got.card.id : null;
+				if (own !== floorOf) {
+					floorOf = own;
+					earth.biome(biome ?? green?.recipe ?? null, own ?? green?.id);
+				}
+				const grounded = soiled || !!biome;
+				let patch = 0;
+				if (biome)
+					got.obj.traverse((o) => {
+						if (o.isMesh && o.name === 'ground' && !o.isInstancedMesh) {
+							o.visible = false;
+							o.geometry.computeBoundingBox();
+							const b = o.geometry.boundingBox;
+							patch = Math.max(patch, (b.max.x - b.min.x) / 2, (b.max.z - b.min.z) / 2);
+						}
+					});
+				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: grounded ? 0 : undefined, keep: shownHash === h0, studio: !grounded });
+				if (grounded) earth.fit(got.obj, biome ? { open: patch || Math.max(s.x, s.z) / 2 } : undefined);
+				earth.show(grounded);
 				plantings.show(got.obj);
-				// round a plant on its ground the camera may go down below the ground line, to 60° under it, but no further
-				controls.maxPolarAngle = soiled ? Math.PI * (5 / 6) : Math.PI;
+				// round a plant on its ground the camera may go down below the ground line, to 60° under it, but no further;
+				// in every other group's viewer it is held above the ground (./camerafloor.js, each frame in the loop)
+				Object.assign(floorCam, { group: got.card?.group ?? '', soiled, y: stage.groundY, margin: Math.max(0.002, Math.max(s.x, s.y, s.z) * 0.002) });
+				controls.maxPolarAngle = maxPolar(floorCam.group, { soiled, targetY: controls.target.y, groundY: floorCam.y, distance: camera.position.distanceTo(controls.target), margin: floorCam.margin });
 				buildPhase = 'prepare';
 				await stage.compile();
 				if (!asks.is(ask)) {
@@ -280,8 +298,7 @@
 				if (shownHash !== h0) more = false;
 				readValues();
 				readModes();
-				// a new recipe is framed as built; the same one built with other values keeps the camera where it is,
-				// unless it grew or shrank by much; a plant growing, the camera follows it
+				// a new recipe is framed as built; rebuilt, the camera stays unless it grew or shrank by much
 				cam.reframe(centre, s, { fresh: shownHash !== h0, growing, ground: soiled ? 0 : undefined });
 				shownHash = h0;
 				// Roots asked while its fruit was shown: down to them now the plant stands in its soil again
@@ -331,8 +348,7 @@
 			if (catalog && !walking) picked = stage.pick(x, y);
 		});
 
-		// walked in: on the floors and between the walls its own shape has (./hero.js walkOf), from where its door is, its
-		// lamps lit; Escape, or Step outside, and the turntable is back where it was
+		// walked in (./hero.js walkOf): on its floors from its door, lamps lit; Escape or Step outside, back to the turntable
 		/** @type {any} */
 		let walker = null;
 		const lamps = [];
@@ -401,7 +417,11 @@
 			if (walker) walker.update(dt);
 			else {
 				cam.step(wall, growing);
+				// the orbit's lowest angle for where the eye is now: a drag, a scroll or a pinch stops at the floor
+				controls.maxPolarAngle = maxPolar(floorCam.group, { soiled: floorCam.soiled, targetY: controls.target.y, groundY: floorCam.y, distance: camera.position.distanceTo(controls.target), margin: floorCam.margin });
 				controls.update();
+				// and what a pan, a key or a glide took under it, lifted back over it
+				if (keepAbove(floorCam.group, camera.position, controls.target, floorCam.y, floorCam.margin)) camera.lookAt(controls.target);
 			}
 			// growing on: built where it has grown to, each time its last build is shown
 			if (growing && grower && hero) {
@@ -463,8 +483,7 @@
 	});
 	/** the part picked, as its catalog has it */
 	const part = $derived(catalog && picked ? (catalog.parts.find((p) => p.id === picked) ?? null) : null);
-	// a file still arriving is read again each time the device's sync moves, until it is here
-	// (the page passes onStir in: nothing of the assets imports the page's store)
+	// a file still arriving is read again as the device's sync moves (onStir passed in: assets never import the page's store)
 	onMount(() => onStir?.(() => {
 		if (arriving && ready) untrack(() => show?.(hash, asked));
 	}));
