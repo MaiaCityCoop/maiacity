@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { budget, budgetFor, buildTurn, smallDevice } from './budget.js'
+import { budgetFor, smallDevice } from './budget.js'
 
 describe('the device budget', () => {
 	it('holds a small device to a few builds, one box and one room a renderer, a 2048 shadow map and its corners let go', () => {
@@ -13,29 +13,6 @@ describe('the device budget', () => {
 		const d = budgetFor(false, 10)
 		expect(d).toMatchObject({ small: false, builds: 8, rooms: 4, spare: true, shadowMap: 4096, release: false, evict: 0 })
 		expect(budgetFor(false, 2).builds).toBe(2)
-	})
-
-	it('lets only as many builds go at once as the budget says, the next as soon as one is done', async () => {
-		const most = budget().builds
-		const backs: (() => void)[] = []
-		for (let i = 0; i < most; i++) backs.push(await buildTurn())
-		let next = false
-		const waiting = buildTurn().then((back) => {
-			next = true
-			return back
-		})
-		await new Promise((ok) => setTimeout(ok, 10))
-		expect(next).toBe(false)
-		backs[0]!()
-		// a turn given back twice counts once
-		backs[0]!()
-		const back = await waiting
-		expect(next).toBe(true)
-		back()
-		for (const b of backs.slice(1)) b()
-		// all given back: a new turn comes at once
-		const again = await buildTurn()
-		again()
 	})
 
 	it('takes every iPhone and iPad, and a small touch screen, for a small device, but not a desktop that says it has 4 cores', () => {

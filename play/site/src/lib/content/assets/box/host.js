@@ -1,7 +1,8 @@
 // @ts-nocheck — plain JS
 import { LATEST, engineAt } from './engines.js';
 import { Shell, TIMEOUT, engineCode as frozenCode } from '$lib/kernel/sandbox/frame.js';
-import { budget, buildTurn } from '$lib/content/render/budget.js';
+import { budget } from '$lib/content/render/budget.js';
+import { turn } from '$lib/content/render/turns.js';
 import { resolved } from './pieces.js';
 /*
  * The asset box: an untrusted builder run in the shell (../../../kernel/sandbox/frame.js) on a frozen engine
@@ -27,13 +28,15 @@ export function engineCode(v) {
 
 export class AssetBox extends Shell {
 	/**
-	 * @param {{ engine?: number, timeout?: number, rooms?: number }} [o] the engine it runs (the latest); `rooms`: how
+	 * @param {{ engine?: number, timeout?: number, rooms?: number, turns?: boolean }} [o] the engine it runs (the latest); `rooms`: how
 	 *   many it keeps at most, where fewer than the budget's (one, for a box of the page's pool: the next build of a
-	 *   recipe lands in whichever box is free, so a room kept is seldom found again, and each holds a worker)
+	 *   recipe lands in whichever box is free, so a room kept is seldom found again, and each holds a worker);
+	 *   `turns: false`: its builds take no turn of the page themselves (the pool's, which took one for each)
 	 */
-	constructor({ engine = LATEST.v, timeout = TIMEOUT, rooms = ROOMS } = {}) {
+	constructor({ engine = LATEST.v, timeout = TIMEOUT, rooms = ROOMS, turns = true } = {}) {
 		super({ code: () => engineCode(engine), timeout, spare: budget().spare, apart: true });
 		this.engine = engine;
+		this.turns = turns;
 		this.most = Math.max(1, Math.min(rooms, ROOMS));
 		/** @type {{ room: number, code: string }[]} the recipes' rooms, the one asked of last at the end */
 		this.rooms = [];
@@ -47,14 +50,14 @@ export class AssetBox extends Shell {
 	}
 
 	/**
-	 * A build's job, run after the box's earlier ones, holding one of the page's turns (../../render/budget.js) only while it runs.
+	 * A build's job, run after the box's earlier ones, holding one of the page's turns (../../render/turns.js) only while it runs.
 	 * @template T @param {() => Promise<T>} job @returns {Promise<T>}
 	 */
 	#turned(job) {
 		const asked = this.stops;
 		const mine = this.line.then(async () => {
 			if (this.stops !== asked) throw new Error(this.stopped ?? 'the box was stopped');
-			const back = await buildTurn();
+			const back = this.turns ? await turn() : () => {};
 			try {
 				if (this.stops !== asked) throw new Error(this.stopped ?? 'the box was stopped');
 				return await job();

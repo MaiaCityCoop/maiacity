@@ -10,7 +10,8 @@ import { createLowering } from './lower.js'
 import { lowerDraws } from './simplify.js'
 import { prepare } from './prepare.js'
 import { budgetOf, errorOf, smallestOf } from './lod.js'
-import { budget, buildTurn } from '$lib/content/render/budget.js'
+import { budget } from '$lib/content/render/budget.js'
+import { turn } from '$lib/content/render/turns.js'
 
 type Fake = { onmessage: ((e: { data: unknown }) => void) | null; asked: { draws: unknown[]; plans: unknown[] } | null; ended: boolean }
 /** workers standing in for the simplifying worker: each job waits until the test answers it, or is made at once (`real`) */
@@ -80,7 +81,7 @@ describe("a world's lower levels are made on every core but one", () => {
 	it("levels and recipes' builds share the page's turns: together never more at once than the budget's builds", async () => {
 		const turns = budget().builds
 		// two recipes are being built (each holds a turn, as ../box/host.js takes one for a build)
-		const builds = [await buildTurn(), await buildTurn()]
+		const builds = [await turn(), await turn()]
 		const w = fakeWorkers()
 		const lowering = createLowering()
 		for (let i = 0; i < turns + 2; i++) void lowering.lower({ draws: [] } as any, [], false, true)
@@ -102,7 +103,7 @@ describe("a world's lower levels are made on every core but one", () => {
 
 	it('the most wanted waiting is made first, chosen as its turn comes; what can wait, after all others', async () => {
 		const turns = budget().builds
-		const held = await Promise.all(Array.from({ length: turns - 1 }, () => buildTurn()))
+		const held = await Promise.all(Array.from({ length: turns - 1 }, () => turn()))
 		const w = fakeWorkers()
 		const lowering = createLowering()
 		const order: string[] = []

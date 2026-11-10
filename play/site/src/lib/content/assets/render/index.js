@@ -37,6 +37,7 @@ import { canonical, loadAsset } from '../load.js';
 import { buildOf, hashOf, heldAt, paramsOf, parseBuild } from '../catalog.js';
 import { createImpostors } from './impostors.js';
 import { budget, dropOnUpload } from '../../render/budget.js';
+import { lineOf } from '../../render/turns.js';
 import { precompile } from '../../render/core.js';
 import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, thresholdsOf } from './lod.js';
 import { createLowering } from './lower.js';
@@ -119,53 +120,26 @@ export function createAssets(o) {
 
 	/* ── the builds asked for: each read from this device's cache, and those not kept built in the page's boxes, the most
 	 *    wanted first, else in the order asked ── */
-	/** the builds asked for, waiting to be read from the cache (READS at a time) */
-	/** @type {{ name: string, rank: number | (() => number), ok: Function, no: Function }[]} */
-	const queue = [];
-	const READS = budget().reads;
-	/** the builds being loaded (read, built or opened), and those of them reading the cache now */
-	let loads = 0, reading = 0;
-	/** how much a build waiting is wanted now (a rank can change while it waits: what is on screen) */
-	const rankOf = (q) => {
-		const r = typeof q.rank === 'function' ? q.rank() : q.rank;
-		return Number.isFinite(r) ? r : 0;
-	};
-	/** the most wanted of a list taken from it: the first asked of those wanted as much */
-	const take = (list) => {
-		let i = 0;
-		for (let j = 1, best = rankOf(list[0]); j < list.length; j++) {
-			const r = rankOf(list[j]);
-			if (r > best) (i = j), (best = r);
-		}
-		return list.splice(i, 1)[0];
-	};
-	function pump() {
-		while (reading < READS && queue.length) {
-			const job = take(queue);
-			reading++;
-			loads++;
-			// what the cache does not have waits in the page's one line for a box (../box/pool.js), its read done: built by
-			// what is wanted most when a box comes free, whichever renderer asked; not at all once this one is gone
-			let read = false;
-			const done = () => {
-				if (read) return;
-				read = true;
-				reading--;
-				pump();
-			};
-			// (a renderer that is gone hears of none of its builds: as before, when what waited was let go with its boxes)
-			loadAsset(job.name, { rank: job.rank, unwanted: () => gone, missed: done, cache: o.cache !== false })
-				.then((got) => gone || job.ok(got), (err) => gone || job.no(err))
-				.finally(() => {
-					loads--;
-					done();
-				});
-		}
-	}
+	/** the builds asked for wait to be read from the cache, the budget's `reads` at a time, the most wanted first */
+	const reads = lineOf(() => budget().reads);
+	/** the builds being loaded (read, built or opened) */
+	let loads = 0;
 	const build = (name, rank) =>
 		new Promise((ok, no) => {
-			queue.push({ name, rank, ok, no });
-			pump();
+			reads({ rank }).then((read) => {
+				// (a renderer that is gone hears of none of its builds: as before, when what waited was let go with its boxes)
+				if (gone) return read();
+				loads++;
+				// what the cache does not have waits in the page's one line of turns for a box (../box/pool.js), its read done
+				// (`missed`): built by what is wanted most when a turn is free, whichever renderer asked; not at all once
+				// this one is gone
+				loadAsset(name, { rank, unwanted: () => gone, missed: read, cache: o.cache !== false })
+					.then((got) => gone || ok(got), (err) => gone || no(err))
+					.finally(() => {
+						loads--;
+						read();
+					});
+			});
 		});
 
 	/* ── the kinds ── */
@@ -1053,9 +1027,9 @@ export function createAssets(o) {
 			calls: counted.calls,
 			materials: presets.size,
 			pages: pictures.pages,
-			building: queue.length + loads + compiling + lowering.busy,
+			building: reads.waiting() + loads + compiling + lowering.busy,
 			/** what `building` is made of: builds queued, loads, shaders being made, levels being simplified */
-			busy: { queue: queue.length, loads, compiling, lowering: lowering.busy },
+			busy: { queue: reads.waiting(), loads, compiling, lowering: lowering.busy },
 			builds: list.reduce((a, k) => a + k.levels.filter((l) => l.state === 'ready' && l.from !== 'made' && l.from !== 'kept').length, 0),
 			/** the levels made by simplifying a build (here, or read from this device's cache), and those of them it took nothing from */
 			made: list.reduce((a, k) => a + k.levels.filter((l) => l.state === 'ready' && (l.from === 'made' || l.from === 'kept')).length, 0),
@@ -1150,7 +1124,6 @@ export function createAssets(o) {
 			pictures.dispose();
 			presets.dispose();
 			// (what it still waits for in the page's pool is not built: `unwanted`)
-			queue.length = 0;
 			kinds.clear();
 		}
 	};
