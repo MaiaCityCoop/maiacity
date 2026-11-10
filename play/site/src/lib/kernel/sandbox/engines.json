@@ -97,9 +97,9 @@
 		},
 		{
 			"v": 7,
-			"date": "2026-11-09",
-			"blake3": "2f35daed2e9637035e4a790a3a6d9006169d3e4a6760dbb3fee5afb55b0e68ef",
-			"bytes": 823383,
+			"date": "2026-11-10",
+			"blake3": "500a83c5bee4d7adcf06bba14e463c0f9e03feb415ac7200daca2e47a29acac7",
+			"bytes": 823379,
 			"three": "0.187.0",
 			"modules": [
 				"three",

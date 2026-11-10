@@ -9,11 +9,11 @@
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { boxWorker } from './box-worker';
-import { bundleEngine } from './freeze-engine';
+import { spawnSync } from 'node:child_process';
 import { hashText } from '../src/lib/content/game/hash.js';
 import { enginesOf } from '../src/lib/kernel/engines.js';
 import { piecesOf, withPieces } from '../src/lib/content/assets/box/pieces.js';
-import { RECIPE_HEAD, recipeTail } from '../src/lib/content/assets/engines.js';
+import { RECIPE_HEAD, recipeTail } from '../src/lib/content/assets/box/engines.js';
 import { rebuild } from '../src/lib/content/assets/box/rebuild.js';
 import { built, engineOf } from '../src/lib/stories/world-build';
 import { GLOW } from '../src/lib/content/assets/box/graph.examples.js';
@@ -46,7 +46,8 @@ module.exports.recipe = function () {
 describe('box engine 7', () => {
 	test('is the engine as its source is now, byte for byte (bun scripts/freeze-engine.ts --hash)', async () => {
 		expect(latest.v).toBe(7);
-		expect(hashText(await bundleEngine())).toBe(latest.blake3);
+		const out = spawnSync('bun', ['scripts/freeze-engine.ts', '--hash'], { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8' });
+		expect(out.stdout.trim().split(' ')[0]).toBe(latest.blake3);
 	}, 120_000);
 
 	test(`builds every recipe of the kept world as engine 6 does (${recipes.length} recipes), format 6 aside`, async () => {
