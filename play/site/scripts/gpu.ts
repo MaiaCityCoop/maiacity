@@ -20,12 +20,14 @@
  * --record         pins what the page reads and the inputs lack (a world's ground textures, its cover), read from
  *                  play with PLAY_MCP_TOKEN (the header to play only); sound is never pinned (no picture needs it)
  *
- * Prints one line a browser and writes <out>/gpu.json and <out>/<browser>.png. Exit 0 only when the world is shown
+ * Prints one line a browser and writes <out>/gpu.json and <out>/<browser>.png (--out, else a folder under $GPU_OUT or
+ * the temp folder, named by the check and the world). Exit 0 only when the world is shown
  * in every browser, the graphics device was never lost, and every bound given holds. An intent's check asks for it by
  * this command as its `run`; on its pull request the box run measures it on GitHub's macOS runner, on Metal
  * (.github/workflows/intents-pr.yml's job `gpu`), and records what it printed as the check's evidence.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium, webkit, type Browser, type BrowserType } from 'playwright';
 import { siteHandler } from '../../api/src/site.ts';
@@ -185,7 +187,8 @@ if (import.meta.main) {
 	const num = (k: string) => (arg(k) === undefined ? undefined : Number(arg(k)));
 	const world = arg('--world', '/sandbox-5/')!;
 	const browsers = arg('--browser', 'chromium,webkit')!.split(',');
-	const out = resolve(arg('--out', 'gpu-out')!);
+	// its pictures: --out, else a folder a call under GPU_OUT (the gpu job's artifact) or the temp folder, named by its check and world
+	const out = resolve(arg('--out') ?? join(process.env.GPU_OUT ?? join(tmpdir(), 'gpu-out'), `${process.env.INTENT_CHECK ?? 'world'}${world.replace(/\W+/g, '-').replace(/-$/, '')}`));
 	const inputs = resolve(arg('--inputs', join(SITE, 'scripts/census/inputs'))!);
 	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within') };
 	const fail = (why: string): never => (console.log(`gpu: ${why}`), process.exit(1));
@@ -206,7 +209,7 @@ if (import.meta.main) {
 	const site = siteHandler(join(SITE, 'build'));
 	const server = Bun.serve({ port: 0, hostname: '127.0.0.1', idleTimeout: 0, fetch: (req) => (new URL(req.url).pathname.startsWith('/api/') ? api(req) : site(req)) });
 
-	console.log(`${world} on ${gpu} (${process.platform} ${process.arch})`);
+	console.log(`${world} on ${gpu} (${process.platform} ${process.arch}); pictures in ${out}`);
 	const measures: (Measure & { why: string[] })[] = [];
 	for (const b of browsers) {
 		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '300')) * 1000, settle: Number(arg('--settle', '60')) });

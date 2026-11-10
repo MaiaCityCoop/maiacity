@@ -5,16 +5,22 @@
 //       runs the checks and prints them, recording nothing: how an agent tests itself while building, anywhere.
 //   bun play/avenbox/intent.ts <intent-uuid> --spec-out <file>
 //       writes the intent's spec (its checks) to a file, running nothing: intents-pr.yml's spec job, main's own code.
-//   bun play/avenbox/intent.ts --from <spec file> --results-out <file> [--root <dir>] [--where avenBOX|main]
+//   bun play/avenbox/intent.ts --from <spec file> --results-out <file> [--root <dir>] [--where avenBOX|main] [--gpu]
 //       runs that spec's checks from <dir>'s root (the repository's by default) with no token at all, and writes each
 //       result with the commit it ran on, whether its work tree was clean (and if not, which files), PostgreSQL's
-//       version and the run's link: intents-pr.yml's run job, on the pull request's head.
+//       version and the run's link: intents-pr.yml's run job, on the pull request's head. --gpu: only the checks that
+//       measure a world on a real GPU (their run names play/site/scripts/gpu.ts), as intents-pr.yml's gpu job runs
+//       them on GitHub's macOS runner (intent ba948167); the box itself refuses them, having no GPU.
+//   bun play/avenbox/intent.ts --over <results file> --with <the GPU job's results file>
+//       puts the GPU job's results in place of the box's refusals, check by check, where both are of the same intent
+//       and commit; a missing or foreign file changes nothing (the refusals stand, failed): intents-pr.yml's compare job.
 //   bun play/avenbox/intent.ts [<intent-uuid>] --record-from <results file> [--pr <number>] [--head <sha>]
 //       records those results on the intent with check_intent (where, the commit, the run's link, pr), refusing them
 //       if they are of another intent than the one named, or their commit is not --head: intents-pr.yml's record job, main's own code with avenBOX's token.
-//   bun play/avenbox/intent.ts <intent-uuid> --record [--pr <number>] [--where avenBOX|main]
+//   bun play/avenbox/intent.ts <intent-uuid> --record [--pr <number>] [--where avenBOX|main] [--no-gpu]
 //       runs and records in one go, in a GitHub run only (GITHUB_ACTIONS: intents.yml on main); anywhere else it
-//       refuses: the pull request's run records them.
+//       refuses: the pull request's run records them. --no-gpu: all but the checks measured on a real GPU, which
+//       main's box can't confirm (they were measured on the pull request's head).
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tool } from "./play";
@@ -34,16 +40,17 @@ type ResultsFile = { intent: string; where: "avenBOX" | "main"; commit: string |
 
 const USAGE = `bun play/avenbox/intent.ts <intent-uuid> [--only c1,c3] [--no-up] [--timeout <seconds>]
 bun play/avenbox/intent.ts <intent-uuid> --spec-out <file>
-bun play/avenbox/intent.ts --from <spec file> --results-out <file> [--root <dir>] [--where avenBOX|main]
+bun play/avenbox/intent.ts --from <spec file> --results-out <file> [--root <dir>] [--where avenBOX|main] [--gpu]
+bun play/avenbox/intent.ts --over <results file> --with <the GPU job's results file>
 bun play/avenbox/intent.ts --record-from <results file> [--pr <number>] [--head <sha>]
-bun play/avenbox/intent.ts <intent-uuid> --record [--pr <number>] [--where avenBOX|main]   (in a GitHub run only)`;
+bun play/avenbox/intent.ts <intent-uuid> --record [--pr <number>] [--where avenBOX|main] [--no-gpu]   (in a GitHub run only)`;
 function usage(why: string): never {
   console.error(`${why}\n${USAGE}`);
   process.exit(2);
 }
 
 const argv = Bun.argv.slice(2);
-const VALUED = ["--where", "--only", "--timeout", "--pr", "--spec-out", "--from", "--results-out", "--record-from", "--root", "--head"];
+const VALUED = ["--where", "--only", "--timeout", "--pr", "--spec-out", "--from", "--results-out", "--record-from", "--root", "--head", "--over", "--with"];
 const flag = (name: string) => argv.includes(name);
 const option = (name: string) => {
   const i = argv.indexOf(name);
@@ -62,6 +69,10 @@ const specOut = option("--spec-out");
 const from = option("--from");
 const resultsOut = option("--results-out");
 const recordFrom = option("--record-from");
+const over = option("--over");
+const withFile = option("--with");
+/** a check measured on a real GPU: its run names the one script that does (play/site/scripts/gpu.ts) */
+const onGpu = (c: { run?: string }) => /\bscripts\/gpu\.ts\b/.test(c.run ?? "");
 const head = option("--head");
 if (head !== undefined && !SHA.test(head)) usage("--head is the pull request's head, a 40-character git hash.");
 const ROOT = resolve(option("--root") ?? resolve(import.meta.dir, "../.."));
@@ -70,6 +81,29 @@ const pr = prGiven === undefined ? undefined : Number(prGiven.replace(/^#/, ""))
 if (pr !== undefined && (!Number.isInteger(pr) || pr < 1)) usage("--pr is the number of the intent's pull request into main.");
 if (pr !== undefined && !record && !recordFrom) usage("--pr names the pull request as the checks are recorded: give it with --record-from.");
 if ([specOut, from, recordFrom, record || undefined].filter((x) => x !== undefined).length > 1) usage("One of --spec-out, --from, --record-from and --record at a time.");
+if (over !== undefined) {
+  if (!withFile) usage("--over goes with --with <the GPU job's results file>.");
+  const box = JSON.parse(readFileSync(over, "utf8")) as ResultsFile;
+  let gpu: ResultsFile | null = null;
+  try {
+    gpu = JSON.parse(readFileSync(withFile, "utf8")) as ResultsFile;
+  } catch {
+    console.log(`no results at ${withFile}: the GPU job gave none, so its checks stay as the box refused them`);
+  }
+  if (gpu && (gpu.intent !== box.intent || gpu.commit !== box.commit)) {
+    console.log(`${withFile} is of intent ${gpu.intent} on ${gpu.commit ?? "no commit"}, not of ${box.intent} on ${box.commit ?? "no commit"}: left out`);
+    gpu = null;
+  }
+  const taken: string[] = [];
+  box.results = box.results.map((r) => {
+    const g = gpu?.results.find((x) => x.check === r.check);
+    if (g) taken.push(g.check);
+    return g ?? r;
+  });
+  writeFileSync(over, JSON.stringify(box, null, 2));
+  console.log(taken.length ? `measured on the GPU runner: ${taken.join(", ")}` : "nothing taken from the GPU runner");
+  process.exit(0);
+}
 if (from !== undefined && !resultsOut) usage("--from writes its results: give --results-out <file>.");
 if (resultsOut !== undefined && from === undefined) usage("--results-out goes with --from <spec file>.");
 if (from === undefined && recordFrom === undefined && (!id || !UUID.test(id))) usage("Name the intent by its id, a UUID.");
@@ -83,8 +117,12 @@ const token = process.env.PLAY_MCP_TOKEN;
 if (from === undefined && !token) usage("PLAY_MCP_TOKEN is not set: an admin's play access token (play's profile page).");
 
 const sh = (cmd: string[], env?: Record<string, string | undefined>) => {
-  const p = Bun.spawnSync(cmd, { cwd: ROOT, env: env ?? process.env, stdout: "pipe", stderr: "pipe" });
-  return { code: p.exitCode ?? 1, out: `${p.stdout}`.trim() };
+  try {
+    const p = Bun.spawnSync(cmd, { cwd: ROOT, env: env ?? process.env, stdout: "pipe", stderr: "pipe" });
+    return { code: p.exitCode ?? 1, out: `${p.stdout}`.trim() };
+  } catch {
+    return { code: 127, out: "" }; // not installed here (psql on the GPU runner)
+  }
 };
 const { GITHUB_SERVER_URL: gh, GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: runId } = process.env;
 const link = gh && repo && runId ? `${gh}/${repo}/actions/runs/${runId}` : null;
@@ -117,7 +155,7 @@ function boxDatabase(): string {
 }
 
 async function runChecks(spec: SpecFile): Promise<ResultsFile> {
-  const checks = spec.checks.filter((c) => !only || only.includes(c.id));
+  const checks = spec.checks.filter((c) => (!only || only.includes(c.id)) && (!flag("--gpu") || onGpu(c)) && (!flag("--no-gpu") || !onGpu(c)));
   console.log(`intent ${spec.intent.id} · ${spec.intent.stage} · ${spec.intent.title}`);
   if (!flag("--no-up")) {
     const up = Bun.spawnSync(["bash", `${ROOT}/play/avenbox/up.sh`], { cwd: ROOT, stdout: "inherit", stderr: "inherit" });
