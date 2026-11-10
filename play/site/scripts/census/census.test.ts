@@ -9,6 +9,8 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as THREE from 'three';
+import { pass } from './tsl.js';
+import { RenderPipeline } from './webgpu.js';
 import { BACKGROUND_SPHERE_TRIS, CountingRenderer, CountingWebGPURenderer, drawOf } from './counting.js';
 
 const HERE = import.meta.dir;
@@ -114,33 +116,6 @@ describe('the counting renderer counts as three draws', () => {
 		expect(t.calls).toBe(2);
 		expect(t.tris).toBe(24);
 	});
-
-	test('a shadow-casting mesh is counted again in each shadow pass, inside the light’s shadow camera only', () => {
-		const { scene, camera, r } = stage();
-		r.shadowMap.enabled = true;
-		const sun = new THREE.DirectionalLight();
-		sun.position.set(0, 50, 0);
-		sun.castShadow = true;
-		Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 100 });
-		sun.shadow.camera.updateProjectionMatrix();
-		const caster = new THREE.Mesh(box(), mat());
-		caster.position.set(0, 0, -5);
-		caster.castShadow = true;
-		const outside = new THREE.Mesh(box(), mat());
-		outside.position.set(0, 0, -50);
-		outside.castShadow = true;
-		scene.add(sun, sun.target, caster, outside);
-		const t = drawn(r, scene, camera);
-		expect(t.shadowPasses).toBe(1);
-		expect(t.shadowCalls).toBe(1);
-		expect(t.shadowTris).toBe(12);
-		expect(t.calls).toBe(2);
-		// no pass where the shadows are not asked for again
-		r.shadowMap.autoUpdate = false;
-		expect(drawn(r, scene, camera).shadowCalls).toBe(0);
-		r.shadowMap.needsUpdate = true;
-		expect(drawn(r, scene, camera).shadowCalls).toBe(1);
-	});
 });
 
 // WebGPURenderer as the census counts it (intent c1bee1f8, c4): its walk the WebGL one's, its background, output pass
@@ -224,10 +199,10 @@ describe('the counting WebGPU renderer counts as WebGPU draws', () => {
 		expect(drawn(r, scene, camera)).toMatchObject({ shadowPasses: 1, shadowCalls: 1, shadowTris: 12 });
 		floor.receiveShadow = false;
 		expect(drawn(r, scene, camera)).toMatchObject({ shadowPasses: 0, shadowCalls: 0 });
-		// WebGL draws it whatever receives it
+		// the classic renderer, which no page draws with, counts no shadow pass (intent 009e04d3)
 		const gl = stage();
 		gl.r.shadowMap.enabled = true;
-		expect(drawn(gl.r, scene, gl.camera).shadowCalls).toBe(1);
+		expect(drawn(gl.r, scene, gl.camera).shadowCalls).toBe(0);
 	});
 
 	test('the renderer’s shadow switch holds, as the core keeps it on WebGPU', () => {
@@ -240,7 +215,7 @@ describe('the counting WebGPU renderer counts as WebGPU draws', () => {
 		expect(drawn(r, scene, camera).shadowCalls).toBe(0);
 	});
 
-	test('a cascaded sun (three\'s SunLight) is drawn once a cascade, as WebGL draws its viewports', async () => {
+	test('a cascaded sun (three\'s SunLight) is drawn once a cascade', async () => {
 		const { SunLight } = await import('three/addons/lights/SunLight.js');
 		const s = sunlit();
 		const sun = new SunLight(0xffffff, 1);
@@ -252,11 +227,7 @@ describe('the counting WebGPU renderer counts as WebGPU draws', () => {
 		expect(cascades).toBeGreaterThan(1);
 		const t = drawn(s.r, s.scene, s.camera);
 		expect(t.shadowPasses).toBe(cascades);
-		const gl = stage();
-		gl.r.shadowMap.enabled = true;
-		const w = drawn(gl.r, s.scene, gl.camera);
-		expect(w.shadowPasses).toBe(cascades);
-		expect(t.shadowCalls).toBe(w.shadowCalls);
+		expect(t.shadowCalls).toBe(cascades);
 	});
 
 	test('a see-through double-sided caster is drawn twice into the shadow map', () => {
@@ -267,6 +238,26 @@ describe('the counting WebGPU renderer counts as WebGPU draws', () => {
 		expect(drawn(r, scene, camera).calls).toBe(2 + 1 + 1);
 		caster.material.side = THREE.FrontSide;
 		expect(drawn(r, scene, camera).shadowCalls).toBe(1);
+	});
+	// intent 009e04d3: the page draws through a RenderPipeline, whose picture is one triangle made from scene passes
+	test('a RenderPipeline’s scene passes are counted, each pass made for it, not the picture’s triangle alone', () => {
+		const { scene, camera, r, caster } = sunlit();
+		const scenePass = pass(scene, camera);
+		pass(scene, camera); // a prepass, read only by the lighting
+		const pipeline = new RenderPipeline(r as any, scenePass.getTextureNode('output'));
+		r.tally.reset();
+		pipeline.render();
+		// the box and the floor in each pass, and the picture's triangle; the sun's shadow map (the box) drawn by each pass
+		expect(r.tally.calls).toBe(5);
+		expect(r.tally.tris).toBe(2 * (12 + 2) + 1);
+		expect(r.tally.shadowCalls).toBe(2);
+		expect(r.tally.targetCalls).toBe(0);
+		// a pass's own layers are honoured, and the frame after counts the same
+		caster.layers.set(3);
+		r.tally.reset();
+		pipeline.render();
+		expect(r.tally.calls).toBe(3);
+		expect(r.getRenderTarget()).toBe(null);
 	});
 });
 
@@ -374,3 +365,27 @@ describe('the other worlds on the CPU', () => {
 		expect(v.totals.tris).toBeGreaterThan(0);
 	}, 300_000);
 });
+
+// intent 009e04d3: since the WebGPU switch the page draws through a RenderPipeline and the census counted its picture's
+// one triangle. Floors far below the real values: they only tell a seen world from the screen quad. One build a world,
+// its views counted as they stand (--settle, --frames: the box gives a check ten minutes), from the pinned inputs.
+const seen = (world: string) => census(['--world', world, '--view', 'all', '--settle', '2', '--frames', '3']);
+
+test('census sees the world', () => {
+	const got = seen('sandbox-1');
+	expect(got.renderer).toBe('WebGPURenderer');
+	expect(got.views.map((v: any) => v.view)).toEqual(['near', 'mid', 'far']);
+	for (const v of got.views) {
+		expect(v.totals.calls).toBeGreaterThan(100);
+		expect(v.totals.tris).toBeGreaterThan(100_000);
+		// the scene's own draws, not what goes into targets beside it
+		expect(v.totals.mainCalls).toBeGreaterThan(100);
+		expect(v.totals.tris).toBe(v.totals.mainTris + v.totals.shadowTris + v.totals.targetTris);
+	}
+}, 590_000);
+
+test('census counts Sandbox 5', () => {
+	const got = seen('sandbox-5');
+	expect(got.views.map((v: any) => v.view)).toEqual(['near', 'mid', 'far']);
+	for (const v of got.views) expect(v.totals.calls).toBeGreaterThan(100);
+}, 590_000);

@@ -3,6 +3,10 @@
  * builds it, from the pinned inputs, and nothing drawn: no compile or draw step, no fake WebGL.
  *
  *   cd play/site && bun test scripts/census -t 'viewer census builds'
+ *
+ * And counted (intent 009e04d3): `--count` gives each asset's triangles and draws as staged, `--total` their sum.
+ *
+ *   cd play/site && bun test scripts/census -t 'viewer census counts'
  */
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
@@ -34,6 +38,48 @@ test(
 		// nothing drawn: no compile or draw step, no fake WebGL, no WebGL-era install
 		const src = readFileSync(join(HERE, 'viewer.ts'), 'utf8');
 		expect(src).not.toMatch(/step = '(compile|draw)'|fakegl|fakeGL|install\(|WebGLRenderer|\.render\(/);
+	},
+	600_000
+);
+
+/** a plant and a building, by their UUIDs */
+const COUNTED = [
+	'65d10973-53bf-5485-8116-15ed2d85d38a', // plants: Black alder
+	'12238392-18d3-4611-bb3a-16e99914f5d0' // buildings: Brutalist office tower
+];
+
+test(
+	'viewer census counts',
+	() => {
+		const run = (...flags: string[]) => {
+			const p = Bun.spawnSync(['bun', join(HERE, 'viewer.ts'), ...COUNTED, ...flags], { stdout: 'pipe', stderr: 'pipe' });
+			const lines = p.stdout.toString().trim().split('\n');
+			return { lines, err: p.stderr.toString(), code: p.exitCode };
+		};
+		// --count alone: the JSON line last, as without it, each asset with its triangles and draws
+		const counted = run('--count');
+		expect(counted.code).toBe(0);
+		const { assets } = JSON.parse(counted.lines.at(-1)!);
+		expect(assets.map((a: any) => a.id)).toEqual(COUNTED);
+		for (const a of assets) {
+			expect({ id: a.id, step: a.step, ok: a.ok, error: a.error }).toEqual({ id: a.id, step: 'count', ok: true, error: undefined });
+			expect(Number.isInteger(a.tris) && Number.isInteger(a.draws)).toBe(true);
+			// more than the picture's one triangle in one draw: the scene's passes are counted
+			expect(a.tris).toBeGreaterThan(1);
+			expect(a.draws).toBeGreaterThan(1);
+			expect(a.mainTris).toBeGreaterThan(1);
+			expect(a.tris).toBe(a.mainTris + a.shadowTris + a.targetTris);
+			expect(a.draws).toBe(a.mainDraws + a.shadowDraws + a.targetDraws);
+			expect(counted.err).toContain(`viewer: ${a.label} built: ${a.tris} triangles, ${a.draws} draws\n`);
+		}
+		// --total: the sum over the assets named as the last line, a number alone, the JSON line before it the same
+		for (const what of ['tris', 'draws'] as const) {
+			const t = run('--total', what);
+			expect(t.code).toBe(0);
+			expect(t.lines.at(-1)).toMatch(/^\d+$/);
+			expect(JSON.parse(t.lines.at(-2)!).assets).toEqual(assets);
+			expect(Number(t.lines.at(-1))).toBe(assets.reduce((n: number, a: any) => n + a[what], 0));
+		}
 	},
 	600_000
 );
