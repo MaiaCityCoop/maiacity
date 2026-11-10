@@ -43,7 +43,8 @@ w.postMessage({ id: 1, op: 'build', recipe: { hash: hashText(code), code }, args
 describe('box engine 6', () => {
 	test('is frozen under its hash, beside engines 1 to 5', () => {
 		const box = enginesOf('box') as { v: number; blake3: string; bytes: number }[]
-		expect(box.map((e) => e.v)).toEqual([1, 2, 3, 4, 5, 6])
+		// (engine 7 and later beside it: intent a5faafad's graphs, scripts/engine.test.ts)
+		expect(box.map((e) => e.v).slice(0, 6)).toEqual([1, 2, 3, 4, 5, 6])
 		const six = box[5]!
 		const bytes = readFileSync(join(SITE, 'static/engines/engine-v6.js'))
 		expect(hashBytes(bytes)).toBe(six.blake3)
