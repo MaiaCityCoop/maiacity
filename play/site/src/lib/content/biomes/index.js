@@ -1,7 +1,7 @@
 /*
  * THE BIOMES — the floor a world stands on, as recipes: its surfaces and how much of each (./surfaces.js), and its cover
  * kind by kind (built by play as the Biome cover asset, drawn by ./stream.js), each in colonies of its own size on the
- * surface it belongs on. Any two biomes mix (`mix`): a forest edge half beech wood, half meadow.
+ * surface it belongs on. Any two biomes mix (`mix`): a forest edge half food forest, half meadow.
  *
  * Why it looks so: a temperate forest floor is litter over humus over soil (the L, F and H horizons), moss on what rises
  * out of it, the herb layer in clonal colonies (a carpet of anemones, a stand of ramsons), grasses and flowers only where
@@ -18,8 +18,8 @@ export { MASKS } from './masks.js';
 
 /**
  * The cover kinds that are grass, and how: 1 short, 2 tall; one list for every place that asks (the blade field and its
- * mask, ./grass.js; the cover stream and a biome's patch, which leave these kinds to the blades). A verge's `drygrass`
- * is its grass (the tired land's cover; roadside-verge v2: "the verge's sparse grass … blade by blade").
+ * mask, ./grass.js; the cover stream and a biome's patch, which leave these kinds to the blades). The tired land's
+ * `drygrass` is its grass, blade by blade.
  * @type {Readonly<Record<string, 1 | 2>>}
  */
 export const GRASSY = Object.freeze({ grass: 1, tallgrass: 2, drygrass: 1 });
@@ -108,44 +108,6 @@ const LIST = [
 		]
 	},
 	{
-		id: 'beech-forest',
-		label: 'Beech forest',
-		note: 'Under closed beech: deep brown leaf litter over dark humus, little grass; the herbs in carpets — wood anemone, woodruff, wood sorrel, ramsons where it is damp — ferns in groups, moss on deadwood and stones, mushrooms after rain.',
-		from: 'The forests round the cell',
-		surface: { litter: 7, humus: 2, moss: 1 },
-		density: 6,
-		cover: [
-			{ kind: 'litter', share: 6, colony: 8, spread: 0.75, on: 'litter', fill: 0.12 },
-			{ kind: 'anemone', share: 5, colony: 4, spread: 0.3 },
-			{ kind: 'woodruff', share: 5, colony: 4, spread: 0.3 },
-			{ kind: 'woodsorrel', share: 4, colony: 3, spread: 0.3 },
-			{ kind: 'ramsons', share: 6, colony: 6, spread: 0.18, on: 'humus' },
-			{ kind: 'fern', share: 3, colony: 6, spread: 0.3, fill: 0.08 },
-			{ kind: 'sedge', share: 1.5, colony: 5, spread: 0.25, fill: 0.15 },
-			{ kind: 'moss', share: 3, colony: 3, spread: 0.35, on: 'moss', fill: 0.165 },
-			{ kind: 'deadwood', share: 1, colony: 9, spread: 0.35, fill: 0.0018 },
-			{ kind: 'stones', share: 0.6, colony: 9, spread: 0.25, fill: 0.004 },
-			{ kind: 'mushrooms', share: 0.8, colony: 7, spread: 0.25, on: 'humus', fill: 0.006 }
-		]
-	},
-	{
-		id: 'spruce-forest',
-		label: 'Spruce forest',
-		note: 'Under spruce: a floor of needles, thick moss carpets over it, blueberry in the gaps, ferns, fallen twigs and branches, stones mossed over, mushrooms.',
-		from: 'The forests round the cell',
-		surface: { needles: 6, moss: 4, humus: 1 },
-		density: 6,
-		cover: [
-			{ kind: 'moss', share: 7, colony: 5, spread: 0.6, on: 'moss', fill: 0.193 },
-			{ kind: 'blueberry', share: 5, colony: 5, spread: 0.4 },
-			{ kind: 'fern', share: 2, colony: 6, spread: 0.3, fill: 0.08 },
-			{ kind: 'woodsorrel', share: 2, colony: 3, spread: 0.25, on: 'moss' },
-			{ kind: 'deadwood', share: 1.2, colony: 8, spread: 0.4, on: 'needles', fill: 0.0018 },
-			{ kind: 'stones', share: 1, colony: 8, spread: 0.3, fill: 0.004 },
-			{ kind: 'mushrooms', share: 1, colony: 6, spread: 0.3, fill: 0.006 }
-		]
-	},
-	{
 		id: 'meadow',
 		label: 'Meadow',
 		note: 'Open and sunny: grasses tall and short, buttercups, daisies, red clover and cranesbill in drifts, now and then a patch of bare soil.',
@@ -160,20 +122,6 @@ const LIST = [
 			{ kind: 'clover', share: 3, colony: 3, spread: 0.35 },
 			{ kind: 'cranesbill', share: 2, colony: 4, spread: 0.3 },
 			{ kind: 'forgetmenot', share: 0.6, colony: 2, spread: 0.15 }
-		]
-	},
-	{
-		id: 'clover-lawn',
-		label: 'Clover lawn',
-		note: 'A living mulch walked on: white and red clover, wild strawberries spreading by their runners, short grass, a daisy here and there.',
-		from: 'Paths’ edges and the squares',
-		surface: { green: 10, soil: 0.3 },
-		density: 9,
-		cover: [
-			{ kind: 'clover', share: 6, colony: 3, spread: 0.6 },
-			{ kind: 'strawberry', share: 4, colony: 3, spread: 0.45 },
-			{ kind: 'grass', share: 4, colony: 4, spread: 0.6 },
-			{ kind: 'daisy', share: 2, colony: 2.5, spread: 0.3 }
 		]
 	}
 ];
