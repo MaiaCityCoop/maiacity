@@ -14,9 +14,12 @@
  * --world-within   the world is shown within that many seconds of the navigation, in every browser asked
  * --frame-within   a frame takes at most that many ms (the mean over 10 s once the world has settled)
  * --timeout        how long the world may take to come up (600: GitHub's runner needs 270 to 400 s for Sandbox 5)
- * --settle         how long the world may take to settle before its frames are measured and it is photographed (60)
- * --sky            the sky's pictures too (intent c929d52c): once the world is measured, the eye turned up where it
- *                  stands, at dawn, noon, dusk and night (the hour pinned as a film pins it), at 1440 × 900 and at a
+ * --settle         how long the world may take to settle before its frames are measured and it is photographed (60;
+ *                  30 without a time bound)
+ * Without a time bound (--world-within, --frame-within) the browsers load side by side and their times are only told:
+ * the look is what is decided, and two engines one after the other pass a check's ten minutes on GitHub's runner.
+ * --sky            the sky's pictures too (intent c929d52c): once the world is measured, the eye lifted 45 m where
+ *                  it stands, turned round and up, at dawn, noon, dusk and night (the hour pinned as a film pins it), at 1440 × 900 and at a
  *                  phone's 390 × 844: <out>/<browser>-sky-<hour>-<width>x<height>.png. A world without them fails
  * --steps          prints what the page's cover said on the way to the world, each step with the second it began
  * --software       measure even where there is no GPU (the box's software renderer): for this script's own plumbing.
@@ -115,8 +118,8 @@ export type Bounds = { worldWithin?: number; frameWithin?: number; sky?: boolean
 /** --sky: the hours of the world's day the sky is photographed at, and the sizes */
 export const SKY_HOURS = { dawn: 5.35, noon: 12.5, dusk: 19.65, night: 23 };
 export const SKY_VIEWS = [[1440, 900], [390, 844]];
-/** how far up the eye looks for them (rad): the horizon stays in the picture's lower fifth */
-const SKY_PITCH = 0.42;
+/** how far up the eye looks for them (rad), and how far it is lifted (m): the land stays along the picture's foot */
+const SKY_PITCH = 0.36, SKY_RISE = 45;
 
 /** The sky's pictures of the world a page shows (--sky), through the film camera's hold on it (`window.__world`). */
 async function skyPictures(page: Page, name: string, out: string): Promise<string[]> {
@@ -124,14 +127,18 @@ async function skyPictures(page: Page, name: string, out: string): Promise<strin
 	for (const [width, height] of SKY_VIEWS) {
 		await page.setViewportSize({ width, height });
 		for (const [label, hour] of Object.entries(SKY_HOURS)) {
-			await page.evaluate(([hour, pitch]) => {
+			await page.evaluate(([hour, pitch, rise]) => {
 				const w = (window as any).__world;
 				if (!w?.camera || !w.fly) throw new Error('the world gives the film camera no hold (window.__world): no sky pictures');
 				(window as any).__interiorHour = hour;
 				w.sun?.(hour);
-				const at = w.camera.getWorldPosition(new w.THREE.Vector3()), d = w.camera.getWorldDirection(new w.THREE.Vector3());
-				w.fly(at.x, at.y, at.z, Math.atan2(-d.x, -d.z), pitch);
-			}, [hour, SKY_PITCH]);
+				// once: where the eye stood, turned round (a world opens facing what it is about, which hides the sky) and lifted over the trees
+				const from = ((window as any).__skyFrom ??= (() => {
+					const at = w.camera.getWorldPosition(new w.THREE.Vector3()), d = w.camera.getWorldDirection(new w.THREE.Vector3());
+					return [at.x, at.y + rise, at.z, Math.atan2(d.x, d.z)];
+				})());
+				w.fly(from[0], from[1], from[2], from[3], pitch);
+			}, [hour, SKY_PITCH, SKY_RISE]);
 			await page.waitForTimeout(2500);
 			const file = `${name}-sky-${label}-${width}x${height}.png`;
 			await page.screenshot({ path: join(out, file) });
@@ -259,8 +266,13 @@ if (import.meta.main) {
 
 	console.log(`${world} on ${gpu} (${process.platform} ${process.arch}); pictures in ${out}`);
 	const measures: (Measure & { why: string[] })[] = [];
-	for (const b of browsers) {
-		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), sky: bounds.sky });
+	// a time bound needs the machine to itself: one browser after the other. Without one only the look is decided, and
+	// the browsers load side by side: two engines one after the other do not fit a check's ten minutes on the runner
+	const timed = bounds.worldWithin !== undefined || bounds.frameWithin !== undefined;
+	const one = (b: string) => measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', timed ? '60' : '30')), sky: bounds.sky });
+	const beside = timed ? [] : await Promise.all(browsers.map(one));
+	for (const [i, b] of browsers.entries()) {
+		const m = timed ? await one(b) : beside[i];
 		const why = judge(m, bounds);
 		measures.push({ ...m, why });
 		console.log(lineOf(m, why));
