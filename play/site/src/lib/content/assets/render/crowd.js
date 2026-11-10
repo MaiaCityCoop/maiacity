@@ -7,7 +7,6 @@
 import * as THREE from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { blend, playerOf, poser } from '../clips.js';
-import { budget } from '../../render/budget.js';
 
 export { blend };
 

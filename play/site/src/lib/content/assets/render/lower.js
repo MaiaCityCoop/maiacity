@@ -86,8 +86,8 @@ export function createLowering(o = {}) {
 	 *  those that can wait (`later`) after all the others */
 	/** @type {{ source: any, plans: any[], later: boolean, raw: boolean, rank?: (() => number) | null, ok: Function, no: Function }[]} */
 	const jobs = [];
-	/** the jobs being made, and the turns asked for and not yet given */
-	let running = 0, asked = 0;
+	/** the jobs being made, and whether a turn is asked for and not yet given */
+	let running = 0, asking = false;
 
 	/** a worker with nothing to do: one started before, else a new one; none where there are no workers (the page makes it) */
 	function free() {
@@ -141,26 +141,28 @@ export function createLowering(o = {}) {
 	const wanted = (j) => (j.later ? -Infinity : (j.rank?.() ?? 0));
 
 	function pump() {
-		// one turn asked for each job waiting, and the job chosen only once its turn has come: what is wanted most by then.
-		// In the page (no workers) one at a time, a step between frames.
-		while (asked < jobs.length && (gone || typeof Worker === 'undefined' ? running + asked < 1 : true)) {
-			asked++;
-			buildTurn().then((back) => {
-				asked--;
-				if (!jobs.length) return back();
-				const job = jobs.splice(jobs.reduce((best, j, i) => (wanted(j) > wanted(jobs[best]) ? i : best), 0), 1)[0];
-				running++;
-				Promise.resolve()
-					.then(() => run(job.source.draws.map(plainOf), job.plans))
-					.then((made) => job.ok(job.raw ? made : made.map((m) => levelOf(job.source, m))), job.no)
-					.finally(() => {
-						running--;
-						busy--;
-						back();
-						pump();
-					});
-			});
-		}
+		// one turn asked for at a time, the next as soon as it is given: as many kinds at once as the page has turns free,
+		// yet where recipes wait for turns too, the levels stand in that line once, not once a kind (a world's builds, which
+		// show its plants, are not held up behind every level still to be made lighter). The job is chosen only once its
+		// turn has come: what is wanted most by then. In the page (no workers) one at a time, a step between frames.
+		if (asking || !jobs.length || ((gone || typeof Worker === 'undefined') && running)) return;
+		asking = true;
+		buildTurn().then((back) => {
+			asking = false;
+			if (!jobs.length) return back();
+			const job = jobs.splice(jobs.reduce((best, j, i) => (wanted(j) > wanted(jobs[best]) ? i : best), 0), 1)[0];
+			running++;
+			Promise.resolve()
+				.then(() => run(job.source.draws.map(plainOf), job.plans))
+				.then((made) => job.ok(job.raw ? made : made.map((m) => levelOf(job.source, m))), job.no)
+				.finally(() => {
+					running--;
+					busy--;
+					back();
+					pump();
+				});
+			pump();
+		});
 	}
 
 	return {

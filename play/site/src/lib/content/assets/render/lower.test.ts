@@ -36,7 +36,7 @@ function fakeWorkers(real = false) {
 	return { made, open, answer }
 }
 const settled = async () => {
-	for (let i = 0; i < 30; i++) await Promise.resolve()
+	for (let i = 0; i < 200; i++) await Promise.resolve()
 }
 afterEach(() => void delete (globalThis as any).Worker)
 
