@@ -673,7 +673,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     **draft**, and the agent tests itself anywhere, untrusted: `bash play/avenbox/gate.sh`, and `bun
     play/avenbox/intent.ts <uuid>`, which runs and prints the checks and records nothing (`--record` refuses outside a
     GitHub run). **Marking it ready for review** runs **`.github/workflows/intents-pr.yml`** (*intents on pull
-    requests*): the intent's checks in avenBOX on GitHub (`play/avenbox/setup.sh`, PostgreSQL 17, bun 1.4.4) on the
+    requests*): the intent's checks in avenBOX on GitHub (`play/avenbox/setup.sh`, PostgreSQL 17, bun as `.bun-version` names it) on the
     pull request's head, recorded on the intent with that head, the run's link and `pr` (so it becomes the active pull
     request). Every must green: the intent moves to Proposal. Any must red: it stays in (or goes back to) Build with
     the failures, failed on the board, its pull request as it is: fix and push. Each new push to a ready pull request
@@ -691,8 +691,13 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     its check), **compare** (main's `vs-main.ts --fold`, no secret: once both sides are measured, each of the head's
     calls against main's measure, into its check's result and evidence; main's measure missing fails that check,
     saying so) and **record** (main's `intent.ts <uuid> --record-from <compared results> --pr <n> --head <sha>`, with
-    avenBOX's token, refusing results of another intent or another commit; `contents: read` only, skipped when the run
-    is cancelled). Nothing is recorded before the comparison. The workflow and the intent.ts that hold a token are
+    avenBOX's token, refusing results of another intent or another commit; its `GITHUB_TOKEN` read only, skipped when
+    the run is cancelled). Nothing is recorded before the comparison. **A re-run records as a first run does** (intent
+    090ef921), the whole run or its failed jobs alone: an artifact one job hands the next is downloaded once, and once
+    more after a minute if GitHub does not list it yet (it does not always, seconds after the upload, on any attempt);
+    and since a re-run carries its first event's head, spec and record first ask GitHub for the pull request's head
+    (main's `pr-intent.ts <n> --head <sha>`): a run of a head that is no longer the pull request's is red saying so
+    and records nothing. The workflow and the intent.ts that hold a token are
     always main's; a `workflow_dispatch` with a pull request's number is a dry run of a branch's own file, recording
     nothing. **avenBOX's token** is an admin's access token marked so on
     play's profile page (`play.api_tokens.avenbox`, migration `202611070145-4ea6b2ed-avenbox-token`; `POST /api/tokens/<id>/avenbox`), the repository

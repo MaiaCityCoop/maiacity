@@ -4,6 +4,8 @@
 //
 //   bun play/avenbox/pr-intent.ts <pull request number>          the check: green, or red saying why (exit 1)
 //   bun play/avenbox/pr-intent.ts <pull request number> --id     prints the one intent's UUID, or fails as the check
+//   bun play/avenbox/pr-intent.ts <pull request number> --head <sha>   green only while <sha> is its head (GitHub alone,
+//       no play): intents-pr.yml's spec and record, since a re-run carries its first event's head (intent 090ef921)
 //
 // Red when it names no intent or several, one not at Build, Proposal or Ship (a draft may name one at Specify, its
 // builder's while the spec waits: play takes it as the intent's pull request, so approval wakes it; intent 40397205),
@@ -20,13 +22,21 @@ const intentsIn = (text: string | null | undefined) => trailers(text, { indented
 export type Verdict = { ok: boolean; intent?: string; why: string; notes: string[] };
 type Env = { github: string; repo: string; ghToken?: string; play: string; playToken?: string };
 
-type Pull = { title?: string | null; body?: string | null; state?: string; merged_at?: string | null; draft?: boolean };
+type Pull = { title?: string | null; body?: string | null; state?: string; merged_at?: string | null; draft?: boolean; head?: { sha?: string } };
 type Commit = { commit?: { message?: string | null } };
 
 async function getJson<T>(url: string, headers: Record<string, string>): Promise<T> {
   const r = await fetch(url, { headers });
   if (!r.ok) throw new Error(`${url} answered ${r.status}`);
   return r.json() as Promise<T>;
+}
+
+/** whether `sha` is pull request `n`'s head now: a run of an older head (a re-run after a push) records nothing */
+export async function headIs(n: number, sha: string, env: Pick<Env, "github" | "repo" | "ghToken">): Promise<Verdict> {
+  const gh = { accept: "application/vnd.github+json", ...(env.ghToken ? { authorization: `Bearer ${env.ghToken}` } : {}) };
+  const now = (await getJson<Pull>(`${env.github.replace(/\/$/, "")}/repos/${env.repo}/pulls/${n}`, gh)).head?.sha;
+  if (now === sha) return { ok: true, why: `#${n}'s head is ${sha}.`, notes: [] };
+  return { ok: false, why: `#${n}'s head is ${now ?? "unread"}, not ${sha}: this run is of an older head and records nothing; the run of its head records it.`, notes: [] };
 }
 
 /** the verdict on pull request `n`: whether it names its one intent, live, and is its active pull request */
@@ -71,7 +81,7 @@ if (import.meta.main) {
   const args = Bun.argv.slice(2);
   const n = Number(`${args.find((a) => !a.startsWith("--")) ?? ""}`.replace(/^#/, ""));
   if (!Number.isInteger(n) || n < 1) {
-    console.error("bun play/avenbox/pr-intent.ts <pull request number> [--id]");
+    console.error("bun play/avenbox/pr-intent.ts <pull request number> [--id | --head <sha>]");
     process.exit(2);
   }
   const { GITHUB_API_URL, GITHUB_REPOSITORY, GITHUB_TOKEN, PLAY_MCP_TOKEN } = process.env;
@@ -79,13 +89,17 @@ if (import.meta.main) {
     console.error("GITHUB_REPOSITORY is not set (owner/name).");
     process.exit(2);
   }
-  const v = await judge(n, {
-    github: GITHUB_API_URL || "https://api.github.com",
-    repo: GITHUB_REPOSITORY,
-    ghToken: GITHUB_TOKEN,
-    play: PLAY_MCP,
-    playToken: PLAY_MCP_TOKEN,
-  }).catch((e) => ({ ok: false, why: `Intent named could not read it: ${(e as Error).message}`, notes: [] }) as Verdict);
+  const env = { github: GITHUB_API_URL || "https://api.github.com", repo: GITHUB_REPOSITORY, ghToken: GITHUB_TOKEN, play: PLAY_MCP, playToken: PLAY_MCP_TOKEN };
+  if (args.includes("--head")) {
+    const sha = args[args.indexOf("--head") + 1] ?? "";
+    const h = /^[0-9a-f]{40}$/.test(sha)
+      ? await headIs(n, sha, env).catch((e) => ({ ok: false, why: `#${n}'s head could not be read: ${(e as Error).message}`, notes: [] }) as Verdict)
+      : { ok: false, why: "--head is a 40-character git hash.", notes: [] };
+    console.log(`${h.ok ? "✓" : "✗"} ${h.why}`);
+    if (!h.ok) console.log(`::error title=Not the pull request's head::${h.why}`);
+    process.exit(h.ok ? 0 : 1);
+  }
+  const v = await judge(n, env).catch((e) => ({ ok: false, why: `Intent named could not read it: ${(e as Error).message}`, notes: [] }) as Verdict);
   if (args.includes("--id")) {
     if (!v.ok) {
       console.error(v.why);
