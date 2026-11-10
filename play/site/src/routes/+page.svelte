@@ -1,16 +1,19 @@
 <!--
 	The dashboard, the one place everything starts from (legacy's $lib/app/Dashboard.svelte, its layout and design): a
 	greeting; the game, one thin card across the page (straight into its world map for an admin, greyed out and invite
-	only for everyone else, Samuel 2026-11-04); the Game Worlds, the four sandboxes, open to every traveler; then the
+	only for everyone else, Samuel 2026-11-04); the Game Worlds, the sandboxes; then the
 	apps — a tile for each group of the asset library (plants, animals, things, machines, buildings, biomes;
 	$lib/app/groups.ts) and the factories — and, for an admin acting as Maia City (the nav pill's You menu), the coop's
 	own: its stories, its Library, its Artifacts, the Game editor, its members, invites and its Postgres. The proposals are no tile:
-	they open from the nav pill's star over any page (Samuel 2026-11-05).
+	they open from the nav pill's star over any page (Samuel 2026-11-05). Every card and tile opens only for one who holds
+	its page's right, by the one table of rights ($lib/site/gate/rights.ts, intent aa751ecb: admins' only by default);
+	for anyone else it is greyed out, coming soon and invite only, as the game is.
 -->
 <script lang="ts">
 	import Icon from '$lib/site/app/Icon.svelte';
 	import { asset } from '$lib/site/media/url';
-	import { session, isAdmin } from '$lib/session.svelte';
+	import { session } from '$lib/session.svelte';
+	import { holds, needOf } from '$lib/site/gate/rights';
 	import { asCity } from '$lib/acting.svelte';
 	import { GROUP_APPS } from '$lib/app/groups';
 
@@ -26,13 +29,13 @@
 		{ href: '/sandbox-6/', label: 'Sandbox 6', note: 'One village at its real size: six living hexes round the tower hex, every number from its sources', cover: '46e52e9e393b192c0a6db481e95fbf623e8d12d2753a3e1d15d1663292d2c716.jpg' },
 		{ href: '/sandbox-7/', label: 'Sandbox 7', note: 'The hex planet: the Earth in 51,842 cards, with the places a new food-forest city could grow', cover: '88528c9521de8682f676c3e2539c3a19ffd2a4731a2343410761025e27fde55e.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media' | 'link' | 'journal' | 'ledger' | 'check'; admins?: boolean };
+	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media' | 'link' | 'journal' | 'ledger' | 'check' };
 	const APPS: Tile[] = [
 		// the asset library, a tile per group, each the same viewer (Samuel 2026-11-04)
-		...GROUP_APPS.map((g) => ({ href: g.href, label: g.label, note: g.note, icon: g.icon, admins: 'admins' in g && g.admins })),
+		...GROUP_APPS.map((g) => ({ href: g.href, label: g.label, note: g.note, icon: g.icon })),
 		// the factories that build our assets, each a live simulation (routes/factories): first the LifeTrac line; admins
 		// only for now (Samuel 2026-11-03)
-		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory', admins: true },
+		{ href: '/factories/', label: 'Factories', note: 'The LifeTrac line, every part from raw stock', icon: 'factory' },
 	];
 	// the Library (routes/library, Samuel 2026-11-04), written once: it opens the library of whoever you act as (intent
 	// 1b2ebc8d, Samuel 2026-11-07): acting as Maia City, among the city's, every file the coop keeps; acting as yourself,
@@ -41,8 +44,7 @@
 		href: '/library/',
 		label: 'Library',
 		note: coop ? 'Every image, video and recording Maia City keeps' : 'Your own files, private to you',
-		icon: 'media',
-		admins: true
+		icon: 'media'
 	});
 	// the coop's own, for an admin acting as Maia City (Samuel 2026-11-04: the stories moved here; 2026-11-05: the
 	// proposals left for the nav pill's star)
@@ -66,8 +68,9 @@
 		{ href: '/postgres/', label: 'Postgres', note: 'Every table and its rows, read only', icon: 'database' }
 	];
 	const city = $derived(asCity());
-	const admin = $derived(isAdmin());
-	const apps = $derived([...APPS, ...(city ? [] : [LIBRARY(false)])].filter((t) => !t.admins || admin));
+	const apps = $derived([...APPS, ...(city ? [] : [LIBRARY(false)])]);
+	/** whether the one signed in may open a page: its right, by the one table */
+	const opens = (href: string) => holds(session.me, needOf(href));
 </script>
 
 <svelte:head><title>Dashboard · maiaCITY play</title></svelte:head>
@@ -79,7 +82,7 @@
 	</header>
 
 	<!-- the game: admins play it now, everyone else sees it coming (invite only) -->
-	{#if admin}
+	{#if opens('/game/map/')}
 		<a class="play" href="/game/map/"><Icon name="play" size={22} /><b>The game</b><span>The world map: biomes and plots, nothing built on it yet</span><em>Play →</em></a>
 	{:else}
 		<div class="play off" aria-disabled="true"><Icon name="play" size={22} /><b>The game</b><span>Coming soon</span><em>Invite only</em></div>
@@ -88,11 +91,18 @@
 	<p class="divider">Game Worlds</p>
 	<div class="games">
 		{#each WORLDS as g (g.href)}
-			<div class="game">
-				<a href={g.href}>
-					{#if g.cover}<img src={asset(g.cover)} alt="" loading="lazy" />{:else}<span class="nocover"></span>{/if}
-					<span class="label"><b>{g.label}</b><span>{g.note}</span></span>
-				</a>
+			<div class="game" class:off={!opens(g.href)}>
+				{#if opens(g.href)}
+					<a href={g.href}>
+						{#if g.cover}<img src={asset(g.cover)} alt="" loading="lazy" />{:else}<span class="nocover"></span>{/if}
+						<span class="label"><b>{g.label}</b><span>{g.note}</span></span>
+					</a>
+				{:else}
+					<div class="shut" aria-disabled="true">
+						{#if g.cover}<img src={asset(g.cover)} alt="" loading="lazy" />{:else}<span class="nocover"></span>{/if}
+						<span class="label"><b>{g.label}</b><span>Coming soon · Invite only</span></span>
+					</div>
+				{/if}
 			</div>
 		{/each}
 	</div>
@@ -100,7 +110,11 @@
 	<p class="divider">Your apps</p>
 	<div class="tiles">
 		{#each apps as t (t.href)}
-			<a class="tile" href={t.href}><Icon name={t.icon} size={34} /><b>{t.label}</b><span>{t.note}</span></a>
+			{#if opens(t.href)}
+				<a class="tile" href={t.href}><Icon name={t.icon} size={34} /><b>{t.label}</b><span>{t.note}</span></a>
+			{:else}
+				<div class="tile off" aria-disabled="true"><Icon name={t.icon} size={34} /><b>{t.label}</b><span>Coming soon · Invite only</span></div>
+			{/if}
 		{/each}
 	</div>
 
@@ -132,7 +146,11 @@
 	/* four worlds, two by two (Samuel 2026-11-05: Sandbox 4 joined the three) */
 	.games { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 	.game { position: relative; overflow: hidden; aspect-ratio: 16 / 9; border-radius: 18px; background: var(--ink); }
-	.game a { display: block; height: 100%; color: #fff; text-decoration: none; }
+	.game a, .game .shut { display: block; height: 100%; color: #fff; text-decoration: none; }
+	/* a non-admin's: greyed out, coming soon, as the game is */
+	.game.off { cursor: not-allowed; }
+	.game.off img { filter: grayscale(1) opacity(0.55); }
+	.game.off:hover img { transform: none; }
 	.game img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 300ms ease; }
 	.game:hover img { transform: scale(1.03); }
 	.nocover { display: block; width: 100%; height: 100%; background: linear-gradient(160deg, #4f7a5a, #24452f); }
@@ -143,6 +161,9 @@
 	.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 14px; }
 	.tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; aspect-ratio: 1.15 / 1; padding: 1rem; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); color: var(--ink); text-align: center; text-decoration: none; transition: transform 150ms ease, box-shadow 150ms ease; }
 	.tile:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgb(38 56 44 / 0.1); }
+	.tile.off { color: var(--muted); cursor: not-allowed; }
+	.tile.off:hover { transform: none; box-shadow: none; }
+	.tile.off :global(svg) { color: var(--muted); }
 	.tile :global(svg) { color: var(--mustard); }
 	.tile b { margin-top: 0.3rem; font-family: var(--font-display); font-size: 1.2rem; font-weight: 500; }
 	.tile span { font-size: 0.8rem; color: var(--muted); }

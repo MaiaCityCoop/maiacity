@@ -10,8 +10,6 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { pieceAddress } from '$lib/address';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import History, { type Pick } from '$lib/app/History.svelte';
 
@@ -19,8 +17,6 @@
 	type Item = { id: string; label: string; note: string; number: number; bytes: number; versions: Kept[] };
 	type Piece = { id: string; json: { label?: string; note?: string; source?: string }; number: number; version?: number; edit?: number };
 
-	adminsOnly();
-	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let piece = $state<Piece | null>(null);
 	let error = $state('');
@@ -29,11 +25,10 @@
 	const wantV = $derived(pieceAddress(params).v);
 	const item = $derived(list.find((p) => p.id === id) ?? null);
 	$effect(() => {
-		if (!admin) return;
 		api<Item[]>('/docs?kind=piece').then((l) => (list = l), (e) => (error = e.message));
 	});
 	$effect(() => {
-		if (!admin || !id) return;
+		if (!id) return;
 		const q = wantV ? `?v=${encodeURIComponent(wantV)}` : '';
 		let gone = false;
 		api<Piece>(`/docs/${id}${q}`).then(
@@ -87,35 +82,33 @@
 	{/if}
 {/snippet}
 
-{#if admin}
-	<div class="pieces">
-		<Frame nav={nav} navLabel="Maia City's pieces" navIcon="asset" asideLabel="The piece's history">
-			<article class="body">
-				{#if error}<p class="bad">{error}</p>{/if}
-				{#if piece}
-					<p class="eyebrow">Piece · v{shownVersion}{kept ? ` · BLAKE3 ${short(kept.hash)}` : ''}</p>
-					<h1>{piece.json.label ?? 'A piece'}</h1>
-					{#if piece.json.note}<p class="lead">{piece.json.note}</p>{/if}
-					{#if kept}
-						<p class="lead small">A recipe requires this version as <code>require("{kept.hash}")</code> and lists it in its manifest's <code>pieces</code>.{kept.requires.length ? ` It requires ${kept.requires.length} piece${kept.requires.length > 1 ? 's' : ''} itself, ${kept.depth} deep.` : ''}</p>
-					{/if}
-					{#if item?.versions.length}
-						<h2>Its versions</h2>
-						<ul class="versions">
-							{#each item.versions as v (v.number)}
-								<li><a href="?piece={piece.id}&v={v.number}" onclick={(e) => (e.preventDefault(), at(piece!.id, v.number))}>v{v.number}</a> <code title={v.hash}>{v.hash}</code></li>
-							{/each}
-						</ul>
-					{/if}
-					<h2>Its source</h2>
-					<pre class="source">{piece.json.source ?? ''}</pre>
-				{:else if !error}
-					<p class="soft">{list.length ? '…' : 'No piece yet: one is proposed over MCP (propose_doc_version, kind piece).'}</p>
+<div class="pieces">
+	<Frame nav={nav} navLabel="Maia City's pieces" navIcon="asset" asideLabel="The piece's history">
+		<article class="body">
+			{#if error}<p class="bad">{error}</p>{/if}
+			{#if piece}
+				<p class="eyebrow">Piece · v{shownVersion}{kept ? ` · BLAKE3 ${short(kept.hash)}` : ''}</p>
+				<h1>{piece.json.label ?? 'A piece'}</h1>
+				{#if piece.json.note}<p class="lead">{piece.json.note}</p>{/if}
+				{#if kept}
+					<p class="lead small">A recipe requires this version as <code>require("{kept.hash}")</code> and lists it in its manifest's <code>pieces</code>.{kept.requires.length ? ` It requires ${kept.requires.length} piece${kept.requires.length > 1 ? 's' : ''} itself, ${kept.depth} deep.` : ''}</p>
 				{/if}
-			</article>
-		</Frame>
-	</div>
-{/if}
+				{#if item?.versions.length}
+					<h2>Its versions</h2>
+					<ul class="versions">
+						{#each item.versions as v (v.number)}
+							<li><a href="?piece={piece.id}&v={v.number}" onclick={(e) => (e.preventDefault(), at(piece!.id, v.number))}>v{v.number}</a> <code title={v.hash}>{v.hash}</code></li>
+						{/each}
+					</ul>
+				{/if}
+				<h2>Its source</h2>
+				<pre class="source">{piece.json.source ?? ''}</pre>
+			{:else if !error}
+				<p class="soft">{list.length ? '…' : 'No piece yet: one is proposed over MCP (propose_doc_version, kind piece).'}</p>
+			{/if}
+		</article>
+	</Frame>
+</div>
 
 <style>
 	.pieces { position: fixed; inset: 0; background: var(--cream); --soft: rgb(38 56 44 / 0.6); --accent: var(--brand-green); }

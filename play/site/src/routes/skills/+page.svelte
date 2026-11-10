@@ -12,8 +12,6 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
@@ -22,8 +20,6 @@
 	type Item = { id: string; label: string; group: string; note: string; stages: string[]; number: number; versions: number };
 	type Skill = { id: string; json: { label: string; group: string; note?: string; system: string; stages?: Record<string, string> }; number: number; version?: number; edit?: number; intent?: { id: string; status: string; note: string } };
 
-	adminsOnly();
-	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let skill = $state<Skill | null>(null);
 	let error = $state('');
@@ -32,12 +28,11 @@
 	const wantV = $derived(params.get('v'));
 	const wantIntent = $derived(params.get('intent'));
 	$effect(() => {
-		if (!admin) return;
 		api<Item[]>('/docs?kind=skill').then((l) => (list = l), (e) => (error = e.message));
 	});
 	const query = () => (wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '');
 	$effect(() => {
-		if (!admin || !id) return;
+		if (!id) return;
 		const q = query();
 		let gone = false;
 		api<Skill>(`/docs/${id}${q}`).then(
@@ -82,32 +77,30 @@
 	<Aside doc={skill!} where="Skills / {skill!.json.group}" label={skill!.json.label} shown={wantV ? Number(wantV) : null} propose="Propose v{skill!.number + 1} over MCP (doc_edit, propose_doc_version): taught from the next request on." onPick={picked} />
 {/snippet}
 
-{#if admin}
-	<div class="skills">
-		<Frame nav={list.length ? shelf : undefined} aside={skill ? side : undefined} navLabel="What play teaches its agents" asideLabel="The skill's history" navIcon="board">
-			<article class="body">
-				{#if error}<p class="bad">{error}</p>{/if}
-				{#if skill}
-					<p class="eyebrow">Skills · {skill.json.group}</p>
-					<h1>{skill.json.label}</h1>
-					{#if skill.json.note}<p class="lead">{skill.json.note}</p>{/if}
-					<section>
-						<h2>What every agent is taught</h2>
-						<div class="md">{@html md(skill.json.system)}</div>
-					</section>
-					{#if skill.json.stages}
-						{#each stagesSaid(skill!.json.stages) as st (st)}
-							<section>
-								<h2>At {name(st)}</h2>
-								<div class="md">{@html md(skill.json.stages[st])}</div>
-							</section>
-						{/each}
-					{/if}
+<div class="skills">
+	<Frame nav={list.length ? shelf : undefined} aside={skill ? side : undefined} navLabel="What play teaches its agents" asideLabel="The skill's history" navIcon="board">
+		<article class="body">
+			{#if error}<p class="bad">{error}</p>{/if}
+			{#if skill}
+				<p class="eyebrow">Skills · {skill.json.group}</p>
+				<h1>{skill.json.label}</h1>
+				{#if skill.json.note}<p class="lead">{skill.json.note}</p>{/if}
+				<section>
+					<h2>What every agent is taught</h2>
+					<div class="md">{@html md(skill.json.system)}</div>
+				</section>
+				{#if skill.json.stages}
+					{#each stagesSaid(skill!.json.stages) as st (st)}
+						<section>
+							<h2>At {name(st)}</h2>
+							<div class="md">{@html md(skill.json.stages[st])}</div>
+						</section>
+					{/each}
 				{/if}
-			</article>
-		</Frame>
-	</div>
-{/if}
+			{/if}
+		</article>
+	</Frame>
+</div>
 
 <style>
 	.skills { position: fixed; inset: 0; background: var(--cream); --soft: rgb(38 56 44 / 0.6); --accent: var(--brand-green); }

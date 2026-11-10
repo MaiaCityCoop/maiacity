@@ -17,8 +17,6 @@
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
 	import { api, fileUrl } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 	import { markdown } from '$lib/site/markdown/index.js';
 
 	const PAGE = 50;
@@ -67,8 +65,6 @@
 	let busy = $state(false);
 	let error = $state('');
 	let side = $state<'' | 'nav' | 'aside'>('');
-	adminsOnly();
-	const admin = $derived(isAdmin());
 
 	const host = (u: string) => {
 		try {
@@ -177,7 +173,6 @@
 	const all = () => go(() => ((artifactId = ''), (authorId = ''), (kind = ''), (tag = ''), (origin = ''), (query = '')));
 
 	onMount(() => {
-		if (!admin) return;
 		fromAddress();
 		void show();
 		void loadAuthors();
@@ -260,77 +255,75 @@
 	</article>
 {/snippet}
 
-{#if admin}
-	<div class="pg">
-		<Frame nav={loaded ? shelf : undefined} aside={artifactId && opened ? aside_ : undefined} bind:open={side} navLabel="Find and filter the artifacts" asideLabel="The artifact's history" navIcon="search" flush>
-			{#if !loaded}
-				<p class="note soft">Opening the Artifacts…</p>
-			{:else if artifactId}
-				<!-- one artifact, to be read -->
-				<div class="scroll">
-					<div class="read">
-						<button class="backlink" onclick={() => history.length > 1 ? history.back() : all()}>← Artifacts</button>
-						{#if error}<p class="bad">{error}</p>{/if}
-						{#if view}
-							<p class="eyebrow">{ONE[view.kind] ?? view.kind}{view.published ? ` · ${date(view.published)}` : ''}</p>
-							{#if asOf}<p class="asif soft">{asOf.intent ? `As intent ${asOf.intent.id.slice(0, 8)} would make it (${asOf.intent.stage})` : shownV ? `Version ${shownV}` : 'As it stood at that edit'}</p>{/if}
-							<h1>{view.title}</h1>
-							<p class="lede">{view.description}</p>
-							<div class="facts">
-								<p class="authors" hidden={!view.authors.length}>
-									By
-									{#each view.authors as a, i (a.id)}{#if i}, {/if}<a href="?author={a.id}" onclick={(e) => (e.preventDefault(), openAuthor(a.id))}>{a.name}</a>{/each}
-								</p>
-								<p class="by" class:agent={view.origin === 'agent'}>{#if view.origin === 'agent'}<Icon name="spark" size={13} />{/if}{view.by} · kept {when(view.created)}{view.updated_at ? ` · corrected ${when(view.updated_at)}${view.updated_by ? ` by ${view.updated_by}` : ''}` : ''}</p>
-							</div>
-							<p class="actions">
-								<a class="go" href={view.url} target="_blank" rel="noopener noreferrer">Open the link ↗ <small>{host(view.url)}</small></a>
-								{#if view.text_hash}<a class="chip" href={fileUrl(view.text_hash)} target="_blank" rel="noopener">The page as it was kept</a>{/if}
-							</p>
-							{#if view.tags.length}
-								<p class="tags">{#each view.tags as t (t)}<button class="tagchip" onclick={() => filter(() => (tag = t))}>{t}</button>{/each}</p>
-							{/if}
-							<div class="summary">{@html markdown(view.summary ?? '')}</div>
-							<p class="url mono soft">{view.url}</p>
-						{/if}
-					</div>
-				</div>
-			{:else}
-				<div class="sheet">
-					<div class="bar">
-						{#if author}
-							<button class="backlink" onclick={() => filter(() => (authorId = ''))}>← All artifacts</button>
-						{/if}
-						<b>{author ? author.name : origin ? ORIGINS.find((o) => o.id === origin)?.label : kind ? KINDS[kind] : tag ? `#${tag}` : 'Everything'}</b>
-						<span class="soft"
-							>{total.toLocaleString('en-US')} {total === 1 ? 'artifact' : 'artifacts'}{query.trim() ? ` matching “${query.trim()}”` : ''}{author && (kind || tag || origin) ? ' (filtered)' : ''}{!author && tag && (kind || origin) ? ' (filtered)' : ''} · newest first</span
-						>
-						{#if filtered && !author}<button class="chip" onclick={all}>Clear</button>{/if}
-					</div>
+<div class="pg">
+	<Frame nav={loaded ? shelf : undefined} aside={artifactId && opened ? aside_ : undefined} bind:open={side} navLabel="Find and filter the artifacts" asideLabel="The artifact's history" navIcon="search" flush>
+		{#if !loaded}
+			<p class="note soft">Opening the Artifacts…</p>
+		{:else if artifactId}
+			<!-- one artifact, to be read -->
+			<div class="scroll">
+				<div class="read">
+					<button class="backlink" onclick={() => history.length > 1 ? history.back() : all()}>← Artifacts</button>
 					{#if error}<p class="bad">{error}</p>{/if}
-					<div class="list" class:busy>
-						{#if author}
-							<header class="authorhead">
-								<p class="eyebrow">{author.kind === 'person' ? 'Author' : 'Organization'}</p>
-								<h1>{author.name}</h1>
-								{#if author.note}<p class="lede">{author.note}</p>{/if}
-								{#if author.url}<p><a class="out" href={author.url} target="_blank" rel="noopener noreferrer">{host(author.url)} ↗</a></p>{/if}
-							</header>
+					{#if view}
+						<p class="eyebrow">{ONE[view.kind] ?? view.kind}{view.published ? ` · ${date(view.published)}` : ''}</p>
+						{#if asOf}<p class="asif soft">{asOf.intent ? `As intent ${asOf.intent.id.slice(0, 8)} would make it (${asOf.intent.stage})` : shownV ? `Version ${shownV}` : 'As it stood at that edit'}</p>{/if}
+						<h1>{view.title}</h1>
+						<p class="lede">{view.description}</p>
+						<div class="facts">
+							<p class="authors" hidden={!view.authors.length}>
+								By
+								{#each view.authors as a, i (a.id)}{#if i}, {/if}<a href="?author={a.id}" onclick={(e) => (e.preventDefault(), openAuthor(a.id))}>{a.name}</a>{/each}
+							</p>
+							<p class="by" class:agent={view.origin === 'agent'}>{#if view.origin === 'agent'}<Icon name="spark" size={13} />{/if}{view.by} · kept {when(view.created)}{view.updated_at ? ` · corrected ${when(view.updated_at)}${view.updated_by ? ` by ${view.updated_by}` : ''}` : ''}</p>
+						</div>
+						<p class="actions">
+							<a class="go" href={view.url} target="_blank" rel="noopener noreferrer">Open the link ↗ <small>{host(view.url)}</small></a>
+							{#if view.text_hash}<a class="chip" href={fileUrl(view.text_hash)} target="_blank" rel="noopener">The page as it was kept</a>{/if}
+						</p>
+						{#if view.tags.length}
+							<p class="tags">{#each view.tags as t (t)}<button class="tagchip" onclick={() => filter(() => (tag = t))}>{t}</button>{/each}</p>
 						{/if}
-						{#each artifacts as s (s.id)}
-							{@render card(s)}
-						{:else}
-							<p class="note soft">{filtered ? 'No artifact matches that.' : 'No artifact is kept yet: paste a link to your agent, and it keeps it here.'}</p>
-						{/each}
-						{#if artifacts.length < total}
-							<div class="more"><button class="chip" disabled={busy} onclick={() => load(true)}>{busy ? 'Loading…' : `Show more (${total - artifacts.length} left)`}</button></div>
-						{/if}
-					</div>
+						<div class="summary">{@html markdown(view.summary ?? '')}</div>
+						<p class="url mono soft">{view.url}</p>
+					{/if}
 				</div>
-			{/if}
-		</Frame>
-	</div>
-{/if}
+			</div>
+		{:else}
+			<div class="sheet">
+				<div class="bar">
+					{#if author}
+						<button class="backlink" onclick={() => filter(() => (authorId = ''))}>← All artifacts</button>
+					{/if}
+					<b>{author ? author.name : origin ? ORIGINS.find((o) => o.id === origin)?.label : kind ? KINDS[kind] : tag ? `#${tag}` : 'Everything'}</b>
+					<span class="soft"
+						>{total.toLocaleString('en-US')} {total === 1 ? 'artifact' : 'artifacts'}{query.trim() ? ` matching “${query.trim()}”` : ''}{author && (kind || tag || origin) ? ' (filtered)' : ''}{!author && tag && (kind || origin) ? ' (filtered)' : ''} · newest first</span
+					>
+					{#if filtered && !author}<button class="chip" onclick={all}>Clear</button>{/if}
+				</div>
+				{#if error}<p class="bad">{error}</p>{/if}
+				<div class="list" class:busy>
+					{#if author}
+						<header class="authorhead">
+							<p class="eyebrow">{author.kind === 'person' ? 'Author' : 'Organization'}</p>
+							<h1>{author.name}</h1>
+							{#if author.note}<p class="lede">{author.note}</p>{/if}
+							{#if author.url}<p><a class="out" href={author.url} target="_blank" rel="noopener noreferrer">{host(author.url)} ↗</a></p>{/if}
+						</header>
+					{/if}
+					{#each artifacts as s (s.id)}
+						{@render card(s)}
+					{:else}
+						<p class="note soft">{filtered ? 'No artifact matches that.' : 'No artifact is kept yet: paste a link to your agent, and it keeps it here.'}</p>
+					{/each}
+					{#if artifacts.length < total}
+						<div class="more"><button class="chip" disabled={busy} onclick={() => load(true)}>{busy ? 'Loading…' : `Show more (${total - artifacts.length} left)`}</button></div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+	</Frame>
+</div>
 
 <style>
 	.side-facts { margin: 0.5rem 0 0; font-size: 0.78rem; overflow-wrap: anywhere; }
