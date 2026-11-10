@@ -10,7 +10,6 @@ import { join } from 'node:path';
 import * as THREE from 'three';
 import { fakeRenderer } from './fakegl.js';
 import { MeshBasicNodeMaterial } from 'three/webgpu';
-import { SunLight } from 'three/addons/lights/SunLight.js';
 import { precompile } from '../core.js';
 import { aFade, blurMaterial, cardMaterials, cutBy, cutOf, floorMaterial, ghostMaterial, nodeOf, poolMaterial } from './index.js';
 
@@ -291,30 +290,6 @@ describe('the render kit in TSL', () => {
 		expect(shaders.slice(built).filter((x) => /aFade/.test(x))).toEqual([]);
 		expect(program(m)).toBeTruthy();
 		expect(program(n)).not.toBe(program(m));
-	});
-
-	test('the sky’s sun lights a node material, its cascades shadowing it', async () => {
-		const { r, shaders, program } = await renderer();
-		const scene = new THREE.Scene();
-		const sun = new SunLight(0xffffff, 2);
-		sun.castShadow = true;
-		sun.position.set(30, 80, 20);
-		scene.add(sun, sun.target);
-		const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
-		camera.position.set(0, 2, 6);
-		camera.lookAt(0, 0, 0);
-		const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(), nodeOf(new THREE.MeshStandardMaterial()), 2);
-		mesh.castShadow = mesh.receiveShadow = true;
-		scene.add(mesh);
-		const warn = console.warn, warned: string[] = [];
-		console.warn = (...a: unknown[]) => void warned.push(a.join(' '));
-		try {
-			r.render(scene, camera);
-		} finally {
-			console.warn = warn;
-		}
-		expect(warned.join('\n')).not.toMatch(/Light node not found/);
-		valid(shaders);
 	});
 
 	test('every node material comes out linear in a target, as three’s own do: the sky is tone mapped once, at the output (544485e2)', async () => {

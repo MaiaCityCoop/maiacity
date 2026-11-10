@@ -23,12 +23,17 @@
  */
 import * as THREE from 'three';
 import { SunLight } from 'three/addons/lights/SunLight.js';
+import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
 import { airOf, createUniverse, groundStars, horizonRing, skyAt } from './universe.js';
 import { skyHour, skyTime } from './skyTime.svelte.js';
 import { budget } from '../render/budget.js';
 import { isWebGPU, ready, setExposure, tonemap, untonemap } from '../render/core.js';
 import { CubeRenderTarget } from 'three/webgpu';
 import { SUN as GRAPH_SUN } from '../render/nodes/graph.js';
+
+// the sun is made here alone, so its node is named here: a WebGPURenderer lights nothing by a SunLight without it,
+// and a world that draws its first frames before the render kit has loaded (Sandbox 3) stood unlit (intent 8f41cd9b)
+SunLight.registerNode(SunLightNode);
 
 /**
  * @typedef {{ hour: number, e: number, day: number, low: number, night: number }} SkyLight
