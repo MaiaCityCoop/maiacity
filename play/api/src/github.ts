@@ -4,7 +4,7 @@
 // (./mainmerge.ts) and the delivery report (./delivery.ts) speak to it through here.
 import { COOP } from "./access";
 import type { Db } from "./kit/pg";
-import { checksSeen, type PrSeen } from "./substate";
+import { checksSeen, githubSays, type PrSeen } from "./substate";
 
 /** the commit status play posts on the head it merges; main's ruleset requires it */
 export const ACCEPTED_CONTEXT = "Intent accepted";
@@ -57,10 +57,19 @@ export type Compare = { status: string; ahead_by: number; behind_by: number; mer
 type Commit = { sha: string; commit: { message: string }; parents: { sha: string }[] };
 
 export class GitHubError extends Error {
-  constructor(message: string, public status: number) {
+  /** `limited`: GitHub's limit (or its refusal of the token) stops this call; said once in the log, by the client */
+  constructor(message: string, public status: number, public limited = false) {
     super(message);
   }
 }
+/** an error the client has logged already (GitHub's limit): its callers say nothing more */
+export const quiet = (e: unknown) => e instanceof GitHubError && e.limited;
+
+/** what GitHub says of play now, for the board (./substate.ts githubSays): null while it answers */
+export type Says = { why: string; until?: number } | null;
+const hhmm = (ms: number) => new Date(ms).toISOString().slice(11, 16);
+/** a conditional read (If-None-Match): null where GitHub answered 304, unchanged since `etag` (it counts against no limit) */
+export type Read<T> = { data: T; etag?: string } | null;
 
 export type GitHub = ReturnType<typeof gitHub>;
 
@@ -68,24 +77,58 @@ export type GitHub = ReturnType<typeof gitHub>;
  * GitHub's REST API for one repository (`owner/name`) with a token (SHIP_TOKEN), `fetch` given in the tests. An answer
  * that is no 2xx throws GitHubError with GitHub's own message; neither the token nor any header is ever in it.
  */
-export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.github.com" }: { token: string; repo: string; fetch?: typeof fetch; api?: string }) {
+export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.github.com", now = Date.now, says }: {
+  token: string; repo: string; fetch?: typeof fetch; api?: string; now?: () => number; says?: (s: Says) => void;
+}) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`SHIP_REPO is owner/name: ${repo}`);
   const headers = { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", "user-agent": "play.maia.city ship" };
-  const call = async (method: string, path: string, body?: unknown, redirect: RequestRedirect = "follow") => {
+  // GitHub's limit (intent b3f83e0b): once it says play has used its calls, no call goes until it allows them again
+  let said: Says = null;
+  const say = (s: Says) => {
+    if (s?.why !== said?.why) console.warn(s ? `ship: ${s.why}` : "ship: GitHub answers play again");
+    said = s;
+    says?.(s);
+  };
+  const limitOf = (r: Response, at: number) => {
+    const reset = Number(r.headers.get("x-ratelimit-reset")) * 1000, after = Number(r.headers.get("retry-after")) * 1000;
+    return after > 0 ? at + after : reset > at ? reset : at + 60_000;
+  };
+  const call = async (method: string, path: string, body?: unknown, redirect: RequestRedirect = "follow", etag?: string) => {
+    const at = now();
+    if (said?.until && at < said.until) throw new GitHubError(said.why, 429, true);
     const r = await get(`${api}/repos/${repo}${path}`, {
       method,
       redirect,
       // an Accept holds its intent's row while it asks, and the watcher looks once at a time: no call hangs on
       signal: AbortSignal.timeout(CALL_MS),
-      headers: body === undefined ? headers : { ...headers, "content-type": "application/json" },
+      headers: { ...headers, ...(body === undefined ? {} : { "content-type": "application/json" }), ...(etag ? { "if-none-match": etag } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (redirect === "manual" && r.status >= 300 && r.status < 400) return r;
+    if (r.status === 304 && etag) return r;
     if (!r.ok) {
-      const said = await r.json().then((j: any) => j?.message, () => null);
-      throw new GitHubError(`GitHub answered ${r.status} to ${method} ${path.split("?")[0]}${said ? `: ${said}` : ""}`, r.status);
+      const message = await r.json().then((j: any) => j?.message, () => null);
+      const limited = (r.status === 403 || r.status === 429) && (r.headers.get("x-ratelimit-remaining") === "0" || r.headers.has("retry-after") || /rate limit/i.test(message ?? ""));
+      if (limited) {
+        const until = limitOf(r, at);
+        say({ why: `GitHub's limit: play reads again at ${hhmm(until)}`, until });
+        throw new GitHubError(said!.why, r.status, true);
+      }
+      const why = `GitHub answered ${r.status} to ${method} ${path.split("?")[0]}${message ? `: ${message}` : ""}`;
+      // a refused token: the board names it, the log says it once
+      if (r.status === 401) say({ why: "GitHub refuses play's token (SHIP_TOKEN)" });
+      throw new GitHubError(why, r.status, r.status === 401);
     }
+    // the last call of the hour answered: none goes until GitHub's reset
+    if (r.headers.get("x-ratelimit-remaining") === "0") {
+      const until = limitOf(r, at);
+      say({ why: `GitHub's limit: play reads again at ${hhmm(until)}`, until });
+    } else if (said) say(null);
     return r;
+  };
+  const read = async <T>(path: string, etag?: string): Promise<Read<T>> => {
+    const r = await call("GET", path, undefined, "follow", etag);
+    return r.status === 304 ? null : { data: (await r.json()) as T, etag: r.headers.get("etag") ?? undefined };
   };
   const json = async <T>(method: string, path: string, body?: unknown) => {
     const r = await call(method, path, body);
@@ -100,6 +143,11 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
     repo,
     pull: (n: number) => json<Pull>("GET", `/pulls/${n}`),
     checkRuns: async (sha: string) => (await json<{ check_runs: any[] }>("GET", `/commits/${sha}/check-runs?per_page=100`)).check_runs,
+    /** the pull request and its head's check runs read again only where they changed since `etag` (./watcher.ts) */
+    pullIf: (n: number, etag?: string) => read<Pull>(`/pulls/${n}`, etag),
+    checkRunsIf: (sha: string, etag?: string) => read<{ check_runs: any[] }>(`/commits/${sha}/check-runs?per_page=100`, etag),
+    /** what GitHub says of play now: its limit until a time, or its token refused; null while it answers */
+    says: () => (said?.until && now() >= said.until ? null : said),
     /** a commit status on `sha`, 'Intent accepted' unless `context` names another ('Merges with main', ./mainmerge.ts) */
     status: (sha: string, { context = ACCEPTED_CONTEXT, ...s }: { state: "success" | "failure" | "error" | "pending"; description: string; target_url?: string; context?: string }) =>
       json("POST", `/statuses/${sha}`, { ...s, context }),
@@ -129,8 +177,8 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
     jobs: async (run: number) => (await json<{ jobs: Job[] }>("GET", `/actions/runs/${run}/jobs?per_page=100`)).jobs,
     dispatch: (workflow: string, ref: string, inputs: Record<string, string>) => json("POST", `/actions/workflows/${workflow}/dispatches`, { ref, inputs }),
     rerunFailed: (run: number) => json("POST", `/actions/runs/${run}/rerun-failed-jobs`, {}),
-    /** one page of the commits a ref or sha reaches (itself first), newest first */
-    commits: (ref: string, page: number) => json<Commit[]>("GET", `/commits?${q({ sha: ref, per_page: 100, page })}`),
+    /** one page of the commits a ref or sha reaches (itself first), newest first; `since` an ISO time, none before it */
+    commits: (ref: string, page: number, since?: string) => json<Commit[]>("GET", `/commits?${q({ sha: ref, per_page: 100, page, since })}`),
     /** a job's log: GitHub answers with a signed address, fetched without the token */
     log: async (job: number) => {
       const r = await call("GET", `/actions/jobs/${job}/logs`, undefined, "manual");
@@ -149,7 +197,7 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
  */
 export function shipGitHub(env: Record<string, string | undefined> = process.env): GitHub | null {
   const token = env.SHIP_TOKEN?.trim();
-  return token ? gitHub({ token, repo: env.SHIP_REPO?.trim() || "MyAvenCEO/maiacity", api: env.SHIP_API?.trim() || undefined }) : null;
+  return token ? gitHub({ token, repo: env.SHIP_REPO?.trim() || "MyAvenCEO/maiacity", api: env.SHIP_API?.trim() || undefined, says: (s) => (githubSays.now = s) }) : null;
 }
 
 /** the latest of the check runs of each name (a re-run after a red one) */
@@ -172,6 +220,22 @@ export async function readPull(gh: GitHub, n: number, at = Date.now()): Promise<
     base: pr.base.ref, checks: checksSeen(all), at: new Date(at).toISOString(),
   };
   return { pr, seen, runs: latestRuns(all) };
+}
+/**
+ * A pull request read again for the watcher, conditionally (intent b3f83e0b): the pull and its head's check runs ask
+ * GitHub with the ETags kept in `was`; a 304 (unchanged, counting against no limit) keeps what was read, fresh at `at`.
+ */
+export async function readSeen(gh: GitHub, n: number, was: PrSeen | null | undefined, at = Date.now()): Promise<PrSeen> {
+  const old = was?.pr === n ? was : null;
+  const p = await gh.pullIf(n, old?.etags?.pull);
+  const pr = p?.data;
+  const head = pr ? pr.head.sha : old!.head;
+  const open = pr ? pr.state === "open" && !pr.merged : old!.state === "open" && !old!.merged;
+  const c = open ? await gh.checkRunsIf(head, old?.etags?.head === head ? old.etags.checks : undefined) : { data: { check_runs: [] }, etag: undefined };
+  const base = pr ? { pr: pr.number, head, draft: !!pr.draft, mergeable: pr.mergeable, state: pr.merged ? "merged" : pr.state, merged: !!pr.merged, base: pr.base.ref } : old!;
+  const checks = c ? checksSeen(c.data.check_runs) : old!.checks;
+  const etags = { pull: p ? p.etag : old!.etags?.pull, head, checks: c ? c.etag : old!.etags?.checks };
+  return { pr: base.pr, head, draft: base.draft, mergeable: base.mergeable, state: base.state, merged: base.merged, base: base.base, checks, at: new Date(at).toISOString(), etags };
 }
 /** a pull request as just read, kept as its intent's pr_seen */
 export const keepSeen = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UPDATE play.intents SET pr_seen = ($2::text)::jsonb WHERE id = $1`, [id, JSON.stringify(seen)]);
