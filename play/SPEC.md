@@ -918,7 +918,15 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   pull request was read more than 60 s ago (*reading #N on GitHub*); in Ship on its way (in the merge queue, then after the merge). **idle** (nothing moves until
   something else does): held by a dependency (*held: waits for …*), an Idea. Main moving resets none of them, a conflict it makes aside. What GitHub
   says is read by Ship's watcher every 10 s into the intent's `pr_seen` (head, draft, mergeable, the required checks,
-  when), so the board's request asks GitHub nothing. **Only a waiting intent is decided**: Approve spec and Accept, on
+  when), so the board's request asks GitHub nothing. **Accept is offered only where GitHub will queue it** (intent
+  `33f81b80-798b-4c17-9d6f-df65bc20efbb`): a required check is green only in the newest run of main.yml on the head, as
+  GitHub's queue counts it. A check an older run made, which the newest has not (its jobs still running, or skipped: the
+  pull request marked ready again, a draft's run), reads as that run does, never as the older green (`checksSeen`):
+  *Waiting for #N's checks (play / API and site)*, a skipped one said so. play asks for those runs only while the
+  required checks look green, conditionally like the rest (`github.ts` `headChecks`): unchanged, nothing against
+  GitHub's limit. Where GitHub still refuses to queue for a check it expects (*Required status check … is expected*),
+  Accept answers no error: the intent stays at Proposal, working, *Waiting for #N's checks: GitHub does not queue it
+  yet (…)*, until its checks read differently, two minutes at most (`pr_seen.unqueued`), then Accept is offered again. **Only a waiting intent is decided**: Approve spec and Accept, on
   the board and on the server (`decideIntent`, a work's `decide`, `acceptAndShip`, each 409 with the reason), the one
   exception a red ship after its merge, which Accept ships again. The board groups each column's cards under the dividers Failed, Waiting, Working and Idle, in that
   order, each with its count, empty ones left out, each card's reason its one status line.

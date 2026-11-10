@@ -69,7 +69,8 @@ head's run, whole or its failed jobs, records as a first run does, and a re-run 
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
 play's intents' board takes **only a waiting intent** (play/SPEC.md §4.12 *Sub-states*: its pull request's head the
 checked one, mergeable, its required checks green; working or failed, Accept is refused with why; so is every Accept
-until main's ruleset has the merge queue), posts the commit status **`Intent accepted`** on its head and adds the pull
+until main's ruleset has the merge queue; a required check is green only in the **newest run** of main.yml on the head, so
+marking a pull request ready a second time makes it wait for that run: intent 33f81b80), posts the commit status **`Intent accepted`** on its head and adds the pull
 request to the merge queue at once (it is in **Ship**); several Accepts all enqueue, none waits for another, and main
 moving refuses none. play posts `Intent accepted` on each merge group's commit too, success only when it accepted every
 pull request in it (main's ruleset requires it, with the checks `.github/required-checks.json` names): nothing lands

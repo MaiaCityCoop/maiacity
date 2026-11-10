@@ -5,7 +5,7 @@
 import { COOP } from "./access";
 import { intentsIn } from "./kit/ids";
 import type { Db } from "./kit/pg";
-import { checksSeen, githubSays, type PrSeen } from "./substate";
+import { checksSeen, githubSays, notGreen, type PrSeen } from "./substate";
 
 /** the commit status play posts on the head it enqueues and on each merge group's commit; main's ruleset requires it */
 export const ACCEPTED_CONTEXT = "Intent accepted";
@@ -49,6 +49,8 @@ export type Run = {
   run_started_at?: string;
   updated_at?: string;
   run_attempt?: number;
+  /** its check suite: the check runs of its jobs name it (`check_suite.id`) */
+  check_suite_id?: number;
 };
 export type Job = {
   id: number;
@@ -177,6 +179,8 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
     /** the pull request and its head's check runs read again only where they changed since `etag` (./watcher.ts) */
     pullIf: (n: number, etag?: string) => read<Pull>(`/pulls/${n}`, etag),
     checkRunsIf: (sha: string, etag?: string) => read<{ check_runs: any[] }>(`/commits/${sha}/check-runs?per_page=100`, etag),
+    /** main.yml's runs on a head, the workflow whose jobs the required checks are (.github/required-checks.json): the newest decides them (./substate.ts checksSeen) */
+    headRunsIf: (sha: string, etag?: string) => read<{ workflow_runs: Run[] }>(`/actions/workflows/main.yml/runs?${q({ head_sha: sha, per_page: 30 })}`, etag),
     /** what GitHub says of play now: its limit until a time, or its token refused; null while it answers */
     says: () => (said?.until && now() >= said.until ? null : said),
     /** a commit status on `sha`, 'Intent accepted' unless `context` names another ('Merges with main', ./mainmerge.ts) */
@@ -248,29 +252,34 @@ export function shipGitHub(env: Record<string, string | undefined> = process.env
   return token ? gitHub({ token, repo: env.SHIP_REPO?.trim() || "MyAvenCEO/maiacity", api: env.SHIP_API?.trim() || undefined, says: (s) => (githubSays.now = s) }) : null;
 }
 
-/** the latest of the check runs of each name (a re-run after a red one) */
-function latestRuns(runs: any[]) {
-  const by = new Map<string, any>();
-  for (const r of runs) {
-    const was = by.get(r.name);
-    if (!was || `${r.started_at ?? ""}` > `${was.started_at ?? ""}` || (r.started_at === was.started_at && r.id > was.id)) by.set(r.name, r);
-  }
-  return by;
+/**
+ * A head's checks as GitHub's merge queue counts them (intent 33f81b80): its check runs, and, only while every required
+ * check looks green by them, main.yml's runs on it, the newest deciding (./substate.ts checksSeen). Conditional where
+ * `was` holds that head's ETags (intent b3f83e0b): a 304 counts against no limit; null where nothing changed.
+ */
+async function headChecks(gh: GitHub, head: string, was?: PrSeen["etags"]): Promise<{ checks: PrSeen["checks"]; etags: { checks?: string; runs?: string } } | null> {
+  const old = was?.head === head ? was : undefined;
+  let c = await gh.checkRunsIf(head, old?.checks);
+  const asked = c ? !notGreen(checksSeen(c.data.check_runs)).length : !!old?.runs;
+  const r = asked ? await gh.headRunsIf(head, c ? undefined : old?.runs) : null;
+  // the runs moved under unchanged check runs (a new run, none of its jobs made yet): the check runs read whole again
+  if (!c && r) c = await gh.checkRunsIf(head);
+  if (!c) return null;
+  return { checks: checksSeen(c.data.check_runs, r?.data.workflow_runs), etags: { checks: c.etag, ...(asked ? { runs: r?.etag } : {}) } };
 }
 
 /** a pull request as GitHub has it now, kept as the intent's pr_seen: its head's checks read where it is open */
-export async function readPull(gh: GitHub, n: number, at = Date.now()): Promise<{ pr: Pull; seen: PrSeen; runs: Map<string, any> }> {
+export async function readPull(gh: GitHub, n: number, at = Date.now()): Promise<{ pr: Pull; seen: PrSeen }> {
   const pr = await gh.pull(n);
   const open = pr.state === "open" && !pr.merged;
-  const all = open ? await gh.checkRuns(pr.head.sha) : [];
   const seen: PrSeen = {
     pr: pr.number, head: pr.head.sha, draft: !!pr.draft, mergeable: pr.mergeable, state: pr.merged ? "merged" : pr.state, merged: !!pr.merged,
-    base: pr.base.ref, checks: checksSeen(all), at: new Date(at).toISOString(),
+    base: pr.base.ref, checks: open ? (await headChecks(gh, pr.head.sha))!.checks : {}, at: new Date(at).toISOString(),
   };
-  return { pr, seen, runs: latestRuns(all) };
+  return { pr, seen };
 }
 /**
- * A pull request read again for the watcher, conditionally (intent b3f83e0b): the pull and its head's check runs ask
+ * A pull request read again for the watcher, conditionally (intent b3f83e0b): the pull and its head's checks ask
  * GitHub with the ETags kept in `was`; a 304 (unchanged, counting against no limit) keeps what was read, fresh at `at`.
  */
 export async function readSeen(gh: GitHub, n: number, was: PrSeen | null | undefined, at = Date.now()): Promise<PrSeen> {
@@ -279,15 +288,19 @@ export async function readSeen(gh: GitHub, n: number, was: PrSeen | null | undef
   const pr = p?.data;
   const head = pr ? pr.head.sha : old!.head;
   const open = pr ? pr.state === "open" && !pr.merged : old!.state === "open" && !old!.merged;
-  const c = open ? await gh.checkRunsIf(head, old?.etags?.head === head ? old.etags.checks : undefined) : { data: { check_runs: [] }, etag: undefined };
+  const c = open ? await headChecks(gh, head, old?.etags) : { checks: {}, etags: {} };
   const base = pr ? { pr: pr.number, head, draft: !!pr.draft, mergeable: pr.mergeable, state: pr.merged ? "merged" : pr.state, merged: !!pr.merged, base: pr.base.ref } : old!;
-  const checks = c ? checksSeen(c.data.check_runs) : old!.checks;
-  const etags = { pull: p ? p.etag : old!.etags?.pull, head, checks: c ? c.etag : old!.etags?.checks };
-  return { pr: base.pr, head, draft: base.draft, mergeable: base.mergeable, state: base.state, merged: base.merged, base: base.base, checks, at: new Date(at).toISOString(), etags };
+  const etags = { pull: p ? p.etag : old!.etags?.pull, head, ...(c ? c.etags : { checks: old!.etags?.checks, runs: old!.etags?.runs }) };
+  return { pr: base.pr, head, draft: base.draft, mergeable: base.mergeable, state: base.state, merged: base.merged, base: base.base, checks: c ? c.checks : old!.checks, at: new Date(at).toISOString(), etags };
 }
 /** a pull request read again, with what play keeps across reads: the statuses it posted, the conflict's files at the same head */
 export const keptFrom = (was: PrSeen | null | undefined, seen: PrSeen): PrSeen =>
-  was?.pr !== seen.pr ? seen : { ...seen, ...(was.posted ? { posted: was.posted } : {}), ...(was.conflicts?.head === seen.head ? { conflicts: was.conflicts } : {}) };
+  was?.pr !== seen.pr ? seen : { ...seen, ...(was.posted ? { posted: was.posted } : {}), ...(was.conflicts?.head === seen.head ? { conflicts: was.conflicts } : {}), ...(stillUnqueued(was, seen) ? { unqueued: was.unqueued } : {}) };
+/** how long GitHub's refusal to queue for an expected check is held while the checks read the same: then Accept is offered again */
+const UNQUEUED_MOST_MS = 120_000;
+const sorted = (checks: PrSeen["checks"]) => JSON.stringify(Object.entries(checks).sort(([a], [b]) => (a < b ? -1 : 1)));
+const stillUnqueued = (was: PrSeen, seen: PrSeen) =>
+  was.unqueued?.head === seen.head && sorted(was.checks) === sorted(seen.checks) && Date.parse(seen.at) - Date.parse(was.unqueued.at) < UNQUEUED_MOST_MS;
 /** a pull request as just read, kept as its intent's pr_seen */
 export const keepSeen = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UPDATE play.intents SET pr_seen = ($2::text)::jsonb WHERE id = $1`, [id, JSON.stringify(seen)]);
 

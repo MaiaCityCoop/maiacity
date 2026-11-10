@@ -226,8 +226,8 @@
 			intents = intents.map((x) => (x.id === r.intent.id ? r.intent : x));
 			load();
 			if (intent?.id !== id) return;
-			// shipped: the dialog stays, its way to production ticking
-			if (r.intent.stage === 'ship') intent = r.intent;
+			// shipped: the dialog stays, its way to production ticking; so it does where GitHub does not queue it yet (still at Proposal, waiting for its checks)
+			if (r.intent.stage === 'ship' || (verdict === 'accept' && r.intent.stage === 'proposal')) intent = r.intent;
 			else closeIntent();
 		} catch (e) {
 			if (intent?.id === id) intentError = (e as Error).message;
