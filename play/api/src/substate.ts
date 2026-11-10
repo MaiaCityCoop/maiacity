@@ -57,12 +57,13 @@ const heldWhy = (held: { title: string }[]) => `held: waits for ${held.map((d) =
 
 const greenOn = (seen: Pick<PrSeen, "checks">) => REQUIRED_CHECKS.every((c) => seen.checks?.[c] === "success");
 
-/** the commits play's clean main merges in a row made the head from (merged_in, walked back from the head), newest first */
+/** the commits play's clean main merges in a row made the head from (merged_in, walked back from the head; one GitHub still makes is not in it yet), newest first */
 function mergedFrom(seen: Pick<PrSeen, "head" | "merged_in">) {
   const out: string[] = [];
   let at = seen.head;
-  for (const m of [...(seen.merged_in ?? [])].reverse()) {
-    if (!m.to || m.to !== at) break;
+  const row = seen.merged_in ?? [];
+  for (const m of (row.at(-1)?.to ? [...row] : row.slice(0, -1)).reverse()) {
+    if (m.to !== at) break;
     out.push(m.from);
     at = m.from;
   }
@@ -109,7 +110,8 @@ function resultsOn(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "he
     add(by, lack, c.id);
   }
   const say = (m: Map<string, string[]>) => [...m].map(([what, ids]) => `${ids.join(", ")} ${what}`);
-  return { unmet: say(by), kept: [...kept].map(([commit, ids]) => `${ids.join(", ")} passed on ${short(commit)}`) };
+  // riding: every must not yet on the head passed on a commit play's main merges made it from
+  return { unmet: say(by), riding: [...by.keys()].every((k) => k.includes("kept across main's merge")), kept: [...kept].map(([commit, ids]) => `${ids.join(", ")} passed on ${short(commit)}`) };
 }
 
 /** the must checks with a run not yet counted on the head as `seen` (resultsOn) */
@@ -121,9 +123,10 @@ function keptWhy(intent: Pick<Row, "spec" | "results">, seen: Pick<PrSeen, "head
   return kept.length ? `${kept.join("; ")}, kept across main's merge` : "";
 }
 
+/** What keeps #N from merging, one rule at Accept and at Ship's turn (`head`: as accepted): a head play's own main merges
+ * made from the checked or accepted one rides them (working, "main merged in"); any other move is failed (intent d3b44f49). */
 export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, head?: string): Sub | null {
   const n = `#${seen.pr}`;
-  // `head` given: Ship's turn, at the head it was accepted on, read again while it waited
   const w = head ? " while it waited" : "";
   const name = "name the intent's open pull request (check_intent's pr)";
   const failed = (tag: string, why: string) => S("failed", tag, why);
@@ -131,17 +134,17 @@ export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen, hea
   if (seen.state !== "open") return failed(seen.state, head ? `${n} was ${seen.state}${w}` : `${n} is ${seen.state}: ${name}`);
   if (seen.base !== "main") return failed("not into main", `${n} goes into ${seen.base}: an intent's code goes into main`);
   if (seen.draft) return failed("a draft", head ? `${n} was made a draft${w}` : `${n} is a draft: it is marked ready (main's checks run then) before it is merged`);
-  if (head && seen.head !== head) return failed("head moved", `${n}'s head moved from ${short(head)} to ${short(seen.head)}${w}: its checks are recorded on the new head, then Accept again`);
+  if (head && ![seen.head, ...mergedFrom(seen)].includes(head)) return failed("head moved", `${n}'s head moved from ${short(head)} to ${short(seen.head)}${w}: its checks are recorded on the new head, then Accept again`);
   if (seen.mergeable === false) return failed("conflicts with main", conflictWhy(seen) + (head ? `: ${n} no longer merges into main${w}` : ""));
-  // play merged main in and GitHub has not made the new head yet: Accept takes no head play is moving
-  const making = seen.merged_in?.at(-1);
-  if (!head && making && !making.to) return S("working", "main merged in", `main merged in: GitHub makes ${n}'s new head`);
   // a cancelled required check blocks GitHub's merge as a red one does; a skipped one (a draft's run) is not green yet
   const red = REQUIRED_CHECKS.find((c) => seen.checks[c] === "failure" || seen.checks[c] === "cancelled");
   if (red) return failed("check red", `'${red}' is ${seen.checks[red]} on ${n}'s head ${short(seen.head)}`);
-  const stale = unmetOn(intent, seen);
-  if (stale.length && mergedFrom(seen).length)
-    return S("working", "main merged in", `main merged in: its checks run on ${short(seen.head)} (${stale.join("; ")})`);
+  const bad = (intent.spec?.checks ?? []).find((c) => c.must && intent.results?.[c.id]?.pass === false);
+  if (bad) return failed(`${bad.id} failed`.slice(0, 32), `${bad.id} failed on ${short(intent.results![bad.id].commit ?? seen.head)}`);
+  const { unmet: stale, riding } = resultsOn(intent, seen);
+  const making = seen.merged_in?.at(-1)?.to === undefined && seen.merged_in?.at(-1)?.from === seen.head;
+  if (riding && (making || stale.length))
+    return S("working", "main merged in", making ? `main merged in: GitHub makes ${n}'s new head` : `main merged in: waiting for ${n}'s checks on ${short(seen.head)} (${stale.join("; ")})`);
   if (stale.length)
     return S("working", "head moved", `${n}'s head moved past the checked commit (${stale.join("; ")}): every must check with a run passes on ${n}'s head ${short(seen.head)} first (mark it ready, or push to it)`);
   const running = REQUIRED_CHECKS.filter((c) => seen.checks[c] !== "success");
@@ -214,9 +217,9 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
 
 export const sub = { of: subStateOf };
 
-/** whether a person may decide it now: waiting, or failed only by a red ship after its merge (Accept ships it again) */
+/** whether a person may decide it now: waiting, riding play's main merge at Proposal (Ship waits for its checks), or failed only by a red ship after its merge (Accept ships it again) */
 export const decidable = (intent: Row, s: Sub | null) =>
-  !!s && (s.state === "waiting" || (s.state === "failed" && intent.stage === "proposal" && !!intent.ship?.merge && intent.ship?.outcome === "red" && intent.ship.pr === intent.pull_request));
+  !!s && (s.state === "waiting" || (s.state === "working" && s.tag === "main merged in" && intent.stage === "proposal") || (s.state === "failed" && intent.stage === "proposal" && !!intent.ship?.merge && intent.ship?.outcome === "red" && intent.ship.pr === intent.pull_request));
 
 export function checksSeen(runs: any[]): Record<string, CheckState> {
   const by = new Map<string, any>();
