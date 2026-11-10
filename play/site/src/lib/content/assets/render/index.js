@@ -543,12 +543,11 @@ export function createAssets(o) {
 		g.boundingSphere = d.geometry.boundingSphere;
 		const cap = 16;
 		const mesh = new THREE.InstancedMesh(g, d.material, cap);
-		mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-		g.setAttribute('aFade', new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage));
+		g.setAttribute('aFade', new THREE.InstancedBufferAttribute(new Float32Array(cap), 1));
 		// a material that says what it is (a leaf, grass, bark …: ../look.js) is bent by the world's wind: each copy its foot
 		// and height (aWind, ../../render/wind.js `windOfCopy`)
-		if (looked(d.material)) g.setAttribute('aWind', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage));
-		if (d.colors || k.tinted) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+		if (looked(d.material)) g.setAttribute('aWind', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4));
+		if (d.colors || k.tinted) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
 		mesh.count = 0;
 		mesh.visible = false;
 		// which copies are drawn is chosen here, never by three's culling, which would see only the first
@@ -607,21 +606,21 @@ export function createAssets(o) {
 		if (m.cap >= need) return;
 		const cap = Math.max(need, m.cap * 2), held = m.used + m.cast;
 		const old = m.mesh.instanceMatrix;
-		const im = new THREE.InstancedBufferAttribute(new Float32Array(cap * 16), 16).setUsage(THREE.DynamicDrawUsage);
+		const im = new THREE.InstancedBufferAttribute(new Float32Array(cap * 16), 16);
 		im.array.set(old.array.subarray(0, held * 16));
 		m.mesh.instanceMatrix = im;
-		const f = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage);
+		const f = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1);
 		f.array.set(m.mesh.geometry.attributes.aFade.array.subarray(0, held));
 		m.mesh.geometry.setAttribute('aFade', f);
 		for (const [name, n] of PER_COPY) {
 			const a = m.mesh.geometry.attributes[name];
 			if (!a) continue;
-			const b = new THREE.InstancedBufferAttribute(new Float32Array(cap * n), n).setUsage(THREE.DynamicDrawUsage);
+			const b = new THREE.InstancedBufferAttribute(new Float32Array(cap * n), n);
 			b.array.set(a.array.subarray(0, held * n));
 			m.mesh.geometry.setAttribute(name, b);
 		}
 		if (m.mesh.instanceColor) {
-			const c = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+			const c = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
 			c.array.set(m.mesh.instanceColor.array.subarray(0, held * 3));
 			m.mesh.instanceColor = c;
 		}
@@ -904,11 +903,11 @@ export function createAssets(o) {
 			const n = d.draw.n;
 			room(d, d.used + n);
 			const at = d.mesh.geometry.attributes;
-			if (k.cover && !at.aCover) for (const [name, w] of COVER) d.mesh.geometry.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(d.cap * w), w).setUsage(THREE.DynamicDrawUsage));
+			if (k.cover && !at.aCover) for (const [name, w] of COVER) d.mesh.geometry.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(d.cap * w), w));
 			const A = d.mesh.instanceMatrix.array, F = at.aFade.array, G = at.aCover?.array, H = at.aReach?.array, W = at.aWind?.array;
 			// a kind tinted after its drawing was made (its copies' colours came later): a colour per copy from now on
 			if (k.tinted && !d.mesh.instanceColor) {
-				d.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(d.cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+				d.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(d.cap * 3), 3);
 				d.mesh.material.needsUpdate = true;
 			}
 			const IC = d.mesh.instanceColor?.array, DC = d.draw.colors, K = k.K;

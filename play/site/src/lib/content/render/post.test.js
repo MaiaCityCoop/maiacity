@@ -108,7 +108,7 @@ describe('the post stack on WebGPU', () => {
 
 // The world's finishing (intent 1f0c6f79): the plan per device (./finish.js), its cost, the grade (./grade.js), the
 // atmosphere (./atmosphere.js) and the one RenderPipeline built from a plan (`createFinish`), on the fake context.
-const { finishing, costOf, deviceOf, LIMITS } = await import('./finish.js');
+const { finishing, costOf, deviceOf, withDrops, LIMITS } = await import('./finish.js');
 const { CEILING, WORLD, look, lutData, LUT_SIZE } = await import('./grade.js');
 const atmo = await import('./atmosphere.js');
 const { createFinish } = await import('./post.js');
@@ -156,7 +156,17 @@ describe('the finishing plan', () => {
 	test('the budget: a desktop within 2.0 ms at 1440 × 900, a small device under it', () => {
 		const d = costOf(finishing({ device: 'desktop' }));
 		expect(d.ms).toBeLessThanOrEqual(LIMITS.ms);
-		expect(Object.keys(d.passes)).toEqual(expect.arrayContaining(['prepass', 'ssao', 'denoise', 'contact', 'traa', 'bloom', 'grade']));
+		expect(Object.keys(d.passes)).toEqual(expect.arrayContaining(['ssao', 'denoise', 'contact', 'traa', 'bloom', 'grade']));
+		// a visitor's scene is drawn once: the occlusion from the scene's own depth and normals (intent 416c555c); a film's
+		// frame reads no frame before it, and MSAA has no velocity: theirs from a prepass
+		expect(d.passes.prepass).toBeUndefined();
+		expect(finishing({ device: 'desktop' }).ao?.from).toBe('scene');
+		for (const o of [{ film: true }, { ghosts: true }]) {
+			expect(finishing(o).ao?.from).toBe('prepass');
+			expect(costOf(finishing(o)).passes.prepass).toBeGreaterThan(0);
+		}
+		expect(withDrops(finishing(), 'prepass')?.ao?.from).toBe('prepass');
+		expect(withDrops(finishing(), '-aa')?.ao?.from).toBe('prepass');
 		const s = costOf(finishing({ device: 'small' }), [390 * 3, 844 * 3]);
 		expect(s.ms).toBeLessThan(d.ms);
 		expect(s.passes.ssao).toBeUndefined();
@@ -257,6 +267,30 @@ describe('the world’s finishing on WebGPU', () => {
 	function sky() {
 		return { horizon: { uniforms: { uSkyRing: { value: Array.from({ length: 16 }, () => new THREE.Vector3(0.6, 0.7, 0.9)) } } }, sunDir: new THREE.Vector3(0.3, 0.4, 0.8).normalize(), sun: { color: new THREE.Color(1, 0.8, 0.6) } };
 	}
+	// intent 416c555c: what bounds a frame in Safari is the main thread, and a prepass sends every draw a second time
+	test('a visitor’s frame draws the scene once, its occlusion from the frame before; a film’s draws it twice, from a prepass', async () => {
+		for (const [o, times] of /** @type {const} */ ([[{ device: 'desktop' }, 1], [{ device: 'desktop', film: true }, 2], [{ device: 'desktop', ghosts: true }, 2]])) {
+			const { r } = await renderer();
+			const { scene, camera } = world();
+			const sun = new THREE.DirectionalLight('#fff', 3);
+			scene.add(sun);
+			let drawn = 0;
+			scene.traverse((m) => /** @type {any} */ (m).isMesh && (m.onBeforeRender = () => void drawn++));
+			const meshes = scene.children.filter((m) => /** @type {any} */ (m).isMesh).length;
+			expect(meshes).toBeGreaterThan(0);
+			const f = createFinish(r, scene, camera, finishing(o), { sun });
+			expect(!!f.nodes.prepass).toBe(times === 2);
+			expect(f.nodes.ao).toBeTruthy();
+			expect(f.nodes.contact).toBeTruthy();
+			f.render(0);
+			drawn = 0;
+			// the next frame (three's animation loop's, turned here by hand)
+			r._nodes.nodeFrame.update();
+			f.render(1);
+			expect(drawn).toBe(meshes * times);
+			f.dispose();
+		}
+	});
 	test('a desktop’s pipeline: AO on the ambient light, contact shadows, TRAA, bloom, the grade; the haze on the scene', async () => {
 		const { r, shaders } = await renderer();
 		const { scene, camera } = world();
@@ -270,7 +304,9 @@ describe('the world’s finishing on WebGPU', () => {
 		expect(air.uniforms.a.value).toBeCloseTo(1.6 / 1400, 9);
 		const f = createFinish(r, scene, camera, finishing({ device: 'desktop' }), { sun });
 		expect(f.nodes.ao).toBeTruthy();
-		expect(f.nodes.prepass).toBeTruthy();
+		// the scene is drawn once: no prepass, its normals written beside its colour and its velocity
+		expect(f.nodes.prepass).toBeNull();
+		expect(f.pipeline.renderer).toBe(r);
 		expect(f.nodes.scene.contextNode).toBeTruthy();
 		expect(f.nodes.contact).toBeTruthy();
 		// the occlusion and the contact shadows read in the lighting (the ambient light's, the sun's), not over the picture

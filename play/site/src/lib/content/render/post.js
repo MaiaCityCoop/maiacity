@@ -12,7 +12,7 @@
  */
 import * as THREE from 'three';
 import { MRTNode, RenderPipeline } from 'three/webgpu';
-import { abs, all, texture, uv, vec3, pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample, screenUV, velocity, builtinAOContext, convertToTexture, int, context } from 'three/tsl';
+import { abs, all, texture, uv, vec2, vec3, pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample, screenUV, velocity, builtinAOContext, convertToTexture, int, context } from 'three/tsl';
 import { ssao } from 'three/addons/tsl/display/SSAONode.js';
 import { traa } from 'three/addons/tsl/display/TRAANode.js';
 import { taau } from 'three/addons/tsl/display/TAAUNode.js';
@@ -190,9 +190,11 @@ export function createPost(renderer, scene, camera, o = {}) {
 
 /**
  * The world's finishing (intent 1f0c6f79): every world, sandbox and the viewer drawn through one RenderPipeline built
- * from a plan (./finish.js `finishing`). In order: the depth and normals before the scene is lit, and ambient occlusion
- * from them (SSAO at its scale, denoised) laid on the ambient light alone (builtinAOContext; nothing see-through takes
- * it); the scene, its velocity beside its colour where the edges are temporal; the sun's contact shadows (SSS, a
+ * from a plan (./finish.js `finishing`). In order: ambient occlusion (SSAO at its scale, denoised) from the scene's depth
+ * and normals, laid on the ambient light alone (builtinAOContext; nothing see-through takes it): the scene's own of the
+ * frame before, written beside its colour, so the scene is drawn once (intent 416c555c), or a pass of their own drawn
+ * first where no frame may read the one before (a film, MSAA); the scene, its velocity beside its colour where the
+ * edges are temporal; the sun's contact shadows (SSS, a
  * desktop's); the NaN guard; TRAA, TAAU (the scene at the plan's scale, brought up to the screen) or the scene pass's
  * own MSAA; bloom above its threshold; the output (the page's tone mapping and colour space); the grade. The haze is
  * the scene's fog node (./atmosphere.js), drawn with the scene. On WebGPURenderer only (either backend).
@@ -205,17 +207,25 @@ export function createPost(renderer, scene, camera, o = {}) {
  */
 export function createFinish(renderer, scene, camera, plan, o = {}) {
 	const temporal = plan.aa === 'traa' || plan.aa === 'taau';
+	// where the occlusion reads the scene's depth and normals: the scene itself (it writes its normals beside its colour
+	// and is drawn once), or a pass of their own drawn first (./finish.js `ao.from`)
+	const late = plan.ao?.from === 'scene';
 	const scenePass = pass(scene, camera, { samples: plan.samples, type: THREE.HalfFloatType });
 	if (plan.upscale === 'taau') scenePass.setResolutionScale(plan.scale);
-	scenePass.setMRT(mrt(temporal ? { output, velocity } : { output }));
+	scenePass.setMRT(mrt({ output, ...(late ? { normal: packNormalToRGB(normalView) } : {}), ...(temporal ? { velocity } : {}) }));
 	/** @type {any} */
-	let prepass = null, aoNode = null, pd = null, contact = null, aa = null, bloom = null;
+	let prepass = null, aoNode = null, pd = null, contact = null, aa = null, bloom = null, depth = null;
 	if (plan.ao) {
-		// the depth and the normals first, the scene unlit; the occlusion from them, then the scene lit with it on its ambient light
-		prepass = pass(scene, camera, { type: THREE.HalfFloatType });
-		prepass.setMRT(mrt({ output: packNormalToRGB(normalView) }));
-		const depth = prepass.getTextureNode('depth');
-		const normals = prepass.getTextureNode('output');
+		// the depth and the normals the occlusion is made from, then the scene lit with it on its ambient light. From the
+		// scene itself they are the frame's before (this frame's are being drawn): the scene is drawn once a frame, and
+		// each pixel reads the occlusion where it was then (`was`, by its velocity). From a prepass they are this frame's:
+		// the scene drawn first unlit, a second time (a film's frame depends on no frame before it)
+		if (!late) {
+			prepass = pass(scene, camera, { type: THREE.HalfFloatType });
+			prepass.setMRT(mrt({ output: packNormalToRGB(normalView) }));
+		}
+		depth = (prepass ?? scenePass).getTextureNode('depth');
+		const normals = late ? scenePass.getTextureNode('normal') : prepass.getTextureNode('output');
 		const normal = sample((/** @type {any} */ uv) => unpackRGBToNormal(normals.sample(uv)));
 		aoNode = ssao(depth, normal, camera);
 		aoNode.resolutionScale = plan.ao.scale;
@@ -228,11 +238,11 @@ export function createFinish(renderer, scene, camera, plan, o = {}) {
 	let key = null;
 	/** @type {any} the contact shadows, blurred, read by the sun's light as the scene is lit */
 	let shade = null;
-	// from the prepass's depth (the scene before it is lit), so they darken the sun's light alone and nothing
+	// from the occlusion's depth (the scene before it is lit), so they darken the sun's light alone and nothing
 	// see-through: laid over the finished picture they streaked a pond with the bed beneath it (avenBOX's Sandbox 1)
-	if (plan.contact && o.sun && prepass) {
+	if (plan.contact && o.sun && depth) {
 		key = /** @type {any} */ (o.sun).target ? /** @type {THREE.DirectionalLight} */ (o.sun) : new THREE.DirectionalLight();
-		contact = sss(prepass.getTextureNode('depth'), camera, key);
+		contact = sss(depth, camera, key);
 		contact.resolutionScale = plan.contact.scale;
 		contact.maxDistance.value = plan.contact.maxDistance;
 		contact.thickness.value = plan.contact.thickness;
@@ -244,8 +254,10 @@ export function createFinish(renderer, scene, camera, plan, o = {}) {
 	// the lighting's context: the occlusion on the ambient light, the contact shadows on the sun's, each read at its
 	// pixel; neither on a see-through material (three's builtinAOContext and builtinShadowContext, merged)
 	if (pd || shade) {
-		const aoAt = pd ? convertToTexture(pd).sample(screenUV).r : null;
-		const shadeAt = shade ? shade.sample(screenUV).r : null;
+		// where this pixel was a frame before (TRAA's own step back: velocity in clip space, y up)
+		const was = late ? screenUV.sub(velocity.xy.mul(vec2(0.5, -0.5))) : screenUV;
+		const aoAt = pd ? convertToTexture(pd).sample(was).r : null;
+		const shadeAt = shade ? shade.sample(was).r : null;
 		/** @type {Record<string, any>} */
 		const lit = {};
 		if (aoAt) lit.getAO = (/** @type {any} */ input, /** @type {any} */ { material }) => (material.transparent === true ? input : input !== null ? input.mul(aoAt) : aoAt);

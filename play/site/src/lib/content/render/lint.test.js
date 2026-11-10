@@ -61,6 +61,12 @@ describe('the render core holds', () => {
 	test('every warm-up goes through the core’s precompile', () => {
 		expect(outside(/\bcompileAsync\s*\(/, [CORE])).toEqual([]);
 	});
+	// three's WebGPURenderer uploads a buffer marked as changing often every frame, for every pass that draws it, changed
+	// or not (r187 `Attributes.update`); marked or not, it uploads one whose `needsUpdate` was set. So none is marked
+	// (intent 416c555c): a buffer is written when it changed, once
+	test('no buffer is marked as changing every frame', () => {
+		expect(outside(new RegExp(`\\b(Dynamic|Stream)${'Draw'}Usage\\b`), [])).toEqual([]);
+	});
 	test('tone mapping and exposure are set only through the core', () => {
 		expect(outside(/\.toneMapping(Exposure)?\s*=[^=]/, [CORE])).toEqual([]);
 	});
