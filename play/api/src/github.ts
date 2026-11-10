@@ -10,6 +10,9 @@ import { checksSeen, type PrSeen } from "./substate";
 export const ACCEPTED_CONTEXT = "Intent accepted";
 /** the commit status play posts on an open intent pull request's head: failure while it conflicts with main (./mainmerge.ts) */
 export const MERGES_CONTEXT = "Merges with main";
+/** GitHub's longest status description */
+const DESCRIPTION_MOST = 140;
+export const fit = (s: string) => (s.length <= DESCRIPTION_MOST ? s : `${s.slice(0, DESCRIPTION_MOST - 1)}…`);
 /** the intent on play's board, where the status 'Intent accepted' links to */
 export const intentLink = (id: string) => `https://play.maia.city/intents/#${id}`;
 const CALL_MS = 30_000;
@@ -175,6 +178,31 @@ export async function readPull(gh: GitHub, n: number, at = Date.now()): Promise<
 }
 /** a pull request as just read, kept as its intent's pr_seen */
 export const keepSeen = (q: Pick<Db, "query">, id: string, seen: PrSeen) => q.query(`UPDATE play.intents SET pr_seen = ($2::text)::jsonb WHERE id = $1`, [id, JSON.stringify(seen)]);
+
+/** a status as play keeps it on pr_seen, per context: on `head`; `sent: false` while GitHub has not taken it */
+export type Posted = { head: string; state: "success" | "failure" | "error" | "pending"; description: string; sent?: false };
+
+/**
+ * The one poster of every commit status play puts on GitHub (`Intent accepted`, `Merges with main`), each line once
+ * per head and context, its memory kept on the intent's pr_seen (`posted`). `again`: a GitHub error is logged and kept
+ * unsent for the next tick (postAgain) instead of thrown.
+ */
+export async function postStatus(q: Pick<Db, "query">, gh: GitHub, id: string, seen: PrSeen, context: string, state: Posted["state"], line: string, o: { head?: string; again?: boolean } = {}) {
+  const want: Posted = { head: o.head ?? seen.head, state, description: fit(line) };
+  const was = seen.posted?.[context];
+  if (was && was.sent !== false && was.head === want.head && was.state === state && was.description === want.description) return;
+  try {
+    if (!want.head) throw new Error("no head read yet");
+    await gh.status(want.head, { state, description: want.description, target_url: intentLink(id), context });
+  } catch (e) {
+    if (!o.again) throw e;
+    console.warn(`github: '${context}' not posted for intent ${id} (posted on the next tick): ${(e as Error).message}`);
+    seen.posted = { ...seen.posted, [context]: { ...want, sent: false } };
+    return void (await keepSeen(q, id, seen));
+  }
+  seen.posted = { ...seen.posted, [context]: want };
+  await keepSeen(q, id, seen);
+}
 
 /** the open intents (Build or Proposal) that name a pull request, each with it as last read */
 export async function openPulls(q: Pick<Db, "query">) {

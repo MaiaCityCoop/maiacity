@@ -24,8 +24,8 @@ export type PrSeen = {
   main_merges?: number;
   /** in conflict at `head` with main at `main`: the files both sides changed since their merge base */
   conflicts?: { head: string; main: string; files: string[] };
-  /** the status 'Merges with main' play last posted, on `head` */
-  merges?: { head: string; state: "success" | "failure"; description: string };
+  /** each status play last posted, by context (./github.ts postStatus) */
+  posted?: Record<string, { head: string; state: string; description: string; sent?: false }>;
 };
 
 /** one main merge play made: from the head `from`, main at `main`, at `at`; the head GitHub made of them `to` */
