@@ -47,6 +47,8 @@ export class BuildView {
     this.failedConnections.size=snapshot.failedCount;this.connections=new Map(snapshot.connections.map(c=>[c.id,c]));
   }
 }
+/** A command's promise, a `Superseded` rejection counted as done: a newer reset took over (intent cef10a08). */
+export function unlessSuperseded(p:Promise<unknown>):Promise<void>{return p.then(()=>{},error=>{if((error as Error)?.message!=='Superseded')throw error;});}
 export class WorkerClient {
   private epoch=0;private request=0;private flight=false;private elapsed=0;
   private pending=new Map<number,{resolve:(reply:Reply)=>void;reject:(error:Error)=>void}>();
