@@ -8,11 +8,15 @@
  *
  *   bun play/site/scripts/gpu.ts [--world /sandbox-5/] [--browser chromium,webkit] [--out <dir>]
  *        [--world-within <seconds>] [--frame-within <ms>] [--settle <seconds>] [--timeout <seconds>]
- *        [--inputs <dir>] [--software] [--record] [--steps]
+ *        [--inputs <dir>] [--software] [--record] [--steps] [--walk] [--walk-within <ms>]
  *
  * --world          the page's route: a sandbox, or an asset's viewer
  * --world-within   the world is shown within that many seconds of the navigation, in every browser asked
  * --frame-within   a frame takes at most that many ms (the mean over 10 s once the world has settled)
+ * --walk           also measures the eye walking (intent 0356b0ea): from the census's near view (./census/run.ts VIEWS),
+ *                  1.5 m/s forward and 20° a second round by the clock (./census/frame.ts STEP), the frame meter's 10 s of
+ *                  it after a second's start; a world without a walker (Sandbox 3) has none and says so
+ * --walk-within    a frame of the walk takes at most that many ms (it asks for --walk)
  * --timeout        how long the world may take to come up (600: GitHub's runner needs 270 to 400 s for Sandbox 5)
  * --settle         how long the world may take to settle before its frames are measured and it is photographed (60)
  * --steps          prints what the page's cover said on the way to the world, each step with the second it began
@@ -37,6 +41,10 @@ import { fileOf, pinFile, pinRoute, pinnedFile, pinnedRoute } from './census/pin
 import { quietness } from './lib/quiet.js';
 import { SEEDED_RANDOM } from './macjob/determinism.js';
 import { LAUNCH, gpuOf, webgpuOf } from './mac-page.mjs';
+
+/** a walk's step a frame at 60 frames a second, and where it starts: the census's (./census/frame.ts STEP, ./census/run.ts VIEWS.near), written here because those modules build a world as they load */
+const STEP = { forward: 1.5 / 60, yaw: (20 * Math.PI) / 180 / 60 };
+const VIEWS = { near: { x: 0, z: 95, yaw: 0, pitch: -0.05 } };
 
 const SITE = resolve(import.meta.dir, '..');
 const PLAY = 'https://play.maia.city';
@@ -101,11 +109,16 @@ export type Measure = {
 	gpu_ms: number | null;
 	calls: number | null;
 	triangles: number | null;
+	/** the same 10 s with the eye walking (--walk): null where it was not asked for or the world has no walker */
+	walk_ms: number | null;
+	walk_p95: number | null;
+	walk_cpu: number | null;
+	walk_gpu: number | null;
 	/** the share of the screenshot that is not its most frequent colour: a blank picture is near 0 */
 	painted: number | null;
 	errors: string[];
 };
-export type Bounds = { worldWithin?: number; frameWithin?: number };
+export type Bounds = { worldWithin?: number; frameWithin?: number; walkWithin?: number };
 
 /** why a measure fails: nothing when the world is shown, the device held and every bound given holds */
 export function judge(m: Measure, b: Bounds = {}): string[] {
@@ -115,17 +128,18 @@ export function judge(m: Measure, b: Bounds = {}): string[] {
 	if (m.errors.some((e) => /device was lost/i.test(e))) why.push('the graphics device was lost');
 	if (b.worldWithin !== undefined && m.world_s !== null && m.world_s > b.worldWithin) why.push(`the world took ${m.world_s} s, more than ${b.worldWithin} s`);
 	if (b.frameWithin !== undefined && (m.frame_ms === null || m.frame_ms > b.frameWithin)) why.push(`a frame took ${m.frame_ms ?? '—'} ms, more than ${b.frameWithin} ms`);
+	if (b.walkWithin !== undefined && (m.walk_ms === null || m.walk_ms > b.walkWithin)) why.push(`a frame walking took ${m.walk_ms ?? '—'} ms, more than ${b.walkWithin} ms`);
 	return why;
 }
 
 /** one line a browser, as the check's evidence keeps it */
 export const lineOf = (m: Measure, why: string[]) =>
-	`${why.length ? '✗' : '✓'} ${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world in ${m.world_s ?? '—'} s, settled ${m.settled_s === null ? 'not' : `in ${m.settled_s} s more`} · ${m.frames ?? '—'} frames in 10 s, ${m.frame_ms ?? '—'} ms each (p95 ${m.frame_p95 ?? '—'}, CPU ${m.cpu_ms ?? '—'}, GPU ${m.gpu_ms ?? '—'}) · ${m.calls ?? '—'} draws, ${m.triangles ?? '—'} triangles · ${m.painted ?? '—'} painted${why.length ? ` · ${why.join('; ')}` : ''}`;
+	`${why.length ? '✗' : '✓'} ${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world in ${m.world_s ?? '—'} s, settled ${m.settled_s === null ? 'not' : `in ${m.settled_s} s more`} · ${m.frames ?? '—'} frames in 10 s, ${m.frame_ms ?? '—'} ms each (p95 ${m.frame_p95 ?? '—'}, CPU ${m.cpu_ms ?? '—'}, GPU ${m.gpu_ms ?? '—'})${m.walk_ms === null ? '' : `, walking ${m.walk_ms} ms (p95 ${m.walk_p95 ?? '—'}, CPU ${m.walk_cpu ?? '—'}, GPU ${m.walk_gpu ?? '—'})`} · ${m.calls ?? '—'} draws, ${m.triangles ?? '—'} triangles · ${m.painted ?? '—'} painted${why.length ? ` · ${why.join('; ')}` : ''}`;
 
 const BROWSERS: Record<string, [BrowserType, object]> = { chromium: [chromium, LAUNCH], webkit: [webkit, { headless: true }] };
 
-async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number }): Promise<Measure> {
-	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, steps: [], settled_s: null, frames: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, painted: null, errors: [] };
+async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; walk?: boolean }): Promise<Measure> {
+	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, steps: [], settled_s: null, frames: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, walk_ms: null, walk_p95: null, walk_cpu: null, walk_gpu: null, painted: null, errors: [] };
 	let browser: Browser | undefined;
 	try {
 		browser = await BROWSERS[name][0].launch(BROWSERS[name][1]);
@@ -173,6 +187,29 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 			return Math.round((1 - Math.max(...seen.values()) / (d.length / 4)) * 1000) / 1000;
 		}, png.toString('base64'));
 		m.shown = m.painted > 0.2;
+		if (o.walk) {
+			// the walk, after the picture: the eye placed each frame by the clock, so a slow frame walks as far as a fast one
+			const w = await page.evaluate(async ({ v, step }) => {
+				const walker = (window as any).__walker;
+				if (!walker) return null;
+				const t0 = performance.now();
+				let on = true;
+				const each = () => {
+					if (!on) return;
+					const t = (performance.now() - t0) / 1000;
+					walker.place(v.x + Math.sin(v.yaw) * step.forward * 60 * t, v.z - Math.cos(v.yaw) * step.forward * 60 * t, v.yaw + step.yaw * 60 * t, v.pitch);
+					requestAnimationFrame(each);
+				};
+				each();
+				await new Promise((r) => setTimeout(r, 1000));
+				const s = await (window as any).__meter.sample(10);
+				on = false;
+				walker.place(v.x, v.z, v.yaw, v.pitch);
+				return s;
+			}, { v: VIEWS.near, step: STEP });
+			if (w && w.frames > 1) Object.assign(m, { walk_ms: w.frame_ms, walk_p95: w.frame_p95, walk_cpu: w.cpu_ms, walk_gpu: w.gpu_ms });
+			else m.steps.push(w ? 'the walk drew no frames' : 'no walker here: no walk measured');
+		}
 	} catch (e: any) {
 		m.errors.push(String(e?.message ?? e).split('\n')[0].slice(0, 300));
 	} finally {
@@ -202,7 +239,7 @@ if (import.meta.main) {
 	// its pictures: --out, else a folder a call under GPU_OUT (the gpu job's artifact) or the temp folder, named by its check and world
 	const out = resolve(arg('--out') ?? join(process.env.GPU_OUT ?? join(tmpdir(), 'gpu-out'), `${process.env.INTENT_CHECK ?? 'world'}${world.replace(/\W+/g, '-').replace(/-$/, '')}`));
 	const inputs = resolve(arg('--inputs', join(SITE, 'scripts/census/inputs'))!);
-	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within') };
+	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within'), walkWithin: num('--walk-within') };
 	const fail = (why: string): never => (console.log(`gpu: ${why}`), process.exit(1));
 	for (const b of browsers) if (!BROWSERS[b]) fail(`no browser ${b} (chromium, webkit)`);
 
@@ -224,7 +261,7 @@ if (import.meta.main) {
 	console.log(`${world} on ${gpu} (${process.platform} ${process.arch}); pictures in ${out}`);
 	const measures: (Measure & { why: string[] })[] = [];
 	for (const b of browsers) {
-		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')) });
+		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), walk: argv.includes('--walk') || argv.includes('--walk-within') });
 		const why = judge(m, bounds);
 		measures.push({ ...m, why });
 		console.log(lineOf(m, why));
