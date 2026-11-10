@@ -29,3 +29,40 @@ WebGPU); "the runner" is GitHub's macOS runner (Metal, a small VM: its seconds c
 ## What the runner's dry run cannot show
 
 Only intent ba948167's one GPU check exists in any spec: Sandbox 5, Chromium. Sandbox 1, WebKit, a second visit, main beside the head on the same day and a hold of the page's thread are not measured there; another check would be a changed spec.
+
+## Against the absolute aim (his M1, real Safari: a world within 10 s on a first visit, 3 s on a second)
+
+| world | first visit, reached | left to 10 s | second visit, reached | left to 3 s |
+|---|---|---|---|---|
+| Sandbox 1, real Safari 27.2, alone and in front (23c52b2) | 18.6 s | 8.6 s | 28 s once, with 48 refused GPU buffers (another tab at 8.9 GB beside it); not measured clean | unknown |
+| Sandbox 1, the Mac's Chromium on Metal (ed90418, with 12/14 still in) | 28 s | 18 s | 16.4 s | 13.4 s |
+| Sandbox 5, the Mac's Chromium on Metal (ed90418) | 38 s | 28 s | 10.9 s | 7.9 s |
+| Sandbox 5, real Safari | not measured on a visit alone | | | |
+
+Where a first visit's seconds go, from the cover's steps (the box and the runner agree on the order, not the seconds):
+1. **The scene before any plant** (the dome, paths, garden, ground): 5 to 11 s in the box, 10 to 20 s of the Mac's first run. Main's as well; not touched here.
+2. **The kinds the cover waits for**: 23 in Sandbox 1 (about 10 s in the box), 51 in Sandbox 5 (37 s in the box, 45 s on the runner). This is the largest piece in Sandbox 5.
+3. **The first frame** under the cover: 2 to 3 s in Chromium on Metal; 38 to 40 s in the Mac's WebKit on ed90418 (not measured again since 12/14 left).
+
+### Options not taken, for Samuel to judge (each costs picture at the moment the cover lifts, none once grown)
+
+How many kinds the cover waits for is one decision, `NEAR`, `AHEAD` and `BEHIND` in `flora.js` (a tree within 40 m, a shrub within 26 m, the cover within 13 m; a plant not before the eye counted 4 times as far). Counted from the worlds as they stand (`flora.worlds.json`):
+
+| the cover waits for | Sandbox 1 | Sandbox 5 | what lifts with the cover |
+|---|---|---|---|
+| now: 40 / 26 / 13 m, behind × 4 | 23 of 198 | 51 of 180 | everything near, before and behind the eye |
+| 30 / 20 / 10 m | 12 | 40 | trees from 30 m on fade in after |
+| 25 / 15 / 8 m | 10 | 25 | half of Sandbox 5's wait; shrubs from 15 m fade in after |
+| only what is before the eye, 40 / 26 / 13 m | 10 | 45 | turning round at once shows plants still fading in |
+| only before the eye, 20 / 13 / 8 m | 5 | 14 | a quarter of Sandbox 5's wait; the middle distance fades in after |
+
+Not taken tonight: with fewer kinds the world as the cover lifts is emptier for its first seconds, and "nothing may look worse" is the rule. The fade (round 9) makes a later arrival gentler; whether an emptier first second is worth 10 to 25 s in Sandbox 5 is his to say, and it is one number to change.
+
+The other large piece is not this intent's: each kind's build waits behind other kinds' levels (intent 7a6c3f1b), and nearly every build starts a worker and runs the engine in it again (the finding above).
+
+## What I saw that falls short of real, outside this intent (for the audit, 1f6a98dd)
+
+- **The sky's clouds are large flat blocks** (the Mac's far views, the runner's pictures): they read as tiles, not clouds.
+- **Far trees as pictures are speckled and hard-edged** against the sky at 300 m and more (the Mac's far-zoom picture, production and head alike).
+- **The grass ends in a visible line** some metres out, bare textured ground past it (the runner's Sandbox 5 picture, left and right of the path).
+- **The first frame's hold**: nothing is said or moves on the cover while the page's thread is held drawing it (2 to 3 s on Metal in Chromium, far longer in WebKit on the old head).
