@@ -37,7 +37,7 @@ import { furnish, terraceSet } from './rooms'
 import { ambience, levelsAt, nearness } from './ambience'
 import { flow, pond as pondShape, shore, stream as streamShape, waterMaterial } from './water'
 import { precompile } from '$lib/content/render/core.js'
-import { createWorldRenderer, type StageHandle } from '$lib/content/render/world.js'
+import { createWorldRenderer, worldFinish, type StageHandle } from '$lib/content/render/world.js'
 import { createSky, type SkyHandle } from '$lib/content/sandbox-kit/sky.js'
 import { skyHour } from '$lib/content/sandbox-kit/skyTime.svelte.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
@@ -936,6 +936,9 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 				lampsFor(night)
 			}
 		})
+	// the picture finished as every world's (intent 1f0c6f79), in its own page (a host's world draws it otherwise)
+	const finish = host ? null : worldFinish(renderer, scene, camera, { sky })
+	const draw = () => (finish ? finish.render() : renderer.render(scene, camera))
 	const setSun = (hour: number) => {
 		if (sky) return sky.set(hour)
 		lampsFor(1 - THREE.MathUtils.smoothstep(Math.sin(((hour - 5) / 15) * Math.PI), -0.02, 0.18))
@@ -2645,7 +2648,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		sky!.tick(now)
 		drawOwnLibrary()
 		// the film camera draws the canvas itself while it holds it
-		if (!filmDraws()) renderer.render(scene, camera)
+		if (!filmDraws()) draw()
 		// keep it smooth; while a film is shot every frame is rendered at the resolution it asks for
 		stage!.adapt(now, filmHoldsSize())
 		frame = requestAnimationFrame(tick)
@@ -2653,7 +2656,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 	walker.update(0)
 	walked()
 	drawOwnLibrary()
-	if (!filmDraws()) renderer.render(scene, camera)
+	if (!filmDraws()) draw()
 	onProgress?.('ready')
 	tick()
 
@@ -2729,6 +2732,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			sound.dispose()
 			world.disconnect()
 			walker.dispose()
+			finish?.dispose()
 			sky!.dispose()
 			stage!.dispose()
 		}
