@@ -1,3 +1,3 @@
-2026-11-10 23:07 Berlin · load { 7.62 10.31 10.93 } · running head sandbox-1 chromium v1
+2026-11-10 23:32 Berlin · load { 2.80 4.92 10.64 } · waiting for the load to settle (no visit yet)
 measured: head 23c52b2 (49cb991a9 the same site code, one test line apart) beside production {"commit":"eadbf2f78db8d6d17fac0235f0184b06492d960e"}
 written so far: prod-sandbox-1-chromium-v1 
