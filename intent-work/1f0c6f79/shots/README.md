@@ -24,5 +24,7 @@ Not this intent's: the workshop container and, at times, the walker are not draw
 - `s1-<noon|sun8>-main.jpg`, `s1-<noon|sun8>-head.jpg`: main and head (head `?finish=desktop`, on WebGPURenderer's WebGL 2
   fallback: no AO, MSAA), each after 240 s at the view.
 - At 8° the warm low key on the colonnade and the cool fill hold as on main; head's grade a little richer, the grass's
-  feet shadowed. Open: the pond shows horizontal streaks on head, not on main (the water's screen read under the pipeline,
-  or the grade's grain over it): to fix before Proposal.
+  feet shadowed. The pond showed horizontal streaks on head in the first take: the contact shadows, laid over the
+  finished picture, shaded the bed beneath the water (gone with `?finish=-contact`). Fixed in 0a67666b (contact shadows on
+  the sun's light in the lighting, never on what is see-through; none on the fallback): `s1-sun8-*.jpg` retaken after it,
+  the pond clean.
