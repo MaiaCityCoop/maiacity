@@ -82,35 +82,6 @@ function countTriangles(hour) {
 		wrap('drawArraysInstanced', 2, 3);
 		wrap('drawElementsInstanced', 1, 4);
 	}
-	// WebGPU's draws too (intent c1bee1f8): its render passes', triangles by the pipeline's topology (three's default a list)
-	const P = w.GPURenderPassEncoder?.prototype, D = w.GPUDevice?.prototype;
-	if (P && D) {
-		const topology = new WeakMap(), pipeline = new WeakMap();
-		for (const name of ['createRenderPipeline', 'createRenderPipelineAsync']) {
-			const make = D[name];
-			if (!make) continue;
-			D[name] = function (desc) {
-				const got = make.call(this, desc);
-				const keep = (pl) => (pl && topology.set(pl, desc?.primitive?.topology ?? 'triangle-list'), pl);
-				return got && typeof got.then === 'function' ? got.then(keep) : keep(got);
-			};
-		}
-		const set = P.setPipeline;
-		P.setPipeline = function (pl) {
-			pipeline.set(this, pl);
-			return set.call(this, pl);
-		};
-		for (const name of ['draw', 'drawIndexed']) {
-			const f = P[name];
-			if (!f) continue;
-			P[name] = function (count, n = 1, ...rest) {
-				const t = topology.get(pipeline.get(this)) ?? 'triangle-list';
-				if (t === 'triangle-list') w.__tri.now += Math.floor(count / 3) * n;
-				else if (t === 'triangle-strip') w.__tri.now += Math.max(0, count - 2) * n;
-				return f.call(this, count, n, ...rest);
-			};
-		}
-	}
 	const raf = w.requestAnimationFrame.bind(w);
 	const tick = (t) => {
 		w.__tri.frames.push([t, w.__tri.now]);
@@ -197,9 +168,7 @@ for (const site of sites) {
 		const meter = await metered(page);
 		const png = `${out}/${site.name}-sandbox-1-${v.name}.png`;
 		await page.screenshot({ path: png });
-		// which backend drew it (../src/lib/content/render/core.js `ready`: webgpu, webgl2, webgl)
-		const backend = await page.evaluate(() => window.__rendererBackend ?? 'webgl');
-		results.push({ site: site.name, world: 'sandbox-1', view: v.name, settled: ok, ...m, meter, backend, png });
+		results.push({ site: site.name, world: 'sandbox-1', view: v.name, settled: ok, ...m, meter, png });
 		if (census) await takeCensus(page, site, v);
 		console.log(`${site.name} sandbox-1 ${v.name}: ${m.frameMs} ms/frame (p95 ${m.frameP95?.toFixed?.(1)}), ${m.tris.toLocaleString('en')} tris drawn (max ${m.trisMax.toLocaleString('en')})${ok ? '' : ', still building'}`);
 	}
@@ -216,7 +185,7 @@ for (const site of sites) {
 	const png3 = `${out}/${site.name}-sandbox-3-open.png`;
 	await p3.screenshot({ path: png3 });
 	const t3 = await p3.evaluate(() => { const t = window.__tri.frames.map((x) => x[1]).filter((x) => x > 0).sort((a, b) => a - b); return Math.round(t[t.length >> 1] ?? 0); });
-	results.push({ site: site.name, world: 'sandbox-3', view: 'open', tris: t3, meter: meter3, backend: await p3.evaluate(() => window.__rendererBackend ?? 'webgl'), png: png3 });
+	results.push({ site: site.name, world: 'sandbox-3', view: 'open', tris: t3, meter: meter3, png: png3 });
 	console.log(`${site.name} sandbox-3 open: ${t3.toLocaleString('en')} tris drawn`);
 	await ctx3.close();
 }

@@ -33,9 +33,10 @@ const materialsOf = (o: THREE.Object3D) => {
 }
 
 describe('format 5 carries a look', () => {
-	test('it writes format 5 and reads it, and every older one', () => {
-		expect(FORMAT).toBe(5)
-		expect(FORMATS).toEqual([0, 1, 2, 3, 4, 5])
+	// (format 6, engine 7, intent a5faafad, carries the look as format 5 did, beside a graph: ./format6.test.js)
+	test('it writes format 5 or later and reads it, and every older one', () => {
+		expect(FORMAT).toBeGreaterThanOrEqual(5)
+		expect(FORMATS).toEqual([0, 1, 2, 3, 4, 5, ...(FORMAT > 5 ? [FORMAT] : [])])
 	})
 
 	test("a leaf's look goes out and comes back checked, its numbers the kind's where it gave none", async () => {

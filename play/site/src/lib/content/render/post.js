@@ -12,7 +12,13 @@
  */
 import * as THREE from 'three';
 import { MRTNode, RenderPipeline } from 'three/webgpu';
-import { pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample, convertToTexture, screenUV } from 'three/tsl';
+import { abs, all, texture, uv, vec3, pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample, screenUV, velocity, builtinAOContext, convertToTexture, int, context } from 'three/tsl';
+import { ssao } from 'three/addons/tsl/display/SSAONode.js';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
+import { taau } from 'three/addons/tsl/display/TAAUNode.js';
+import { sss } from 'three/addons/tsl/display/SSSNode.js';
+import { boxBlur } from 'three/addons/tsl/display/boxBlur.js';
+import { gradeNode } from './grade.js';
 import { ao as gtao } from 'three/addons/tsl/display/GTAONode.js';
 import { denoise } from 'three/addons/tsl/display/DenoiseNode.js';
 import { bloom as bloomNode } from 'three/addons/tsl/display/BloomNode.js';
@@ -85,17 +91,24 @@ export function createPost(renderer, scene, camera, o = {}) {
 	/** @type {any} */
 	let ao = null;
 	if (o.ao) {
-		scenePass.setMRT(mrt({ output, normal: packNormalToRGB(normalView), [MASK]: float(1) }));
-		const depth = scenePass.getTextureNode('depth');
+		// the depth, the normals and the mask first, the scene unlit; the occlusion from them laid on the scene's ambient
+		// light alone (three's builtinAOContext), never on the sun's (intent 1f0c6f79: the viewer's GTAO darkened the
+		// whole picture, sunlight included); the scene itself then drawn to its colour alone
+		const prepass = pass(scene, camera, { type: THREE.HalfFloatType });
+		prepass.setMRT(mrt({ output: packNormalToRGB(normalView), [MASK]: float(1) }));
+		const depth = prepass.getTextureNode('depth');
 		// the normals decoded wherever GTAO and the denoise sample them (three's own way: `sample`)
-		const normals = scenePass.getTextureNode('normal');
+		const normals = prepass.getTextureNode('output');
 		const normal = sample((/** @type {any} */ uv) => unpackRGBToNormal(normals.sample(uv)));
 		const node = gtao(depth, normal, camera);
 		const pd = denoise(node.getTextureNode(), depth, normal, camera);
 		const blend = uniform(1);
-		// the occlusion where the mask lets it, by the blend's intensity: mix(1, ao, intensity) over the colour
-		const occlusion = mix(float(1), pd.r, blend.mul(scenePass.getTextureNode(MASK).r));
-		color = vec4(color.rgb.mul(occlusion), color.a);
+		// the occlusion where the mask lets it, by the blend's intensity (GTAOPass's mix(1, ao, intensity)), on the ambient light
+		const shade = convertToTexture(mix(float(1), pd.r, blend.mul(prepass.getTextureNode(MASK).r)));
+		scenePass.contextNode = builtinAOContext(shade.sample(screenUV).r);
+		// the scene pass's outputs its colour alone, so an excluded material's own (`exclude`: the mask's 0) merges into
+		// them rather than standing in for its colour (three's NodeMaterial: a material's MRT alone replaces the output)
+		scenePass.setMRT(mrt({ output }));
 		/** @param {any} u @param {Record<string, number>} p @param {string[]} keys */
 		const set = (u, p, keys) => keys.forEach((n) => p[n] !== undefined && u[n] && (u[n].value = p[n]));
 		ao = {
@@ -165,3 +178,120 @@ export function createPost(renderer, scene, camera, o = {}) {
 		}
 	};
 }
+
+/**
+ * @typedef {object} FinishHandle
+ * @property {import('./finish.js').Plan} plan
+ * @property {any} pipeline the RenderPipeline
+ * @property {{ scene: any, prepass: any, ao: any, denoise: any, contact: any, aa: any, bloom: any, grade: ReturnType<typeof gradeNode> }} nodes
+ * @property {(t?: number) => void} render draw a frame; `t` is the grain's clock (a film's own time, never the wall's)
+ * @property {() => void} dispose
+ */
+
+/**
+ * The world's finishing (intent 1f0c6f79): every world, sandbox and the viewer drawn through one RenderPipeline built
+ * from a plan (./finish.js `finishing`). In order: the depth and normals before the scene is lit, and ambient occlusion
+ * from them (SSAO at its scale, denoised) laid on the ambient light alone (builtinAOContext; nothing see-through takes
+ * it); the scene, its velocity beside its colour where the edges are temporal; the sun's contact shadows (SSS, a
+ * desktop's); the NaN guard; TRAA, TAAU (the scene at the plan's scale, brought up to the screen) or the scene pass's
+ * own MSAA; bloom above its threshold; the output (the page's tone mapping and colour space); the grade. The haze is
+ * the scene's fog node (./atmosphere.js), drawn with the scene. On WebGPURenderer only (either backend).
+ * @param {any} renderer a WebGPURenderer
+ * @param {THREE.Scene} scene @param {THREE.Camera} camera
+ * @param {import('./finish.js').Plan} plan
+ * @param {{ sun?: THREE.Light }} [o] the sun, for its contact shadows (none without it): a DirectionalLight, or the sky's
+ *   SunLight, followed each frame by a DirectionalLight aimed at the origin as it is
+ * @returns {FinishHandle}
+ */
+export function createFinish(renderer, scene, camera, plan, o = {}) {
+	const temporal = plan.aa === 'traa' || plan.aa === 'taau';
+	const scenePass = pass(scene, camera, { samples: plan.samples, type: THREE.HalfFloatType });
+	if (plan.upscale === 'taau') scenePass.setResolutionScale(plan.scale);
+	scenePass.setMRT(mrt(temporal ? { output, velocity } : { output }));
+	/** @type {any} */
+	let prepass = null, aoNode = null, pd = null, contact = null, aa = null, bloom = null;
+	if (plan.ao) {
+		// the depth and the normals first, the scene unlit; the occlusion from them, then the scene lit with it on its ambient light
+		prepass = pass(scene, camera, { type: THREE.HalfFloatType });
+		prepass.setMRT(mrt({ output: packNormalToRGB(normalView) }));
+		const depth = prepass.getTextureNode('depth');
+		const normals = prepass.getTextureNode('output');
+		const normal = sample((/** @type {any} */ uv) => unpackRGBToNormal(normals.sample(uv)));
+		aoNode = ssao(depth, normal, camera);
+		aoNode.resolutionScale = plan.ao.scale;
+		aoNode.radius.value = plan.ao.radius;
+		aoNode.intensity.value = plan.ao.intensity;
+		pd = denoise(aoNode.getTextureNode(), depth, normal, camera);
+	}
+	let color = scenePass.getTextureNode('output');
+	/** @type {THREE.DirectionalLight | null} the sun as a light with a target (three's SunLight has none: it shines to the origin) */
+	let key = null;
+	/** @type {any} the contact shadows, blurred, read by the sun's light as the scene is lit */
+	let shade = null;
+	// from the prepass's depth (the scene before it is lit), so they darken the sun's light alone and nothing
+	// see-through: laid over the finished picture they streaked a pond with the bed beneath it (avenBOX's Sandbox 1)
+	if (plan.contact && o.sun && prepass) {
+		key = /** @type {any} */ (o.sun).target ? /** @type {THREE.DirectionalLight} */ (o.sun) : new THREE.DirectionalLight();
+		contact = sss(prepass.getTextureNode('depth'), camera, key);
+		contact.resolutionScale = plan.contact.scale;
+		contact.maxDistance.value = plan.contact.maxDistance;
+		contact.thickness.value = plan.contact.thickness;
+		contact.shadowIntensity.value = plan.contact.intensity;
+		// blurred before it is laid on (three's advice: unblurred, at half resolution, it speckles foliage and streaks
+		// beside thin blades, as avenBOX's screenshots of the old city showed)
+		shade = convertToTexture(boxBlur(contact.getTextureNode(), { size: int(2), separation: int(1) }));
+	}
+	// the lighting's context: the occlusion on the ambient light, the contact shadows on the sun's, each read at its
+	// pixel; neither on a see-through material (three's builtinAOContext and builtinShadowContext, merged)
+	if (pd || shade) {
+		const aoAt = pd ? convertToTexture(pd).sample(screenUV).r : null;
+		const shadeAt = shade ? shade.sample(screenUV).r : null;
+		/** @type {Record<string, any>} */
+		const lit = {};
+		if (aoAt) lit.getAO = (/** @type {any} */ input, /** @type {any} */ { material }) => (material.transparent === true ? input : input !== null ? input.mul(aoAt) : aoAt);
+		if (shadeAt)
+			lit.getShadow = (/** @type {any} */ lightNode, /** @type {any} */ builder) =>
+				lightNode.light === o.sun && builder.material?.transparent !== true ? lightNode.shadowColorNode.mul(shadeAt) : lightNode.shadowColorNode;
+		scenePass.contextNode = context(lit);
+	}
+	// what is not a number stops here, before anything blurs it over the frame
+	color = finite(color);
+	if (plan.aa === 'traa') color = aa = traa(color, scenePass.getTextureNode('depth'), scenePass.getTextureNode('velocity'), camera);
+	else if (plan.aa === 'taau') color = aa = taau(color, scenePass.getTextureNode('depth'), scenePass.getTextureNode('velocity'), camera);
+	if (plan.bloom) {
+		// its threshold in the picture's own units: the scene's light before the lens is many times that (a world's
+		// exposure brings it down), so the threshold is divided by the exposure each frame (`render`)
+		bloom = bloomNode(color, plan.bloom.strength, plan.bloom.radius, plan.bloom.threshold);
+		bloom.setResolutionScale?.(plan.bloom.scale);
+		color = vec4(color.rgb.add(bloom.rgb), color.a);
+	}
+	color = renderOutput(color);
+	const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+	const grade = gradeNode({ ...plan.grade, res: size });
+	color = grade.node(color);
+	const pipeline = new RenderPipeline(renderer, color);
+	pipeline.outputColorTransform = false;
+	return {
+		plan,
+		pipeline,
+		nodes: { scene: scenePass, prepass, ao: aoNode, denoise: pd, contact, aa, bloom, grade },
+		render(t) {
+			if (key && key !== o.sun && o.sun) {
+				o.sun.getWorldPosition(key.position);
+				key.updateMatrixWorld();
+				key.target.updateMatrixWorld();
+			}
+			if (bloom && plan.bloom) bloom.threshold.value = plan.bloom.threshold / Math.max(1e-4, renderer.toneMappingExposure ?? 1);
+			renderer.getDrawingBufferSize(size);
+			grade.uniforms.uRes.value.copy(size);
+			// the grain moves with the clock: a film's own t, else the page's
+			grade.uniforms.uTime.value = t ?? performance.now() / 1000;
+			pipeline.render();
+		},
+		dispose() {
+			pipeline.dispose();
+			for (const n of [aoNode, pd, contact, aa, bloom]) n?.dispose?.();
+		}
+	};
+}
+

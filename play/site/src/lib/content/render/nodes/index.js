@@ -20,6 +20,7 @@ import * as THREE from 'three';
 import { AttributeNode, MeshBasicNodeMaterial, MeshLambertNodeMaterial, MeshPhongNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
 import { SunLight } from 'three/addons/lights/SunLight.js';
 import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
+import { applyGraph } from './graph.js';
 
 // the sky's sun (three's SunLight, its cascaded shadows) lights node materials as it lights three's own
 SunLight.registerNode(SunLightNode);
@@ -221,9 +222,9 @@ export const drawnAsNode = (m) => !!m?.isNodeMaterial || !!KINDS[m?.type];
 /**
  * A three.js material as the same node material of ours (its kind, every setting, the same pictures), or itself if it
  * is one already or has none.
- * @param {THREE.Material} m
+ * @param {THREE.Material} m @param {{ wind?: any }} [o] the world's wind, for a graph's own look (./graph.js)
  */
-export function nodeOf(m) {
+export function nodeOf(m, o = {}) {
 	if (m.isNodeMaterial) return m;
 	const K = KINDS[m.type];
 	if (!K) return m;
@@ -235,6 +236,9 @@ export function nodeOf(m) {
 		else n[k] = v;
 	}
 	n.userData = { ...m.userData };
+	// its own look, a node graph the box handed over and the page checked (../../assets/box/rebuild.js): built here, so
+	// every way a material is drawn (the worlds' renderer, the viewer's stage) draws it
+	if (m.userData.graph) applyGraph(n, m.userData.graph, o);
 	return n;
 }
 
@@ -249,8 +253,9 @@ export function cutBy(m, cut, look) {
 	const face = faceOf(cut);
 	const color = uniform(new THREE.Color(look.color)), rough = uniform(look.rough), metal = uniform(look.metal);
 	m.cap = { face, color, rough, metal };
-	m.roughnessNode = select(face.on, rough, materialRoughness);
-	m.metalnessNode = select(face.on, metal, materialMetalness);
+	// off the cut face, the material's own (its graph's, where it has one: ./graph.js)
+	m.roughnessNode = select(face.on, rough, m.roughnessNode ?? materialRoughness);
+	m.metalnessNode = select(face.on, metal, m.metalnessNode ?? materialMetalness);
 	const nv = normalize(cameraViewMatrix.mul(vec4(face.n.negate(), 0)).xyz);
 	m.normalNode = select(face.on, select(dot(nv, positionView.negate().normalize()).greaterThan(0), nv.negate(), nv), materialNormal);
 	m.side = THREE.DoubleSide;
