@@ -17,3 +17,18 @@ read back: a WebGPU canvas never presents in avenBOX's headless Chromium, so no 
     10 s.
   - The flattened band shows at 0 s, fades by 3 s and is gone by 10 s.
 - `shots.json`: every number above.
+
+## Each grass biome (c5), head 203834b4d, 2026-11-10
+
+`biomes-grid.png`: the four grass biomes on WebGPU, the blades chosen on the card, each its own grass where its recipe
+grows it and its grass as its newest version writes it; left from the eye (1.65 m, 0.12 rad down), right in c4's view
+(0.3 rad down). Rows: meadow, roadside verge, clover lawn, food forest. `biomes/` the pictures whole, `biomes.json` the
+blades by level. Shot by `intent-work/e85a5860-shots/biomes.mjs` (harness `?biome=`). The grass alone: the biomes'
+other cover (the verge's gravel and plantain, the lawn's clover and strawberries, the forest's litter) is not drawn here.
+
+- **meadow:** one closed cover, thinning into the distance (c4 90.4 %).
+- **roadside verge:** dry grass in patches with bare ground between, where its recipe lays gravel (c4 30.4 %).
+- **clover lawn:** short grass (9 cm) in thin patches; the lawn is clover and strawberries first (c4 13.5 %).
+- **food forest:** patches between bare floor, as its litter lies (c4 69.7 %).
+
+Real photos beside them were not fetched: Wikimedia Commons answered avenBOX's egress with 429 for over 20 minutes.

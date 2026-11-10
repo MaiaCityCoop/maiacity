@@ -1,0 +1,38 @@
+{
+ "meadow": {
+  "backend": "webgpu",
+  "grass": "indirect",
+  "blades": [
+   26268,
+   15135,
+   11938
+  ]
+ },
+ "roadside-verge": {
+  "backend": "webgpu",
+  "grass": "indirect",
+  "blades": [
+   17116,
+   11984,
+   9775
+  ]
+ },
+ "clover-lawn": {
+  "backend": "webgpu",
+  "grass": "indirect",
+  "blades": [
+   9155,
+   11274,
+   8109
+  ]
+ },
+ "food-forest": {
+  "backend": "webgpu",
+  "grass": "indirect",
+  "blades": [
+   19249,
+   13138,
+   10596
+  ]
+ }
+}
