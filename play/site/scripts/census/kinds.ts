@@ -25,10 +25,14 @@ export async function turning<T>(p: Promise<T>, each?: () => void): Promise<T> {
 /**
  * The census's page, and `n` of Sandbox 1's plants: those whose recipe and pieces are pinned (./inputs/files), every
  * so-manieth in the order of their hashes, so the choice spans them and is the same every run. Nothing is read from
- * play: the token it would be read with is put away first, and a file not pinned is an error.
+ * play (the token it would be read with is put away first, and a file not pinned is an error) and nothing a worker
+ * built is kept.
  */
 export async function kindsOf(n: number, cache?: string) {
 	delete process.env.PLAY_MCP_TOKEN;
+	// every plant really built, each time it is asked for: what the census keeps of its workers' answers between runs
+	// (./kept.ts) would hand the second build of a plant back unbuilt, and these checks are of the building itself
+	process.env.CENSUS_KEPT = '0';
 	const inputs = join(import.meta.dir, 'inputs');
 	setup({ inputs, cache });
 	const { catalogReady, INDEX, recipeAt } = await import(lib('content/assets/catalog.js'));
