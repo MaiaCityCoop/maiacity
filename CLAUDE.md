@@ -56,7 +56,9 @@ still record by hand with check_intent). **A world's look, its time to the world
 renderer (intent ba948167; play/SPEC.md §4.12): a check asks for it by its `run`, `bun play/site/scripts/gpu.ts --world
 <route> [--world-within <s>] [--frame-within <ms>]` (pinned inputs, Chromium and WebKit), which the box run takes on
 GitHub's macOS runner (Metal) beside the rest and records with its screenshots (the run's `gpu-pictures`); on a draft,
-a dry run of intents-pr.yml (`workflow_dispatch`, the pull request's number) gives the same in minutes. Every must green, the intent moves to Proposal by itself: **stop there**; any
+a dry run of intents-pr.yml (`workflow_dispatch`, the pull request's number) gives the same in minutes. It decides the look (the
+world shown whole, the device held); the runner is a small VM, so its seconds and frames are not a Mac's and compare
+only with that runner's own. Every must green, the intent moves to Proposal by itself: **stop there**; any
 red, the intent stays in Build, failed on the board, its pull request as it is: fix and push. Each push to a ready pull
 request is run and recorded again (a newer head cancels the older head's run, which records nothing).
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on

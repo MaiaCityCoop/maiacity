@@ -718,7 +718,12 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     `GITHUB_TOKEN`), only when the spec has such a check; the box refuses the same checks, and **compare** puts the
     runner's results in their place (`intent.ts --over <box results> --with <gpu results>`, of the same intent and
     commit only) before anything is recorded, so a gpu job that gave nothing leaves them failed, saying why. Its
-    screenshots are the run's artifact `gpu-pictures`, the run's link in the evidence. A builder gets the same
+    screenshots are the run's artifact `gpu-pictures`, the run's link in the evidence. **What it decides is the
+    look** (the probe, pull request #2246: Chromium there draws Sandbox 5 whole with WebGPU on Metal, adapter `apple`,
+    the device held). **Its times are the runner's, not a Mac's**: a 3-core VM with a paravirtual GPU, about 280 s to
+    Sandbox 5 and a frame or two a second, so a time bound there (`--world-within`, `--frame-within`) compares only
+    with other runs on that runner; a Mac's own frame time is still Samuel's Mac's. The job's setup is half a minute,
+    one world in one browser about six. WebKit has WebGPU only from macOS 26's runner on. A builder gets the same
     measure on a draft by a dry run (`workflow_dispatch` with the pull request's number). Main's re-run leaves these
     checks out (`intent.ts --record --where main --no-gpu`): they were measured on the head.
   - **Dirty.** `.gitignore` ignores `.claude/settings.local.json`, the per-user file the Claude app writes; a dirty run
