@@ -18,7 +18,6 @@ export { TIMEOUT };
 
 /** how many recipes' rooms a box keeps, the last asked (one with a job open or a running build always kept): the budget's, four on a desktop */
 export const ROOMS = 4;
-const rooms = () => Math.min(ROOMS, budget().rooms);
 
 /** A frozen box engine's code checked against its hash, once a page (../../../kernel/sandbox/frame.js `engineCode`). @param {number} v @returns {Promise<string>} */
 export function engineCode(v) {
@@ -27,10 +26,15 @@ export function engineCode(v) {
 }
 
 export class AssetBox extends Shell {
-	/** @param {{ engine?: number, timeout?: number }} [o] the engine it runs (the latest) */
-	constructor({ engine = LATEST.v, timeout = TIMEOUT } = {}) {
+	/**
+	 * @param {{ engine?: number, timeout?: number, rooms?: number }} [o] the engine it runs (the latest); `rooms`: how
+	 *   many it keeps at most, where fewer than the budget's (one, for a box of the page's pool: the next build of a
+	 *   recipe lands in whichever box is free, so a room kept is seldom found again, and each holds a worker)
+	 */
+	constructor({ engine = LATEST.v, timeout = TIMEOUT, rooms = ROOMS } = {}) {
 		super({ code: () => engineCode(engine), timeout, spare: budget().spare, apart: true });
 		this.engine = engine;
+		this.most = Math.max(1, Math.min(rooms, ROOMS));
 		/** @type {{ room: number, code: string }[]} the recipes' rooms, the one asked of last at the end */
 		this.rooms = [];
 		/** @type {Map<number, { room: number, session: number }>} the builds kept running, by the page's handle on each */
@@ -72,7 +76,7 @@ export class AssetBox extends Shell {
 		const r = i >= 0 ? this.rooms.splice(i, 1)[0] : { room: ++this.ids, code };
 		const busy = new Set([...this.jobs.values(), ...this.sessions.values()].map((j) => j.room));
 		for (const old of this.rooms.slice()) {
-			if (this.rooms.length < rooms()) break;
+			if (this.rooms.length < Math.min(this.most, budget().rooms)) break;
 			if (busy.has(old.room)) continue;
 			this.rooms.splice(this.rooms.indexOf(old), 1);
 			this.leave(old.room);

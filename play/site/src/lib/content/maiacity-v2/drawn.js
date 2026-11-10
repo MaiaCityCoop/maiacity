@@ -3,7 +3,7 @@
  * What MaiaCity V1 draws of the library: every asset by its ref (./things.js), built in the asset box (or this device's
  * cache), never by calling a builder. `follow`: a renderer copy wherever an anchor stands, posed by its controls; `load`:
  * the build put into an anchor; `cast`: that, kept running in the box ($content/assets/hero.js) from the first frame it
- * is seen. Builds go through the renderer's few boxes, most wanted first (in view, shown elsewhere, hidden), each once.
+ * is seen. Builds go through the page's pool of boxes, most wanted first (in view, shown elsewhere, hidden), each once.
  */
 import * as THREE from 'three';
 
@@ -14,8 +14,6 @@ const PICK = new THREE.MeshBasicMaterial({ visible: false });
 /** the reach (m) round an anchor of what goes into it (in view and as large on screen as that ball), and px to be seen */
 const REACH = 8;
 const SEEN = 6;
-/** how many boxes build side by side: one for each core the page leaves, two to four */
-const boxes = () => Math.max(2, Math.min(4, ((typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4) - 1));
 
 let mods = null;
 const modules = () =>
@@ -48,7 +46,7 @@ export function createDrawn({ renderer, camera, scene }) {
 	const up = modules().then((m) => {
 		if (gone) return m;
 		// every kind drawn by its card's levels and the one selector (render/lod.js), as in every world
-		assets = m.createAssets({ renderer, camera, boxes: boxes() });
+		assets = m.createAssets({ renderer, camera });
 		scene.add(assets.group);
 		for (const go of waiting.splice(0)) go();
 		return m;

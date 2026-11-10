@@ -94,7 +94,7 @@ export function floorGrid(meshes, cell = 0.25) {
  * by its card's levels and the one selector (render/lod.js), as everywhere; `shadows`: told when what
  * casts a shadow changed, for a world that draws its shadows again only every so often (render/index.js `onShadows`;
  * without it, the shadows are drawn again with the next frame).
- * @param {{ renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, boxes?: number, shadows?: () => void }} o
+ * @param {{ renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, scene: THREE.Object3D, shadows?: () => void }} o
  */
 export function createPlantings(o) {
 	/** @type {ReturnType<typeof createAssets> | null} made the first time a build plants something */
@@ -112,8 +112,7 @@ export function createPlantings(o) {
 	const state = { planted: 0, kinds: 0, missing: 0, floors: 0 };
 	const renderer = () => {
 		if (assets) return assets;
-		const boxes = o.boxes ?? Math.max(1, Math.min(4, (globalThis.navigator?.hardwareConcurrency || 4) - 1));
-		assets = createAssets({ renderer: o.renderer, camera: o.camera, boxes, onShadows: o.shadows });
+		assets = createAssets({ renderer: o.renderer, camera: o.camera, onShadows: o.shadows });
 		o.scene.add(assets.group);
 		return assets;
 	};

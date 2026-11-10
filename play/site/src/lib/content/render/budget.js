@@ -6,9 +6,10 @@
  * this one budget at the layers they share (the asset boxes, the asset renderer and its pictures, the sky, the
  * device's cache), so none needs its own rule:
  *
- * - builds: how many recipes are built at once in the whole page, whatever the boxes asked for (each build's worker
- *   holds three.js, the recipe and what it is building, up to 170 MB for a tree at its finest)
- * - boxes: how many boxes one renderer of assets starts (each a frame of workers of its own)
+ * - builds: how many workers work for the page at once: the recipes built (the page's pool of asset boxes has as
+ *   many boxes, ../assets/box/pool.js; each build's worker holds three.js, the recipe and what it is building, up to
+ *   170 MB for a tree at its finest) and the lower levels made of them (../assets/render/lower.js). Every core but
+ *   one on a desktop, the page's own; two on a phone
  * - rooms: how many recipes' workers a box keeps between builds; spare: whether it makes one ahead
  * - idle: how long (ms) a box with nothing to do keeps its workers before it lets them go (it starts again for the
  *   next build; 0: as long as it lives)
@@ -48,15 +49,15 @@ export function smallDevice() {
 }
 
 /**
- * @typedef {{ small: boolean, builds: number, boxes: number, rooms: number, spare: boolean, idle: number, reads: number,
+ * @typedef {{ small: boolean, builds: number, rooms: number, spare: boolean, idle: number, reads: number,
  *   shadowMap: number, picture: { px: number, page: number }, texture: number, evict: number, release: boolean }} Budget
  */
 
 /** @returns {Budget} the budget for a device, small or not */
 export function budgetFor(small, cores = 8) {
 	return small
-		? { small: true, builds: 2, boxes: 1, rooms: 1, spare: false, idle: 4000, reads: 4, shadowMap: 2048, picture: { px: 80, page: 1280 }, texture: 1024, evict: 15000, release: true }
-		: { small: false, builds: Math.max(2, Math.min(8, cores - 1)), boxes: 6, rooms: 4, spare: true, idle: 0, reads: 16, shadowMap: 4096, picture: { px: 128, page: 2048 }, texture: 4096, evict: 0, release: false };
+		? { small: true, builds: 2, rooms: 1, spare: false, idle: 4000, reads: 4, shadowMap: 2048, picture: { px: 80, page: 1280 }, texture: 1024, evict: 15000, release: true }
+		: { small: false, builds: Math.max(2, Math.min(8, cores - 1)), rooms: 4, spare: true, idle: 0, reads: 16, shadowMap: 4096, picture: { px: 128, page: 2048 }, texture: 4096, evict: 0, release: false };
 }
 
 /** @type {Budget | null} */

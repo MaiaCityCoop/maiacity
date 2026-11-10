@@ -73,8 +73,8 @@ export async function worldAssets(bodies: StoryBody[], told: (text: string) => v
 			const v = ((await api<{ versions?: any[] }>(`/assets/${encodeURIComponent(w.asset)}`)).versions ?? []).find((x: any) => x.id === w.version);
 			if (!v?.recipe) return;
 			const code = await fileText(v.recipe), pieces = await piecesDeep(code), engine = v.engine ?? 1;
-			const [{ boxOf }, { rebuild }, { plantingsOf }] = await Promise.all([import('$lib/content/assets/load.js'), import('$lib/content/assets/box/rebuild.js'), import('$lib/content/assets/uses.js')]);
-			const m = await boxOf(engine).build({ hash: v.recipe, code, pieces }, {});
+			const [{ poolOf }, { rebuild }, { plantingsOf }] = await Promise.all([import('$lib/content/assets/box/pool.js'), import('$lib/content/assets/box/rebuild.js'), import('$lib/content/assets/uses.js')]);
+			const m = await poolOf(engine).build({ hash: v.recipe, code, pieces }, {});
 			const guests: Record<string, string[]> = {};
 			const kinds = [...new Set(plantingsOf(rebuild(m.data)).map((u: { ref: string }) => u.ref.slice(0, 64)))] as string[];
 			let read = 0;

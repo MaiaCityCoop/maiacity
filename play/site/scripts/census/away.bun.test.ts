@@ -52,7 +52,7 @@ beforeAll(async () => {
 	camera.lookAt(0, 1, 0);
 	camera.updateMatrixWorld();
 	scene = new THREE.Scene();
-	assets = createAssets({ renderer: r, camera, boxes: 2 });
+	assets = createAssets({ renderer: r, camera });
 	scene.add(assets.group);
 	// a kind of Sandbox 1's that builds here: the first of its catalog's recipes whose coarsest shape is made
 	for (const ref of Object.keys(INDEX.recipes)) {
