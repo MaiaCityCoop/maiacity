@@ -1,0 +1,4 @@
+# actionlint v1.7.7 predates GitHub's macOS 26 runner (intents-pr.yml's job gpu runs on it: WebKit has WebGPU from there on)
+self-hosted-runner:
+  labels:
+    - macos-26

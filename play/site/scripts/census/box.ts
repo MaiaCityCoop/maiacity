@@ -3,6 +3,7 @@
  * does what the frame's one script does (kernel/sandbox/policy.js SHELL_SCRIPT).
  */
 import type { El } from './dom';
+import { atWork, keyOf, type Kept } from './kept';
 
 // Math.random as one fixed sequence, as the Mac's runs seed every page and frame (../macjob/determinism.js): run in
 // the page by the census's setup and in every worker of the box before its engine, so whatever a world picks at random
@@ -32,8 +33,23 @@ const PRELUDE = `(() => {
 })();
 `;
 
-export function frameWindow(frame: El) {
+/** the box's frame; every build it is asked for is kept (`kept`, ./kept.ts): built once, then read */
+export function frameWindow(frame: El, kept: Kept) {
 	let url: string | null = null;
+	/** the box's whole script (its engine in it), hashed: the code every build's key starts with */
+	let code = '';
+	/** the builds asked of a worker and not yet answered: each job's id, the key its answer is kept under, its worker
+	 *  and its place in `atWork` (./kept.ts), left when it is answered or its worker ends */
+	const building = new Map<unknown, { key: string; w: Worker; held: object }>();
+	const built = (id: unknown) => {
+		const b = building.get(id);
+		building.delete(id);
+		if (b) atWork.delete(b.held);
+		return b?.key;
+	};
+	const ended = (w: Worker | undefined) => {
+		for (const [id, b] of [...building]) if (b.w === w) built(id);
+	};
 	let warm = false;
 	let spare: Worker | null = null;
 	const rooms = new Map<number, Worker>();
@@ -46,9 +62,17 @@ export function frameWindow(frame: El) {
 	};
 	const fresh = () => {
 		const w = new Worker(url!);
-		w.onmessage = (x: MessageEvent) => toPage([x.data[0], roomOf.get(w) ?? null]);
+		w.onmessage = (x: MessageEvent) => {
+			const answer = x.data[0], key = built(answer?.id);
+			if (key && answer.ok === true) {
+				const { id: _, ...data } = answer;
+				kept.put(key, data);
+			}
+			toPage([answer, roomOf.get(w) ?? null]);
+		};
 		w.onerror = (x: ErrorEvent) => {
 			x.preventDefault?.();
+			ended(w);
 			toPage([{ op: 'crash', error: String(x.message) }, roomOf.get(w) ?? null]);
 		};
 		return w;
@@ -57,6 +81,7 @@ export function frameWindow(frame: El) {
 		// the frame's script listens to its parent only: what the shell posts, a turn later, as a browser delivers it
 		setTimeout(() => {
 			if (m && m.op === 'boot' && !url) {
+				code = keyOf(SEEDED_RANDOM, PRELUDE, m.code);
 				url = URL.createObjectURL(new Blob([SEEDED_RANDOM, PRELUDE, m.code], { type: 'text/javascript' }));
 				warm = m.spare === true;
 				spare = fresh();
@@ -65,10 +90,19 @@ export function frameWindow(frame: El) {
 			if (!url || !m) return;
 			if (m.op === 'leave') {
 				rooms.get(m.room)?.terminate();
+				ended(rooms.get(m.room));
 				rooms.delete(m.room);
 				return;
 			}
 			if (m.op !== 'job') return;
+			let key: string | undefined;
+			// a build is its recipe, its values and its engine, whole: one built before is answered as it was then
+			if (m.job.op === 'build') {
+				const { id, ...asked } = m.job;
+				key = keyOf(code, JSON.stringify(asked));
+				const data = kept.get(key);
+				if (data !== undefined) return toPage([{ ...(data as object), id }, m.room]);
+			}
 			let w = rooms.get(m.room);
 			if (!w) {
 				w = spare ?? fresh();
@@ -76,12 +110,17 @@ export function frameWindow(frame: El) {
 				rooms.set(m.room, w);
 				roomOf.set(w, m.room);
 			}
+			if (key) {
+				const held = {};
+				building.set(m.job.id, { key, w, held });
+				atWork.add(held);
+			}
 			w.postMessage(m.job);
 		}, 0);
 	};
 	const remove = frame.remove.bind(frame);
 	frame.remove = () => {
-		for (const w of rooms.values()) w.terminate();
+		for (const w of rooms.values()) w.terminate(), ended(w);
 		spare?.terminate();
 		rooms.clear();
 		remove();

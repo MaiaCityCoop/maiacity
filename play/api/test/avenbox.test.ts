@@ -239,6 +239,45 @@ describe("avenBOX's runner: its modes", () => {
     expect(calls.map((x) => x.name)).toEqual(["check_intent"]);
   });
 
+  // intent ba948167: the checks that measure on a real GPU run on GitHub's macOS runner (--gpu), and their results take
+  // the place of the box's refusals (--over … --with …) only when they are of the same intent and commit
+  test("--gpu runs only the checks whose run names gpu.ts; --over takes their results in place of the box's, of the same intent and commit only", async () => {
+    calls.length = 0;
+    const spec = { intent: { id: ID, stage: "build", title: "The box" }, checks: [
+      { id: "c1", check: "it passes", how: "test", by: "true", run: "true", must: true },
+      { id: "c2", check: "the world is shown", how: "measure", by: "gpu.ts", run: "echo bun play/site/scripts/gpu.ts --world /sandbox-5/ && echo measured on Metal", must: true },
+    ] };
+    writeFileSync(join(dir, "gpu-spec.json"), JSON.stringify(spec));
+    const tokenless = { PLAY_MCP_TOKEN: undefined, GITHUB_ACTIONS: "true" };
+    const g = await run(["--from", join(dir, "gpu-spec.json"), "--gpu", "--results-out", join(dir, "gpu.json"), "--root", root], tokenless);
+    expect(g.code).toBe(0);
+    const gpu = JSON.parse(readFileSync(join(dir, "gpu.json"), "utf8"));
+    expect(gpu.results.map((x: any) => x.check)).toEqual(["c2"]);
+    expect(gpu.results[0].evidence).toMatch(/measured on Metal$/);
+    // the box's own results: c2 refused there (no GPU), failed
+    const box = { ...gpu, results: [{ check: "c1", how: "test", must: true, pass: true, code: 0, evidence: "ok" }, { check: "c2", how: "measure", must: true, pass: false, code: 1, evidence: "gpu: no GPU here" }] };
+    const boxAt = join(dir, "box.json");
+    const merged = () => JSON.parse(readFileSync(boxAt, "utf8")).results.map((x: any) => [x.check, x.pass]);
+    writeFileSync(boxAt, JSON.stringify(box));
+    const over = await run(["--over", boxAt, "--with", join(dir, "gpu.json")], tokenless);
+    expect([over.code, over.out.trim()]).toEqual([0, "measured on the GPU runner: c2"]);
+    expect(merged()).toEqual([["c1", true], ["c2", true]]);
+    // results of another commit, of another intent, or none at all: the refusal stands
+    for (const [name, other] of [["commit", { ...gpu, commit: "f".repeat(40) }], ["intent", { ...gpu, intent: crypto.randomUUID() }]] as const) {
+      writeFileSync(boxAt, JSON.stringify(box));
+      writeFileSync(join(dir, `gpu-other-${name}.json`), JSON.stringify(other));
+      const r = await run(["--over", boxAt, "--with", join(dir, `gpu-other-${name}.json`)], tokenless);
+      expect(r.code).toBe(0);
+      expect(r.out).toContain("left out");
+      expect(merged()).toEqual([["c1", true], ["c2", false]]);
+    }
+    const none = await run(["--over", boxAt, "--with", join(dir, "no-such.json")], tokenless);
+    expect(none.code).toBe(0);
+    expect(none.out).toContain("the GPU job gave none");
+    expect(merged()).toEqual([["c1", true], ["c2", false]]);
+    expect(calls).toEqual([]);
+  });
+
   test("without --record it runs and prints and records nothing; --record outside the GitHub run refuses", async () => {
     calls.length = 0;
     const dry = await run([ID, "--root", root]);

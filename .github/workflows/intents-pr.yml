@@ -8,18 +8,29 @@
 # main-merge) cancels the older head's run, which records nothing (play/api/src/ship.ts).
 #
 # Only the box's run is evidence: on pull_request_target this file is main's, and so is the intent.ts that holds a
-# token. Five jobs; main and run side by side once spec is done (intent 006eb26a: about 3 minutes, not 6 to 12):
+# token. Six jobs; main, run and gpu side by side once spec is done (intent 006eb26a: about 3 minutes, not 6 to 12):
 #   spec     main's pr-intent.ts and intent.ts, with avenBOX's token (PLAY_MCP_TOKEN): which intent, and its spec
 #   main     main's measures (intents f63774a3, 006eb26a): no secret. Main is the merge base of main and the head (GitHub's
 #            compare: no history fetched), checked out alone at depth 1, sparse (the paths vs-main measures); main's
 #            vs-main.ts measures it for every vs-main call in the spec, kept in GitHub's cache by what those calls read
-#            (so main is measured again only when that changed)
+#            (so main is measured again only when that changed); what its census builds is kept too (census/kept.ts,
+#            intent 629840f2), saved here and nowhere else
 #   run      the pull request's head, checked out without credentials, no secret, a read-only GITHUB_TOKEN: main's
 #            intent.ts (handed over by spec) runs the spec's checks there and writes their results; a vs-main call
-#            measures the head only (VS_MAIN_HEAD_OUT), its bound decided by compare
+#            measures the head only (VS_MAIN_HEAD_OUT), its bound decided by compare; its census reads main's kept
+#            builds and builds only what the head changed
+#   gpu      only when a check's run names play/site/scripts/gpu.ts (intent ba948167): the head as in run (no
+#            credentials, no secret, a read-only GITHUB_TOKEN) on GitHub's macOS 26 runner, Apple silicon and Metal, where
+#            main's intent.ts runs those checks alone (--gpu): a world's look, its time to the world and its frame time
+#            in Chromium and WebKit, from pinned inputs. The box has no GPU and refuses them (failed, saying so);
+#            compare puts the runner's results in their place
 #   compare  main's vs-main.ts, no secret: each of the head's vs-main calls against main's measures, into its check's
 #            result and evidence (--fold), once both are measured; nothing is recorded before it
-#   record   main's intent.ts, with avenBOX's token: records the results (only if they ran on the head), skipped if cancelled
+#   record   main's intent.ts, with avenBOX's token: records the results (only if they ran on the head, and the head is
+#            still the pull request's: main's pr-intent.ts --head asks GitHub), skipped if cancelled
+# A re-run records as a first run does (intent 090ef921), the whole run or its failed jobs alone: an artifact GitHub
+# does not list at once is downloaded once more after a wait, on any attempt; a re-run of an older head's run (it
+# carries its first event's head) stops in spec, and records nothing.
 # Heads in this repository only: a fork's pull request runs nothing here.
 # workflow_dispatch (a pull request's number) is a dry run of this file and the branch's own vs-main.ts and intent.ts
 # as dispatched, to time it before it is main's (`intent`: another intent's spec on that head, e.g. one with a census):
@@ -59,6 +70,7 @@ jobs:
     outputs:
       intent: ${{ steps.which.outputs.intent }}
       head: ${{ steps.which.outputs.head }}
+      gpu: ${{ steps.which.outputs.gpu }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -89,9 +101,13 @@ jobs:
           [ "$DRY" != true ] || HEAD_SHA=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .head.sha)
           [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no head for pull request $PR"; exit 1; }
           echo "head=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          # a re-run carries its first event's head: a run of a head that is no longer the pull request's stops here
+          [ "$DRY" = true ] || bun play/avenbox/pr-intent.ts "$PR" --head "$HEAD_SHA"
           mkdir -p "$RUNNER_TEMP/box"
           bun play/avenbox/intent.ts "$intent" --spec-out "$RUNNER_TEMP/box/spec.json"
           cp play/avenbox/intent.ts play/avenbox/play.ts play/avenbox/box.env "$RUNNER_TEMP/box/"
+          # a check that measures on a real GPU runs the one script that does: the gpu job runs only then
+          ! jq -e '[.checks[].run // ""] | any(test("\\bbun\\s+(\\S*/)?scripts/gpu\\.ts\\b"))' "$RUNNER_TEMP/box/spec.json" > /dev/null || echo "gpu=true" >> "$GITHUB_OUTPUT"
           # a dry run hands over the dispatched branch's intent.ts (and what it reads beside it), read with git show, never run here
           if [ "$DRY" = true ]; then git fetch --quiet --depth=1 origin "$GITHUB_SHA" && git show "$GITHUB_SHA:play/avenbox/intent.ts" > "$RUNNER_TEMP/box/intent.ts" && git show "$GITHUB_SHA:play/avenbox/play.ts" > "$RUNNER_TEMP/box/play.ts" && git show "$GITHUB_SHA:play/avenbox/box.env" > "$RUNNER_TEMP/box/box.env"; fi
       - uses: actions/upload-artifact@v4
@@ -108,7 +124,19 @@ jobs:
     permissions:
       contents: read
     steps:
+      # GitHub does not always list an artifact in the seconds after its upload (intent 090ef921: runs 42823521975,
+      # 42824884700): each one handed over is downloaded once, and once more after a wait, which decides
+      - id: spec_main
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: box-spec
+          path: ${{ runner.temp }}/box
+      - name: box-spec, not found, once more after a wait
+        if: steps.spec_main.outcome == 'failure'
+        run: sleep 60
       - uses: actions/download-artifact@v4
+        if: steps.spec_main.outcome == 'failure'
         with:
           name: box-spec
           path: ${{ runner.temp }}/box
@@ -147,7 +175,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         if: steps.base.outputs.base
         with:
-          bun-version: 1.4.4
+          bun-version-file: code/.bun-version
       - name: The cache's key, by what the calls read at main
         id: key
         if: steps.base.outputs.base
@@ -162,14 +190,33 @@ jobs:
           path: ${{ runner.temp }}/vs-main-cache
           key: vs-main-${{ steps.key.outputs.key }}
           restore-keys: vs-main-
+      # what main's census builds, kept by the hash of its code and its question (play/site/scripts/census/kept.ts; intent
+      # 629840f2): the newest store read, and saved again only when main's measure built something new
+      - uses: actions/cache/restore@v4
+        if: steps.base.outputs.base
+        with:
+          path: ${{ runner.temp }}/census-cache/kept
+          key: census-kept-${{ github.run_id }}
+          restore-keys: census-kept-
       - name: Main measured in its own checkout, or read from the cache (main's vs-main.ts)
+        id: measure
         if: steps.base.outputs.base
         env:
           VS_MAIN_CACHE: ${{ runner.temp }}/vs-main-cache
+          CENSUS_CACHE: ${{ runner.temp }}/census-cache
           BASE: ${{ steps.base.outputs.base }}
         run: |
+          kept() { find "$CENSUS_CACHE/kept" -type f 2> /dev/null | sort | sha256sum | cut -c1-24; }
+          before=$(kept)
           (cd base/play/site && bun install --frozen-lockfile > /dev/null)
           bun code/play/avenbox/vs-main.ts --main-of "$RUNNER_TEMP/box/spec.json" --main "$BASE" --repo base --out "$RUNNER_TEMP/vs-main/main.json"
+          bun code/play/site/scripts/census/kept.ts --trim 14 "$CENSUS_CACHE/kept"
+          [ "$(kept)" = "$before" ] || echo "kept=$(kept)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/save@v4
+        if: steps.measure.outputs.kept
+        with:
+          path: ${{ runner.temp }}/census-cache/kept
+          key: census-kept-${{ steps.measure.outputs.kept }}
       - name: Nothing to measure
         if: "!steps.base.outputs.base"
         run: mkdir -p "$RUNNER_TEMP/vs-main" && echo '{"side":"main","sha":null,"measures":{}}' > "$RUNNER_TEMP/vs-main/main.json"
@@ -193,7 +240,17 @@ jobs:
         with:
           ref: ${{ needs.spec.outputs.head }}
           persist-credentials: false
+      - id: spec_run
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: box-spec
+          path: ${{ runner.temp }}/box
+      - name: box-spec, not found, once more after a wait
+        if: steps.spec_run.outcome == 'failure'
+        run: sleep 60
       - uses: actions/download-artifact@v4
+        if: steps.spec_run.outcome == 'failure'
         with:
           name: box-spec
           path: ${{ runner.temp }}/box
@@ -211,9 +268,22 @@ jobs:
           docker exec postgres pg_isready -h 127.0.0.1 -U postgres
       - name: avenBOX (play/avenbox/setup.sh)
         run: sudo env "PATH=$PATH" bash play/avenbox/setup.sh
+      # main's kept builds, read and never written here (intent 629840f2): what the head's census shares with main's is
+      # not built again; only a spec that counts a world fetches them
+      - name: Whether the spec counts a world
+        id: census
+        run: |
+          if grep -q census "$RUNNER_TEMP/box/spec.json"; then echo "counted=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/cache/restore@v4
+        if: steps.census.outputs.counted
+        with:
+          path: ${{ runner.temp }}/census-cache/kept
+          key: census-kept-${{ github.run_id }}
+          restore-keys: census-kept-
       - name: The intent's checks on the head (no token)
         env:
           VS_MAIN_HEAD_OUT: ${{ runner.temp }}/vs-head
+          CENSUS_CACHE: ${{ runner.temp }}/census-cache
         run: |
           mkdir -p "$RUNNER_TEMP/results" "$RUNNER_TEMP/vs-head" && touch "$RUNNER_TEMP/vs-head/.none"
           bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --results-out "$RUNNER_TEMP/results/results.json" --root "$GITHUB_WORKSPACE" || echo "a must check failed: recorded as it ran"
@@ -229,9 +299,63 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
+  gpu:
+    name: the checks on a GPU
+    # beside the box's checks, and only when the spec asks for a GPU: GitHub's macOS runner (Apple silicon, Metal)
+    needs: spec
+    if: "!cancelled() && needs.spec.result == 'success' && needs.spec.outputs.gpu == 'true'"
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.spec.outputs.head }}
+          persist-credentials: false
+      - id: spec_gpu
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: box-spec
+          path: ${{ runner.temp }}/box
+      - name: box-spec, not found, once more after a wait
+        if: steps.spec_gpu.outcome == 'failure'
+        run: sleep 60
+      - uses: actions/download-artifact@v4
+        if: steps.spec_gpu.outcome == 'failure'
+        with:
+          name: box-spec
+          path: ${{ runner.temp }}/box
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - name: The site's dependencies, its browsers and its build
+        working-directory: play/site
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install chromium webkit
+          bun run build
+      - name: The intent's GPU checks on the head (no token)
+        env:
+          GPU_OUT: ${{ runner.temp }}/gpu-pictures
+        run: |
+          mkdir -p "$RUNNER_TEMP/gpu-results" "$GPU_OUT"
+          bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --gpu --no-up --results-out "$RUNNER_TEMP/gpu-results/results.json" --root "$GITHUB_WORKSPACE" || echo "a must check failed: recorded as it ran"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gpu-results
+          path: ${{ runner.temp }}/gpu-results/results.json
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gpu-pictures
+          path: ${{ runner.temp }}/gpu-pictures
+          retention-days: 30
+
   compare:
     name: main and the head compared
-    needs: [spec, main, run]
+    needs: [spec, main, run, gpu]
     # main's measures failing fails each check that needed them, saying so; the head's checks failing records them
     if: "!cancelled() && needs.run.result == 'success'"
     runs-on: ubuntu-24.04
@@ -248,20 +372,69 @@ jobs:
             play/site/scripts/census
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.4
-      - uses: actions/download-artifact@v4
+          bun-version-file: .bun-version
+      - id: results
+        uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: box-results
           path: ${{ runner.temp }}/results
+      - name: box-results, not found, once more after a wait
+        if: steps.results.outcome == 'failure'
+        run: sleep 60
       - uses: actions/download-artifact@v4
+        if: steps.results.outcome == 'failure'
+        with:
+          name: box-results
+          path: ${{ runner.temp }}/results
+      - id: heads
+        uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: vs-head
           path: ${{ runner.temp }}/vs-head
+      - name: vs-head, not found, once more after a wait
+        if: steps.heads.outcome == 'failure'
+        run: sleep 60
       - uses: actions/download-artifact@v4
+        if: steps.heads.outcome == 'failure'
+        with:
+          name: vs-head
+          path: ${{ runner.temp }}/vs-head
+      - id: measures
+        uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: vs-main
           path: ${{ runner.temp }}/vs-main
+      - name: vs-main, not found, once more after a wait
+        if: steps.measures.outcome == 'failure' && needs.main.result == 'success'
+        run: sleep 60
+      - uses: actions/download-artifact@v4
+        if: steps.measures.outcome == 'failure' && needs.main.result == 'success'
+        continue-on-error: true
+        with:
+          name: vs-main
+          path: ${{ runner.temp }}/vs-main
+      - id: gpu_results
+        uses: actions/download-artifact@v4
+        if: needs.spec.outputs.gpu == 'true'
+        continue-on-error: true
+        with:
+          name: gpu-results
+          path: ${{ runner.temp }}/gpu-results
+      - name: gpu-results, not found, once more after a wait
+        if: steps.gpu_results.outcome == 'failure' && needs.gpu.result == 'success'
+        run: sleep 60
+      - uses: actions/download-artifact@v4
+        if: steps.gpu_results.outcome == 'failure' && needs.gpu.result == 'success'
+        continue-on-error: true
+        with:
+          name: gpu-results
+          path: ${{ runner.temp }}/gpu-results
+      - name: The GPU runner's results in place of the box's refusals (main's intent.ts, no token)
+        if: needs.spec.outputs.gpu == 'true'
+        run: bun play/avenbox/intent.ts --over "$RUNNER_TEMP/results/results.json" --with "$RUNNER_TEMP/gpu-results/results.json"
       - name: The head's vs-main calls against main's measures, into their checks (main's vs-main.ts, no token)
         run: bun play/avenbox/vs-main.ts --fold "$RUNNER_TEMP/results/results.json" --main-values "$RUNNER_TEMP/vs-main/main.json" --heads "$RUNNER_TEMP/vs-head" --out "$RUNNER_TEMP/compared/results.json"
       - uses: actions/upload-artifact@v4
@@ -279,27 +452,44 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-          sparse-checkout: play/avenbox
+          # pr-intent.ts reads the trailers' one definition beside the box's scripts
+          sparse-checkout: |
+            play/avenbox
+            play/api/src/kit
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
-      - uses: actions/download-artifact@v4
+      - id: compared
+        uses: actions/download-artifact@v4
         if: needs.compare.result == 'success'
+        continue-on-error: true
+        with:
+          name: box-compared
+          path: ${{ runner.temp }}/results
+      - name: box-compared, not found, once more after a wait
+        if: steps.compared.outcome == 'failure'
+        run: sleep 60
+      - uses: actions/download-artifact@v4
+        if: steps.compared.outcome == 'failure'
         with:
           name: box-compared
           path: ${{ runner.temp }}/results
       - name: The results, recorded with the head, this run's link and the pull request (main's code, avenBOX's token)
         id: recorded
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           PLAY_MCP_TOKEN: ${{ secrets.PLAY_MCP_TOKEN }}
           PR: ${{ github.event.pull_request.number }}
           HEAD: ${{ needs.spec.outputs.head }}
           INTENT: ${{ needs.spec.outputs.intent }}
         run: |
           [ -f "$RUNNER_TEMP/results/results.json" ] || { echo "::error::The checks did not run to the end: nothing recorded"; exit 1; }
+          # only the pull request's head is recorded: a re-run of an older head's run (its jobs, or this one alone) records nothing
+          bun play/avenbox/pr-intent.ts "$PR" --head "$HEAD"
           bun play/avenbox/intent.ts "$INTENT" --record-from "$RUNNER_TEMP/results/results.json" --pr "$PR" --head "$HEAD"

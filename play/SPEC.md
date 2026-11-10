@@ -690,26 +690,34 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     **draft**, and the agent tests itself anywhere, untrusted: `bash play/avenbox/gate.sh`, and `bun
     play/avenbox/intent.ts <uuid>`, which runs and prints the checks and records nothing (`--record` refuses outside a
     GitHub run). **Marking it ready for review** runs **`.github/workflows/intents-pr.yml`** (*intents on pull
-    requests*): the intent's checks in avenBOX on GitHub (`play/avenbox/setup.sh`, PostgreSQL 17, bun 1.4.4) on the
+    requests*): the intent's checks in avenBOX on GitHub (`play/avenbox/setup.sh`, PostgreSQL 17, bun as `.bun-version` names it) on the
     pull request's head, recorded on the intent with that head, the run's link and `pr` (so it becomes the active pull
     request). Every must green: the intent moves to Proposal. Any must red: it stays in (or goes back to) Build with
     the failures, failed on the board, its pull request as it is: fix and push. Each new push to a ready pull request
     runs and records again on the new head, so Accept queues only a head every must passed on (`ship.ts`); the older head's run is cancelled (`concurrency`) and its record skipped
     (`!cancelled()`): it records nothing and is not red. Looks are still judged and recorded by hand (`check_intent`).
   - **Only the box's run is evidence.** intents-pr.yml runs on `pull_request_target`, for heads in this repository
-    only, in five jobs, **main** and **run** side by side once **spec** is done, so a run with a Sandbox 1 census
+    only, in five jobs (a sixth, **gpu**, where a check measures a world on a real GPU: below), **main** and **run** side by side once **spec** is done, so a run with a Sandbox 1 census
     takes about 3 minutes, not 6 to 12 (intent 006eb26a): **spec** (main's `pr-intent.ts --id` and `intent.ts <uuid>
     --spec-out`, with avenBOX's token), **main** (main's measures, no secret: the merge base from GitHub's compare,
     checked out alone at depth 1 and sparse, measured by main's `play/avenbox/vs-main.ts --main-of <spec>` for every
     vs-main call in the spec, kept in GitHub's cache by the git objects of what those calls read, so a main that leaves
-    them as they are is not measured again), **run** (the head checked out with `persist-credentials: false`, no secret
+    them as they are is not measured again; what a census builds, each kind and each lower level, is kept under the hash
+    of its code and its question, `play/site/scripts/census/kept.ts`, and that store is saved to GitHub's cache here
+    and nowhere else, so a world is built once and only what a change touches again: intent 629840f2), **run** (the
+    head checked out with `persist-credentials: false`, no secret
     and a read-only `GITHUB_TOKEN`; main's intent.ts, handed over by spec, runs the spec's checks with `--from <spec>
     --results-out <file> --root <head>`; a vs-main call there measures the head only, `VS_MAIN_HEAD_OUT`, kept for
-    its check), **compare** (main's `vs-main.ts --fold`, no secret: once both sides are measured, each of the head's
+    its check; a spec that counts a world reads main's kept builds, and never saves any), **compare** (main's `vs-main.ts --fold`, no secret: once both sides are measured, each of the head's
     calls against main's measure, into its check's result and evidence; main's measure missing fails that check,
     saying so) and **record** (main's `intent.ts <uuid> --record-from <compared results> --pr <n> --head <sha>`, with
-    avenBOX's token, refusing results of another intent or another commit; `contents: read` only, skipped when the run
-    is cancelled). Nothing is recorded before the comparison. The workflow and the intent.ts that hold a token are
+    avenBOX's token, refusing results of another intent or another commit; its `GITHUB_TOKEN` read only, skipped when
+    the run is cancelled). Nothing is recorded before the comparison. **A re-run records as a first run does** (intent
+    090ef921), the whole run or its failed jobs alone: an artifact one job hands the next is downloaded once, and once
+    more after a minute if GitHub does not list it yet (it does not always, seconds after the upload, on any attempt);
+    and since a re-run carries its first event's head, spec and record first ask GitHub for the pull request's head
+    (main's `pr-intent.ts <n> --head <sha>`): a run of a head that is no longer the pull request's is red saying so
+    and records nothing. The workflow and the intent.ts that hold a token are
     always main's; a `workflow_dispatch` with a pull request's number is a dry run of a branch's own file, recording
     nothing. **avenBOX's token** is an admin's access token marked so on
     play's profile page (`play.api_tokens.avenbox`, migration `202611070145-4ea6b2ed-avenbox-token`; `POST /api/tokens/<id>/avenbox`), the repository
@@ -717,6 +725,34 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     `check_intent` refuses a pull request named and every test or measure result that could decide a code intent (on a
     commit, on main, or once its pull request is named), saying the pull request's run records them; a result recorded
     by the box is marked `box` with its run's `link`. Work of play's own (no pull request, no commit) records as before.
+  - **A world is measured on a real GPU** (Samuel 2026-11-10; intent `ba948167-de4e-4ca0-b8f5-d65fe3847f5b`). The
+    box has no GPU: its software renderer took 239 s to a world a GPU shows in seconds, ended Sandbox 1 white and
+    lost WebGPU's device, so nothing that needs a GPU (a world's or an asset's look, its time to the world, its frame
+    time) is decided there. A check asks for the measure by its `run`, the one script
+    **`bun play/site/scripts/gpu.ts --world <route> [--world-within <s>] [--frame-within <ms>] [--browser
+    chromium,webkit]`**: the site's build served as play serves it, `/api` answered from the pinned inputs
+    (`play/site/scripts/census/pinned.ts`: no token, no network; `--record` pins what a new world reads, its sound
+    never), the page opened in Chromium and in WebKit (Safari's engine); it prints, a browser, the adapter, what the
+    page drew with, the seconds to the world and until it settled, the frame meter's frame (its CPU and GPU ms, draws
+    and triangles) and how much of the screenshot is painted, and exits 0 only when the world is shown in every
+    browser, the device was never lost and each bound given holds. Where there is no GPU it measures nothing and
+    fails, saying so (`--software` only for the script's own plumbing). On the pull request, intents-pr.yml's sixth
+    job **gpu** runs those checks alone (main's `intent.ts --from <spec> --gpu`: the checks whose `run` names
+    `scripts/gpu.ts`) on GitHub's macOS runner (`macos-26`: Apple silicon, Metal; free for this public repository),
+    beside **main** and **run** and as untrusted as **run** (the head without credentials, no secret, a read-only
+    `GITHUB_TOKEN`), only when the spec has such a check; the box refuses the same checks, and **compare** puts the
+    runner's results in their place (`intent.ts --over <box results> --with <gpu results>`, of the same intent and
+    commit only) before anything is recorded, so a gpu job that gave nothing leaves them failed, saying why. Its
+    screenshots are the run's artifact `gpu-pictures`, the run's link in the evidence. **What it decides is the
+    look** (the probe, pull request #2246: Chromium there draws Sandbox 5 whole with WebGPU on Metal, adapter `apple`,
+    the device held, 98 % of the picture painted; WebKit 26.6 the same on macOS 26's runner, the first with WebGPU in
+    WebKit). **Its times are the runner's, not a Mac's**: a 3-core VM with a paravirtual GPU, 272 s (Chromium) and
+    396 s (WebKit) to Sandbox 5, nearly all of it the CPU growing the forest's 180 kinds, then 9 and 20 frames a
+    second; so a time bound there (`--world-within`, `--frame-within`) compares only with other runs on that runner,
+    and a Mac's own frame time is still Samuel's Mac's. The job's setup is half a minute, one world in one browser six
+    to seven. `--steps` prints what the cover said on the way, each step with its second. A builder gets the same
+    measure on a draft by a dry run (`workflow_dispatch` with the pull request's number). Main's re-run leaves these
+    checks out (`intent.ts --record --where main --no-gpu`): they were measured on the head.
   - **Dirty.** `.gitignore` ignores `.claude/settings.local.json`, the per-user file the Claude app writes; a dirty run
     names the files that made it dirty (`commit 1a2b…+dirty (a.ts, b.ts)`).
   - Later: work of play's own, proposed with `intent`, would dispatch the same box run on main's head.

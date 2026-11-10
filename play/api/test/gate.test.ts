@@ -2,7 +2,7 @@
 // tests that import a changed file or name it, all of them when it can't tell — its plan shown without running, and the
 // workflows' lint. CI and main always run everything (./workflows.test.ts holds that).
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { changedPaths, plan } from "../../avenbox/select";
@@ -133,5 +133,35 @@ describe("the workflows' lint", () => {
   test("lint: the gate plans it when a workflow file changed, and not otherwise", () => {
     expect(gate(["--plan"], ".github/workflows/main.yml").stdout.toString()).toContain("step lint");
     expect(gate(["--plan"], "play/api/src/rules.ts").stdout.toString()).not.toContain("step lint");
+  });
+});
+
+// A broken instrument is caught (intent 629840f2): one test of vs-main.ts failed on every pull request's head and no
+// suite ran it, and the census's own tests ran only when an intent's check named one.
+describe("the tools' own tests run in the gate", () => {
+  const tests = (dir: string) => readdirSync(join(ROOT, dir)).filter((f) => /\.test\.[jt]s$/.test(f)).sort();
+
+  test("tools: no test file is left where no suite runs it", () => {
+    // play/avenbox's tests are play/api/test's: the gate's api-tests, CI's job "API"
+    expect(tests("play/avenbox")).toEqual([]);
+    expect(tests("play/api/test")).toEqual(expect.arrayContaining(["gate.test.ts", "vsmain.test.ts", "workflows.test.ts"]));
+    // the census's are the site's suite's: *.bun.test.ts with Bun, cards.test.ts with vitest. The worlds' alone
+    // (census.test.ts: each test builds a world) run by name, as an intent's checks
+    const census = tests("play/site/scripts/census");
+    expect(census.filter((f) => !f.endsWith(".bun.test.ts"))).toEqual(["cards.test.ts", "census.test.ts"]);
+    expect(census).toEqual(expect.arrayContaining(["counting.bun.test.ts", "kept.bun.test.ts"]));
+    const scripts = JSON.parse(readFileSync(join(ROOT, "play/site/package.json"), "utf8")).scripts;
+    expect(scripts.test).toBe("bun run test:vitest && bun run test:bun");
+    expect(scripts["test:bun"]).toBe("bun test .bun.test.ts");
+    expect(readFileSync(join(ROOT, "play/site/vite.config.ts"), "utf8")).toContain("'scripts/census/cards.test.ts'");
+    // and no world is built in the suite: a census in a process of its own is census.test.ts's alone
+    for (const f of census.filter((f) => f.endsWith(".bun.test.ts"))) expect([f, /census\.ts['"`]/.test(readFileSync(join(ROOT, "play/site/scripts/census", f), "utf8"))]).toEqual([f, false]);
+  });
+
+  test("tools: a change to vs-main.ts or to the census picks their tests", () => {
+    expect(plan(ROOT, ["play/avenbox/vs-main.ts"]).tests).toContain("test/vsmain.test.ts");
+    expect(plan(ROOT, ["play/site/scripts/census/tree.ts"]).tests).toContain("test/vsmain.test.ts");
+    const census = plan(ROOT, ["play/site/scripts/census/kept.ts"]);
+    expect(census.steps).toEqual(expect.arrayContaining(["site-build", "site-tests"]));
   });
 });
