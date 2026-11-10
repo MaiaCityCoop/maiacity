@@ -30,6 +30,7 @@ import { flow, pond, shore, stream } from './water'
 import { createWorldRenderer, worldFinish } from '$lib/content/render/world.js'
 import { createSky, SUN } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
+import { castBySize } from '$lib/content/sandbox-kit/casters.js'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
 import { createStream, type View } from '$lib/content/sandbox-kit/stream.js'
@@ -1132,8 +1133,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	await pause('Planting the edges')
 	// Sandbox 5: a little way out on the path to the building's south gate
 	const start = solo ? new THREE.Vector3(soloFoot.x, 0, soloFoot.z - soloFoot.ext - 18) : doorPoint(master, Math.PI, 10)
-	/** the ground's map: shade under the crowns that really stand (the garden's and the forest beyond, each as wide as
-	 *  its kind once that is built), wet beside the paths and the water and in the hollows */
+	/** the ground's map: shade under the crowns that stand (each as wide as its kind, once built), wet by the paths, the water and in the hollows */
 	let shaded: THREE.Texture | null = null
 	const shade = () => {
 		if (!ground || !flora) return
@@ -1146,8 +1146,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	}
 	if (forest) {
 		await plantGarden()
-		// the kinds standing near the start built (in the asset box, side by side): the world shows, and the others grow
-		// in behind it, nearest first (./flora.js `grown`)
+		// the kinds standing near the start built (in the asset box, side by side); the others grow in behind (./flora.js)
 		await forest.grown((done, of) => {
 			if (done === of || done % 10 === 0) onProgress(`Growing the forest: ${done} of ${of} kinds`)
 		}, { x: start.x, z: start.z, dx: 0, dz: 1 })
@@ -1558,7 +1557,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 				herdShadows = now
 				shadowsStale = true
 			}
-			if (shadowsStale) {
+			// (and when what is too small to read as a shadow from here stopped casting one, or casts again: ../../sandbox-kit/casters.js)
+			if (castBySize(scene, camera) || shadowsStale) {
 				shadowsStale = false
 				renderer.shadowMap.needsUpdate = true
 			}
