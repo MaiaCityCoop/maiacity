@@ -12,7 +12,7 @@
  */
 import * as THREE from 'three';
 import { MRTNode, RenderPipeline } from 'three/webgpu';
-import { abs, all, texture, uv, vec3, pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample, screenUV, velocity, builtinAOContext, convertToTexture, int } from 'three/tsl';
+import { abs, all, texture, uv, vec3, pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, float, uint, uniform, vec4, mix, select, floatBitsToUint, renderOutput, sample, screenUV, velocity, builtinAOContext, convertToTexture, int, context } from 'three/tsl';
 import { ssao } from 'three/addons/tsl/display/SSAONode.js';
 import { traa } from 'three/addons/tsl/display/TRAANode.js';
 import { taau } from 'three/addons/tsl/display/TAAUNode.js';
@@ -222,23 +222,37 @@ export function createFinish(renderer, scene, camera, plan, o = {}) {
 		aoNode.radius.value = plan.ao.radius;
 		aoNode.intensity.value = plan.ao.intensity;
 		pd = denoise(aoNode.getTextureNode(), depth, normal, camera);
-		// drawn to its own texture, read by every lit fragment at its pixel
-		scenePass.contextNode = builtinAOContext(convertToTexture(pd).sample(screenUV).r);
 	}
 	let color = scenePass.getTextureNode('output');
 	/** @type {THREE.DirectionalLight | null} the sun as a light with a target (three's SunLight has none: it shines to the origin) */
 	let key = null;
-	if (plan.contact && o.sun) {
+	/** @type {any} the contact shadows, blurred, read by the sun's light as the scene is lit */
+	let shade = null;
+	// from the prepass's depth (the scene before it is lit), so they darken the sun's light alone and nothing
+	// see-through: laid over the finished picture they streaked a pond with the bed beneath it (avenBOX's Sandbox 1)
+	if (plan.contact && o.sun && prepass) {
 		key = /** @type {any} */ (o.sun).target ? /** @type {THREE.DirectionalLight} */ (o.sun) : new THREE.DirectionalLight();
-		contact = sss(scenePass.getTextureNode('depth'), camera, key);
+		contact = sss(prepass.getTextureNode('depth'), camera, key);
 		contact.resolutionScale = plan.contact.scale;
 		contact.maxDistance.value = plan.contact.maxDistance;
 		contact.thickness.value = plan.contact.thickness;
 		contact.shadowIntensity.value = plan.contact.intensity;
 		// blurred before it is laid on (three's advice: unblurred, at half resolution, it speckles foliage and streaks
 		// beside thin blades, as avenBOX's screenshots of the old city showed)
-		const shade = convertToTexture(boxBlur(contact.getTextureNode(), { size: int(2), separation: int(1) }));
-		color = vec4(color.rgb.mul(shade.sample(screenUV).r), color.a);
+		shade = convertToTexture(boxBlur(contact.getTextureNode(), { size: int(2), separation: int(1) }));
+	}
+	// the lighting's context: the occlusion on the ambient light, the contact shadows on the sun's, each read at its
+	// pixel; neither on a see-through material (three's builtinAOContext and builtinShadowContext, merged)
+	if (pd || shade) {
+		const aoAt = pd ? convertToTexture(pd).sample(screenUV).r : null;
+		const shadeAt = shade ? shade.sample(screenUV).r : null;
+		/** @type {Record<string, any>} */
+		const lit = {};
+		if (aoAt) lit.getAO = (/** @type {any} */ input, /** @type {any} */ { material }) => (material.transparent === true ? input : input !== null ? input.mul(aoAt) : aoAt);
+		if (shadeAt)
+			lit.getShadow = (/** @type {any} */ lightNode, /** @type {any} */ builder) =>
+				lightNode.light === o.sun && builder.material?.transparent !== true ? lightNode.shadowColorNode.mul(shadeAt) : lightNode.shadowColorNode;
+		scenePass.contextNode = context(lit);
 	}
 	// what is not a number stops here, before anything blurs it over the frame
 	color = finite(color);

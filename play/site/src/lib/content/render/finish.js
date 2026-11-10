@@ -140,7 +140,8 @@ export function withDrops(p, spec) {
  * @param {Plan} p @returns {Plan}
  */
 export function onFallback(p) {
-	if (p.film) return { ...p, ao: null };
-	return { ...p, ao: null, aa: 'msaa', samples: 4, jitter: false, scale: 1, upscale: null };
+	// no AO, so no prepass: the contact shadows, read from the prepass's depth, go with it
+	if (p.film) return { ...p, ao: null, contact: null };
+	return { ...p, ao: null, contact: null, aa: 'msaa', samples: 4, jitter: false, scale: 1, upscale: null };
 }
 

@@ -168,7 +168,8 @@ describe('the finishing plan', () => {
 		expect(p.aa).toBe('msaa');
 		expect(p.jitter).toBe(false);
 		expect(p.bloom).not.toBeNull();
-		expect(p.contact).not.toBeNull();
+		// the contact shadows are read from the AO's prepass: with no AO, none (laid over the picture they streaked water)
+		expect(p.contact).toBeNull();
 		expect(p.grade).toEqual(WORLD);
 		const s = onFallback(finishing({ device: 'small' }));
 		expect(s.scale).toBe(1);
@@ -272,6 +273,9 @@ describe('the world’s finishing on WebGPU', () => {
 		expect(f.nodes.prepass).toBeTruthy();
 		expect(f.nodes.scene.contextNode).toBeTruthy();
 		expect(f.nodes.contact).toBeTruthy();
+		// the occlusion and the contact shadows read in the lighting (the ambient light's, the sun's), not over the picture
+		expect(typeof f.nodes.scene.contextNode?.value?.getAO).toBe('function');
+		expect(typeof f.nodes.scene.contextNode?.value?.getShadow).toBe('function');
 		expect(f.nodes.aa?.isTRAANode).toBe(true);
 		expect(f.nodes.bloom).toBeTruthy();
 		expect(f.pipeline.outputColorTransform).toBe(false);
