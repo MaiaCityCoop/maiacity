@@ -28,6 +28,7 @@ import { skyHour, skyTime } from './skyTime.svelte.js';
 import { budget } from '../render/budget.js';
 import { isWebGPU, ready, setExposure, tonemap, untonemap } from '../render/core.js';
 import { CubeRenderTarget } from 'three/webgpu';
+import { SUN as GRAPH_SUN } from '../render/nodes/graph.js';
 
 /**
  * @typedef {{ hour: number, e: number, day: number, low: number, night: number }} SkyLight
@@ -343,6 +344,8 @@ vec3 skyHorizon(vec3 dir) {
 		universe.set(view);
 		envSky.set(view);
 		sunDir.copy(l.dir);
+		// the sun every asset's own look may read (a graph's `sun`, ../render/nodes/graph.js)
+		GRAPH_SUN.value.copy(l.dir);
 		sun.position.copy(l.from);
 		sun.color.copy(l.sun.color);
 		// under a mood's lid (an overcast, a smog) the sun is a smear: most of the light comes from the sky
