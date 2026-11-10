@@ -30,9 +30,39 @@ export function fakeGitHub(o: { says?: (s: Says) => void } = {}) {
   const ROOT = "f".repeat(40);
   const graph = new Map<string, { parents: string[]; message: string; files?: string[]; at?: string }>([[ROOT, { parents: [], message: "the first commit", at: new Date(0).toISOString() }]]);
   const main = { head: ROOT };
-  /** each pull request's changed paths (GET /pulls/<n>/files); update-branch refused with `updateRefused` where set */
+  /** each pull request's changed paths (GET /pulls/<n>/files) */
   const pullFiles = new Map<number, string[]>();
-  let updateRefused: { status: number; message: string } | null = null;
+  /** main's merge queue (GraphQL): `on` once main's ruleset has one; its entries in order, each its group's commit once built */
+  const queue = { on: true, entries: [] as { pr: number; group: string | null; state: string }[], refuse: null as string | null };
+  /** why GitHub last removed a pull request from the queue (its timeline's RemovedFromMergeQueueEvent) */
+  const removed = new Map<number, { reason: string; at: string; group: string | null }>();
+  const gq = (data: unknown) => reply(200, { data });
+  const graphql = (query: string, v: Record<string, any>) => {
+    const entry = (e: (typeof queue.entries)[number], i: number) => ({ position: i + 1, state: e.state, headCommit: e.group ? { oid: e.group } : null, pullRequest: { number: e.pr } });
+    if (query.includes("query MergeQueue"))
+      return gq({ repository: { mergeQueue: queue.on ? { entries: { nodes: queue.entries.map(entry) } } : null } });
+    if (query.includes("mutation Enqueue")) {
+      const n = Number(`${v.pr}`.replace(/^PR_/, ""));
+      const pr = pulls.get(n);
+      if (!queue.on || queue.refuse || !pr) return reply(200, { errors: [{ message: queue.refuse ?? (pr ? "Merge queue is not enabled" : "Could not resolve to a node") }] });
+      if (v.head !== pr.head.sha) return reply(200, { errors: [{ message: "The pull request's head is not the expected head" }] });
+      if (!queue.entries.some((e) => e.pr === n)) queue.entries.push({ pr: n, group: null, state: "QUEUED" });
+      const i = queue.entries.findIndex((e) => e.pr === n);
+      return gq({ enqueuePullRequest: { mergeQueueEntry: { position: i + 1, state: "QUEUED" } } });
+    }
+    if (query.includes("query PullQueue")) {
+      const pr = pulls.get(v.n);
+      if (!pr) return gq({ repository: { pullRequest: null } });
+      const i = queue.entries.findIndex((e) => e.pr === v.n);
+      const r = removed.get(v.n);
+      return gq({ repository: { pullRequest: {
+        state: pr.merged ? "MERGED" : pr.state.toUpperCase(), merged: pr.merged, mergeCommit: pr.merge_commit_sha ? { oid: pr.merge_commit_sha } : null,
+        mergeQueueEntry: i >= 0 ? entry(queue.entries[i], i) : null,
+        timelineItems: { nodes: r ? [{ reason: r.reason, createdAt: r.at, beforeCommit: r.group ? { oid: r.group } : null }] : [] },
+      } } });
+    }
+    return reply(200, { errors: [{ message: `no such operation in the fake: ${query.slice(0, 40)}` }] });
+  };
   let made = 0xabc000;
   /** a commit of `message` on top of `parents` (main's head by default), main moved to it where `onMain`, changing `files` */
   const commit = (sha_: string, message: string, parents = [main.head], onMain = true, files: string[] = []) => {
@@ -84,7 +114,7 @@ export function fakeGitHub(o: { says?: (s: Says) => void } = {}) {
     const p = url.pathname.replace(`/repos/${REPO}`, "");
     const q = url.searchParams;
     let m: RegExpMatchArray | null;
-    if (method === "GET" && (m = p.match(/^\/pulls\/(\d+)$/))) return pulls.has(+m[1]) ? reply(200, pulls.get(+m[1])) : reply(404, { message: "Not Found" });
+    if (method === "GET" && (m = p.match(/^\/pulls\/(\d+)$/))) return pulls.has(+m[1]) ? reply(200, { node_id: `PR_${m[1]}`, ...pulls.get(+m[1]) }) : reply(404, { message: "Not Found" });
     if (method === "GET" && (m = p.match(/^\/commits\/([0-9a-f]{40})\/check-runs$/))) return reply(200, { check_runs: checks.get(m[1]) ?? [] });
     if (method === "GET" && (m = p.match(/^\/commits\/([0-9a-f]{40})$/)))
       return graph.has(m[1]) ? reply(200, { sha: m[1], commit: { message: graph.get(m[1])!.message }, parents: graph.get(m[1])!.parents.map((x) => ({ sha: x })) }) : reply(422, { message: `No commit found for SHA: ${m[1]}` });
@@ -118,17 +148,7 @@ export function fakeGitHub(o: { says?: (s: Says) => void } = {}) {
       const page = Number(q.get("page") ?? 1);
       return reply(200, page === 1 ? (pullFiles.get(+m[1]) ?? []).map((filename) => ({ filename })) : []);
     }
-    if (method === "PUT" && (m = p.match(/^\/pulls\/(\d+)\/update-branch$/))) {
-      const pr = pulls.get(+m[1]);
-      if (!pr) return reply(404, { message: "Not Found" });
-      if (updateRefused) return reply(updateRefused.status, { message: updateRefused.message });
-      if (body.expected_head_sha !== pr.head.sha) return reply(422, { message: "expected head sha didn't match current head ref." });
-      // main merged into the branch: a merge commit, the branch's new head (its checks not run yet)
-      const merged = (++made).toString(16).padStart(40, "0");
-      commit(merged, `Merge branch 'main' into ${pr.head.ref}`, [pr.head.sha, main.head], false);
-      pr.head.sha = merged;
-      return reply(202, { message: "Updating pull request branch.", url: pr.html_url });
-    }
+    if (method === "POST" && p === "/graphql") return graphql(body.query as string, body.variables ?? {});
     if (method === "PUT" && (m = p.match(/^\/pulls\/(\d+)\/merge$/))) {
       if (mergeRefused) return reply(405, { message: mergeRefused });
       const pr = pulls.get(+m[1])!;
@@ -158,19 +178,49 @@ export function fakeGitHub(o: { says?: (s: Says) => void } = {}) {
     return reply(404, { message: `no route ${method} ${p}` });
   };
   return {
-    pulls, checks, runs, branchRuns, jobs, logs, calls, merges, graph, main, commit, pullFiles,
+    pulls, checks, runs, branchRuns, jobs, logs, calls, merges, graph, main, commit, pullFiles, queue, removed,
+    /** each queued pull request's merge group built: a commit of main and the entries up to it, its checks `runs` */
+    build: (runs: (sha: string) => any[] = () => []) => {
+      let base = main.head;
+      for (const e of queue.entries) {
+        e.group ??= commit((++made).toString(16).padStart(40, "0"), `merge group of #${e.pr}`, [base, pulls.get(e.pr)!.head.sha], false);
+        e.state = "AWAITING_CHECKS";
+        checks.set(e.group, runs(e.group));
+        base = e.group;
+      }
+    },
+    /**
+     * the queue's front `count` entries landed as one push: each pull request merged as its merge commit (`merges`, or a
+     * new one), in a chain on main, main fast-forwarded to the last (the batch's commit, returned)
+     */
+    land: (count = queue.entries.length) => {
+      for (const e of queue.entries.splice(0, count)) {
+        const pr = pulls.get(e.pr)!;
+        if (!graph.has(pr.head.sha)) commit(pr.head.sha, `${pr.title}\n\nIntent: (its branch)`, [main.head], false);
+        const made_ = merges.get(pr.number) ?? (++made).toString(16).padStart(40, "0");
+        commit(made_, `${pr.title} (#${pr.number})\n\n${pr.body ?? ""}`, [main.head, pr.head.sha]);
+        Object.assign(pr, { state: "closed", merged: true, merge_commit_sha: made_ });
+      }
+      return main.head;
+    },
+    /** a pull request GitHub removes from the queue, with its reason; the ones behind it rebuilt without it */
+    dequeue: (n: number, reason: string) => {
+      const i = queue.entries.findIndex((e) => e.pr === n);
+      const [e] = queue.entries.splice(i, 1);
+      removed.set(n, { reason, at: new Date(clock.at ?? Date.now()).toISOString(), group: e?.group ?? null });
+      for (const x of queue.entries.slice(i)) x.group = null;
+    },
     refuseMerge: (why: string | null) => (mergeRefused = why),
     /** every status POST answered 503 with `why`, until null */
     refuseStatus: (why: string | null) => (statusRefused = why),
-    refuseUpdate: (how: { status: number; message: string } | null) => (updateRefused = how),
     answerAll: (how: typeof answerAll) => (answerAll = how),
     clock,
     /** the calls GitHub counts against play's limit: every one but a 304 */
     counted: () => calls.filter((c) => c.status !== 304),
     gh: gitHub({ token: TOKEN, repo: REPO, fetch, api: "https://api.github.test", now: () => clock.at ?? Date.now(), says: o.says }),
     fetch,
-    /** what play wrote to GitHub: statuses posted, merges, dispatches, re-runs */
-    writes: () => calls.filter((c) => c.method !== "GET"),
+    /** what play wrote to GitHub: statuses posted, enqueues, dispatches, re-runs (GraphQL reads aside) */
+    writes: () => calls.filter((c) => c.method !== "GET" && !(c.path === "/graphql" && !`${c.body?.query}`.startsWith("mutation"))),
   };
 }
 

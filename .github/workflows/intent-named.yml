@@ -5,20 +5,25 @@
 # play/avenbox/pr-intent.ts, main's own: on pull_request_target this workflow and that file are always main's, and the
 # pull request is only read through GitHub's API, never checked out. It reads play with avenBOX's token
 # (PLAY_MCP_TOKEN), never handed to anything of the pull request's.
+#
+# On a merge group of main's merge queue (intent f7721142) the check passes at once: every pull request in the group
+# passed it on its own head to be enqueued, and `Intent accepted` on the group's commit gates it. Nothing is read there.
 name: intent named
 
 on:
   pull_request_target:
     branches: [main]
     types: [opened, edited, reopened, synchronize, ready_for_review]
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
   pull-requests: read
 
 concurrency:
-  group: intent-named-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: intent-named-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
 
 jobs:
   named:
@@ -26,12 +31,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      - name: In the merge queue
+        if: github.event_name == 'merge_group'
+        run: echo "Every pull request of this merge group passed Intent named on its own head; Intent accepted gates the group."
       - name: Not from a fork
-        if: github.event.pull_request.head.repo.full_name != github.repository
+        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
         run: |
           echo "::error title=Intent named::A pull request from a fork names no intent of play's: an agent of Maia City opens it from a branch of this repository."
           exit 1
       - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request_target'
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -39,9 +48,11 @@ jobs:
             play/avenbox
             play/api/src/kit
       - uses: oven-sh/setup-bun@v2
+        if: github.event_name == 'pull_request_target'
         with:
           bun-version-file: .bun-version
       - name: The pull request names its one intent
+        if: github.event_name == 'pull_request_target'
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PLAY_MCP_TOKEN: ${{ secrets.PLAY_MCP_TOKEN }}
