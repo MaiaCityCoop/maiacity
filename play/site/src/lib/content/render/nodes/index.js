@@ -18,12 +18,7 @@
  */
 import * as THREE from 'three';
 import { AttributeNode, MeshBasicNodeMaterial, MeshLambertNodeMaterial, MeshPhongNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
-import { SunLight } from 'three/addons/lights/SunLight.js';
-import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
 import { applyGraph } from './graph.js';
-
-// the sky's sun (three's SunLight, its cascaded shadows) lights node materials as it lights three's own
-SunLight.registerNode(SunLightNode);
 import {
 	If, abs, atan, int, uniformArray, cameraPosition, cameraViewMatrix, clamp, diffuseColor, dot, float, floor, fract, frontFacing, instanceColor, length, mat3, materialMetalness, materialNormal,
 	materialOpacity, materialRoughness, max, mix, mod, nodeObject, normalLocal, normalView, normalize, output, positionLocal, positionView, positionViewDirection, positionWorld, pow,
@@ -40,7 +35,7 @@ class Always extends AttributeNode {
 		return b.hasGeometryAttribute(this.getAttributeName(b)) ? super.generate(b) : b.generateConst(this.getNodeType(b));
 	}
 }
-export const always = (name, type) => nodeObject(new Always(name, type));
+const always = (name, type) => nodeObject(new Always(name, type));
 
 /** a copy's fade (../../assets/render/index.js keeps it per instance) */
 export const aFade = always('aFade', 'float');
@@ -81,7 +76,7 @@ function grown(p) {
 
 /** A picture we drew into (the far pictures' page, the contact shadow's) read as three's own read it: TextureNode
  * flips v for a target on WebGL; this flips it back (else the far trees showed another tree's picture, upside down). */
-export const drawn = (map, at = uv()) => texture(map, vec2(at.x, float(1).sub(at.y)));
+const drawn = (map, at = uv()) => texture(map, vec2(at.x, float(1).sub(at.y)));
 
 /** the dither every drawing of ours fades in by: the same everywhere on the screen, so two levels never fight */
 export const dither = fract(sin(dot(floor(screenCoordinate.xy), vec2(12.9898, 78.233))).mul(43758.5453));
@@ -127,7 +122,7 @@ const glossy = (Model, gloss) =>
 	};
 
 /** ours on top of a node material: per-mesh instancing, the fade, the cut, the caps and the gloss */
-export const ours = (Base) =>
+const ours = (Base) =>
 	class extends Base {
 		isKit = true;
 		/** @type {any} */ fade = null;
@@ -263,6 +258,40 @@ export function cutBy(m, cut, look) {
 	return m;
 }
 
+// ---------------------------------------------------------------- the far pictures' card
+
+/**
+ * The material of a page of far pictures (../../assets/render/impostors.js): each card stands at its foot (`aAt`),
+ * `aSize` metres, turned about its upright axis to the eye (to the light, drawing its shadow), showing the picture of
+ * its thing (`aCell`, then one of `frames` sides by the thing's own turn `aTurn`) from the page `map` of `grid` cells,
+ * faded by `aFade`; `depth` the one that draws its shadow.
+ * @param {THREE.Texture} map @param {THREE.Vector2} grid @param {number} frames @param {ReturnType<typeof cutOf>} cut
+ */
+export function cardMaterials(map, cells, frames, cut) {
+	const grid = uniform(cells);
+	const at = always('aAt', 'vec3'), size = always('aSize', 'float');
+	const t = cameraPosition.xz.sub(at.xz);
+	const te = select(length(t).greaterThan(1e-4), normalize(t), vec2(0, 1));
+	const pos = at.add(vec3(te.y, 0, te.x.negate()).mul(positionLocal.x).mul(size)).add(vec3(0, positionLocal.y.mul(size), 0));
+	const step = (Math.PI * 2) / frames;
+	const face = mod(floor(atan(te.x, te.y).sub(always('aTurn', 'float')).div(step).add(0.5)), frames);
+	const cell = always('aCell', 'float').add(face);
+	const card = varying(vec2(mod(cell, grid.x), floor(cell.div(grid.x))).add(clamp(uv(), 0.004, 0.996)).div(grid));
+	const look = drawn(map, card);
+	const make = (K, o) => {
+		const m = new (ours(K))({ alphaTest: 0.5, side: THREE.DoubleSide, ...o });
+		m.positionNode = pos;
+		m.colorNode = look;
+		m.fade = aFade;
+		m.cut = cut;
+		return m;
+	};
+	const material = make(MeshStandardNodeMaterial, { roughness: 0.85 });
+	// lit as a thing facing the eye a little upward
+	material.normalNode = normalize(cameraViewMatrix.mul(vec4(normalize(vec3(te.x, 0.55, te.y)), 0)).xyz);
+	return { material, depth: make(MeshBasicNodeMaterial, {}) };
+}
+
 // ---------------------------------------------------------------- the asset stage
 
 /** the x-ray ghost: a fresnel glass, `a` how much of it, `paper` the light theme (0 or 1) */
@@ -341,95 +370,4 @@ export function floorMaterial(o, bg, fade, sky) {
 	const far = sky ? horizonOf(normalize(vec3(positionWorld.x.sub(cameraPosition.x), 0, positionWorld.z.sub(cameraPosition.z)).add(vec3(1e-5, 0, 0))), uniformArray(sky.uniforms.uSkyRing.value, 'vec3')) : uniform(bg);
 	m.outputNode = vec4(mix(output.rgb, far, fr), output.a);
 	return m;
-}
-
-// ---------------------------------------------------------------- the far pictures (../../assets/render/impostors.js)
-
-// what a view is baked with and the card that draws them, by impostors.js's sums (tested there)
-import { cameraFar, cameraNear, cameraProjectionMatrix, cameraWorldMatrix, cos, cross, normalWorld, viewZToOrthographicDepth, viewZToPerspectiveDepth } from 'three/tsl';
-
-/** the view baked: its direction, the thing's middle height, its ball's diameter */
-export const bake = { dir: uniform(new THREE.Vector3(0, 0, 1)), mid: uniform(0), size: uniform(1) };
-
-const baked = new WeakMap();
-/** a material as baked: `albedo` its colour unlit; `normal` its normal and depth, 0…1 */
-export function bakeOf(m) {
-	let b = baked.get(m);
-	if (b) return b;
-	const of = () => {
-		const n = nodeOf(m);
-		return n !== m ? n : m.isNodeMaterial ? m.clone() : nodeOf(new THREE.MeshBasicMaterial({ color: m.color }));
-	};
-	const albedo = of(), normal = of();
-	albedo.outputNode = diffuseColor;
-	const n = normalize(select(frontFacing, normalWorld, normalWorld.negate()));
-	normal.outputNode = vec4(n.mul(0.5).add(0.5), dot(positionWorld.sub(vec3(0, bake.mid, 0)), bake.dir).div(bake.size).add(0.5));
-	baked.set(m, (b = { albedo, normal }));
-	return b;
-}
-
-/** v turned t about the upright */
-const turnY = (v, t) => vec3(v.x.mul(cos(t)).add(v.z.mul(sin(t))), v.y, v.z.mul(cos(t)).sub(v.x.mul(sin(t))));
-/** a view's right and up */
-const frameOf = (d) => {
-	const r = normalize(cross(select(d.y.greaterThan(0.999), vec3(0, 0, -1), vec3(0, 1, 0)), d));
-	return [r, cross(d, r)];
-};
-
-/**
- * A page's card at `aAt` (its ball's middle), `aCard` (size, turn, block's first cell, fade), faced to the eye, its
- * three nearest views blended from `map` and `normals` (`cells` a side), lit by its normals.
- */
-export function cardMaterials(map, normals, cells, views, cut) {
-	const at = always('aAt', 'vec3'), A = always('aCard', 'vec4'), size = A.x, turn = A.y, corner = A.z;
-	// the eye in the thing's frame (a light's along its axis)
-	const ortho = cameraProjectionMatrix.element(3).w.greaterThan(0.5);
-	const c = turnY(select(ortho, cameraWorldMatrix.element(2).xyz.mul(1e4), cameraPosition.sub(at)), turn.negate());
-	const e = normalize(c);
-	const [er, eu] = frameOf(e);
-	const V = er.mul(positionLocal.x).add(eu.mul(positionLocal.y)).mul(size);
-	// the eye on the grid, and the triangle of views round it
-	const n1 = views - 1;
-	const h = normalize(vec3(e.x, max(e.y, 0), e.z.add(1e-5)));
-	const p = vec2(h.x, h.z).div(abs(h.x).add(h.y).add(abs(h.z)));
-	const g = vec2(p.x.add(p.y), p.x.sub(p.y)).mul(0.5).add(0.5).mul(n1);
-	const b = clamp(floor(g), 0, n1 - 1), f = g.sub(b);
-	const lo = f.x.add(f.y).lessThan(1);
-	const grid = [select(lo, b, b.add(1)), b.add(select(lo, vec2(1, 0), vec2(0, 1))), b.add(select(lo, vec2(0, 1), vec2(1, 0)))];
-	const w = varying(select(lo, vec3(float(1).sub(f.x).sub(f.y), f.x, f.y), vec3(f.x.add(f.y).sub(1), float(1).sub(f.x), float(1).sub(f.y))));
-	const base = vec2(mod(corner, cells), floor(corner.div(cells)));
-	const taken = grid.map((gk, k) => {
-		const uv = gk.div(n1).mul(2).sub(1);
-		const x = uv.x.add(uv.y).mul(0.5), z = uv.x.sub(uv.y).mul(0.5);
-		const d = normalize(vec3(x, float(1).sub(abs(x)).sub(abs(z)), z));
-		const [r, u] = frameOf(d);
-		// the eye's ray through this corner met on the view's plane
-		const rd = V.sub(c);
-		const H = c.add(rd.mul(dot(c, d).negate().div(dot(rd, d))));
-		// (WebGPURenderer's rows run from the top, the view's up from its foot: v turned over in the cell)
-		const l = clamp(varying(vec2(dot(H, r), dot(H, u)).div(size).add(0.5)), 0.004, 0.996);
-		const q = varying(base.add(gk)).add(vec2(l.x, float(1).sub(l.y))).div(cells);
-		return { col: texture(map, q), nd: texture(normals, q), wk: w[['x', 'y', 'z'][k]] };
-	});
-	// each view's colour weighed by its own cover too: a see-through pixel's colour (the clear) never tints the blend
-	const cover = taken.reduce((a, t) => a.add(t.wk.mul(t.col.a)), float(1e-4));
-	// (its cover lifted: a view's leaves averaged down with the sky between them never fall through the cut-out)
-	const look = vec4(taken.reduce((a, t) => a.add(t.col.rgb.mul(t.wk.mul(t.col.a))), vec3(0)).div(cover), cover.mul(1.6).min(1));
-	const nd = taken.reduce((a, t) => a.add(t.nd.mul(t.wk.mul(t.col.a))), vec4(0)).div(cover);
-	// each pixel at its baked depth, its shadow cut out (WebGPU: by the material's nodes; WebGL: `depth`)
-	const z = positionView.z.add(nd.w.sub(0.5).mul(size));
-	const dz = select(ortho, viewZToOrthographicDepth(z, cameraNear, cameraFar), viewZToPerspectiveDepth(z, cameraNear, cameraFar));
-	const make = (K, o) => {
-		const m = new (ours(K))({ alphaTest: 0.5, side: THREE.DoubleSide, ...o });
-		m.positionNode = at.add(turnY(V, turn));
-		m.colorNode = look;
-		m.fade = A.w;
-		m.cut = cut;
-		m.depthNode = dz;
-		return m;
-	};
-	const material = make(MeshStandardNodeMaterial, { roughness: 0.85 });
-	material.normalNode = normalize(cameraViewMatrix.mul(vec4(turnY(normalize(nd.xyz.mul(2).sub(1)), turn), 0)).xyz);
-	Object.defineProperty(material, 'maskShadowNode', { value: look.a.greaterThan(0.5).and(faded(A.w).not()) });
-	return { material, depth: make(MeshBasicNodeMaterial, {}) };
 }

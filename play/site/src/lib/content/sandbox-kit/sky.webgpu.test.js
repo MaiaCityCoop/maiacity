@@ -59,4 +59,31 @@ describe('the one sky on WebGPU', () => {
 		createSky(r, scene3, {});
 		expect(scene3.environment?.isTexture).toBe(true);
 	});
+
+	// Sandbox 3 stood unlit (intent 8f41cd9b): the sun's node was named by the render kit, which that world loads only
+	// with its first library asset, after its first frames; three then left the sun out of every material, for good
+	test('a world that has loaded the sky alone is lit by its sun, its cascades shadowing it', async () => {
+		const r = make();
+		await ready(r);
+		const scene = new THREE.Scene();
+		const sky = createSky(r, scene, { clock: () => 12, shadowReach: 300 });
+		expect(/** @type {any} */ (sky.sun)._lightNode).toBeDefined();
+		const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
+		camera.position.set(0, 2, 6);
+		camera.lookAt(0, 0, 0);
+		const ground = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
+		ground.castShadow = ground.receiveShadow = true;
+		scene.add(ground);
+		const warn = console.warn;
+		/** @type {string[]} */
+		const warned = [];
+		console.warn = (...a) => void warned.push(a.join(' '));
+		try {
+			r.render(scene, camera);
+		} finally {
+			console.warn = warn;
+		}
+		expect(warned.join('\n')).not.toMatch(/Light node not found/);
+		sky.dispose();
+	});
 });

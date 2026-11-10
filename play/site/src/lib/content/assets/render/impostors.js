@@ -1,240 +1,321 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * PICTURES OF THINGS FAR AWAY — an asset that looks small (./lod.js) as a hemi-octahedral impostor (Brucks): baked once
- * from `views` × `views` directions over its upper half (colours unlit, normals, depth) into a block on two pages; a
- * copy one card, its three nearest views blended and lit as the scene is (../../render/nodes/index.js).
+ * PICTURES OF THINGS FAR AWAY — any asset, when it looks small (./lod.js), drawn as a picture of itself: photographed
+ * once on this device's graphics card from eight sides, the pictures laid in a page of pictures shared by many kinds,
+ * and each copy a single card standing upright at its foot, turned to the eye, showing it from the side the eye sees
+ * it from. Two triangles a copy, every copy on a page in one draw call. Sandbox 4's trees far away
+ * (src/lib/sandbox-2/interior/impostors.js), made for every asset: a chair, a pickup, a goat or a walnut tree.
+ *
+ * The picture is taken by our own renderer from the asset's coarsest shape, so it is no more than the asset is: nothing
+ * of it comes from the asset itself. The card is lit as the scene is (as if it were a thing facing the eye a little
+ * upward); its picture is taken in a soft light from the front, so it keeps its depth at any hour. It casts its
+ * shadow too: in the shadow pass the card turns to the sun and throws the thing's outline.
  */
 import * as THREE from 'three';
-import { bake, bakeOf, cardMaterials, cutOf } from '../../render/nodes/index.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { cardMaterials, cutOf } from '../../render/nodes/index.js';
 import { budget } from '../../render/budget.js';
-import { isWebGPU, maxTextureSize } from '../../render/core.js';
+import { isWebGPU, maxTextureSize, pmremFor, precompile } from '../../render/core.js';
 
-/** a picture is kept as two images: colours; normals and depth */
-export const FRAMES = 2;
-
-/** in every kept picture's key (./levels.js): raised whenever a picture changes */
-export const VERSION = 4;
-
-/** a direction (y up; below the horizon as on it) as u, v (−1…1) on the hemi-octahedral square */
-export function encode(x, y, z) {
-	y = Math.max(0, y);
-	const s = Math.abs(x) + y + Math.abs(z) || 1;
-	return [(x + z) / s, (x - z) / s];
-}
-
-/** the other way, unit */
-export function decode(u, v) {
-	const x = (u + v) / 2, z = (u - v) / 2, y = 1 - Math.abs(x) - Math.abs(z), l = Math.hypot(x, y, z);
-	return [x / l, y / l, z / l];
-}
-
-/** view i, j of n × n */
-export const viewOf = (i, j, n) => decode((i / (n - 1)) * 2 - 1, (j / (n - 1)) * 2 - 1);
-
-/** the three views of n × n round a direction, each [i, j, weight], the weights summing to 1 */
-export function nearest(x, y, z, n) {
-	const [u, v] = encode(x, y, z);
-	const gx = (u * 0.5 + 0.5) * (n - 1), gy = (v * 0.5 + 0.5) * (n - 1);
-	const bx = Math.min(Math.max(Math.floor(gx), 0), n - 2), by = Math.min(Math.max(Math.floor(gy), 0), n - 2);
-	const fx = gx - bx, fy = gy - by;
-	return fx + fy < 1
-		? [[bx, by, 1 - fx - fy], [bx + 1, by, fx], [bx, by + 1, fy]]
-		: [[bx + 1, by + 1, fx + fy - 1], [bx, by + 1, 1 - fx], [bx + 1, by, 1 - fy]];
-}
-
-/** a view camera's up (its right up × d; from straight above, −z) */
-export const upOf = (d) => (d[1] > 0.999 ? [0, 0, -1] : [0, 1, 0]);
-
-/** triangles a card: five corners round a ball of diameter 1, flat side down */
-export const TRIS = 3;
-function hull() {
-	const R = 0.5 / Math.cos(Math.PI / 5), p = [];
-	for (let k = 0; k < 5; k++) p.push(R * Math.cos(Math.PI / 2 + k * 1.2566370614), R * Math.sin(Math.PI / 2 + k * 1.2566370614), 0);
-	return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(p, 3)).setIndex([0, 1, 2, 0, 2, 3, 0, 3, 4]);
-}
+/** how many sides each kind is photographed from */
+export const FRAMES = 8;
 
 /**
- * The pictures of a renderer's kinds, page by page: `views` × `views` views of `px` pixels a kind, on pages of `page`.
- * @param {import('three/webgpu').WebGPURenderer} renderer @param {{ px?: number, page?: number, views?: number }} [o]
+ * This photographer's version: part of the key every picture it took is kept by on this device (../cache.js
+ * `levelKeyOf`, ./levels.js). Raised whenever a picture it takes changes (its light, its frame, its sides), so no
+ * picture taken the old way is laid on a page again.
+ */
+export const VERSION = 1;
+
+/**
+ * @typedef {{ page: number, cell: number, size: number, foot: number }} Slot where a kind's pictures are: its page,
+ *   its first cell there, and its frame (a square `size` metres a side, its lower edge `foot` metres above the
+ *   asset's own ground)
+ */
+
+/**
+ * The pictures of a renderer's kinds, page by page.
+ * @param {import('three/webgpu').WebGPURenderer} renderer
+ * @param {{ px?: number, page?: number }} [o] each picture `px` pixels a side, on pages of `page` pixels a side
  */
 export function createImpostors(renderer, o = {}) {
-	const B = budget().picture;
-	const most = Math.min(o.page ?? B.page, maxTextureSize(renderer));
-	const N = o.views ?? B.views ?? 8;
-	const px = Math.min(o.px ?? B.px, Math.floor(most / N));
-	const cols = Math.floor(most / px), per = Math.floor(cols / N);
+	// (the device's budget: a phone's pages a quarter of a desktop's, the same kinds on each)
+	const most = Math.min(o.page ?? budget().picture.page, maxTextureSize(renderer));
+	const px = Math.min(o.px ?? budget().picture.px, most);
+	const cols = Math.floor(most / px), rows = cols;
+	const kindsPerPage = Math.floor((cols * rows) / FRAMES);
 	const group = new THREE.Group();
 	group.name = 'asset pictures';
-	/** @type {any[]} */
+	/** @type {ReturnType<typeof pageOf>[]} */
 	const pages = [];
+	/** the cut every card is cut by (a picture has no inside: no faces) */
 	const cut = cutOf();
+
+	// where the pictures are taken: a soft light from the front and all round, and a room's reflections for the metals
 	const studio = new THREE.Scene();
+	studio.add(new THREE.AmbientLight('#ffffff', Math.PI * 0.45));
+	const key = new THREE.DirectionalLight('#ffffff', Math.PI * 0.55);
+	studio.add(key, key.target);
+	// the room's reflections made when the first picture is to be taken, not with the renderer: a world that takes none
+	// (drawing every kind at its finest, as MaiaCity V1 does) never waits for them (seconds on a software GPU)
+	let env = null;
+	const lit = () => {
+		if (env) return;
+		const pmrem = pmremFor(renderer); // (made at the first picture: the renderer draws by then)
+		env = pmrem.fromScene(new RoomEnvironment(), 0.04);
+		pmrem.dispose();
+		studio.environment = env.texture;
+	};
+	studio.environmentIntensity = 0.35;
 	const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
-	/** colours; normals and depth */
-	const pair = (n, o) =>
-		[THREE.SRGBColorSpace, THREE.NoColorSpace].map((space) => {
-			const t = new THREE.RenderTarget(n, n, o);
-			t.texture.colorSpace = space;
-			t.texture.anisotropy = 4;
-			return t;
-		});
-	const card = hull();
-	/** `fn` drawn, the renderer's target, clear colour, clearing and clipping kept */
-	function kept(fn) {
-		const was = [renderer.getRenderTarget(), renderer.getClearColor(new THREE.Color()), renderer.getClearAlpha(), renderer.autoClear, renderer.localClippingEnabled];
-		renderer.autoClear = renderer.localClippingEnabled = false;
-		fn();
-		renderer.setRenderTarget(was[0]);
-		renderer.setClearColor(was[1], was[2]);
-		[renderer.autoClear, renderer.localClippingEnabled] = was.slice(3);
-	}
+	const shot = new THREE.WebGLRenderTarget(px, px, { samples: 4, generateMipmaps: false });
+	shot.texture.colorSpace = THREE.SRGBColorSpace;
 
 	function pageOf() {
-		const targets = pair(cols * px, { depthBuffer: false, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
-		for (const t of targets) renderer.initRenderTarget(t);
-		const geo = new THREE.InstancedBufferGeometry().setIndex(card.index).setAttribute('position', card.attributes.position);
-		const { material, depth } = cardMaterials(targets[0].texture, targets[1].texture, cols, N, cut);
+		const target = new THREE.WebGLRenderTarget(cols * px, rows * px, { depthBuffer: false, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter });
+		target.texture.colorSpace = THREE.SRGBColorSpace;
+		target.texture.anisotropy = 4;
+		renderer.initRenderTarget(target);
+		const quad = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
+		const geo = new THREE.InstancedBufferGeometry();
+		geo.index = quad.index;
+		geo.setAttribute('position', quad.attributes.position);
+		geo.setAttribute('normal', quad.attributes.normal);
+		geo.setAttribute('uv', quad.attributes.uv);
+		const { material, depth } = cardMaterials(target.texture, new THREE.Vector2(cols, rows), FRAMES, cut);
 		const mesh = new THREE.Mesh(geo, material);
 		mesh.name = `asset pictures ${pages.length + 1}`;
 		mesh.frustumCulled = false;
-		mesh.castShadow = mesh.receiveShadow = true;
+		mesh.castShadow = true;
+		mesh.receiveShadow = true;
 		mesh.customDepthMaterial = depth;
 		group.add(mesh);
-		const page = { targets, geo, material, depth, mesh, kinds: 0, n: 0, cap: 0, attrs: null, stale: false };
-		return grow(page, 64), page;
+		const page = { target, quad, geo, material, depth, mesh, kinds: 0, n: 0, cap: 0, attrs: null, stale: false };
+		grow(page, 64);
+		return page;
 	}
 
+	/** room on a page for `need` cards */
 	function grow(page, need) {
 		if (page.cap >= need) return;
-		const cap = Math.max(need, page.cap * 2, 64), was = page.attrs;
-		page.attrs = {};
-		for (const [k, n] of [['aAt', 3], ['aCard', 4]]) {
-			const a = (page.attrs[k] = new THREE.InstancedBufferAttribute(new Float32Array(cap * n), n).setUsage(THREE.DynamicDrawUsage));
-			if (was) a.array.set(was[k].array.subarray(0, page.n * n));
-			page.geo.setAttribute(k, a);
-		}
+		const cap = Math.max(need, page.cap * 2, 64);
+		const make = (name, size) => {
+			const a = new THREE.InstancedBufferAttribute(new Float32Array(cap * size), size);
+			a.setUsage(THREE.DynamicDrawUsage);
+			const old = page.attrs?.[name];
+			if (old) a.array.set(old.array.subarray(0, page.n * size));
+			page.geo.setAttribute(name, a);
+			return a;
+		};
+		page.attrs = { aAt: make('aAt', 3), aSize: make('aSize', 1), aTurn: make('aTurn', 1), aCell: make('aCell', 1), aFade: make('aFade', 1) };
 		page.cap = cap;
 	}
 
-	/** the asset as baked: its drawings at their places */
+	/** the asset as it stands in the studio: its drawings, each at its places */
 	function thingOf(level) {
 		const thing = new THREE.Group();
 		for (const d of level.draws) {
-			const m = new THREE.InstancedMesh(d.geometry, bakeOf(d.material).albedo, d.n);
+			const m = new THREE.InstancedMesh(d.geometry, d.material, d.n);
 			m.instanceMatrix.array.set(d.locals);
 			if (d.colors) m.instanceColor = new THREE.InstancedBufferAttribute(d.colors, 3);
 			m.frustumCulled = false;
-			m.userData.made = d.material;
 			thing.add(m);
 		}
 		return thing;
 	}
 
-	/** room for a kind's block on a page, and its ball */
+	/** a kind's shaders as the studio lights them, made before its picture is taken (./index.js, `compiled`) */
+	async function prepare(level) {
+		lit();
+		const thing = thingOf(level);
+		const clip = renderer.localClippingEnabled;
+		renderer.localClippingEnabled = false;
+		const made = precompile(renderer, thing, camera, studio);
+		renderer.localClippingEnabled = clip;
+		await made;
+		for (const m of thing.children) m.dispose();
+	}
+
+	/** room for a kind's pictures on a page, and its frame: square, as wide as it reaches out both ways or as tall as it
+	 *  stands, whichever is more */
 	function slotFor(level) {
-		let p = pages.findIndex((x) => x.kinds < per * per);
+		let p = pages.findIndex((x) => x.kinds < kindsPerPage);
 		if (p < 0) {
 			pages.push(pageOf());
 			p = pages.length - 1;
 		}
-		const b = pages[p].kinds++;
+		const page = pages[p];
+		const cell = page.kinds++ * FRAMES;
+		const size = Math.max(0.05, Math.max(level.reach * 2, level.height - Math.min(0, level.bottom)) * 1.06);
 		const mid = (Math.min(0, level.bottom) + level.height) / 2;
-		return { page: p, cell: Math.floor(b / per) * N * cols + (b % per) * N, size: ballOf(level, mid), mid };
+		return { page: p, cell, size, foot: mid - size / 2, mid };
 	}
 
-	/** the diameter of the ball round (0, mid, 0) its points reach (a box's corners frame a tree 2–3 times too wide) */
-	function ballOf(level, mid) {
-		let r = 0.025;
-		const v = new THREE.Vector3(), m = new THREE.Matrix4();
-		for (const d of level.draws) {
-			const P = d.geometry.attributes.position, step = Math.max(1, Math.floor((P.count * d.n) / 4e5));
-			for (let k = 0; k < d.n; k++) {
-				m.fromArray(d.locals, k * 16);
-				for (let i = (k * 7) % step; i < P.count; i += step) r = Math.max(r, v.fromBufferAttribute(P, i).applyMatrix4(m).setY(v.y - mid).length());
-			}
-		}
-		return r * 2.04;
-	}
+	/** where frame f of a slot is on its page (pixels) */
+	const at = (slot, f) => ({ x: ((slot.cell + f) % cols) * px, y: Math.floor((slot.cell + f) / cols) * px });
 
-	const at = (slot) => ({ x: (slot.cell % cols) * px, y: Math.floor(slot.cell / cols) * px });
-
-	/** `fn` copied onto a page, its smaller copies made once after (`settle`) */
-	function onto(page, fn) {
-		for (const t of page.targets) t.texture.generateMipmaps = false;
-		fn();
-		for (const t of page.targets) t.texture.generateMipmaps = true;
-		page.stale = true;
-	}
-
-	/** a kind baked from its coarsest shape: its slot (page, block's first cell, ball's diameter and middle) */
+	/**
+	 * A kind photographed from its eight sides onto a page.
+	 * @param {import('./prepare.js').Level} level the shape it is photographed from (its coarsest)
+	 * @returns {Slot}
+	 */
 	function add(level) {
-		const slot = slotFor(level), { size, mid } = slot, page = pages[slot.page], thing = thingOf(level), h = size / 2, D = size * 2 + 10;
+		lit();
+		const { page: p, cell, size, foot, mid } = slotFor(level);
+		const page = pages[p];
+		const thing = thingOf(level);
 		studio.add(thing);
-		Object.assign(camera, { left: -h, right: h, top: h, bottom: -h, near: 0.05, far: D + size * 2 });
+		const D = level.reach + size + 10;
+		camera.left = -size / 2;
+		camera.right = size / 2;
+		camera.top = size / 2;
+		camera.bottom = -size / 2;
+		camera.near = 0.05;
+		camera.far = D * 2 + size * 2;
 		camera.updateProjectionMatrix();
-		bake.mid.value = mid;
-		bake.size.value = size;
-		const { x, y } = at(slot);
-		// each view drawn straight into its cell (WebGPURenderer copies no texture into another on its WebGL 2 backend)
-		kept(() => onto(page, () => {
-			for (const t of page.targets) t.scissorTest = true;
-			for (let j = 0; j < N; j++)
-				for (let i = 0; i < N; i++) {
-					const d = viewOf(i, j, N);
-					bake.dir.value.set(...d);
-					camera.position.set(d[0] * D, mid + d[1] * D, d[2] * D);
-					camera.up.set(...upOf(d));
-					camera.lookAt(0, mid, 0);
-					for (let k = 0; k < 2; k++) {
-						for (const m of thing.children) m.material = bakeOf(m.userData.made)[k ? 'normal' : 'albedo'];
-						const t = page.targets[k];
-						t.viewport.set(x + i * px, y + j * px, px, px);
-						t.scissor.copy(t.viewport);
-						renderer.setRenderTarget(t);
-						renderer.render(studio, camera);
-					}
-				}
-			for (const t of page.targets) (t.scissorTest = false), t.viewport.set(0, 0, t.width, t.height);
-		}));
+		const was = { target: renderer.getRenderTarget(), color: renderer.getClearColor(new THREE.Color()), alpha: renderer.getClearAlpha(), autoClear: renderer.autoClear, clip: renderer.localClippingEnabled };
+		renderer.autoClear = false;
+		renderer.localClippingEnabled = false;
+		const to = new THREE.Vector2();
+		// the page's smaller copies are not made here (three makes them again after every copy onto a page that has
+		// them: the whole page, 2048 pixels a side, nine times a kind, seconds of a software GPU that every frame of the
+		// world waits behind), but once a frame for every picture taken since (`settle`)
+		const mips = page.target.texture.generateMipmaps;
+		page.target.texture.generateMipmaps = false;
+		for (let f = 0; f < FRAMES; f++) {
+			const a = (f / FRAMES) * Math.PI * 2, c = cell + f;
+			camera.position.set(Math.sin(a) * D, mid, Math.cos(a) * D);
+			camera.lookAt(0, mid, 0);
+			key.position.set(Math.sin(a) * D, mid + D * 0.6, Math.cos(a) * D);
+			renderer.setRenderTarget(shot);
+			// cleared to its own colour, see-through: from afar, where the picture is averaged down, its edges soften
+			// into its own colour, never into black
+			renderer.setClearColor(level.colour, 0);
+			renderer.clear();
+			renderer.render(studio, camera);
+			renderer.copyTextureToTexture(shot.texture, page.target.texture, null, to.set((c % cols) * px, Math.floor(c / cols) * px));
+		}
+		page.target.texture.generateMipmaps = mips;
+		page.stale = true;
 		studio.remove(thing);
 		for (const m of thing.children) m.dispose();
-		return slot;
+		renderer.setRenderTarget(was.target);
+		renderer.setClearColor(was.color, was.alpha);
+		renderer.autoClear = was.autoClear;
+		renderer.localClippingEnabled = was.clip;
+		return { page: p, cell, size, foot };
 	}
 
+	/** nothing, drawn into a page: its smaller copies made again (`settle`) */
 	const blank = new THREE.Scene();
 
 	return {
 		group,
-		/** its pictures' version as kept (./levels.js): WebGPU's apart */
+		/**
+		 * The photographer's version as this renderer's pictures are kept by (./levels.js `pictureKey`): WebGPU's apart
+		 * (intent c1bee1f8), so a picture a WebGL page read back, rows in its order, is never laid on a WebGPU page's
+		 */
 		deriver: isWebGPU(renderer) ? `${VERSION}:webgpu` : VERSION,
+		prepare,
 		add,
-		/** each view's pixels and views a side (a kept picture's key) */
+		/** each picture's pixels a side, as this device takes them (part of a kept picture's key: ./levels.js) */
 		px,
-		views: N,
-		/** each page's smaller copies made again where new, before a frame's cards */
+		/**
+		 * A kind's eight pictures as they are on its page, read back off the graphics card without holding a frame
+		 * (WebGL 2's asynchronous read): each frame's pixels, RGBA, as the page holds them. Null where this renderer
+		 * can't read a page back so: on WebGPU (intent c1bee1f8) not yet, its pictures taken anew on each visit, until its
+		 * read in its own row order is seen right on the Mac.
+		 * @param {Slot} slot @returns {Promise<Uint8Array[] | null>}
+		 */
+		async read(slot) {
+			const page = pages[slot.page];
+			if (!page || isWebGPU(renderer) || typeof renderer.readRenderTargetPixelsAsync !== 'function' || !renderer.capabilities?.isWebGL2) return null;
+			// a kind's frames side by side in one row of its page (its first cell a multiple of FRAMES, a row a multiple
+			// of it): read back at once, one wait for the graphics card instead of eight, then cut into its frames
+			if ((slot.cell % cols) + FRAMES <= cols) {
+				const { x, y } = at(slot, 0);
+				const row = px * FRAMES * 4;
+				const all = new Uint8Array(row * px);
+				await renderer.readRenderTargetPixelsAsync(page.target, x, y, px * FRAMES, px, all);
+				return Array.from({ length: FRAMES }, (_, f) => {
+					const out = new Uint8Array(px * px * 4);
+					for (let r = 0; r < px; r++) out.set(all.subarray(r * row + f * px * 4, r * row + (f + 1) * px * 4), r * px * 4);
+					return out;
+				});
+			}
+			const out = [];
+			for (let f = 0; f < FRAMES; f++) {
+				const { x, y } = at(slot, f);
+				const pixels = new Uint8Array(px * px * 4);
+				await renderer.readRenderTargetPixelsAsync(page.target, x, y, px, px, pixels);
+				out.push(pixels);
+			}
+			return out;
+		},
+		/**
+		 * A kind's pictures laid on a page from what was read back before (`read`, kept on this device: ./levels.js):
+		 * nothing photographed. Its frame as `add` makes it of the same shape.
+		 * @param {import('./prepare.js').Level} level @param {Uint8Array[]} frames @returns {Slot}
+		 */
+		put(level, frames) {
+			if (!Array.isArray(frames) || frames.length !== FRAMES || frames.some((f) => !(f instanceof Uint8Array) || f.length !== px * px * 4)) throw new Error('refused: pictures of another size');
+			const slot = slotFor(level);
+			const page = pages[slot.page];
+			const mips = page.target.texture.generateMipmaps;
+			page.target.texture.generateMipmaps = false;
+			const to = new THREE.Vector2();
+			frames.forEach((data, f) => {
+				const t = new THREE.DataTexture(data, px, px, THREE.RGBAFormat, THREE.UnsignedByteType);
+				t.colorSpace = THREE.SRGBColorSpace;
+				t.generateMipmaps = false;
+				const { x, y } = at(slot, f);
+				renderer.copyTextureToTexture(t, page.target.texture, null, to.set(x, y));
+				t.dispose();
+			});
+			page.target.texture.generateMipmaps = mips;
+			page.stale = true;
+			const { mid: _, ...out } = slot;
+			return out;
+		},
+		/**
+		 * The smaller copies of each page that has new pictures, made again (for afar, where a picture is averaged
+		 * down): once for all the pictures taken since they were last made. Before a frame draws any card.
+		 */
 		settle() {
 			const stale = pages.filter((p) => p.stale);
-			if (stale.length)
-				kept(() => {
-					for (const page of stale) {
-						for (const t of page.targets) renderer.setRenderTarget(t), renderer.render(blank, camera);
-						page.stale = false;
-					}
-				});
+			if (!stale.length) return;
+			const was = { target: renderer.getRenderTarget(), autoClear: renderer.autoClear };
+			renderer.autoClear = false;
+			for (const page of stale) {
+				// drawing nothing into it makes them
+				renderer.setRenderTarget(page.target);
+				renderer.render(blank, camera);
+				page.stale = false;
+			}
+			renderer.setRenderTarget(was.target);
+			renderer.autoClear = was.autoClear;
 		},
-		/** a frame's cards begin, are pushed, end (drawn) */
+		/** starts a frame's cards: none on any page */
 		begin() {
 			for (const page of pages) page.n = 0;
 		},
-		/** a copy at x, y, z (its foot), turned, scaled, `fade` of it shown (0 or 1 whole) */
+		/**
+		 * One card: a copy of the kind in `slot` standing at x, y, z, turned by `turn` about the upright, at `scale`,
+		 * `fade` how much of it shows (0 or 1 whole).
+		 */
 		push(slot, x, y, z, turn, scale, fade) {
 			const page = pages[slot.page];
 			if (page.n >= page.cap) grow(page, page.n + 1);
 			const i = page.n++, A = page.attrs;
-			const p = A.aAt.array, c = A.aCard.array;
-			(p[i * 3] = x), (p[i * 3 + 1] = y + slot.mid * scale), (p[i * 3 + 2] = z);
-			(c[i * 4] = slot.size * scale), (c[i * 4 + 1] = turn), (c[i * 4 + 2] = slot.cell), (c[i * 4 + 3] = fade >= 1 ? 0 : fade);
+			A.aAt.array[i * 3] = x;
+			A.aAt.array[i * 3 + 1] = y + slot.foot * scale;
+			A.aAt.array[i * 3 + 2] = z;
+			A.aSize.array[i] = slot.size * scale;
+			A.aTurn.array[i] = turn;
+			A.aCell.array[i] = slot.cell;
+			A.aFade.array[i] = fade >= 1 ? 0 : fade;
 		},
+		/** ends a frame's cards: what was pushed is drawn */
 		end() {
 			for (const page of pages) {
 				page.geo.instanceCount = page.n;
@@ -246,11 +327,12 @@ export function createImpostors(renderer, o = {}) {
 				}
 			}
 		},
-		/** the cards cut on the negative side of a plane too, or not (null) */
+		/** the cards cut away on the negative side of a plane too (no faces: a picture has no inside), or not (null) */
 		cut(/** @type {THREE.Plane | null} */ plane) {
 			if (plane) cut.a.value.set(plane.normal.x, plane.normal.y, plane.normal.z, plane.constant);
 			else cut.a.value.set(0, 0, -1, 1e5);
 		},
+		/** how many cards are drawn, and on how many pages */
 		get drawn() {
 			return pages.reduce((a, p) => a + p.n, 0);
 		},
@@ -260,13 +342,15 @@ export function createImpostors(renderer, o = {}) {
 		dispose() {
 			group.removeFromParent();
 			for (const page of pages) {
-				for (const t of page.targets) t.dispose();
+				page.target.dispose();
+				page.quad.dispose();
 				page.geo.dispose();
 				page.material.dispose();
 				page.depth.dispose();
 			}
 			pages.length = 0;
-			card.dispose();
+			shot.dispose();
+			env?.dispose();
 		}
 	};
 }
