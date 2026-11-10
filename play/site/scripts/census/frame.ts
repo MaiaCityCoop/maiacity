@@ -97,10 +97,19 @@ export async function frameOf(o: { world: World; views?: ViewName[]; asset?: str
 	if (!gpu.fake) throw new Error('census: the frame is counted on the device that only answers (setup\'s `gpu`)');
 	const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
 	if (o.views?.some((v) => !views.includes(v))) throw new Error(`census: ${o.world} has the views ${VIEWS_OF[o.world].join(', ')}`);
+	// what the world's code throws, and what three reports of a shader it could not build (it logs, never throws): a
+	// frame that failed is no count
 	const errors: string[] = [];
 	const onError = (e: unknown) => void errors.push(e instanceof Error ? `${e.message}\n${(e.stack ?? '').split('\n').slice(1, 4).join('\n')}` : String(e));
 	process.on('uncaughtException', onError);
 	process.on('unhandledRejection', onError);
+	const said = { error: console.error, warn: console.warn };
+	for (const k of ['error', 'warn'] as const)
+		console[k] = (...a: unknown[]) => {
+			const text = a.map(String).join(' ');
+			if (/^THREE\.TSL: \w*Error\b/.test(text)) errors.push(text.slice(0, 400));
+			said[k](...a);
+		};
 	const t0 = real();
 	await mount(o.world, { asset: o.asset, log });
 	// from here a visitor's frames on the page's own clock: the world's clock let go (the hour stays pinned)
@@ -129,6 +138,7 @@ export async function frameOf(o: { world: World; views?: ViewName[]; asset?: str
 	}
 	process.off('uncaughtException', onError);
 	process.off('unhandledRejection', onError);
+	Object.assign(console, said);
 	if (errors.length) throw new Error(`census: the frame threw ${errors.length} error${errors.length > 1 ? 's' : ''}, the first: ${errors[0]}`);
 	return out;
 }

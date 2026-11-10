@@ -16,8 +16,9 @@
  *                  either as near:7%,mid:5%,far:11%: a tolerance per value, by the start of its key
  *   --of           census values: tris, draws (every pass, the default), mainTris, mainDraws (the main pass)
  *                  frame values (intent 416c555c: the WebGPU calls a frame makes, play/site/scripts/census.ts --frame): calls,
- *                  writes (buffers written), bytes, draws, with the eye at rest; walkCalls, walkWrites, walkBytes,
- *                  walkDraws walking (the default: calls,writes,walkCalls,walkWrites)
+ *                  writes (buffers written), bytes, draws, scenePasses (the passes that draw the scene or its shadows),
+ *                  with the eye at rest; walkCalls, walkWrites, walkBytes, walkDraws, walkScenePasses walking (the
+ *                  default: calls,writes,walkCalls,walkWrites)
  *   --main <sha>   main is this commit                       --main-only measure main (or read its cache) and stop
  *   --repo <dir>   the repository measured (this one by default)
  *
@@ -295,7 +296,7 @@ export function measure(m: Measure, at: string | null, repo = REPO): Values {
 }
 
 /** the frame values a count holds, by their name in --of */
-const FRAME_OF = { calls: 'calls', writes: 'writes', bytes: 'bytes', draws: 'draws' } as const;
+const FRAME_OF = { calls: 'calls', writes: 'writes', bytes: 'bytes', draws: 'draws', scenePasses: 'scenePasses' } as const;
 /** a frame's calls (census.ts --frame): per view each value asked for, at rest (`calls`) and walking (`walkCalls`) */
 function frameValues(m: Measure, at: string | null, sha: string | null, repo: string): Values {
 	const [world, view, of] = m.args;
@@ -308,12 +309,13 @@ function frameValues(m: Measure, at: string | null, sha: string | null, repo: st
 		if (!v.settled) throw new Error(`the frame's census ${side}: ${v.view} did not settle`);
 		for (const w of of.split(',')) {
 			const walk = w.startsWith('walk'), name = (walk ? w[4].toLowerCase() + w.slice(5) : w) as keyof typeof FRAME_OF;
-			if (!(name in FRAME_OF)) throw new Error(`frame: no value ${w} (calls, writes, bytes, draws; walkCalls, walkWrites, walkBytes, walkDraws)`);
+			if (!(name in FRAME_OF)) throw new Error(`frame: no value ${w} (calls, writes, bytes, draws, scenePasses; walkCalls, walkWrites, walkBytes, walkDraws, walkScenePasses)`);
 			const c = walk ? v.walk : v.still;
 			if (!c) throw new Error(`the frame's census ${side}: ${v.view} has no walk (a world with no walker)`);
 			// a frame that drew nothing is no bound (as a blind census is none)
 			if (!(c.draws > BLIND_DRAWS)) throw new Error(`the frame's census ${side}: ${v.view} drew nothing`);
-			out[`${v.view} ${w}`] = Math.round(c[FRAME_OF[name]]);
+			// (a pass that draws only some frames is a part of one a frame: kept to a hundredth)
+			out[`${v.view} ${w}`] = name === 'scenePasses' ? Math.round(c[FRAME_OF[name]] * 100) / 100 : Math.round(c[FRAME_OF[name]]);
 		}
 	}
 	return out;
