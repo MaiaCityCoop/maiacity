@@ -3,7 +3,7 @@
  * boxes at once, the most wanted first, each in whichever box is free. Stand-in boxes the test answers by hand: no
  * clock, no worker. (The same builds from real workers: scripts/census/pool.test.ts.)
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createPool } from './pool.js'
 import { budgetFor } from '$lib/content/render/budget.js'
 
@@ -131,5 +131,39 @@ describe("a world's kinds are built on every core but one", () => {
 		const pool = createPool({ engine: 5, size: 1, box: () => ({ start: () => Promise.resolve(), build: (...a: unknown[]) => (asked.push(a), Promise.resolve('built')), stop() {} }) })
 		expect(await pool.build({ hash: 'h', code: 'c' }, { detail: '0.2' }, { timeout: 900, rank: 3 })).toBe('built')
 		expect(asked).toEqual([[{ hash: 'h', code: 'c' }, { detail: '0.2' }, { timeout: 900 }]])
+	})
+})
+
+describe('a build asked for by two (two renderers of one page) is left unbuilt only when neither wants it', () => {
+	it('loadAsset hands the pool one build for both, unwanted only once every asker is gone', async () => {
+		vi.resetModules()
+		const asked: { unwanted: () => boolean; done: (v: unknown) => void }[] = []
+		vi.doMock('./pool.js', () => ({ poolOf: () => ({ build: (_r: unknown, _g: unknown, o: { unwanted: () => boolean }) => new Promise((done) => asked.push({ unwanted: o.unwanted, done })) }) }))
+		const R = 'c'.repeat(64)
+		vi.doMock('../catalog.js', () => ({
+			INDEX: { engine: 7, recipes: {} },
+			NotInCatalog: class extends Error {},
+			buildOf: (h: string) => h,
+			parseBuild: (n: string) => ({ hash: n, params: undefined }),
+			loadRecipes: async () => {},
+			heldAt: () => ({ label: 'Fern' }),
+			cardOf: () => ({ engine: 5 }),
+			declaredOf: () => undefined,
+			recipeAt: async (h: string) => ({ hash: h, code: 'defineRecipe()' })
+		}))
+		const { loadAsset } = await import('../load.js')
+		const store = { get: async () => undefined, put: async () => true, drop: async () => {} }
+		const gone = { first: false, second: false }
+		const loads = [loadAsset(R, { store, unwanted: () => gone.first }), loadAsset(R, { store, unwanted: () => gone.second })]
+		loads.forEach((l) => l.catch(() => {}))
+		for (let i = 0; i < 50; i++) await Promise.resolve()
+		expect(asked.length).toBe(1)
+		expect(asked[0]!.unwanted()).toBe(false)
+		gone.first = true
+		expect(asked[0]!.unwanted()).toBe(false)
+		gone.second = true
+		expect(asked[0]!.unwanted()).toBe(true)
+		vi.doUnmock('./pool.js')
+		vi.doUnmock('../catalog.js')
 	})
 })

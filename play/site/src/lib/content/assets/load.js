@@ -88,6 +88,9 @@ const now = () => performance.now();
 
 /** the builds the box is making now, by their cache key: one asked for again meanwhile waits for it */
 const building = new Map();
+/** each of those builds' askers: whether each no longer wants it (`unwanted`) @type {Map<string, (() => boolean)[]>} */
+const askers = new Map();
+const wanted = () => false;
 
 /** A build's data copied: arrays its own (a control may reshape them), pictures shared (a copy would be read back off the GPU). */
 function copyOf(v) {
@@ -156,12 +159,15 @@ export async function loadAsset(name, { rank, unwanted, missed, cache: useCache 
 	// the same build asked for again while the box makes it (four backpacks of one world): made once, each its own copy
 	const same = useCache ? building.get(key) : undefined;
 	if (same) {
+		// (wanted by this asker too: it is left unbuilt only once none of them wants it)
+		askers.get(key)?.push(unwanted ?? wanted);
 		const { built, stored, t2 } = await same;
 		const t3 = now();
 		const got = open({ ...built, data: copyOf(built.data) }, c.hash);
 		const t4 = now();
 		return { ...got, ...said, from: 'box', stored, ms: { read: Math.round(t1 - t0), recipe: 0, start: built.ms.start, build: built.ms.build, bake: built.ms.bake, serialize: built.ms.serialize, box: Math.round(t3 - Math.max(t1, t2)), rebuild: Math.round(t4 - t3), total: Math.round(t4 - t0), shared: true } };
 	}
+	const asking = [unwanted ?? wanted];
 	const making = (async () => {
 		const recipe = await recipeAt(c.hash);
 		const timeout = heldTo(recipe.code, declaredOf(c.hash), c.engine);
@@ -169,16 +175,15 @@ export async function loadAsset(name, { rank, unwanted, missed, cache: useCache 
 		const given = c.values && Object.fromEntries(Object.entries(c.values).map(([k, v]) => [k, String(v)]));
 		// in the page's pool of the engine it is made for, whichever engine is the newest
 		missed?.();
-		const built = await poolOf(c.engine.v).build(recipe, given, { timeout, rank, unwanted });
+		const built = await poolOf(c.engine.v).build(recipe, given, { timeout, rank, unwanted: () => asking.every((gone) => gone()) });
 		const stored = useCache ? kept(store, key, built) : Promise.resolve(false);
 		return { built, stored, t2 };
 	})();
 	if (useCache) {
 		building.set(key, making);
-		making.then(
-			() => building.delete(key),
-			() => building.delete(key)
-		);
+		askers.set(key, asking);
+		const done = () => (building.delete(key), askers.delete(key));
+		making.then(done, done);
 	}
 	const { built, stored, t2 } = await making;
 	const t3 = now();

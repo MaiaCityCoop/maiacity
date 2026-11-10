@@ -152,8 +152,9 @@ export function createAssets(o) {
 				reading--;
 				pump();
 			};
+			// (a renderer that is gone hears of none of its builds: as before, when what waited was let go with its boxes)
 			loadAsset(job.name, { rank: job.rank, unwanted: () => gone, missed: done, cache: o.cache !== false })
-				.then(job.ok, job.no)
+				.then((got) => gone || job.ok(got), (err) => gone || job.no(err))
 				.finally(() => {
 					loads--;
 					done();
