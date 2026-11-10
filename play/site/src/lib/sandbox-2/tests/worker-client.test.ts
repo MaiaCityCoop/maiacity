@@ -1,6 +1,6 @@
 // @ts-nocheck — run by bun test, not type-checked, as the app's other tests
 import {expect,test} from 'vitest';
-import {WorkerClient} from '../worker-client';
+import {WorkerClient,unlessSuperseded} from '../worker-client';
 import type {Reply,Request} from '../worker-runtime';
 class Port {
  messages:Request[]=[];onmessage?:({data}:{data:Reply})=>void;onerror?:({message}:{message:string})=>void;
@@ -25,4 +25,11 @@ test('late snapshots from before reset cannot replace the new scene',async()=>{
 test('worker failure rejects commands and reports an error',async()=>{
  const port=new Port(),client=new WorkerClient(port as unknown as Worker);let message='';client.onError=e=>message=e.message;
  const waiting=client.send({type:'export'}).catch(e=>e.message);port.onerror?.({message:'stopped'});expect(await waiting).toBe('stopped');expect(message).toBe('stopped');client.dispose();
+});
+test('superseded: the start survives a reset that a newer one takes over',async()=>{
+ const port=new Port(),client=new WorkerClient(port as unknown as Worker),scenario={id:'empty',title:'',question:'',boxes:[]};
+ const start=unlessSuperseded(client.send({type:'reset',scenario,diameter:8})).then(()=>'resolved',e=>e.message);
+ const picked=client.send({type:'reset',scenario,diameter:8});
+ port.reply(0);expect(await start).toBe('resolved');port.reply(1);await picked;
+ const failed=unlessSuperseded(client.send({type:'export'})).catch(e=>e.message);port.reply(2,{error:'broken'});expect(await failed).toBe('broken');client.dispose();
 });
