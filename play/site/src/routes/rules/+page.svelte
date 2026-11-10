@@ -10,8 +10,6 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
 
@@ -21,8 +19,6 @@
 	type Item = { id: string; label: string; number: number };
 	type Version = { number: number; contentHash: string };
 
-	adminsOnly();
-	const admin = $derived(isAdmin());
 	let item = $state<Item | null>(null);
 	let set = $state<RuleSet | null>(null);
 	let versions = $state<Version[]>([]);
@@ -35,17 +31,16 @@
 	const wantV = $derived(params.get('v') ?? (byHash ? `${versions.find((v) => v.contentHash === byHash)?.number ?? ''}` : null));
 	const marked = $derived(params.get('rule'));
 	$effect(() => {
-		if (!admin) return;
 		api<Item[]>('/docs?kind=rules').then((l) => (item = l[0] ?? null), (e) => (error = e.message));
 		api<Item[]>('/docs?kind=schema').then((l) => (schemas = new Map(l.map((s) => [s.id, s.label]))), () => {});
 		api<{ id: string; name: string }[]>('/members').then((l) => (people = new Map(l.map((m) => [m.id, m.name]))), () => {});
 	});
 	$effect(() => {
-		if (!admin || !item) return;
+		if (!item) return;
 		api<{ versions: Version[] }>(`/docs/${item.id}/history`).then((h) => (versions = h.versions ?? []), () => {});
 	});
 	$effect(() => {
-		if (!admin || !item || (byHash && !versions.length)) return;
+		if (!item || (byHash && !versions.length)) return;
 		const q = wantV ? `?v=${encodeURIComponent(wantV)}` : '';
 		let gone = false;
 		api<RuleSet>(`/docs/${item.id}${q}`).then(
@@ -85,45 +80,43 @@
 	<Aside doc={set!} where="Rules" label={set!.json.label} shown={shownVersion} propose="Propose v{set!.number + 1} over MCP (doc_edit, propose_doc_version) as an intent's work, always decided by a person." onPick={picked} />
 {/snippet}
 
-{#if admin}
-	<div class="rules">
-		<Frame aside={set ? side : undefined} asideLabel="The rules' history">
-			<article class="body">
-				{#if error}<p class="bad">{error}</p>{/if}
-				{#if set}
-					<p class="eyebrow">Rules · v{shownVersion}{hashOf(shownVersion) ? ` · ${hashOf(shownVersion).slice(0, 12)}` : ''}</p>
-					<h1>{set.json.label}</h1>
-					{#if set.json.note}<p class="lead">{set.json.note}</p>{/if}
-					<p class="lead small">The first rule, in order, that names a gate and whose every field holds decides the intent there with no person: its spec approved, or it accepted (work of play's applied, code into Ship). Its dependencies and every must check still hold first. An intent whose work changes these rules or their schema is never decided by a rule.</p>
-					<ol class="list">
-						{#each set.json.rules as r, k (r.id)}
-							<li class="rule" class:marked={marked === r.id} id="rule-{r.id}">
-								<div class="top">
-									<span class="n">{k + 1}</span>
-									<h2>{r.label}</h2>
-									{#each r.gates as g (g)}<span class="gate">{GATE[g] ?? g}</span>{/each}
-								</div>
-								<p class="reason">{r.reason}</p>
-								<ul class="match">
-									{#each Object.entries(r.match ?? {}) as [f, v] (f)}
-										<li><span class="soft">{FIELD[f] ?? f}</span> <strong>{value(f, v)}</strong></li>
-									{:else}
-										<li class="soft">every intent</li>
-									{/each}
-								</ul>
-								<p class="soft id">Rule <code>{r.id}</code></p>
-							</li>
-						{:else}
-							<li class="soft">No rule: every intent waits for a person.</li>
-						{/each}
-					</ol>
-				{:else if !error}
-					<p class="soft">…</p>
-				{/if}
-			</article>
-		</Frame>
-	</div>
-{/if}
+<div class="rules">
+	<Frame aside={set ? side : undefined} asideLabel="The rules' history">
+		<article class="body">
+			{#if error}<p class="bad">{error}</p>{/if}
+			{#if set}
+				<p class="eyebrow">Rules · v{shownVersion}{hashOf(shownVersion) ? ` · ${hashOf(shownVersion).slice(0, 12)}` : ''}</p>
+				<h1>{set.json.label}</h1>
+				{#if set.json.note}<p class="lead">{set.json.note}</p>{/if}
+				<p class="lead small">The first rule, in order, that names a gate and whose every field holds decides the intent there with no person: its spec approved, or it accepted (work of play's applied, code into Ship). Its dependencies and every must check still hold first. An intent whose work changes these rules or their schema is never decided by a rule.</p>
+				<ol class="list">
+					{#each set.json.rules as r, k (r.id)}
+						<li class="rule" class:marked={marked === r.id} id="rule-{r.id}">
+							<div class="top">
+								<span class="n">{k + 1}</span>
+								<h2>{r.label}</h2>
+								{#each r.gates as g (g)}<span class="gate">{GATE[g] ?? g}</span>{/each}
+							</div>
+							<p class="reason">{r.reason}</p>
+							<ul class="match">
+								{#each Object.entries(r.match ?? {}) as [f, v] (f)}
+									<li><span class="soft">{FIELD[f] ?? f}</span> <strong>{value(f, v)}</strong></li>
+								{:else}
+									<li class="soft">every intent</li>
+								{/each}
+							</ul>
+							<p class="soft id">Rule <code>{r.id}</code></p>
+						</li>
+					{:else}
+						<li class="soft">No rule: every intent waits for a person.</li>
+					{/each}
+				</ol>
+			{:else if !error}
+				<p class="soft">…</p>
+			{/if}
+		</article>
+	</Frame>
+</div>
 
 <style>
 	.rules { position: fixed; inset: 0; background: var(--cream); --soft: rgb(38 56 44 / 0.6); --accent: var(--brand-green); }

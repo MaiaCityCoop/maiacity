@@ -26,7 +26,7 @@ export type SheetUse = { asset: string; label: string; group: string; number: nu
 export type Use = StoryUse | SheetUse;
 export type LibraryFile = { hash: string; size: number; media_type: string; created: string; label: string | null; used: Use[] };
 
-const LIBRARY_ADMINS = "Only Maia City's admins open the Library.";
+export const LIBRARY_ADMINS = "Only Maia City's admins open the Library.";
 /** `me`, if they may open the Library: the coop's library is its admins' always; their own is theirs where it is open to them */
 function opener(me: Me | null, library: "coop" | "personal"): Me {
   if (!me) throw new HttpError("Please sign in first.", 401);

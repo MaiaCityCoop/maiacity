@@ -3,7 +3,7 @@
 // newer one only by its own proposal). A clip or track of a kind not named here is kept as given: no migration.
 import { byOf, putAtProposal, settle } from "./intents";
 import { randomUUID } from "node:crypto";
-import { admin, COOP, type Me } from "./access";
+import { admin, COOP, must, type Me } from "./access";
 import { keyOf, type BlobStore } from "./blobs";
 import { canonical, HASH, hashBytes } from "./kit/hash";
 import type { Db, Queryable } from "./kit/pg";
@@ -689,7 +689,8 @@ export function diffStories(from: { title: string; body: StoryBody } | null, to:
 
 
 export async function listStories(db: Queryable, me: Me | null): Promise<StoryItem[]> {
-  admin(me, STORY_ADMINS);
+  // the right to read stories, as a level's rule gives it (play.level_rules; only admins hold it for now: intent aa751ecb)
+  must(me, "read", "stories");
   const { rows } = await db.query<{ id: string; title: string; body: StoryBody; number: number; updated: Date; versions: string }>(
     `SELECT s.id, s.title, v.body, v.number, s.updated,
             (SELECT count(*) FROM play.story_versions x WHERE x.story_id = s.id AND x.number IS NOT NULL) AS versions
@@ -716,7 +717,7 @@ export async function listStories(db: Queryable, me: Me | null): Promise<StoryIt
 type VersionRow = { id: string; story_id: string; number: number | null; title: string; body: StoryBody; note: string; created: Date; author: string | null; approved_by: string | null };
 
 export async function storyOf(db: Queryable, me: Me | null, id: string, number?: number): Promise<Story> {
-  admin(me, STORY_ADMINS);
+  must(me, "read", "stories");
   if (!STORY_ID.test(id)) throw new HttpError("A story is named by its id, a UUID (list_stories).", 404);
   if (number !== undefined && !(Number.isInteger(number) && number >= 1)) throw new HttpError(`${number} is not a version.`, 404);
   const { rows } = await db.query<VersionRow>(
