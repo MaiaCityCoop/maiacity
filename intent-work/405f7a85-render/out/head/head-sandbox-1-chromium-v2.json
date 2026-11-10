@@ -1,0 +1,330 @@
+{
+ "tag": "head-sandbox-1-chromium-v2",
+ "target": "head",
+ "path": "/sandbox-1/",
+ "engine": "chromium",
+ "mode": "short",
+ "samples": [
+  {
+   "t": 3.7,
+   "card": true,
+   "line": "Laying the paths…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 5.8,
+   "card": true,
+   "line": "Growing the forest: 20 of 23 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 8.5,
+   "card": true,
+   "line": "Welcome",
+   "kinds": 214,
+   "loaded": 118,
+   "building": 99,
+   "keeping": 0,
+   "boxed": 0,
+   "builds": 118,
+   "keptLevels": 32,
+   "keptPictures": 0,
+   "taken": 31,
+   "backend": "webgpu"
+  },
+  {
+   "t": 16.4,
+   "card": false,
+   "line": null,
+   "kinds": 230,
+   "loaded": 179,
+   "building": 49,
+   "keeping": 0,
+   "boxed": 0,
+   "builds": 182,
+   "keptLevels": 50,
+   "keptPictures": 0,
+   "taken": 51,
+   "backend": "webgpu"
+  }
+ ],
+ "shown_s": 16.4,
+ "blank": [
+  {
+   "t": 36.5
+  },
+  {
+   "t": 45.9,
+   "mean": [
+    117,
+    123,
+    115
+   ],
+   "bg": 0.01
+  },
+  {
+   "t": 52.4,
+   "mean": [
+    116,
+    122,
+    115
+   ],
+   "bg": 0.01
+  },
+  {
+   "t": 61.3,
+   "mean": [
+    118,
+    124,
+    117
+   ],
+   "bg": 0
+  },
+  {
+   "t": 66.9,
+   "mean": [
+    117,
+    123,
+    115
+   ],
+   "bg": 0
+  },
+  {
+   "t": 72.6,
+   "mean": [
+    117,
+    123,
+    115
+   ],
+   "bg": 0
+  }
+ ],
+ "at_shown": {
+  "t": 16.4,
+  "card": false,
+  "line": null,
+  "kinds": 230,
+  "loaded": 179,
+  "building": 49,
+  "keeping": 0,
+  "boxed": 0,
+  "builds": 182,
+  "keptLevels": 50,
+  "keptPictures": 0,
+  "taken": 51,
+  "backend": "webgpu"
+ },
+ "holds": [
+  [
+   1989,
+   215,
+   true
+  ],
+  [
+   2203,
+   1551,
+   true
+  ],
+  [
+   3754,
+   292,
+   true
+  ],
+  [
+   4303,
+   222,
+   true
+  ],
+  [
+   6397,
+   265,
+   true
+  ],
+  [
+   6662,
+   353,
+   true
+  ],
+  [
+   7014,
+   1437,
+   true
+  ],
+  [
+   8732,
+   222,
+   true
+  ],
+  [
+   9242,
+   245,
+   true
+  ],
+  [
+   9488,
+   305,
+   true
+  ],
+  [
+   9989,
+   6429,
+   false
+  ],
+  [
+   16558,
+   17144,
+   false
+  ],
+  [
+   33701,
+   9491,
+   false
+  ],
+  [
+   43193,
+   215,
+   false
+  ],
+  [
+   43707,
+   392,
+   false
+  ],
+  [
+   44099,
+   375,
+   false
+  ],
+  [
+   44954,
+   287,
+   false
+  ],
+  [
+   45888,
+   207,
+   false
+  ],
+  [
+   46244,
+   306,
+   false
+  ],
+  [
+   46549,
+   303,
+   false
+  ],
+  [
+   46852,
+   336,
+   false
+  ],
+  [
+   47188,
+   251,
+   false
+  ],
+  [
+   47439,
+   342,
+   false
+  ],
+  [
+   47781,
+   494,
+   false
+  ],
+  [
+   49280,
+   239,
+   false
+  ],
+  [
+   49690,
+   258,
+   false
+  ],
+  [
+   49948,
+   265,
+   false
+  ],
+  [
+   50620,
+   234,
+   false
+  ],
+  [
+   51727,
+   371,
+   false
+  ],
+  [
+   53579,
+   378,
+   false
+  ],
+  [
+   62625,
+   204,
+   false
+  ]
+ ],
+ "longest_hold": {
+  "at_s": 16.6,
+  "ms": 17144,
+  "card_on": false
+ },
+ "holds_over_1s": [
+  {
+   "at_s": 2.2,
+   "ms": 1551,
+   "card_on": true
+  },
+  {
+   "at_s": 7,
+   "ms": 1437,
+   "card_on": true
+  },
+  {
+   "at_s": 10,
+   "ms": 6429,
+   "card_on": false
+  },
+  {
+   "at_s": 16.6,
+   "ms": 17144,
+   "card_on": false
+  },
+  {
+   "at_s": 33.7,
+   "ms": 9491,
+   "card_on": false
+  }
+ ],
+ "console": [
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  }
+ ]
+}

@@ -1,0 +1,765 @@
+{
+ "tag": "head-sandbox-1-chromium-v1",
+ "target": "head",
+ "path": "/sandbox-1/",
+ "engine": "chromium",
+ "mode": "full",
+ "samples": [
+  {
+   "t": 2.1,
+   "card": false,
+   "line": null,
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": null
+  },
+  {
+   "t": 4.1,
+   "card": false,
+   "line": null,
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": null
+  },
+  {
+   "t": 6.3,
+   "card": true,
+   "line": "Letting in the light…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 8.3,
+   "card": true,
+   "line": "Planting the edges…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 10.3,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 12.3,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 14.3,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 16.3,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 18.3,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 20.4,
+   "card": true,
+   "line": "Growing the forest: 10 of 23 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 22.4,
+   "card": true,
+   "line": "Growing the forest: 10 of 23 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 26,
+   "card": true,
+   "line": "Welcome",
+   "kinds": 214,
+   "loaded": 41,
+   "building": 176,
+   "keeping": 32,
+   "boxed": 41,
+   "builds": 41,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 7,
+   "backend": "webgpu"
+  },
+  {
+   "t": 28,
+   "card": false,
+   "line": null,
+   "kinds": 230,
+   "loaded": 55,
+   "building": 177,
+   "keeping": 32,
+   "boxed": 56,
+   "builds": 56,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 7,
+   "backend": "webgpu"
+  }
+ ],
+ "shown_s": 28,
+ "blank": [
+  {
+   "t": 48.1
+  },
+  {
+   "t": 63.7,
+   "mean": [
+    117,
+    123,
+    115
+   ],
+   "bg": 0.01
+  },
+  {
+   "t": 69.4,
+   "mean": [
+    116,
+    123,
+    115
+   ],
+   "bg": 0
+  },
+  {
+   "t": 76.3,
+   "mean": [
+    116,
+    123,
+    115
+   ],
+   "bg": 0
+  },
+  {
+   "t": 82.7,
+   "mean": [
+    116,
+    123,
+    115
+   ],
+   "bg": 0.01
+  },
+  {
+   "t": 88.9,
+   "mean": [
+    116,
+    123,
+    115
+   ],
+   "bg": 0.01
+  }
+ ],
+ "at_shown": {
+  "t": 28,
+  "card": false,
+  "line": null,
+  "kinds": 230,
+  "loaded": 55,
+  "building": 177,
+  "keeping": 32,
+  "boxed": 56,
+  "builds": 56,
+  "keptLevels": 0,
+  "keptPictures": 0,
+  "taken": 7,
+  "backend": "webgpu"
+ },
+ "grown_after_s": null,
+ "grown_at_s": 394.8,
+ "at_grown": {
+  "card": false,
+  "line": null,
+  "kinds": 359,
+  "loaded": 359,
+  "building": 1,
+  "keeping": 0,
+  "boxed": 326,
+  "builds": 362,
+  "keptLevels": 2,
+  "keptPictures": 0,
+  "taken": 140,
+  "backend": "webgpu"
+ },
+ "views": {
+  "near": {
+   "quiet_s": 18,
+   "mean": [
+    81,
+    98,
+    94
+   ],
+   "bg": 0.02
+  },
+  "mid": {
+   "quiet_s": 17,
+   "mean": [
+    46,
+    65,
+    59
+   ],
+   "bg": 0.21
+  },
+  "far": {
+   "quiet_s": 4,
+   "mean": [
+    112,
+    119,
+    113
+   ],
+   "bg": 0.11
+  }
+ },
+ "meter": {
+  "frames": 327,
+  "frame_ms": 61.4,
+  "frame_p95": 66.7,
+  "cpu_ms": 38.9,
+  "gpu_ms": 54,
+  "calls": 3581,
+  "triangles": 7471343,
+  "bound": "gpu"
+ },
+ "holds": [
+  [
+   6042,
+   239,
+   true
+  ],
+  [
+   6281,
+   1251,
+   true
+  ],
+  [
+   7533,
+   263,
+   true
+  ],
+  [
+   8052,
+   232,
+   true
+  ],
+  [
+   23434,
+   265,
+   true
+  ],
+  [
+   23699,
+   2286,
+   true
+  ],
+  [
+   62300,
+   303,
+   false
+  ],
+  [
+   78188,
+   209,
+   false
+  ],
+  [
+   96984,
+   335,
+   false
+  ],
+  [
+   97319,
+   347,
+   false
+  ],
+  [
+   98310,
+   326,
+   false
+  ],
+  [
+   98665,
+   284,
+   false
+  ],
+  [
+   106718,
+   262,
+   false
+  ],
+  [
+   112609,
+   235,
+   false
+  ],
+  [
+   116222,
+   247,
+   false
+  ],
+  [
+   122274,
+   229,
+   false
+  ],
+  [
+   122503,
+   253,
+   false
+  ],
+  [
+   137291,
+   644,
+   false
+  ],
+  [
+   137934,
+   896,
+   false
+  ],
+  [
+   148940,
+   242,
+   false
+  ],
+  [
+   157392,
+   728,
+   false
+  ],
+  [
+   163794,
+   247,
+   false
+  ],
+  [
+   164041,
+   331,
+   false
+  ],
+  [
+   171377,
+   305,
+   false
+  ],
+  [
+   171682,
+   421,
+   false
+  ],
+  [
+   174325,
+   205,
+   false
+  ],
+  [
+   174530,
+   289,
+   false
+  ],
+  [
+   178048,
+   241,
+   false
+  ],
+  [
+   181935,
+   223,
+   false
+  ],
+  [
+   182158,
+   248,
+   false
+  ],
+  [
+   192855,
+   342,
+   false
+  ],
+  [
+   193197,
+   438,
+   false
+  ],
+  [
+   193920,
+   208,
+   false
+  ],
+  [
+   211035,
+   509,
+   false
+  ],
+  [
+   211544,
+   432,
+   false
+  ],
+  [
+   216936,
+   399,
+   false
+  ],
+  [
+   220067,
+   221,
+   false
+  ],
+  [
+   226065,
+   1065,
+   false
+  ],
+  [
+   229384,
+   309,
+   false
+  ],
+  [
+   231516,
+   291,
+   false
+  ],
+  [
+   231807,
+   463,
+   false
+  ],
+  [
+   232269,
+   429,
+   false
+  ],
+  [
+   232975,
+   864,
+   false
+  ],
+  [
+   236768,
+   389,
+   false
+  ],
+  [
+   238995,
+   264,
+   false
+  ],
+  [
+   245453,
+   328,
+   false
+  ],
+  [
+   246796,
+   905,
+   false
+  ],
+  [
+   248619,
+   244,
+   false
+  ],
+  [
+   249951,
+   277,
+   false
+  ],
+  [
+   251076,
+   290,
+   false
+  ],
+  [
+   251449,
+   814,
+   false
+  ],
+  [
+   252646,
+   260,
+   false
+  ],
+  [
+   252906,
+   230,
+   false
+  ],
+  [
+   253519,
+   261,
+   false
+  ],
+  [
+   259964,
+   228,
+   false
+  ],
+  [
+   281590,
+   294,
+   false
+  ],
+  [
+   296342,
+   333,
+   false
+  ],
+  [
+   314131,
+   254,
+   false
+  ],
+  [
+   328067,
+   260,
+   false
+  ],
+  [
+   344061,
+   556,
+   false
+  ],
+  [
+   381062,
+   440,
+   false
+  ],
+  [
+   394873,
+   883,
+   false
+  ],
+  [
+   399342,
+   301,
+   false
+  ],
+  [
+   400954,
+   6881,
+   false
+  ],
+  [
+   407836,
+   655,
+   false
+  ],
+  [
+   408634,
+   262,
+   false
+  ],
+  [
+   417703,
+   457,
+   false
+  ],
+  [
+   418161,
+   251,
+   false
+  ],
+  [
+   418412,
+   203,
+   false
+  ],
+  [
+   418614,
+   268,
+   false
+  ],
+  [
+   418882,
+   282,
+   false
+  ],
+  [
+   419164,
+   359,
+   false
+  ],
+  [
+   421388,
+   272,
+   false
+  ],
+  [
+   422720,
+   230,
+   false
+  ],
+  [
+   423135,
+   315,
+   false
+  ],
+  [
+   423449,
+   218,
+   false
+  ],
+  [
+   424777,
+   248,
+   false
+  ],
+  [
+   426018,
+   227,
+   false
+  ],
+  [
+   431724,
+   5113,
+   false
+  ],
+  [
+   449041,
+   215,
+   false
+  ]
+ ],
+ "longest_hold": {
+  "at_s": 401,
+  "ms": 6881,
+  "card_on": false
+ },
+ "holds_over_1s": [
+  {
+   "at_s": 6.3,
+   "ms": 1251,
+   "card_on": true
+  },
+  {
+   "at_s": 23.7,
+   "ms": 2286,
+   "card_on": true
+  },
+  {
+   "at_s": 226.1,
+   "ms": 1065,
+   "card_on": false
+  },
+  {
+   "at_s": 401,
+   "ms": 6881,
+   "card_on": false
+  },
+  {
+   "at_s": 431.7,
+   "ms": 5113,
+   "card_on": false
+  }
+ ],
+ "console": [
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  }
+ ]
+}

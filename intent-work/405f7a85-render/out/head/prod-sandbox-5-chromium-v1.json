@@ -1,0 +1,1457 @@
+{
+ "tag": "prod-sandbox-5-chromium-v1",
+ "target": "prod",
+ "path": "/sandbox-5/",
+ "engine": "chromium",
+ "mode": "full",
+ "samples": [
+  {
+   "t": 2.2,
+   "card": true,
+   "line": "Building the dome…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 5.1,
+   "card": true,
+   "line": "Laying the paths…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 7.1,
+   "card": true,
+   "line": "Planting round the dome…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 9.1,
+   "card": true,
+   "line": "Planting round the dome…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 11.1,
+   "card": true,
+   "line": "Planting round the dome…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 13.1,
+   "card": true,
+   "line": "Planting round the dome…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 15.1,
+   "card": true,
+   "line": "Growing the forest: 10 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 17.1,
+   "card": true,
+   "line": "Growing the forest: 20 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 19.1,
+   "card": true,
+   "line": "Growing the forest: 30 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 21.1,
+   "card": true,
+   "line": "Growing the forest: 30 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 23.1,
+   "card": true,
+   "line": "Growing the forest: 30 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 25.1,
+   "card": true,
+   "line": "Growing the forest: 30 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 27.1,
+   "card": true,
+   "line": "Growing the forest: 30 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 29.2,
+   "card": true,
+   "line": "Growing the forest: 30 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 31.2,
+   "card": true,
+   "line": "Growing the forest: 40 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 33.2,
+   "card": true,
+   "line": "Growing the forest: 40 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 35.2,
+   "card": true,
+   "line": "Growing the forest: 40 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 37.2,
+   "card": true,
+   "line": "Growing the forest: 40 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 39.2,
+   "card": true,
+   "line": "Growing the forest: 40 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 41.2,
+   "card": true,
+   "line": "Growing the forest: 50 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 43.2,
+   "card": true,
+   "line": "Growing the forest: 60 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 45.2,
+   "card": true,
+   "line": "Growing the forest: 60 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 47.2,
+   "card": true,
+   "line": "Growing the forest: 60 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 49.2,
+   "card": true,
+   "line": "Growing the forest: 60 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 51.2,
+   "card": true,
+   "line": "Growing the forest: 60 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 53.2,
+   "card": true,
+   "line": "Growing the forest: 60 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 55.2,
+   "card": true,
+   "line": "Growing the forest: 60 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 57.2,
+   "card": true,
+   "line": "Growing the forest: 60 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 59.2,
+   "card": true,
+   "line": "Growing the forest: 60 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 61.2,
+   "card": true,
+   "line": "Growing the forest: 80 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 63.2,
+   "card": true,
+   "line": "Growing the forest: 90 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 65.3,
+   "card": true,
+   "line": "Growing the forest: 100 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 67.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 69.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 71.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 73.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 75.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 77.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 79.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 81.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 83.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 85.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 87.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 89.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 91.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 93.3,
+   "card": true,
+   "line": "Growing the forest: 130 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 95.3,
+   "card": true,
+   "line": "Growing the forest: 150 of 180 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 97.3,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 9,
+   "keeping": 0,
+   "boxed": 163,
+   "builds": 163,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 99.3,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 9,
+   "keeping": 0,
+   "boxed": 163,
+   "builds": 163,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 101.3,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 9,
+   "keeping": 0,
+   "boxed": 163,
+   "builds": 163,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 103.3,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 9,
+   "keeping": 0,
+   "boxed": 163,
+   "builds": 163,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 105.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 9,
+   "keeping": 0,
+   "boxed": 163,
+   "builds": 163,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 107.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 9,
+   "keeping": 0,
+   "boxed": 163,
+   "builds": 163,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 109.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 7,
+   "keeping": 0,
+   "boxed": 165,
+   "builds": 165,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 111.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 5,
+   "keeping": 0,
+   "boxed": 167,
+   "builds": 167,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 113.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 4,
+   "keeping": 2,
+   "boxed": 167,
+   "builds": 167,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 115.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 3,
+   "keeping": 2,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 117.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 3,
+   "keeping": 2,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 119.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 3,
+   "keeping": 0,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 121.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 3,
+   "keeping": 0,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 123.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 3,
+   "keeping": 0,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 125.4,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 2,
+   "keeping": 2,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 127.5,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 2,
+   "keeping": 0,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 129.5,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 2,
+   "keeping": 0,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 131.5,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 2,
+   "keeping": 0,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 133.5,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 1,
+   "keeping": 2,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 135.5,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 1,
+   "keeping": 0,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 137.5,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 1,
+   "keeping": 0,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 139.5,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 1,
+   "keeping": 0,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 143.8,
+   "card": true,
+   "line": "Welcome",
+   "kinds": 196,
+   "loaded": 163,
+   "building": 0,
+   "keeping": 2,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  },
+  {
+   "t": 149.2,
+   "card": false,
+   "line": null,
+   "kinds": 196,
+   "loaded": 163,
+   "building": 0,
+   "keeping": 0,
+   "boxed": 168,
+   "builds": 168,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 46,
+   "backend": "webgpu"
+  }
+ ],
+ "shown_s": 149.2,
+ "blank": [
+  {
+   "t": 149.9,
+   "mean": [
+    80,
+    104,
+    104
+   ],
+   "bg": 0.07
+  },
+  {
+   "t": 155.4,
+   "mean": [
+    80,
+    104,
+    104
+   ],
+   "bg": 0.07
+  },
+  {
+   "t": 161,
+   "mean": [
+    80,
+    104,
+    104
+   ],
+   "bg": 0.07
+  },
+  {
+   "t": 166.5,
+   "mean": [
+    80,
+    104,
+    104
+   ],
+   "bg": 0.07
+  },
+  {
+   "t": 172.2,
+   "mean": [
+    80,
+    104,
+    104
+   ],
+   "bg": 0.07
+  },
+  {
+   "t": 177.7,
+   "mean": [
+    80,
+    104,
+    104
+   ],
+   "bg": 0.07
+  }
+ ],
+ "at_shown": {
+  "t": 149.2,
+  "card": false,
+  "line": null,
+  "kinds": 196,
+  "loaded": 163,
+  "building": 0,
+  "keeping": 0,
+  "boxed": 168,
+  "builds": 168,
+  "keptLevels": 0,
+  "keptPictures": 0,
+  "taken": 46,
+  "backend": "webgpu"
+ },
+ "grown_after_s": 4,
+ "grown_at_s": 186.7,
+ "at_grown": {
+  "card": false,
+  "line": null,
+  "kinds": 196,
+  "loaded": 163,
+  "building": 0,
+  "keeping": 0,
+  "boxed": 168,
+  "builds": 168,
+  "keptLevels": 0,
+  "keptPictures": 0,
+  "taken": 46,
+  "backend": "webgpu"
+ },
+ "views": {
+  "open": {
+   "quiet_s": 4,
+   "mean": [
+    80,
+    104,
+    104
+   ],
+   "bg": 0.07
+  },
+  "near": {
+   "quiet_s": 13,
+   "mean": [
+    78,
+    96,
+    90
+   ],
+   "bg": 0.11
+  },
+  "far": {
+   "quiet_s": 4,
+   "mean": [
+    114,
+    123,
+    119
+   ],
+   "bg": 0.07
+  }
+ },
+ "meter": {
+  "frames": 542,
+  "frame_ms": 37,
+  "frame_p95": 50,
+  "cpu_ms": 23.4,
+  "gpu_ms": 32.7,
+  "calls": 1755,
+  "triangles": 8392037,
+  "bound": "gpu"
+ },
+ "holds": [
+  [
+   2851,
+   705,
+   true
+  ],
+  [
+   3556,
+   1537,
+   true
+  ],
+  [
+   5093,
+   244,
+   true
+  ],
+  [
+   25891,
+   215,
+   true
+  ],
+  [
+   30468,
+   210,
+   true
+  ],
+  [
+   139782,
+   3799,
+   true
+  ],
+  [
+   143581,
+   282,
+   true
+  ],
+  [
+   143863,
+   209,
+   true
+  ],
+  [
+   144190,
+   201,
+   true
+  ],
+  [
+   144391,
+   206,
+   true
+  ],
+  [
+   145173,
+   4025,
+   false
+  ],
+  [
+   195456,
+   359,
+   false
+  ],
+  [
+   195815,
+   207,
+   false
+  ],
+  [
+   198026,
+   4680,
+   false
+  ],
+  [
+   203534,
+   2404,
+   false
+  ],
+  [
+   221202,
+   239,
+   false
+  ]
+ ],
+ "longest_hold": {
+  "at_s": 198,
+  "ms": 4680,
+  "card_on": false
+ },
+ "holds_over_1s": [
+  {
+   "at_s": 3.6,
+   "ms": 1537,
+   "card_on": true
+  },
+  {
+   "at_s": 139.8,
+   "ms": 3799,
+   "card_on": true
+  },
+  {
+   "at_s": 145.2,
+   "ms": 4025,
+   "card_on": false
+  },
+  {
+   "at_s": 198,
+   "ms": 4680,
+   "card_on": false
+  },
+  {
+   "at_s": 203.5,
+   "ms": 2404,
+   "card_on": false
+  }
+ ],
+ "console": [
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 ()"
+  },
+  {
+   "n": 51,
+   "m": "Failed to load resource: net::ERR_NETWORK_CHANGED"
+  },
+  {
+   "n": 1,
+   "m": "flora: plum@3:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: pawpaw@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: quince@3:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: cornel@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: plum@3:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: serviceberry@3:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: quince@3:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: cornel@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: medlar@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: apricot@2:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: medlar@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: cucumber@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: kiwiberry@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: beans@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: pawpaw@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: hop@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: parsley@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: parsley@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: comfrey@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: coriander@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: coriander@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: lettuce@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: lettuce@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: comfrey@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: oxheart@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: dill@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: dill@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: chard@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: chard@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: oxheart@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: jerusalem-artichoke@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: jerusalem-artichoke@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: horseradish@1:9:sandbox-5 did not grow: Failed to fetch"
+  }
+ ]
+}

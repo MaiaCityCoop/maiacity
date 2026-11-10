@@ -1,0 +1,256 @@
+{
+ "tag": "head-sandbox-5-chromium-v2",
+ "target": "head",
+ "path": "/sandbox-5/",
+ "engine": "chromium",
+ "mode": "short",
+ "samples": [
+  {
+   "t": 3,
+   "card": true,
+   "line": "Letting the stream in…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 5.2,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 8.9,
+   "card": true,
+   "line": "Welcome",
+   "kinds": 196,
+   "loaded": 76,
+   "building": 124,
+   "keeping": 0,
+   "boxed": 0,
+   "builds": 76,
+   "keptLevels": 32,
+   "keptPictures": 0,
+   "taken": 20,
+   "backend": "webgpu"
+  },
+  {
+   "t": 10.9,
+   "card": false,
+   "line": null,
+   "kinds": 196,
+   "loaded": 76,
+   "building": 124,
+   "keeping": 0,
+   "boxed": 0,
+   "builds": 76,
+   "keptLevels": 38,
+   "keptPictures": 0,
+   "taken": 20,
+   "backend": "webgpu"
+  }
+ ],
+ "shown_s": 10.9,
+ "blank": [
+  {
+   "t": 11.8,
+   "mean": [
+    78,
+    101,
+    97
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 17.5,
+   "mean": [
+    78,
+    101,
+    97
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 23.3,
+   "mean": [
+    78,
+    101,
+    97
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 29.2,
+   "mean": [
+    78,
+    101,
+    97
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 35.4,
+   "mean": [
+    75,
+    99,
+    96
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 42.3,
+   "mean": [
+    75,
+    99,
+    95
+   ],
+   "bg": 0.08
+  }
+ ],
+ "at_shown": {
+  "t": 10.9,
+  "card": false,
+  "line": null,
+  "kinds": 196,
+  "loaded": 76,
+  "building": 124,
+  "keeping": 0,
+  "boxed": 0,
+  "builds": 76,
+  "keptLevels": 38,
+  "keptPictures": 0,
+  "taken": 20,
+  "backend": "webgpu"
+ },
+ "holds": [
+  [
+   858,
+   586,
+   true
+  ],
+  [
+   1444,
+   1289,
+   true
+  ],
+  [
+   2733,
+   245,
+   true
+  ],
+  [
+   3435,
+   384,
+   true
+  ],
+  [
+   3955,
+   245,
+   true
+  ],
+  [
+   4199,
+   390,
+   true
+  ],
+  [
+   4938,
+   242,
+   true
+  ],
+  [
+   6692,
+   2175,
+   true
+  ],
+  [
+   8866,
+   405,
+   true
+  ],
+  [
+   9616,
+   401,
+   true
+  ],
+  [
+   10018,
+   214,
+   true
+  ],
+  [
+   38772,
+   320,
+   false
+  ],
+  [
+   39091,
+   431,
+   false
+  ],
+  [
+   39900,
+   242,
+   false
+  ],
+  [
+   43201,
+   227,
+   false
+  ],
+  [
+   43428,
+   315,
+   false
+  ],
+  [
+   44281,
+   221,
+   false
+  ],
+  [
+   47015,
+   210,
+   false
+  ]
+ ],
+ "longest_hold": {
+  "at_s": 6.7,
+  "ms": 2175,
+  "card_on": true
+ },
+ "holds_over_1s": [
+  {
+   "at_s": 1.4,
+   "ms": 1289,
+   "card_on": true
+  },
+  {
+   "at_s": 6.7,
+   "ms": 2175,
+   "card_on": true
+  }
+ ],
+ "console": [
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  }
+ ]
+}

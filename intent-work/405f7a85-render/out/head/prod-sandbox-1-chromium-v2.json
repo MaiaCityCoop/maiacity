@@ -1,0 +1,742 @@
+{
+ "tag": "prod-sandbox-1-chromium-v2",
+ "target": "prod",
+ "path": "/sandbox-1/",
+ "engine": "chromium",
+ "mode": "short",
+ "samples": [
+  {
+   "t": 2.7,
+   "card": true,
+   "line": "Letting the stream in…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 4.7,
+   "card": true,
+   "line": "Growing the forest: 10 of 198 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 6.7,
+   "card": true,
+   "line": "Growing the forest: 10 of 198 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 8.7,
+   "card": true,
+   "line": "Growing the forest: 10 of 198 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 10.7,
+   "card": true,
+   "line": "Growing the forest: 10 of 198 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 12.7,
+   "card": true,
+   "line": "Growing the forest: 40 of 198 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 14.7,
+   "card": true,
+   "line": "Growing the forest: 100 of 198 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 16.7,
+   "card": true,
+   "line": "Growing the forest: 110 of 198 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 18.7,
+   "card": true,
+   "line": "Growing the forest: 130 of 198 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 20.7,
+   "card": true,
+   "line": "Growing the forest: 190 of 198 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 22.7,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 214,
+   "loaded": 115,
+   "building": 1,
+   "keeping": 0,
+   "boxed": 96,
+   "builds": 115,
+   "keptLevels": 2,
+   "keptPictures": 0,
+   "taken": 21,
+   "backend": "webgpu"
+  },
+  {
+   "t": 24.7,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 214,
+   "loaded": 115,
+   "building": 1,
+   "keeping": 0,
+   "boxed": 96,
+   "builds": 115,
+   "keptLevels": 2,
+   "keptPictures": 0,
+   "taken": 21,
+   "backend": "webgpu"
+  },
+  {
+   "t": 26.7,
+   "card": true,
+   "line": "Growing the forest: the plants near you…",
+   "kinds": 214,
+   "loaded": 115,
+   "building": 1,
+   "keeping": 0,
+   "boxed": 96,
+   "builds": 115,
+   "keptLevels": 2,
+   "keptPictures": 0,
+   "taken": 21,
+   "backend": "webgpu"
+  },
+  {
+   "t": 28.7,
+   "card": true,
+   "line": "Welcome",
+   "kinds": 221,
+   "loaded": 115,
+   "building": 7,
+   "keeping": 0,
+   "boxed": 97,
+   "builds": 116,
+   "keptLevels": 2,
+   "keptPictures": 0,
+   "taken": 21,
+   "backend": "webgpu"
+  },
+  {
+   "t": 30.8,
+   "card": false,
+   "line": null,
+   "kinds": 359,
+   "loaded": 115,
+   "building": 145,
+   "keeping": 0,
+   "boxed": 97,
+   "builds": 116,
+   "keptLevels": 2,
+   "keptPictures": 0,
+   "taken": 21,
+   "backend": "webgpu"
+  }
+ ],
+ "shown_s": 30.8,
+ "blank": [
+  {
+   "t": 32.1,
+   "mean": [
+    114,
+    121,
+    118
+   ],
+   "bg": 0
+  },
+  {
+   "t": 37.7,
+   "mean": [
+    114,
+    121,
+    118
+   ],
+   "bg": 0
+  },
+  {
+   "t": 43.6,
+   "mean": [
+    114,
+    121,
+    118
+   ],
+   "bg": 0
+  },
+  {
+   "t": 49.6,
+   "mean": [
+    114,
+    121,
+    118
+   ],
+   "bg": 0
+  },
+  {
+   "t": 55.8,
+   "mean": [
+    114,
+    121,
+    118
+   ],
+   "bg": 0
+  },
+  {
+   "t": 61.9,
+   "mean": [
+    116,
+    123,
+    120
+   ],
+   "bg": 0
+  }
+ ],
+ "at_shown": {
+  "t": 30.8,
+  "card": false,
+  "line": null,
+  "kinds": 359,
+  "loaded": 115,
+  "building": 145,
+  "keeping": 0,
+  "boxed": 97,
+  "builds": 116,
+  "keptLevels": 2,
+  "keptPictures": 0,
+  "taken": 21,
+  "backend": "webgpu"
+ },
+ "holds": [
+  [
+   928,
+   219,
+   true
+  ],
+  [
+   1146,
+   1241,
+   true
+  ],
+  [
+   2387,
+   261,
+   true
+  ],
+  [
+   2877,
+   238,
+   true
+  ],
+  [
+   20907,
+   216,
+   true
+  ],
+  [
+   27049,
+   1163,
+   true
+  ],
+  [
+   37734,
+   3886,
+   false
+  ],
+  [
+   51555,
+   220,
+   false
+  ],
+  [
+   53292,
+   211,
+   false
+  ],
+  [
+   55455,
+   206,
+   false
+  ],
+  [
+   58170,
+   209,
+   false
+  ],
+  [
+   60426,
+   539,
+   false
+  ],
+  [
+   62784,
+   285,
+   false
+  ],
+  [
+   63319,
+   253,
+   false
+  ]
+ ],
+ "longest_hold": {
+  "at_s": 37.7,
+  "ms": 3886,
+  "card_on": false
+ },
+ "holds_over_1s": [
+  {
+   "at_s": 1.1,
+   "ms": 1241,
+   "card_on": true
+  },
+  {
+   "at_s": 27,
+   "ms": 1163,
+   "card_on": true
+  },
+  {
+   "at_s": 37.7,
+   "ms": 3886,
+   "card_on": false
+  }
+ ],
+ "console": [
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 ()"
+  },
+  {
+   "n": 150,
+   "m": "Failed to load resource: net::ERR_NETWORK_CHANGED"
+  },
+  {
+   "n": 1,
+   "m": "flora: mango@4:13:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: orange@4:12:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: soursop@5:12:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: redcurrant@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: redcurrant@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: blackcurrant@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: blackcurrant@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: oats@1:8:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: oats@1:6:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: oats@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: oats@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: lentil@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: lentil@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: lentil@1:6:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: lentil@1:8:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: chickpea@1:8:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: hemp@1:6:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: chickpea@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: chickpea@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: edamame@1:6:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: edamame@1:5:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: edamame@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: korean-pine@3:11:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: edamame@1:8:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: chickpea@1:6:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: hemp@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: bamboo@1:6:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: bamboo@1:8:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: hemp@1:8:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: bamboo@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: mulberry@3:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: tree-hazel@2:12:sandbox-5 did not grow: the box did not start"
+  },
+  {
+   "n": 1,
+   "m": "flora: hemp@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: linden@2:11:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: tree-hazel@2:11:sandbox-5 did not grow: the box did not start"
+  },
+  {
+   "n": 1,
+   "m": "flora: pecan@2:10:sandbox-5 did not grow: the box did not start"
+  },
+  {
+   "n": 1,
+   "m": "flora: pecan@2:12:sandbox-5 did not grow: the box did not start"
+  },
+  {
+   "n": 1,
+   "m": "flora: birch@3:9:sandbox-5 did not grow: the box did not start"
+  },
+  {
+   "n": 1,
+   "m": "flora: birch@3:6:sandbox-5 did not grow: the box did not start"
+  },
+  {
+   "n": 1,
+   "m": "flora: linden@2:12:sandbox-5 did not grow: the box did not start"
+  },
+  {
+   "n": 1,
+   "m": "flora: chestnut@6:10:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: pear@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: chestnut@6:12:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: walnut@5:11:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: chestnut@6:11:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: alder@2:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: walnut@5:12:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: cherry@2:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: walnut@5:10:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: persimmon@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: chestnut@6:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: peach@3:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: pear@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: korean-pine@3:12:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: hazel@5:12:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: korean-pine@3:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: korean-pine@3:10:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: quince@3:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: kiwiberry@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: birch@3:10:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: pecan@2:11:sandbox-5 did not grow: the box did not start"
+  },
+  {
+   "n": 1,
+   "m": "flora: tree-hazel@2:10:sandbox-5 did not grow: the box did not start"
+  },
+  {
+   "n": 1,
+   "m": "flora: linden@2:10:sandbox-5 did not grow: the box did not start"
+  },
+  {
+   "n": 1,
+   "m": "flora: medlar@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: kiwiberry@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: plum@3:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: hazel@5:10:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: fig@2:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: serviceberry@3:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: apple@2:4:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: cherry@2:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: apple@2:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: persimmon@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: hazel@5:11:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: fig@2:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: plum@3:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: medlar@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: apricot@2:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: apricot@2:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: quince@3:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: hop@1:9:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: hop@1:7:sandbox-5 did not grow: Failed to fetch"
+  },
+  {
+   "n": 1,
+   "m": "flora: pawpaw@1:7:sandbox-5 did not grow: Failed to fetch"
+  }
+ ]
+}
