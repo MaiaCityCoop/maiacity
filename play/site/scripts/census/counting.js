@@ -28,6 +28,8 @@ const _proj = new THREE.Matrix4();
 function newTally() {
 	return {
 		calls: 0, tris: 0, meshes: 0, instanced: 0, instances: 0,
+		/** indirect draws (their instances the GPU's: counted only where the geometry says, `userData.indirectInstances`), and compute passes */
+		indirect: 0, computes: 0,
 		shadowCalls: 0, shadowTris: 0, shadowPasses: 0,
 		targetCalls: 0, targetTris: 0,
 		culledObjects: 0, culledTris: 0,
@@ -56,6 +58,12 @@ export function drawOf(object, geometry, material, group) {
 		const counts = object._multiDrawCounts, k = object._multiDrawCount ?? 0;
 		for (let i = 0; i < k; i++) n += counts[i];
 		return { tris: n / 3, instances: 1, prims: n };
+	}
+	// an indirect draw (WebGPU): one draw an offset, its instances counted by a compute on the GPU (intent e85a5860)
+	if (geometry.indirect) {
+		const calls = Array.isArray(geometry.indirectOffset) ? geometry.indirectOffset.length : 1;
+		const instances = geometry.userData?.indirectInstances ?? 0;
+		return { tris: (instances * count) / 3, instances, prims: count, calls, indirect: true };
 	}
 	let instances = 1;
 	if (object.isInstancedMesh) instances = object.count;
@@ -280,7 +288,7 @@ export class CountingRenderer {
 			const n = drawOf(object, geometry, material, group);
 			// a see-through material drawn from both sides is drawn twice, its back then its front (three's renderObject)
 			const passes = material.transparent === true && material.side === THREE.DoubleSide && material.forceSinglePass === false ? 2 : 1;
-			for (let p = 0; p < passes; p++) this.#count(n.tris, 1, toScreen, false, object, n);
+			for (let p = 0; p < passes; p++) this.#count(n.tris, n.calls ?? 1, toScreen, false, object, n);
 			object.onAfterRender(this, scene, camera, geometry, material, group);
 		}
 		if (scene.isScene === true) scene.onAfterRender(this, scene, camera);
@@ -297,7 +305,8 @@ export class CountingRenderer {
 			t.calls += calls;
 			t.tris += tris;
 			if (object) {
-				if (object.isInstancedMesh || object.isBatchedMesh || object.geometry?.isInstancedBufferGeometry) (t.instanced += 1), (t.instances += n?.instances ?? 0);
+				if (n?.indirect) (t.indirect += calls), (t.instances += n.instances);
+				else if (object.isInstancedMesh || object.isBatchedMesh || object.geometry?.isInstancedBufferGeometry) (t.instanced += 1), (t.instances += n?.instances ?? 0);
 				else t.meshes += 1;
 				t.draws.push([object, tris]);
 			}
@@ -437,6 +446,21 @@ export class CountingWebGPURenderer extends CountingRenderer {
 	}
 	get _initialized() {
 		return this.initialized;
+	}
+	/** a compute pass (its dispatch counted, nothing run), refused as three's Renderer.compute refuses it */
+	compute(nodes, dispatchSize = null) {
+		const list = Array.isArray(nodes) ? nodes : [nodes];
+		if (list.length === 0 || list.some((n) => n?.isComputeNode !== true)) throw new Error('THREE.Renderer: ".compute()" expects a "ComputeNode".');
+		if (dispatchSize !== null && list.some((n) => n.count !== null || n.dispatchSize !== null))
+			throw new Error('THREE.Renderer: A dispatch size cannot be passed to "renderer.compute()" for nodes created with "compute( count )". Use "computeKernel()" instead.');
+		this.tally.computes += 1;
+	}
+	computeAsync(nodes, dispatchSize = null) {
+		return Promise.resolve(this.compute(nodes, dispatchSize));
+	}
+	/** a buffer read back: nothing was computed, so its contents as the CPU last wrote them */
+	getArrayBufferAsync(attribute) {
+		return Promise.resolve(attribute.array.slice().buffer);
 	}
 	/** three's own (r187): three/webgpu's PMREMGenerator asks it before it bakes (a plant's or a sky's environment) */
 	hasInitialized() {
