@@ -26,6 +26,11 @@ export const LEVELS = [1.2, 0.56, 0.22];
  */
 export const HEAVY = 20000;
 export const PICTURE = 0.04;
+/**
+ * the size on screen a kind with a picture whose views are `px` pixels a side (./impostors.js) takes it below: where
+ * those pixels are all it shows on SCREEN, and at the latest the last of LEVELS (intent 3a8b135a)
+ */
+export const switchAt = (px) => Math.max(LEVELS[LEVELS.length - 1], px / SCREEN);
 /** a coarser level fades in over sizes from its threshold up to (1 + BAND) times it */
 export const BAND = 0.3;
 /** a thing switches level only once its size is this much past the threshold (so it does not flicker on the line) */
