@@ -7,6 +7,7 @@
  *
  * One step, as a builder runs it in avenBOX (main measured or read from the cache, then the head, then compared):
  *   bun play/avenbox/vs-main.ts census --world sandbox-1|sandbox-3|worlds [--view near,mid|all] [--of tris,draws] (--within N% | --down N%)
+ *   bun play/avenbox/vs-main.ts frame --world sandbox-1|sandbox-5|sandbox-3 [--view near|all] [--of calls,writes] (--within N% | --down N%)
  *   bun play/avenbox/vs-main.ts bytes <files…> (--within N% | --down N%)
  *   bun play/avenbox/vs-main.ts lines <files…> (--within N% | --down N%)
  *   bun play/avenbox/vs-main.ts count '<command printing a number>' (--within N% | --down N%)
@@ -14,6 +15,9 @@
  *   --within N%    every value at most main's + N %          --down N%   every value at most main's − N % (a reduction)
  *                  either as near:7%,mid:5%,far:11%: a tolerance per value, by the start of its key
  *   --of           census values: tris, draws (every pass, the default), mainTris, mainDraws (the main pass)
+ *                  frame values (intent 416c555c: the WebGPU calls a frame makes, play/site/scripts/census.ts --frame): calls,
+ *                  writes (buffers written), bytes, draws, with the eye at rest; walkCalls, walkWrites, walkBytes,
+ *                  walkDraws walking (the default: calls,writes,walkCalls,walkWrites)
  *   --main <sha>   main is this commit                       --main-only measure main (or read its cache) and stop
  *   --repo <dir>   the repository measured (this one by default)
  *
@@ -44,7 +48,7 @@ import { REPO, treeAt } from '../site/scripts/census/tree';
 
 export type Values = Record<string, number>;
 type Bound = { kind: 'within' | 'down'; pct: number; by?: Record<string, number> };
-export type Measure = { what: 'census' | 'bytes' | 'lines' | 'count'; args: string[] };
+export type Measure = { what: 'census' | 'frame' | 'bytes' | 'lines' | 'count'; args: string[] };
 
 const git = (repo: string, ...a: string[]) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28 }).trim();
 const tryGit = (repo: string, ...a: string[]) => {
@@ -142,9 +146,11 @@ export function parse(argv: string[]) {
 	if (what === 'census') {
 		const world = opt('--world') ?? 'sandbox-1', view = opt('--view') ?? 'all', of = opt('--of') ?? 'tris,draws';
 		args = [world, view, of];
+	} else if (what === 'frame') {
+		args = [opt('--world') ?? 'sandbox-1', opt('--view') ?? 'all', opt('--of') ?? 'calls,writes,walkCalls,walkWrites'];
 	} else if (what === 'bytes' || what === 'lines') args = rest.slice(1).sort();
 	else if (what === 'count') args = rest.slice(1, 2);
-	else if (what !== undefined) throw new Error(`no measure ${what} (census, bytes, lines, count)`);
+	else if (what !== undefined) throw new Error(`no measure ${what} (census, frame, bytes, lines, count)`);
 	if (what && !args.length) throw new Error(`${what}: what to measure is missing`);
 	const side = opt('--side');
 	if (side !== undefined && side !== 'main' && side !== 'head') throw new Error(`--side is main or head, not ${side}`);
@@ -185,11 +191,13 @@ export function mainOf(repo = REPO): string {
 /** what a census reads of a commit: the site, and the id table it imports from play's API (cache key test) */
 export const CENSUS_READS = ['play/site', 'play/api/src/kit/ids.ts'];
 /** the paths a measure reads at main: '' is the whole tree (a count may read anything) */
-const readsOf = (m: Measure): string[] => (m.what === 'census' ? CENSUS_READS : m.what === 'count' ? [''] : m.args);
+const readsOf = (m: Measure): string[] => (m.what === 'census' || m.what === 'frame' ? CENSUS_READS : m.what === 'count' ? [''] : m.args);
 /** raised when a key's meaning changes, so no older cache entry is read for it */
 const KEY_VERSION = 2;
 /** a census's own: 3 since a blind one is refused (intent 009e04d3), so main's values cached blind before are measured again */
 const CENSUS_VERSION = 3;
+/** the frame's census's own (play/site/scripts/census/frame.ts, fakegpu.js): raised when what it counts changes */
+const FRAME_VERSION = 1;
 
 /** a measure's own id, whatever the commit: the measure and its arguments */
 export const measureId = (m: Measure) => createHash('sha256').update(JSON.stringify([m.what, ...m.args])).digest('hex').slice(0, 24);
@@ -209,7 +217,7 @@ function commitIn(sha: string, repo: string) {
 export function keyOf(m: Measure, sha: string, repo = REPO) {
 	const c = commitIn(sha, repo);
 	const objects = readsOf(m).map((p) => [p, tryGit(repo, 'rev-parse', '--verify', '--quiet', p ? `${c}:${p}` : `${c}^{tree}`) || '-']);
-	return createHash('sha256').update(JSON.stringify([m.what === 'census' ? CENSUS_VERSION : KEY_VERSION, m.what, ...m.args, objects])).digest('hex').slice(0, 32);
+	return createHash('sha256').update(JSON.stringify([m.what === 'census' ? CENSUS_VERSION : m.what === 'frame' ? `frame ${FRAME_VERSION}` : KEY_VERSION, m.what, ...m.args, objects])).digest('hex').slice(0, 32);
 }
 
 /** the cache's file for a measure of main at a commit */
@@ -265,6 +273,7 @@ export function measure(m: Measure, at: string | null, repo = REPO): Values {
 		if (r.status !== 0) throw new Error(`count: \`${m.args[0]}\` exited ${r.status} ${at ? `at ${at.slice(0, 9)}` : 'at the head'}: ${r.stderr.slice(-400)}`);
 		return { count: lastNumber(r.stdout) };
 	}
+	if (m.what === 'frame') return frameValues(m, at, sha, repo);
 	const [world, view, of] = m.args;
 	const json = join(mkdtempSync(join(tmpdir(), 'vs-main-')), 'census.json');
 	const r = spawnSync('bun', [join(repo, 'play/site/scripts/census.ts'), '--world', world, '--view', view, ...(sha ? ['--at', sha] : []), '--json', json], { cwd: repo, stdio: ['ignore', 'ignore', 'inherit'] });
@@ -281,6 +290,31 @@ export function measure(m: Measure, at: string | null, repo = REPO): Values {
 		if (want.includes('draws')) out[`${v.view} draws`] = v.totals.calls;
 		if (want.includes('mainTris')) out[`${v.view} mainTris`] = v.totals.mainTris;
 		if (want.includes('mainDraws')) out[`${v.view} mainDraws`] = v.totals.mainCalls;
+	}
+	return out;
+}
+
+/** the frame values a count holds, by their name in --of */
+const FRAME_OF = { calls: 'calls', writes: 'writes', bytes: 'bytes', draws: 'draws' } as const;
+/** a frame's calls (census.ts --frame): per view each value asked for, at rest (`calls`) and walking (`walkCalls`) */
+function frameValues(m: Measure, at: string | null, sha: string | null, repo: string): Values {
+	const [world, view, of] = m.args;
+	const json = join(mkdtempSync(join(tmpdir(), 'vs-main-')), 'frame.json');
+	const r = spawnSync('bun', [join(repo, 'play/site/scripts/census.ts'), '--frame', '--world', world, '--view', view, ...(sha ? ['--at', sha] : []), '--json', json], { cwd: repo, stdio: ['ignore', 'ignore', 'inherit'] });
+	const side = at ? `at ${at.slice(0, 9)}` : 'of the head';
+	if (r.status !== 0) throw new Error(`the frame's census ${side} failed (${r.status})`);
+	const out: Values = {};
+	for (const v of JSON.parse(readFileSync(json, 'utf8')).views) {
+		if (!v.settled) throw new Error(`the frame's census ${side}: ${v.view} did not settle`);
+		for (const w of of.split(',')) {
+			const walk = w.startsWith('walk'), name = (walk ? w[4].toLowerCase() + w.slice(5) : w) as keyof typeof FRAME_OF;
+			if (!(name in FRAME_OF)) throw new Error(`frame: no value ${w} (calls, writes, bytes, draws; walkCalls, walkWrites, walkBytes, walkDraws)`);
+			const c = walk ? v.walk : v.still;
+			if (!c) throw new Error(`the frame's census ${side}: ${v.view} has no walk (a world with no walker)`);
+			// a frame that drew nothing is no bound (as a blind census is none)
+			if (!(c.draws > BLIND_DRAWS)) throw new Error(`the frame's census ${side}: ${v.view} drew nothing`);
+			out[`${v.view} ${w}`] = Math.round(c[FRAME_OF[name]]);
+		}
 	}
 	return out;
 }

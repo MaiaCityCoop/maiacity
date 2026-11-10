@@ -54,6 +54,9 @@ export type Setup = {
 	/** the smoke (intent c1bee1f8): three's own WebGPURenderer, on its WebGL 2 backend over a context that only answers,
 	 *  instead of the counting one, so a world runs WebGPU's own code (../census.ts --smoke) */
 	real?: boolean;
+	/** the frame's calls (intent 416c555c, ../census.ts --frame): three's own WebGPURenderer on its WebGPU backend over a
+	 *  device that only answers (./fakegpu.js), so a world's frame runs all its main-thread work and every WebGPU call counts */
+	gpu?: boolean;
 };
 
 let done: Required<Pick<Setup, 'root' | 'cache'>> & Setup;
@@ -72,6 +75,9 @@ export function frame(now = performance.now()) {
 /** the smoke's WebGL 2 contexts (setup's `real`): each one's shaders, and every draw sent to any */
 export const smoked = { shaders: [] as string[][], draws: 0 };
 
+/** the frame's device (setup's `gpu`): ./fakegpu.js's, its calls counted */
+export const gpu: { fake: any } = { fake: null };
+
 /** what was fetched, for the census's report: each route once */
 export const fetched = { live: new Set<string>(), pinned: new Set<string>(), files: 0 };
 
@@ -87,9 +93,11 @@ export function setup(o: Setup = {}) {
 	const spec = (s: string, from: string) => {
 		if (s === 'three') return /\/census\/(counting|three)\.js$/.test(from) ? THREE_REAL : join(HERE, 'three.js');
 		// three's WebGPU build, its renderer the counting one (intent c1bee1f8); ./webgpu.js itself reads the real one
-		if (s === 'three/webgpu') return o.real || /\/census\/webgpu\.js$/.test(from) ? THREE_WEBGPU_REAL : join(HERE, 'webgpu.js');
+		if (s === 'three/webgpu') return o.real || o.gpu || /\/census\/webgpu\.js$/.test(from) ? THREE_WEBGPU_REAL : join(HERE, 'webgpu.js');
 		// TSL, its scene passes kept for their pipeline (intent 009e04d3); the census's own modules read the real one
 		if (s === 'three/tsl') return from.startsWith(HERE + '/') ? s : join(HERE, 'tsl.js');
+		// the frame's device transcodes nothing: array textures stay their placeholder, as in every census (render/arrays.js)
+		if (o.gpu && s === 'three/addons/loaders/KTX2Loader.js') return stub('ktx2.js');
 		if (s.startsWith('$lib/') || s === '$lib') return resolveFile(join(root, 'src/lib', s.slice(5)));
 		if (s.startsWith('$app/')) return stub(`app-${s.slice(5)}.js`);
 		if (s.endsWith('.svelte')) return stub('svelte.js');
@@ -167,6 +175,11 @@ export function setup(o: Setup = {}) {
 			});
 		};
 	}
+	if (o.gpu) {
+		g.location.searchParams.set('renderer', 'webgpu');
+		gpu.fake = require(join(HERE, 'fakegpu.js')).fakeGPU();
+		contexts.webgpu = (canvas: unknown) => gpu.fake.context(canvas);
+	}
 	g.history = { pushState() {}, replaceState() {}, back() {}, state: null };
 	g.matchMedia = (q: string) => ({ matches: /prefers-color-scheme: light|pointer: fine|hover: hover/.test(q), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} });
 	g.requestAnimationFrame = (cb: FrameRequestCallback) => (rafs.set(++rafId, cb), rafId);
@@ -241,7 +254,7 @@ export function setup(o: Setup = {}) {
 			maxTouchPoints: 0,
 			onLine: true,
 			storage: opfs(join(done.cache, 'opfs')),
-			gpu: undefined,
+			gpu: o.gpu ? gpu.fake : undefined,
 			xr: undefined,
 			clipboard: { writeText: async () => {} },
 			mediaDevices: undefined,
