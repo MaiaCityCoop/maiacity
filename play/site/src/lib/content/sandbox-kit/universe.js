@@ -4,9 +4,10 @@
  */
 import * as THREE from 'three';
 import { NodeMaterial } from 'three/webgpu';
-import { Fn, If, Loop, acos, atan, attribute, cameraPosition, cameraProjectionMatrix, cameraViewMatrix, clamp, cos, dot, exp, float, floor, fract, length, log2, max, min, mix, modelViewProjection, modelWorldMatrix, normalize, positionGeometry, positionWorld, pow, sin, smoothstep, sub, uniform, uv, varying, vec2, vec3, vec4 } from 'three/tsl';
+import { Fn, acos, atan, attribute, cameraPosition, cameraProjectionMatrix, cameraViewMatrix, clamp, cos, dot, exp, float, length, log2, max, min, mix, modelViewProjection, modelWorldMatrix, normalize, positionGeometry, positionWorld, pow, sin, smoothstep, sub, uniform, uv, varying, vec2, vec3, vec4 } from 'three/tsl';
 import { seededMinStd } from '../../kernel/random.js';
 import { withTone } from '../render/core.js';
+import { cloudsOver, driftOf } from './clouds.js';
 
 /** Where the worlds stand on their planet: the celestial pole stands this high in the north (+z on the ground). */
 const LATITUDE = 45;
@@ -161,18 +162,6 @@ function skyMaterial() {
 		p.z.assign(p.w);
 		return p;
 	})();
-	// value noise for the clouds: a sinless hash, so every GPU makes the same clouds
-	const grad = Fn(([/** @type {any} */ i]) => {
-		const p = fract(i.xyx.mul(vec3(0.1031, 0.103, 0.0973))).toVar();
-		p.addAssign(dot(p, p.yzx.add(33.33)));
-		return fract(p.xx.add(p.yz).mul(p.zy)).mul(2).sub(1);
-	});
-	const noise = Fn(([/** @type {any} */ p]) => {
-		const i = floor(p), f = fract(p);
-		const u = f.mul(f).mul(f).mul(f.mul(f.mul(6).sub(15)).add(10));
-		const n = (/** @type {number} */ x, /** @type {number} */ y) => dot(grad(i.add(vec2(x, y))), f.sub(vec2(x, y)));
-		return mix(mix(n(0, 0), n(1, 0), u.x), mix(n(0, 1), n(1, 1), u.x), u.y).mul(1.6);
-	});
 	m.colorNode = Fn(() => {
 		const d = normalize(positionWorld.sub(cameraPosition)), h = d.y;
 		// Preetham: the optical length through the air, its extinction, and the light scattered toward the eye
@@ -186,24 +175,7 @@ function skyMaterial() {
 		const lin = pow(ratio.mul(U.sunE).mul(sub(1, fex)), vec3(1.5)).mul(mix(vec3(1), pow(ratio.mul(U.sunE).mul(fex), vec3(0.5)), clamp(pow(sub(1, U.sun.y), 5), 0, 1)));
 		const disc = clamp(cosT.sub(0.9999566769).mul(50000), 0, 1).mul(U.disc);
 		const sky = lin.add(fex.mul(0.1)).mul(0.04).add(min(fex.mul(U.sunE), 80).mul(760 * 0.04).mul(disc)).add(vec3(0, 0.0003, 0.00075)).toVar();
-		// clouds: fair-weather streaks on a plane, lit by the sun through the air, thinning to the horizon
-		If(h.greaterThan(0).and(U.clouds.greaterThan(0)), () => {
-			const q = d.xz.div(h.mul(0.55)).mul(0.0002).add(U.drift).mul(1000).toVar();
-			const n = float(0).toVar(), amp = float(1).toVar();
-			Loop(4, () => {
-				n.addAssign(amp.mul(noise(q)));
-				amp.mulAssign(0.5);
-				q.mulAssign(2).addAssign(U.drift.mul(300));
-			});
-			const dens = n.mul(0.7).add(0.5).clamp(0, 1);
-			const cov = clamp(U.clouds.add(noise(d.xz.div(h.mul(0.55)).mul(0.06)).mul(0.22)), 0, 1);
-			const depth = max(0, dens.sub(sub(1, cov)));
-			const fade = smoothstep(0, 0.06, h);
-			const beer = exp(depth.mul(-4));
-			const lit = fex.mul(U.sunE).mul(0.0088).mul(mix(0.45, 1, beer.mul(sub(1, beer.mul(beer))).mul(2.6).clamp(0, 1)));
-			const cloud = lin.mul(0.04).add(lit).mul(smoothstep(-0.08, 0.3, U.sun.y).max(0.03));
-			sky.assign(mix(sky, mix(sky, cloud, fex), sub(1, exp(depth.mul(-4.8))).mul(fade)));
-		});
+		cloudsOver(sky, { d, lin, fex, sun: U.sun, sunE: U.sunE, cover: U.clouds, drift: U.drift });
 		// the universe behind the air: space, the Milky Way's uneven glow along the galactic plane, the full moon
 		const gb = dot(d, U.pole);
 		const band = exp(gb.mul(gb).mul(-55)).mul(sin(atan(d.z, d.x).mul(3).add(gb.mul(9))).mul(0.35).add(0.65));
@@ -231,7 +203,7 @@ function skyMaterial() {
  * @property {THREE.Vector3} sun where the sun is (unit, world)
  * @property {THREE.Vector3} moon where the moon is (unit, world)
  * @property {THREE.Quaternion} stars how the star sphere is turned (its own frame: the celestial pole is +y)
- * @property {number} [drift] how far the clouds have drifted (the hour's)
+ * @property {number} [hour] the sky's hour, by which its clouds drift
  */
 
 /**
@@ -305,7 +277,7 @@ export function createUniverse(o = {}) {
 			U.sunE.value = air.sunE;
 			U.betaR.value.fromArray(air.betaR);
 			U.betaM.value.fromArray(air.betaM);
-			U.drift.value = v.drift ?? 0;
+			U.drift.value = driftOf(v.hour ?? 0);
 			U.moon.value.copy(v.moon);
 			turn.copy(v.stars);
 			// the Milky Way's glow lies along the stars as they are drawn, mirrored with them for a real place

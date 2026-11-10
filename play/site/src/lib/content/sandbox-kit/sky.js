@@ -345,7 +345,7 @@ vec3 skyHorizon(vec3 dir) {
 		const stars = groundStars(sky);
 		if (map) stars.set(-stars.x, -stars.y, stars.z, stars.w);
 		if (turn) stars.premultiply(turn);
-		const view = { sun: l.dir, moon: l.moon, stars, drift: sky * 60 };
+		const view = { sun: l.dir, moon: l.moon, stars, hour: sky };
 		universe.set(view);
 		envSky.set(view);
 		sunDir.copy(l.dir);
