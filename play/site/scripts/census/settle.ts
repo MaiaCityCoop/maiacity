@@ -20,7 +20,7 @@ type Load = { quiet: boolean; seconds: number; taken: number; walkTaken: number;
 
 if (argv[0] === '--one') {
 	const { setup } = await import('./setup');
-	setup({ inputs: join(SITE, 'scripts/census/inputs'), cache: process.env.CENSUS_CACHE });
+	setup({ inputs: join(SITE, 'scripts/census/inputs'), cache: process.env.CENSUS_CACHE, device: true });
 	const { mountSandbox1, untilQuiet, VIEWS } = await import('./run');
 	const { taken } = await import('../lib/quiet.js');
 	const g = globalThis as any;
@@ -52,7 +52,7 @@ if (existsSync(files)) symlinkSync(files, join(cache, 'files'));
 const loads: Record<string, Load> = {};
 try {
 	for (const name of ['cold', 'warm']) {
-		const r = spawnSync('bun', [import.meta.path, '--one'], { env: { ...process.env, CENSUS_CACHE: cache }, encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'] });
+		const r = spawnSync('bun', [import.meta.path, '--one'], { env: { ...process.env, CENSUS_CACHE: cache, CENSUS_KEPT: '0' }, encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'] });
 		const line = r.stdout.trim().split('\n').pop() ?? '';
 		if (r.status !== 0 || !line.startsWith('{')) throw new Error(`settle: the ${name} load failed (${r.status})`);
 		loads[name] = JSON.parse(line);

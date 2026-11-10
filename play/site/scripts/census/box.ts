@@ -3,6 +3,7 @@
  * does what the frame's one script does (kernel/sandbox/policy.js SHELL_SCRIPT).
  */
 import type { El } from './dom';
+import { keyOf, type Kept } from './kept';
 
 // Math.random as one fixed sequence, as the Mac's runs seed every page and frame (../macjob/determinism.js): run in
 // the page by the census's setup and in every worker of the box before its engine, so whatever a world picks at random
@@ -32,8 +33,13 @@ const PRELUDE = `(() => {
 })();
 `;
 
-export function frameWindow(frame: El) {
+/** the box's frame; every build it is asked for is kept (`kept`, ./kept.ts): built once, then read */
+export function frameWindow(frame: El, kept: Kept) {
 	let url: string | null = null;
+	/** the box's whole script (its engine in it), hashed: the code every build's key starts with */
+	let code = '';
+	/** the builds asked of a worker and not yet answered: each job's id and the key its answer is kept under */
+	const building = new Map<unknown, string>();
 	let warm = false;
 	let spare: Worker | null = null;
 	const rooms = new Map<number, Worker>();
@@ -46,7 +52,15 @@ export function frameWindow(frame: El) {
 	};
 	const fresh = () => {
 		const w = new Worker(url!);
-		w.onmessage = (x: MessageEvent) => toPage([x.data[0], roomOf.get(w) ?? null]);
+		w.onmessage = (x: MessageEvent) => {
+			const answer = x.data[0], key = building.get(answer?.id);
+			building.delete(answer?.id);
+			if (key && answer.ok === true) {
+				const { id: _, ...built } = answer;
+				kept.put(key, built);
+			}
+			toPage([answer, roomOf.get(w) ?? null]);
+		};
 		w.onerror = (x: ErrorEvent) => {
 			x.preventDefault?.();
 			toPage([{ op: 'crash', error: String(x.message) }, roomOf.get(w) ?? null]);
@@ -57,6 +71,7 @@ export function frameWindow(frame: El) {
 		// the frame's script listens to its parent only: what the shell posts, a turn later, as a browser delivers it
 		setTimeout(() => {
 			if (m && m.op === 'boot' && !url) {
+				code = keyOf(SEEDED_RANDOM, PRELUDE, m.code);
 				url = URL.createObjectURL(new Blob([SEEDED_RANDOM, PRELUDE, m.code], { type: 'text/javascript' }));
 				warm = m.spare === true;
 				spare = fresh();
@@ -69,6 +84,14 @@ export function frameWindow(frame: El) {
 				return;
 			}
 			if (m.op !== 'job') return;
+			// a build is its recipe, its values and its engine, whole: one built before is answered as it was then
+			if (m.job.op === 'build') {
+				const { id, ...asked } = m.job;
+				const key = keyOf(code, JSON.stringify(asked));
+				const built = kept.get(key);
+				if (built !== undefined) return toPage([{ ...(built as object), id }, m.room]);
+				building.set(id, key);
+			}
 			let w = rooms.get(m.room);
 			if (!w) {
 				w = spare ?? fresh();

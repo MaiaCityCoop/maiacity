@@ -23,9 +23,11 @@ import { gunzipSync, gzipSync } from 'node:zlib';
 import { hashOf } from '../../src/lib/content/assets/box/headless.js';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { El, VIEWPORT, contexts, makeDocument } from './dom';
 import { SEEDED_RANDOM, frameWindow } from './box';
 import { opfs } from './opfs';
+import { codeOf, keptIn, keptWorker } from './kept';
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 /** this checkout's play/site */
@@ -46,6 +48,9 @@ export type Setup = {
 	fresh?: boolean;
 	/** where files by hash and the asset cache are kept between runs */
 	cache?: string;
+	/** the page's own cache of its builds on disk (OPFS, ./opfs.ts), as a browser keeps it: only ./settle.ts, which
+	 *  measures that cache, asks for it. A census keeps what its workers build itself (./kept.ts), whole and unbounded */
+	device?: boolean;
 	/** log every route fetched */
 	verbose?: boolean;
 	/** the switch's backend the page is asked for (`?renderer=`, intent c1bee1f8): webgl, webgpu or webgl2; none: the
@@ -71,6 +76,9 @@ export function frame(now = performance.now()) {
 
 /** the smoke's WebGL 2 contexts (setup's `real`): each one's shaders, and every draw sent to any */
 export const smoked = { shaders: [] as string[][], draws: 0 };
+
+/** what the workers' answers came from (./kept.ts): read from what was kept, or made now and kept */
+export let built = { read: 0, made: 0 };
 
 /** what was fetched, for the census's report: each route once */
 export const fetched = { live: new Set<string>(), pinned: new Set<string>(), files: 0 };
@@ -126,6 +134,10 @@ export function setup(o: Setup = {}) {
 		}
 	});
 
+	// what the workers build, kept between runs under its code and its question (./kept.ts)
+	const kept = keptIn(process.env.CENSUS_KEPT === '0' ? null : join(done.cache, 'kept'));
+	built = kept.counted;
+
 	// ── the page ──
 	const g = globalThis as any;
 	(0, eval)(SEEDED_RANDOM);
@@ -133,7 +145,7 @@ export function setup(o: Setup = {}) {
 	const make = document.createElement;
 	document.createElement = (t: string) => {
 		const e = make(t);
-		if (t.toLowerCase() === 'iframe') e.contentWindow = frameWindow(e);
+		if (t.toLowerCase() === 'iframe') e.contentWindow = frameWindow(e, kept);
 		if (t.toLowerCase() === 'img') imageOf(e);
 		return e;
 	};
@@ -240,7 +252,7 @@ export function setup(o: Setup = {}) {
 			deviceMemory: 8,
 			maxTouchPoints: 0,
 			onLine: true,
-			storage: opfs(join(done.cache, 'opfs')),
+			storage: o.device ? opfs(join(done.cache, 'opfs')) : undefined,
 			gpu: undefined,
 			xr: undefined,
 			clipboard: { writeText: async () => {} },
@@ -254,6 +266,8 @@ export function setup(o: Setup = {}) {
 	const BunWorker = g.Worker;
 	g.Worker = function (url: string | URL, opts?: WorkerOptions) {
 		if (String(url).includes('cache.worker')) throw new Error('census: no cache worker (the page writes the cache)');
+		// the simplifier's levels kept under its code and the drawings it is given
+		if (String(url).includes('simplify.worker')) return keptWorker(() => new BunWorker(url, opts), kept, codeOf(fileURLToPath(url), join(SITE, 'node_modules')));
 		return new BunWorker(url, opts);
 	} as unknown as typeof Worker;
 
