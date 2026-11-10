@@ -74,7 +74,7 @@ export function createCameraHold(camera) {
  * @param {{
  *   sandbox: string,
  *   area?: string,
- *   renderer: THREE.WebGLRenderer,
+ *   renderer: import('three/webgpu').WebGPURenderer,
  *   scene: THREE.Scene,
  *   camera: THREE.PerspectiveCamera,
  *   hold: CameraHold,
