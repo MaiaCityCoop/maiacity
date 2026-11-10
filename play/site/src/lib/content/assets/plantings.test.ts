@@ -23,17 +23,16 @@ describe('biome over the whole ground', async () => {
 	// @ts-ignore — plain JS
 	const { BIOMES } = await import('$lib/content/biomes/index.js')
 	// @ts-ignore — plain JS
-	const { biomeCatalog } = await import('$lib/content/biomes/card.js')
+	const { biomeCatalog, biomeOfCard } = await import('$lib/content/biomes/card.js')
 	// @ts-ignore — plain JS
 	const { groundOf } = await import('./ground.js')
 	const meadow = BIOMES.find((b: any) => b.id === 'meadow')
 	const MEADOW = { ...meadow, cover: meadow.cover.map((c: any, i: number) => ({ ...c, ref: 'a'.repeat(64) + `?kind=${i}` })) }
 	const R = 6
-	/** the meadow as its build lays it: a round patch, its ground and a group of copies a kind, its card's catalog on the root */
+	/** the meadow as the viewer's build lays it: a round patch, its ground and a group of copies a kind; no catalog on its root (its card has it) */
 	const patchOf = () => {
 		const root = new THREE.Group()
 		root.name = 'meadow'
-		root.userData.catalog = biomeCatalog(MEADOW, { ref: (_: string, i: number) => MEADOW.cover[i].ref, label: (k: string) => k })
 		const ground = new THREE.Mesh(new THREE.CircleGeometry(R, 32).rotateX(-Math.PI / 2))
 		ground.name = 'ground'
 		root.add(ground)
@@ -58,7 +57,8 @@ describe('biome over the whole ground', async () => {
 		const p = createPlantings({ renderer: {} as import('three/webgpu').WebGPURenderer, camera, scene })
 		const root = patchOf()
 		scene.add(root)
-		p.show(root)
+		// the recipe as the page reads it from the card
+		p.show(root, { biome: biomeOfCard({ group: 'biomes', id: 'meadow', version: 2, label: 'Meadow', catalog: biomeCatalog(MEADOW, { ref: (_: string, i: number) => MEADOW.cover[i].ref, label: (k: string) => k }) }) })
 		for (let i = 0; i < 40; i++) p.update()
 		for (const c of MEADOW.cover) expect(root.getObjectByName(`cover-${c.kind}`)!.visible).toBe(false)
 		const grass = scene.getObjectByName('grass')!
@@ -103,4 +103,30 @@ describe('biome over the whole ground', async () => {
 		expect(copies.some((c) => grassy.includes(c.kind))).toBe(false)
 		earth.dispose()
 	})
+
+	// what the eye sees of it (the bar: the meadow a closed cover near the eye, on a desktop and on a phone): the share of
+	// the ground 1.5–10 m out its blades cover (grass-cover.js, e85a5860's c4 measure), by each device's field on the card
+	it('the meadow closes into one cover near the eye, on a desktop and on a phone', async () => {
+		// @ts-ignore — plain JS
+		const { fieldMask, grassOfRecipe, perCell } = await import('$lib/content/biomes/grass.js')
+		// @ts-ignore — plain JS
+		const G = await import('$lib/content/biomes/grass-gpu.js')
+		// @ts-ignore — plain JS
+		const { coverOf, keptPerM2 } = await import('$lib/content/biomes/grass-cover.js')
+		/** the meadow's grass as its newest version on play writes it (e36c9671 v2) */
+		const P = { height: 0.3, tall: 0.6, heightSpread: 0.45, width: 0.006, clump: 1.4, lean: 0.55, base: '#3a5a20', tip: '#a7bf62', dry: '#c2b071', dryShare: 0.15 }
+		const of = grassOfRecipe(meadow)
+		for (const [d, W, H] of [['desktop', 1440, 900], ['small', 390, 844]] as const) {
+			const dev = G.gpuDevice(d)
+			const mask = fieldMask(dev, (x: number, z: number) => ({ ...of(x, z), y: 0 }))
+			// 30 m from the patch, as above
+			const eye: [number, number, number] = [30.3, 1.65, 0.2]
+			mask.update(eye[0], eye[2], Infinity)
+			const field = { mask, dev, n: perCell(dev.density), hmax: G.tallest(P), clump: P.clump }
+			const c = coverOf({ field, params: P, eye, yaw: 0, pitch: -0.3, width: W, height: H })
+			const per = keptPerM2(field, eye, 23)
+			console.log(`the viewer's meadow, ${d} ${W} × ${H}: grass covers ${(c.cover * 100).toFixed(1)} % of the ground 1.5–10 m from the eye; kept a square metre: near ${per.near}, mid ${per.mid}, far ${per.far}`)
+			expect(c.cover).toBeGreaterThanOrEqual(0.85)
+		}
+	}, 300_000)
 })

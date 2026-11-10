@@ -354,8 +354,11 @@ export const tallest = (p) => Math.max(p.height, p.tall) * (1 + p.heightSpread) 
  * out to `near` (4 m on a desktop, not 2.5) and each blade standing for twice as many across (`stands` 3, not 1.5), so
  * the sward closes from the eye (c4, `coverOf`: a meadow's near view 90 % covered at 1280 × 720, where the fallback's
  * numbers cover 57 %); the card culls what the view doesn't see one blade at a time, so it can stand them so thick.
+ * A phone (intent 5fe91a2f): 400 a square metre at the eye, not the fallback's 260, each standing for six across, so
+ * its sward closes too (a meadow's near view 88.5 % covered at 390 × 844, where 260 and 3 cover 53.5 %), its room
+ * 83k blades.
  */
-export const GPU = { desktop: { near: 4, stands: 3 }, small: { near: 3, stands: 3 } };
+export const GPU = { desktop: { near: 4, stands: 3 }, small: { near: 3, stands: 6, density: 400 } };
 /** @param {'desktop' | 'small'} device */
 export const gpuDevice = (device) => ({ ...DEVICES[device], ...GPU[device] });
 
