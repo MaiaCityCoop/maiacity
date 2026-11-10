@@ -1,6 +1,17 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+**22:01 Berlin, the render box is back; job 5 restarted from the beginning.** The Mac rebooted at ~21:33 into macOS 27.2.1
+(an OS update) and the reboot wiped /private/tmp, my scratchpad: job 5's run on 23c52b2 died with it, and nothing of it
+had been pushed (its results were to go up together). It now runs from ~/.cache/maiacity-render/box (survives reboots),
+each visit's json written as it ends: production (34424df) beside the head's build of **23c52b2** (49cb991a9 is the same
+site code, one deleted test line in flora.test.ts: summary.json will say so), Sandbox 1 and 5, Chromium then WebKit,
+first and second visits, the four questions, out/head/summary.json last; then the frame-after run on production. Every
+visit waits for a load under 3.5, and the Mac is still busy with post-update work (Spotlight, the Neural Engine
+compiler, file provider; load 50-88), so the first visit starts when that settles. Also lost: the deploy watcher and
+the smoke harness, rebuilt after these two jobs. Playwright's WebKit store sits aside as
+~/Library/WebKit/org.webkit.Playwright/WebsiteData.orig-20261110 until job 5 ends (it goes back then).
+
 - **smoke 2d0cfaf6e: OK** ([ba948167] World checks run on a real GPU: a world's look is taken on a macOS runner's Met; 467 s). 16 pages; all drawn. Frames: near 173.8 ms · mid 43.1 ms · far 29.6 ms.
 - ~~**smoke 2d0cfaf6e: BROKE**~~ **void: the harness** ([ba948167] World checks run on a real GPU: a world's look is taken on a macOS runner's Met; 422 s). 16 pages; all drawn; not up: sandbox-1. Frames: near 16.7 ms · mid 17.9 ms · far 16.7 ms.
   (20:05 Berlin) vite dev's Sandbox 1 was still on its card at the smoke's ~270 s check; production builds show it at
