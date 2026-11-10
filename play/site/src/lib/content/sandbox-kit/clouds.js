@@ -60,7 +60,9 @@ const fbm = (/** @type {any} */ u, /** @type {any} */ wind, /** @type {number} *
 	let n = /** @type {any} */ (float(0));
 	for (let k = 0; k < octaves; k++) {
 		const s = 2 ** k, per = CLOUDS.period * s;
-		n = n.add(noise(u.mul(s).add(wind.mul(vec2(per * SLIDES[k][0], per * SLIDES[k][1]))), per, 19 * k).mul(0.58 ** k));
+		const o = noise(u.mul(s).add(wind.mul(vec2(per * SLIDES[k][0], per * SLIDES[k][1]))), per, 19 * k);
+		// the two coarse octaves are the cloud's body; the fine ones billow (round bulges, sharp creases between them)
+		n = n.add((k < 2 ? o : o.abs().mul(1.6).sub(0.4)).mul(0.58 ** k));
 	}
 	return n;
 };
