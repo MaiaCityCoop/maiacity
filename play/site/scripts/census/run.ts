@@ -265,6 +265,9 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 	return out;
 }
 
+/** three's warnings that mean a part of the picture was left out */
+const LEFT_OUT = /Light node not found/;
+
 /**
  * The smoke (intent c1bee1f8, ../census.ts --smoke): the world built by its own code on three's own WebGPURenderer (its
  * WebGL 2 backend over a context that only answers: setup's `real`), walked to each of its views and `frames` frames
@@ -283,6 +286,14 @@ export async function smokeOf(o: { world: World; views?: ViewName[]; asset?: str
 		const first = a[0];
 		if (typeof first === 'string' && (first.startsWith('census:') || first.startsWith('smoke:') || first.startsWith('  '))) return error(...a);
 		keep(a.map((x) => (x instanceof Error ? `${x.message}\n${x.stack}` : String(x))).join(' '));
+	};
+	// three says what it leaves out of the picture as a warning, and draws on: a light with no node lights nothing
+	// (Sandbox 3 stood unlit, intent 8f41cd9b). Such a warning is an error here
+	const warn = console.warn;
+	console.warn = (...a: unknown[]) => {
+		const said = a.map(String).join(' ');
+		if (LEFT_OUT.test(said)) keep(said);
+		warn(...a);
 	};
 	const onError = (e: unknown) => keep(e);
 	process.on('uncaughtException', onError);
@@ -321,6 +332,7 @@ export async function smokeOf(o: { world: World; views?: ViewName[]; asset?: str
 		}
 	} finally {
 		console.error = error;
+		console.warn = warn;
 		process.off('uncaughtException', onError);
 		process.off('unhandledRejection', onError);
 	}
