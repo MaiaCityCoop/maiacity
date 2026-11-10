@@ -1,0 +1,20 @@
+{
+ "meadow": {
+  "backend": "webgpu",
+  "grass": "indirect",
+  "blades": [
+   25044,
+   14169,
+   11085
+  ]
+ },
+ "food-forest": {
+  "backend": "webgpu",
+  "grass": "indirect",
+  "blades": [
+   18194,
+   12343,
+   9880
+  ]
+ }
+}
