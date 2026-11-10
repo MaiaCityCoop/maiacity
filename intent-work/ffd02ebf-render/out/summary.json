@@ -1,0 +1,989 @@
+{
+ "intent": "ffd02ebf-395e-4a78-8a08-1163e0ea5778",
+ "where": "the Mac's real GPU: Apple M1, Chromium 153 on Metal (ANGLE), WebGPU adapter apple/metal-3; a fresh profile each load, one at a time, nothing else heavy running",
+ "when_berlin": "2026-11-10 14:45-15:05",
+ "token": "Authorization: Bearer sent to play.maia.city only (production: page.route on play.maia.city; fix head: the local proxy to play.maia.city)",
+ "loads": [
+  {
+   "load": "prod-sandbox-1",
+   "what": "production",
+   "commit": "b95da56307e66c9e9c4f336b0d7dc2a69ae46575",
+   "url": "https://play.maia.city/sandbox-1/",
+   "renderer": "webgpu",
+   "shown": true,
+   "seconds_to_world": 208,
+   "ended": "shown",
+   "frozen_seconds": "185-208",
+   "lines_every_10s": [
+    {
+     "t": 11,
+     "card": true,
+     "line": "Covering the ground\u2026",
+     "mean_rgb": [
+      117,
+      110,
+      86
+     ]
+    },
+    {
+     "t": 21,
+     "card": true,
+     "line": "Growing the forest: 10 of 198 kinds\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 31,
+     "card": true,
+     "line": "Growing the forest: 50 of 198 kinds\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 41,
+     "card": true,
+     "line": "Growing the forest: 60 of 198 kinds\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 51,
+     "card": true,
+     "line": "Growing the forest: 100 of 198 kinds\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 61,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 71,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 81,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 90,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 100,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 110,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 120,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 130,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 140,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 150,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 160,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 185,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": null
+    },
+    {
+     "t": 200,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": null
+    },
+    {
+     "t": 208,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      121,
+      116,
+      106
+     ]
+    },
+    {
+     "t": 209,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      123,
+      120,
+      110
+     ]
+    },
+    {
+     "t": 211,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      123,
+      120,
+      110
+     ]
+    },
+    {
+     "t": 221,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      123,
+      121,
+      111
+     ]
+    },
+    {
+     "t": 231,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      122,
+      121,
+      111
+     ]
+    },
+    {
+     "t": 243,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      121,
+      121,
+      112
+     ]
+    }
+   ],
+   "console_errors": [
+    "Failed to load resource: the server responded with a status of 401 ()"
+   ],
+   "page_errors": [],
+   "failed_requests": [
+    "401 /api/docs/ec08b07d-6ec0-8f65-92b2-3efe7d91df5d",
+    "net::ERR_ABORTED /api/files/f3ebbb41045f0a45d3a27d6782beb71973fa539e9640d1c7d1b9434b02351575",
+    "net::ERR_ABORTED /api/files/b6713600778441dab6c5232fa418af56a85209b17308e16975684fafd6bd3f84"
+   ],
+   "screenshot": "prod-sandbox-1.png"
+  },
+  {
+   "load": "prod-sandbox-5",
+   "what": "production",
+   "commit": "b95da56307e66c9e9c4f336b0d7dc2a69ae46575",
+   "url": "https://play.maia.city/sandbox-5/",
+   "renderer": "webgpu",
+   "shown": true,
+   "seconds_to_world": 187,
+   "ended": "shown",
+   "frozen_seconds": "165-188",
+   "lines_every_10s": [
+    {
+     "t": 10,
+     "card": true,
+     "line": "Planting round the dome\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 21,
+     "card": true,
+     "line": "Growing the forest: 30 of 180 kinds\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 31,
+     "card": true,
+     "line": "Growing the forest: 40 of 180 kinds\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 40,
+     "card": true,
+     "line": "Growing the forest: 40 of 180 kinds\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 51,
+     "card": true,
+     "line": "Growing the forest: 60 of 180 kinds\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 60,
+     "card": true,
+     "line": "Growing the forest: 160 of 180 kinds\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 70,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 80,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 90,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 100,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 110,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 120,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 130,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 140,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 165,
+     "card": true,
+     "line": "Welcome",
+     "mean_rgb": null
+    },
+    {
+     "t": 180,
+     "card": false,
+     "line": null,
+     "mean_rgb": null
+    },
+    {
+     "t": 187,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      73,
+      92,
+      86
+     ]
+    },
+    {
+     "t": 188,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      73,
+      93,
+      87
+     ]
+    },
+    {
+     "t": 191,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      66,
+      89,
+      86
+     ]
+    },
+    {
+     "t": 201,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      67,
+      90,
+      87
+     ]
+    },
+    {
+     "t": 211,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      69,
+      91,
+      87
+     ]
+    },
+    {
+     "t": 221,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      70,
+      92,
+      87
+     ]
+    }
+   ],
+   "console_errors": [
+    "Failed to load resource: the server responded with a status of 401 ()"
+   ],
+   "page_errors": [],
+   "failed_requests": [
+    "401 /api/docs/ac154784-c938-47ee-ac74-d61fc91583b3",
+    "net::ERR_ABORTED /api/files/42cbca3f5c288272cc9e836a4a1f970c2edd14c4c95b282fc166bc0ff1f978d7",
+    "net::ERR_ABORTED /api/files/f3ebbb41045f0a45d3a27d6782beb71973fa539e9640d1c7d1b9434b02351575",
+    "net::ERR_ABORTED /api/files/b6713600778441dab6c5232fa418af56a85209b17308e16975684fafd6bd3f84",
+    "net::ERR_ABORTED /api/files/ef0770d0d1b2927adbb95158dcf2a7c1a3abf74bf35f4aab4da3b2885374f25e",
+    "net::ERR_ABORTED /api/files/e36dbf3ef91c0502ad0ebafa4de32e4f03a4428c5082b1cb806fb4007c34acfa",
+    "net::ERR_ABORTED /api/files/7605ffd5723a4511ba9320009d5e2beda3f9a734ad244d7765a6120bf4200e82"
+   ],
+   "screenshot": "prod-sandbox-5.png"
+  },
+  {
+   "load": "fix-sandbox-1",
+   "what": "fix head (vite preview of its build, /api to play.maia.city)",
+   "commit": "da46ab04295c54ff6f1fc68e8821534a5ec7a186",
+   "url": "http://localhost:5178/sandbox-1/",
+   "renderer": "webgpu",
+   "shown": true,
+   "seconds_to_world": 207,
+   "ended": "shown",
+   "frozen_seconds": "185-208",
+   "lines_every_10s": [
+    {
+     "t": 10,
+     "card": true,
+     "line": "Covering the ground\u2026",
+     "mean_rgb": [
+      117,
+      110,
+      86
+     ]
+    },
+    {
+     "t": 21,
+     "card": true,
+     "line": "Growing the forest: 10 of 198 kinds\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 31,
+     "card": true,
+     "line": "Growing the forest: 50 of 198 kinds\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 41,
+     "card": true,
+     "line": "Growing the forest: 60 of 198 kinds\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 51,
+     "card": true,
+     "line": "Growing the forest: 90 of 198 kinds\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 61,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 71,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 81,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 90,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 101,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 110,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 120,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 130,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 140,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 151,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 160,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      118,
+      111,
+      86
+     ]
+    },
+    {
+     "t": 185,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": null
+    },
+    {
+     "t": 200,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": null
+    },
+    {
+     "t": 207,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      117,
+      123,
+      115
+     ]
+    },
+    {
+     "t": 208,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      117,
+      123,
+      116
+     ]
+    },
+    {
+     "t": 211,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      117,
+      123,
+      115
+     ]
+    },
+    {
+     "t": 221,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      117,
+      123,
+      115
+     ]
+    },
+    {
+     "t": 231,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      117,
+      123,
+      115
+     ]
+    },
+    {
+     "t": 241,
+     "card": false,
+     "line": "The master dome ahead is opening its doors\u2026",
+     "mean_rgb": [
+      117,
+      123,
+      115
+     ]
+    }
+   ],
+   "console_errors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+   ],
+   "page_errors": [],
+   "failed_requests": [
+    "401 /api/docs/ec08b07d-6ec0-8f65-92b2-3efe7d91df5d"
+   ],
+   "screenshot": "fix-sandbox-1.png"
+  },
+  {
+   "load": "fix-sandbox-5",
+   "what": "fix head (vite preview of its build, /api to play.maia.city)",
+   "commit": "da46ab04295c54ff6f1fc68e8821534a5ec7a186",
+   "url": "http://localhost:5178/sandbox-5/",
+   "renderer": "webgpu",
+   "shown": true,
+   "seconds_to_world": 188,
+   "ended": "shown",
+   "frozen_seconds": "165-188",
+   "lines_every_10s": [
+    {
+     "t": 10,
+     "card": true,
+     "line": "Planting round the dome\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 20,
+     "card": true,
+     "line": "Growing the forest: 30 of 180 kinds\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 30,
+     "card": true,
+     "line": "Growing the forest: 40 of 180 kinds\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 40,
+     "card": true,
+     "line": "Growing the forest: 50 of 180 kinds\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 51,
+     "card": true,
+     "line": "Growing the forest: 70 of 180 kinds\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 61,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 70,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 80,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 90,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 100,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 110,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 120,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 130,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 140,
+     "card": true,
+     "line": "Growing the forest: the plants near you\u2026",
+     "mean_rgb": [
+      115,
+      127,
+      125
+     ]
+    },
+    {
+     "t": 165,
+     "card": true,
+     "line": "Welcome",
+     "mean_rgb": null
+    },
+    {
+     "t": 180,
+     "card": false,
+     "line": null,
+     "mean_rgb": null
+    },
+    {
+     "t": 188,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      75,
+      97,
+      93
+     ]
+    },
+    {
+     "t": 189,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      81,
+      100,
+      94
+     ]
+    },
+    {
+     "t": 191,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      71,
+      95,
+      93
+     ]
+    },
+    {
+     "t": 201,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      72,
+      96,
+      93
+     ]
+    },
+    {
+     "t": 212,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      70,
+      94,
+      92
+     ]
+    },
+    {
+     "t": 221,
+     "card": false,
+     "line": null,
+     "mean_rgb": [
+      70,
+      94,
+      92
+     ]
+    }
+   ],
+   "console_errors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+   ],
+   "page_errors": [],
+   "failed_requests": [
+    "401 /api/docs/ac154784-c938-47ee-ac74-d61fc91583b3",
+    "net::ERR_ABORTED /api/files/7605ffd5723a4511ba9320009d5e2beda3f9a734ad244d7765a6120bf4200e82"
+   ],
+   "screenshot": "fix-sandbox-5.png"
+  }
+ ]
+}

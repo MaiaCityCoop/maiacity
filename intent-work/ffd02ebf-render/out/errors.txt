@@ -1,0 +1,28 @@
+## prod-sandbox-1 (production, b95da5630)
+console error at 0.2 s: Failed to load resource: the server responded with a status of 401 ()
+page errors: none
+failed request: 401 /api/docs/ec08b07d-6ec0-8f65-92b2-3efe7d91df5d
+failed request: net::ERR_ABORTED /api/files/f3ebbb41045f0a45d3a27d6782beb71973fa539e9640d1c7d1b9434b02351575
+failed request: net::ERR_ABORTED /api/files/b6713600778441dab6c5232fa418af56a85209b17308e16975684fafd6bd3f84
+
+## prod-sandbox-5 (production, b95da5630)
+console error at 0.2 s: Failed to load resource: the server responded with a status of 401 ()
+page errors: none
+failed request: 401 /api/docs/ac154784-c938-47ee-ac74-d61fc91583b3
+failed request: net::ERR_ABORTED /api/files/42cbca3f5c288272cc9e836a4a1f970c2edd14c4c95b282fc166bc0ff1f978d7
+failed request: net::ERR_ABORTED /api/files/f3ebbb41045f0a45d3a27d6782beb71973fa539e9640d1c7d1b9434b02351575
+failed request: net::ERR_ABORTED /api/files/b6713600778441dab6c5232fa418af56a85209b17308e16975684fafd6bd3f84
+failed request: net::ERR_ABORTED /api/files/ef0770d0d1b2927adbb95158dcf2a7c1a3abf74bf35f4aab4da3b2885374f25e
+failed request: net::ERR_ABORTED /api/files/e36dbf3ef91c0502ad0ebafa4de32e4f03a4428c5082b1cb806fb4007c34acfa
+failed request: net::ERR_ABORTED /api/files/7605ffd5723a4511ba9320009d5e2beda3f9a734ad244d7765a6120bf4200e82
+
+## fix-sandbox-1 (fix head (vite preview of its build, /api to play.maia.city), da46ab042)
+console error at 0.1 s: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+page errors: none
+failed request: 401 /api/docs/ec08b07d-6ec0-8f65-92b2-3efe7d91df5d
+
+## fix-sandbox-5 (fix head (vite preview of its build, /api to play.maia.city), da46ab042)
+console error at 0.1 s: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+page errors: none
+failed request: 401 /api/docs/ac154784-c938-47ee-ac74-d61fc91583b3
+failed request: net::ERR_ABORTED /api/files/7605ffd5723a4511ba9320009d5e2beda3f9a734ad244d7765a6120bf4200e82
