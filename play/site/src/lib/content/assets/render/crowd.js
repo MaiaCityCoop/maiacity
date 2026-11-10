@@ -20,15 +20,12 @@ export const FAR = 0.2;
 /** how far (m) an actor is in sight: within it (and in a shot's frame) its coarse build is made, never before */
 export const SEEN = 300;
 
-/** the loader, the boxes (one for each spare core, up to three) and play's recipes: fetched when a crowd first builds */
+/** the loader (its builds in the page's pool, ../box/pool.js) and play's recipes: fetched when a crowd first builds */
 let loader = null;
-let turn = 0;
 const loaderOf = () =>
-	(loader ??= Promise.all([import('../box/host.js'), import('../load.js'), import('../catalog.js')]).then(async ([{ AssetBox }, { loadAsset }, { INDEX, buildAt, loadRecipes }]) => {
+	(loader ??= Promise.all([import('../load.js'), import('../catalog.js')]).then(async ([{ loadAsset }, { buildAt, loadRecipes }]) => {
 		await loadRecipes();
-		const n = Math.max(1, Math.min(3, budget().boxes, ((typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4) - 1));
-		const boxes = Array.from({ length: n }, () => new AssetBox({ engine: INDEX.engine }));
-		return { loadAsset, buildAt, box: () => boxes[turn++ % boxes.length] };
+		return { loadAsset, buildAt };
 	}));
 
 const loads = new Map();
@@ -44,7 +41,7 @@ function built(ref, detail) {
 		loads.set(
 			label,
 			loaderOf()
-				.then((L) => L.loadAsset(L.buildAt(label), { box: L.box() }))
+				.then((L) => L.loadAsset(L.buildAt(label)))
 				.catch((e) => {
 					console.warn(`a crowd's ${ref} at ${detail} was not built: ${e?.message ?? e}`);
 					if (e?.name === 'Unread') again.add(label);

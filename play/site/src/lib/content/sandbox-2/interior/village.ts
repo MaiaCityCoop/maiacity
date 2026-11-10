@@ -199,14 +199,14 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	/** Sandbox 5: our plants drawn by the universal renderer (./drawn.js, $content/assets/render), each kind built in the asset
 	 *  box: the cell's, and the domes' insides' */
 	const plantsOut = flora ? createFlora({ renderer, camera, scene, shadows: staleShadows }) : null
-	const plantsIn = flora ? createFlora({ renderer, camera, scene, boxes: 2, shadows: staleShadows, streams: STREAMS.inside }) : null
+	const plantsIn = flora ? createFlora({ renderer, camera, scene, shadows: staleShadows, streams: STREAMS.inside }) : null
 	/** Sandbox 5: the cell's forest of our plants (./flora.js), planted below with the food forest; the stand-in plants of
 	 *  Sandbox 4's squares traded for its plants too (./legacy.js) */
 	const forest: Forest | null = plantsOut ? createForest({ flora: plantsOut }) : null
 	/** the library's assets the village puts down, each built in the asset box and drawn by the one selector
 	 *  (./drawn.js): its playgrounds, the master dome's workshops, Sandbox 5's
 	 *  coops and hutches, and Sandbox 5's floor cover, outside and in the domes */
-	const library = createDrawn({ renderer, camera, scene, boxes: 1, shadows: staleShadows })
+	const library = createDrawn({ renderer, camera, scene, shadows: staleShadows })
 	const swapR = seeded(707)
 	const swap = (root: THREE.Object3D) => {
 		if (forest && flora) swapLegacy(root, scene, forest, { warm: false, seed: flora.seed, r: swapR })

@@ -1,11 +1,12 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
  * The one way a page gets a build by its name (`<recipe hash>?its=values`, ../../kernel/builds.js): from this device's
- * cache (./cache/builds.js), else the asset box (./box/host.js) on its frozen engine; either way checked (card against
+ * cache (./cache/builds.js), else an asset box of the page's pool (./box/pool.js) on its frozen engine; either way checked (card against
  * its schema, data by ./box/rebuild.js) and built into three.js objects by our own code. The recipe (./catalog.js) is the
  * only truth; what its entry declares is held (H4, `heldTo`): its engine, its modules, its bytes and time where less.
  */
 import { AssetBox, TIMEOUT } from './box/host.js';
+import { poolOf } from './box/pool.js';
 import { rebuild } from './box/rebuild.js';
 import * as cache from './cache/builds.js';
 import { engineAt } from './box/engines.js';
@@ -18,14 +19,8 @@ import { PIECE, piecesOf, requiresOf } from './box/pieces.js';
 const libsOf = (code) => requiresOf(code).filter((n) => !PIECE.test(n));
 import { checkCard } from './schemas/index.js';
 
-const boxes = new Map();
-/** the page's box for an engine, started when a build first needs it @param {number} [v] */
-export const boxOf = (v = INDEX.engine) => {
-	if (!boxes.has(v)) boxes.set(v, new AssetBox({ engine: v }));
-	return boxes.get(v);
-};
 const running = new Map();
-/** The page's box for builds kept running, an engine's second worker, so new builds and running steps never wait on each other. @param {number} [v] */
+/** The page's box for builds kept running, apart from the pool's, so new builds and running steps never wait on each other. @param {number} [v] */
 export const liveBoxOf = (v = INDEX.engine) => {
 	if (!running.has(v)) running.set(v, new AssetBox({ engine: v }));
 	return running.get(v);
@@ -135,10 +130,12 @@ export const kept = (store, key, built) => store.put(key, built).catch(() => fal
  * A build ready for a scene: `obj`, `card`, plain `data`, `from` ('cache' or 'box'), `name`, `key`, its times (ms), and
  * `stored`, settling once a box's build is kept in the cache (true) or not (false).
  * @param {string} name `<recipe hash>?its=values`
- * @param {{ box?: AssetBox, cache?: boolean, store?: Pick<typeof cache, 'get' | 'put' | 'drop'> }} [o] `cache: false`
- *   builds in the box and keeps nothing; `store` the cache it reads and keeps to (this device's; a test's stand-in)
+ * @param {{ rank?: number | (() => number), unwanted?: () => boolean, missed?: () => void, cache?: boolean, store?: Pick<typeof cache, 'get' | 'put' | 'drop'> }} [o]
+ *   `rank`, `unwanted`: how much it is wanted while it waits for a box, and whether still (./box/pool.js); `missed`: told
+ *   once the cache was read and did not have it; `cache: false` builds in the box and keeps nothing; `store` the cache
+ *   it reads and keeps to (this device's; a test's stand-in)
  */
-export async function loadAsset(name, { box, cache: useCache = true, store = cache } = {}) {
+export async function loadAsset(name, { rank, unwanted, missed, cache: useCache = true, store = cache } = {}) {
 	const t0 = now();
 	// what is no build at all is refused before the catalog is asked
 	parseBuild(name);
@@ -170,8 +167,9 @@ export async function loadAsset(name, { box, cache: useCache = true, store = cac
 		const timeout = heldTo(recipe.code, declaredOf(c.hash), c.engine);
 		const t2 = now();
 		const given = c.values && Object.fromEntries(Object.entries(c.values).map(([k, v]) => [k, String(v)]));
-		// a box handed in builds only what its engine runs: a recipe made for another builds in a box of its own engine
-		const built = await (box?.engine === c.engine.v ? box : boxOf(c.engine.v)).build(recipe, given, { timeout });
+		// in the page's pool of the engine it is made for, whichever engine is the newest
+		missed?.();
+		const built = await poolOf(c.engine.v).build(recipe, given, { timeout, rank, unwanted });
 		const stored = useCache ? kept(store, key, built) : Promise.resolve(false);
 		return { built, stored, t2 };
 	})();
@@ -241,7 +239,7 @@ export async function vaultBuild(source, hash, given = {}, { box, store = cache,
 	let built;
 	phase('build');
 	try {
-		built = await (box.engine === engine.v ? box : boxOf(engine.v)).build(recipe, text, { timeout });
+		built = await (box.engine === engine.v ? box : poolOf(engine.v)).build(recipe, text, { timeout });
 	} catch (e) {
 		throw new Error(`${at.label}: the box could not build it (${e instanceof Error ? e.message : String(e)})`);
 	}
