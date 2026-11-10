@@ -1,8 +1,7 @@
 /**
- * SANDBOX 6 · THE VILLAGE IN 3D — built from the village config alone, cheap to draw: each hex's ground one mesh with
- * its land raster as its picture; the domes' glazed geodesic caps one InstancedMesh per dome size (their frames a
- * second, sharing the shape); every home block's storeys one InstancedMesh; the tower one lathe; each hex's roads one
- * ribbon mesh. Plain three.js, no DOM: it builds in Bun as in the browser (scene.test.ts counts what it draws).
+ * SANDBOX 6 · THE VILLAGE IN 3D — from the village config alone, cheap to draw: one mesh per hex's ground (its land
+ * raster its picture), one InstancedMesh per dome size and for the home blocks, a lathe tower, ribbon roads. No DOM:
+ * it builds in Bun as in the browser (scene.test.ts).
  */
 import * as THREE from 'three';
 import { capOf, homeBlock, towerProfile, type Road, type Village } from './geometry';

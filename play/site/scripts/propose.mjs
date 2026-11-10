@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 /*
- * PROPOSE A READABLE SOURCE TO PLAY — a new asset, or a new version of one, sent from a file to play's MCP server as an
- * agent would (play/SPEC.md §4.1: readable source, never minified; play wraps it into the recipe file itself), after the
- * checks play would make and one it can't: that every build the source names by hash (a dome's plants, `hash: '…'` or
- * `use:<hash>`) is a recipe play's catalog holds. A source of 80 kB and more is best sent this way than pasted into a
- * tool call.
+ * PROPOSE A READABLE SOURCE TO PLAY — a new asset or version sent from a file to play's MCP as an agent would (play/SPEC.md
+ * §4.1: readable source, never minified; play wraps it into the recipe file), after play's checks and one it can't make:
+ * every build the source names by hash (`hash: '…'`, `use:<hash>`) is in play's catalog. Best for sources of 80 kB and more.
  *
  *   PLAY_MCP_TOKEN=play_… node scripts/propose.mjs --file <source.js> --group <group> --label "<label>" --note <note.md>
  *        [--slug <slug>] [--sheet <image hash>]                           a new asset (propose_asset)
@@ -14,11 +12,9 @@
  *        [--pending <file>] hashes proposed with it and not accepted yet (a JSON list, or an object whose values have
  *                  a `hash`): named builds among them pass the check (they draw once an admin accepts them)
  *        [--url https://play.maia.city]
- *
- * The token is an admin's (made on play's profile page) and is read from the environment only. Nothing is accepted
- * here: the proposal comes to play's Proposals page, where an admin sees it built in the asset box and decides.
  */
 import { readFileSync } from 'node:fs';
+import { HEX } from '../src/lib/kernel/hash.js';
 
 const arg = (name) => {
 	const i = process.argv.indexOf(`--${name}`);
@@ -48,8 +44,7 @@ if (Buffer.byteLength(source) > 16 * 1024 * 1024) fail('refused: over 16 MB');
 const libs = [...new Set([...source.matchAll(/\brequire\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]))];
 console.log(`${file}: ${(source.length / 1024).toFixed(0)} kB, ${lines.length} lines (longest ${longest}), requires ${libs.join(', ')}`);
 
-/* ---- every build it names, held by play's catalog ---- */
-const named = [...new Set([...source.matchAll(/(?:hash:\s*'|use:)([0-9a-f]{64})/g)].map((m) => m[1]))];
+const named = [...new Set([...source.matchAll(new RegExp(`(?:hash:\\s*'|use:)(${HEX})`, 'g'))].map((m) => m[1]))];
 if (named.length) {
 	const res = await fetch(`${url}/api/catalog`, { headers });
 	if (!res.ok) fail(`play's catalog could not be read (HTTP ${res.status})`);
@@ -81,7 +76,6 @@ if (named.length) {
 }
 if (flag('check')) process.exit(0);
 
-/* ---- proposed over MCP ---- */
 const noteFile = arg('note');
 if (!noteFile) fail('Give --note <note.md>: what it is, what changed, how it was checked.');
 const note = readFileSync(noteFile, 'utf8').trim();

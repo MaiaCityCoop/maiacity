@@ -1,71 +1,30 @@
-// Breeds (play/SPEC.md "Breeds"; intent 7c8085db-ccdb-44cf-8d6c-0ff984d71f41) against a real Postgres: set
-// TEST_DATABASE_URL, as for ./api.test.ts.
-//
-// c1: a breed tracks Main. An edit accepted on Main appears in every breed, except on a field the breed overrides,
-// where the breed keeps its value; a field both changed (a clash) keeps the breed's.
-//
-// c2: a breed changes by its own intent variant, seeded from it (propose_doc_version's `breed`), and a new breed is made
-// by one too (`new_breed`); either Accept makes the asset's next frozen version, every breed's recipe built and its
-// asset_variants row written.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { hashText } from "../src/hash";
-import { Rate } from "../src/limits";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+// Breeds (play/SPEC.md "Breeds"; intent 7c8085db-ccdb-44cf-8d6c-0ff984d71f41) against a real Postgres (as ./api.test.ts).
+// c1: a breed tracks Main: an edit accepted on Main appears in every breed except on a field it overrides (a clash keeps
+// the breed's).
+// c2: a breed changes by its own intent variant (propose_doc_version's `breed`), a new one is made by one (`new_breed`);
+// either Accept makes the asset's next frozen version, every breed's recipe built and its asset_variants row written.
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { hashText } from "../src/kit/hash";
+import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
+import { type Api, appOn, type Fresh, freshDb, human, request, suite, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
-
-const SPEC = {
-  goal: "A breed changes.",
-  nothing_to_reduce: "A test fixture: nothing to reduce.",
-  scope: "One breed. Nothing else changes.",
-  checks: [{ check: "It holds", how: "test", by: "true", run: "true" }],
-};
+const SPEC = fx.spec("A breed changes.", "One breed. Nothing else changes.");
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
 
 suite("breeds", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
   let cookie = "";
   let token = "";
   let papaya = "";
 
-  const call = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
+  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: cookie }, method, path, body);
   /** a tool called over MCP by the admin's token: its result as JSON, or its error's text */
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const res = (await r.json()).result;
-    const text = res.content[0].text;
-    return res.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** an intent in Build, its spec approved, its one must check passed: ready to take work (every edit is an intent's) */
-  const readyIntent = async (title: string) => {
-    const i = await tool("add_intent", { title });
-    await tool("specify_intent", { intent: i.id, ...SPEC });
-    expect((await call("POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "exit 0" }] })).stage).toBe("proposal");
-    return i.id as string;
-  };
+  const readyIntent = (title: string) => fx.readyIntent({ tool, approve: (id) => call("POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, strict: true });
   const accept = async (intent: string) => (await call("POST", `/api/intents/${intent}/accept`)).data;
   const breedsOf = async () => (await tool("doc_history", { doc: papaya })).variants.filter((v: any) => v.type === "breed");
   const breed = async (name: string) => {
@@ -80,19 +39,10 @@ suite("breeds", () => {
   };
 
   beforeAll(async () => {
-    name = `play_breeds_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
-    const h = await createHuman(db, "ada");
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
-    cookie = `play_session=${tokenFor(h.id)}`;
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db);
+    ({ cookie } = await human(db, "ada"));
     token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
 
     // a papaya of two kinds, proposed as a version of variants and accepted: its variants are its breeds from then on
@@ -108,9 +58,7 @@ suite("breeds", () => {
     papaya = made.asset;
   });
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
   test("an asset's variants are breeds of its document beside Main, Main holding none", async () => {
@@ -185,7 +133,6 @@ suite("breeds", () => {
     const review = (await call("GET", `/api/intents/${p.intent}`)).data.review;
     expect(review.doc).toMatchObject({ id: papaya, breed: "male" });
     expect((await call("GET", `/api/intents/${p.intent}/docs/${papaya}`)).data.changes.map((c: any) => c.path)).toEqual(["$.source"]);
-    // Main stays as it was until it is accepted
     expect((await breed("male")).source).not.toContain("stronger");
     expect((await accept(p.intent)).decision).toMatchObject({ status: "accepted", number: was.number + 1 });
     const v = await head();
@@ -215,7 +162,6 @@ suite("breeds", () => {
     const v = await head();
     expect(Object.keys(v.variants)).toEqual(["female", "hermaphrodite", "male"]);
     expect(v.variants.hermaphrodite.card.card.label).toBe("Papaya: Hermaphrodite");
-    // a name a breed has is taken
     expect((await tool("doc_edit", { doc: papaya, intent: await readyIntent("A second male"), new_breed: "male", message: "again", edits: [{ op: "set", path: ["card", "card", "label"], value: "x" }] })).error).toContain("breed male already");
     // Main moves: the new breed takes it, keeping its own label
     const q = await tool("propose_doc_version", { doc: papaya, intent: await readyIntent("Taller still"), note: "taller still", edits: [{ op: "replace", find: "a taller papaya", replace: "a tallest papaya" }] });

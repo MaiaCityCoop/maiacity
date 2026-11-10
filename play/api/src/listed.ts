@@ -4,7 +4,7 @@
 // uses, the stories linking a story. A read by UUID or by hash never asks it.
 
 /** the SQL saying document `<prefix>:<alias>.id` is not retired */
-export const notRetired = (prefix: string, alias: string) =>
+const notRetired = (prefix: string, alias: string) =>
   `NOT EXISTS (SELECT 1 FROM play.docs rd WHERE rd.id = '${prefix}:' || ${alias}.id::text AND rd.retired_at IS NOT NULL)`;
 
 /** the SQL saying story row `alias` (play.stories) is listed: neither folded into another nor retired */

@@ -4,9 +4,10 @@
 	them with over MCP (/api/mcp). Opened from the nav pill's You menu.
 -->
 <script lang="ts">
+	import { localDay } from '$lib/format';
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
-	import { loadMe, session } from '$lib/session.svelte';
+	import { loadMe, session, isAdmin } from '$lib/session.svelte';
 
 	let name = $state(session.me?.name ?? '');
 	let said = $state('');
@@ -17,7 +18,7 @@
 
 	// an admin's access tokens, for an agent working for them over MCP (/api/mcp): the token shown once, here alone
 	type Token = { id: string; name: string; created: string; last_used: string | null; revoked_at: string | null; avenbox: boolean };
-	const admin = $derived(session.me?.level === 'admin');
+	const admin = $derived(isAdmin());
 	let tokens = $state<Token[]>([]);
 	let tokenName = $state('');
 	let fresh = $state<{ name: string; token: string } | null>(null);
@@ -52,7 +53,7 @@
 		await api(`/tokens/${t.id}/avenbox`, { json: { avenbox } }).catch((err) => (tokenError = (err as Error).message));
 		await loadTokens();
 	}
-	const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—');
+	const day = (iso: string | null) => (iso ? localDay(iso) : '—');
 
 	async function save(e: SubmitEvent) {
 		e.preventDefault();

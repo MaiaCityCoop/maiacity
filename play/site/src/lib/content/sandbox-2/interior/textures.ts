@@ -1,14 +1,8 @@
-/**
- * Real-world surfaces, painted at runtime: flagstone, limestone blocks, oak
- * boards, garden soil, bark, water and leaves. Nothing is downloaded — every
- * texture is drawn once into a canvas and cached, so the dome interiors look
- * like stone and timber without shipping a megabyte of photographs.
- */
+/** Real-world surfaces painted at runtime, each drawn once into a canvas and cached: no megabyte of photographs shipped. */
 import * as THREE from 'three'
 
 const cache = new Map<string, THREE.CanvasTexture>()
 
-/** A small seeded random, so every texture is the same on every visit. */
 function rng(seed: number) {
 	let s = seed >>> 0 || 1
 	return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)
@@ -28,7 +22,6 @@ function noise(period: number, seed: number) {
 	}
 }
 
-/** Several octaves of noise, tileable over the canvas. */
 function fbm(size: number, seed: number, base = 4, octaves = 4) {
 	const layers = Array.from({ length: octaves }, (_, i) => ({ n: noise(base << i, seed + i * 97), f: (base << i) / size, w: 1 / (1 << i) }))
 	const total = layers.reduce((s, l) => s + l.w, 0)
@@ -183,10 +176,7 @@ export function water(): THREE.CanvasTexture {
 	})
 }
 
-/**
- * A card of leaves on transparent ground: broad glossy leaves for the fruit
- * trees and the understorey. Drawn as tapered ellipses around a stem.
- */
+/** A card of broad glossy leaves on transparent ground, tapered ellipses round a stem. */
 export function leaves(kind: 'broad' | 'fine' = 'broad'): THREE.CanvasTexture {
 	const key = `leaves-${kind}`
 	const hit = cache.get(key)
@@ -260,9 +250,7 @@ export function frond(): THREE.CanvasTexture {
 	return tex
 }
 
-/** Meadow grass seen from above: mottled greens, thousands of short blades, dry tips, clover. */
-/** The food garden's living floor: low leaves in many greens — clover, sorrel, purslane, strawberry runners — packed
- * close, with only specks of earth between. */
+/** The food garden's living floor: clover, sorrel, purslane, strawberry runners packed close, specks of earth between. */
 export function groundCover(): THREE.CanvasTexture {
 	const key = 'ground-cover'
 	const hit = cache.get(key)

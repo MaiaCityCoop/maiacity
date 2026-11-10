@@ -2,7 +2,7 @@ import { piecesOf, transform, type Box, type Scenario, type V3 } from './simulat
 import { shedScenario, ROOF_PITCH, type BuildPart, type BuildDefinition } from './shed';
 
 const xyz = (x: number, y: number, z: number): V3 => ({ x, y, z });
-export const BRICK_NOTE = 'Individual large-format clay bricks and visible mortar, laid in alternating courses. Door and window lintels bear on their jambs. Steel straps anchor the timber roof plates. Roof falls 5° to the back under continuous felt. Roof grips and felt bonds can fail under load; red dots mark failed points. Capacities are experimental. Mortar and masonry anchors remain ideal; no timber fracture geometry, rain or leakage simulation.';
+const BRICK_NOTE = 'Individual large-format clay bricks and visible mortar, laid in alternating courses. Door and window lintels bear on their jambs. Steel straps anchor the timber roof plates. Roof falls 5° to the back under continuous felt. Roof grips and felt bonds can fail under load; red dots mark failed points. Capacities are experimental. Mortar and masonry anchors remain ideal; no timber fracture geometry, rain or leakage simulation.';
 export function brickHouseScenario(): Scenario {
   return { ...shedScenario(), id: 'brick-house', title: '11 / Build a brick house', question: 'Foundation → bonded brick courses → supported lintels → timber roof → roofing felt.' };
 }

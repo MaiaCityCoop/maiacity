@@ -1,9 +1,10 @@
 // The character's renders, on a real GPU only (Samuel's Mac, Metal through Chrome): never in the cloud on SwiftShader.
 //   node render-gpu.mjs <scene.json>… -> <scene>.png beside each scene (from scene.textured_scene: textured, eyes)
-import { createRequire } from "node:module"; import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs"; import { dirname, resolve } from "node:path";
-const { chromium } = createRequire(new URL("../../play/site/package.json", import.meta.url).pathname)("playwright");
-const THREE = new URL("../../play/site/node_modules/three/build/", import.meta.url).pathname;
+import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs"; import { dirname, join, resolve } from "node:path";
+import { SITE, siteRequire } from "../site.cjs";
+const { chromium } = siteRequire("playwright");
+const THREE = join(SITE, "node_modules/three/build/");
 if (process.platform !== "darwin" && !process.env.RENDER_ANYWHERE) { console.error("GPU renders run on the Mac (Metal), not here."); process.exit(1); }
 const browser = await chromium.launch({ channel: "chromium", headless: true, args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist", "--window-size=1100,1100"] });
 const page = await browser.newPage();
@@ -20,7 +21,6 @@ for (const path of process.argv.slice(2)) {
     const r = new T.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.setPixelRatio(2); r.toneMapping = T.ACESFilmicToneMapping;
     document.body.innerHTML = ""; document.body.appendChild(r.domElement);
     const cam = new T.PerspectiveCamera(s.cam.fov, W / H, 0.05, 200); cam.position.set(...s.cam.pos); cam.lookAt(...s.cam.target);
-    // per-corner UVs: one vertex per triangle corner
     const n = s.tris.length, P = new Float32Array(n * 3), UV = new Float32Array(n * 2);
     for (let i = 0; i < n; i++) { const v = s.tris[i]; P.set([s.pos[3 * v], s.pos[3 * v + 1], s.pos[3 * v + 2]], 3 * i); if (s.uvt) UV.set([s.uvt[2 * i], s.uvt[2 * i + 1]], 2 * i) }  // OBJ's v is up, as three's with flipY
     const g = new T.BufferGeometry(); g.setAttribute("position", new T.BufferAttribute(P, 3)); if (s.uvt) g.setAttribute("uv", new T.BufferAttribute(UV, 2));

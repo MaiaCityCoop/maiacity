@@ -1,22 +1,17 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * AN ACTOR'S MOVES, PLAYED BACK — the clips of a rigged build as the box wrote them down (./box/clips.js), played in
- * the page by our own code, none of the asset's: for any rigged actor (an animal of a world, a person), any number of
- * copies, each at its own time and as it moves. A clip here is what it is in the actor's own code ($content/actors/rig.ts
- * `Clip`): the pose at time t (seconds) and, for a gait, how the actor moves (how far it has come, how fast, how fast
- * it turns), the same pose for the same time and motion however often it is asked for, so a film's frame is always
- * the same frame. With `blend` (two poses, turned the short way from one to the other) and `poser` (a copy's bones
- * set to a pose), what a world's crowds need (./render/crowd.js).
+ * AN ACTOR'S MOVES, PLAYED BACK — a rigged build's clips as the box wrote them (./box/clips.js), played by our own code
+ * for any number of copies, each at its own time and motion. A clip is what it is in the actor's code
+ * ($content/actors/rig.ts `Clip`): the pose at t (s) and, for a gait, its motion (distance, speed, turn), the same pose
+ * for the same input every time, so a film's frame is always the same. With `blend` and `poser`, what a world's crowds
+ * need (./render/crowd.js).
  */
 import * as THREE from 'three';
 
 /** numbers a bone, as the box writes them: its turn about x, y and z, its size, its offset x, y and z */
 const WIDTH = 7;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-/**
- * A table along one axis (time, or distance): its value for list entry q at x, its end running into its start and
- * on, each time round carried on by its drift. Row r of `rows` stacked tables.
- */
+/** A table along time or distance: entry q's value at x, its end running into its start, each round carried on by its drift; `rows` stacked. */
 function along(A, m, r, q, x) {
 	const { n, rate, length, table, drift } = A;
 	const lap = Math.floor(x / length);
@@ -52,8 +47,7 @@ function clipOf(c, names) {
 	const rn = c.rch?.length ?? 0;
 	const grid = c.turns ? [...c.turns, 0].sort((a, b) => a - b) : null;
 	const v = new Float64Array(nch);
-	/** rows r and r + 1 (w of the way to it) at t and distance d: the box writes down a pace between two wherever the
-	 *  line between them strays from the clip (a leg reaching its full stretch), so a line between them is enough */
+	/** rows r and r + 1 (w of the way) at t and d: the box writes a pace between two wherever their line strays, so a line is enough */
 	const rowsAt = (r, w, t, d) => {
 		const r1 = w > 0 ? r + 1 : r;
 		for (let j = 0; j < nch; j++) v[j] = c.base[r * nch + j] + (c.base[r1 * nch + j] - c.base[r * nch + j]) * w;
@@ -117,10 +111,8 @@ function clipOf(c, names) {
 }
 
 /**
- * The clips of a build (its view's `clips.motion`, ./box/rebuild.js), each played as a function of time and motion.
- * Its bones by name (`clips.bones`, root first).
- * @param {{ bones: number, clips: Record<string, any> } | undefined} motion
- * @param {string[]} names
+ * The clips of a build (its view's `clips.motion`, ./box/rebuild.js), each a function of time and motion; `names` its
+ * bones (root first). @param {{ bones: number, clips: Record<string, any> } | undefined} motion @param {string[]} names
  * @returns {Record<string, (t: number, m?: { dist: number, speed: number, turn?: number }) => Record<string, number[]>>}
  */
 export function playerOf(motion, names) {
@@ -132,9 +124,8 @@ export function playerOf(motion, names) {
 
 const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), eb = new THREE.Euler();
 /**
- * Between two poses: the root's place, and each bone turned t of the way from a to b along the shortest arc, its size
- * and offset between (as $content/actors/rig.ts `blend`).
- * @param {Record<string, number[]>} a @param {Record<string, number[]>} b @param {number} t
+ * Between two poses: the root's place, each bone turned t of the way from a to b the short way, size and offset between
+ * ($content/actors/rig.ts `blend`). @param {Record<string, number[]>} a @param {Record<string, number[]>} b @param {number} t
  * @returns {Record<string, number[]>}
  */
 export function blend(a, b, t) {
@@ -155,11 +146,7 @@ export function blend(a, b, t) {
 	return out;
 }
 
-/**
- * How to pose a copy's bones: from where they rest now, each turned as a pose says (a bone it does not name rests; the
- * root moves the first bone), as $content/actors/rig.ts `poser`.
- * @param {THREE.Bone[]} list
- */
+/** A copy's bones posed from rest as a pose says (unnamed bones rest; the root moves the first), as $content/actors/rig.ts `poser`. @param {THREE.Bone[]} list */
 export function poser(list) {
 	const byName = Object.fromEntries(list.map((b) => [b.name, b]));
 	const rest = list.map((b) => b.position.clone());

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /*
- * THE ORGAN BENCH — one organ of a plant recipe drawn on its own as the reference sheet shows it: straight on with an
- * orthographic camera, in even shadowless light, on a transparent ground (its silhouette exact in the alpha), at a
- * known scale, so it can be laid beside its panel and measured (compare.py).
+ * THE ORGAN BENCH — one organ of a plant recipe drawn alone as the reference sheet shows it: orthographic, straight on, in
+ * even shadowless light on a transparent ground (its silhouette exact in the alpha), at a known scale, to be laid beside
+ * its panel and measured (compare.py).
  *
  *   node tools/plant/organ.mjs --file banana-v2.js --make "o => o.bellView()" \
  *        --view front|side|top|bottom [--ppm 2000] [--flat] [--out bell.png]
@@ -11,15 +11,14 @@
  *   --make   a function of (organs, THREE) giving an Object3D: the organ to draw
  *   --view   where the camera looks from: front (from +Z), side (from +X), top (from +Y), bottom
  *   --ppm    pixels per metre (the picture is sized to the organ)
- *   --flat   draw its colours as they are (unlit: albedo × its colour pictures), for comparing colours with the
- *            traced panel; without it, lit as a light box lights (a soft key from the camera, much fill)
+ *   --flat   unlit colours (albedo × its colour pictures), to compare with the traced panel; else lit as a light box lights
  * Needs the play site's packages (three) and Playwright with its Chromium.
  */
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const SITE = resolve(process.env.PLAY_SITE ?? '/home/user/maiacity/play/site');
+import { SITE } from '../site.cjs';
 const arg = (k, d) => {
 	const i = process.argv.indexOf(`--${k}`);
 	return i > 0 ? process.argv[i + 1] : d;
@@ -30,7 +29,6 @@ const ppm = Number(arg('ppm', '2000'));
 const flat = process.argv.includes('--flat');
 const out = resolve(arg('out', 'organ.png'));
 
-// the recipe in node, its 'three' from the site
 const require = createRequire(import.meta.url);
 const Module = require('module');
 const three = resolve(SITE, 'node_modules/three/build/three.cjs');
@@ -111,12 +109,14 @@ renderer.render(scene, cam);
 window.done = { w, h, data: renderer.domElement.toDataURL('image/png') };
 </script></body></html>`;
 
+// play/site's Playwright, else one installed here or globally: a place without it is passed over
 let playwright;
 for (const from of [SITE, process.cwd(), '/usr/lib/node_modules/', '/usr/local/lib/node_modules/'])
 	try {
 		playwright = createRequire(resolve(from, 'x.js'))('playwright');
 		break;
 	} catch {}
+if (!playwright) throw new Error('playwright is installed in none of play/site, here, or the global node_modules');
 const browser = await playwright.chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const tab = await browser.newPage();
 await tab.route('http://bench.local/**', (route) => {

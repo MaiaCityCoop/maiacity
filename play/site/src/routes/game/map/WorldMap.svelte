@@ -80,7 +80,7 @@
 		await world!.city(true);
 		const X = (x: number) => x - m.width / 2, Z = (y: number) => y - m.height / 2, ground = terrain(m.seed, m.river, m.massif);
 		const centre = (ring: [number, number][]) => [X(ring.reduce((t, [x]) => t + x, 0) / ring.length), Z(ring.reduce((t, [, y]) => t + y, 0) / ring.length)];
-		(window as any).__mapFilm = {
+		(window as Window & { __mapFilm?: object }).__mapFilm = {
 			info: {
 				seed: m.seed,
 				width: m.width,

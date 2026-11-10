@@ -107,10 +107,13 @@ async function steady(ms: number, hold: number, band = 0) {
 	return false;
 }
 
-/** the world's streaming settled (../quiet.js, the one rule every check uses), and held so for 60 frames on end */
+/** the world's streaming settled (../quiet.js, the one rule every check uses), and held so for 60 frames on end. A
+ *  world with no asset renderers to ask (quietness null: Sandbox 3, the old city, streams nothing) is quiet as it is,
+ *  as the census held it before the one rule (8e10361; c1bee1f8: else it never settles and vs-main fails at main too) */
 let still = 0;
 function quiet() {
-	return quietness(g) === 0 ? ++still > 60 : ((still = 0), false);
+	const q = quietness(g);
+	return q === 0 || q === null ? ++still > 60 : ((still = 0), false);
 }
 
 /** frames turned until the world is quiet, at most `ms`: whether it was (./settle.ts) */

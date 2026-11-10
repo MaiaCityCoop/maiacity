@@ -9,6 +9,5 @@ test("a version's measures are shown only where they were measured on its own re
   expect(summary({ card: { label: "Fig 'Brown Turkey'", size: [6.338, 5.054, 6.889], triangles: 108398 } }, measured)).toMatchObject({ size: null, triangles: null, skinned: null });
   // one measured again: its own
   expect(summary({ card: { size: [4.1, 3.0, 4.0], triangles: 411680 } }, measured)).toMatchObject({ size: [4.1, 3.0, 4.0], triangles: 411680 });
-  // none measured
   expect(summary({ card: { label: "Fig" } }, measured)).toMatchObject({ size: null, triangles: null });
 });

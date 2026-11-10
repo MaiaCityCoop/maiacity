@@ -15,25 +15,16 @@
 //   bun play/avenbox/intent.ts <intent-uuid> --record [--pr <number>] [--where avenBOX|main]
 //       runs and records in one go, in a GitHub run only (GITHUB_ACTIONS: intents.yml on main); anywhere else it
 //       refuses: the pull request's run records them.
-//
-// It reads the intent over play's MCP (get_intent; PLAY_MCP_URL, play.maia.city's by default, PLAY_MCP_TOKEN its
-// Bearer: avenBOX's token in the GitHub runs, play takes a code intent's test and measure results from it alone). Each
-// check's `run` runs in order with bash, under a timeout, from the root; it prints its id, must or nice, pass or fail
-// (exit code 0 passes), the seconds it took and the tail of its output. A look is never marked passed: its run, if it
-// has one, makes what is looked at, and it is listed to be judged by eye (and recorded by hand). It exits 1 while any
-// must test or measure check fails. No check's command sees PLAY_MCP_TOKEN, nor GitHub's tokens.
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { tool } from "./play";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SHA = /^[0-9a-f]{40}$/;
 const TAIL = 40;
 const EVIDENCE_MOST = 4000;
-const DATABASE = "postgres://postgres:play@127.0.0.1:5432/postgres";
-/** what no check's command may see: play's token and GitHub's */
 const SECRETS = ["PLAY_MCP_TOKEN", "GITHUB_TOKEN", "GH_TOKEN", "ACTIONS_RUNTIME_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_URL"];
-/** what the box says to a --record outside the GitHub run */
-export const RUN_RECORDS =
+const RUN_RECORDS =
   "--record runs only in the GitHub run: the pull request's run records them (.github/workflows/intents-pr.yml, as it is marked ready, and on each push to it). Here, run without --record: it runs and prints the checks, recording nothing.";
 
 type Check = { id: string; check: string; how: "test" | "measure" | "look"; by: string; run?: string; must: boolean };
@@ -88,25 +79,8 @@ if (record && process.env.GITHUB_ACTIONS !== "true") {
   console.error(RUN_RECORDS);
   process.exit(2);
 }
-const endpoint = process.env.PLAY_MCP_URL || "https://play.maia.city/api/mcp";
 const token = process.env.PLAY_MCP_TOKEN;
 if (from === undefined && !token) usage("PLAY_MCP_TOKEN is not set: an admin's play access token (play's profile page).");
-
-let rpcId = 0;
-/** a play MCP tool: its result as JSON, or it throws with the tool's own words */
-async function tool(name: string, args: Record<string, unknown>) {
-  const r = await fetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method: "tools/call", params: { name, arguments: args } }),
-  });
-  if (!r.ok) throw new Error(`${name}: play answered ${r.status} ${await r.text()}`);
-  const body = (await r.json()) as any;
-  if (body.error) throw new Error(`${name}: ${body.error.message}`);
-  const text = body.result?.content?.[0]?.text ?? "";
-  if (body.result?.isError) throw new Error(`${name}: ${text}`);
-  return JSON.parse(text);
-}
 
 const sh = (cmd: string[], env?: Record<string, string | undefined>) => {
   const p = Bun.spawnSync(cmd, { cwd: ROOT, env: env ?? process.env, stdout: "pipe", stderr: "pipe" });
@@ -115,7 +89,6 @@ const sh = (cmd: string[], env?: Record<string, string | undefined>) => {
 const { GITHUB_SERVER_URL: gh, GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: runId } = process.env;
 const link = gh && repo && runId ? `${gh}/${repo}/actions/runs/${runId}` : null;
 
-/** a check's command, from the root, its stderr with its stdout, killed at the timeout */
 async function runOne(run: string, env: Record<string, string | undefined>) {
   const start = performance.now();
   const p = Bun.spawn(["bash", "-c", `exec 2>&1\n${run}`], { cwd: ROOT, env, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
@@ -133,7 +106,16 @@ async function runOne(run: string, env: Record<string, string | undefined>) {
   return { code: timedOut ? 124 : code, seconds: (performance.now() - start) / 1000, tail };
 }
 
-/** the spec's checks run in the box, printed; their results with where they ran (no token is needed or seen) */
+/** the box's test database: BOX_DATABASE_URL of the box.env beside this script (intents-pr.yml hands both over
+ *  from main, so a head older than box.env reads it too), as up.sh and setup.sh made the box */
+function boxDatabase(): string {
+  const file = resolve(import.meta.dir, "box.env");
+  const r = Bun.spawnSync(["bash", "-c", '. "$1" && printf %s "$BOX_DATABASE_URL"', "box.env", file], { env: { PATH: process.env.PATH }, stdout: "pipe", stderr: "pipe" });
+  const url = `${r.stdout}`;
+  if (r.exitCode !== 0 || !url) throw new Error(`${file} names no BOX_DATABASE_URL: ${`${r.stderr}`.trim()}`);
+  return url;
+}
+
 async function runChecks(spec: SpecFile): Promise<ResultsFile> {
   const checks = spec.checks.filter((c) => !only || only.includes(c.id));
   console.log(`intent ${spec.intent.id} · ${spec.intent.stage} · ${spec.intent.title}`);
@@ -141,8 +123,7 @@ async function runChecks(spec: SpecFile): Promise<ResultsFile> {
     const up = Bun.spawnSync(["bash", `${ROOT}/play/avenbox/up.sh`], { cwd: ROOT, stdout: "inherit", stderr: "inherit" });
     if (up.exitCode !== 0) console.log("avenBOX: up.sh did not make the box ready; the checks that need Postgres will fail");
   }
-  // every run's environment: the box's database, and no token
-  const env: Record<string, string | undefined> = { ...process.env, TEST_DATABASE_URL: process.env.TEST_DATABASE_URL || DATABASE };
+  const env: Record<string, string | undefined> = { ...process.env, TEST_DATABASE_URL: process.env.TEST_DATABASE_URL || boxDatabase() };
   for (const s of SECRETS) delete env[s];
 
   const rev = sh(["git", "rev-parse", "HEAD"]);
@@ -186,7 +167,6 @@ async function runChecks(spec: SpecFile): Promise<ResultsFile> {
   return { intent: spec.intent.id, where, commit, dirty, postgres: pg, link, results };
 }
 
-/** the results recorded on the intent with check_intent, where they ran, their commit and the run's link */
 async function recordResults(file: ResultsFile) {
   if (!file.results.length) return;
   await tool("check_intent", {
@@ -242,7 +222,6 @@ if (recordFrom !== undefined) {
   process.exit(red.length ? 1 : 0);
 }
 
-// run (and, in a GitHub run, --record)
 const file = await runChecks(await specOf(id!));
 if (record && file.results.length) {
   try {

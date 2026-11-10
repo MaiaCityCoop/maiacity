@@ -1,22 +1,19 @@
 /**
- * The Old City's world built in WebKit's sealed frame (intent 4f7a2178), on the CPU: no WebGL, only the frozen box
- * engine's build. In Safari the film failed "the build of 8439eb01 failed: Load failed": the frame's engine worker came
- * from a blob: URL revoked as soon as the worker was made, and WebKit then fails the importScripts(blob:) the engine runs
- * each recipe by. This makes the frame as the Stories player does (sandbox="allow-scripts", srcdoc, compose.ts's CSP),
- * starts the engine there by the runtime's own worker (src/lib/stories/world-build.ts `blobWorker`, bundled from the
- * source) and builds the world's recipe from the files kept beside the code. It passes when the build answers with a
- * card naming the recipe.
+ * The Old City's world built in WebKit's sealed frame (intent 4f7a2178), on the CPU (no WebGL, only the frozen box
+ * engine's build). Safari's film failed "the build of 8439eb01 failed: Load failed": the engine worker's blob: URL was
+ * revoked as soon as it was made, and WebKit then fails the importScripts(blob:) each recipe runs by. This makes the
+ * frame as the Stories player does (sandbox="allow-scripts", srcdoc, compose.ts's CSP), starts the engine by the
+ * runtime's worker (src/lib/stories/world-build.ts `blobWorker`) and builds the world's recipe from the files beside
+ * the code; it passes when the build answers with a card naming the recipe. WebKit is installed when missing.
  *
  *   bun scripts/webkit-world.ts
- *
- * WebKit is installed (with its system libraries) when it is missing.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { webkit, type Browser } from 'playwright';
 import { CSP } from '../src/lib/stories/compose';
 import { engineAt } from '../src/lib/kernel/engines.js';
-import { hashBytes, hashText } from '../src/lib/content/game/hash.js';
+import { hashBytes, hashText } from '../src/lib/kernel/hash.js';
 
 const SITE = resolve(import.meta.dir, '..');
 const V8 = '9bb90d4c3f21a900d01a6729ac61d6e103d9f0abeb45668cf711a497729c68a8';

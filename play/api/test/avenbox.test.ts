@@ -1,64 +1,37 @@
-// avenBOX's runner (play/avenbox/intent.ts, play/SPEC.md §4.12 "Checks run in avenBOX, and again on main") against a
-// real Postgres: set TEST_DATABASE_URL, as for ./api.test.ts. It reads an intent over the API's MCP (served here over
-// HTTP, as play.maia.city serves it), runs each check's run from the repository's root, prints each one's result,
-// exits 1 while a must check fails, and with --record records the test and measure checks it ran, where they ran and
-// on which commit; a look it leaves to be judged, and no run sees the token.
+// avenBOX's runner (play/avenbox/intent.ts, play/SPEC.md §4.12) against a real Postgres (as ./api.test.ts): it reads an
+// intent over the API's MCP (served here over HTTP), runs each check from the repository's root, prints each result, exits
+// 1 while a must fails, and with --record records its test and measure checks (where, which commit); a look it leaves to
+// be judged, and no run sees the token.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { hashBytes } from "../src/hash";
+import { hashBytes } from "../src/kit/hash";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
-import { Rate } from "../src/limits";
+import { dirname, join, resolve } from "node:path";
+import { type Db } from "../src/kit/pg";
+import { agentToken, type Api, appOn, type Fresh, freshDb, human, suite, tool as mcpTool } from "./kit";
 
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
 const RUNNER = resolve(import.meta.dir, "../../avenbox/intent.ts");
 
 suite("avenBOX's runner", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string, server: ReturnType<typeof Bun.serve>;
+  let f: Fresh, db: Db, api: Api, server: ReturnType<typeof Bun.serve>;
   let token = "";
   let ada = { id: "", cookie: "" };
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
-    const api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0) });
+    f = await freshDb();
+    db = f.db;
+    api = appOn(db);
     server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: (req) => api.fetch(req) });
-    const h = await createHuman(db, "ada");
-    ada = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [ada.id]);
-    const r = await fetch(`${server.url}api/tokens`, { method: "POST", headers: { cookie: ada.cookie, "content-type": "application/json" }, body: JSON.stringify({ name: "agent" }) });
-    token = ((await r.json()) as any).token;
+    ada = await human(db, "ada");
+    token = (await agentToken(api, ada.cookie)).token;
   });
 
   afterAll(async () => {
     server?.stop(true);
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const tool = async (name: string, args: Record<string, unknown>) => {
-    const r = await fetch(`${server.url}api/mcp`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
-    });
-    const res = ((await r.json()) as any).result;
-    return res.isError ? { error: res.content[0].text } : JSON.parse(res.content[0].text);
-  };
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   /** intent.ts as main's runner runs it: its token, GitHub's token and the Actions run in its environment (the same here
    *  as on GitHub's own runner, where these are GitHub's) */
   const ACTIONS = { GITHUB_ACTIONS: "true", GITHUB_SERVER_URL: "https://github.example", GITHUB_REPOSITORY: "maia/city", GITHUB_RUN_ID: "7" };
@@ -146,11 +119,9 @@ suite("avenBOX's runner", () => {
   });
 });
 
-// intent.ts's modes (play/SPEC.md §4.12, "Only the box's run is evidence"; Samuel 2026-11-06), against a fake MCP
-// server: no Postgres of play's needed. --spec-out writes the spec (intents-pr.yml's spec job), --from runs it with no
-// token and writes the results (its run job, on the head), --record-from records them (its record job); without
-// --record it runs, prints and records nothing; --record outside the GitHub run refuses. A per-user file never marks a
-// run dirty; a dirty run names its files.
+// intent.ts's modes (play/SPEC.md §4.12, "Only the box's run is evidence"; Samuel 2026-11-06) against a fake MCP: --spec-out
+// writes the spec, --from runs it tokenless and writes results, --record-from records them; without --record nothing is
+// recorded; --record outside the GitHub run refuses. A per-user file never marks a run dirty; a dirty run names its files.
 describe("avenBOX's runner: its modes", () => {
   const ID = "4ea6b2ed-f96a-4bf6-83fd-4d165a793194";
   const calls: { name: string; args: any; auth: string }[] = [];
@@ -168,7 +139,7 @@ describe("avenBOX's runner: its modes", () => {
     port: 0,
     hostname: "127.0.0.1",
     async fetch(req) {
-      const { params } = (await req.json()) as any;
+      const { params } = (await req.json()) as { params: { name: string; arguments: Record<string, unknown> } };
       calls.push({ name: params.name, args: params.arguments, auth: req.headers.get("authorization") ?? "" });
       const out = params.name === "get_intent" ? { id: ID, stage: "build", title: "The box", spec: SPEC } : { id: ID, stage: "build" };
       return Response.json({ jsonrpc: "2.0", id: 1, result: { content: [{ type: "text", text: JSON.stringify(out) }] } });
@@ -216,6 +187,23 @@ describe("avenBOX's runner: its modes", () => {
     expect(file.results[1].evidence).toContain(`avenBOX (https://github.example/maia/city/actions/runs/42) · commit ${sha} · PostgreSQL ${file.postgres}`);
     expect(file.results[1].evidence).toMatch(/\nclean$/);
     expect(r.out).toContain("· c4 look (must): judge it by eye: by eye");
+  });
+
+  test("--from without TEST_DATABASE_URL gives the checks the database of the box.env beside it, as the run job copies them", async () => {
+    // intents-pr.yml's spec job hands main's intent.ts, play.ts and box.env over together; the head may predate box.env
+    const box = mkdtempSync(join(tmpdir(), "avenbox-env-"));
+    for (const f of ["intent.ts", "play.ts"]) writeFileSync(join(box, f), readFileSync(join(dirname(RUNNER), f)));
+    writeFileSync(join(box, "box.env"), "PG_PORT=5999\nPG_PASSWORD=pw\nBOX_DATABASE_URL=postgres://postgres:$PG_PASSWORD@127.0.0.1:$PG_PORT/postgres\n");
+    const head = mkdtempSync(join(tmpdir(), "avenbox-head-"));
+    const spec = { intent: { id: ID, stage: "build", title: "The box" }, checks: [{ id: "c1", check: "its database", how: "test", by: "the URL", run: `echo "db=$TEST_DATABASE_URL"`, must: true }] };
+    writeFileSync(join(dir, "db-spec.json"), JSON.stringify(spec));
+    const p = Bun.spawn([process.execPath, join(box, "intent.ts"), "--from", join(dir, "db-spec.json"), "--results-out", join(dir, "db.json"), "--root", head, "--no-up"], {
+      env: { ...process.env, TEST_DATABASE_URL: undefined, PLAY_MCP_TOKEN: undefined },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(await p.exited).toBe(0);
+    expect(JSON.parse(readFileSync(join(dir, "db.json"), "utf8")).results[0].evidence).toMatch(/\ndb=postgres:\/\/postgres:pw@127\.0\.0\.1:5999\/postgres$/);
   });
 
   test("--record-from sends check_intent with where avenBOX, the commit, the run's address and pr; only of the intent named, on the head", async () => {
@@ -315,7 +303,7 @@ describe("the skills mirror", () => {
         if (req.headers.get("authorization") !== "Bearer play_test") return new Response("no", { status: 401 });
         if (u.pathname === `/api/files/${PNG}`) return new Response(served);
         if (u.pathname !== "/api/mcp") return new Response("none", { status: 404 });
-        const m = (await req.json()) as any;
+        const m = (await req.json()) as { id: number; params: { name: string; arguments: Record<string, string> } };
         const { name, arguments: a } = m.params;
         const result =
           name === "list_docs" ? Object.entries(skills).map(([id, s]) => ({ id, kind: "skill", label: s.label }))

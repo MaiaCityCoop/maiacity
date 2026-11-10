@@ -7,6 +7,7 @@ import { $ } from "bun";
 import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tool } from "../../play/avenbox/play.ts";
 
 export type Library = "coop" | "personal";
 
@@ -44,7 +45,7 @@ export async function dataUrl(file: string, max = 2048): Promise<string> {
 }
 
 /** The fal key: FAL_API_KEY (or FAL_KEY). In avenBOX the proxy puts the real key on queue.fal.run; any value will do. */
-export function falKey(): string {
+function falKey(): string {
   const key = process.env.FAL_API_KEY ?? process.env.FAL_KEY;
   if (!key) throw new Error("FAL_API_KEY is not set (in avenBOX any value: the proxy sends the real key to queue.fal.run).");
   return key;
@@ -84,12 +85,5 @@ export async function upload(file: string, label: string | undefined, lib: Libra
   const data = readFileSync(file).toString("base64");
   const media_type = /\.png$/i.test(file) ? "image/png" : /\.webp$/i.test(file) ? "image/webp" : "image/jpeg";
   const args = { data, media_type, library: lib, ...(label ? { label: label.slice(0, 200) } : {}) };
-  const res = await fetch("https://play.maia.city/api/mcp", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "add_story_frame", arguments: args } }),
-  });
-  const out: any = await res.json();
-  if (out.error || out.result?.isError) throw new Error(JSON.stringify(out.error ?? out.result));
-  return { library: lib, ...(out.result.structuredContent ?? JSON.parse(out.result.content[0].text)) };
+  return { library: lib, ...(await tool("add_story_frame", args, { token })) };
 }

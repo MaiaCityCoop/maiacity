@@ -1,8 +1,7 @@
 import RAPIER from '@dimforge/rapier3d-compat';
-import {polyVolume, type Polyhedron} from './geometry';
+import {polyVolume, type Polyhedron, type V3, type Quaternion} from './geometry';
 
-export type V3 = { x: number; y: number; z: number };
-export type Quaternion = V3 & { w: number };
+export type {V3, Quaternion};
 export type Box = {
   id: string; size: [number, number, number]; position: V3; angle?: number;
   rotation?: Quaternion;

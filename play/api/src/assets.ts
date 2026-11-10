@@ -1,23 +1,19 @@
 // The asset library, read (play/SPEC.md §4, §7): every asset Maia City owns, each with its versions as a chain, each
 // version's variants, and a ref resolved to the recipe file a sandbox builds. Each read is of what the person asking
 // sees (./owners.ts): the coop's assets and their own; another's private asset is as one that never was.
-import type { Queryable } from "./pg";
+import type { Queryable } from "./kit/pg";
 import type { Me } from "./access";
 import { piecesShown } from "./pieces";
 import { lodOf } from "./lod";
 import { assetSeen } from "./owners";
+import { HttpError } from "./kit/errors";
 
 /** who asks: their id, for ./owners.ts's rule (null: no one, who sees the coop's alone) */
 const asker = (me: Pick<Me, "id"> | null | undefined) => me?.id ?? null;
 
-export class NotFound extends Error {
-  status = 404;
-}
-
 /**
- * What a version's card says of it. Its measures (size, triangles, skinned) only where they were measured on its own
- * recipe: a version proposed before 2026-11-05 took its parent's card whole, its measures with it, so a measure the
- * same as its parent's is the parent's and is not shown.
+ * What a version's card says of it; its measures only where measured on its own recipe (a version proposed before
+ * 2026-11-05 took its parent's card whole, so a measure equal to its parent's is the parent's and not shown).
  */
 export const summary = (record: any, parent?: any) => {
   const c = record?.card ?? {};
@@ -51,13 +47,12 @@ export async function listAssets(db: Queryable, grp: string | undefined, me: Pic
   return rows.map((r) => ({ id: r.id, grp: r.grp, slug: r.slug, label: r.label, head: r.head, versions: Number(r.versions), ...summary(r.card, r.parent_card) }));
 }
 
-/** one asset `me` sees and its whole chain, newest first */
 export async function assetOf(db: Queryable, id: string, me: Pick<Me, "id"> | null) {
   const { rows: a } = await db.query<any>(
     `SELECT a.id, a.grp, a.slug, a.label, a.head, a.coop_id, a.created, a.sound, a.sound_gain, a.owner <> a.coop_id AS private FROM play.assets a WHERE a.id::text = $1 AND ${assetSeen("a", "$2")}`,
     [id, asker(me)],
   );
-  if (!a[0]) throw new NotFound(`There is no asset ${id}.`);
+  if (!a[0]) throw new HttpError(`There is no asset ${id}.`, 404);
   const { rows: versions } = await db.query<any>(
     `SELECT v.id, v.number, v.parents, v.recipe_hash, v.source_hash, v.default_variant, v.card, v.engine, v.note, v.created, v.imported,
             (SELECT p.card FROM play.asset_versions p WHERE p.id = v.parents[1]) AS parent_card,
@@ -91,16 +86,15 @@ export async function versionOf(db: Queryable, id: string, number: number, me: P
        FROM play.asset_versions v JOIN play.assets a ON a.id = v.asset_id WHERE v.asset_id::text = $1 AND v.number = $2 AND ${assetSeen("a", "$3")}`,
     [id, number, asker(me)],
   );
-  if (!rows[0]) throw new NotFound(`There is no ${id}@${number}.`);
+  if (!rows[0]) throw new HttpError(`There is no ${id}@${number}.`, 404);
   const v = rows[0];
   return { id: v.id, asset: id, number: v.number, parents: v.parents, recipe: v.recipe_hash, source: v.source_hash, defaultVariant: v.default_variant, card: v.card, engine: v.engine, note: v.note, variants: v.variants, imported: v.imported };
 }
 
-/** what a sandbox draws: each slot, the build it pins (`<hash>?values`), and what that is, for showing; `state`: its
- * pins as a proposal would make them (./sandboxes.ts) instead of as they are */
+/** what a sandbox draws: each slot, its pinned build (`<hash>?values`) and what that is; `state`: pins as a proposal would make them (./sandboxes.ts) */
 export async function pinsOf(db: Queryable, sandbox: string, state?: { pins: Record<string, { version: string; variant: string | null; params: Record<string, string> | null }> }) {
   const { rows: s } = await db.query(`SELECT 1 FROM play.sandboxes WHERE id = $1`, [sandbox]);
-  if (!s[0]) throw new NotFound(`There is no ${sandbox}.`);
+  if (!s[0]) throw new HttpError(`There is no ${sandbox}.`, 404);
   const pins = state
     ? Object.entries(state.pins).map(([slot, p]) => ({ slot, version_id: p.version, variant: p.variant, params: p.params }))
     : (await db.query<any>(`SELECT slot, version_id, variant, params FROM play.sandbox_pins WHERE sandbox_id = $1`, [sandbox])).rows;
@@ -124,9 +118,8 @@ export async function pinsOf(db: Queryable, sandbox: string, state?: { pins: Rec
 }
 
 /**
- * The catalog (play/SPEC.md §4): every accepted version and variant by the BLAKE3 hash of its recipe file — the one
- * name a sandbox or another asset knows it by — with what it is (its asset, version, variant and label, for showing)
- * and its record (its card, manifest, contract and engine), which the site builds it by.
+ * The catalog (play/SPEC.md §4): every accepted version and variant by its recipe file's BLAKE3 hash (the one name a
+ * sandbox or asset knows it by), with what it is (for showing) and its record (card, manifest, contract, engine).
  */
 export async function catalogOf(db: Queryable, me: Pick<Me, "id"> | null) {
   const { rows } = await db.query<any>(
@@ -157,10 +150,7 @@ async function shownPieces(db: Queryable, records: any[]) {
   return (r: any) => named(r).map((h) => by.get(h)!);
 }
 
-/**
- * A sandbox's config: its pins as `assets`, each slot the build it pins (`<hash>?values`), and every other config it
- * keeps by name (Sandbox 1's `garden`), each planting's slot handed out as its build (`asset`).
- */
+/** A sandbox's config: its pins as `assets` (each slot its build, `<hash>?values`) and every other config by name (Sandbox 1's `garden`, each planting's slot as its build). */
 export async function configOf(db: Queryable, sandbox: string, state?: { pins: Record<string, any>; configs: Record<string, unknown> }) {
   const pins = await pinsOf(db, sandbox, state);
   const assets = Object.fromEntries(pins.map((p) => [p.slot, p.build]));
@@ -173,7 +163,7 @@ export async function configOf(db: Queryable, sandbox: string, state?: { pins: R
     if (o && typeof o === "object") {
       const out = Object.fromEntries(Object.entries(o).map(([k, v]) => [k, withBuilds(v)]));
       if (typeof o.slot === "string") {
-        if (!assets[o.slot]) throw new NotFound(`${sandbox}'s config names slot ${o.slot}, which it doesn't pin`);
+        if (!assets[o.slot]) throw new HttpError(`${sandbox}'s config names slot ${o.slot}, which it doesn't pin`, 404);
         out.asset = assets[o.slot];
         // a planting's version, as its pin now names it
         if ("v" in o) out.v = numbers[o.slot];

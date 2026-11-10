@@ -1,9 +1,8 @@
 /**
- * SANDBOX 7 · THE WORLD — the hex planet raised in a page's stage: its four maps fetched from play's files by the hashes
- * its planet config names, the globe built from them (./globe.ts), drawn as its biomes config paints it (./scene.ts),
- * the candidate sites pinned on it, and the camera rig from orbit to a walk (./rig.ts). Lit by the sun of the world's
- * hour (the kit's sky clock: the time control's, or the hour a film pins) as it stands over the point beneath the camera, with a soft fill so the night side still
- * reads, on play's light ground. Answers WorldPage's `move`, `look` and `dispose`, and flies to a site or picks a pin.
+ * SANDBOX 7 · THE WORLD — the hex planet in a page's stage: its four maps fetched by the planet config's hashes, the globe
+ * (./globe.ts) painted by the biomes config (./scene.ts), the sites pinned, the rig from orbit to a walk (./rig.ts); lit
+ * by the sun of the world's hour (the kit's sky clock, or a film's) over the point beneath the camera, a soft fill so the
+ * night side reads. Answers WorldPage's `move`, `look`, `dispose`; flies to a site or picks a pin.
  */
 import * as THREE from 'three';
 import { createSkyClock, createStage, disposeObject } from '$lib/content/sandbox-kit';
@@ -14,10 +13,10 @@ import { GlobeRig } from './rig';
 import { buildPlanet, type Biomes, type Pin, type Planet } from './scene';
 
 /** the sun's declination on a day of the year, degrees: the season's tilt */
-export const declination = (day: number) => -23.44 * Math.cos(((2 * Math.PI) / 365) * (day + 10));
+const declination = (day: number) => -23.44 * Math.cos(((2 * Math.PI) / 365) * (day + 10));
 
 /** where the sun stands over the planet at an hour of the place at longitude `lon`: the point it is overhead */
-export function subsolar(hour: number, lon: number, day: number): { lat: number; lon: number } {
+function subsolar(hour: number, lon: number, day: number): { lat: number; lon: number } {
 	return { lat: declination(day), lon: ((((lon - (hour - 12) * 15 + 180) % 360) + 360) % 360) - 180 };
 }
 
@@ -34,9 +33,8 @@ async function readMaps(planet: Planet): Promise<PlanetMaps> {
 export type PlanetHandle = {
 	move: (x: number, y: number, hurry: boolean) => void;
 	look: (dx: number, dy: number) => void;
-	/** fly the camera to a point, coming down over it */
 	flyTo: (lat: number, lon: number) => void;
-	/** the pin under a point of the page, by its index, or null */
+	/** the pin under a point of the page (its index), or null */
 	pick: (x: number, y: number) => number | null;
 	dispose: () => void;
 };

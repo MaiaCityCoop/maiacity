@@ -1,10 +1,7 @@
 /**
- * SANDBOX 7 · THE MAPS — where the land is, what grows there, how deep the sea is and where the mountains stand.
- *
- * The planet's four maps are play's files, named by their BLAKE3 hash in its planet config (Sandbox 7's layout), each in
- * one grid format: an equirectangular grid `width` × `height` from 90° N and 180° W, its rows run-length encoded as
- * `<letter><run>…`, each letter a value in `codes` (a kind, or a depth layer). One decoder reads all four; a card asks
- * with its centre, a unit vector (latitude from y, longitude round it, atan2(x, z)).
+ * SANDBOX 7 · THE MAPS — land, what grows, sea depth and mountains: four play files named by hash in the planet config,
+ * one grid format (equirectangular `width` × `height` from 90° N and 180° W, rows run-length encoded `<letter><run>…`,
+ * each letter a value in `codes`). One decoder reads all four; a card asks with its centre's unit vector.
  */
 export type Vec3 = readonly [number, number, number] | number[];
 export type Value = string | number;
@@ -15,14 +12,11 @@ export type Grid = {
 	height: number;
 	/** the value at a cell: x wraps round the planet, y wraps as the old maps did */
 	at: (x: number, y: number) => Value;
-	/** the cell a point falls in */
 	cellOf: (p: Vec3) => [number, number];
-	/** the value at a point */
 	sample: (p: Vec3) => Value;
 	/**
-	 * The value at a point, or where it is not one `want`s, the first nearby that is, out to `radius` cells: on a `ring`
-	 * (only the cells that far, ring by ring) or a `square` (every cell that far or nearer, again ring by ring). Undefined
-	 * where none is: two maps drawing a coast differently meet here.
+	 * The value at a point, or where it is not one `want`s, the first nearby that is out to `radius` cells, on a `ring`
+	 * or a `square`, ring by ring; undefined where none is (two maps drawing a coast differently meet here).
 	 */
 	near: (p: Vec3, want: (v: Value) => boolean, radius: number, shape: 'ring' | 'square') => Value | undefined;
 };
@@ -40,7 +34,7 @@ export function unitAt(lat: number, lon: number): [number, number, number] {
 	return [Math.cos(a) * Math.sin(b), Math.sin(a), Math.cos(a) * Math.cos(b)];
 }
 
-export function decodeGrid(file: GridFile): Grid {
+function decodeGrid(file: GridFile): Grid {
 	const { width: w, height: h } = file;
 	const letters = Object.keys(file.codes);
 	const values = letters.map((l) => file.codes[l]!);
@@ -94,11 +88,9 @@ export type LandKind = 'water' | 'grass' | 'earth' | 'forest' | 'taiga' | 'snow'
 export function mapsOf(files: PlanetMaps) {
 	const land = decodeGrid(files.land), kinds = decodeGrid(files.biomes), depth = decodeGrid(files.depth), mountains = decodeGrid(files.mountains);
 	return {
-		/** whether a point is land (the coastline) */
 		isLand: (p: Vec3) => land.sample(p) === 'land',
 		/** what kind of land a point is; at a coast the climate grid draws as sea, the nearest land it knows (3 cells round) */
 		kindOf: (p: Vec3) => (kinds.near(p, (v) => v !== 'water', 3, 'ring') ?? 'water') as LandKind,
-		/** whether a point is in a mountain range */
 		isMountain: (p: Vec3) => mountains.sample(p) === 'mountain',
 		/** how deep the sea is: its layer, 0 (the shelf) to 11; at a coast the nearest sea the grid knows (2 cells round), else the shelf */
 		depthOf: (p: Vec3) => (depth.near(p, (v) => (v as number) >= 0, 2, 'square') ?? 0) as number

@@ -1,49 +1,23 @@
-// Merge to live in at most 90 s (intent 5ab64b8e-f0b6-4688-9621-b38b0e665585), every gate kept. What makes the deploy
-// fast and what keeps it safe, each as a test: the import's no-op run asks play's store nothing (against a real Postgres,
-// TEST_DATABASE_URL, and a store that counts its calls); release.yml fetches no file contents; production.yml has no job
-// that only waits, its jobs start together and the server waits for the image and the backup; main's checks on a push
-// pass without running again only on the very tree a pull request's run tested (tested-tree.sh against a stand-in
-// GitHub); every gate of before is kept; play's Ship follows the jobs as they are; play-api stops on SIGTERM.
+// Merge to live in at most 90 s (intent 5ab64b8e-f0b6-4688-9621-b38b0e665585), every gate kept, each as a test.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { COOP } from "../src/kit/ids";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore, type BlobStore } from "../src/blobs";
-import { hashText } from "../src/hash";
+import { createHuman, initSessions } from "../src/auth";
+import { folderStore, type BlobStore, keyOf } from "../src/blobs";
+import { hashText } from "../src/kit/hash";
 import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { fromBunSql, type Db } from "../src/kit/pg";
 import { RECIPE_HEAD } from "../src/recipes";
 import { STEPS } from "../src/ship";
 import { mediaNamed, runImport } from "../import/run";
+import { cookieFor, freshDb, suite, until, within } from "./kit";
 
 const ROOT = resolve(import.meta.dir, "../../..");
 const text = (path: string) => readFileSync(resolve(ROOT, path), "utf8");
-const yaml = (path: string) => Bun.YAML.parse(text(path)) as any;
-const URL_ = process.env.TEST_DATABASE_URL;
-const pg = URL_ ? describe : describe.skip;
-
-/** a fresh database of its own, migrated */
-async function freshDb(): Promise<{ db: Db; url: string; drop: () => Promise<void> }> {
-  const name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-  const admin = new Bun.SQL(URL_!);
-  await admin.unsafe(`CREATE DATABASE ${name}`);
-  const u = new URL(URL_!);
-  u.pathname = `/${name}`;
-  const sql = new Bun.SQL(u.toString());
-  const db = fromBunSql(sql);
-  await migrate(db);
-  return {
-    db,
-    url: u.toString(),
-    drop: async () => {
-      await sql.close();
-      await admin.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-      await admin.close();
-    },
-  };
-}
-
+/** a workflow or action file as data: YAML of any shape */
+const yaml = (path: string): any => Bun.YAML.parse(text(path));
 /** a store that counts every call made of it, and what it was asked about */
 function counting(inner: BlobStore) {
   const calls: string[] = [];
@@ -58,9 +32,8 @@ function counting(inner: BlobStore) {
 }
 
 const recipe = (id: string, v: number) => `${RECIPE_HEAD}module.exports.recipe = () => ({});\nreturn module.exports.recipe(${JSON.stringify(id)}, ${v}, null);\n});\n`;
-const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
 
-pg("the deploy's import", () => {
+suite("the deploy's import", () => {
   let t: Awaited<ReturnType<typeof freshDb>>;
   beforeAll(async () => {
     t = await freshDb();
@@ -92,7 +65,7 @@ pg("the deploy's import", () => {
     index({ [mint]: { asset: "plants/mint-old", v: 1, variant: null, source: src, commit: "c" } });
     // the legacy import ran; the media play's site names are among play's files (their rows: play keeps a file first)
     await db.query(`INSERT INTO play.imports (name) VALUES ('legacy')`);
-    for (const m of mediaNamed()) await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'image/jpeg', $2) ON CONFLICT DO NOTHING`, [m.hash, `blobs/${m.hash.slice(0, 2)}/${m.hash}`]);
+    for (const m of mediaNamed()) await db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'image/jpeg', $2) ON CONFLICT DO NOTHING`, [m.hash, keyOf(m.hash)]);
     const run = () => runImport(db, store, { sources: dir, log: () => {} });
 
     // the first run gives the version its source, seeds the repo's stories and makes the documents
@@ -135,7 +108,7 @@ pg("the deploy's import", () => {
   }, 60_000);
 });
 
-pg("a media file play's files lack", () => {
+suite("a media file play's files lack", () => {
   test("is an import error naming its hash: no feed is asked, play mends its files from its second copy", async () => {
     const t = await freshDb();
     try {
@@ -146,7 +119,7 @@ pg("a media file play's files lack", () => {
       for (const m of named) if (!lost && !(await own(m))) lost = m;
       expect(lost).toBeDefined();
       // every other one among play's files already
-      for (const m of named.filter((x) => x !== lost)) await t.db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'image/jpeg', $2)`, [m.hash, `blobs/${m.hash.slice(0, 2)}/${m.hash}`]);
+      for (const m of named.filter((x) => x !== lost)) await t.db.query(`INSERT INTO play.files (hash, size, media_type, bucket_key) VALUES ($1, 1, 'image/jpeg', $2)`, [m.hash, keyOf(m.hash)]);
       const fetched: string[] = [];
       const real = globalThis.fetch;
       globalThis.fetch = (async (u: any) => (fetched.push(String(u)), new Response("", { status: 599 }))) as typeof fetch;
@@ -167,17 +140,17 @@ pg("a media file play's files lack", () => {
 });
 
 describe("the workflows", () => {
-  const prod = () => yaml(".github/workflows/production.yml");
+  const prod = (): { jobs: Record<string, any>; [k: string]: any } => yaml(".github/workflows/production.yml");
   const GATE = "./.github/actions/main-green";
 
   test("release checks out no blobs, and moves production as before", () => {
-    const steps = yaml(".github/workflows/release.yml").jobs.release.steps as any[];
+    const steps: { uses?: string; name?: string; run?: string; with?: any }[] = yaml(".github/workflows/release.yml").jobs.release.steps;
     expect(steps[0].uses).toBe("actions/checkout@v4");
     expect(steps[0].with.filter).toBe("blob:none");
     // the work tree only the workflow itself: no other file's contents fetched
     expect(steps[0].with["sparse-checkout"]).toBe(".github/workflows/release.yml");
     expect(steps[0].with["sparse-checkout-cone-mode"]).toBe(false);
-    const move = steps.find((s) => s.name === "production moves to the commit, fast-forward only");
+    const move = steps.find((s) => s.name === "production moves to the commit, fast-forward only")!;
     for (const line of [
       `git fetch -q origin main production`,
       `git merge-base --is-ancestor "$SHA" origin/main`,
@@ -227,7 +200,6 @@ describe("the workflows", () => {
     const server = p.jobs.server.steps.map((s: any) => s.name ?? s.uses);
     expect(server).not.toContain("Back up play");
     expect(server).not.toContain("Copy play's files");
-    // nothing goes on past a failure
     expect(text(".github/workflows/production.yml")).not.toContain("continue-on-error");
     expect(text(".github/actions/main-green/action.yml")).not.toContain("continue-on-error");
   });
@@ -241,11 +213,15 @@ describe("the workflows", () => {
     const jobs = yaml(".github/workflows/play-checks.yml").jobs;
     const site = yaml(".github/workflows/website-checks.yml").jobs.build;
     expect([jobs.checks.name, site.name]).toEqual(["API and site", "build"]);
+    // the required checks are named once, in .github/required-checks.json: main.yml's job name / the called job's name
+    const required = JSON.parse(text(".github/required-checks.json"));
+    expect(required).toEqual({ play: "play / API and site", website: "website / build" });
+    expect(Object.entries(required)).toEqual([["play", `${main.jobs.play.name} / ${jobs.checks.name}`], ["website", `${main.jobs.website.name} / ${site.name}`]]);
     // play's (intent 417af727): the tested tree its own job; the API and the site run only when it did not say the very
     // tree passed, and the check "API and site" ends by naming the tree it covered
     const tested = jobs.tested.steps.find((s: any) => s.id === "tested");
     expect(tested.if).toBe("github.event_name == 'push'");
-    expect(tested.env.CHECK).toBe("play / API and site");
+    expect(tested.env.PART).toBe("play");
     expect(tested.run).toBe("bash .github/workflows/tested-tree.sh");
     expect(jobs.tested.outputs.skip).toBe("${{ steps.tested.outputs.skip }}");
     for (const k of ["api", "site"]) {
@@ -255,12 +231,12 @@ describe("the workflows", () => {
     }
     expect(jobs.checks.steps.at(-1).if).toBe("needs.tested.outputs.skip != 'true'");
     expect(jobs.checks.steps.at(-1).run).toBe(`echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"`);
-    for (const [job, check] of [[site, "website / build"]] as [any, string][]) {
+    for (const [job, part] of [[site, "website"]] as [any, string][]) {
       expect(job.services).toBeUndefined();
       const tested = job.steps.find((s: any) => s.id === "tested");
       // only on a push to main may the tested tree skip: on a pull request the step does not run, so nothing skips
       expect(tested.if).toBe("github.event_name == 'push'");
-      expect(tested.env.CHECK).toBe(check);
+      expect(tested.env.PART).toBe(part);
       expect(tested.run).toBe("bash .github/workflows/tested-tree.sh");
       // every step after it runs unless it said the very tree passed
       for (const s of job.steps.slice(job.steps.indexOf(tested) + 1)) expect(s.if).toBe("steps.tested.outputs.skip != 'true'");
@@ -268,18 +244,20 @@ describe("the workflows", () => {
       expect(job.steps.at(-1).run).toBe(`echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"`);
     }
     const pgStep = jobs.api.steps.find((s: any) => s.name === "Postgres");
-    expect(pgStep.run).toContain("postgres:17-alpine");
-    expect(jobs.api.steps.find((s: any) => s.name === "The API").run).toContain("bun test");
+    expect(pgStep.run).toContain('"postgres:$PG_VERSION-alpine"');
+    expect(jobs.api.steps.find((s: any) => s.name === "The API").run).toContain("gate.sh api --no-up");
   });
 
   test("every gate kept", () => {
     // the shared action: both checks concluded success on the commit, or the job stops
     const green = yaml(".github/actions/main-green/action.yml");
-    expect(green.inputs.checks.default).toBe("play / API and site|website / build");
+    expect(green.inputs.checks).toBeUndefined();
+    expect(green.runs.steps[0].env.REQUIRED).toBe("${{ github.action_path }}/../../required-checks.json");
     const run = green.runs.steps[0].run as string;
+    expect(run).toContain(`mapfile -t all < <(jq -r '.[]' "$REQUIRED")`);
     expect(run).toContain(`select(.conclusion == "success")`);
     expect(run).toContain(`for check in "\${all[@]}"; do passed "$check" || exit 1; done`);
-    for (const job of Object.values(prod().jobs) as any[]) expect(job.steps[1].with).toEqual({ token: "${{ github.token }}", sha: "${{ github.sha }}" });
+    for (const job of Object.values(prod().jobs)) expect(job.steps[1].with).toEqual({ token: "${{ github.token }}", sha: "${{ github.sha }}" });
     // release.yml: fast-forward only, with GITHUB_TOKEN, no secret
     const release = text(".github/workflows/release.yml");
     expect(release).not.toContain("secrets.");
@@ -302,7 +280,7 @@ describe("the workflows", () => {
   });
 
   test("Ship follows the jobs: its steps name only jobs and steps production.yml has, in order, the backup its own job", () => {
-    const jobs = Object.values(prod().jobs) as any[];
+    const jobs = Object.values(prod().jobs);
     const deploy = STEPS.filter((s) => s.job);
     expect(deploy.map((s) => s.job)).toEqual(jobs.map((j) => j.name));
     for (const s of deploy) {
@@ -320,6 +298,7 @@ describe("tested tree", () => {
   const REPO = "maia/city";
   const SHA = "a".repeat(40), HEAD = "b".repeat(40), TREE = "c".repeat(40), OTHER = "d".repeat(40);
   const CHECK = "play / API and site";
+  const PART = "play";
   type World = { tree?: string; pulls?: any[]; runs?: any[]; jobs?: Record<number, any[]>; notes?: Record<number, any[]>; fail?: string };
   let world: World = {};
   let server: ReturnType<typeof Bun.serve>;
@@ -360,7 +339,7 @@ describe("tested tree", () => {
     const out = join(mkdtempSync(join(tmpdir(), "tested-")), "out");
     writeFileSync(out, "");
     const p = Bun.spawn(["bash", SCRIPT], {
-      env: { PATH: process.env.PATH!, GITHUB_API_URL: `http://127.0.0.1:${server.port}`, GITHUB_OUTPUT: out, GH_TOKEN: "t0ken", EVENT: "push", REPO, SHA, CHECK, ...env },
+      env: { PATH: process.env.PATH!, GITHUB_API_URL: `http://127.0.0.1:${server.port}`, GITHUB_OUTPUT: out, GH_TOKEN: "t0ken", EVENT: "push", REPO, SHA, PART, ...env },
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -378,7 +357,8 @@ describe("tested tree", () => {
   test("tested tree: a different tree, a failed, cancelled or other workflow's run, another repository, no pull request, an API error: the checks run", async () => {
     const cases: [string, World, Record<string, string>?][] = [
       ["another tree pushed", { ...tested(), tree: OTHER }],
-      ["the website's job tested another tree", tested(), { CHECK: "website / build" }],
+      ["the website's job tested another tree", tested(), { PART: "website" }],
+      ["no required check of that part", tested(), { PART: "nothing" }],
       ["the run failed", { ...tested(), runs: [prRun(11, { conclusion: "failure" })] }],
       ["the run was cancelled", { ...tested(), runs: [prRun(11, { conclusion: "cancelled" })] }],
       ["the run is still going", { ...tested(), runs: [prRun(11, { status: "in_progress", conclusion: null })] }],
@@ -406,7 +386,7 @@ describe("tested tree", () => {
   }, 120_000);
 });
 
-pg("play-api", () => {
+suite("play-api", () => {
   let t: Awaited<ReturnType<typeof freshDb>>;
   beforeAll(async () => {
     t = await freshDb();
@@ -420,7 +400,7 @@ pg("play-api", () => {
     // the session secret in the database first, so this process and play-api sign alike
     await initSessions(db);
     const h = await createHuman(db, "sig");
-    const cookie = `play_session=${tokenFor(h.id)}`;
+    const cookie = cookieFor(h.id);
     // port 0: the server takes a free one and names it ("play-api on :<port>"), so no other test or worker holds it.
     // Its output is read as it comes (a pipe left unread fills and stops the child) and waited on: the test goes on
     // when the server says it listens, and fails at once with its own error if it exits (intent aa59f248: under
@@ -440,14 +420,11 @@ pg("play-api", () => {
     const outDone = drain(api.stdout, out);
     void drain(api.stderr, err);
     // until `ok` holds on what it said, or it exits
-    const said = async <T,>(ok: (text: string) => T | null): Promise<T> => {
-      for (;;) {
-        const hit = ok(out.join(""));
-        if (hit !== null) return hit;
+    const said = <T,>(ok: (text: string) => T | null): Promise<T> =>
+      until("play-api says it", () => {
         if (api.exitCode !== null) throw new Error(`play-api exited (${api.exitCode}): ${err.join("")}${out.join("")}`);
-        await Bun.sleep(20);
-      }
-    };
+        return ok(out.join(""));
+      }, { withinMs: 20_000 });
     try {
       const port = await said((o) => o.match(/play-api on :(\d+)/)?.[1] ?? null);
       const base = `http://127.0.0.1:${port}`;
@@ -466,13 +443,12 @@ pg("play-api", () => {
       await isLocked;
       const slow = fetch(`${base}/api/me`, { headers: { cookie } });
       // in flight: its query waits on the lock in Postgres
-      for (;;) {
+      await until("the request waits on the lock", async () => {
         const { rows } = await db.query<{ n: number }>(
           `SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'`,
         );
-        if (rows[0].n > 0) break;
-        await Bun.sleep(20);
-      }
+        return rows[0].n > 0;
+      });
       const t0 = performance.now();
       api.kill("SIGTERM");
       // stopping: its listener closed as it says so
@@ -487,7 +463,7 @@ pg("play-api", () => {
       const r = await slow;
       expect(r.status).toBe(200);
       expect((await r.json()).name).toBe("sig");
-      const code = await Promise.race([api.exited, Bun.sleep(2500).then(() => "still running")]);
+      const code = await within(api.exited, 2500, "still running");
       expect(code).toBe(0);
       expect(performance.now() - t0).toBeLessThan(2000);
       await outDone;
@@ -518,10 +494,10 @@ describe("the backup rides out a flaky bucket", () => {
     expect(retry).toStartWith("retry() {");
     expect(sh).not.toContain("for try in 1 2 3; do\n  if copy");
     expect(sh).toContain(`retry "adding play's files to the store" copy || exit 1`);
-    const upload = `retry "uploading the snapshot" backup_cli s3 cp /work "s3://$BACKUP_BUCKET/$PREFIX/" --recursive --only-show-errors || exit 1`;
+    const upload = `retry "uploading the snapshot" s3 backup -v "$WORK:/work" -- s3 cp /work "s3://$BACKUP_BUCKET/$PREFIX/" --recursive --only-show-errors || exit 1`;
     expect(sh).toContain(upload);
     expect(sh.indexOf(upload)).toBeLessThan(sh.indexOf("for f in play.dump files.txt manifest.json; do"));
-    expect(sh.match(/backup_cli s3 cp /g)).toHaveLength(1);
+    expect(sh.match(/-- s3 cp \/work /g)).toHaveLength(1);
     expect(run(0)).toEqual({ code: 0, calls: 1, out: "done\n" });
     const once = run(1);
     expect([once.code, once.calls, once.out]).toEqual([0, 2, "backup: uploading the snapshot stopped short (try 1 of 3); again …\ndone\n"]);

@@ -1,6 +1,7 @@
-# the website's checks (website/), called by main.yml: its types and its prerendered build. On a pull request they
-# always run, and end by noting the tree they tested; on a push to main they pass without running again only when the
-# pushed tree is that very tree (./tested-tree.sh; intent 5ab64b8e), else they run in full.
+# the website's checks (website/), called by main.yml: its types and its prerendered build, by avenBOX's gate
+# (play/avenbox/gate.sh website). On a pull request they always run, and end by noting the tree they tested; on a push
+# to main they pass without running again only when the pushed tree is that very tree (./tested-tree.sh; intent
+# 5ab64b8e), else they run in full.
 name: website checks
 
 on:
@@ -32,19 +33,17 @@ jobs:
           EVENT: ${{ github.event_name }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
-          CHECK: website / build
+          PART: website
           GH_TOKEN: ${{ github.token }}
         run: bash .github/workflows/tested-tree.sh
       - uses: oven-sh/setup-bun@v2
         if: steps.tested.outputs.skip != 'true'
         with:
-          bun-version: 1.4.4
+          bun-version-file: .bun-version
       - if: steps.tested.outputs.skip != 'true'
         run: bun install --frozen-lockfile
       - if: steps.tested.outputs.skip != 'true'
-        run: bun run check
-      - if: steps.tested.outputs.skip != 'true'
-        run: bun run build
+        run: bash ../play/avenbox/gate.sh website --no-up
       - name: Tested tree
         if: steps.tested.outputs.skip != 'true'
         run: echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"

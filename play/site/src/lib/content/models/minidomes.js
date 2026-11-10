@@ -1,35 +1,14 @@
 /*
- * MINI DOMES — the coops, hutches and playgrounds of the village again, each as a tiny geodesic dome: the same
- * triangles as the village's great domes, small enough to step over a hen.
- *
- * The hen dome (v2 of the chicken coop) is a dome of timber struts 5.6 m across, low and wide: wire in its lower
- * band to see the hens through, clear panels over the run, and a cedar-shingled back where they roost — a ladder of
- * perches, three nesting boxes on straw with the day's eggs in them (and one laid out on the straw, as a hen will),
- * a feeder and a water trough. The rabbit dome (v2 of the hutch) is wire all over against foxes and hawks, on grass,
- * a little wooden dome inside to sleep in, a hay rack, a water bowl, a log to hide in. The play dome (v2 of the
- * playground) is the sandpit ringed with stumps round a climbing dome of round logs with a platform in it and a
- * slide out of its side, a swing on an arch of logs, balance logs and stepping stumps.
- *
- * Each builder returns its group and the circles it takes up (for walking round it), in its own frame: its run or
- * its sand at +z, as the timber coop's is; at real measure (metres), the ground at y = 0.
+ * The village's coops, hutches and playgrounds as tiny geodesic domes; each builder returns its group and the circles it
+ * takes up, in its own frame at real measure (its run or sand at +z, the ground at y = 0).
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { seededRandom as seeded } from '../../kernel/random.js';
 
 /** @typedef {{ x: number, z: number, r: number }} Collider */
 /** @typedef {{ group: THREE.Group, colliders: Collider[] }} Space */
 
-/** a small seeded random (mulberry32) */
-function seeded(/** @type {number} */ seed) {
-	let s = seed >>> 0 || 1;
-	return () => {
-		s = (s + 0x6d2b79f5) >>> 0;
-		let t = s;
-		t = Math.imul(t ^ (t >>> 15), t | 1);
-		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
-}
 
 const col = (/** @type {string} */ c, rough = 0.8) => new THREE.MeshStandardMaterial({ color: c, roughness: rough });
 const MAT = {
@@ -53,8 +32,8 @@ const MAT = {
 };
 
 /**
- * A geodesic dome: the triangles of an icosphere of radius R above the ground (squashed to `squash` of its height), a
- * strut along every edge. Each triangle goes to the material `panel` gives it (null: left open), by its middle.
+ * A geodesic dome: an icosphere's triangles above the ground (squashed by `squash`), a strut on every edge, each panel
+ * the material `panel` gives it (null: open).
  * @param {THREE.Group} g @param {number} R @param {number} detail @param {number} squash
  * @param {number} strut the struts' radius @param {THREE.Material} strutMat
  * @param {(c: THREE.Vector3, R: number) => THREE.Material | null} panel
@@ -89,8 +68,7 @@ function dome(g, R, detail, squash, strut, strutMat, panel) {
 	for (const [m, list] of panes) {
 		const geo = new THREE.BufferGeometry();
 		geo.setAttribute('position', new THREE.Float32BufferAttribute(list, 3));
-		// uv too, though nothing is painted on: a world bakes the panels with the boxes of the same wood, and only
-		// pieces of one kind merge
+		// uv too, though nothing is painted: a world bakes the panels with the same wood's boxes, and only one kind merges
 		geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((list.length / 3) * 2), 2));
 		geo.computeVertexNormals();
 		const mesh = new THREE.Mesh(geo, m);
@@ -158,9 +136,8 @@ function egg(/** @type {THREE.Group} */ g, /** @type {number} */ x, /** @type {n
 }
 
 /**
- * The hen dome: a timber geodesic dome 5.6 m across, 2.3 m high, the hens' house at its back (-z), their run under
- * its clear panels toward +z; the nests with eggs in them.
- * @param {number} [seed] @returns {Space}
+ * The hen dome: timber, 5.6 m across, 2.3 m high, the hens' house at its back (-z), their run under clear panels toward
+ * +z, eggs in the nests. @param {number} [seed] @returns {Space}
  */
 export function henDome(seed = 3) {
 	const r = seeded(seed);
@@ -174,7 +151,6 @@ export function henDome(seed = 3) {
 	// a door frame at the front, where the keeper comes in
 	for (const sx of [-0.42, 0.42]) box(g, 0.07, 1.6, 0.07, MAT.strut, sx, 0, O + R - 0.25);
 	box(g, 0.9, 0.07, 0.07, MAT.strut, 0, 1.6, O + R - 0.25);
-	// straw on the floor
 	floor(g, R - 0.12, MAT.straw, 0, O);
 	// the roost: a ladder of perches leaning against the back
 	for (const sx of [-0.55, 0.55]) log(g, v(sx, 0, O - 1.2), v(sx, 1.55, O - 2.05), 0.035, MAT.darkLog);
@@ -212,10 +188,7 @@ export function henDome(seed = 3) {
 	return { group: g, colliders: [{ x: 0, z: O, r: R }] };
 }
 
-/**
- * The rabbit dome: wire all over, 5.2 m across and 1.6 m high, on grass, a small wooden dome inside to sleep in.
- * @param {number} [seed] @returns {Space}
- */
+/** The rabbit dome: wire all over, 5.2 m across, 1.6 m high, on grass, a small wooden sleeping dome inside. @param {number} [seed] @returns {Space} */
 export function rabbitDome(seed = 4) {
 	const r = seeded(seed);
 	const g = new THREE.Group();
@@ -254,9 +227,8 @@ export function rabbitDome(seed = 4) {
 }
 
 /**
- * The play dome: a sandpit ringed with stumps round a climbing dome of round logs, a platform in it and a slide out
- * of its side; a swing on an arch of logs; balance logs and stepping stumps. About 16 m across.
- * @param {number} [seed] @returns {Space}
+ * The play dome, about 16 m across: a sandpit ringed with stumps round a climbing dome of logs (platform, slide), a swing
+ * on an arch of logs, balance logs and stepping stumps. @param {number} [seed] @returns {Space}
  */
 export function playDome(seed = 90) {
 	const r = seeded(seed);

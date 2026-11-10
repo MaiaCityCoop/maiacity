@@ -2,44 +2,47 @@
 // The site and the API share an origin (play.maia.city, /api behind Caddy), so there is no CORS. A visitor gets 401
 // everywhere but the health check and the passkey ceremonies.
 import type { BlobStore } from "./blobs";
-import { HASH } from "./hash";
-import { UUID } from "./uuid";
-import type { Db } from "./pg";
-import { admin, COOP, Denied, meOf, must } from "./access";
-import { SANDBOX } from "./ids";
-import { assetOf, catalogOf, configOf, listAssets, NotFound, versionOf } from "./assets";
-import { fileFor, maskEdges, OwnerError } from "./owners";
+import { HASH } from "./kit/hash";
+import { UUID } from "./kit/uuid";
+import type { Db } from "./kit/pg";
+import { admin, COOP, meOf, must } from "./access";
+import { SANDBOX } from "./kit/ids";
+import { assetOf, catalogOf, configOf, listAssets, versionOf } from "./assets";
+import { fileFor, maskEdges } from "./owners";
 import { mcp } from "./mcp";
 import { adminByToken, listTokens, makeToken, markAvenbox, revokeToken } from "./tokens";
 import { clearCookie, humanIdFrom, loginFinish, loginOptions, registerFinish, registerOptions, sessionCookie, tokenFor } from "./auth";
-import { inviteOpen, listMembers, makeInvite, MemberError, removeMember, renameMember, renameSelf, setLevel } from "./members";
-import { listTables, readTable, TableError } from "./tables";
-import { layoutAt, proposedState, SandboxError } from "./sandboxes";
-import { decideAny, docAt, docChanges, docHistory, listDocs, reviewHeld, reviewOf, VersionError } from "./versioned";
-import { runningCommit, shipWork, type GitHub } from "./ship";
-import { NO_INTENT, WorkError } from "./work";
+import { inviteOpen, listMembers, makeInvite, removeMember, renameMember, renameSelf, setLevel } from "./members";
+import { listTables, readTable } from "./tables";
+import { layoutAt, proposedState } from "./sandboxes";
+import { docAt, docChanges, docHistory, listDocs } from "./versioned";
+import { intentDocOf, intentOf } from "./review";
+import { decideAny } from "./decide";
+import { runningCommit } from "./ship";
+import type { GitHub } from "./github";
+import { NO_INTENT } from "./held";
 import { withdrawDoc } from "./withdraw";
 import { retireDoc } from "./retire";
 import { delivery } from "./delivery";
-import { INTENT_ADMINS, intentCounts, intentDocOf, intentOf, IntentError, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
+import { INTENT_ADMINS, intentCounts, intentReady, listIntents, pageIntents, type IntentVerdict } from "./intents";
 import { clientOf, perMinute, Rate, costly } from "./limits";
-import { listStories, storyAt, storyOf, StoryError } from "./stories";
+import { listStories, storyAt, storyOf } from "./stories";
 import { labelFile, listLibrary } from "./library";
-import { AssetDocError, proposeAsset, recipeAt } from "./assetdocs";
-import { SkillError } from "./skills";
-import { authorOf, listAuthors, listArtifacts, ArtifactError, artifactOf } from "./artifacts";
+import { proposeAsset, recipeAt } from "./assetdocs";
+import { getAuthor, listAuthors, listArtifacts, artifactOf } from "./artifacts";
+import { HttpError } from "./kit/errors";
+import { statusOf } from "./fault";
+import "./allkinds";
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response> | Response;
-type Route = { method: string; pattern: RegExp; keys: string[]; handler: Handler };
+type Route = { method: string; path: string; pattern: RegExp; keys: string[]; handler: Handler };
 
 const json = (body: unknown, init: ResponseInit = {}) => Response.json(body, init);
 
 /**
- * The read-only routes an admin's MCP token also opens (Samuel 2026-11-03), so an agent can load a sandbox in its own
- * browser and film it: who it is, the catalog, the files, a sandbox's config and the assets — what a traveler may read —
- * and the Library (Samuel 2026-11-07), where it finds a file by its label, still for admins only. Every other route
- * (members, tokens, intents, stories, the database, a Library label, anything that writes) still wants a session; the
- * MCP server takes the token as before.
+ * The read-only routes an admin's MCP token also opens (Samuel 2026-11-03), so an agent can load and film a sandbox in
+ * its own browser: who it is, the catalog, the files, a sandbox's config, the assets, and the Library (Samuel
+ * 2026-11-07). Every other route still wants a session; the MCP server takes the token as before.
  */
 const READ_BY_TOKEN = [/^\/api\/me$/, /^\/api\/catalog$/, /^\/api\/files\/[0-9a-f]{64}$/, /^\/api\/sandboxes\/[0-9a-f-]{36}\/config$/, /^\/api\/assets(\/[^/]+){0,4}$/, /^\/api\/library$/];
 async function body(req: Request): Promise<any> {
@@ -51,16 +54,13 @@ async function body(req: Request): Promise<any> {
 }
 
 export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)), github = null, commit = runningCommit() }: { db: Db; store: BlobStore; rate?: Rate; github?: GitHub | null; commit?: string | null }) {
-  // play's work held beside a pull request is accepted by the reconcile once its code is live (./ship.ts)
-  shipWork.store = store;
   const routes: Route[] = [];
   const on = (method: string, path: string, handler: Handler) => {
     const keys: string[] = [];
     const pattern = new RegExp(`^${path.replace(/:([a-z]+)/g, (_, k) => (keys.push(k), "([^/]+)"))}$`);
-    routes.push({ method, pattern, keys, handler });
+    routes.push({ method, path, pattern, keys, handler });
   };
-  // who a request is: its session; or, on the world's read-only routes, an admin's MCP token (Samuel 2026-11-03: an
-  // agent walks and films a sandbox in its own browser, as its admin, reading only what a traveler may read)
+  // who a request is: its session, or on the world's read-only routes an admin's MCP token (Samuel 2026-11-03)
   const me = async (req: Request) => {
     const human = humanIdFrom(req);
     if (human || req.method !== "GET" || !READ_BY_TOKEN.some((r) => r.test(new URL(req.url).pathname))) return meOf(db, human);
@@ -70,8 +70,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     json({ id: h.id, name: h.name, ...(extra as object) }, { headers: { "Set-Cookie": sessionCookie(tokenFor(h.id)) } });
 
   on("GET", "/api/health", () => json({ ok: true }));
-  // the commit play runs (the image's PLAY_COMMIT, ./ship.ts runningCommit), public: what every code intent's stage is
-  // held to (./ship.ts reconcile), and what play/avenbox/live-audit.ts reads; null where it was built without one
+  // the commit play runs (PLAY_COMMIT, ./ship.ts runningCommit), public: what a code intent's stage is held to (./ship.ts
+  // reconcile) and play/avenbox/live-audit.ts reads; null where built without one
   on("GET", "/api/version", () => json({ commit }, { headers: { "Cache-Control": "no-store" } }));
   // how many build Maia City: the number alone, public, for the website's manifesto (maia.city, website/src/lib/FounderCounter.svelte)
   on("GET", "/api/founders", async () => {
@@ -108,21 +108,21 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("GET", "/api/assets/:id", async (req, p) => {
     const m = must(await me(req), "read", "assets");
-    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
+    if (!UUID.test(p.id)) throw new HttpError("An asset is named by its id, a UUID.", 404);
     return json(await assetOf(db, p.id, m));
   });
-  // the recipe file an asset builds at an edit of its history (?edit=<seq>) or at an intent's variant (?intent=<id>),
-  // kept among play's files by its hash for the History tab: admins only (before /:id/:v, which it would match)
+  // the recipe file at an edit (?edit=<seq>) or an intent's variant (?intent=<id>) for the History tab, admins only
+  // (before /:id/:v, which it would match)
   on("GET", "/api/assets/:id/recipe", async (req, p) => {
-    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
+    if (!UUID.test(p.id)) throw new HttpError("An asset is named by its id, a UUID.", 404);
     const q = new URL(req.url).searchParams;
     return json(await recipeAt(db, store, await me(req), p.id, q.get("intent") ? { intent: q.get("intent")! } : { edit: Number(q.get("edit")) }));
   });
   on("GET", "/api/assets/:id/:v", async (req, p) => {
     const m = must(await me(req), "read", "assets");
-    if (!UUID.test(p.id)) throw new NotFound("An asset is named by its id, a UUID.");
+    if (!UUID.test(p.id)) throw new HttpError("An asset is named by its id, a UUID.", 404);
     const n = Number(p.v);
-    if (!Number.isInteger(n) || n < 1) throw new NotFound(`${p.v} is not a version.`);
+    if (!Number.isInteger(n) || n < 1) throw new HttpError(`${p.v} is not a version.`, 404);
     return json(await versionOf(db, p.id, n, m));
   });
   on("GET", "/api/catalog", async (req) => {
@@ -131,24 +131,22 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("GET", "/api/files/:hash", async (req, p) => {
     const m = must(await me(req), "read", "assets");
-    if (!HASH.test(p.hash)) throw new NotFound("That is not a file's hash.");
+    if (!HASH.test(p.hash)) throw new HttpError("That is not a file's hash.", 404);
     // (another's private file is as one never kept: ./owners.ts)
     const f = await fileFor(db, m, p.hash);
-    if (!f) throw new NotFound("There is no such file.");
+    if (!f) throw new HttpError("There is no such file.", 404);
     // served from here whether the store is the folder or the bucket: never a redirect to the bucket, so a file keeps
     // the headers below (code as plain text, nothing sniffed or run as a document) and needs no CORS on the bucket
     const bytes = await store.get(p.hash);
-    if (!bytes) throw new NotFound("The file's bytes are missing.");
-    // code (recipes and their sources, accepted or only proposed) is served as plain text, never as script the page's
-    // origin could run: it runs only in the asset box, which gets its text by fetch, held to its hash. Media keep their
-    // type (covers, sounds), and nothing served here is sniffed or may run as a document.
+    if (!bytes) throw new HttpError("The file's bytes are missing.", 404);
+    // code (recipes and sources, accepted or proposed) is served as plain text, never script play's origin could run: it
+    // runs only in the asset box, fetched as text and held to its hash. Media keep their type; nothing is sniffed.
     const media = /^(image|audio|video)\//.test(f.media_type) ? f.media_type : "text/plain; charset=utf-8";
     const headers: Record<string, string> = {
       "Content-Type": media, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox",
       "Cache-Control": "private, max-age=31536000, immutable", ETag: `"${p.hash}"`, "Accept-Ranges": "bytes",
     };
-    // a part of it, by its bytes: a sound starts playing where it is asked to (a loop begun anywhere in it) without the
-    // whole recording coming down first
+    // a part of it, by its bytes: a sound starts where asked (a loop begun anywhere) without the whole coming down first
     const range = rangeOf(req.headers.get("range"), bytes.length);
     if (range === "unsatisfiable") return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${bytes.length}` } });
     if (range) {
@@ -162,8 +160,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/sandboxes/:id/config", async (req, p) => {
     const m = must(await me(req), "read", "sandboxes");
     // the Factories are Maia City's admins' alone for now (Samuel 2026-11-03)
-    if (!UUID.test(p.id)) throw new NotFound("A sandbox is named by its id, a UUID.");
-    if (p.id === SANDBOX.factories && m.level !== "admin") throw new Denied("Only Maia City's admins may open the Factories, for now.");
+    if (!UUID.test(p.id)) throw new HttpError("A sandbox is named by its id, a UUID.", 404);
+    if (p.id === SANDBOX.factories && m.level !== "admin") throw new HttpError("Only Maia City's admins may open the Factories, for now.", 403);
     // as an intent's work at Proposal would make it (admins, ./sandboxes.ts), to walk it before deciding
     const q = new URL(req.url).searchParams;
     const intent = q.get("intent");
@@ -174,11 +172,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await configOf(db, p.id));
   });
 
-  // ---- intents (./intents.ts, ./work.ts): the one record on the board, Idea → Specify → Build → Proposal → (Ship →)
-  // Accepted or Archived; added, specified and built by agents over MCP, its work (an asset's version here; the rest
-  // over MCP) proposed by putting it at Proposal, decided by its admins here: a spec approved (Specify → Build) or
-  // sent back, its work at Proposal accepted (applied) or archived, its code accepted and shipped (./ship.ts: its pull
-  // request merged into main at once, followed to production in Ship), or brought back
+  // ---- intents (./intents.ts, its work ./held.ts; play/SPEC.md §4.12): decided by its admins here
   on("GET", "/api/intents", async (req) => {
     const q = new URL(req.url).searchParams;
     const s = q.get("stage");
@@ -200,13 +194,12 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("GET", "/api/intents/:id", async (req, p) => {
     const m = await me(req);
-    return json(await maskEdges(db, m, await intentOf(db, m, p.id, reviewOf)));
+    return json(await maskEdges(db, m, await intentOf(db, m, p.id)));
   });
-  // one document of its work, read when it is opened (intent 2df30a21: the detail lists them in brief); ?variant= names
-  // one of a piece's versions
+  // one document of its work, read when opened (intent 2df30a21); ?variant= names one of a piece's versions
   on("GET", "/api/intents/:id/docs/:doc", async (req, p) => {
     const v = new URL(req.url).searchParams.get("variant");
-    return json(await intentDocOf(db, await me(req), p.id, p.doc, v == null || v === "" ? null : Number(v), reviewHeld));
+    return json(await intentDocOf(db, await me(req), p.id, p.doc, v == null || v === "" ? null : Number(v)));
   });
   // to propose is to put an intent at Proposal: the one named, held to its gate (no work without an intent)
   on("POST", "/api/intents", async (req) => {
@@ -215,7 +208,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     // (who may propose first, then what: an admin's, for an intent)
     if (b?.intent === undefined || b?.intent === null || b?.intent === "") {
       admin(m, INTENT_ADMINS);
-      throw new IntentError(NO_INTENT, 400);
+      throw new HttpError(NO_INTENT, 400);
     }
     b.intent = (await intentReady(db, m, b.intent)).id;
     return json(await proposeAsset(db, store, m, b), { status: 201 });
@@ -233,15 +226,13 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await maskEdges(db, m, await retireDoc({ db, store }, m, p.id, b?.doc, b?.reason, "web")));
   });
   on("POST", "/api/intents/:id/:verdict", async (req, p) => {
-    if (!["approve", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new NotFound("No such decision.");
+    if (!["approve", "accept", "archive", "reject", "reopen"].includes(p.verdict)) throw new HttpError("No such decision.", 404);
     const m = await me(req);
     return json(await maskEdges(db, m, await decideAny({ db, store }, m, p.id, p.verdict as IntentVerdict | "archive", github, commit)));
   });
 
-  // one version control (./versioned.ts, play/SPEC.md "Version control"), admins only: every document play versions,
-  // by its UUID, read at Main's newest version, a version (?v=2), an edit (?edit=7) or an intent's variant
-  // (?intent=<id>); its history (edits, versions, variants; ?variant=<n> for one variant's own edits); and what an edit
-  // or an intent variant changes against what it grew from (/changes?edit= or ?variant=). Changed only by proposal.
+  // one version control (./versioned.ts), admins only: a document by its UUID at Main, ?v=, ?edit= or ?intent=; its
+  // history and changes. Changed only by proposal.
   on("GET", "/api/docs", async (req) => json(await listDocs(db, await me(req), new URL(req.url).searchParams.get("kind") ?? undefined)));
   on("GET", "/api/docs/:id", async (req, p) => {
     const q = new URL(req.url).searchParams;
@@ -267,8 +258,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("POST", "/api/invites", async (req) => json(await makeInvite(db, await me(req)), { status: 201 }));
   on("GET", "/api/invites/:code", async (req, p) => json({ open: await inviteOpen(db, p.code) }));
 
-  // an admin's access tokens, for an agent over MCP (./tokens.ts), and play's MCP server itself (./mcp.ts): it reads the
-  // assets and proposes, as the token's admin; no tool decides a proposal
+  // an admin's access tokens (./tokens.ts) and play's MCP server (./mcp.ts), as the token's admin; no tool decides
   on("GET", "/api/tokens", async (req) => json(await listTokens(db, await me(req))));
   on("POST", "/api/tokens", async (req) => json(await makeToken(db, await me(req), (await body(req))?.name), { status: 201 }));
   on("POST", "/api/tokens/:id/avenbox", async (req, p) => json(await markAvenbox(db, await me(req), p.id, (await body(req))?.avenbox)));
@@ -299,8 +289,7 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     return json(await labelFile(db, await me(req), p.hash, b?.label, b?.library));
   });
 
-  // Artifacts (./artifacts.ts, play/SPEC.md §4.13): every link from the net Maia City keeps, its title, description,
-  // summary and authors, kept over MCP by avenMAIA (nothing here adds or edits one); admins only, read here
+  // Artifacts (./artifacts.ts, play/SPEC.md §4.13), kept over MCP by avenMAIA, only read here; admins only
   on("GET", "/api/artifacts", async (req) => {
     const q = new URL(req.url).searchParams;
     return json(
@@ -312,11 +301,10 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   });
   on("GET", "/api/artifacts/:id", async (req, p) => json(await artifactOf(db, await me(req), p.id)));
   on("GET", "/api/authors", async (req) => json(await listAuthors(db, await me(req), { q: new URL(req.url).searchParams.get("q") })));
-  on("GET", "/api/authors/:id", async (req, p) => json(await authorOf(db, await me(req), p.id)));
+  on("GET", "/api/authors/:id", async (req, p) => json(await getAuthor(db, await me(req), p.id)));
 
-  // Stories, the admins' timeline player (./stories.ts): read here with what they link, at their head, an accepted
-  // version (?v=2), an edit (?edit=7) or an intent's variant (?intent=<id>); their history is /api/docs/<id>/history.
-  // They change only by proposal, over MCP
+  // Stories (./stories.ts), read with what they link at their head, ?v=, ?edit= or ?intent=; their history is
+  // /api/docs/<id>/history. They change only by proposal, over MCP
   on("GET", "/api/stories", async (req) => json(await listStories(db, await me(req))));
   on("GET", "/api/stories/:id", async (req, p) => {
     const q = new URL(req.url).searchParams;
@@ -325,8 +313,9 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     if (q.get("edit") != null) return json(await storyAt(db, m, p.id, { edit: Number(q.get("edit")) }));
     return json(await storyOf(db, m, p.id, q.get("v") == null ? undefined : Number(q.get("v"))));
   });
-  async function fetch(req: Request, server?: unknown): Promise<Response> {
-    if (costly(req) && !rate.allows(clientOf(req, server as any)))
+
+  async function fetch(req: Request, server?: Parameters<typeof clientOf>[1]): Promise<Response> {
+    if (costly(req) && !rate.allows(clientOf(req, server)))
       return json({ error: "Too many requests: try again in a minute." }, { status: 429, headers: { "Retry-After": "60" } });
     const path = new URL(req.url).pathname;
     let allowed: string[] = [];
@@ -341,8 +330,8 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
       try {
         return await r.handler(req, params);
       } catch (e) {
-        if (e instanceof Denied || e instanceof NotFound || e instanceof VersionError || e instanceof WorkError || e instanceof IntentError || e instanceof MemberError || e instanceof TableError || e instanceof StoryError || e instanceof AssetDocError || e instanceof SandboxError || e instanceof SkillError || e instanceof ArtifactError || e instanceof OwnerError)
-          return json({ error: e.message }, { status: (e as any).status });
+        const status = statusOf(e);
+        if (status !== null) return json({ error: (e as Error).message }, { status });
         console.error(e);
         return json({ error: "Something went wrong on our side." }, { status: 500 });
       }
@@ -350,12 +339,12 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
     if (allowed.length) return json({ error: "Method not allowed." }, { status: 405, headers: { Allow: allowed.join(", ") } });
     return json({ error: "Not found." }, { status: 404 });
   }
-  return { fetch };
+  const table = () => routes.map((r) => `${r.method} ${r.path}`);
+  return { fetch, routes: table };
 }
 
-/** the one byte range a Range header asks of a file of `size` bytes (inclusive), null for the whole file (no header, or
- * one asking several ranges or another unit), "unsatisfiable" for one that starts past its end */
-export function rangeOf(header: string | null, size: number): [number, number] | null | "unsatisfiable" {
+/** the one byte range (inclusive) a Range header asks of `size` bytes; null for the whole (none, several, another unit); "unsatisfiable" past its end */
+function rangeOf(header: string | null, size: number): [number, number] | null | "unsatisfiable" {
   const m = /^bytes=(\d*)-(\d*)$/.exec(header?.trim() ?? "");
   if (!m || (m[1] === "" && m[2] === "")) return null;
   if (m[1] === "") {

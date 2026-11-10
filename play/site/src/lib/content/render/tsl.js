@@ -1,12 +1,10 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * OUR NODE MATERIALS (intent 602a8849), beside the render kit's (./nodes, intent cb16b7a5): what one writes on the
- * screen, and the classes ours are made from.
- *
- * On the screen the handler tone-maps and encodes every node material, whatever it asks. Here one with
- * `toneMapped: false` is encoded and not toned, as three's own are, and one with `userData.raw` is written as it is, as
- * three's raw shader materials wrote their colour (a pass after the output pass, a flat overlay). Into a target, the
- * kit's `install` already draws ours (`isKit`) linear and untoned.
+ * OUR NODE MATERIALS (intent 602a8849) beside the render kit's (./nodes, intent cb16b7a5): what one writes on screen and
+ * the classes ours are made from. On screen the handler tone-maps and encodes every node material; here `toneMapped:
+ * false` is encoded, not toned, as three's own, and `userData.raw` is written as it is, as three's raw shader materials
+ * wrote theirs (a pass after the output pass, a flat overlay). Into a target the kit's `install` draws ours (`isKit`)
+ * linear and untoned.
  */
 import { MeshBasicNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
 import { workingToColorSpace } from 'three/tsl';
@@ -26,11 +24,10 @@ export function screenOutputs(r, h) {
 }
 
 /**
- * A node material class of ours (`isKit`, as the render kit's): kept out of three's compile (./core.js), drawn linear
- * into a target, and keyed by its shape and the drawn geometry as the kit's are (./nodes `shapeOf`, bd087014, 660ad67f): two whose shaders differ never
- * share a program, and copies alike share one (keyed by id, Safari linked a program for every copy). The handler reads
- * the key off the class (its prototype's `customProgramCacheKey`), so it is a class, not a property.
- * @template {new (...a: any[]) => any} B @param {B} Base @returns {B}
+ * A node material class of ours (`isKit`): out of three's compile (./core.js), drawn linear into a target, keyed by its
+ * shape and drawn geometry as the kit's (./nodes `shapeOf`, bd087014, 660ad67f): differing shaders never share a program,
+ * alike copies share one (keyed by id, Safari linked one for every copy). The handler reads the key off the class (its
+ * prototype's `customProgramCacheKey`), so it is a class, not a property. @template {new (...a: any[]) => any} B @param {B} Base @returns {B}
  */
 const own = (Base) =>
 	class extends Base {

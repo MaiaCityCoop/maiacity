@@ -6,10 +6,10 @@
  * motion checks (tools/motion/box.mjs); the worlds' census (scripts/census) runs the box's own frozen engine instead.
  * Never in a page: a page builds a recipe only in the asset box (./host.js), where code we cannot trust is kept apart.
  */
-import { blake3 } from '@noble/hashes/blake3.js';
+import { hashBytes, hashText, isHash } from '../../../kernel/hash.js';
 
 /** a source's (or a file's bytes') BLAKE3 hash, as play names files and pieces */
-export const hashOf = (data) => [...blake3(typeof data === 'string' ? new TextEncoder().encode(data) : data)].map((b) => b.toString(16).padStart(2, '0')).join('');
+export const hashOf = (data) => (typeof data === 'string' ? hashText(data) : hashBytes(data));
 
 /**
  * A runner of readable sources: `run(code, name, more)` gives its module's exports; `more`, pieces beside the runner's
@@ -24,7 +24,7 @@ export function runner({ three, addons = {}, piece = () => undefined }) {
 		const require = (id) => {
 			if (id === 'three') return three;
 			if (addons[id]) return addons[id];
-			if (/^[0-9a-f]{64}$/.test(id)) {
+			if (isHash(id)) {
 				if (!loaded.has(id)) {
 					const src = piece(id) ?? more[id];
 					if (src === undefined) throw new Error(`${name}: no piece ${id}`);

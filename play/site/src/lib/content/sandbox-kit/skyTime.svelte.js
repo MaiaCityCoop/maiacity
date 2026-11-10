@@ -6,8 +6,7 @@
  */
 import { gameHour } from '../game/time';
 
-/** the hour a hand-set sky starts at: noon */
-export const NOON = 12;
+const NOON = 12;
 
 export const skyTime = $state({
 	/** true: the in-game clock; false: the hour set by hand */
@@ -16,7 +15,6 @@ export const skyTime = $state({
 	hour: NOON
 });
 
-/** Follow the in-game clock again. */
 export function automatic() {
 	skyTime.auto = true;
 }
