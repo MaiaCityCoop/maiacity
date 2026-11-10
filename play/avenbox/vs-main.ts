@@ -32,7 +32,8 @@
  * census: play/site/scripts/census.ts --json, main by its --at (in place in main's checkout); per view triangles and draws
  * a frame. bytes, lines: the files' sum, main's by git show (missing: 0). count: the command by bash in main's tree
  * (play/site/scripts/census/tree.ts) and the head, its last number. Cache: $VS_MAIN_CACHE (~/.cache/maiacity-vs-main)/<key>.json.
- * Exits 0 only when every value is in its bound.
+ * Exits 0 only when every value is in its bound. A blind census (a view of either side with at most 1 draw) is no bound
+ * and fails, naming the view and the side (intent 009e04d3).
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -187,9 +188,11 @@ export const CENSUS_READS = ['play/site', 'play/api/src/kit/ids.ts'];
 const readsOf = (m: Measure): string[] => (m.what === 'census' ? CENSUS_READS : m.what === 'count' ? [''] : m.args);
 /** raised when a key's meaning changes, so no older cache entry is read for it */
 const KEY_VERSION = 2;
+/** a census's own: 3 since a blind one is refused (intent 009e04d3), so main's values cached blind before are measured again */
+const CENSUS_VERSION = 3;
 
 /** a measure's own id, whatever the commit: the measure and its arguments */
-const measureId = (m: Measure) => createHash('sha256').update(JSON.stringify([m.what, ...m.args])).digest('hex').slice(0, 24);
+export const measureId = (m: Measure) => createHash('sha256').update(JSON.stringify([m.what, ...m.args])).digest('hex').slice(0, 24);
 
 /** a commit's whole hash in `repo`, fetched by its whole hash if this clone hasn't it (a shallow one) */
 function commitIn(sha: string, repo: string) {
@@ -206,7 +209,7 @@ function commitIn(sha: string, repo: string) {
 export function keyOf(m: Measure, sha: string, repo = REPO) {
 	const c = commitIn(sha, repo);
 	const objects = readsOf(m).map((p) => [p, tryGit(repo, 'rev-parse', '--verify', '--quiet', p ? `${c}:${p}` : `${c}^{tree}`) || '-']);
-	return createHash('sha256').update(JSON.stringify([KEY_VERSION, m.what, ...m.args, objects])).digest('hex').slice(0, 32);
+	return createHash('sha256').update(JSON.stringify([m.what === 'census' ? CENSUS_VERSION : KEY_VERSION, m.what, ...m.args, objects])).digest('hex').slice(0, 32);
 }
 
 /** the cache's file for a measure of main at a commit */
@@ -223,6 +226,22 @@ const lastNumber = (s: string) => {
 	if (!all) throw new Error(`count: no number in its output: ${s.slice(-200)}`);
 	return Number(all[all.length - 1]);
 };
+
+/**
+ * A blind count is no bound (intent 009e04d3): since the renderer switch a census counted 1 triangle and 1 draw a view,
+ * the final screen quad, and "main 1 → head 1" passed on nothing. A view with at most 1 draw is blind, on either side.
+ */
+const BLIND_DRAWS = 1;
+const blindText = (side: string, view: string, of: string, draws: number) => `census of ${side}: ${view} is blind (${of} ${draws}): it counted the screen quad, not the scene, and a blind count is no bound`;
+/** the blind views among a side's stored census values (its `<view> draws` and `<view> mainDraws`), each said */
+export function blind(values: Values, side: string): string[] {
+	const out: string[] = [];
+	for (const [k, v] of Object.entries(values)) {
+		const m = /^(.*) (draws|mainDraws)$/.exec(k);
+		if (m && v <= BLIND_DRAWS) out.push(blindText(side, m[1], m[2], v));
+	}
+	return out;
+}
 
 /** measures `m` at `sha` (main) or in the working tree (sha null) of `repo`; in place when the tree is `sha` itself */
 export function measure(m: Measure, at: string | null, repo = REPO): Values {
@@ -254,6 +273,10 @@ export function measure(m: Measure, at: string | null, repo = REPO): Values {
 	const want = of.split(',');
 	for (const v of JSON.parse(readFileSync(json, 'utf8')).views) {
 		if (!v.settled) throw new Error(`census ${at ? `at ${at.slice(0, 9)}` : 'of the head'}: ${v.view} did not settle`);
+		// the draws are read whatever --of asks for: a blind view's triangles are no bound either (intent 009e04d3)
+		const side = at ? `main ${at.slice(0, 9)}` : 'the head';
+		if (!(v.totals.calls > BLIND_DRAWS)) throw new Error(blindText(side, v.view, 'draws', v.totals.calls));
+		if (want.includes('mainDraws') && !(v.totals.mainCalls > BLIND_DRAWS)) throw new Error(blindText(side, v.view, 'mainDraws', v.totals.mainCalls));
 		if (want.includes('tris')) out[`${v.view} tris`] = v.totals.tris;
 		if (want.includes('draws')) out[`${v.view} draws`] = v.totals.calls;
 		if (want.includes('mainTris')) out[`${v.view} mainTris`] = v.totals.mainTris;
@@ -287,11 +310,14 @@ type HeadCall = { check: string; call: string[]; values: Values };
 /** the comparison as it prints, and whether every value is in its bound */
 export function report(m: Measure, main: Values, head: Values, b: Bound, mainSha: string | null) {
 	const rows = compare(main, head, b);
-	const ok = rows.every((r) => r.ok);
+	const of = mainSha ? ` ${mainSha.slice(0, 9)}` : '';
+	// stored values too (main's cache, a side file, a deferred head): one measured blind must not pass (intent 009e04d3)
+	const blinds = m.what === 'census' ? [...blind(main, `main${of}`), ...blind(head, 'the head')] : [];
+	const ok = rows.every((r) => r.ok) && !blinds.length;
 	const lines = [`${m.what} ${m.args.join(' ')}: bound ${b.kind === 'within' ? 'main +' : 'main −'} ${boundText(b)}`];
 	for (const r of rows) lines.push(`  ${r.ok ? 'ok ' : 'OFF'}  ${r.key.padEnd(12)} main ${n(r.main)} → head ${n(r.head)} (${r.main ? `${r.head >= r.main ? '+' : ''}${(((r.head - r.main) / r.main) * 100).toFixed(2)}%` : 'new'}), at most ${n(Number.isInteger(r.main) ? Math.floor(r.max + 1e-9) : r.max)}`);
-	const of = mainSha ? ` ${mainSha.slice(0, 9)}` : '';
-	lines.push(ok ? `vs-main: within the bound of main${of}` : `vs-main: out of the bound of main${of}`);
+	for (const t of blinds) lines.push(`  BLIND  ${t}`);
+	lines.push(ok ? `vs-main: within the bound of main${of}` : blinds.length ? `vs-main: no bound of main${of}: the census is blind` : `vs-main: out of the bound of main${of}`);
 	return { ok, rows, text: lines.join('\n') };
 }
 

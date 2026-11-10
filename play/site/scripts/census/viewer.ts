@@ -8,10 +8,16 @@
  * `--intent` builds each as that intent's variant would make it where it holds one (8823eb7c), `--root` runs another
  * tree's play/site (main's, to see a regression), this script's census the same.
  *
+ * `--count` (intent 009e04d3) counts each asset as staged: the camera put on it as the viewer first frames it (viewer.js
+ * `camerawork`), the stage's own frames turned as the page's loop turns them (its update, then its frame through its
+ * post pipeline), and what one settled frame would draw read from the asset's own counting renderer: `tris` and `draws`
+ * (every pass: the scene's, the shadow's, the targets'; each also on its own), counted, still not drawn. `--total tris` or `--total draws` (it counts
+ * too) prints that sum over the assets named as the last line, after the JSON line, a number alone.
+ *
  * play's routes are read as pinned in ./inputs, as the census reads them; `--record` reads every route live and pins it anew
  * (PLAY_MCP_TOKEN), so a chain pinned before an Accept is never built stale again (e5ddf0b2).
  *
- *   bun play/site/scripts/census/viewer.ts [<asset uuid>…] [--group <group>] [--intent <uuid>] [--root <tree>/play/site] [--record]
+ *   bun play/site/scripts/census/viewer.ts [<asset uuid>…] [--group <group>] [--intent <uuid>] [--root <tree>/play/site] [--record] [--count] [--total tris|draws]
  */
 import { join, resolve } from 'node:path';
 
@@ -22,6 +28,9 @@ const flag = (f: string) => (argv.includes(f) ? argv[argv.indexOf(f) + 1] : unde
 const root = flag('--root') && resolve(flag('--root')!);
 const [group, intent] = [flag('--group'), flag('--intent')];
 const ids = argv.filter((a, i) => /^[0-9a-f-]{36}$/.test(a) && argv[i - 1] !== '--intent');
+const total = flag('--total');
+if (argv.includes('--total') && total !== 'tris' && total !== 'draws') throw new Error('viewer: --total tris or --total draws');
+const count = argv.includes('--count') || !!total;
 // play's routes as pinned in ./inputs (no token: a check sees none), `--record` pinning what it reads live (PLAY_MCP_TOKEN)
 setup({ root, inputs: join(import.meta.dir, 'inputs'), record: argv.includes('--record'), fresh: true });
 const THREE = await import(join(import.meta.dir, '../../node_modules/three/build/three.module.js'));
@@ -33,6 +42,9 @@ const { AssetBox } = await import(lib('content/assets/box/host.js'));
 const { vaultBuild } = await import(lib('content/assets/load.js'));
 const { forStage, heroOf } = await import(lib('content/assets/hero.js'));
 const { Stage } = await import(lib('content/assets/stage.js'));
+const { camerawork } = await import(lib('content/assets/viewer.js'));
+// a frame of the stage as the page's loop turns it (VaultAsset.svelte): its update, then its own frame
+const { update: turn, render: draw } = Stage.prototype;
 
 async function turning<T>(p: Promise<T>) {
 	let done = false;
@@ -46,7 +58,8 @@ async function turning<T>(p: Promise<T>) {
 
 if (group) ids.push(...(await (await fetch(`/api/assets?group=${group}`)).json()).map((a: any) => a.id).filter((id: string) => !ids.includes(id)));
 const box = new AssetBox({ engine: INDEX.engine });
-const out: { id: string; label?: string; step: string; ok: boolean; built?: true; error?: string }[] = [];
+type Counts = { tris: number; draws: number; mainTris: number; mainDraws: number; shadowTris: number; shadowDraws: number; targetTris: number; targetDraws: number };
+const out: ({ id: string; label?: string; step: string; ok: boolean; built?: true; error?: string } & Partial<Counts>)[] = [];
 for (const id of ids) {
 	let step = 'read';
 	const r: (typeof out)[number] = { id, step, ok: false };
@@ -67,7 +80,26 @@ for (const id of ids) {
 		const camera = new THREE.PerspectiveCamera(40, 1440 / 900, 0.05, 2000);
 		const stage = new Stage(renderer, camera, { sky: true });
 		forStage(got.obj);
-		stage.show(got.obj, { asset: heroOf(got) });
+		const { centre, size } = stage.show(got.obj, { asset: heroOf(got) });
+		if (count) {
+			step = 'count';
+			// the camera on it as the viewer first frames it, looking at what its controls would aim at
+			const controls = { target: new THREE.Vector3() };
+			camerawork(THREE, camera, controls).reframe(centre, size, { fresh: true });
+			camera.lookAt(controls.target);
+			// it stands built: its parts fly in by the wall clock on the page, and no clock is read for a count
+			stage.built = 1;
+			await stage.compile();
+			// the frame counted is a settled one, the third: the first also draws what is drawn once and kept (the key's
+			// shadow map, which the stage draws again only when what casts into it changed)
+			for (let i = 0; i < 3; i++) {
+				renderer.tally.reset();
+				turn.call(stage, 1 / 60);
+				draw.call(stage);
+			}
+			const t = renderer.tally;
+			Object.assign(r, { tris: t.tris + t.shadowTris + t.targetTris, draws: t.calls + t.shadowCalls + t.targetCalls, mainTris: t.tris, mainDraws: t.calls, shadowTris: t.shadowTris, shadowDraws: t.shadowCalls, targetTris: t.targetTris, targetDraws: t.targetCalls });
+		}
 		r.ok = r.built = true;
 	} catch (e: any) {
 		r.error = String(e?.message ?? e).slice(0, 400);
@@ -75,7 +107,8 @@ for (const id of ids) {
 	}
 	r.step = step;
 	out.push(r);
-	console.error(`viewer: ${r.label ?? id} ${r.ok ? 'built' : `failed at ${step}: ${r.error}`}`);
+	console.error(`viewer: ${r.label ?? id} ${r.ok ? `built${count ? `: ${r.tris} triangles, ${r.draws} draws` : ''}` : `failed at ${step}: ${r.error}`}`);
 }
 console.log(JSON.stringify({ assets: out }));
+if (total) console.log(String(out.reduce((a, r) => a + ((total === 'tris' ? r.tris : r.draws) ?? 0), 0)));
 process.exit(out.every((r) => r.ok) ? 0 : 1);

@@ -3,3 +3,13 @@
 // WebGPU would send
 export * from 'three/webgpu';
 export { CountingWebGPURenderer as WebGPURenderer } from './counting.js';
+
+// a pipeline takes the scene passes made for it (./tsl.js: render/post.js makes them, then the pipeline; intent 009e04d3)
+import { RenderPipeline as Pipeline } from 'three/webgpu';
+import { madePasses } from './counting.js';
+export class RenderPipeline extends Pipeline {
+	constructor(renderer, outputNode) {
+		super(renderer, outputNode);
+		this._quadMesh.userData.passes = madePasses.splice(0);
+	}
+}
