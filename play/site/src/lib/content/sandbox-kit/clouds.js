@@ -92,8 +92,11 @@ export function cloudsOver(sky, { d, lin, fex, sun, light, cover, wind }) {
 		// under them and lights the bases too
 		const thin = exp(depth.mul(-6)), low = sub(1, smoothstep(0.05, 0.4, sun.y));
 		const shade = mix(0.26, 1, exp(before.mul(-9))).mul(mix(mix(0.4, 0.85, low), 1, thin));
-		const rim = pow(max(dot(d, sun), 0), 24).mul(thin).mul(0.35).add(1);
-		const cloud = lin.mul(0.036).add(light.mul(0.024).mul(shade).mul(rim)).mul(smoothstep(-0.08, 0.3, sun.y).max(0.03));
+		// toward the sun they glow (light scattered on through them), away from it they are lit from the front, between the two least
+		const toward = dot(d, sun), glow = pow(max(toward, 0), 3).mul(0.5).add(pow(max(toward.negate(), 0), 2).mul(0.15)).add(0.82);
+		const rim = pow(max(toward, 0), 24).mul(thin).mul(0.35).add(1);
+		const day = smoothstep(-0.08, 0.3, sun.y).max(0.03);
+		const cloud = lin.mul(0.036).add(light.mul(0.024).mul(shade).mul(rim).mul(glow)).mul(day);
 		sky.assign(mix(sky, mix(sky, cloud, fex), sub(1, exp(depth.mul(-9))).mul(smoothstep(0, horizon, h))));
 	});
 }
