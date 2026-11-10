@@ -69,9 +69,9 @@ export function createLights(o) {
 	const states = { on: new Map(), heads: new Map() };
 	const glowGeo = new THREE.InstancedBufferGeometry().copy(new THREE.PlaneGeometry(1, 1));
 	const gPos = new Float32Array(GLOWS * 3), gTint = new Float32Array(GLOWS * 3), gSize = new Float32Array(GLOWS);
-	glowGeo.setAttribute('glowAt', new THREE.InstancedBufferAttribute(gPos, 3).setUsage(THREE.DynamicDrawUsage));
-	glowGeo.setAttribute('tint', new THREE.InstancedBufferAttribute(gTint, 3).setUsage(THREE.DynamicDrawUsage));
-	glowGeo.setAttribute('size', new THREE.InstancedBufferAttribute(gSize, 1).setUsage(THREE.DynamicDrawUsage));
+	glowGeo.setAttribute('glowAt', new THREE.InstancedBufferAttribute(gPos, 3));
+	glowGeo.setAttribute('tint', new THREE.InstancedBufferAttribute(gTint, 3));
+	glowGeo.setAttribute('size', new THREE.InstancedBufferAttribute(gSize, 1));
 	glowGeo.instanceCount = 0;
 	const pxScale = uniform(500);
 	const glowMat = glowMaterial(pxScale);
@@ -120,7 +120,6 @@ export function createLights(o) {
 					const [colour, size] = LOOK[p.lamp ?? p.light];
 					const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(colour).multiplyScalar(1.6), toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4, fog: false });
 					const mesh = new THREE.InstancedMesh(geo, mat, 16);
-					mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 					mesh.count = 0;
 					mesh.frustumCulled = false;
 					mesh.name = `lit ${p.lamp ?? p.light} · ${kind.label}`;
@@ -139,7 +138,7 @@ export function createLights(o) {
 	function room(mesh, n) {
 		if (mesh.instanceMatrix.count >= n) return;
 		const cap = Math.max(n, mesh.instanceMatrix.count * 2);
-		const im = new THREE.InstancedBufferAttribute(new Float32Array(cap * 16), 16).setUsage(THREE.DynamicDrawUsage);
+		const im = new THREE.InstancedBufferAttribute(new Float32Array(cap * 16), 16);
 		mesh.instanceMatrix = im;
 	}
 

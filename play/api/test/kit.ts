@@ -74,7 +74,7 @@ export function templateDb(admin: Bun.SQL): Promise<string> {
 }
 
 export async function freshDb(o: { prefix?: string; migrate?: boolean; until?: string } = {}): Promise<Fresh> {
-  const name = `${o.prefix ?? "play_test"}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+  const name = `${o.prefix ?? "play_test"}_${crypto.randomUUID().replaceAll("-", "")}`;
   const admin = new Bun.SQL(DB_URL);
   const copy = o.migrate !== false && !o.until;
   await admin.unsafe(copy ? `CREATE DATABASE ${name} TEMPLATE ${await templateDb(admin)}` : `CREATE DATABASE ${name}`);
@@ -180,11 +180,12 @@ export function quiet() {
 }
 
 export async function until<T>(what: string, ok: () => T | null | false | Promise<T | null | false>, o: { withinMs?: number; everyMs?: number } = {}): Promise<T> {
-  const end = Date.now() + (o.withinMs ?? 10_000);
+  // time that passes, not the date: the tests' Date is pinned (play/avenbox/clock.ts)
+  const end = performance.now() + (o.withinMs ?? 10_000);
   for (;;) {
     const got = await ok();
     if (got !== null && got !== false) return got;
-    if (Date.now() > end) throw new Error(`${what}: not within ${o.withinMs ?? 10_000} ms`);
+    if (performance.now() > end) throw new Error(`${what}: not within ${o.withinMs ?? 10_000} ms`);
     await Bun.sleep(o.everyMs ?? 20);
   }
 }

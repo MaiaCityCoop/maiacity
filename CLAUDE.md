@@ -38,7 +38,10 @@ One intent has one builder session.
 Before you push, run the checks of what you touched, in **avenBOX** (the cloud environment the agents work in; play/SPEC.md
 §4.12): `bash play/avenbox/gate.sh` runs what CI runs (in `play/api` `bunx tsc --noEmit` and `bun test`, none skipped,
 against the box's Postgres 17; in `play/site` `bun run build`; in `website` `bun run check && bun run build`), `gate.sh
-api|site|website` one part. A cloud session starts with the box up (`.claude/settings.json` runs `play/avenbox/up.sh`:
+api|site|website` one part. **No test reads the real clock** (intent a07e6773; `play/avenbox/clock.ts`, play/SPEC.md
+§4.12): every suite runs at one pinned instant (2100-01-01 12:00 UTC), `Date` standing still; a test that needs another
+time sets it or hands it in, measures time that passes with `performance.now()`, and compares a time only with times of
+the same clock (Postgres's `now()` is its own); `play/api/test/clock.test.ts` is red on any test file reaching past the pin. A cloud session starts with the box up (`.claude/settings.json` runs `play/avenbox/up.sh`:
 Postgres on 127.0.0.1:5432, `TEST_DATABASE_URL` set). A change made for an intent names it in its commits, the line
 `Intent: <the intent's UUID>` at the end of each message.
 
@@ -66,7 +69,8 @@ head's run, whole or its failed jobs, records as a first run does, and a re-run 
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
 play's intents' board takes **only a waiting intent** (play/SPEC.md §4.12 *Sub-states*: its pull request's head the
 checked one, mergeable, its required checks green; working or failed, Accept is refused with why; so is every Accept
-until main's ruleset has the merge queue), posts the commit status **`Intent accepted`** on its head and adds the pull
+until main's ruleset has the merge queue; a required check is green only in the **newest run** of main.yml on the head, so
+marking a pull request ready a second time makes it wait for that run: intent 33f81b80), posts the commit status **`Intent accepted`** on its head and adds the pull
 request to the merge queue at once (it is in **Ship**); several Accepts all enqueue, none waits for another, and main
 moving refuses none. play posts `Intent accepted` on each merge group's commit too, success only when it accepted every
 pull request in it (main's ruleset requires it, with the checks `.github/required-checks.json` names): nothing lands

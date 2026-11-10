@@ -14,6 +14,8 @@ export default defineConfig({
 		include: ['src/**/*.test.{ts,js}', 'scripts/census/cards.test.ts'],
 		exclude: ['**/node_modules/**', 'src/**/*.bun.test.ts', 'src/lib/content/sandbox-7/fixture.test.ts'],
 		environment: 'node',
+		// every test at the pinned clock (play/avenbox/clock.ts)
+		setupFiles: ['./vitest.clock.ts'],
 		// in CI the suite runs beside the API's tests, at the lowest priority: a test of a few seconds alone needs room
 		testTimeout: 30_000
 	}

@@ -8,7 +8,7 @@
  *
  *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-5|sandbox-3|worlds] [--view near|mid|far|open|home|all] [--at <commit>]
  *                                   [--asset <uuid>] [--inputs <dir> | --live] [--record] [--json <file>] [--copies]
- *                                   [--renderer webgl|webgpu|webgl2] [--smoke] [--settle <seconds>] [--frames <n>]
+ *                                   [--renderer webgl|webgpu|webgl2] [--smoke] [--frame] [--settle <seconds>] [--frames <n>]
  *
  * --world         Sandbox 1 (the village: near, mid, far), Sandbox 5 (the forest dome alone in the cell, the same views;
  *                 intent 009e04d3), Sandbox 3 (the old city: as it opens; `home`, the walker turned to the tent, only when asked by name) or the worlds view (a world asset:
@@ -26,6 +26,9 @@
  *                 a quick look, or a test, counts a view as it stands, marked "still building" (intent 009e04d3)
  * --smoke         no count: the world on three's own WebGPURenderer (its WebGL 2 backend over a context that only
  *                 answers), its views walked, and every error its code logged or threw printed; exit 1 if any (c1bee1f8)
+ * --frame         no count of triangles: the WebGPU calls each frame makes (./census/frame.ts, intent 416c555c), the world on
+ *                 three's own WebGPURenderer over a device that only answers: draws, buffers written, state set, a frame,
+ *                 with the eye at rest and walking
  * --renderer      the switch's backend asked of the page (`?renderer=`, intent c1bee1f8): `webgpu` and `webgl2` counted
  *                 as WebGPURenderer draws (./census/counting.js CountingWebGPURenderer), `webgl` as WebGLRenderer; left
  *                 out, the page's own default. A commit from before the switch (--at) draws with WebGLRenderer whatever
@@ -62,7 +65,8 @@ const { setup } = await import('./census/setup');
 // same world today as when it was pinned
 const live = argv.includes('--live');
 const smoke = argv.includes('--smoke');
-setup({ real: smoke, renderer: arg('--renderer'), root: tree ? join(tree.dir, 'play/site') : undefined, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record') });
+const frames = argv.includes('--frame');
+setup({ real: smoke, gpu: frames, renderer: arg('--renderer'), root: tree ? join(tree.dir, 'play/site') : undefined, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record') });
 const { censusOf, smokeOf, VIEWS_OF } = await import('./census/run');
 const views = view === 'all' ? VIEWS_OF[world] : (view.split(',') as typeof VIEWS_OF[typeof world]);
 if (smoke) {
@@ -74,6 +78,25 @@ if (smoke) {
 	const json = arg('--json');
 	if (json) writeFileSync(json, JSON.stringify({ world, smoke: true, ...s }));
 	process.exit(s.errors.length ? 1 : 0);
+}
+if (frames) {
+	const { frameOf } = await import('./census/frame');
+	const t0 = performance.now();
+	const got = await frameOf({ world, views, asset: arg('--asset'), settleMs: arg('--settle') ? Number(arg('--settle')) * 1000 : undefined, frames: arg('--frames') ? Number(arg('--frames')) : undefined, log: (x) => console.error(x) });
+	const n = (x: number) => Math.round(x).toLocaleString('en');
+	for (const v of got)
+		for (const [mode, c] of [['at rest', v.still], ['walking', v.walk]] as const) {
+			if (!c) continue;
+			console.log(`\n${v.world} ${v.view} ${mode}${tree ? ` at ${tree.sha.slice(0, 9)}` : ''} on WebGPU (a device that only answers)${v.settled ? '' : ' (still building)'}`);
+			console.log(`  calls a frame      ${n(c.calls)}  (${n(c.ms)} ms of the main thread here)`);
+			console.log(`  draws              ${n(c.draws)}  in ${n(c.passes)} passes, ${n(c.scenePasses)} of them the scene's or the shadows'`);
+			console.log(`  buffers written    ${n(c.writes)}  (${n(c.bytes)} bytes)`);
+			console.log(`  set                ${n(c.vertexBuffers)} vertex buffers, ${n(c.binds)} bind groups, ${n(c.pipelines)} pipelines`);
+		}
+	console.log(`\ncensus: the frames of ${views.length} view${views.length > 1 ? 's' : ''} in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+	const json = arg('--json');
+	if (json) writeFileSync(json, JSON.stringify({ world, at: tree?.sha ?? null, frame: true, views: got }));
+	process.exit(0);
 }
 const t0 = performance.now();
 const got = await censusOf({ world, views, asset: arg('--asset'), settleMs: arg('--settle') ? Number(arg('--settle')) * 1000 : undefined, measureFrames: arg('--frames') ? Number(arg('--frames')) : undefined, log: (s) => console.error(s) });

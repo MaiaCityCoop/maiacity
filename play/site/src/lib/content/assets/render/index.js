@@ -25,16 +25,16 @@
  *   numbers the box wrote down, ../controls.js) leaves the instances and is drawn as a tree of its own, its parts where
  *   its controls put them, at any distance (a picture cannot open a door); back at rest, it joins the others again.
  *
- * Several boxes build side by side while a world loads (`boxes`), each a frame and a worker of its own, the build
- * most wanted first (`rank`: what is on screen before what is not, a kind's coarsest shape before its finer ones). A
- * world that puts a build in its scene itself (`load`) has it built in the same boxes, in the same line.
+ * Its builds are built in the page's one pool of boxes (../box/pool.js: as many side by side as the device has cores to
+ * spare, shared by every renderer of the page), the build most wanted first (`rank`: what is on screen before what is
+ * not, a kind's coarsest shape before its finer ones). A world that puts a build in its scene itself (`load`) has it
+ * built there too, in the same line.
  */
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { AssetBox } from '../box/host.js';
 import { labelOf, poserOf } from '../controls.js';
 import { canonical, loadAsset } from '../load.js';
-import { INDEX, buildOf, hashOf, heldAt, paramsOf, parseBuild } from '../catalog.js';
+import { buildOf, hashOf, heldAt, paramsOf, parseBuild } from '../catalog.js';
 import { createImpostors } from './impostors.js';
 import { budget, dropOnUpload } from '../../render/budget.js';
 import { precompile } from '../../render/core.js';
@@ -45,6 +45,7 @@ import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
 import { coverEye, coverGrow } from '../../render/nodes/index.js';
 import { createPresets } from './presets.js';
+import { sender } from './send.js';
 import { lookByName, lookOfBuilt } from '../look.js';
 import * as TSL from 'three/tsl';
 import { windNodes, windOfCopy, worldSeconds } from '../../render/wind.js';
@@ -93,9 +94,9 @@ function resolve(ref) {
 /**
  * A renderer of assets for one scene.
  * @param {{
- *   renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera, boxes?: number,
+ *   renderer: import('three/webgpu').WebGPURenderer, camera: THREE.PerspectiveCamera,
  *   px?: number, cache?: boolean, onShadows?: () => void, wind?: any
- * }} o `boxes` how many build side by side; `px` each picture's pixels a side; `wind` the world's (../../render/wind.js
+ * }} o `px` each picture's pixels a side; `wind` the world's (../../render/wind.js
  *   `windNodes`; a calm breeze where not given, none where null), which every material with a look sways in. No world chooses a kind's levels: each
  *   is drawn by its card's levels (../lodcard.js) at the sizes on screen of the one selector (./lod.js LEVELS);
  *   `cache: false` builds everything afresh;
@@ -116,16 +117,11 @@ export function createAssets(o) {
 	const kept = createKept({ lowering, keep: o.cache !== false });
 	group.add(pictures.group);
 
-	/* ── the builds asked for: each read from this device's cache, and those not kept built in the boxes, the most
+	/* ── the builds asked for: each read from this device's cache, and those not kept built in the page's boxes, the most
 	 *    wanted first, else in the order asked ── */
-	// as many as asked, but no more than the device's budget lets one renderer have (../../render/budget.js)
-	const pool = Array.from({ length: Math.max(1, Math.min(o.boxes ?? 3, budget().boxes)) }, () => ({ box: new AssetBox({ engine: INDEX.engine }), busy: false, starting: false, up: false }));
 	/** the builds asked for, waiting to be read from the cache (READS at a time) */
 	/** @type {{ name: string, rank: number | (() => number), ok: Function, no: Function }[]} */
 	const queue = [];
-	/** the builds the cache did not have, waiting for a box that is up and free */
-	/** @type {{ rank: number | (() => number), recipe: any, given: any, ok: Function, no: Function }[]} */
-	const line = [];
 	const READS = budget().reads;
 	/** the builds being loaded (read, built or opened), and those of them reading the cache now */
 	let loads = 0, reading = 0;
@@ -148,53 +144,21 @@ export function createAssets(o) {
 			const job = take(queue);
 			reading++;
 			loads++;
-			// what the cache does not have goes in line for a box (../load.js builds it there), its read done: the box is
-			// chosen only once one is up and free, so what is wanted most by then is built first
-			let lent = false;
-			const box = {
-				engine: INDEX.engine,
-				build: (recipe, given, o) =>
-					new Promise((ok, no) => {
-						if (!lent) (lent = true), reading--;
-						line.push({ rank: job.rank, recipe, given, o, ok, no });
-						pump();
-					})
+			// what the cache does not have waits in the page's one line for a box (../box/pool.js), its read done: built by
+			// what is wanted most when a box comes free, whichever renderer asked; not at all once this one is gone
+			let read = false;
+			const done = () => {
+				if (read) return;
+				read = true;
+				reading--;
+				pump();
 			};
-			loadAsset(job.name, { box, cache: o.cache !== false })
-				.then(job.ok, job.no)
+			// (a renderer that is gone hears of none of its builds: as before, when what waited was let go with its boxes)
+			loadAsset(job.name, { rank: job.rank, unwanted: () => gone, missed: done, cache: o.cache !== false })
+				.then((got) => gone || job.ok(got), (err) => gone || job.no(err))
 				.finally(() => {
-					if (!lent) reading--;
 					loads--;
-					pump();
-				});
-		}
-		// the boxes started as builds wait for them, as many as there are (none for a world that finds all it asks for
-		// in the cache)
-		const need = Math.min(pool.length, line.length + pool.filter((p) => p.busy).length);
-		let started = pool.filter((x) => x.starting).length;
-		for (const p of pool) {
-			if (started >= need) break;
-			if (p.starting) continue;
-			p.starting = true;
-			started++;
-			p.box
-				.start()
-				.catch(() => {})
-				.then(() => {
-					p.up = true;
-					pump();
-				});
-		}
-		for (const p of pool) {
-			if (!p.up || p.busy || !line.length) continue;
-			const b = take(line);
-			p.busy = true;
-			p.box
-				.build(b.recipe, b.given, b.o)
-				.then(b.ok, b.no)
-				.finally(() => {
-					p.busy = false;
-					pump();
+					done();
 				});
 		}
 	}
@@ -543,12 +507,11 @@ export function createAssets(o) {
 		g.boundingSphere = d.geometry.boundingSphere;
 		const cap = 16;
 		const mesh = new THREE.InstancedMesh(g, d.material, cap);
-		mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-		g.setAttribute('aFade', new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage));
+		g.setAttribute('aFade', new THREE.InstancedBufferAttribute(new Float32Array(cap), 1));
 		// a material that says what it is (a leaf, grass, bark …: ../look.js) is bent by the world's wind: each copy its foot
 		// and height (aWind, ../../render/wind.js `windOfCopy`)
-		if (looked(d.material)) g.setAttribute('aWind', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4).setUsage(THREE.DynamicDrawUsage));
-		if (d.colors || k.tinted) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+		if (looked(d.material)) g.setAttribute('aWind', new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4));
+		if (d.colors || k.tinted) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
 		mesh.count = 0;
 		mesh.visible = false;
 		// which copies are drawn is chosen here, never by three's culling, which would see only the first
@@ -560,7 +523,41 @@ export function createAssets(o) {
 		mesh.receiveShadow = k.receive;
 		mesh.name = `${k.label} · level ${L}`;
 		group.add(mesh);
-		return { mesh, draw: d, cap, used: 0 };
+		const m = { mesh, draw: d, cap, used: 0, cast: 0 };
+		// in a shadow pass it draws its casters too, after its own copies (`castCoarse`): three reads the count as it draws
+		mesh.onBeforeShadow = () => void (mesh.count = m.used + m.cast);
+		mesh.onAfterShadow = () => void (mesh.count = m.used);
+		return m;
+	}
+
+	/**
+	 * Whether a kind's shadow is the same thing at every level: asked for with its shadows (`use`: a forest's trees), or
+	 * built once and its other levels made from that build. Its copies then all cast by its coarsest shape that is here
+	 * (`castCoarse`): a shadow shows a shape's outline, not its leaves, and a shadow pass draws every caster again, once a
+	 * cascade (in Sandbox 5's near view the trees' shadows were a third of all the frame's triangles, intent 405f7a85).
+	 */
+	const castsAlike = (k) => k.shadows === true || (k.shadows === undefined && k.names.length === 1);
+
+	/**
+	 * The copies of kind k drawn at a finer level (`finer`, their numbers) cast by its coarsest ready level C instead:
+	 * each one more instance of C's drawings after C's own copies, drawn only in the shadow passes (`meshOf`); and of
+	 * its levels only C casts.
+	 */
+	function castCoarse(k, C, finer) {
+		k.levels.forEach((lv, L) => lv.meshes?.forEach((d) => (d.mesh.castShadow = L === C && (k.shadows ?? !!d.draw.cast))));
+		for (const d of k.levels[C].meshes) {
+			if (!d.mesh.castShadow) continue;
+			const n = d.draw.n;
+			room(d, d.used + finer.length * n);
+			const at = d.mesh.geometry.attributes, A = d.mesh.instanceMatrix.array, F = at.aFade.array, W = at.aWind?.array;
+			for (const i of finer)
+				for (let j = 0; j < n; j++) {
+					const s = d.used + d.cast++;
+					multiply(k.M, i * 16, d.draw.locals, j * 16, A, s * 16);
+					F[s] = 0;
+					if (W) W.set(windOfCopy(k.M[i * 16 + 12], k.M[i * 16 + 13], k.M[i * 16 + 14], k.height * k.S[i]), s * 4);
+				}
+		}
 	}
 
 	/** what a drawing of a kind of cover carries per copy: where it grows (../../render/nodes `aCover`, `aReach`) */
@@ -568,27 +565,30 @@ export function createAssets(o) {
 	/** every per-copy attribute a drawing may carry beside its matrix and fade: the cover's and the wind's (aWind) */
 	const PER_COPY = [...COVER, ['aWind', 4]];
 
+	/** a per-copy buffer sent to the graphics card only where it differs from what was last sent (./send.js) */
+	const send = sender();
+
 	/** room in a drawing for `need` instances */
 	function room(m, need) {
 		if (m.cap >= need) return;
-		const cap = Math.max(need, m.cap * 2);
+		const cap = Math.max(need, m.cap * 2), held = m.used + m.cast;
 		const old = m.mesh.instanceMatrix;
-		const im = new THREE.InstancedBufferAttribute(new Float32Array(cap * 16), 16).setUsage(THREE.DynamicDrawUsage);
-		im.array.set(old.array.subarray(0, m.used * 16));
+		const im = new THREE.InstancedBufferAttribute(new Float32Array(cap * 16), 16);
+		im.array.set(old.array.subarray(0, held * 16));
 		m.mesh.instanceMatrix = im;
-		const f = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage);
-		f.array.set(m.mesh.geometry.attributes.aFade.array.subarray(0, m.used));
+		const f = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1);
+		f.array.set(m.mesh.geometry.attributes.aFade.array.subarray(0, held));
 		m.mesh.geometry.setAttribute('aFade', f);
 		for (const [name, n] of PER_COPY) {
 			const a = m.mesh.geometry.attributes[name];
 			if (!a) continue;
-			const b = new THREE.InstancedBufferAttribute(new Float32Array(cap * n), n).setUsage(THREE.DynamicDrawUsage);
-			b.array.set(a.array.subarray(0, m.used * n));
+			const b = new THREE.InstancedBufferAttribute(new Float32Array(cap * n), n);
+			b.array.set(a.array.subarray(0, held * n));
 			m.mesh.geometry.setAttribute(name, b);
 		}
 		if (m.mesh.instanceColor) {
-			const c = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
-			c.array.set(m.mesh.instanceColor.array.subarray(0, m.used * 3));
+			const c = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+			c.array.set(m.mesh.instanceColor.array.subarray(0, held * 3));
 			m.mesh.instanceColor = c;
 		}
 		m.cap = cap;
@@ -829,6 +829,8 @@ export function createAssets(o) {
 	const frustum = new THREE.Frustum(), view = new THREE.Matrix4(), ball = new THREE.Sphere(), eye = new THREE.Vector3();
 	const last = { world: new Float32Array(16), proj: new Float32Array(16) };
 	const counted = { levels: [0, 0, 0], pictures: 0, posed: 0, tris: 0, calls: 0, culled: 0 };
+	/** the copies of the kind being drawn that are drawn at a finer level than it casts by (`castCoarse`) */
+	const finer = [];
 	const same = (a, b) => {
 		for (let i = 0; i < 16; i++) if (Math.abs(a[i] - b[i]) > 1e-5) return false;
 		return true;
@@ -868,11 +870,11 @@ export function createAssets(o) {
 			const n = d.draw.n;
 			room(d, d.used + n);
 			const at = d.mesh.geometry.attributes;
-			if (k.cover && !at.aCover) for (const [name, w] of COVER) d.mesh.geometry.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(d.cap * w), w).setUsage(THREE.DynamicDrawUsage));
+			if (k.cover && !at.aCover) for (const [name, w] of COVER) d.mesh.geometry.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(d.cap * w), w));
 			const A = d.mesh.instanceMatrix.array, F = at.aFade.array, G = at.aCover?.array, H = at.aReach?.array, W = at.aWind?.array;
 			// a kind tinted after its drawing was made (its copies' colours came later): a colour per copy from now on
 			if (k.tinted && !d.mesh.instanceColor) {
-				d.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(d.cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+				d.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(d.cap * 3), 3);
 				d.mesh.material.needsUpdate = true;
 			}
 			const IC = d.mesh.instanceColor?.array, DC = d.draw.colors, K = k.K;
@@ -924,10 +926,13 @@ export function createAssets(o) {
 		counted.culled = counted.posed = counted.tris = counted.calls = 0;
 		pictures.begin();
 		for (const k of kinds.values()) {
-			for (const lv of k.levels) for (const d of lv.meshes ?? []) d.used = 0;
+			for (const lv of k.levels) for (const d of lv.meshes ?? []) d.used = d.cast = 0;
 			for (const p of k.posed.values()) if (p.tree) p.tree.visible = false;
 			if (!k.ok) continue;
 			const c = k.center, cast = casts(k);
+			// its coarsest shape that is here, by which every copy of it casts (`castCoarse`), and those drawn at a finer one
+			const C = castsAlike(k) ? as(k, readyNear(k, k.levels.length - 1)) : -1;
+			finer.length = 0;
 			for (let i = 0; i < k.n; i++) {
 				if (!k.alive[i]) continue;
 				const M = k.M, o = i * 16;
@@ -961,9 +966,11 @@ export function createAssets(o) {
 				const p = k.posed.size ? k.posed.get(i) : undefined;
 				if (p && drawPosed(k, i, p, level)) continue;
 				const drawn = draw(k, i, level, 1);
+				if (C >= 0 && drawn >= 0 && drawn < k.levels.length && as(k, drawn) !== C) finer.push(i);
 				// the coarser one fading in under it, unless it already stands in whole, or is the same drawing
 				if (fade > 0 && drawn !== level + 1 && as(k, drawn) !== as(k, level + 1)) draw(k, i, level + 1, fade);
 			}
+			if (C >= 0) castCoarse(k, C, finer);
 		}
 		pictures.end();
 		for (const k of kinds.values())
@@ -977,26 +984,16 @@ export function createAssets(o) {
 		for (const k of kinds.values())
 			for (const lv of k.levels)
 				for (const d of lv.meshes ?? []) {
-					const m = d.mesh;
+					const m = d.mesh, held = d.used + d.cast;
 					m.count = d.used;
-					m.visible = d.used > 0;
+					m.visible = held > 0;
 					if (!m.visible) continue;
 					lv.seen = now;
-					m.instanceMatrix.clearUpdateRanges();
-					m.instanceMatrix.addUpdateRange(0, d.used * 16);
-					m.instanceMatrix.needsUpdate = true;
-					const f = m.geometry.attributes.aFade;
-					f.clearUpdateRanges();
-					f.addUpdateRange(0, d.used);
-					f.needsUpdate = true;
-					for (const [name, w] of PER_COPY) {
-						const a = m.geometry.attributes[name];
-						if (!a) continue;
-						a.clearUpdateRanges();
-						a.addUpdateRange(0, d.used * w);
-						a.needsUpdate = true;
-					}
-					if (m.instanceColor) m.instanceColor.needsUpdate = true;
+					send(m.instanceMatrix, held * 16);
+					send(m.geometry.attributes.aFade, held);
+					for (const [name, w] of PER_COPY) if (m.geometry.attributes[name]) send(m.geometry.attributes[name], held * w);
+					if (!d.used) continue;
+					if (m.instanceColor) send(m.instanceColor, held * 3);
 					tris += d.draw.tris * d.used;
 					calls++;
 				}
@@ -1080,7 +1077,7 @@ export function createAssets(o) {
 	}
 
 	/**
-	 * A build, as ../load.js `loadAsset` hands it over (from this device's cache, else built in the renderer's boxes,
+	 * A build, as ../load.js `loadAsset` hands it over (from this device's cache, else built in the page's boxes,
 	 * in line with the kinds' builds): for a world that puts a build into its scene itself (MaiaCity V1's tent, its
 	 * people), so every build of a page shares the same few boxes, the most wanted first.
 	 * @param {string} name `<recipe hash>?its=values` @param {{ rank?: number | (() => number) }} [opts] `rank`: as `use`,
@@ -1152,8 +1149,8 @@ export function createAssets(o) {
 			lowering.dispose();
 			pictures.dispose();
 			presets.dispose();
-			for (const p of pool) p.box.stop('the renderer was disposed');
-			queue.length = line.length = 0;
+			// (what it still waits for in the page's pool is not built: `unwanted`)
+			queue.length = 0;
 			kinds.clear();
 		}
 	};

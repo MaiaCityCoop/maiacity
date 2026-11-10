@@ -7,7 +7,7 @@
 import { lowerDraws } from './simplify.js';
 
 self.onmessage = async (e) => {
-	const { id, draws, plans } = e.data;
+	const { draws, plans } = e.data;
 	try {
 		const out = await lowerDraws(draws, plans);
 		const moved = new Set();
@@ -18,8 +18,8 @@ self.onmessage = async (e) => {
 				for (const a of Object.values(d.attributes ?? {})) moved.add(a.array.buffer);
 				if (d.copies) moved.add(d.copies.buffer);
 			}
-		self.postMessage({ id, out }, [...moved]);
+		self.postMessage({ out }, [...moved]);
 	} catch (err) {
-		self.postMessage({ id, error: String(err?.message ?? err) });
+		self.postMessage({ error: String(err?.message ?? err) });
 	}
 };

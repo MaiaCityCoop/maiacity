@@ -1,0 +1,3 @@
+# every test runs at the pinned clock (play/avenbox/clock.ts)
+[test]
+preload = ["../avenbox/clock.bun.ts"]

@@ -17,8 +17,10 @@ export type PrSeen = {
   pr: number; head: string; draft: boolean; mergeable: boolean | null; state: string; merged: boolean; base: string; checks: Record<string, CheckState>; at: string;
   /** in conflict at `head` with main at `main`: the files both sides changed since their merge base */
   conflicts?: { head: string; main: string; files: string[] };
-  /** the ETags of the pull request and of its head's check runs as last read, for conditional reads (./github.ts readSeen) */
-  etags?: { pull?: string; head?: string; checks?: string };
+  /** the ETags of the pull request, of its head's check runs and of main.yml's runs on it (read only while the required checks look green) as last read, for conditional reads (./github.ts readSeen) */
+  etags?: { pull?: string; head?: string; checks?: string; runs?: string };
+  /** GitHub refused to queue it at `head` for a required check it still expects (./ship.ts acceptAndShip): its words, held while the checks read the same, two minutes at most (./github.ts keptFrom) */
+  unqueued?: { head: string; why: string; at: string };
   /** each status play last posted, by context (./github.ts postStatus) */
   posted?: Record<string, { head: string; state: string; description: string; sent?: false }>;
 };
@@ -78,8 +80,10 @@ export function prBlock(intent: Pick<Row, "spec" | "results">, seen: PrSeen): Su
   const stale = unmetOn(intent, seen);
   if (stale.length)
     return S("working", "head moved", `${n}'s head moved past the checked commit (${stale.join("; ")}): every must check with a run passes on ${n}'s head ${short(seen.head)} first (mark it ready, or push to it)`);
-  const running = REQUIRED_CHECKS.filter((c) => seen.checks[c] !== "success");
-  if (running.length) return S("working", "checks running", `Waiting for ${n}'s checks (${running.join(", ")})`);
+  const running = notGreen(seen.checks);
+  // skipped by the newest run (a draft's): nothing runs it until a push, or until it is marked ready again
+  if (running.length) return S("working", "checks running", `Waiting for ${n}'s checks (${running.map((c) => (seen.checks[c] === "skipped" ? `${c}: skipped in the newest run` : c)).join(", ")})`);
+  if (seen.unqueued?.head === seen.head) return S("working", "GitHub waits for checks", `Waiting for ${n}'s checks: GitHub does not queue it yet (${seen.unqueued.why})`);
   if (seen.mergeable === null) return S("working", "reading GitHub", `Waiting for GitHub to work out whether ${n} merges`);
   return null;
 }
@@ -148,15 +152,33 @@ export const sub = { of: subStateOf };
 export const decidable = (intent: Row, s: Sub | null) =>
   !!s && (s.state === "waiting" || (s.state === "failed" && intent.stage === "proposal" && !!intent.ship?.merge && intent.ship?.outcome === "red" && intent.ship.pr === intent.pull_request));
 
-export function checksSeen(runs: any[]): Record<string, CheckState> {
+/** the required checks not green in `checks`: none, and GitHub's merge queue takes the pull request */
+export const notGreen = (checks: PrSeen["checks"]) => REQUIRED_CHECKS.filter((c) => checks[c] !== "success");
+
+/** a run of main.yml on a head, as GitHub lists it: its check runs are those of its check suite */
+type HeadRun = { id: number; status: string; conclusion: string | null; check_suite_id?: number; created_at: string; run_started_at?: string };
+const running = (r: { status: string }): CheckState => (r.status === "in_progress" ? "running" : "queued");
+
+/**
+ * A head's checks by name, the latest check run of each. `runs`, main.yml's runs on that head, where given: **the newest
+ * run decides** (intent 33f81b80), as it does for GitHub's merge queue. A check whose latest run is an older run's, which
+ * the newest has not made (its jobs still running, or skipped: a draft's run), reads as the newest run does: running or
+ * queued, or once that run ended without it, skipped (cancelled or failure where the run ended so).
+ */
+export function checksSeen(checkRuns: any[], runs: HeadRun[] = []): Record<string, CheckState> {
   const by = new Map<string, any>();
-  for (const r of runs) {
+  for (const r of checkRuns) {
     const was = by.get(r.name);
     if (!was || `${r.started_at ?? ""}` > `${was.started_at ?? ""}` || (r.started_at === was.started_at && r.id > was.id)) by.set(r.name, r);
   }
+  const started = (r: HeadRun) => r.run_started_at ?? r.created_at;
+  const newest = runs.reduce<HeadRun | null>((a, r) => (!a || started(r) > started(a) || (started(r) === started(a) && r.id > a.id) ? r : a), null);
+  const suites = new Set(runs.map((r) => r.check_suite_id));
+  const older = (r: any) => !!newest && r.check_suite?.id !== newest.check_suite_id && suites.has(r.check_suite?.id);
+  const ended = newest && newest.status === "completed" ? concluded(newest.conclusion) : null;
   const out: Record<string, CheckState> = {};
   for (const [name, r] of by)
-    out[name] = r.status !== "completed" ? (r.status === "in_progress" ? "running" : "queued") : concluded(r.conclusion);
+    out[name] = older(r) ? (ended ? (ended === "success" ? "skipped" : ended) : running(newest!)) : r.status !== "completed" ? running(r) : concluded(r.conclusion);
   return out;
 }
 

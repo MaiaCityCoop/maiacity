@@ -736,13 +736,19 @@ export class Stage {
 		r.localClippingEnabled = true;
 		this.camera.layers.enable(LAYER_FX);
 		this.camera.updateMatrixWorld();
-		if (this.contact) this.contact.update();
 		this.grade.uniforms.uTime.value = this.time;
 		// the key's shadow map drawn again only when what casts into it changed (a still dome of 800k triangles and
 		// thousands of plants drew all of it into the map every frame, for the same picture)
 		const auto = r.shadowMap.autoUpdate;
 		r.shadowMap.autoUpdate = false;
-		const sig = this._shadowSig();
+		const [sig, stands] = this._shadowSig();
+		// and the pool under it (the contact shadow: the whole scene drawn once more, from below) only when anything on
+		// the stage moved, or a guest's copies did (their renderer says so): a third of a still frame's triangles
+		// (intent 405f7a85: the forest dome's 1.24 M of 3.73 M)
+		if (this.contact && (stands !== this.contact.drawn || r.shadowMap.needsUpdate === true)) {
+			this.contact.update();
+			this.contact.drawn = stands;
+		}
 		if (sig !== this._shadowWas) {
 			r.shadowMap.needsUpdate = true;
 			this._shadowWas = sig;
@@ -767,7 +773,9 @@ export class Stage {
 	 * amounts (a cut, an explosion, the x-ray, the build flying in), and the key itself. Anything skinned (a rigged actor
 	 * moves its bones, not its matrices) changes it every frame (NaN is never equal). The guests a build plants are the
 	 * universal renderer's, which rewrites their copies every frame and says itself when what they cast changed
-	 * (render/index.js: `renderer.shadowMap.needsUpdate`), so their copies are not counted here.
+	 * (render/index.js: `renderer.shadowMap.needsUpdate`), so their copies are not counted here. And, second, the same of
+	 * everything drawn on the stage, casting or not: what the contact shadow, which draws all of it, is drawn from.
+	 * @returns {[string | number, string | number]}
 	 */
 	_shadowSig() {
 		this.scene.updateMatrixWorld();
@@ -775,16 +783,19 @@ export class Stage {
 		let a = s.explode * 3.1 + s.cut * 5.3 + s.xray * 7.7 + this.built * 11.3, b = 0, k = 0;
 		const key = this.key;
 		if (key) for (const v of [...key.position.toArray(), ...key.target.position.toArray(), key.shadow.mapSize.x]) a += v * (++k * 0.618);
-		let still = true;
+		let still = true, all = a, n = 0;
 		this.scene.traverseVisible((o) => {
-			if (!still || !o.castShadow || !(o.isMesh || o.isPoints || o.isLine)) return;
+			if (!still || !(o.isMesh || o.isPoints || o.isLine)) return;
 			if (o.isSkinnedMesh) return void (still = false);
 			const e = o.matrixWorld.elements;
+			n++;
+			for (let i = 0; i < 16; i++) all += e[i] * ((n * 16 + i) % 97 + 1) * 0.001 + o.id * 1.37;
+			if (!o.castShadow) return;
 			k++;
 			for (let i = 0; i < 16; i++) a += e[i] * ((k * 16 + i) % 97 + 1) * 0.001;
 			b += o.id * 1.37;
 		});
-		return still ? `${a}|${b}|${k}` : NaN;
+		return still ? [`${a}|${b}|${k}`, `${all}|${n}`] : [NaN, NaN];
 	}
 
 	/** the canvas changed size @param {number} w @param {number} h */

@@ -36,7 +36,7 @@ MERGED="$dir" A="$A" B="$B" bun -e '
   const all = loadMigrations(process.env.MERGED);
   const url = process.env.TEST_DATABASE_URL;
   if (!url) { console.error("FAIL: TEST_DATABASE_URL is not set (bash play/avenbox/up.sh)"); process.exit(1); }
-  const name = `play_migmerge_${Date.now()}`;
+  const name = `play_migmerge_${crypto.randomUUID().replaceAll("-", "")}`;
   const admin = new Bun.SQL(url); await admin.unsafe(`CREATE DATABASE ${name}`);
   const u = new URL(url); u.pathname = `/${name}`; const s = new Bun.SQL(u.toString());
   let ok = false;

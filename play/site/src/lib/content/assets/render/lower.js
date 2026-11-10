@@ -1,11 +1,13 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * The renderer's (./index.js) lower levels made by ./simplify.js in a worker of its own where there is one, so even the
- * LifeTrac (one shape of 437,713 corners: a second or two) never holds the page's frames; else in the page, a step at a
- * time between frames. Kept on the device by ./levels.js.
+ * The renderer's (./index.js) lower levels made by ./simplify.js in workers of their own where there are any, so even the
+ * LifeTrac (one shape of 437,713 corners: a second or two) never holds the page's frames, and a world's kinds are made
+ * side by side (intent 08d00b84: one worker made them one after another, the longest wait of a first visit); else in
+ * the page, a step at a time between frames. Kept on the device by ./levels.js.
  */
 import * as THREE from 'three';
 import { LEFT, lowerDraws } from './simplify.js';
+import { buildTurn } from '../../render/budget.js';
 
 /** a typed array on a buffer of its own, so that sending it copies only itself */
 const own = (A) => (A.byteOffset === 0 && A.byteLength === A.buffer.byteLength ? A : A.slice());
@@ -69,60 +71,65 @@ export function levelOf(source, made) {
 }
 
 /**
- * The renderer's maker of lower levels. @param {{ worker?: boolean }} [o] `worker: false` makes them in the page
- * @returns {{ lower: (source: import('./prepare.js').Level, plans: { budget: number, most?: number, error: number, smallest: number, every?: boolean }[], later?: boolean) => Promise<import('./prepare.js').Level[]>, readonly busy: number, dispose: () => void }}
+ * The renderer's maker of lower levels: several kinds at once, each in a worker of its own, as many as the page's turns
+ * let work (../../render/budget.js `buildTurn`: the turns the recipes' builds take too, so the two together never ask
+ * more of the device than its cores to spare). @param {{ worker?: boolean }} [o] `worker: false` makes them in the page
+ * @returns {{ lower: (source: import('./prepare.js').Level, plans: { budget: number, most?: number, error: number, smallest: number, every?: boolean }[], later?: boolean, raw?: boolean, rank?: (() => number) | null) => Promise<import('./prepare.js').Level[]>, readonly busy: number, dispose: () => void }}
  */
 export function createLowering(o = {}) {
-	/** @type {Worker | null} */
-	let worker = null;
+	/** the workers started, each with the job it is on (none: free) @type {{ w: Worker, job: { ok: Function, no: Function } | null }[]} */
+	const workers = [];
 	let gone = o.worker === false;
 	let disposed = false;
-	let next = 1, busy = 0;
-	/** @type {Map<number, { ok: Function, no: Function }>} */
-	const waiting = new Map();
-	/** one kind at a time, the most wanted first (`rank`, as the renderer's builds: what stands near the eye), else in the
-	 *  order asked for, those that can wait (`later`) after all the others */
+	let busy = 0;
+	/** the most wanted first (`rank`, as the renderer's builds: what stands near the eye), else in the order asked for,
+	 *  those that can wait (`later`) after all the others */
 	/** @type {{ source: any, plans: any[], later: boolean, raw: boolean, rank?: (() => number) | null, ok: Function, no: Function }[]} */
 	const jobs = [];
-	let running = false;
+	/** the jobs being made, and whether a turn is asked for and not yet given */
+	let running = 0, asking = false;
 
-	function start() {
-		if (worker || gone || typeof Worker === 'undefined') return worker;
+	/** a worker with nothing to do: one started before, else a new one; none where there are no workers (the page makes it) */
+	function free() {
+		const idle = workers.find((x) => !x.job);
+		if (idle || gone || typeof Worker === 'undefined') return idle ?? null;
+		/** @type {{ w: Worker, job: { ok: Function, no: Function } | null }} */
+		let mine;
 		try {
-			worker = new Worker(new URL('./simplify.worker.js', import.meta.url), { type: 'module' });
+			mine = { w: new Worker(new URL('./simplify.worker.js', import.meta.url), { type: 'module' }), job: null };
 		} catch {
 			gone = true;
 			return null;
 		}
-		worker.onmessage = (e) => {
-			const w = waiting.get(e.data.id);
-			waiting.delete(e.data.id);
-			if (e.data.error) w?.no(new Error(e.data.error));
-			else w?.ok(e.data.out);
+		mine.w.onmessage = (e) => {
+			const job = mine.job;
+			mine.job = null;
+			if (e.data.error) job?.no(new Error(e.data.error));
+			else job?.ok(e.data.out);
 		};
 		// a worker that cannot start (no module workers, its code refused): the page does it, between frames
-		worker.onerror = (e) => {
+		mine.w.onerror = (e) => {
 			e.preventDefault?.();
 			gone = true;
-			worker?.terminate();
-			worker = null;
-			for (const w of waiting.values()) w.no(Object.assign(new Error('the simplifying worker stopped'), { again: true }));
-			waiting.clear();
+			for (const x of workers.splice(0)) {
+				x.w.terminate();
+				x.job?.no(Object.assign(new Error('the simplifying worker stopped'), { again: true }));
+			}
 		};
-		return worker;
+		workers.push(mine);
+		return mine;
 	}
 
 	const frame = () => new Promise((ok) => setTimeout(ok, 0));
 
 	async function run(draws, plans) {
 		if (disposed) throw new Error('the renderer was disposed');
-		const w = start();
-		if (w) {
+		const x = free();
+		if (x) {
 			try {
 				return await new Promise((ok, no) => {
-					const id = next++;
-					waiting.set(id, { ok, no });
-					w.postMessage({ id, draws, plans });
+					x.job = { ok, no };
+					x.w.postMessage({ draws, plans });
 				});
 			} catch (err) {
 				if (!err.again) throw err;
@@ -131,19 +138,31 @@ export function createLowering(o = {}) {
 		return lowerDraws(draws, plans, frame);
 	}
 
+	const wanted = (j) => (j.later ? -Infinity : (j.rank?.() ?? 0));
+
 	function pump() {
-		if (running || !jobs.length) return;
-		const wanted = (j) => (j.later ? -Infinity : (j.rank?.() ?? 0));
-		const job = jobs.splice(jobs.reduce((best, j, i) => (wanted(j) > wanted(jobs[best]) ? i : best), 0), 1)[0];
-		running = true;
-		Promise.resolve()
-			.then(() => run(job.source.draws.map(plainOf), job.plans))
-			.then((made) => job.ok(job.raw ? made : made.map((m) => levelOf(job.source, m))), job.no)
-			.finally(() => {
-				running = false;
-				busy--;
-				pump();
-			});
+		// one turn asked for at a time, the next as soon as it is given: as many kinds at once as the page has turns free,
+		// yet where recipes wait for turns too, the levels stand in that line once, not once a kind (a world's builds, which
+		// show its plants, are not held up behind every level still to be made lighter). The job is chosen only once its
+		// turn has come: what is wanted most by then. In the page (no workers) one at a time, a step between frames.
+		if (asking || !jobs.length || ((gone || typeof Worker === 'undefined') && running)) return;
+		asking = true;
+		buildTurn().then((back) => {
+			asking = false;
+			if (!jobs.length) return back();
+			const job = jobs.splice(jobs.reduce((best, j, i) => (wanted(j) > wanted(jobs[best]) ? i : best), 0), 1)[0];
+			running++;
+			Promise.resolve()
+				.then(() => run(job.source.draws.map(plainOf), job.plans))
+				.then((made) => job.ok(job.raw ? made : made.map((m) => levelOf(job.source, m))), job.no)
+				.finally(() => {
+					running--;
+					busy--;
+					back();
+					pump();
+				});
+			pump();
+		});
 	}
 
 	return {
@@ -164,10 +183,10 @@ export function createLowering(o = {}) {
 		},
 		dispose() {
 			disposed = true;
-			worker?.terminate();
-			worker = null;
-			for (const w of waiting.values()) w.no(new Error('the renderer was disposed'));
-			waiting.clear();
+			for (const x of workers.splice(0)) {
+				x.w.terminate();
+				x.job?.no(new Error('the renderer was disposed'));
+			}
 			for (const j of jobs.splice(0)) {
 				busy--;
 				j.no(new Error('the renderer was disposed'));
