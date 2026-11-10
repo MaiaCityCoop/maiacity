@@ -148,7 +148,7 @@ class Page {
 			return null;
 		}
 		if (process.env.DRY_PLAY_TOKEN !== undefined) process.env.DRY_PLAY_TOKEN ? (process.env.PLAY_MCP_TOKEN = process.env.DRY_PLAY_TOKEN) : delete process.env.PLAY_MCP_TOKEN;
-		setup({ root, inputs: join(SITE, 'scripts/census/inputs'), cache: process.env.CENSUS_CACHE });
+		setup({ root, inputs: join(SITE, 'scripts/census/inputs') });
 		Object.assign(world, { route, root, state: 'building' });
 		blank();
 		this.init();

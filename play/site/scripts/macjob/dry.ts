@@ -14,6 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { CACHE } from '../census/tree';
 
 const argv = process.argv.slice(2);
 const arg = (k: string) => {
@@ -27,7 +28,6 @@ const TIMEOUT = Number(arg('--timeout') ?? 480);
 const HOME = join(import.meta.dir, 'dry');
 const SITE = resolve(import.meta.dir, '../..');
 const REPO = resolve(SITE, '../..');
-const CACHE = resolve(process.env.CENSUS_CACHE ?? join(process.env.HOME ?? '/tmp', '.cache/maiacity-census'));
 const git = (cwd: string, ...a: string[]) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
 function checkout() {

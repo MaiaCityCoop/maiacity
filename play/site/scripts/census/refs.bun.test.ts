@@ -6,8 +6,8 @@
  * after its Accept), all as the census reads play: pinned in ./inputs. Comments are left out: a copied doc comment
  * that shows such a name as an example names nothing.
  *
- *   cd play/site && bun test scripts/census/refs.test.ts
- *   CENSUS_RECORD=1 PLAY_MCP_TOKEN=… bun test scripts/census/refs.test.ts   (reads play live and pins it anew)
+ *   cd play/site && bun test scripts/census/refs.bun.test.ts
+ *   CENSUS_RECORD=1 PLAY_MCP_TOKEN=… bun test scripts/census/refs.bun.test.ts   (reads play live and pins it anew)
  */
 import { describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
