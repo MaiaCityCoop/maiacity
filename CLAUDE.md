@@ -38,7 +38,10 @@ One intent has one builder session.
 Before you push, run the checks of what you touched, in **avenBOX** (the cloud environment the agents work in; play/SPEC.md
 §4.12): `bash play/avenbox/gate.sh` runs what CI runs (in `play/api` `bunx tsc --noEmit` and `bun test`, none skipped,
 against the box's Postgres 17; in `play/site` `bun run build`; in `website` `bun run check && bun run build`), `gate.sh
-api|site|website` one part. A cloud session starts with the box up (`.claude/settings.json` runs `play/avenbox/up.sh`:
+api|site|website` one part. **No test reads the real clock** (intent a07e6773; `play/avenbox/clock.ts`, play/SPEC.md
+§4.12): every suite runs at one pinned instant (2100-01-01 12:00 UTC), `Date` standing still; a test that needs another
+time sets it or hands it in, measures time that passes with `performance.now()`, and compares a time only with times of
+the same clock (Postgres's `now()` is its own); `play/api/test/clock.test.ts` is red on any test file reaching past the pin. A cloud session starts with the box up (`.claude/settings.json` runs `play/avenbox/up.sh`:
 Postgres on 127.0.0.1:5432, `TEST_DATABASE_URL` set). A change made for an intent names it in its commits, the line
 `Intent: <the intent's UUID>` at the end of each message.
 

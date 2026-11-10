@@ -79,7 +79,7 @@ suite("assets as documents", () => {
   }
 
   beforeAll(async () => {
-    name = `play_assetdocs_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+    name = `play_assetdocs_${crypto.randomUUID().replaceAll("-", "")}`;
     admin = new Bun.SQL(URL_!);
     await admin.unsafe(`CREATE DATABASE ${name}`);
     const u = new URL(URL_!);

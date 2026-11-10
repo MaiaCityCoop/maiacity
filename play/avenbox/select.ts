@@ -5,6 +5,7 @@
 //   GATE_CHANGED="a b" bun …/select.ts    # for these paths (from the repository's root), not git's
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { isTest, SUITES } from "./clock";
 
 export type Plan = {
   steps: string[]; // in the gate's order: api-types, api-tests, site-build, site-tests, site-physics, website-check, website-build, deploy-tests, lint
@@ -14,6 +15,7 @@ export type Plan = {
 
 const STEPS = ["api-types", "api-tests", "site-build", "site-tests", "site-physics", "website-check", "website-build", "deploy-tests", "lint"] as const;
 const DEPLOY_TESTED = ["deploy/publish-site.py", "deploy/test_publish_site.py"];
+const CLOCK = "test/clock.test.ts";
 const CODE = /\.(ts|js|mjs|cjs|tsx|jsx|json)$/;
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
 
@@ -48,7 +50,7 @@ function closure(file: string, seen = new Map<string, string>()): Map<string, st
 const isMd = (p: string) => p.endsWith(".md");
 /** a change everything in play/api depends on */
 const everything = (p: string) =>
-  /^play\/api\/(package\.json|bun\.lock|tsconfig[^/]*\.json)$/.test(p) || p.startsWith("play/api/migrations/") ||
+  /^play\/api\/(package\.json|bun\.lock|bunfig\.toml|tsconfig[^/]*\.json)$/.test(p) || /^play\/avenbox\/clock(\.bun)?\.ts$/.test(p) || p.startsWith("play/api/migrations/") ||
   p.startsWith("play/api/test/fixtures/") || /^play\/api\/src\/migrations?[./]/.test(p);
 
 export function plan(root: string, changed: string[] | null): Plan {
@@ -70,6 +72,8 @@ export function plan(root: string, changed: string[] | null): Plan {
     // the site's build and its whole test suite (vitest), wherever its build is (intent 417af727)
     if (f.startsWith("play/site/") || f.startsWith("play/api/")) steps.add("site-build").add("site-tests");
     if (f.startsWith("play/api/")) steps.add("api-types");
+    // a test of any suite, or what pins a suite's clock: the check that none reads the real clock (./clock.ts)
+    if ((isTest(f) || SUITES.some((u) => u.pins.some(([config]) => config === f))) && tests.includes(CLOCK)) picked.add(CLOCK);
     if (everything(f)) {
       all = true;
       why.push(`every API test: ${f} is one everything there depends on`);

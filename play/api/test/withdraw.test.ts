@@ -110,7 +110,7 @@ suite("withdraw a document from an intent's work", () => {
     expect((await row(id)).stage).toBe("build");
 
     // a citizen on the board's route: refused
-    const cit = await human(db, `cit${Date.now()}`, "citizen");
+    const cit = await human(db, "cit-on-the-board", "citizen");
     expect((await request(api, { cookie: cit.cookie }, "POST", `/api/intents/${id}/withdraw`, { doc: a.story, reason: "not mine" })).status).toBe(403);
 
     // an admin on the board
@@ -178,7 +178,7 @@ suite("withdraw a document from an intent's work", () => {
     const id = await ready("Two cuts, a stale token");
     const a = await story("Stale: one", id);
     await story("Stale: two", id);
-    const bob = await human(db, `bob${Date.now()}`);
+    const bob = await human(db, "bob-who-withdraws");
     const bobs = (await agentToken(api, bob.cookie, { name: "bob's agent" })).token;
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [bob.id]);
     expect((await mcpTool(api, bobs, "withdraw_doc", { intent: id, doc: a.story, reason: "not his" })).error).toBeTruthy();

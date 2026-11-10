@@ -624,6 +624,23 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   its work and its work's review) read them. No tool approves, accepts or rejects an intent; an agent archives only its
   own intents at Proposal that it put there over MCP (`archive_intent`: its work proposed over MCP, or, with no work,
   the intent added so), one it no longer stands by.
+- **No test reads the real clock** (intent `a07e6773-92ff-492c-97df-d35425c3ef65`; `play/avenbox/clock.ts`). A test
+  that fixed a time and held it against the real clock was green on its pull request and red on main an hour later
+  (b3f83e0b's limit test, 2026-11-10: four Accepts blocked). So every test, in every suite, runs at **one pinned
+  instant**, 2100-01-01 12:00 UTC (`PINNED`): Bun's suites by the preload `play/avenbox/clock.bun.ts` (the
+  `bunfig.toml` of `play/api`, `play/site` and the root), vitest's by `play/site/vitest.clock.ts`
+  (`vite.config.ts`'s `setupFiles`). `Date` stands still there and each test starts at the pin; one that needs
+  another time sets it (`setSystemTime(new Date(…))`, `vi.setSystemTime(…)`) or hands it in (`at`, `now`). Not
+  pinned: time that passes (`performance.now()`, timers: a wait or a bound is measured with these, never with
+  `Date`), Postgres's own `now()` and a process a test starts (the API in `deploy-speed.test.ts`); so a test compares
+  a time only with times of the same clock (a row's `updated_at` with Postgres's `now()`, never with `Date`), and
+  names nothing by the time (a database, a member: `crypto.randomUUID()`). The check is one test of the API's suite,
+  `play/api/test/clock.test.ts` (the gate picks it whenever a test file or a suite's config changes; `bun
+  play/avenbox/clock.ts` prints the same): red when a suite's config no longer names the pin, or when a test file
+  (`*.test.*`, anything under a `test/` or `tests/` folder, `test_*.py`) puts the real clock back (`useRealTimers`,
+  a bare `setSystemTime()`) or reads a date the pin does not hold (`performance.timeOrigin`, `Temporal.Now`, Python's
+  `datetime.now()`), each named with its line. One that must stay is listed in `EXCEPTIONS` with its file, its text
+  and its reason (none today); an exception nothing needs is refused too.
 - **Checks run in avenBOX, and again on main** (Samuel 2026-11-06; intent `8888e140-a6e4-4472-b1db-e78692db5c4a`).
   **avenBOX** (one word, `aven` lowercase and `BOX` in capitals) is the cloud environment the agents build in
   (`env_011Zm65erarH7ffXio13u5pG`), and the box is built the same way wherever a check runs, by `play/avenbox/`:
