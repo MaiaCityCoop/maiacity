@@ -323,7 +323,14 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   waits in the page's one pool of asset boxes (`content/assets/box/pool.js`), the most wanted first, as many built
   side by side as the device's budget lets work at once (`render/budget.js` `builds`: every core but one on a
   desktop, two on a phone), and the levels derived of them are made on those same turns (`render/lower.js`); a build
-  is its recipe's and its values' alone, the same in whichever worker it is made. A new version names which on its card, `lod:
+  is its recipe's and its values' alone, the same in whichever worker it is made. **One line of turns, a build before
+  a level** (intent 7a6c3f1b, `content/render/turns.js`): builds and levels wait in one line, the most wanted first,
+  and a level is begun only on a turn no build waits for: a level job holds its turn for as long as a big tree takes
+  (12 to 94 s for one of a million triangles), and while each line kept its own order the level maker took every turn
+  a build gave back, so the builds a world waits for stood still (a first visit's work was the same on one core as on
+  eight, and the world no sooner). A level two renderers of a page ask for at once is made once (`render/levels.js`).
+  `scripts/census/beside.ts` measures it: the plants' builds with their levels made beside them, against the builds
+  alone and against one box, in one run. A new version names which on its card, `lod:
   { levels: 'declared' | 'derived', budgets? }` (`propose_asset`'s `lod`, a card field of the asset's document):
   `propose_asset`, the page's proposal and `propose_doc_version` refuse a new version without it, or a declared one
   whose source exports none, or a derived one whose source does (`play/api/src/lod.ts`); play reads a declared one's
