@@ -1,5 +1,5 @@
 // Recipes (play/site/src/lib/content/assets/box/engines.js): a recipe file names its asset, version and variant in
-// its last line. And readable refs, `group/id@v[:variant][?params]`, which play refuses (below).
+// its last line. And readable refs, `group/id@v[:variant][?params]`, which play refuses (below), in a card and in a source.
 
 /** the start every recipe file has (play/site/src/lib/content/assets/box/engines.js RECIPE_HEAD) */
 export const RECIPE_HEAD = 'defineRecipe(function (require) {\n"use strict";\nvar module = { exports: {} }, exports = module.exports;\n';
@@ -51,3 +51,18 @@ export function readableRefs(v: unknown, self: string | readonly string[]): stri
   return found;
 }
 
+
+/** an asset named by group, slug and version anywhere in a text: `machines/powercube@3`, `plants/papaya@3:male`, or its
+ * version worked out (`biomes/cover@${V}:${kind}`) */
+const NAMED = /\b(?:plants|things|machines|buildings|actors|characters|biomes|worlds)\/[a-z0-9][a-z0-9-]*@(?:\d+|\$\{[^}]*\})(?::[a-z0-9-]+)?/g;
+
+/** every asset a source names by group, slug and version, each once: in its code, its strings and its comments alike
+ * (a comment showing such a name teaches it), its own name too. Play names an asset by its UUID or its recipe's hash
+ * (play/SPEC.md §4.7), so a new source that holds one is refused (intent 5723e301) */
+export const namedAssets = (source: string): string[] => [...new Set(source.match(NAMED) ?? [])];
+
+/** why a source that names assets so is refused, or null */
+export const namedWhy = (source: string): string | null => {
+  const named = namedAssets(source);
+  return named.length ? `it names ${named.slice(0, 3).join(", ")} by group, slug and version: name an asset by its recipe's hash or its UUID, in comments too` : null;
+};

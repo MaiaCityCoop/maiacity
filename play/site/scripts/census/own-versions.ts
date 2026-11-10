@@ -15,46 +15,21 @@
 import { join } from 'node:path';
 
 import { setup } from './setup';
+import { checkAll, get, sourceOf } from './sources';
 
 const argv = process.argv.slice(2);
 const intent = argv.includes('--intent') ? argv[argv.indexOf('--intent') + 1] : undefined;
 const ids = argv.filter((a) => /^[0-9a-f-]{36}$/.test(a) && a !== intent);
 const all = argv.includes('--all');
 if (!all && (!intent || !ids.length)) throw new Error('own-versions: --intent <uuid> <asset uuid>… | --all');
-setup({ inputs: join(import.meta.dir, 'inputs'), record: argv.includes('--record'), fresh: true });
 
-const get = async (route: string) => {
-	const r = await fetch(route);
-	if (!r.ok) throw new Error(`${route}: ${r.status} ${await r.text()}`);
-	return r;
-};
-const sourceOf = (recipe: string) => recipe.slice(recipe.indexOf('\n', recipe.indexOf('exports = module.exports;')) + 1, recipe.lastIndexOf('\nreturn module.exports.recipe('));
 /** what of the old version code a source keeps */
 const keeps = (src: string) =>
 	[/\bHISTORY\s*=/.test(src) && 'keeps HISTORY', /\bversioned\(/.test(src) && 'keeps a versioned list', /\brecipeIn\(/.test(src) && 'picks from its list'].filter(Boolean) as string[];
 
-if (all) {
-	const GROUPS = ['plants', 'things', 'machines', 'buildings', 'actors', 'characters', 'biomes', 'worlds'];
-	let bad = 0;
-	for (const group of GROUPS) {
-		const assets = await (await get(`/api/assets?group=${group}`)).json();
-		let n = 0;
-		for (const a of assets) {
-			const head = (await (await get(`/api/assets/${a.id}`)).json()).versions[0];
-			const mine = intent ? await fetch(`/api/assets/${a.id}/recipe?intent=${intent}`) : null;
-			const made = mine?.ok ? await mine.json() : null;
-			const texts = made
-				? [sourceOf(await (await get(`/api/files/${made.hash}`)).text())]
-				: await Promise.all(([...new Set([head.source, ...(head.variants ?? []).map((x: any) => x.source)].filter(Boolean))] as string[]).map(async (h) => (await get(`/api/files/${h}`)).text()));
-			const why = new Set(texts.flatMap(keeps));
-			if (why.size) n++, console.log(`FAIL ${group}/${a.slug} (${a.id}) ${made ? `→ v${made.v}` : `v${head.number}`}: ${[...why].join(', ')}`);
-		}
-		bad += n;
-		console.log(`${n ? 'FAIL' : 'ok  '} ${group}: ${n} of ${assets.length} keep their own version code`);
-	}
-	process.exit(bad ? 1 : 0);
-}
+if (all) process.exit((await checkAll({ intent, record: argv.includes('--record') }, keeps, 'keep their own version code')) ? 0 : 1);
 
+setup({ inputs: join(import.meta.dir, 'inputs'), record: argv.includes('--record'), fresh: true });
 let ok = true;
 for (const id of ids) {
 	const chain = await (await get(`/api/assets/${id}`)).json();
