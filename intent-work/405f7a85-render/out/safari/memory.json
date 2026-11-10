@@ -1,0 +1,96 @@
+{
+ "intent": "1893a631-e0bd-4d34-a8de-e1e5243b1f0e",
+ "mac": "MacBook Air M1, 8 GB, macOS 27.2.1; Safari 27.2 (22625.2.8.11.9); Playwright WebKit 26.6",
+ "playwright_webkit_page_peaks_mb": {
+  "4405-sandbox-1": {
+   "page_peak": 3842,
+   "gpu_peak": 1146,
+   "lifted_s": 28.4,
+   "peak_at": null
+  },
+  "4406-sandbox-1": {
+   "page_peak": 8665,
+   "gpu_peak": 1391,
+   "lifted_s": 194.3,
+   "peak_at": {
+    "t": 140.6,
+    "line": "Growing the forest: 90 of 198 kinds\u2026",
+    "web": {
+     "graphics": 0,
+     "malloc": 7176,
+     "js": 28,
+     "wasm": 1124,
+     "mapped": 0,
+     "other": 22
+    }
+   }
+  },
+  "4405-sandbox-5": {
+   "page_peak": 4155,
+   "gpu_peak": 1539,
+   "lifted_s": 51.7,
+   "peak_at": null
+  },
+  "4406-sandbox-3": {
+   "page_peak": 1034,
+   "gpu_peak": 555,
+   "lifted_s": null,
+   "peak_at": {
+    "t": 28.5,
+    "line": "shown",
+    "web": {
+     "graphics": 0,
+     "malloc": 770,
+     "js": 24,
+     "wasm": 188,
+     "mapped": 0,
+     "other": 17
+    }
+   }
+  },
+  "4406-sandbox-5": {
+   "page_peak": 9215,
+   "gpu_peak": 2110,
+   "lifted_s": 176.8,
+   "peak_at": {
+    "t": 102.3,
+    "line": "Growing the forest: 80 of 180 kinds\u2026",
+    "web": {
+     "graphics": 0,
+     "malloc": 7616,
+     "js": 32,
+     "wasm": 1204,
+     "mapped": 0,
+     "other": 21
+    }
+   }
+  }
+ },
+ "real_safari_2026_11_11_0001_0005": {
+  "4406 /sandbox-1/ (production code)": {
+   "webcontent_pid": 17761,
+   "peak_mb": 8904,
+   "cover": "Growing the forest: 100 of 198 kinds at 00:04:14, quiet from 00:04:59, reloaded 00:05:31",
+   "errors": "chestnut/walnut builds over 20000 ms"
+  },
+  "4406 /sandbox-3/ (production code)": {
+   "webcontent_pid": 17231,
+   "peak_mb": 1500,
+   "cover": "shown in 6 s; reporter quiet 00:02:51; its process gone 00:03:05; reloaded 00:03:36 (Safari: a problem occurred)"
+  },
+  "4405 /sandbox-1/ (the fix 23c52b2)": {
+   "webcontent_pid": 17796,
+   "peak_mb": 1673,
+   "cover": "Opening the doors\u2026 from 00:05:09, never lifted",
+   "errors": "47x flora: <plant> did not grow: Range consisting of offset and length are out of bounds",
+   "stats": "out: kinds 198, loaded 58, building 119 (busy loads 119)"
+  },
+  "safari_gpu_process": {
+   "pid": 2345,
+   "peak_mb": 642,
+   "gone_at": "00:04:40 (a new one, 18228, at 00:04:54)"
+  },
+  "reports": "no crash report for WebContent or GPU in 00:01-00:06; WebContent .diag 00:05:37 is a disk-writes notice (2.1 GB file-backed writes, action none); JetsamEvent 23:50:39 predates the visits (the render box's own 8.7 GB Playwright page)",
+  "caveat": "three worlds at once (Samuel opened all three) plus the render box's Playwright Sandbox 3 run 00:00-00:04 on an 8 GB Mac"
+ }
+}
