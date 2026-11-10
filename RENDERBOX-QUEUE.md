@@ -1,38 +1,7 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
-**15:51 Berlin, MAC JOB 3, 8f41cd9b (Sandbox 3): not reproduced on this Mac.** Pushed `intent-work/8f41cd9b-render`
-(`e53771d39`). Production `672ae57`, WebGPU, a fresh profile each:
-- **Chromium 153:** ground, grass, bushes, the workshop, the walker; tilted up, the sky, clouds and horizon. Frame over
-  20 s: median **16.7 ms**, p95 **50 ms**; 615 draws, 0.92 M triangles a frame (meter: cpu 12.3, gpu 17.7 ms).
-- **WebKit 26.6 (Safari's engine):** the same picture (the walker a few seconds later). Median **23 ms**, p95 **121 ms**;
-  333 draws, 0.84 M triangles.
-- Console, both: **16× `THREE.LightsNode.setupNodeLights: Light node not found for be`**; the dev build of 672ae57
-  names it: **`SunLight`** (registered in `render/nodes/index.js:26`, the sky's sun `sandbox-kit/sky.js:246`); 1× the
-  aside's 401; 1× three's `Source` renamed; WebKit also 4× the box frame's CSP stylesheet refusal.
-- **Bisect not run**: it needs a broken end, and 672ae57 draws the whole world on both engines I can drive. What Samuel
-  saw has to be looked at in his Safari (26.1, older than Playwright's WebKit 26.6), and **real Safari refuses automation:
-  "Allow remote automation" is off** (Safari Settings, Developer); that's his to switch on (job 2's part 1 stopped there
-  too). With it on, the same loads and the bisect run in his Safari.
-Job 2 (405f7a85): part 2's frames are measured; the census and the load profile next.
-
-**15:06 Berlin, ffd02ebf ("The sandboxes load again"), the Mac's four loads: all four show their world, production and
-the revert alike.** Pushed to `intent-work/ffd02ebf-render` (`2481d1742`: out/summary.json, out/errors.txt, 4 shots).
-Apple M1, Chromium 153 on Metal, **WebGPU** every time, a fresh profile each, one at a time:
-| load | world shown | before it |
-|---|---|---|
-| production `b95da56` Sandbox 1 | **208 s** | card 10→160 s ("Growing the forest: N of 198 kinds", then "the plants near you" from 61 s); page frozen ~185–208 s (screenshots time out) |
-| production Sandbox 5 | **187 s** | card to 140 s ("N of 180 kinds", "the plants near you" from 70 s, "Welcome" at 165 s); frozen ~165–188 s |
-| fix `da46ab0` Sandbox 1 | **207 s** | the same timeline as production, frozen ~185–208 s |
-| fix Sandbox 5 | **188 s** | the same as production, frozen ~165–188 s |
-No page error in any; the one console error each is the aside's 401 (`/api/docs/<sandbox>`, the token has no session);
-some `/api/files` fetches aborted. Nothing went white within 30 s after showing. **On this Mac in Chromium the revert
-changes nothing**: the hang users see is likely the 20–40 s freeze right before the world (the main thread or GPU
-busy), longer on slower machines. Not checked yet: Safari (WebKit), a phone.
-Watch fixes: GPU 12/14's deploy got no smoke (isgpu.py read shipped intents from list_intents; now the merge's Intent
-line and get_intent), and the smoke now fails Sandbox 1 if its title card is still up after settling (the 08:06 smoke
-of the WebGPU switch said OK on three shots of the card).
-
+- **smoke 672ae5797: BROKE** ([ffd02ebf] The sandboxes load again: GPU 12/14's far-tree impostors reverted (the bisect's; 487 s). 16 pages; all drawn; not up: sandbox-1, machine-forklift; new errors: sandbox-1: console: flora: chestnut@6:12:sandbox-5 did not grow: build ran longer than 20000 ms. Frames: near 17.8 ms · mid 16.9 ms · far 16.9 ms.
 - **smoke 9cbf7c1af: OK** ([e85a5860] Grass by the million: blades culled and chosen on the graphics card (#2224); 429 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 5c9edac10: OK** ([a5faafad] GPU 14/14 · Recipes bring their own shaders, safely: TSL node graphs as checked; 397 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 3f3c6e4ad: OK** ([c1bee1f8] WebGPU on every page: the switch (#2186); 395 s). 16 pages; all drawn. Frames: near 16.7 ms · mid 16.7 ms · far 16.7 ms.
