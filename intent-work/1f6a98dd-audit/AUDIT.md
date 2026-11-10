@@ -262,6 +262,19 @@ triangles.
 - The census's build seconds are Bun's with four at once; a browser's are 7a6c3f1b's 150 s.
 - A picture of production on a real GPU was read from the Mac's WebKit shots only; none was taken tonight.
 
+## Taken from the frame's builder (intent 0356b0ea, `play/site/scripts/census/FRAME-LOG.md` on its branch, round 1)
+
+The box's CPU profile of Sandbox 1 near agrees with the split by part: of the scene pass's 1,688 draws the instanced
+asset renderers are 200, the crowds 613 and the domes' insides about 720; of a walking frame's JavaScript three's own
+work per draw is about 78 %, the sun's shadows 13 %, the asset renderer's loop 8 %. So the page's time, too, is in what
+is drawn one by one, not in the plants. No frame time of main on a real GPU is in its log yet.
+
+## The spec
+
+Filed on the intent at 23:57 UTC (stage Specify, waiting for Samuel's approval): the budget as the first step (ten
+checks, each command tried once in the box: the gate green in 165 s on main, the new ones red until built), the seven
+patterns, and the order of what follows with the realism programme R1 to R12.
+
 ## Files
 
 - `out/parts.json`, `out/box/parts-*.txt`: every view's main and shadow triangles and draws by part
