@@ -206,22 +206,41 @@ function land() {
 	const r = rng(7);
 	const prairie = [flat(0xc8b67c, 1), flat(0xccb882, 1), flat(0xc2b177, 1)];
 	const grass = [flat(0x93b46d, 1), flat(0x8db06a, 1), flat(0x98b872, 1)];
-	const rimHome = new THREE.LineDashedMaterial({ color: 0xf4f1e8, dashSize: 5, gapSize: 6, transparent: true, opacity: 0.85 });
-	const rimFar = new THREE.LineDashedMaterial({ color: 0xf1ead8, dashSize: 5, gapSize: 6, transparent: true, opacity: 0.6 });
-	const rim = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 7 }, (_, k) => V(Math.sin((k * Math.PI) / 3) * (HEX_R - 0.8), 0, Math.cos((k * Math.PI) / 3) * (HEX_R - 0.8))));
-	const rims = [];
+	// every tile of one colour is one draw, and every rim the story reveals together one line (430 draws were 10)
+	const o = new THREE.Object3D();
+	/** @type {Map<THREE.Material, number[][]>} */
+	const laid = new Map();
+	const side = Array.from({ length: 7 }, (_, k) => [Math.sin((k * Math.PI) / 3) * (HEX_R - 0.8), Math.cos((k * Math.PI) / 3) * (HEX_R - 0.8)]);
+	/** the rims by how much of the land is revealed: 0 our own hex (a whole line), 1 our village, 2 the city (dotted) */
+	const rimOf = [new THREE.LineBasicMaterial({ color: 0xf4f1e8, transparent: true, opacity: 0.8 }), new THREE.LineDashedMaterial({ color: 0xf4f1e8, dashSize: 5, gapSize: 6, transparent: true, opacity: 0.85 }), new THREE.LineDashedMaterial({ color: 0xf1ead8, dashSize: 5, gapSize: 6, transparent: true, opacity: 0.6 })];
+	const lines = rimOf.map(() => ({ at: /** @type {number[]} */ ([]), along: /** @type {number[]} */ ([]) }));
+	const own = flat(0x7fa860, 2);
 	for (const h of HEXES) {
-		const t = new THREE.Mesh(tile, h.tribe ? flat(0x7fa860, 2) : h.biome === 'steppe' ? prairie[Math.floor(r() * 3)] : grass[Math.floor(r() * 3)]);
-		t.position.set(h.at[0], 0, h.at[1]);
+		const m = h.tribe ? own : h.biome === 'steppe' ? prairie[Math.floor(r() * 3)] : grass[Math.floor(r() * 3)];
+		laid.set(m, [...(laid.get(m) ?? []), h.at]);
+		// its rim as six sides, the dashes running on round its corners as along one line
+		const l = lines[h.tribe ? 0 : h.home ? 1 : 2];
+		for (let k = 0, d = 0; k < 6; k++) {
+			const [ax, az] = side[k], [bx, bz] = side[k + 1], len = Math.hypot(bx - ax, bz - az);
+			l.at.push(h.at[0] + ax, 0.12, h.at[1] + az, h.at[0] + bx, 0.12, h.at[1] + bz);
+			l.along.push(d, (d += len));
+		}
+	}
+	for (const [m, at] of laid) {
+		const t = new THREE.InstancedMesh(tile, m, at.length);
+		at.forEach((a, i) => (o.position.set(a[0], 0, a[1]), o.updateMatrix(), t.setMatrixAt(i, o.matrix)));
 		t.receiveShadow = true;
 		g.add(t);
-		const line = new THREE.Line(rim, h.tribe ? new THREE.LineBasicMaterial({ color: 0xf4f1e8, transparent: true, opacity: 0.8 }) : h.home ? rimHome : rimFar);
-		line.position.set(h.at[0], 0.12, h.at[1]);
-		line.computeLineDistances();
-		line.userData.level = h.tribe ? 0 : h.home ? 1 : 2;
-		rims.push(line);
-		g.add(line);
 	}
+	const rims = lines.map((l, level) => {
+		const geo = new THREE.BufferGeometry();
+		geo.setAttribute('position', new THREE.Float32BufferAttribute(l.at, 3));
+		geo.setAttribute('lineDistance', new THREE.Float32BufferAttribute(l.along, 1));
+		const line = new THREE.LineSegments(geo, rimOf[level]);
+		line.userData.level = level;
+		g.add(line);
+		return line;
+	});
 	return { group: g, rims };
 }
 
@@ -302,8 +321,8 @@ function steppe() {
 		m.castShadow = shadow;
 		g.add(m);
 	};
-	scatter(new THREE.ConeGeometry(0.45, 0.9, 5).translate(0, 0.4, 0), mat(0xb39a5c), Math.round(6000 * K * K), 1500 * K, [0.4, 0.9]); // grass tussocks, 0.3-0.8 m
-	scatter(new THREE.ConeGeometry(0.4, 0.7, 5).translate(0, 0.3, 0), mat(0xa48e55), Math.round(3000 * K * K), 1500 * K, [0.45, 1]);
+	scatter(new THREE.ConeGeometry(0.45, 0.9, 5, 1, true).translate(0, 0.4, 0), mat(0xb39a5c), Math.round(6000 * K * K), 1500 * K, [0.4, 0.9]); // grass tussocks, 0.3-0.8 m
+	scatter(new THREE.ConeGeometry(0.4, 0.7, 5, 1, true).translate(0, 0.3, 0), mat(0xa48e55), Math.round(3000 * K * K), 1500 * K, [0.45, 1]);
 	scatter(new THREE.IcosahedronGeometry(1, 0).translate(0, 0.5, 0), mat(0x8c8f5a), Math.round(900 * K * K), 1400 * K, [0.4, 0.9], true); // shrubs, 0.8-1.8 m across
 	scatter(new THREE.DodecahedronGeometry(0.7, 0).translate(0, 0.2, 0), mat(0x9d927d), Math.round(500 * K * K), 1400 * K, [0.3, 1.2], true); // stones and a few boulders
 	// thorn trees: a crooked trunk and a flat crown
@@ -369,22 +388,28 @@ function gravel() {
 function bushes() {
 	const g = new THREE.Group();
 	const r = rng(42);
-	const leaves = [mat(0x4f7f40), mat(0x5d8a45), mat(0x46733a)];
+	// every ball of one green is one draw (220 meshes were 3): a ball of 1 m, scaled to its size
+	const ball = new THREE.IcosahedronGeometry(1, 0);
+	const o = new THREE.Object3D();
+	const leaves = [mat(0x4f7f40), mat(0x5d8a45), mat(0x46733a)].map((m) => ({ m, at: /** @type {THREE.Matrix4[]} */ ([]) }));
 	for (let i = 0, n = 0; i < 900 && n < 76; i++) {
 		const a = r() * Math.PI * 2, d = 12 + r() * (HEX_R - 18);
 		const x = Math.cos(a) * d, z = Math.sin(a) * d;
 		if (hexKey(x, z) !== '0,0' || Math.hypot(x, z) > HEX_R * 0.8 || onGravel(x, z, 3)) continue;
-		const b = new THREE.Group();
 		for (let k = 0, c = 2 + Math.floor(r() * 3); k < c; k++) {
 			const s = 0.35 + r() * 0.5; // bushes 1-2 m high
-			const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), leaves[(i + k) % 3]);
-			ball.position.set((r() - 0.5) * 1.1, s * 0.75, (r() - 0.5) * 1.1);
-			ball.castShadow = true;
-			b.add(ball);
+			o.position.set(x + (r() - 0.5) * 1.1, s * 0.75, z + (r() - 0.5) * 1.1);
+			o.scale.setScalar(s);
+			o.updateMatrix();
+			leaves[(i + k) % 3].at.push(o.matrix.clone());
 		}
-		b.position.set(x, 0, z);
-		g.add(b);
 		n++;
+	}
+	for (const { m, at } of leaves) {
+		const balls = new THREE.InstancedMesh(ball, m, at.length);
+		at.forEach((matrix, i) => balls.setMatrixAt(i, matrix));
+		balls.castShadow = true;
+		g.add(balls);
 	}
 	return g;
 }
@@ -394,7 +419,7 @@ function bushes() {
 function tallGrass() {
 	const r = rng(77);
 	const n = 2800;
-	const m = new THREE.InstancedMesh(new THREE.ConeGeometry(0.07, 0.62, 3).translate(0, 0.31, 0), mat(0x86a95a), n * 3);
+	const m = new THREE.InstancedMesh(new THREE.ConeGeometry(0.07, 0.62, 3, 1, true).translate(0, 0.31, 0), mat(0x86a95a), n * 3);
 	const o = new THREE.Object3D();
 	let i = 0;
 	for (let k = 0; i < n * 3 && k < n * 6; k++) {
