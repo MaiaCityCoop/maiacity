@@ -15,6 +15,7 @@ export type Plan = {
 
 const STEPS = ["api-types", "api-tests", "site-build", "site-tests", "site-physics", "website-check", "website-build", "deploy-tests", "lint"] as const;
 const DEPLOY_TESTED = ["deploy/publish-site.py", "deploy/test_publish_site.py"];
+const CLOCK = "test/clock.test.ts";
 const CODE = /\.(ts|js|mjs|cjs|tsx|jsx|json)$/;
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
 
@@ -72,7 +73,7 @@ export function plan(root: string, changed: string[] | null): Plan {
     if (f.startsWith("play/site/") || f.startsWith("play/api/")) steps.add("site-build").add("site-tests");
     if (f.startsWith("play/api/")) steps.add("api-types");
     // a test of any suite, or what pins a suite's clock: the check that none reads the real clock (./clock.ts)
-    if (isTest(f) || SUITES.some((u) => u.pins.some(([config]) => config === f))) picked.add("test/clock.test.ts");
+    if ((isTest(f) || SUITES.some((u) => u.pins.some(([config]) => config === f))) && tests.includes(CLOCK)) picked.add(CLOCK);
     if (everything(f)) {
       all = true;
       why.push(`every API test: ${f} is one everything there depends on`);

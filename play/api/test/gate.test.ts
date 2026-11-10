@@ -25,6 +25,7 @@ function tree(): string {
   put("play/api/test/c.test.ts", `import { c } from "../src/c";\n`);
   put("play/api/test/d.test.ts", `const text = readFileSync("../../deploy/x.sh");\n`);
   put("play/api/test/e.test.ts", `test("alone", () => {});\n`);
+  put("play/api/test/clock.test.ts", `test("no test reads the real clock", () => {});\n`);
   return root;
 }
 const gate = (args: string[], changed?: string) =>
@@ -39,7 +40,13 @@ describe("the tests a change picks", () => {
     expect(plan(root, ["play/api/src/d.ts"]).tests).toEqual(["test/c.test.ts"]);
   });
   test("a changed test picks itself", () => {
-    expect(plan(root, ["play/api/test/e.test.ts"]).tests).toEqual(["test/e.test.ts"]);
+    expect(plan(root, ["play/api/test/e.test.ts"]).tests).toEqual(["test/clock.test.ts", "test/e.test.ts"]);
+  });
+  test("a changed test of any suite, or what pins a suite's clock, picks the check that none reads the real clock", () => {
+    for (const f of ["play/site/src/lib/x.test.ts", "play/site/src/lib/sandbox-2/tests/helpers/wind.ts", "play/site/bunfig.toml", "play/site/vite.config.ts"]) {
+      expect([f, plan(root, [f]).tests]).toEqual([f, ["test/clock.test.ts"]]);
+    }
+    expect(plan(root, ["play/site/src/lib/x.ts"]).tests).toEqual([]);
   });
   test("a file a test names by its whole file name picks it; a bare word does not", () => {
     const p = plan(root, ["deploy/x.sh"]);
