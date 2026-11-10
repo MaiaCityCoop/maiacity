@@ -261,8 +261,11 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
 - **Every reference is a hash.** A build is `<hash>?values`. A sandbox names an asset by a slot of its pins,
   `pin:<sandbox>/<slot>`, which its config in the database maps to a build (`GET /api/sandboxes/<id>/config`). A card
   that names another asset names its build: the import rewrote every readable ref legacy's cards made (the biomes'
-  cover kinds, the pickup's Power Cube) and a proposal that names one is refused. A version's number, an asset's id
-  and a label are only shown.
+  cover kinds, the pickup's Power Cube) and a proposal that names one is refused. So is a new source, an asset's or a
+  piece's, that names an asset by group, slug and version (`machines/powercube@3`, `biomes/cover@${V}:${kind}`)
+  anywhere in its text, its comments too (intent 5723e301; `play/api/src/recipes.ts` `namedAssets`, the one rule
+  `play/site/scripts/census/refs.ts --all` reads every asset's source by). A version's number, an asset's id and a
+  label are only shown.
 - **One loader** (play/site's `content/assets/catalog.js`): hash → its record from `/api/catalog` → its file from
   `/api/files/<hash>`, held to the hash → the frozen box engine builds it. Media (covers, sounds) are play's files too.
 - **A recipe names a piece by hash** (intent 5a15e468, Samuel 2026-11-07). A **piece** is readable source two or more

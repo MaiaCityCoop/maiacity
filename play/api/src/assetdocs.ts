@@ -23,7 +23,7 @@ import * as docs from "./docs";
 import { HASH, hashText } from "./hash";
 import type { Db, Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
-import { labelOf, libraryOf, RECIPE_HEAD, recipeTail } from "./recipes";
+import { labelOf, libraryOf, namedWhy, RECIPE_HEAD, recipeTail } from "./recipes";
 import { libsOf, PieceError, piecesHeld, piecesOf, piecesShown } from "./pieces";
 import { boxEngine, LATEST_BOX } from "./engines";
 import { readableRefs } from "../import/plan";
@@ -590,6 +590,9 @@ function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n
   const hash = hashText(source);
   const why = accepted.has(hash) ? null : unreadable(source);
   if (why) throw new VersionError(`The source is not readable: ${why}.`);
+  // every other asset it names by hash (play/SPEC.md §4.7), never by group, slug and version, its comments too
+  const named = accepted.has(hash) ? null : namedWhy(source);
+  if (named) throw new VersionError(`The source is refused: ${named}.`);
   // its own looks only as node graphs of the one allowlist, checked as the box and the page check them (./graphs.ts)
   if (!accepted.has(hash))
     try {
