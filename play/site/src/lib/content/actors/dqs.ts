@@ -6,21 +6,24 @@
  * shrinks toward the joint and pinches. Blending the bones as dual quaternions instead turns the skin *about* the
  * joint by the blended angle, and the volume holds.
  *
- * The bones are what three.js hands the shader anyway (its bone texture, one matrix a bone); each matrix is read back
- * as a rotation, a translation and a size (a bone may be scaled: a frog's throat), the rotations and translations
- * blended as dual quaternions, the sizes as numbers. Every skinned mesh in the app is an actor, so its skinning is
- * replaced once, for all of them — their shadows included.
+ * The bones are a skeleton's bone texture (three's own, one matrix a bone); each matrix is read back as a rotation, a
+ * translation and a size (a bone may be scaled: a frog's throat), the rotations and translations blended as dual
+ * quaternions, the sizes as numbers. Every skinned mesh in the app is an actor, so its skinning is replaced once, for
+ * all of them — their shadows included.
  *
  * Every material is a node material on the WebGPURenderer (intent c1bee1f8) and skins in NodeMaterial's
- * `setupPosition`: there the blend is made in TSL (`dqSkin`), after three's own `skinning` (which keeps the skeleton
- * updated each frame and the previous frame's pose for motion), its position, normal and tangent taken from the pose as
- * morphs leave it and set by dual quaternions instead.
+ * `setupPosition`: there the blend is made in TSL (`dqSkin`) in the place of three's own `skinning`, which is not
+ * built (intent 416c555c): it handed every draw of a skinned mesh, in every pass, its bones again as uniform buffers
+ * of its own (five written a draw, most of what the old city's frame wrote), then blended them only to be overruled.
+ * A skeleton is posed once a frame (`pose`) and its texture sent once, whatever draws it; where a pass draws motion
+ * (TRAA's velocity) the position of the frame before is blended the same way from the pose before, so a bent joint at
+ * rest has no motion (three's linear blend of it differed from the dual quaternions' position, a motion never made).
  */
 import * as THREE from 'three';
 import { NodeMaterial } from 'three/webgpu';
 import {
-	Fn, OnObjectUpdate, attribute, batch, cross, dot, float, instancedMesh, int, ivec2, mat4, materialReference, max, morphReference, normalLocal, positionLocal, reference,
-	referenceBuffer, select, skinning, sqrt, subBuild, tangentLocal, texture, textureSize, vec3, vec4
+	Fn, OnObjectUpdate, attribute, batch, cross, dot, float, instancedMesh, int, ivec2, mat4, materialReference, max, morphReference, normalLocal, positionLocal, positionPrevious,
+	reference, select, sqrt, subBuild, tangentLocal, texture, textureSize, vec4
 } from 'three/tsl';
 
 /** a rotation matrix's quaternion, from its columns (every branch made, the right one chosen) */
@@ -49,12 +52,17 @@ const boneOf = (b: N) => {
 export const dqTurn = (q: N, v: N): N => v.add(cross(q.xyz, cross(q.xyz, v).add(v.mul(q.w))).mul(2));
 
 /**
- * The four bones' dual-quaternion blend: the rotation (`real`), the move it makes, the size.
- * @param bones the bone matrices (an `element(i)` per bone) @param index the skin's indices @param weight its weights
+ * The four bones' dual-quaternion blend, one shader function (`dqBlend`): its first column the rotation, its second
+ * the move it makes and, last, the size. A function of its own, not written out where it is called: three walks a
+ * material's whole node tree again at every build, and the blend's is large (every part of it read many times).
+ * @param b0…b3 the four bones' matrices @param weight the skin's weights
  */
-export function dqBlend(bones: N, index: N, weight: N) {
+export const dqBlend: N = Fn(([b0, b1, b2, b3, weight]: N[]) => {
 	const ws = [weight.x, weight.y, weight.z, weight.w];
-	const parts = [index.x, index.y, index.z, index.w].map((i) => boneOf(bones.element(i)));
+	const parts = [b0, b1, b2, b3].map((b, i) => {
+		const p = boneOf(b);
+		return { q: p.q.toVar(`dqQ${i}`), d: p.d, s: p.s };
+	});
 	const first = parts[0]!.q;
 	let real: N = vec4(0), dual: N = vec4(0), size: N = float(0);
 	parts.forEach((p, i) => {
@@ -66,23 +74,15 @@ export function dqBlend(bones: N, index: N, weight: N) {
 		size = size.add(p.s.mul(w));
 	});
 	const total = max(ws[0].add(ws[1]).add(ws[2]).add(ws[3]), 1e-5);
-	size = size.div(total);
-	const len = max(real.length(), 1e-6);
+	const len = max(real.length(), 1e-6).toVar('dqLength');
 	real = real.div(len).toVar('dqReal');
 	dual = dual.div(len).toVar('dqDual');
 	const move = real.w.mul(dual.xyz).sub(dual.w.mul(real.xyz)).add(cross(real.xyz, dual.xyz)).mul(2);
-	return { real, move, size: size.toVar('dqSize') };
-}
+	return mat4(real, vec4(move, size.div(total)), vec4(0), vec4(0));
+}).setLayout({ name: 'dqBlend', type: 'mat4', inputs: ['b0', 'b1', 'b2', 'b3'].map((name) => ({ name, type: 'mat4' })).concat([{ name: 'weight', type: 'vec4' }]) });
 
-/** the bone matrices three hands a skinned mesh's shader (its uniform buffer, or its bone texture for a big skeleton) */
-function bonesOf(builder: N, skeleton: THREE.Skeleton): N {
-	if (skeleton.bones.length * 64 <= builder.getUniformBufferLimit()) return referenceBuffer('skeleton.boneMatrices', 'mat4', skeleton.bones.length);
-	if (skeleton.boneTexture === null) skeleton.computeBoneTexture();
-	const bt: N = texture(skeleton.boneTexture!);
-	OnObjectUpdate(({ object }: N) => {
-		if (object.skeleton.boneTexture === null) object.skeleton.computeBoneTexture();
-		bt.value = object.skeleton.boneTexture;
-	});
+/** a skeleton's bones read from a texture of them, one matrix a bone (three's bone texture: four texels a matrix) */
+function bonesIn(bt: N) {
 	return {
 		element: (i: N) => {
 			const size = int(textureSize(bt).x).toConst();
@@ -93,19 +93,70 @@ function bonesOf(builder: N, skeleton: THREE.Skeleton): N {
 	};
 }
 
+/** the frame each skeleton was last posed in: a skeleton is posed once a frame, whatever draws it and however often */
+const posedAt = new WeakMap<THREE.Skeleton, number>();
+/** a skeleton's bone texture, and its pose of the frame before where a pass asks for motion: there before they are read */
+function held(skeleton: N, motion: boolean) {
+	if (skeleton.boneTexture === null) skeleton.computeBoneTexture();
+	if (motion && skeleton.previousBoneTexture === null) {
+		skeleton.update();
+		const { width, height } = skeleton.boneTexture.image;
+		skeleton.previousBoneMatrices = new Float32Array(skeleton.boneMatrices);
+		skeleton.previousBoneTexture = new THREE.DataTexture(skeleton.previousBoneMatrices, width, height, THREE.RGBAFormat, THREE.FloatType);
+		skeleton.previousBoneTexture.needsUpdate = true;
+	}
+}
 /**
- * A skinned mesh's position, normal and tangent set by dual quaternions, from `bind` (the pose as morphs leave it),
- * `normal` and `tangent` before three's linear blend (TSL; NodeMaterial's position step calls it after `skinning`).
+ * A skeleton's pose brought up to date for a frame: its bones worked out and its texture sent once, the pose before
+ * kept first where a pass draws motion. (Three's own skinning did this and handed every draw of every pass the bones
+ * again as a uniform buffer of its own; here every mesh of a skeleton, in every pass, reads the one texture.)
  */
-export const dqSkin = (builder: N, mesh: THREE.SkinnedMesh, bind: N, normal: N, tangent: N) => {
+export function pose(skeleton: N, frameId: number, motion = false) {
+	held(skeleton, motion);
+	if (posedAt.get(skeleton) === frameId) return;
+	posedAt.set(skeleton, frameId);
+	if (skeleton.previousBoneTexture !== null) {
+		skeleton.previousBoneMatrices.set(skeleton.boneMatrices);
+		skeleton.previousBoneTexture.needsUpdate = true;
+	}
+	skeleton.update();
+}
+
+/** a point of the bind pose and its normal and tangent, turned and moved by the four bones' blend */
+function skinned(bones: N, bind: N, normal: N | null, tangent: N | null, was = '') {
 	const index = attribute('skinIndex', 'uvec4'), weight = attribute('skinWeight', 'vec4');
 	const bindMatrix: N = reference('bindMatrix', 'mat4'), bindInverse: N = reference('bindMatrixInverse', 'mat4');
-	const { real, move, size } = dqBlend(bonesOf(builder, mesh.skeleton), index, weight);
+	const blend: N = dqBlend(bones.element(index.x), bones.element(index.y), bones.element(index.z), bones.element(index.w), weight).toVar(`dqPose${was}`);
+	const real = blend.element(0), move = blend.element(1).xyz, size = blend.element(1).w;
 	const skinVertex = bindMatrix.mul(vec4(bind, 1)).xyz;
-	positionLocal.assign(bindInverse.mul(vec4(dqTurn(real, skinVertex.mul(size)).add(move), 1)).xyz);
 	const turn = (v: N) => bindInverse.mul(vec4(dqTurn(real, bindMatrix.mul(vec4(v, 0)).xyz), 0)).xyz;
-	if (normal) normalLocal.assign(turn(normal));
-	if (tangent) tangentLocal.assign(turn(tangent));
+	return { position: bindInverse.mul(vec4(dqTurn(real, skinVertex.mul(size)).add(move), 1)).xyz, normal: normal && turn(normal), tangent: tangent && turn(tangent) };
+}
+
+/**
+ * A skinned mesh's position, normal and tangent set by dual quaternions from its skeleton's bone texture, and, where
+ * the pass draws motion (TRAA's velocity), its position of the frame before by the same blend of the pose before (TSL;
+ * NodeMaterial's position step calls it in the place of three's `skinning`).
+ */
+export const dqSkin = (builder: N, mesh: THREE.SkinnedMesh) => {
+	const motion: boolean = builder.needsPreviousData();
+	held(mesh.skeleton, motion);
+	const bones: N = texture((mesh.skeleton as N).boneTexture), before: N = motion ? texture((mesh.skeleton as N).previousBoneTexture) : null;
+	// a material draws many meshes: each reads its own skeleton's textures, posed for the frame
+	OnObjectUpdate(({ object, frameId }: N) => {
+		pose(object.skeleton, frameId, motion);
+		bones.value = object.skeleton.boneTexture;
+		if (before) before.value = object.skeleton.previousBoneTexture;
+	});
+	if (before) positionPrevious.assign(skinned(bonesIn(before), positionPrevious, null, null, 'Was').position);
+	const normal = builder.hasGeometryAttribute('normal') ? normalLocal : null;
+	const tangent = normal && builder.hasGeometryAttribute('tangent') ? tangentLocal : null;
+	const now = skinned(bonesIn(bones), positionLocal, normal, tangent);
+	// each worked out from the pose as morphs left it, before any of them is set
+	const set: [N, N][] = [[positionLocal, now.position.toVar('dqPosition')]];
+	if (now.normal) set.push([normalLocal, now.normal.toVar('dqNormal')]);
+	if (now.tangent) set.push([tangentLocal, now.tangent.toVar('dqTangent')]);
+	for (const [to, v] of set) to.assign(v);
 };
 
 /**
@@ -116,14 +167,7 @@ export const dqSkin = (builder: N, mesh: THREE.SkinnedMesh, bind: N, normal: N, 
 function setupPosition(this: N, builder: N) {
 	const { object, geometry } = builder;
 	if (geometry.morphAttributes.position || geometry.morphAttributes.normal || geometry.morphAttributes.color) morphReference(object);
-	if (object.isSkinnedMesh === true) {
-		// the pose before three's blend, kept: three's own skinning keeps the skeleton and the previous pose up to date
-		const bind = vec3(positionLocal).toVar('dqBind');
-		const normal = builder.hasGeometryAttribute('normal') ? vec3(normalLocal).toVar('dqNormal') : null;
-		const tangent = normal && builder.hasGeometryAttribute('tangent') ? vec3(tangentLocal).toVar('dqTangent') : null;
-		skinning(object);
-		dqSkin(builder, object, bind, normal, tangent);
-	}
+	if (object.isSkinnedMesh === true) dqSkin(builder, object);
 	if (this.displacementMap) {
 		const map = materialReference('displacementMap', 'texture'), scale = materialReference('displacementScale', 'float'), bias = materialReference('displacementBias', 'float');
 		positionLocal.addAssign(normalLocal.normalize().mul(map.x.mul(scale).add(bias)));

@@ -1,0 +1,144 @@
+/*
+ * THE FRAME'S CALLS (intent 416c555c, ../census.ts --frame) — what one frame of a world asks of WebGPU, counted on the
+ * CPU: the world built by its own code on three's own WebGPURenderer, its WebGPU backend over a device that only
+ * answers (./fakegpu.js), so each frame runs all its main-thread work and every call it makes is counted. Where the
+ * census (./run.ts) counts the draws three would send, this counts what a browser's main thread pays for call by call
+ * (Safari's WebGPU is bound by it): the draws of every pass, the buffers written and their bytes, the bind groups,
+ * pipelines and vertex buffers set.
+ *
+ * It counts a visitor's frame, not a film's: the hour is pinned (noon) but the world's clock runs (a held clock,
+ * `__worldTime`, is a film's: the sky then draws its shadows every frame), on a clock of its own that turns one 60th of
+ * a second a frame (`performance.now`), so no count depends on how fast this machine is.
+ *
+ * Per view, two measures of `frames` frames each, their calls averaged a frame:
+ * - `still`: the eye at rest, the world settled (what is written or drawn again though nothing moved);
+ * - `walk`: the eye stepping forward and turning each frame as a walk does (STEP), where the world has a walker.
+ */
+import { frame, gpu } from './setup';
+import { VIEWS, VIEWS_OF, mount, type ViewName, type World } from './run';
+import { quietness } from '../quiet.js';
+
+/** a walk's step a frame: 1.5 m/s forward and 20° a second round, at 60 frames a second */
+export const STEP = { forward: 1.5 / 60, yaw: (20 * Math.PI) / 180 / 60 };
+
+export type FrameCount = {
+	/** every call made on the device, its queue, its encoders and its passes */
+	calls: number;
+	/** draws of every render pass (draw, drawIndexed and their indirect kinds) */
+	draws: number;
+	/** queue.writeBuffer calls, and the bytes they carried */
+	writes: number;
+	bytes: number;
+	/** render passes begun, and those that drew more than a screen's quad (the scene's and the shadows') */
+	passes: number;
+	scenePasses: number;
+	/** bind groups, pipelines and vertex buffers set */
+	binds: number;
+	pipelines: number;
+	vertexBuffers: number;
+	/** the main thread's own time a frame on this machine, ms: told, never a bound (it is the box's clock) */
+	ms: number;
+	/** each call by name, a frame */
+	by: Record<string, number>;
+};
+export type FrameView = { world: string; view: string; settled: boolean; still: FrameCount; walk: FrameCount | null };
+
+const g = globalThis as any;
+/** the machine's clock, for the one time told (`ms`) */
+const real = performance.now.bind(performance);
+/** the page's clock: a 60th of a second a frame */
+let clock = 0;
+const turn = () => {
+	clock += 1000 / 60;
+	frame(clock);
+};
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** frames turned until the world's streaming has been settled (../quiet.js) for 60 on end, at most `ms` of the page's clock: whether it was */
+async function quiet(ms: number) {
+	const end = clock + ms;
+	for (let still = 0; clock < end; ) {
+		turn();
+		// the asset box's workers answer between frames
+		await sleep(1);
+		const q = quietness(g);
+		if (q === 0 || q === null) {
+			if (++still > 60) return true;
+		} else still = 0;
+	}
+	return false;
+}
+
+/** `n` frames, `each` run before each: what they asked of the device, a frame */
+async function count(n: number, each?: (i: number) => void): Promise<FrameCount> {
+	const d = gpu.fake;
+	d.reset();
+	const t0 = real();
+	for (let i = 0; i < n; i++) {
+		each?.(i);
+		turn();
+		await sleep(0);
+	}
+	const ms = (real() - t0) / n;
+	const by: Record<string, number> = {};
+	let calls = 0, draws = 0;
+	for (const [k, v] of d.calls as Map<string, number>) {
+		by[k] = +(v / n).toFixed(2);
+		calls += v;
+		if (/^pass\.draw/.test(k)) draws += v;
+	}
+	const per = (k: string) => (d.calls.get(k) ?? 0) / n;
+	const passes = d.passes as { draws: number }[];
+	return { calls: calls / n, draws: draws / n, writes: per('queue.writeBuffer'), bytes: d.bytes / n, passes: passes.length / n, scenePasses: passes.filter((p) => p.draws > 1).length / n, binds: per('pass.setBindGroup'), pipelines: per('pass.setPipeline'), vertexBuffers: per('pass.setVertexBuffer'), ms, by };
+}
+
+export async function frameOf(o: { world: World; views?: ViewName[]; asset?: string; settleMs?: number; frames?: number; log?: (s: string) => void }): Promise<FrameView[]> {
+	const log = o.log ?? ((s: string) => console.error(s));
+	if (!gpu.fake) throw new Error('census: the frame is counted on the device that only answers (setup\'s `gpu`)');
+	const views = VIEWS_OF[o.world].filter((v) => !o.views || o.views.includes(v));
+	if (o.views?.some((v) => !views.includes(v))) throw new Error(`census: ${o.world} has the views ${VIEWS_OF[o.world].join(', ')}`);
+	// what the world's code throws, and what three reports of a shader it could not build (it logs, never throws): a
+	// frame that failed is no count
+	const errors: string[] = [];
+	const onError = (e: unknown) => void errors.push(e instanceof Error ? `${e.message}\n${(e.stack ?? '').split('\n').slice(1, 4).join('\n')}` : String(e));
+	process.on('uncaughtException', onError);
+	process.on('unhandledRejection', onError);
+	const said = { error: console.error, warn: console.warn };
+	for (const k of ['error', 'warn'] as const)
+		console[k] = (...a: unknown[]) => {
+			const text = a.map(String).join(' ');
+			if (/^THREE\.TSL: \w*Error\b/.test(text)) errors.push(text.slice(0, 400));
+			said[k](...a);
+		};
+	const t0 = real();
+	await mount(o.world, { asset: o.asset, log });
+	// from here a visitor's frames on the page's own clock: the world's clock let go (the hour stays pinned)
+	g.__worldTime = undefined;
+	clock = real();
+	performance.now = () => clock;
+	const settle = o.settleMs ?? 180_000, n = o.frames ?? 30;
+	const up = await quiet(settle);
+	log(`census: ${o.world} built in ${((real() - t0) / 1000).toFixed(1)} s on WebGPURenderer (a device that only answers)${up ? '' : ' (still building)'}`);
+	const out: FrameView[] = [];
+	for (const name of views) {
+		const v = name === 'open' ? null : VIEWS[name];
+		if (v) g.__walker.place(v.x, v.z, v.yaw, v.pitch);
+		const settled = await quiet(settle);
+		const still = await count(n);
+		// a walk from the view: forward along its yaw and turning, a step a frame; then back where it stood
+		let walk: FrameCount | null = null;
+		if (v && g.__walker) {
+			const at = (i: number) => g.__walker.place(v.x + Math.sin(v.yaw) * STEP.forward * i, v.z - Math.cos(v.yaw) * STEP.forward * i, v.yaw + STEP.yaw * i, v.pitch);
+			for (let i = 1; i <= 10; i++) (at(i), turn(), await sleep(0));
+			walk = await count(n, (i) => at(11 + i));
+			g.__walker.place(v.x, v.z, v.yaw, v.pitch);
+		}
+		out.push({ world: o.world, view: name, settled: up && settled, still, walk });
+		log(`census: ${o.world} ${name}: ${Math.round(still.calls).toLocaleString('en')} calls a frame at rest${walk ? `, ${Math.round(walk.calls).toLocaleString('en')} walking` : ''}${settled ? '' : ', still building'}`);
+	}
+	process.off('uncaughtException', onError);
+	process.off('unhandledRejection', onError);
+	Object.assign(console, said);
+	if (errors.length) throw new Error(`census: the frame threw ${errors.length} error${errors.length > 1 ? 's' : ''}, the first: ${errors[0]}`);
+	return out;
+}

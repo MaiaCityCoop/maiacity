@@ -30,6 +30,7 @@ import { flow, pond, shore, stream } from './water'
 import { createWorldRenderer, worldFinish } from '$lib/content/render/world.js'
 import { createSky, SUN } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
+import { castBySize } from '$lib/content/sandbox-kit/casters.js'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
 import { createStream, type View } from '$lib/content/sandbox-kit/stream.js'
@@ -1549,7 +1550,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 				herdShadows = now
 				shadowsStale = true
 			}
-			if (shadowsStale) {
+			// (and when what is too small to read as a shadow from here stopped casting one, or casts again: ../../sandbox-kit/casters.js)
+			if (castBySize(scene, camera) || shadowsStale) {
 				shadowsStale = false
 				renderer.shadowMap.needsUpdate = true
 			}
