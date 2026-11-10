@@ -12,7 +12,7 @@ export type BuildPart = { fitToAttachments?: boolean; placementReference?: strin
 export type BuildDefinition = { experimentParameters?:Record<string,string|number>; removeWithdrawnShoring?: boolean; shoringReleaseAfter?: {afterPart:string;parts:string[]}[]; parameters?: {diameterM:number;frequency?:number;timberSectionsMm?:number[];targetCellSizeM?:number}; shoringStorageX?: number; plan: BuildPart[]; stages: readonly string[]; rootId: string; interval: number; solverIterations?: number; internalPgsIterations?: number; temporaryProps?: string[]; withdrawShoringAfterStage?: number; temporarySupportGroups?: string[][]; placementGroups?: string[][]; filterRigidInternalContacts?: boolean; contactNaturalFrequency?: number; allowedLinearError?: number; name: string; note: string };
 export type Connection = { id: string; a: string; b: string; anchorA: V3; anchorB: V3; fastening: 'ideal-fixed' | 'assembly-clamp' | 'post-to-rail-screw-group' | 'shoe-to-frame-screw-group' | 'post-to-shoe-bolt-group' | 'felt-bond' | 'mortar-bond' | 'masonry-anchor'; joint?: RAPIER.ImpulseJoint; grip?: FastenerGroup };
 export type FailureEvent = { tick: number; connection: string; a: string; b: string; point: number; material: string; reading: FastenerReading };
-export type BuildEvent = { tick: number; action: 'place-and-fasten' | 'release' | 'connection-failure' | 'withdraw-shoring' | 'adjust-stand' | 'test-impulse'; part: string; massInKg: number; massOutKg?: number; assetId?:string; heightM?:number; reused?:boolean; impulse?:V3; connections: string[]; placement?: {position:V3;rotation:ReturnType<typeof rotationOf>} };
+type BuildEvent = { tick: number; action: 'place-and-fasten' | 'release' | 'connection-failure' | 'withdraw-shoring' | 'adjust-stand' | 'test-impulse'; part: string; massInKg: number; massOutKg?: number; assetId?:string; heightM?:number; reused?:boolean; impulse?:V3; connections: string[]; placement?: {position:V3;rotation:ReturnType<typeof rotationOf>} };
 const xyz = (x: number, y: number, z: number): V3 => ({ x, y, z });
 
 export function shedScenario(): Scenario {
@@ -218,9 +218,8 @@ export class ShedBuild {
       pose={position:add(mean(actual),transform(sub(spec.position,mean(ends.points)),delta,xyz(0,0,0))),rotation:multiplyRotations(delta,rotationOf(spec))};
     }
     if(entry.fitToAttachments&&entry.connectTo.length){
-      // Fit the supplied rigid panel to the current bracket poses. Fitting
-      // the attachment locations reduces installation preload without stretching
-      // the panel or moving any existing structure.
+      // Fit the rigid panel to the brackets' current poses: fitting the attachment points cuts installation preload
+      // without stretching the panel or moving existing structure.
       const targets=entry.connectTo.map(id=>this.sim.parts.get(id)!);
       const planned=targets.map(p=>mean(fasteningPatch(spec,p.spec,entry.profile?.clearanceM).points));
       const actual=planned.map((point,i)=>transform(transform(sub(point,targets[i].spec.position),inverseRotation(rotationOf(targets[i].spec)),xyz(0,0,0)),targets[i].body.rotation(),targets[i].body.translation()));
@@ -331,8 +330,7 @@ export class ShedBuild {
       if (parent === n) return n;
       const root = find(parent); parents.set(n, root); return root;
     };
-    // Only permanent fixed bonds remove all relative degrees of freedom.
-    // Internal contacts would redundantly fight those same constraints. This
+    // Only permanent fixed bonds remove all relative freedom; internal contacts would redundantly fight them. This
     // filter neither adds connections nor suppresses contact across a release.
     for (const c of this.connections.values()) if (!c.grip) parents.set(find(this.sim.body(c.a).handle), find(this.sim.body(c.b).handle));
     this.rigidComponents.clear();

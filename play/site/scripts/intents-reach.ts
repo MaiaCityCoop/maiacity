@@ -22,7 +22,6 @@ const STAGES = ['specify', 'proposal-code'];
 const ME = { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 };
 const all = Object.values(FIXTURES);
 
-// the dev server on a free port, ready once it answers
 const free = Bun.serve({ port: 0, fetch: () => new Response() });
 const PORT = free.port;
 free.stop(true);
@@ -50,13 +49,11 @@ async function api(page: Page) {
 	});
 }
 
-/** what is wrong with this element where it stands: outside the screen, covered, see-through, or over the detail's text */
 const wrongWith = (el: Element, textToo: boolean) => {
 	const r = el.getBoundingClientRect();
 	const out: string[] = [];
 	if (r.width < 1 || r.height < 1) return ['not drawn'];
 	if (r.left < 0 || r.top < 0 || r.right > innerWidth || r.bottom > innerHeight) out.push(`outside the screen (${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.right)}×${Math.round(r.bottom)} in ${innerWidth}×${innerHeight})`);
-	// covered: every probe point inside it must hit it or what it holds
 	const probes = [[0.5, 0.5], [0.12, 0.25], [0.88, 0.25], [0.12, 0.75], [0.88, 0.75]];
 	for (const [x, y] of probes) {
 		const px = r.left + r.width * x, py = r.top + r.height * y;
@@ -71,7 +68,6 @@ const wrongWith = (el: Element, textToo: boolean) => {
 	let opaque = false;
 	for (let n: Element | null = el; n && !opaque; n = n === sheet ? null : n.parentElement) opaque = alpha(getComputedStyle(n).backgroundColor) >= 1;
 	if (!opaque) out.push('see-through: nothing opaque behind it inside the sheet');
-	// over no text of the detail: no text of the top or the open tab's panel drawn under its box
 	// (the tabs' band sticks over the text scrolled under it, opaque: only the decision's foot never may)
 	const content = sheet && textToo ? [...sheet.querySelectorAll('.top, .panel, .review-head')] : [];
 	for (const c of content) {
@@ -131,7 +127,6 @@ for (const size of SIZES) {
 		}
 		// a click reaches the decision (trial: Playwright's actionability, nothing sent)
 		try { await targets[0].loc.click({ trial: true, timeout: 3000 }); } catch (e) { failures.push(`${where}: ${label} can't be clicked: ${String(e).split('\n')[0]}`); }
-		// and the detail's own text still scrolls into sight above it: its last line of the open tab reachable
 		const lastVisible = await page.locator('.item-review .panel').evaluate((p) => {
 			p.scrollTop = p.scrollHeight;
 			const sc = (p.closest('.item-body') as HTMLElement | null);

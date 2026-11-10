@@ -1,15 +1,13 @@
 /*
- * SANDBOX 5'S BUILDING ON ITS GROUND — where the building standing alone in the middle of the cell (the forest dome) has
- * ground of its own: its floors, the walk under its arcade, the gravel apron, the paths out of its gates, every face of
- * it that looks up and lies low. Kept as a field of distances from that ground, so the cell's forest garden can be
- * planted right up to it (./village.ts `inBand`) instead of keeping a whole circle clear as far as its longest path
- * reaches (Samuel 2026-11-05: the green space before the dome a food forest too).
+ * SANDBOX 5'S BUILDING ON ITS GROUND — the forest dome's own ground (floors, the walk under its arcade, the gravel apron,
+ * the paths out of its gates: every low face looking up), kept as a field of distances so the cell's forest garden is
+ * planted right up to it (./village.ts `inBand`), not a whole circle cleared (Samuel 2026-11-05: the green space before
+ * the dome a food forest too).
  */
 import * as THREE from 'three';
 
 /**
- * The building's own ground, as distances from it.
- * @param {THREE.Object3D} obj the building as it stands in the scene, its world matrices up to date
+ * The building's own ground as distances. @param {THREE.Object3D} obj the building in the scene, world matrices up to date
  * @param {{ low?: number, gates?: number[], gateHalf?: number, gateTo?: number, reach?: number, cell?: number }} [o]
  *   low: how high a face that looks up may lie and still be its ground (m); gates: its gates' bearings (0 north, π/2
  *   east), each kept clear `gateHalf` either side of its line out to `gateTo` m from the middle (the way on from its own
@@ -124,8 +122,7 @@ export function groundOf(obj, o = {}) {
 		const i = Math.round((x - x0) / cell), j = Math.round((z - z0) / cell);
 		return i < 0 || j < 0 || i >= n || j >= n ? Infinity : D[j * n + i] * cell;
 	};
-	/** what the field may be out by: half a cell's diagonal where the ground is marked and as much where it is read,
-	 *  and the chamfer's 8.24 % at worst (√(4 − 2√2)) */
+	/** what the field may be out by: half a cell's diagonal marking and as much reading, and the chamfer's 8.24 % at worst (√(4 − 2√2)) */
 	const slack = cell * Math.SQRT2, long = Math.sqrt(4 - 2 * Math.SQRT2);
 	return { distance, clear: (x, z, off) => found > 0 && distance(x, z) / long - slack >= off };
 }

@@ -1,29 +1,17 @@
 /**
- * THE UNIVERSE — the one sky primitive every world, sandbox and the asset viewer is under (./sky.js puts it up).
- *
- * The air by day is the Preetham scattering model (Rayleigh and Mie, turbidity, the sun's disc), our own TSL fork of
- * three's SkyMesh; at dusk the blue hour and the glow where the sun went down; at night the dark blue air, the full
- * moon and the stars, which come out only once the sun is far enough below the horizon. A world's mood (a smog, an
- * overcast) is laid over it as a look.
- *
- *   createUniverse()   the dome and the stars (instanced sprites: WebGPU draws points a pixel wide), drawn at the far
- *                      plane round the camera; `set` them for an hour
- *   horizonRing(sun)   the colour of the air at the horizon all round, for the haze: what is far melts into the sky
- *   celestial(hour)    how far the stars have turned; groundStars(hour) their sphere over the ground
- *
- * Everything is set from the hour and the camera alone (a fixed star catalogue from a fixed seed, clouds that drift
- * with the hour), so a film renders the same pixels every time.
+ * The one sky every world is under (./sky.js puts it up): Preetham's scattering by day (our TSL fork of SkyMesh), the
+ * blue hour at dusk, the moon and stars at night (sprites: WebGPU draws points a pixel wide); set from hour and camera alone.
  */
 import * as THREE from 'three';
 import { NodeMaterial } from 'three/webgpu';
 import { Fn, If, Loop, acos, atan, attribute, cameraPosition, cameraProjectionMatrix, cameraViewMatrix, clamp, cos, dot, exp, float, floor, fract, length, log2, max, min, mix, modelViewProjection, modelWorldMatrix, normalize, positionGeometry, positionWorld, pow, sin, smoothstep, sub, uniform, uv, varying, vec2, vec3, vec4 } from 'three/tsl';
-import { seededMinStd } from './random.js';
+import { seededMinStd } from '../../kernel/random.js';
 import { withTone } from '../render/core.js';
 
 /** Where the worlds stand on their planet: the celestial pole stands this high in the north (+z on the ground). */
-export const LATITUDE = 45;
+const LATITUDE = 45;
 /** The air: clear, a little haze. */
-export const AIR = { turbidity: 3, rayleigh: 1.2, mie: 0.004, g: 0.8 };
+const AIR = { turbidity: 3, rayleigh: 1.2, mie: 0.004, g: 0.8 };
 
 const SPACE = new THREE.Color('#070e25'), NIGHT_ZENITH = new THREE.Color('#070f27'), NIGHT_HORIZON = new THREE.Color('#111d3d');
 const DUSK_GLOW = new THREE.Color('#d9773f'), BLUE_HOUR = new THREE.Color('#36508c');
@@ -40,22 +28,14 @@ const nightOf = (/** @type {number} */ alt) => smooth(0.02, -0.2, alt);
 
 const RAYLEIGH = [5.804542996261093e-6, 1.3562911419845635e-5, 3.0265902468824876e-5];
 const MIE = [1.8399918514433978e14, 2.7798023919660528e14, 4.0790479543861094e14];
-/**
- * What the air does with the sun at a height (sun.y): its strength and the scattering of each primary — the half of
- * Preetham's model that depends on the sun alone, worked out here once per move rather than per pixel.
- * @param {number} sunY @param {typeof AIR} [a]
- */
+/** Preetham's sun-only half at sun.y, worked out once per move, not per pixel. @param {number} sunY @param {typeof AIR} [a] */
 export function airOf(sunY, a = AIR) {
 	const sunE = 1000 * Math.max(0, 1 - Math.exp(-((1.6110731556870734 - Math.acos(Math.max(-1, Math.min(1, sunY)))) / 1.5)));
 	const fade = Math.min(1, Math.exp(sunY / 450000));
 	return { sunE, betaR: RAYLEIGH.map((v) => v * (a.rayleigh - (1 - fade))), betaM: MIE.map((v) => 0.434 * 0.2 * a.turbidity * 10e-18 * v * a.mie) };
 }
 
-/**
- * The sky's colour one way (unit d, the sun unit s, up +y), as the dome draws it without clouds, moon or stars:
- * linear, before the lens.
- * @param {number[]} d @param {number[]} s @param {ReturnType<typeof airOf>} air
- */
+/** The sky's linear colour along unit d (sun unit s, up +y) without clouds, moon or stars. @param {number[]} d @param {number[]} s @param {ReturnType<typeof airOf>} air */
 export function skyAt(d, s, air) {
 	const { sunE, betaR, betaM } = air;
 	const zen = Math.acos(Math.max(0, d[1]));
@@ -80,12 +60,7 @@ export function skyAt(d, s, air) {
 	});
 }
 
-/**
- * The air at the horizon all round (a little above it, where the haze meets the sky), 16 bearings from +x toward
- * +z: what the haze becomes, warm toward a low sun, pale by day, blue in the blue hour. Linear, before the lens.
- * @param {THREE.Vector3} sun
- * @returns {THREE.Color[]}
- */
+/** The air just above the horizon at 16 bearings, what the haze becomes; linear. @param {THREE.Vector3} sun @returns {THREE.Color[]} */
 export function horizonRing(sun) {
 	const air = airOf(sun.y), s = sun.toArray(), el = 0.05;
 	return Array.from({ length: 16 }, (_, k) => {
@@ -95,7 +70,7 @@ export function horizonRing(sun) {
 }
 
 /** how far the stars have turned at an hour (noon at half past twelve) @param {number} hour */
-export function celestial(hour) {
+function celestial(hour) {
 	return { turn: ((hour - 12.5) / 24) * Math.PI * 2 };
 }
 
@@ -260,10 +235,9 @@ function skyMaterial() {
  */
 
 /**
- * The dome and the stars: one universe.
- * @param {{ clouds?: number, mirror?: boolean, disc?: boolean }} [o] clouds: how much of the sky they cover; mirror:
- *   the stars drawn mirrored north for south, for a real place's sky (./sky.js `map`); disc: the sun's disc (none in
- *   the sky's light, whose reflection would sparkle on every leaf)
+ * The dome and the stars, one universe. @param {{ clouds?: number, mirror?: boolean, disc?: boolean }} [o] clouds: how
+ *   much sky they cover; mirror: stars mirrored north for south, for a real place (./sky.js `map`); disc: the sun's disc
+ *   (none in the sky's light, whose reflection would sparkle on every leaf)
  */
 export function createUniverse(o = {}) {
 	const { material, U } = skyMaterial();
@@ -353,11 +327,7 @@ export function createUniverse(o = {}) {
 	};
 }
 
-/**
- * The turn of the stars over a world on the ground at an hour: the celestial pole stands LATITUDE° up in the north
- * (+z), and the sky turns round it with the sun, a full turn a day.
- * @param {number} hour
- */
+/** The stars' turn at an hour: the pole LATITUDE° up in the north (+z), a full turn a day with the sun. @param {number} hour */
 export function groundStars(hour) {
 	const lat = THREE.MathUtils.degToRad(LATITUDE);
 	const tilt = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, Math.sin(lat), Math.cos(lat)));

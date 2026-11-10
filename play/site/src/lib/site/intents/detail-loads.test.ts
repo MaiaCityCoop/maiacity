@@ -36,7 +36,6 @@ describe('detail loads', () => {
 	test('detail loads: opening a document fetches that document alone, once', async () => {
 		const get = vi.fn(async (path: string) => ({ path }));
 		const opened = createOpened(get);
-		// nothing is read until one is opened
 		expect(get).not.toHaveBeenCalled();
 		expect(await opened.read(ID, listed[1])).toEqual({ path: `/intents/${ID}/docs/${SKELETON}?variant=19` });
 		expect(get).toHaveBeenCalledTimes(1);
@@ -51,6 +50,20 @@ describe('detail loads', () => {
 		await expect(o2.read(ID, listed[0])).rejects.toThrow('gone');
 		expect(await o2.read(ID, listed[0])).toEqual({ ok: true });
 		expect(summaryText(listed[0])).toBe('3 changes: schema, label, source');
+	});
+
+	test('detail loads: the intent itself is read once for each stage it is at, by the board and the detail alike', async () => {
+		const get = vi.fn(async (path: string) => ({ path }));
+		const opened = createOpened(get);
+		expect(await opened.intent(ID, 'proposal')).toEqual({ path: `/intents/${ID}` });
+		await opened.intent(ID, 'proposal');
+		expect(get).toHaveBeenCalledTimes(1);
+		// moved on: read again; forgotten (a document withdrawn): read again
+		await opened.intent(ID, 'ship');
+		expect(get).toHaveBeenCalledTimes(2);
+		opened.forget();
+		await opened.intent(ID, 'ship');
+		expect(get).toHaveBeenCalledTimes(3);
 	});
 
 	test("detail loads: a piece's review renders its source and its diff", () => {
@@ -73,7 +86,6 @@ describe('detail loads', () => {
 		const d = createDecider({ post, read: vi.fn(), onchange: (b) => states.push(b) });
 		const first = d.decide(waiting, 'accept');
 		expect(d.busy).toEqual({ id: ID, verdict: 'accept' });
-		// a second press while it runs does nothing
 		expect(await d.decide(waiting, 'accept')).toBeNull();
 		expect(await d.decide(waiting, 'reject')).toBeNull();
 		expect(post).toHaveBeenCalledTimes(1);

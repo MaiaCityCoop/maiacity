@@ -1,30 +1,14 @@
-// THE STREAM — what a world builds, decided by what is seen. One scheduler for every world, game and sandbox: a world
-// hands it the heavy things it can build (a dome's inside, a district, a building's rooms), each with where it stands
-// and how big it is, and says each frame what is looking — the player's camera, or the studio's shot as the camera
-// moves through it. The stream builds what those views see, the biggest on screen first, one build at a time, within
-// the world's budget, and lets go of what no view wants any more, the longest unseen first.
-//
-// - Seen, not near: a thing is wanted when it is inside a view's frustum (within `far`), or within the view's `near`
-//   (a player who turns round finds what stands round them built; a shot's exact camera path needs no such margin).
-// - On screen first: among the wanted, the one that covers most of the picture (its radius over its distance).
-// - A budget, never exceeded: the cost of all that is built and building stays within it; what is let go first is
-//   what was wanted longest ago, never something pinned (the shots ahead) or wanted now.
-// - One build at a time (`concurrency`): a build is a burst of work on the page's thread; two at once halve each
-//   other's speed and double the peak memory. A build nobody wants any more finishes, unless something wanted waits
-//   for its turn; while nothing wanted waits, the nearest is built ahead into spare room (`ahead`) — unless shots are
-//   pinned: a film knows every view it will need, and a build none of them wants is only work and garbage while it plays.
-// - `ready(views)`: a film shot waits for exactly what its camera path sees, and nothing else.
-//
-// Plain JavaScript and no THREE of its own: a view's frustum is anything with `intersectsSphere` (THREE.Frustum),
-// so the stream runs in a test as it runs in a world.
+// What a world builds, decided by what is seen: one scheduler for every world. A world hands it the heavy things it can
+// build (where, how big) and says each frame what is looking (the player's camera, or a shot's); it builds what those
+// see, biggest on screen first, within the budget, and lets go of the longest unseen. One build at a time
+// (`concurrency`): two at once halve each other's speed and double peak memory. No THREE (a frustum is anything with
+// `intersectsSphere`), so it runs in a test as in a world.
 
 /**
  * @typedef {{ x: number, y: number, z: number, frustum?: { intersectsSphere(s: { center: { x: number, y: number, z: number }, radius: number }): boolean, containsPoint(p: { x: number, y: number, z: number }): boolean } | null, near?: number }} View
- *   a camera looking: where it stands, what it sees (none: all round it), and how near round it a thing is wanted
- *   unseen
+ *   a camera looking: where it stands, what it sees (none: all round it), and how near round it a thing is wanted unseen
  * @typedef {{ id: string | number, x: number, y?: number, z: number, r: number, cost?: number, build: (job: { cancelled: boolean }) => Promise<any>, dispose?: (handle: any) => void }} Item
- *   a thing a world can build: where its middle is, how far it reaches (its bounding sphere's radius), what it costs
- *   in the budget (1 by default), how to build it (the job is told when it is cancelled) and how to let it go
+ *   a thing a world can build: its middle, bounding radius, budget cost (1), build and dispose
  * @typedef {{ item: Item, state: 'idle' | 'building' | 'built' | 'failed', handle: any, job: { cancelled: boolean } | null, seen: number, failedAt: number }} Entry
  */
 
@@ -34,9 +18,8 @@ const RETRY = 10000;
 /**
  * @param {{ budget?: number, concurrency?: number, far?: number, near?: number, ahead?: boolean, now?: () => number,
  *   onBuilt?: (item: Item, handle: any) => void, onDisposed?: (item: Item) => void }} [o]
- *   budget: the most the built and building may cost together; far: beyond it nothing is wanted, seen or not;
- *   near: the views' default `near`; ahead: build the nearest unwanted into spare room while nothing wanted waits
- *   (`ahead`); onBuilt / onDisposed: the world shows and hides what comes and goes
+ *   budget: the most built and building may cost; far: nothing wanted beyond it; near: the views' default; ahead: build
+ *   the nearest unwanted into spare room while nothing wanted waits; onBuilt / onDisposed: the world shows and hides them
  */
 export function createStream(o = {}) {
 	const budget = o.budget ?? Infinity, concurrency = o.concurrency ?? 1, far = o.far ?? Infinity, near = o.near ?? 0;
@@ -53,10 +36,7 @@ export function createStream(o = {}) {
 	const waiting = new Set();
 	const cost = (/** @type {Item} */ i) => i.cost ?? 1;
 
-	/**
-	 * How much view `v` wants item `i`: 0 not at all; else the bigger the more it covers of the picture.
-	 * @param {Item} i @param {View} v
-	 */
+	/** How much view `v` wants item `i`: 0 not at all, else more the more of the picture it covers. @param {Item} i @param {View} v */
 	function want(i, v) {
 		const y = i.y ?? 0;
 		const d = Math.max(0, Math.hypot(i.x - v.x, y - v.y, i.z - v.z) - i.r);
@@ -65,10 +45,7 @@ export function createStream(o = {}) {
 		if (seen) return 1 + i.r / Math.max(d, 1);
 		return d < (v.near ?? near) ? i.r / Math.max(d, 1) : 0;
 	}
-	/**
-	 * The items views `vs` want, most wanted first, as many as the budget holds.
-	 * @param {View[]} vs @returns {Item[]}
-	 */
+	/** The items views `vs` want, most wanted first, as many as the budget holds. @param {View[]} vs @returns {Item[]} */
 	function wanted(vs) {
 		const scored = [];
 		for (const e of entries.values()) {
@@ -131,10 +108,7 @@ export function createStream(o = {}) {
 			});
 	}
 
-	/**
-	 * The nearest things to what is looked at (within `far`) that nobody wants yet: built ahead while nothing wanted
-	 * waits, so a turn or the next shot finds them ready. Never bought with a let-go: only into room the budget has.
-	 */
+	/** The nearest unwanted things within `far`, built ahead into room the budget has (never by a let-go) while nothing wanted waits. */
 	function ahead() {
 		const views = [...looking, ...pinned.flat()];
 		return [...entries.values()]
@@ -156,8 +130,7 @@ export function createStream(o = {}) {
 			if (e.state === 'building') running++;
 		}
 		const waits = [...want.values()].map((i) => /** @type {Entry} */ (entries.get(i.id))).filter((e) => !live(e) && !(e.state === 'failed' && t - e.failedAt < RETRY));
-		// a build nobody wants now finishes (it is wanted again soon, as often as not) unless something wanted waits for
-		// its turn: then it gives way
+		// an unwanted build finishes (often wanted again soon) unless something wanted waits for its turn: then it gives way
 		if (waits.length)
 			for (const e of entries.values())
 				if (running >= concurrency && e.state === 'building' && !want.has(e.item.id)) {
@@ -212,11 +185,7 @@ export function createStream(o = {}) {
 		handle: (id) => entries.get(id)?.handle ?? null,
 		/** @param {string | number} id */
 		building: (id) => entries.get(id)?.state === 'building',
-		/**
-		 * Resolves once everything views `vs` want is built (or has failed: a thing that cannot be built holds no shot
-		 * back), the views pinned meanwhile so nothing they need is let go.
-		 * @param {View[]} vs
-		 */
+		/** Resolves once all views `vs` want is built or failed, pinning them meanwhile. @param {View[]} vs */
 		ready(vs) {
 			const ids = wanted(vs).map((i) => i.id);
 			const done = () => ids.every((id) => {

@@ -1,6 +1,5 @@
-// Who is asking (play/SPEC.md §1, §7): a passkey is the whole account. Sign-up is open and makes a traveler of Maia
-// City; the legacy founders' passkeys were copied in, and as the relying party is maia.city (RP_ID), the same passkey
-// signs in here. A session is a signed cookie of play.maia.city alone. Ported from aven/api/src/passkey.ts, session.ts.
+// Who is asking (play/SPEC.md §1, §7): a passkey is the whole account. The legacy founders' passkeys were copied in, and
+// as the relying party is maia.city (RP_ID) the same passkey signs in here; a session is a signed cookie of play.maia.city.
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -8,16 +7,17 @@ import {
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import type { Db, Queryable } from "./pg";
+import type { Db, Queryable } from "./kit/pg";
 import { COOP } from "./access";
+import { HttpError } from "./kit/errors";
 
 const env = (k: string, d: string) => (process.env[k] ?? d).trim();
-export const RP_ID = () => env("RP_ID", "localhost");
+const RP_ID = () => env("RP_ID", "localhost");
 const RP_NAME = () => env("RP_NAME", "maiaCITY play");
 const ORIGINS = () => env("SITE_ORIGIN", "http://localhost:5173").split(",").map((o) => o.trim()).filter(Boolean);
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
-export type Human = { id: string; name: string };
+type Human = { id: string; name: string };
 
 // open challenges, short-lived, in memory (one container serves play)
 type Challenge = { purpose: "register" | "login"; name?: string; invite?: string; expires: number };
@@ -48,10 +48,7 @@ function challengeOf(body: any): string {
 
 export const cleanName = (name: unknown) => `${name ?? ""}`.trim().replace(/\s+/g, " ").slice(0, 60);
 
-/**
- * Sign-up is by invite only (Samuel 2026-11-02): an admin's invite, open (unused, not expired), makes a traveler, and
- * is used up as the passkey is made. Becoming a citizen comes later, by an admin's hand.
- */
+/** Sign-up is by invite only (Samuel 2026-11-02): an open admin invite makes a traveler, used up as the passkey is made. */
 export async function registerOptions(db: Queryable, name: string, invite: unknown): Promise<Result<unknown>> {
   const clean = cleanName(name);
   if (clean.length < 2) return { ok: false, error: "Please give a name with at least two characters." };
@@ -72,11 +69,11 @@ export async function registerOptions(db: Queryable, name: string, invite: unkno
   return { ok: true, value: options };
 }
 
-export class InviteUsed extends Error {}
+class InviteUsed extends HttpError {}
 
 /**
- * A new human, their passkey and their membership as a traveler, in one transaction; with an invite, the invite used up
- * by them (it works once; InviteUsed if it no longer can) and who made it named as who let them in.
+ * A new human, passkey and traveler membership in one transaction; with an invite, used up by them (once; InviteUsed if
+ * it no longer can) and its maker named as who let them in.
  */
 export async function createHuman(db: Db, name: string, passkey?: { id: string; publicKey: string; counter: number; transports?: string | null }, invite?: string): Promise<Human> {
   const id = randomUUID();
@@ -154,7 +151,7 @@ export async function loginFinish(db: Db, body: any): Promise<Result<Human>> {
         id: key.id,
         publicKey: new Uint8Array(Buffer.from(key.public_key, "base64url")),
         counter: Number(key.counter),
-        transports: key.transports ? (key.transports.split(",") as any) : undefined,
+        transports: key.transports ? key.transports.split(",") : undefined,
       },
     });
   } catch (e) {
@@ -171,7 +168,7 @@ export async function loginFinish(db: Db, body: any): Promise<Result<Human>> {
 
 // ------------------------------------------------------------------ sessions
 
-const COOKIE = "play_session";
+export const COOKIE = "play_session";
 const LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 let SECRET = "";
 
@@ -209,7 +206,6 @@ const secure = () => (RP_ID() === "localhost" ? "" : "; Secure");
 export const sessionCookie = (token: string) => `${COOKIE}=${token}; Path=/; Max-Age=${LIFETIME_MS / 1000}; SameSite=Lax; HttpOnly${secure()}`;
 export const clearCookie = () => `${COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly${secure()}`;
 
-/** the human a request's session names, or null */
 export function humanIdFrom(req: Request): string | null {
   for (const part of (req.headers.get("cookie") ?? "").split(";")) {
     const [k, ...rest] = part.trim().split("=");

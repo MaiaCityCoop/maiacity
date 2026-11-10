@@ -3,6 +3,7 @@
 !play/site
 !play/api
 !play/media
+!.github/required-checks.json
 **/node_modules
 **/.svelte-kit
 **/build

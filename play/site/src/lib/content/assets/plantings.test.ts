@@ -7,7 +7,7 @@ import { createPlantings } from './plantings.js'
 describe('plantings', () => {
 	it('dispose, and dispose again, throws nothing, whether anything was planted or not', () => {
 		const scene = new THREE.Scene()
-		const p = createPlantings({ renderer: {} as THREE.WebGLRenderer, camera: new THREE.PerspectiveCamera(), scene })
+		const p = createPlantings({ renderer: {} as import('three/webgpu').WebGPURenderer, camera: new THREE.PerspectiveCamera(), scene })
 		p.clear()
 		expect(() => p.dispose()).not.toThrow()
 		expect(() => p.dispose()).not.toThrow()

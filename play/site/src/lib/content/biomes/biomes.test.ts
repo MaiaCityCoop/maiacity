@@ -1,7 +1,5 @@
-// The biomes as they were before the tired land's surfaces and rows came (play/SPEC.md §4.11, contract v2's land part):
-// every one of the existing floors must still be painted and laid exactly as before. Each biome's surfaces, sampled
-// over its ground, and its cover, tile by tile, are held to fingerprints taken from the code as it was (main at
-// df4faee); and the new surfaces and rows are checked on their own.
+// The biomes as they were before the tired land's surfaces and rows (play/SPEC.md §4.11): every existing floor painted
+// and laid exactly as before, held to fingerprints from main at df4faee; the new surfaces and rows checked on their own.
 import { describe, expect, it } from 'vitest';
 // @ts-ignore — plain JS
 import { BIOMES, SURFACES, layTile, surfacesAt } from './index.js';

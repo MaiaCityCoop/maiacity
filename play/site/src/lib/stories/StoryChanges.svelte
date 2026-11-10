@@ -4,17 +4,13 @@
 	from what it was to what it would be. Read only.
 -->
 <script lang="ts" module>
-	export type Change = { field: string; from: unknown; to: unknown };
-	export type DiffClip = { id: string; at: number; duration: number; [k: string]: unknown };
-	export type StoryDiff = {
-		title: { from: string; to: string } | null;
-		settings: Change[];
-		tracks: { id: string; kind: string; state: 'added' | 'removed' | 'same' | 'changed'; added: DiffClip[]; removed: DiffClip[]; changed: { id: string; changes: Change[] }[] }[];
-	};
+	export type { StoryDiff } from '$wire';
 </script>
 
 <script lang="ts">
+	import type { Clip as DiffClip, StoryChange as Change, StoryDiff } from '$wire';
 	import { linkedOf, type Links } from './timeline';
+	import { HASH } from '$lib/kernel/hash.js';
 
 	/** `links`: the versions both sides link (the proposal's and its base's), to name them by their story and number */
 	let { diff, fresh = false, links = {} }: { diff: StoryDiff; fresh?: boolean; links?: Links | null } = $props();
@@ -25,7 +21,7 @@
 		if (v === null || v === undefined || v === '') return '—';
 		if (typeof v === 'number') return `${Math.round(v * 100) / 100}`;
 		if (field === 'version' && typeof v === 'string' && links?.[v]) return `v${links[v].number}`;
-		const s = typeof v === 'string' ? (/^[0-9a-f]{64}$/.test(v) ? `${HASHED[field] ?? 'file'} ${v.slice(0, 10)}…` : v) : JSON.stringify(v);
+		const s = typeof v === 'string' ? (HASH.test(v) ? `${HASHED[field] ?? 'file'} ${v.slice(0, 10)}…` : v) : JSON.stringify(v);
 		return s.length > n ? s.slice(0, n - 1) + '…' : s;
 	};
 	/** the version a link clip plays, by its story's title and its number where it can be read ("The trailer · v3") */

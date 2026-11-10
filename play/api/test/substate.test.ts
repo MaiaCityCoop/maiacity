@@ -1,26 +1,16 @@
-// Sub-states (src/substate.ts, play/SPEC.md §4.12 "Sub-states"; intent 2bf8af96-5708-42d2-8556-da35f3f805ba) against a
-// real Postgres (TEST_DATABASE_URL) and a fake GitHub (./fixtures/github.ts). Every open intent is failed, waiting,
-// working or idle, with its reason, said by one function, subStateOf; the board groups by it and only a waiting intent
-// is approved or accepted. Ship's watcher reads the open intents' pull requests (pr_seen); the board asks GitHub nothing.
-// Approve spec is never held: a held intent waits in Build, idle, its checks and proposals refused, its brief null.
+// Sub-states (src/substate.ts, play/SPEC.md §4.12; intent 2bf8af96-5708-42d2-8556-da35f3f805ba) against a real Postgres
+// and a fake GitHub (./fixtures/github.ts).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
-import { Rate } from "../src/limits";
-import { watchTick, type Pull } from "../src/ship";
+import { type Db } from "../src/kit/pg";
+import { watchTick } from "../src/watcher";
+import { type Pull } from "../src/github";
 import { carrySeen } from "../src/mainmerge";
 import { checksSeen, sub, subStateOf, type PrSeen } from "../src/substate";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 const SPEC = {
@@ -163,7 +153,7 @@ describe("results across play's main merges", () => {
 
   test("kept across two main merges in a row", () => {
     let s = carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B }), [A, M1]);
-    // main moves again: play merges M2 into B (./mainmerge.ts goes on with the row), GitHub makes C
+    // main moves again: play merges M2 into B (../src/mainmerge.ts goes on with the row), GitHub makes C
     s = { ...s, merged_in: [...s.merged_in!, merge(B, M2)] };
     s = carrySeen(s, seen({ head: B }));
     expect(s.merged_in).toHaveLength(2);
@@ -190,7 +180,6 @@ describe("results across play's main merges", () => {
     expect(of(row(seen({ head: B })))).toMatchObject({ state: "working", tag: "head moved" });
     // parents not read (GitHub refused): nothing carried
     expect(carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B })).merged_in).toBeUndefined();
-    // a conflict with main: failed
     expect(of(row({ ...made, mergeable: false }))).toMatchObject({ state: "failed", tag: "conflicts with main" });
     // a red required check on the merged head: failed, nothing kept
     expect(of(row({ ...made, checks: { ...GREEN, "play / API and site": "failure" } }))).toMatchObject({ state: "failed", tag: "check red" });
@@ -210,28 +199,21 @@ describe("results across play's main merges", () => {
 });
 
 suite("sub-states on the board", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   let token = "";
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     await seedSkills(db); // the Intents skill: an intent's brief
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
-    const h = await createHuman(db, "ada");
-    who.ada = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [h.id]);
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
+    who.ada = await human(db, "ada");
     const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
     token = made.token;
     // avenBOX's token (play/SPEC.md §4.12): a code intent's results on a commit, and its pull request, are taken from it alone
@@ -239,34 +221,14 @@ suite("sub-states on the board", () => {
   });
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie: who.ada.cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    const j = await r.json();
-    if (j.error) return { error: j.error.message as string };
-    const text = j.result.content[0].text;
-    return j.result.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: who.ada.cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
   const intent = async (id: string) => (await call("GET", `/api/intents/${id}`)).data;
   const decide = (id: string, verdict: string) => call("POST", `/api/intents/${id}/${verdict}`);
-  const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
+  const clearShips = () => fx.clearShips(db);
   let k = 0;
   const add = async (title = "Intent") => (await tool("add_intent", { title: `${title} ${++k}`, kind: "improve" })) as { id: string; title: string };
   const specified = async (title?: string) => {
@@ -316,13 +278,12 @@ suite("sub-states on the board", () => {
         expect({ id, status: r.status }).toEqual({ id, status: 409 });
         expect(r.data.error).toContain(STUB.why);
       }
-      const listed = (await call("GET", "/api/intents")).data as any[];
+      const listed: { id: string; sub: unknown }[] = (await call("GET", "/api/intents")).data;
       expect(listed.length).toBeGreaterThan(3);
       for (const i of listed) expect(i.sub).toEqual(STUB);
     } finally {
       sub.of = real;
     }
-    // nothing moved, nothing merged
     expect((await intent(atSpecify.id)).stage).toBe("specify");
     for (const i of [toAccept, withWork, toShip]) expect((await intent(i.id)).stage).toBe("proposal");
     expect(gh.calls.filter((c) => c.method === "PUT")).toEqual([]);
@@ -355,7 +316,7 @@ suite("sub-states on the board", () => {
     expect((await intent(c.id)).sub.state).toBe("failed");
     expect(gh.calls.filter((x) => x.method !== "GET")).toEqual([]);
     pr.mergeable = true;
-    await watchTick(db, gh.gh, Date.now(), null);
+    await watchTick(db, gh.gh, store, Date.now(), null);
     expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
     expect((await decide(c.id, "accept")).data).toMatchObject({ stage: "ship", ship: { pending: null } });
     await clearShips();
@@ -367,7 +328,7 @@ suite("sub-states on the board", () => {
     gh.checks.set(c.head, [green("play / API and site"), { ...green("website / build"), status: "queued", conclusion: null }]);
     expect((await intent(c.id)).sub).toEqual({ state: "working", tag: "reading GitHub", why: `reading #${c.pr} on GitHub` });
     const before = Date.now();
-    await watchTick(db, gh.gh, Date.now(), null);
+    await watchTick(db, gh.gh, store, Date.now(), null);
     const { rows: [r] } = await db.query<any>(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id]);
     expect(r.pr_seen).toMatchObject({ pr: c.pr, head: c.head, draft: false, mergeable: null, state: "open", checks: { "play / API and site": "success", "website / build": "queued" } });
     expect(Date.parse(r.pr_seen.at)).toBeGreaterThanOrEqual(before - 1000);

@@ -1,8 +1,6 @@
 /*
- * The grass's node material compiled to GLSL without a GPU (intent 090168c8): three's own WebGL nodes handler and its
- * GLSL builder, run against a renderer that only answers what they ask, so a shader that would not build fails here
- * and not on the Mac. `bun scripts/grass-glsl.ts [--print]`: exits 0 when every level's vertex and fragment shaders
- * build; --print shows them.
+ * The grass's node material compiled to GLSL without a GPU (intent 090168c8) by three's WebGL nodes handler against a
+ * stub renderer, so a shader that won't build fails here, not on the Mac. `bun scripts/grass-glsl.ts [--print]`.
  */
 import * as THREE from 'three';
 import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';

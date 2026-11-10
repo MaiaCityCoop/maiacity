@@ -54,7 +54,7 @@ request is run and recorded again (a newer head cancels the older head's run, wh
 play's intents' board takes **only a waiting intent** (play/SPEC.md §4.12 *Sub-states*: its pull request's head the checked one, mergeable, its required checks green; working or failed, Accept is refused with why) and puts it in **Ship** at once: there it waits its turn (one ship at a time, in the order
 accepted) and for GitHub (the pull request's checks green, its mergeability worked out), its reason shown live, and
 play then merges the pull request itself (it posts the commit status **`Intent accepted`** on its head first; main's
-ruleset requires it, with `play / API and site` and `website / build`); Ship shows live main's checks, the release and
+ruleset requires it, with the checks `.github/required-checks.json` names); Ship shows live main's checks, the release and
 the deploy (backup, image, server, website); it is Accepted exactly when play runs its merge commit (the reconcile, `play/api/src/ship.ts`, against the commit `GET /api/version` names; an Accepted one not live is flagged); a red step brings it back to Proposal with the report: fix it in a new pull request of the intent (its
 run records its checks on its head as it is marked ready), and Accept ships it again. After the merge,
 `.github/workflows/intents.yml` runs the intent's checks again on main in the same box and records them as main's, a

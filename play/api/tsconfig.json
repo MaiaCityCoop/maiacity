@@ -9,6 +9,6 @@
     "allowJs": true,
     "types": ["bun"]
   },
-  "include": ["src", "import", "migrations", "test", "scripts"],
+  "include": ["src", "import", "migrations", "test"],
   "exclude": ["import/legacy/sources"]
 }

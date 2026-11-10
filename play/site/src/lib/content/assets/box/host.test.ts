@@ -20,7 +20,6 @@ describe('the asset box under the device budget', () => {
 		const { box, open } = handBox()
 		const builds = [box.build(recipe, {}, {}), box.build(recipe, {}, {}), box.build(recipe, {}, {})]
 		await tick()
-		// one job asked of the box at a time
 		expect(open.length).toBe(1)
 		// so every other turn of the page is still free: another box builds at once
 		const others: (() => void)[] = []
