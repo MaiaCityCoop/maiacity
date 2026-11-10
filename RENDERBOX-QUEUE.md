@@ -1,6 +1,36 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+**16:41 Berlin, MAC JOB 2 (405f7a85) pushed: `intent-work/405f7a85-render` `524eb3c33`** (production 672ae57; numbers and
+how each was read in out/summary.json).
+- **Safari: not run.** safaridriver refuses: "Allow remote automation" is off (Samuel's); its session would be clean too.
+  Playwright's WebKit 26.6 (Safari's engine; Samuel's Safari is 26.1) stands in.
+- **C, the load:** WebKit Sandbox 1 **190 s**, Sandbox 5 **200 s**; Chromium the same runs 190 s and 160 s (job 1: 208, 187).
+  Safari's engine loads no slower here.
+- **A, the frame (meter, 20 s; ms frame / cpu / gpu, bound):**
+  | | WebKit standing | WebKit walking | Chromium standing | Chromium walking |
+  |---|---|---|---|---|
+  | Sandbox 1 | 65.6 / 26.2 / 28.8, gpu | 135.2 / 85 / 31.8, cpu | 39.7 / 33.9 / 22.8, cpu | 62.9 / 50.7 / 23.4, cpu |
+  | Sandbox 5 | 63.5 / 23.2 / 40.9, gpu | **281.9 (p95 2123) / 226.9** / 39.7, cpu | 40.7 / 23.4 / 36.3, gpu | 86.9 / 53.1 / 30.1, cpu |
+  | Sandbox 3 | 24.6 / 9.1 / 10.6, vsync | 23.2 / 7.5 / 10.3, vsync | 16.7 / 7.8 / 8.7, vsync | 16.7 / 6.1 / 8.3, vsync |
+  1,300–1,800 draws and 3.5–9.5 M triangles a frame in Sandbox 1 and 5; 460–620 and 0.9 M in Sandbox 3.
+- **B, the WebGPU calls a frame (standing):** the API itself is cheap: **5–7 ms a frame in WebKit, 5–9 in Chromium**, WebKit's
+  calls no slower. Made far too often: `queue.writeBuffer` **720 (S1) / 2,140 (S5) / 970 (S3)** a frame in WebKit (up to
+  3,060 walking), `setVertexBuffer` 2,100 / 4,200 / ~1,000, `setBindGroup` 1,150 / 1,770, and a command encoder and a
+  submit per pass (~25–30 a frame). Nothing of the page's is created every frame (pipelines 0.1–0.3, shader modules
+  0.3–0.6, bind groups 0.5–1.5 a frame); the ~50 buffers and ~25 query sets a frame are the meter's own timers.
+  **The CPU goes to JS outside the WebGPU calls**: S1 standing WebKit 18.8 ms vs Chromium 26.9; **S5 walking WebKit 122 ms
+  (p95 572) vs Chromium 21.6**; S3 ~5 ms in both.
+- **Across the three worlds:** the same calls lead the API's share everywhere (writeBuffer first), but that share is
+  small; what makes Sandbox 1 and 5 slow (and Sandbox 5 walking in WebKit worst) is the per-frame JS outside the API,
+  which Sandbox 3 hardly has. **Not one shared cause by these numbers**: Sandbox 3 runs at 24 ms in WebKit, vsync in Chromium.
+- **Census vs the real frame (Sandbox 1):** near census 7.68 M main + 15.6 M shadow tris, 11,383 draws (7,784 shadow) vs
+  real 3.74 M, 1,327 draws, **no shadow pass in the median frame** (2048² shadow passes in one logged frame, no draws
+  in them); mid 11.9 M + 18.9 M vs 6.84 M; far 3.11 M + 2.56 M vs 3.09 M (far's main pass matches).
+- **Sandbox 1's load (61–205 s, shown 200 s):** main thread 75 % idle (busy 16 s of 144), GPU process 3 %; the **dedicated
+  workers** (the box's recipe workers) ran ~160 s of tasks in those 144 s: about **one core** of eight, the plants built
+  one after another. One 3.65 s main-thread task at 194 s, 46 long tasks (8.6 s) in the window.
+
 - **smoke 672ae5797: BROKE** ([ffd02ebf] The sandboxes load again: GPU 12/14's far-tree impostors reverted (the bisect's; 487 s). 16 pages; all drawn; not up: sandbox-1, machine-forklift; new errors: sandbox-1: console: flora: chestnut@6:12:sandbox-5 did not grow: build ran longer than 20000 ms. Frames: near 17.8 ms · mid 16.9 ms · far 16.9 ms.
 - **smoke 9cbf7c1af: OK** ([e85a5860] Grass by the million: blades culled and chosen on the graphics card (#2224); 429 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 5c9edac10: OK** ([a5faafad] GPU 14/14 · Recipes bring their own shaders, safely: TSL node graphs as checked; 397 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
