@@ -299,7 +299,9 @@ suite("main merged into open intent pull requests", () => {
       const c = await codeAtProposal();
       lim.pulls.set(c.pr, gh.pulls.get(c.pr)!);
       lim.checks.set(c.head, gh.checks.get(c.head)!);
-      const t0 = Date.parse("2026-11-10T09:20:00Z");
+      // ahead of the real clock, which the board reads its sub-state by (a fixed time passed breaks it on the day)
+      const t0 = Math.ceil(Date.now() / 60_000) * 60_000 + 60 * 60_000;
+      const at = (ms: number) => new Date(ms).toISOString().slice(11, 16);
       const reset = t0 + 40 * 60_000;
       lim.clock.at = t0;
       lim.answerAll({ status: 403, message: "API rate limit exceeded", headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": `${reset / 1000}` } });
@@ -312,8 +314,8 @@ suite("main merged into open intent pull requests", () => {
         await watchTick(db, lim.gh, store, lim.clock.at, null, state);
       }
       expect(lim.calls.length).toBe(1);
-      expect((await intent(c.id)).sub).toEqual({ state: "working", tag: "GitHub's limit", why: "GitHub's limit: play reads again at 10:00" });
-      expect(said.filter((l) => l.includes("GitHub's limit"))).toEqual(["ship: GitHub's limit: play reads again at 10:00"]);
+      expect((await intent(c.id)).sub).toEqual({ state: "working", tag: "GitHub's limit", why: `GitHub's limit: play reads again at ${at(reset)}` });
+      expect(said.filter((l) => l.includes("GitHub's limit"))).toEqual([`ship: GitHub's limit: play reads again at ${at(reset)}`]);
       // the reset passed, GitHub answering: read again, the board as before
       lim.answerAll(null);
       lim.clock.at = reset + 1_000;
@@ -331,7 +333,7 @@ suite("main merged into open intent pull requests", () => {
       lim.clock.at = t1 + 60_000;
       await watchTick(db, lim.gh, store, lim.clock.at, null, state);
       expect(lim.calls.length).toBe(n + 1);
-      expect((await intent(c.id)).sub.why).toBe(`GitHub's limit: play reads again at ${new Date(t1 + 120_000).toISOString().slice(11, 16)}`);
+      expect((await intent(c.id)).sub.why).toBe(`GitHub's limit: play reads again at ${at(t1 + 120_000)}`);
 
       // a refused token: named as such
       lim.clock.at = t1 + 3 * 60_000;

@@ -669,7 +669,8 @@ suite("accept ships it", () => {
     // the watcher's look as play runs main's head: the reconcile of the three green in Ship, one compare each
     let from = gh.calls.length;
     await watchShips(db, gh.gh, store, Date.now(), gh.main.head);
-    const asked = gh.calls.slice(from).map((c) => `${c.method} ${c.path.split("?")[0]}`);
+    // (the status 'Intent', "Accepted: live", one each as they are Accepted, is ./intentstatus.test.ts's)
+    const asked = gh.calls.slice(from).filter((c) => c.body?.context !== INTENT_CONTEXT).map((c) => `${c.method} ${c.path.split("?")[0]}`);
     expect(asked.filter((c) => c.startsWith("GET /compare/")).length).toBeLessThanOrEqual(3);
     expect(asked.filter((c) => c === "GET /commits")).toEqual([]);
     expect(asked.length).toBeLessThanOrEqual(3);
