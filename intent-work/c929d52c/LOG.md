@@ -69,3 +69,50 @@ the sun's path) and a low sun also lights the bases. `box/round7.png`: **rose cl
 shadows, white at noon.** Against the references: colour and softness right; dawn clouds are evenly rose where a real
 field goes from orange near the sun to grey away from it; noon bodies still lack a firm bright rim against a darker
 base; one layer, no parallax; no cirrus above.
+
+## Round 8 · rim and base by day (23:36)
+
+Darker bases, the shade taken from further toward the sun, a little more light. `box/round8.png`: the noon clouds'
+edges are whiter than their middles now; modest.
+
+## Round 9–10 · glow toward the sun; a veil tried and dropped (23:37)
+
+A cloud between the eye and the sun glows, one opposite the sun is lit from the front, those to the side least
+(`box/round10.png`). A thin high veil of streaks (two more noise reads) was tried in round 9: it hardly showed, so it
+is out again; nothing is kept that does not show.
+
+## Round 11 · the drift (23:38)
+
+In the box: from one of the sky's once-a-second sets to the next the picture changed at cloud edges by a pixel or two
+(mean 1.3 of 255 in red, peaks 77): a tick you would see. The wind is now set every frame (one number), the sky's
+light still once a second. A cloud crosses a cell (about 300 px, 30° up) in three real minutes: slow, visible.
+Midnight (23.999 → 0.001): no jump in the clouds (the day's drift is whole periods).
+
+## How long a GPU round is (23:38)
+
+One world in one browser is six to seven minutes on the macOS runner (play/SPEC.md §4.12); the spec's two GPU checks
+load Sandbox 1 four times: **about 27 minutes a GPU round**, not five. So: the box's harness for every change (seconds),
+the runner for what only a GPU shows (both engines, Metal, the whole world under the sky), few rounds.
+
+## What real clouds would take (for a next intent, Samuel's to decide)
+
+This intent's clouds are **one flat layer**: a density on a plane, lit by two cheap tricks (a second coarse sample
+toward the sun; brightness by thinness). That gives soft lobed outlines, a believable colour through the day and
+slow drift, for 8 noise reads a sky pixel (main: 5). What it cannot give:
+
+1. **Volume and parallax** (towers, a cloud's side seen as you walk under it, shadows of one cloud on another).
+   Needs a slab marched along the eye's ray: 16–32 steps of a 3D density, each with 4–6 steps toward the sun. Read
+   from noise worked out per step that is some 300–800 noise reads a pixel; with two small 3D textures (a 128³ shape
+   and a 32³ detail, built once, about 2 MB of GPU memory) it is 100–200 texture reads. On a phone that is a pass of
+   its own at half or quarter resolution, spread over frames (one sixteenth of the pixels a frame, the rest
+   reprojected), then laid over the sky: one more render pass, a history texture, and care at the horizon and behind
+   trees. An order of 1–2 ms a frame on an M1 at 1440 × 900, more on a phone; it must be measured on Samuel's Mac.
+2. **Clouds that shade the land** (their shadows drifting over the forest): the sun's light times the same density
+   where the sun's ray meets the layer; one more texture read in every lit material, so it touches the world's
+   materials, not only the sky.
+3. **The sky's light following the clouds** (a greyer world under a grey sky): the environment is baked without
+   clouds today; with them it must be baked again as they move.
+4. **Weather** (cover and kind changing by the day: cirrus, stratus, towering cumulus, rain): a cover that is data of
+   the world, not a constant of the sky.
+
+Each is its own intent; 1 is the one that makes a screenshot read as a photograph.
