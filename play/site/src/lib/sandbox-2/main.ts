@@ -10,7 +10,7 @@ import { brickHouseScenario } from './brick-house';
 import { metalShedScenario } from './metal-shed';
 import { domeScenario, DEFAULT_DOME_DIAMETER, MIN_DOME_DIAMETER, DEFAULT_DOME_SETTINGS, type DomeSettings } from './dome';
 import { WIND_DIRECTIONS, type WindSettings, type WindLoad } from './wind';
-import { WorkerClient, SimulationView, BuildView } from './worker-client';
+import { WorkerClient, SimulationView, BuildView, unlessSuperseded } from './worker-client';
 import { industrialHallScenario } from './industrial-hall';
 import { germanHouseScenario } from './german-house';
 import {standScenario,STAND_HUBS,DEFAULT_STAND_SETTINGS,STAND_LAB_MIN_HEIGHT,STAND_LAB_MAX_HEIGHT,type StandSettings} from './stand-lab';
@@ -429,7 +429,8 @@ export async function mountLab(root: HTMLElement): Promise<() => void> {
     if (hit) { selected = hit.object.userData.id; if(!galleryDirty)gallery.selectInstance(selected); el<HTMLSelectElement>('part').value = selected; fillSetup(); void send({type:'select',id:selected}); }
   });
   const resizing = new ResizeObserver(() => { const w = viewport.clientWidth, h = viewport.clientHeight; renderer.setSize(w, h); gallery.resize(w,h); camera.aspect = w / h; camera.updateProjectionMatrix(); }); resizing.observe(viewport);
-  await reset(presets[presets.length - 1], true);
+  // A click on an experiment before this answers starts a newer reset, which takes over (intent cef10a08).
+  await unlessSuperseded(reset(presets[presets.length - 1], true));
   let last = performance.now(), lastDisplay = 0;
   const resume = () => { last = performance.now(); };
   document.addEventListener('visibilitychange', resume);

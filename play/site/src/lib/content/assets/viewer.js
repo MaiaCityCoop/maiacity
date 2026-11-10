@@ -20,6 +20,7 @@
  */
 import { adaptiveResolution, disposeObject, lowPower, topPixelRatio } from '$lib/content/render/core.js';
 import { fit } from '$lib/site/app/turntable.js';
+import { VIEW } from './portrait.js';
 
 /** the stage's views (how it is looked at, any at once), as the bar names them */
 export const VIEWS = /** @type {const} */ ([
@@ -102,9 +103,9 @@ export async function openStage(box, { onLost, hold } = {}) {
  * @param {any} controls
  */
 export function camerawork(THREE, camera, controls) {
-	/** where the camera stands from what it aims at, for each metre of an asset's reach: low enough (about 10° up)
-	 *  that the sky behind the asset is in the frame, the horizon a little over the middle */
-	const BACK = new THREE.Vector3(1.5, 0.45, 1.9);
+	/** where the camera stands from what it aims at, for each metre of an asset's reach (./portrait.js: the sun is
+	 *  placed from it) */
+	const BACK = new THREE.Vector3(...VIEW);
 	/** how much nearer the camera stands while it follows a plant growing than for a still framing (Samuel 2026-11-03:
 	 *  growing, it stayed too far off) */
 	const GROWING = 0.8;
