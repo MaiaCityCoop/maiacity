@@ -1,0 +1,231 @@
+  Letting in the light
+  Laying the paths
+
+
+
+
+
+
+  Letting the stream in
+  Raising the master domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Planting the edges
+  Sowing the fields
+  Planting the canopy
+  Planting the canopy
+  Planting the canopy
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the shrubs
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Growing the forest: 10 of 198 kinds
+  Growing the forest: 20 of 198 kinds
+  Growing the forest: 30 of 198 kinds
+  Growing the forest: 40 of 198 kinds
+  Growing the forest: 50 of 198 kinds
+  Growing the forest: 60 of 198 kinds
+  Growing the forest: 70 of 198 kinds
+  Growing the forest: 80 of 198 kinds
+  Growing the forest: 90 of 198 kinds
+  Growing the forest: 100 of 198 kinds
+  Growing the forest: 110 of 198 kinds
+  Growing the forest: 120 of 198 kinds
+  Growing the forest: 130 of 198 kinds
+  Growing the forest: 140 of 198 kinds
+  Growing the forest: 150 of 198 kinds
+  Growing the forest: 160 of 198 kinds
+  Growing the forest: 170 of 198 kinds
+  Growing the forest: 180 of 198 kinds
+  Growing the forest: 190 of 198 kinds
+  Growing the forest: 198 of 198 kinds
+  Growing the forest
+  Opening the doors
+  Growing the forest: the plants near you
+  ready
+census: sandbox-1 built in 152.6 s (2 routes live, 0 pinned, 405 files; its workers' answers: 319 read as kept, 145 built)
+census: sandbox-1 near: 10,504,998 triangles a frame (3,836,023 main, 6,668,975 shadow), 3876 draws
+census: sandbox-1 mid: 12,667,678 triangles a frame (5,957,334 main, 6,710,344 shadow), 3287 draws
+census: sandbox-1 far: 2,584,704 triangles a frame (1,552,860 main, 1,031,844 shadow), 1531 draws
+
+sandbox-1 near on WebGPURenderer
+  triangles a frame  10,504,998  (main 3,836,023, shadow 6,668,975, into targets 0)
+  draws              3,876  (meshes 977, instanced batches 709, indirect 3, of 36,608 instances, shadow 2,187; compute passes 3)
+  culled             822 objects, 1,240,972 triangles
+  plants not grown   0
+  out                610,810 triangles, 72 draws, 8,411 copies (3,103 pictures, 0 ghosts), shapes 599,894 triangles
+  in                 17,106 triangles, 8 draws, 753 copies (688 pictures, 0 ghosts), shapes 15,730 triangles
+  library            167,531 triangles, 117 draws, 4,767 copies (0 pictures, 0 ghosts), shapes 19,478 triangles
+┌────┬──────────┬───────────────────────────────┬────────┬──────────┬────────┬──────────┐
+│    │ renderer │ kind                          │ shapes │ pictures │ tris   │ farthest │
+├────┼──────────┼───────────────────────────────┼────────┼──────────┼────────┼──────────┤
+│  0 │ out      │ Sweet chestnut                │ 1      │ 230      │ 331934 │ 8.7      │
+│  1 │ out      │ Small-leaved lime             │ 1      │ 140      │ 125778 │ 14.6     │
+│  2 │ out      │ Sea buckthorn                 │ 6      │ 0        │ 56412  │ 15.1     │
+│  3 │ out      │ Blackberry                    │ 5      │ 0        │ 20468  │ 23.6     │
+│  4 │ out      │ Plum                          │ 1      │ 132      │ 17892  │ 12.4     │
+│  5 │ out      │ Cherry                        │ 1      │ 162      │ 11048  │ 20.2     │
+│  6 │ in       │ Mango                         │ 2      │ 53       │ 10634  │ 53.8     │
+│  7 │ out      │ Tomato                        │ 15     │ 0        │ 9508   │ 12.8     │
+│  8 │ library  │ Biome cover: Leaves and twigs │ 26     │ 20       │ 8632   │ 18.7     │
+│  9 │ out      │ Hardy kiwi                    │ 6      │ 0        │ 5660   │ 19.5     │
+│ 10 │ out      │ Haskap                        │ 3      │ 1        │ 5160   │ 20.8     │
+│ 11 │ in       │ King coconut                  │ 1      │ 83       │ 5096   │ 50.5     │
+│ 12 │ library  │ Biome cover: Wild strawberry  │ 13     │ 161      │ 3588   │ 5.4      │
+│ 13 │ out      │ Blueberry                     │ 1      │ 1        │ 3298   │ 11.4     │
+│ 14 │ out      │ Carrot                        │ 12     │ 0        │ 2032   │ 11.6     │
+│ 15 │ library  │ Co-working                    │ 2      │ 0        │ 2004   │ 43       │
+│ 16 │ out      │ Nasturtium                    │ 6      │ 0        │ 1872   │ 12.2     │
+│ 17 │ out      │ Swiss chard                   │ 9      │ 0        │ 1764   │ 10.5     │
+│ 18 │ out      │ Stinging nettle               │ 11     │ 0        │ 1640   │ 12.8     │
+│ 19 │ library  │ Art studio                    │ 2      │ 0        │ 1580   │ 131.6    │
+│ 20 │ out      │ Shiitake                      │ 7      │ 0        │ 1498   │ 11.2     │
+│ 21 │ out      │ Oregano                       │ 3      │ 0        │ 1404   │ 7.6      │
+│ 22 │ library  │ Biome cover: Fern             │ 1      │ 0        │ 1176   │ 9.6      │
+│ 23 │ out      │ Comfrey                       │ 7      │ 0        │ 1010   │ 13       │
+│ 24 │ out      │ Jerusalem artichoke           │ 2      │ 0        │ 932    │ 8.3      │
+│ 25 │ library  │ Woodshop                      │ 1      │ 0        │ 756    │ 93.4     │
+│ 26 │ library  │ Biome cover: Red clover       │ 4      │ 73       │ 592    │ 5.8      │
+│ 27 │ library  │ Repair café                   │ 1      │ 0        │ 592    │ 92.1     │
+│ 28 │ out      │ Wild garlic                   │ 5      │ 0        │ 584    │ 10.2     │
+│ 29 │ library  │ Biome cover: Buttercup        │ 3      │ 40       │ 408    │ 6.8      │
+│ 30 │ library  │ Biome cover: Wood anemone     │ 1      │ 81       │ 150    │ 6.1      │
+│ 31 │ out      │ King coconut                  │ 0      │ 35       │ 0      │ 0        │
+│ 32 │ out      │ Avocado                       │ 0      │ 12       │ 0      │ 0        │
+│ 33 │ out      │ Red banana                    │ 0      │ 20       │ 0      │ 0        │
+│ 34 │ out      │ Papaya: Female                │ 0      │ 21       │ 0      │ 0        │
+│ 35 │ out      │ plants/moringa                │ 0      │ 11       │ 0      │ 0        │
+│ 36 │ out      │ Olive                         │ 0      │ 7        │ 0      │ 0        │
+│ 37 │ out      │ Durian                        │ 0      │ 16       │ 0      │ 0        │
+│ 38 │ out      │ Mango                         │ 0      │ 24       │ 0      │ 0        │
+│ 39 │ out      │ Safou                         │ 0      │ 13       │ 0      │ 0        │
+└────┴──────────┴───────────────────────────────┴────────┴──────────┴────────┴──────────┘
+
+sandbox-1 mid on WebGPURenderer
+  triangles a frame  12,667,678  (main 5,957,334, shadow 6,710,344, into targets 0)
+  draws              3,287  (meshes 1,137, instanced batches 552, indirect 3, of 50,990 instances, shadow 1,595; compute passes 3)
+  culled             71 objects, 10,436 triangles
+  plants not grown   0
+  out                2,851,261 triangles, 113 draws, 8,590 copies (4,910 pictures, 0 ghosts), shapes 2,576,624 triangles
+  in                 100 triangles, 1 draws, 50 copies (50 pictures, 0 ghosts), shapes 0 triangles
+  library            206,038 triangles, 35 draws, 9,691 copies (0 pictures, 0 ghosts), shapes 28,787 triangles
+┌────┬──────────┬────────────────────────────────┬────────┬──────────┬────────┬──────────┐
+│    │ renderer │ kind                           │ shapes │ pictures │ tris   │ farthest │
+├────┼──────────┼────────────────────────────────┼────────┼──────────┼────────┼──────────┤
+│  0 │ out      │ Pecan                          │ 4      │ 324      │ 729660 │ 20.5     │
+│  1 │ out      │ Small-leaved lime              │ 4      │ 226      │ 687910 │ 37.1     │
+│  2 │ out      │ Sweet chestnut                 │ 6      │ 344      │ 288558 │ 49.7     │
+│  3 │ out      │ Turkish tree hazel             │ 3      │ 326      │ 238010 │ 38.5     │
+│  4 │ out      │ Walnut                         │ 12     │ 309      │ 168622 │ 63       │
+│  5 │ out      │ Mulberry                       │ 3      │ 97       │ 144365 │ 24       │
+│  6 │ out      │ Silver birch · Birke           │ 4      │ 225      │ 126352 │ 43.9     │
+│  7 │ out      │ Black alder                    │ 4      │ 228      │ 80836  │ 35.8     │
+│  8 │ out      │ Apple                          │ 2      │ 256      │ 20252  │ 28.4     │
+│  9 │ out      │ Elder                          │ 2      │ 0        │ 18928  │ 24.7     │
+│ 10 │ out      │ Plum                           │ 1      │ 196      │ 17094  │ 13.9     │
+│ 11 │ out      │ Blackberry                     │ 3      │ 0        │ 12586  │ 23       │
+│ 12 │ out      │ Serviceberry                   │ 1      │ 128      │ 12121  │ 13.8     │
+│ 13 │ out      │ Cherry                         │ 1      │ 243      │ 11048  │ 19.9     │
+│ 14 │ library  │ Biome cover: Leaves and twigs  │ 30     │ 40       │ 9960   │ 18.1     │
+│ 15 │ library  │ Biome cover: Moss cushions     │ 9      │ 15       │ 8208   │ 4.9      │
+│ 16 │ out      │ Pear                           │ 1      │ 264      │ 6242   │ 25.9     │
+│ 17 │ out      │ Redcurrant                     │ 1      │ 1        │ 4858   │ 9.5      │
+│ 18 │ out      │ Raspberry                      │ 2      │ 0        │ 3408   │ 8.1      │
+│ 19 │ library  │ Biome cover: Wild strawberry   │ 9      │ 185      │ 2484   │ 4.8      │
+│ 20 │ library  │ Biome cover: Fern              │ 2      │ 1        │ 2352   │ 15.1     │
+│ 21 │ library  │ Biome cover: Red clover        │ 13     │ 117      │ 1924   │ 4.8      │
+│ 22 │ library  │ Biome cover: Wood anemone      │ 12     │ 55       │ 1800   │ 5.7      │
+│ 23 │ out      │ Parsley                        │ 4      │ 0        │ 1792   │ 11.2     │
+│ 24 │ out      │ Runner bean                    │ 14     │ 0        │ 1708   │ 24.2     │
+│ 25 │ library  │ Biome cover: Meadow cranesbill │ 7      │ 21       │ 1176   │ 9.4      │
+│ 26 │ out      │ Rhubarb                        │ 2      │ 0        │ 992    │ 12.8     │
+│ 27 │ out      │ Swiss chard                    │ 3      │ 0        │ 588    │ 8.6      │
+│ 28 │ library  │ Biome cover: Daisy             │ 3      │ 48       │ 522    │ 5.2      │
+│ 29 │ out      │ Wild garlic                    │ 5      │ 0        │ 492    │ 4.1      │
+│ 30 │ library  │ Biome cover: Forget-me-not     │ 1      │ 29       │ 361    │ 4.9      │
+│ 31 │ out      │ Carrot                         │ 1      │ 0        │ 162    │ 12.5     │
+│ 32 │ out      │ Kale                           │ 2      │ 0        │ 40     │ 5.3      │
+│ 33 │ out      │ King coconut                   │ 0      │ 69       │ 0      │ 0        │
+│ 34 │ out      │ Avocado                        │ 0      │ 31       │ 0      │ 0        │
+│ 35 │ out      │ Red banana                     │ 0      │ 43       │ 0      │ 0        │
+│ 36 │ out      │ Papaya: Female                 │ 0      │ 51       │ 0      │ 0        │
+│ 37 │ out      │ plants/moringa                 │ 0      │ 25       │ 0      │ 0        │
+│ 38 │ out      │ Olive                          │ 0      │ 17       │ 0      │ 0        │
+│ 39 │ out      │ Durian                         │ 0      │ 41       │ 0      │ 0        │
+└────┴──────────┴────────────────────────────────┴────────┴──────────┴────────┴──────────┘
+
+sandbox-1 far on WebGPURenderer
+  triangles a frame  2,584,704  (main 1,552,860, shadow 1,031,844, into targets 0)
+  draws              1,531  (meshes 572, instanced batches 282, indirect 3, of 29,566 instances, shadow 674; compute passes 3)
+  culled             0 objects, 0 triangles
+  plants not grown   0
+  out                67,871 triangles, 7 draws, 8,473 copies (7,447 pictures, 0 ghosts), shapes 52,977 triangles
+  in                 0 triangles, 0 draws, 0 copies (0 pictures, 0 ghosts), shapes 0 triangles
+  library            41,980 triangles, 25 draws, 11 copies (0 pictures, 0 ghosts), shapes 0 triangles
+┌────┬──────────┬──────────────────────┬────────┬──────────┬───────┬──────────┐
+│    │ renderer │ kind                 │ shapes │ pictures │ tris  │ farthest │
+├────┼──────────┼──────────────────────┼────────┼──────────┼───────┼──────────┤
+│  0 │ out      │ Black alder          │ 4      │ 354      │ 35204 │ 67       │
+│  1 │ out      │ Walnut               │ 1      │ 481      │ 17773 │ 70.4     │
+│  2 │ out      │ King coconut         │ 0      │ 86       │ 0     │ 0        │
+│  3 │ out      │ Avocado              │ 0      │ 37       │ 0     │ 0        │
+│  4 │ out      │ Red banana           │ 0      │ 54       │ 0     │ 0        │
+│  5 │ out      │ Papaya: Female       │ 0      │ 61       │ 0     │ 0        │
+│  6 │ out      │ plants/moringa       │ 0      │ 30       │ 0     │ 0        │
+│  7 │ out      │ Olive                │ 0      │ 18       │ 0     │ 0        │
+│  8 │ out      │ Durian               │ 0      │ 53       │ 0     │ 0        │
+│  9 │ out      │ Mango                │ 0      │ 74       │ 0     │ 0        │
+│ 10 │ out      │ Safou                │ 0      │ 36       │ 0     │ 0        │
+│ 11 │ out      │ Banana               │ 0      │ 107      │ 0     │ 0        │
+│ 12 │ out      │ Orange               │ 0      │ 27       │ 0     │ 0        │
+│ 13 │ out      │ Cacao                │ 0      │ 36       │ 0     │ 0        │
+│ 14 │ out      │ Papaya: Both         │ 0      │ 25       │ 0     │ 0        │
+│ 15 │ out      │ Jackfruit            │ 0      │ 43       │ 0     │ 0        │
+│ 16 │ out      │ Sapodilla            │ 0      │ 27       │ 0     │ 0        │
+│ 17 │ out      │ Papaya: Male         │ 0      │ 19       │ 0     │ 0        │
+│ 18 │ out      │ Lemon                │ 0      │ 32       │ 0     │ 0        │
+│ 19 │ out      │ Soursop              │ 0      │ 17       │ 0     │ 0        │
+│ 20 │ out      │ Pomegranate          │ 0      │ 14       │ 0     │ 0        │
+│ 21 │ out      │ Bamboo               │ 0      │ 32       │ 0     │ 0        │
+│ 22 │ out      │ Korean pine          │ 0      │ 302      │ 0     │ 0        │
+│ 23 │ out      │ Mulberry             │ 0      │ 156      │ 0     │ 0        │
+│ 24 │ out      │ Turkish tree hazel   │ 0      │ 517      │ 0     │ 0        │
+│ 25 │ out      │ Small-leaved lime    │ 0      │ 352      │ 0     │ 0        │
+│ 26 │ out      │ Pecan                │ 0      │ 512      │ 0     │ 0        │
+│ 27 │ out      │ Sweet chestnut       │ 0      │ 551      │ 0     │ 0        │
+│ 28 │ out      │ Silver birch · Birke │ 0      │ 349      │ 0     │ 0        │
+│ 29 │ out      │ Cherry               │ 0      │ 380      │ 0     │ 0        │
+│ 30 │ out      │ Pear                 │ 0      │ 404      │ 0     │ 0        │
+│ 31 │ out      │ Peach                │ 0      │ 126      │ 0     │ 0        │
+│ 32 │ out      │ Persimmon            │ 0      │ 99       │ 0     │ 0        │
+│ 33 │ out      │ Hazel: Tree          │ 0      │ 337      │ 0     │ 0        │
+│ 34 │ out      │ Quince               │ 0      │ 236      │ 0     │ 0        │
+│ 35 │ out      │ Medlar               │ 0      │ 100      │ 0     │ 0        │
+│ 36 │ out      │ Plum                 │ 0      │ 318      │ 0     │ 0        │
+│ 37 │ out      │ Fig                  │ 0      │ 121      │ 0     │ 0        │
+│ 38 │ out      │ Serviceberry         │ 0      │ 193      │ 0     │ 0        │
+│ 39 │ out      │ Apple                │ 0      │ 401      │ 0     │ 0        │
+└────┴──────────┴──────────────────────┴────────┴──────────┴───────┴──────────┘
+
+census: 3 views in 181.2 s
+
+real	3m1.846s
+user	7m18.404s
+sys	0m47.533s

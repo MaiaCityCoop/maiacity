@@ -1,0 +1,205 @@
+  Building the dome
+  Letting in the light
+
+
+
+
+
+
+  Laying the paths
+  Letting the stream in
+  Planting the edges
+  Sowing the fields
+  Planting the canopy
+  Planting the canopy
+  Planting the canopy
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the shrubs
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Planting round the dome
+  Growing the forest: 10 of 180 kinds
+  Growing the forest: 20 of 180 kinds
+  Growing the forest: 30 of 180 kinds
+  Growing the forest: 40 of 180 kinds
+  Growing the forest: 50 of 180 kinds
+  Growing the forest: 60 of 180 kinds
+  Growing the forest: 70 of 180 kinds
+  Growing the forest: 80 of 180 kinds
+  Growing the forest: 90 of 180 kinds
+  Growing the forest: 100 of 180 kinds
+  Growing the forest: 110 of 180 kinds
+  Growing the forest: 120 of 180 kinds
+  Growing the forest: 130 of 180 kinds
+  Growing the forest: 140 of 180 kinds
+  Growing the forest: 150 of 180 kinds
+  Growing the forest: 160 of 180 kinds
+  Growing the forest: 170 of 180 kinds
+  Growing the forest: 180 of 180 kinds
+  Growing the forest
+  Opening the doors
+  Growing the forest: the plants near you
+  ready
+census: sandbox-5 built in 177.6 s (2 routes live, 0 pinned, 333 files; its workers' answers: 1 read as kept, 398 built)
+census: sandbox-5 near: 9,937,619 triangles a frame (4,787,909 main, 5,149,710 shadow), 1739 draws
+census: sandbox-5 mid: 9,769,859 triangles a frame (5,207,338 main, 4,562,521 shadow), 1502 draws
+census: sandbox-5 far: 4,091,007 triangles a frame (2,186,818 main, 1,904,189 shadow), 1171 draws
+
+sandbox-5 near on WebGPURenderer
+  triangles a frame  9,937,619  (main 4,787,909, shadow 5,149,710, into targets 0)
+  draws              1,739  (meshes 502, instanced batches 433, indirect 6, of 45,236 instances, shadow 798; compute passes 5)
+  culled             53 objects, 15,050 triangles
+  plants not grown   0
+  out                2,258,751 triangles, 122 draws, 9,965 copies (3,939 pictures, 0 ghosts), shapes 2,068,916 triangles
+  in                 0 triangles, 0 draws, 0 copies (0 pictures, 0 ghosts), shapes 0 triangles
+  library            202,875 triangles, 35 draws, 8,616 copies (0 pictures, 0 ghosts), shapes 15,284 triangles
+┌────┬──────────┬────────────────────────────────┬────────┬──────────┬────────┬──────────┐
+│    │ renderer │ kind                           │ shapes │ pictures │ tris   │ farthest │
+├────┼──────────┼────────────────────────────────┼────────┼──────────┼────────┼──────────┤
+│  0 │ out      │ Sweet chestnut                 │ 3      │ 288      │ 444640 │ 37.4     │
+│  1 │ out      │ Pecan                          │ 4      │ 321      │ 344736 │ 30.8     │
+│  2 │ out      │ Walnut                         │ 5      │ 272      │ 300190 │ 55       │
+│  3 │ out      │ Small-leaved lime              │ 4      │ 221      │ 263092 │ 37       │
+│  4 │ out      │ Turkish tree hazel             │ 3      │ 321      │ 221834 │ 32.9     │
+│  5 │ out      │ Mulberry                       │ 2      │ 77       │ 82353  │ 19.9     │
+│  6 │ out      │ Sea buckthorn                  │ 6      │ 2        │ 56412  │ 22.4     │
+│  7 │ out      │ Korean pine                    │ 1      │ 197      │ 38958  │ 45.3     │
+│  8 │ out      │ Pear                           │ 3      │ 225      │ 38922  │ 19       │
+│  9 │ out      │ Hop                            │ 4      │ 0        │ 36368  │ 12.6     │
+│ 10 │ out      │ Black alder                    │ 1      │ 212      │ 31617  │ 24.1     │
+│ 11 │ out      │ Silver birch · Birke           │ 2      │ 214      │ 31389  │ 31.8     │
+│ 12 │ out      │ Blackberry                     │ 7      │ 1        │ 29440  │ 24.9     │
+│ 13 │ out      │ Haskap                         │ 15     │ 1        │ 25800  │ 20.3     │
+│ 14 │ out      │ Aronia                         │ 5      │ 1        │ 21100  │ 13       │
+│ 15 │ out      │ Quince                         │ 1      │ 131      │ 17731  │ 15.5     │
+│ 16 │ out      │ Asparagus                      │ 2      │ 1        │ 15916  │ 8.2      │
+│ 17 │ out      │ Redcurrant                     │ 3      │ 0        │ 14574  │ 9.8      │
+│ 18 │ out      │ Blackcurrant                   │ 3      │ 0        │ 13740  │ 13       │
+│ 19 │ out      │ Apple                          │ 1      │ 269      │ 10126  │ 19.3     │
+│ 20 │ out      │ Hazel: Tree                    │ 1      │ 182      │ 9742   │ 24.8     │
+│ 21 │ library  │ Biome cover: Leaves and twigs  │ 25     │ 36       │ 8300   │ 18.5     │
+│ 22 │ out      │ Red grape                      │ 3      │ 0        │ 7242   │ 9.8      │
+│ 23 │ library  │ Biome cover: Wild strawberry   │ 19     │ 197      │ 5244   │ 5.4      │
+│ 24 │ out      │ Hardy kiwi                     │ 5      │ 0        │ 4720   │ 25.9     │
+│ 25 │ out      │ Jerusalem artichoke            │ 6      │ 0        │ 3396   │ 10.6     │
+│ 26 │ out      │ Carrot                         │ 15     │ 0        │ 2542   │ 12.7     │
+│ 27 │ library  │ Biome cover: Buttercup         │ 5      │ 50       │ 680    │ 6.8      │
+│ 28 │ out      │ Comfrey                        │ 4      │ 0        │ 664    │ 9.8      │
+│ 29 │ out      │ Globe artichoke                │ 3      │ 0        │ 600    │ 12.8     │
+│ 30 │ library  │ Biome cover: Red clover        │ 4      │ 114      │ 592    │ 5.8      │
+│ 31 │ out      │ Lemon balm                     │ 5      │ 0        │ 580    │ 5.8      │
+│ 32 │ out      │ White clover                   │ 1      │ 1        │ 492    │ 10.9     │
+│ 33 │ library  │ Biome cover: Wood anemone      │ 2      │ 83       │ 300    │ 6.1      │
+│ 34 │ library  │ Biome cover: Meadow cranesbill │ 1      │ 23       │ 168    │ 6.1      │
+│ 35 │ out      │ Bamboo                         │ 0      │ 33       │ 0      │ 0        │
+│ 36 │ out      │ Cherry                         │ 0      │ 196      │ 0      │ 0        │
+│ 37 │ out      │ Persimmon                      │ 0      │ 58       │ 0      │ 0        │
+│ 38 │ out      │ Plum                           │ 0      │ 194      │ 0      │ 0        │
+│ 39 │ out      │ Pawpaw                         │ 0      │ 60       │ 0      │ 0        │
+└────┴──────────┴────────────────────────────────┴────────┴──────────┴────────┴──────────┘
+
+sandbox-5 mid on WebGPURenderer
+  triangles a frame  9,769,859  (main 5,207,338, shadow 4,562,521, into targets 0)
+  draws              1,502  (meshes 363, instanced batches 462, indirect 6, of 51,945 instances, shadow 671; compute passes 5)
+  culled             31 objects, 3,482 triangles
+  plants not grown   0
+  out                2,703,610 triangles, 149 draws, 10,090 copies (6,221 pictures, 0 ghosts), shapes 2,562,208 triangles
+  in                 0 triangles, 0 draws, 0 copies (0 pictures, 0 ghosts), shapes 0 triangles
+  library            211,841 triangles, 35 draws, 10,022 copies (0 pictures, 0 ghosts), shapes 30,350 triangles
+┌────┬──────────┬────────────────────────────────┬────────┬──────────┬────────┬──────────┐
+│    │ renderer │ kind                           │ shapes │ pictures │ tris   │ farthest │
+├────┼──────────┼────────────────────────────────┼────────┼──────────┼────────┼──────────┤
+│  0 │ out      │ Walnut                         │ 9      │ 444      │ 559715 │ 82.1     │
+│  1 │ out      │ Pecan                          │ 7      │ 505      │ 516330 │ 34.9     │
+│  2 │ out      │ Silver birch · Birke           │ 5      │ 333      │ 288698 │ 49       │
+│  3 │ out      │ Korean pine                    │ 4      │ 313      │ 242320 │ 48.7     │
+│  4 │ out      │ Sweet chestnut                 │ 5      │ 455      │ 232205 │ 50.9     │
+│  5 │ out      │ Small-leaved lime              │ 2      │ 333      │ 113072 │ 27.6     │
+│  6 │ out      │ Black alder                    │ 8      │ 336      │ 93224  │ 63.1     │
+│  7 │ out      │ Sea buckthorn                  │ 2      │ 0        │ 80048  │ 6.8      │
+│  8 │ out      │ Elder                          │ 5      │ 0        │ 77094  │ 24.9     │
+│  9 │ out      │ Turkish tree hazel             │ 2      │ 508      │ 71074  │ 38.7     │
+│ 10 │ out      │ Serviceberry                   │ 2      │ 197      │ 58016  │ 11.9     │
+│ 11 │ out      │ Apple                          │ 2      │ 421      │ 54204  │ 13.8     │
+│ 12 │ out      │ Hazel: Tree                    │ 3      │ 295      │ 42756  │ 38.3     │
+│ 13 │ out      │ Plum                           │ 2      │ 304      │ 34986  │ 19.7     │
+│ 14 │ out      │ Hop                            │ 3      │ 0        │ 27276  │ 19.3     │
+│ 15 │ out      │ Pear                           │ 1      │ 358      │ 26438  │ 9.6      │
+│ 16 │ out      │ Aronia                         │ 1      │ 0        │ 15714  │ 2        │
+│ 17 │ out      │ Blackberry                     │ 3      │ 0        │ 12804  │ 15.3     │
+│ 18 │ library  │ Biome cover: Leaves and twigs  │ 28     │ 46       │ 9296   │ 18.1     │
+│ 19 │ library  │ Biome cover: Moss cushions     │ 9      │ 14       │ 8208   │ 4.9      │
+│ 20 │ out      │ Hardy kiwi                     │ 4      │ 0        │ 3776   │ 23.3     │
+│ 21 │ library  │ Biome cover: Fern              │ 3      │ 1        │ 3528   │ 15.1     │
+│ 22 │ out      │ Jerusalem artichoke            │ 7      │ 0        │ 2762   │ 9.3      │
+│ 23 │ library  │ Biome cover: Meadow cranesbill │ 15     │ 22       │ 2520   │ 9.4      │
+│ 24 │ out      │ Lemon balm                     │ 5      │ 0        │ 2240   │ 9.5      │
+│ 25 │ library  │ Biome cover: Wild strawberry   │ 8      │ 176      │ 2208   │ 5.9      │
+│ 26 │ library  │ Biome cover: Red clover        │ 12     │ 127      │ 1776   │ 5.7      │
+│ 27 │ library  │ Biome cover: Wood anemone      │ 11     │ 70       │ 1650   │ 5.7      │
+│ 28 │ out      │ White clover                   │ 3      │ 0        │ 1476   │ 5.7      │
+│ 29 │ out      │ Comfrey                        │ 12     │ 0        │ 1384   │ 9.5      │
+│ 30 │ out      │ Pumpkin                        │ 7      │ 0        │ 1272   │ 9.1      │
+│ 31 │ out      │ Globe artichoke                │ 4      │ 0        │ 1216   │ 13       │
+│ 32 │ out      │ Rosemary                       │ 2      │ 0        │ 1144   │ 6.1      │
+│ 33 │ library  │ Biome cover: Buttercup         │ 6      │ 69       │ 816    │ 6.6      │
+│ 34 │ out      │ Dill                           │ 1      │ 0        │ 688    │ 12.4     │
+│ 35 │ library  │ Biome cover: Daisy             │ 2      │ 51       │ 348    │ 5.2      │
+│ 36 │ out      │ Swiss chard                    │ 1      │ 0        │ 196    │ 11.2     │
+│ 37 │ out      │ Wild garlic                    │ 1      │ 0        │ 80     │ 2.8      │
+│ 38 │ out      │ Bamboo                         │ 0      │ 33       │ 0      │ 0        │
+│ 39 │ out      │ Cherry                         │ 0      │ 313      │ 0      │ 0        │
+└────┴──────────┴────────────────────────────────┴────────┴──────────┴────────┴──────────┘
+
+sandbox-5 far on WebGPURenderer
+  triangles a frame  4,091,007  (main 2,186,818, shadow 1,904,189, into targets 0)
+  draws              1,171  (meshes 359, instanced batches 279, indirect 6, of 25,561 instances, shadow 527; compute passes 5)
+  culled             0 objects, 0 triangles
+  plants not grown   0
+  out                138,164 triangles, 15 draws, 9,802 copies (8,757 pictures, 0 ghosts), shapes 120,650 triangles
+  in                 0 triangles, 0 draws, 0 copies (0 pictures, 0 ghosts), shapes 0 triangles
+  library            41,980 triangles, 25 draws, 11 copies (0 pictures, 0 ghosts), shapes 0 triangles
+┌────┬──────────┬──────────────────────┬────────┬──────────┬───────┬──────────┐
+│    │ renderer │ kind                 │ shapes │ pictures │ tris  │ farthest │
+├────┼──────────┼──────────────────────┼────────┼──────────┼───────┼──────────┤
+│  0 │ out      │ Walnut               │ 6      │ 655      │ 49408 │ 82.3     │
+│  1 │ out      │ Korean pine          │ 1      │ 450      │ 38958 │ 48.6     │
+│  2 │ out      │ Black alder          │ 2      │ 484      │ 17602 │ 70.3     │
+│  3 │ out      │ Silver birch · Birke │ 1      │ 474      │ 14682 │ 46.6     │
+│  4 │ out      │ Bamboo               │ 0      │ 33       │ 0     │ 0        │
+│  5 │ out      │ Cherry               │ 0      │ 457      │ 0     │ 0        │
+│  6 │ out      │ Pecan                │ 0      │ 715      │ 0     │ 0        │
+│  7 │ out      │ Turkish tree hazel   │ 0      │ 700      │ 0     │ 0        │
+│  8 │ out      │ Sweet chestnut       │ 0      │ 646      │ 0     │ 0        │
+│  9 │ out      │ Mulberry             │ 0      │ 225      │ 0     │ 0        │
+│ 10 │ out      │ Pear                 │ 0      │ 525      │ 0     │ 0        │
+│ 11 │ out      │ Small-leaved lime    │ 0      │ 439      │ 0     │ 0        │
+│ 12 │ out      │ Apple                │ 0      │ 596      │ 0     │ 0        │
+│ 13 │ out      │ Persimmon            │ 0      │ 123      │ 0     │ 0        │
+│ 14 │ out      │ Hazel: Tree          │ 0      │ 409      │ 0     │ 0        │
+│ 15 │ out      │ Plum                 │ 0      │ 414      │ 0     │ 0        │
+│ 16 │ out      │ Pawpaw               │ 0      │ 147      │ 0     │ 0        │
+│ 17 │ out      │ Quince               │ 0      │ 277      │ 0     │ 0        │
+│ 18 │ out      │ Cornelian cherry     │ 0      │ 169      │ 0     │ 0        │
+│ 19 │ out      │ Fig                  │ 0      │ 120      │ 0     │ 0        │
+│ 20 │ out      │ Serviceberry         │ 0      │ 272      │ 0     │ 0        │
+│ 21 │ out      │ Medlar               │ 0      │ 149      │ 0     │ 0        │
+│ 22 │ out      │ Apricot              │ 0      │ 133      │ 0     │ 0        │
+│ 23 │ out      │ Peach                │ 0      │ 137      │ 0     │ 0        │
+│ 24 │ library  │ Chicken coop         │ 0      │ 4        │ 0     │ 0        │
+│ 25 │ library  │ Rabbit hutch         │ 0      │ 4        │ 0     │ 0        │
+│ 26 │ library  │ Playground           │ 0      │ 3        │ 0     │ 0        │
+└────┴──────────┴──────────────────────┴────────┴──────────┴───────┴──────────┘
+
+census: 3 views in 213.1 s
+
+real	3m33.547s
+user	9m59.750s
+sys	1m19.167s

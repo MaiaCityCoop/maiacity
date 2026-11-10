@@ -1,0 +1,41 @@
+diff --git a/play/site/scripts/census/counting.js b/play/site/scripts/census/counting.js
+index f01bdf200..96e03216e 100644
+--- a/play/site/scripts/census/counting.js
++++ b/play/site/scripts/census/counting.js
+@@ -544,7 +544,7 @@ export class CountingWebGPURenderer extends CountingRenderer {
+ 					const side = m.shadowSide ?? (m.side === THREE.DoubleSide ? THREE.DoubleSide : m.side === THREE.FrontSide ? THREE.BackSide : THREE.FrontSide);
+ 					const passes = (m.transparent === true || m.transmission > 0) && side === THREE.DoubleSide ? 2 : 1;
+ 					const n = drawOf(object, geometry, m, group).tris;
+-					for (let p = 0; p < passes; p++) this._countShadow(n);
++					for (let p = 0; p < passes; p++) this._countShadow(n, object);
+ 					object.onAfterShadow(this, object, cam, cam, geometry, m, group);
+ 				};
+ 				if (Array.isArray(material)) {
+@@ -558,7 +558,8 @@ export class CountingWebGPURenderer extends CountingRenderer {
+ 		const kids = object.children;
+ 		for (let i = 0, l = kids.length; i < l; i++) this._shadowWalk(kids[i], layers, cam);
+ 	}
+-	_countShadow(tris) {
++	_countShadow(tris, object) {
++		(this._tally.shadowDraws ??= []).push([object, tris]);
+ 		this.info.render.calls += 1;
+ 		this.info.render.triangles += tris;
+ 		(this._tally.shadowCalls += 1), (this._tally.shadowTris += tris);
+diff --git a/play/site/scripts/census/run.ts b/play/site/scripts/census/run.ts
+index 41ce0cd5e..2084a8c90 100644
+--- a/play/site/scripts/census/run.ts
++++ b/play/site/scripts/census/run.ts
+@@ -277,6 +277,13 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
+ 				by.set(key, (by.get(key) ?? 0) + n);
+ 			}
+ 			for (const [k, n] of [...by].sort((a, b) => b[1] - a[1]).slice(0, 25)) log(`  ${Math.round(n).toLocaleString('en').padStart(10)}  ${k}`);
++			const part = (obj: any) => { const path: string[] = []; for (let o = obj; o; o = o.parent) path.unshift(o.name || o.type); let k = path.slice(0, 3).join(' / '); if (!obj.name) k += ` [${obj.geometry?.type ?? ''}${obj.isInstancedMesh ? ' ×' + obj.count : ''} ${obj.material?.name || obj.material?.type || ''}]`; return k; };
++			for (const [title, list] of [['MAIN', t.draws], ['SHADOW', (t as any).shadowDraws ?? []]] as const) {
++				const m = new Map<string, [number, number]>();
++				for (const [obj, n] of list) { const k = part(obj); const e = m.get(k) ?? [0, 0]; e[0] += n; e[1] += 1; m.set(k, e); }
++				log(`  -- ${title} by part`);
++				for (const [k, [n, c]] of [...m].sort((a, b) => b[1][0] - a[1][0]).slice(0, 400)) log(`  ${Math.round(n).toLocaleString('en').padStart(10)} ${String(c).padStart(5)} draws  ${k}`);
++			}
+ 		}
+ 		const s = g.__assets?.stats?.() ?? {};
+ 		const of = (r: any) => r && { tris: r.tris, calls: r.calls, copies: r.copies, pictures: r.pictures, levels: r.levels, building: r.building };

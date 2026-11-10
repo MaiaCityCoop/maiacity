@@ -1,0 +1,66 @@
+THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+census: sandbox-3 built in 2.8 s (2 routes live, 0 pinned, 32 files; its workers' answers: 42 read as kept, 0 built)
+     192,828  Scene / Group / Group / Mesh
+      63,276  Scene / Group / player:A / Group
+      25,200  Scene / Group / Mesh
+      24,100  Scene / Group / asset:powercube / asset:powercube
+      12,000  Scene / stars
+       9,784  Scene / assets / Workshop container · level 1
+       5,108  Scene / assets / Workshop container · level 2
+       4,237  Scene / assets / Tech container · level 2
+          64  Scene / Group / Group / Group
+          12  Scene / sky
+           1  Render Pipeline
+           0  Scene / Group / Group / LineSegments
+  -- MAIN by part
+      67,500     1 draws  Scene / Group / Group [ConeGeometry ×13500 MeshStandardMaterial]
+      63,276    38 draws  Scene / Group / player:A
+      40,500     1 draws  Scene / Group / Group [IcosahedronGeometry ×2025 MeshStandardMaterial]
+      40,500     1 draws  Scene / Group / Group [DodecahedronGeometry ×1125 MeshStandardMaterial]
+      33,750     1 draws  Scene / Group / Group [ConeGeometry ×6750 MeshStandardMaterial]
+      25,200     1 draws  Scene / Group / Mesh [ConeGeometry ×8400 MeshStandardMaterial]
+      24,100   136 draws  Scene / Group / asset:powercube
+      12,000     1 draws  Scene / stars
+       9,784    29 draws  Scene / assets / Workshop container · level 1
+       5,108    29 draws  Scene / assets / Workshop container · level 2
+       4,237    37 draws  Scene / assets / Tech container · level 2
+       3,360     2 draws  Scene / Group / Group [CylinderGeometry ×70 MeshStandardMaterial]
+       2,960     2 draws  Scene / Group / Group [IcosahedronGeometry ×74 MeshStandardMaterial]
+       2,470     5 draws  Scene / Group / Group [BufferGeometry MeshStandardMaterial]
+       1,440     1 draws  Scene / Group / Group [IcosahedronGeometry ×72 MeshStandardMaterial]
+         160     3 draws  Scene / Group / Group [CircleGeometry MeshStandardMaterial]
+          96     1 draws  Scene / Group / Group [CircleGeometry ×16 MeshStandardMaterial]
+          78     1 draws  Scene / Group / Group [CircleGeometry ×13 MeshStandardMaterial]
+          72     1 draws  Scene / Group / Group [CircleGeometry ×12 MeshStandardMaterial]
+          12     1 draws  Scene / sky
+           6     1 draws  Scene / Group / Group [CircleGeometry ×1 MeshStandardMaterial]
+           1     1 draws  Render Pipeline
+           0     1 draws  Scene / Group / Group [BufferGeometry LineBasicMaterial]
+           0     2 draws  Scene / Group / Group [BufferGeometry LineDashedMaterial]
+  -- SHADOW by part
+   1,053,000    26 draws  Scene / Group / Group [IcosahedronGeometry ×2025 MeshStandardMaterial]
+   1,053,000    26 draws  Scene / Group / Group [DodecahedronGeometry ×1125 MeshStandardMaterial]
+   1,012,416   608 draws  Scene / Group / player:A
+     342,216   216 draws  Scene / Group / asset:tent
+     289,200  1632 draws  Scene / Group / asset:powercube
+     195,792   174 draws  Scene / assets / Workshop container · level 0
+     179,072   448 draws  Scene / Group / asset:pack:A
+     179,072   448 draws  Scene / Group / asset:pack:B
+     179,072   448 draws  Scene / Group / asset:pack:C
+      87,360    52 draws  Scene / Group / Group [CylinderGeometry ×70 MeshStandardMaterial]
+      76,960    52 draws  Scene / Group / Group [IcosahedronGeometry ×74 MeshStandardMaterial]
+      61,296   174 draws  Scene / assets / Workshop container · level 2
+      59,552   148 draws  Scene / assets / Tech container · level 0
+      37,440    26 draws  Scene / Group / Group [IcosahedronGeometry ×72 MeshStandardMaterial]
+      33,896   296 draws  Scene / assets / Tech container · level 2
+      20,160   688 draws  Scene / Group / Group [BufferGeometry MeshStandardMaterial]
+       6,080   624 draws  Scene / Group / Group [BufferGeometry ]
+census: sandbox-3 open: 336,610 triangles a frame (336,610 main, 0 shadow), 297 draws
+
+sandbox-3 open on WebGPURenderer
+  triangles a frame  336,610  (main 336,610, shadow 0, into targets 0)
+  draws              297  (meshes 187, instanced batches 110, indirect 0, of 38,297 instances, shadow 0; compute passes 0)
+  culled             194 objects, 64,972 triangles
+  plants not grown   0
+
+census: 1 view in 9.8 s

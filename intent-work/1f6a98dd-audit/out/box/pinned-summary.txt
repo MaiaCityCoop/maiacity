@@ -1,0 +1,20 @@
+census: sandbox-1 built in 28.2 s (0 routes live, 2 pinned, 405 files; its workers' answers: 464 read as kept, 0 built)
+census: sandbox-1 near: 10,504,998 triangles a frame (3,836,023 main, 6,668,975 shadow), 3876 draws
+census: sandbox-1 mid: 12,667,678 triangles a frame (5,957,334 main, 6,710,344 shadow), 3287 draws
+census: sandbox-1 far: 2,584,704 triangles a frame (1,552,860 main, 1,031,844 shadow), 1531 draws
+census: sandbox-1 built in 51.4 s on WebGPURenderer (a device that only answers)
+census: sandbox-1 near: 9,364 calls a frame at rest, 12,550 walking
+census: sandbox-1 mid: 9,802 calls a frame at rest, 12,193 walking
+census: sandbox-1 far: 4,804 calls a frame at rest, 6,043 walking
+census: sandbox-3 built in 1.8 s (0 routes live, 2 pinned, 32 files; its workers' answers: 42 read as kept, 0 built)
+census: sandbox-3 open: 336,610 triangles a frame (336,610 main, 0 shadow), 297 draws
+census: sandbox-3 built in 4.3 s on WebGPURenderer (a device that only answers)
+census: sandbox-3 open: 1,508 calls a frame at rest
+census: sandbox-5 built in 24.6 s (0 routes live, 2 pinned, 334 files; its workers' answers: 399 read as kept, 1 built)
+census: sandbox-5 near: 9,937,619 triangles a frame (4,787,909 main, 5,149,710 shadow), 1739 draws
+census: sandbox-5 mid: 9,769,859 triangles a frame (5,207,338 main, 4,562,521 shadow), 1502 draws
+census: sandbox-5 far: 4,091,007 triangles a frame (2,186,818 main, 1,904,189 shadow), 1171 draws
+census: sandbox-5 built in 38.8 s on WebGPURenderer (a device that only answers)
+census: sandbox-5 near: 5,980 calls a frame at rest, 7,634 walking
+census: sandbox-5 mid: 6,072 calls a frame at rest, 7,402 walking
+census: sandbox-5 far: 4,018 calls a frame at rest, 4,883 walking

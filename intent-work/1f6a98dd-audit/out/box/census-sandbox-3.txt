@@ -1,0 +1,18 @@
+census: sandbox-3 built in 10.8 s (2 routes live, 0 pinned, 34 files; its workers' answers: 2 read as kept, 41 built)
+census: sandbox-3 open: 336,579 triangles a frame (336,579 main, 0 shadow), 298 draws
+
+sandbox-3 open on WebGPURenderer
+  triangles a frame  336,579  (main 336,579, shadow 0, into targets 0)
+  draws              298  (meshes 187, instanced batches 111, indirect 0, of 38,298 instances, shadow 0; compute passes 0)
+  culled             194 objects, 64,972 triangles
+  plants not grown   0
+┌───┐
+│   │
+├───┤
+└───┘
+
+census: 1 view in 18.0 s
+
+real	0m18.338s
+user	0m33.416s
+sys	0m3.248s

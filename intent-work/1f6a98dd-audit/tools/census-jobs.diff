@@ -1,0 +1,12 @@
+diff --git a/play/site/scripts/census/kept.ts b/play/site/scripts/census/kept.ts
+index 93500cc0c..69d8b9bf2 100644
+--- a/play/site/scripts/census/kept.ts
++++ b/play/site/scripts/census/kept.ts
+@@ -150,6 +150,7 @@ export function keptWorker(make: () => Worker, kept: Kept, code: string) {
+ 		onerror: null as ((e: ErrorEvent) => void) | null,
+ 		postMessage(m: { id: unknown }) {
+ 			const { id, ...question } = m;
++			if (process.env.CENSUS_JOBS) { let t = 0; for (const d of (question as any).draws ?? []) { const g = d.geometry ?? d; const ix = g.index?.array ?? g.index; const ps = g.attributes?.position?.array ?? g.attributes?.position ?? g.position; t += ix?.length ? ix.length / 3 : ps?.length ? ps.length / 9 : 0; } require('node:fs').appendFileSync(process.env.CENSUS_JOBS, JSON.stringify({ tris: Math.round(t), draws: ((question as any).draws ?? []).length, plans: (question as any).plans, keys: Object.keys(((question as any).draws ?? [{}])[0] ?? {}) }) + '\n'); }
+ 			const key = keyOf(code, bytesOf(question));
+ 			const answer = kept.get(key);
+ 			// a turn later, as a worker answers

@@ -1,0 +1,645 @@
+{
+ "sandbox-1-far": {
+  "main": 1552860,
+  "shadow": 1031844,
+  "draws": 1531,
+  "parts": {
+   "village shells, paths, water, props (hand-built)": {
+    "MAIN": {
+     "tris": 1173044,
+     "share": 75.5,
+     "draw_share": 89.8,
+     "draws": 770
+    },
+    "SHADOW": {
+     "tris": 430826,
+     "share": 41.8,
+     "draw_share": 67.1,
+     "draws": null
+    }
+   },
+   "ground and scatter": {
+    "MAIN": {
+     "tris": 251996,
+     "share": 16.2,
+     "draw_share": 5.5,
+     "draws": 47
+    }
+   },
+   "plants and things (asset renderers)": {
+    "MAIN": {
+     "tris": 94957,
+     "share": 6.1,
+     "draw_share": 3.6,
+     "draws": 31
+    },
+    "SHADOW": {
+     "tris": 142782,
+     "share": 13.8,
+     "draw_share": 13.2,
+     "draws": null
+    }
+   },
+   "far pictures (cards)": {
+    "MAIN": {
+     "tris": 14894,
+     "share": 1.0,
+     "draw_share": 0.4,
+     "draws": 3
+    },
+    "SHADOW": {
+     "tris": 9823,
+     "share": 1.0,
+     "draw_share": 0.7,
+     "draws": null
+    }
+   },
+   "sky, stars, output": {
+    "MAIN": {
+     "tris": 12013,
+     "share": 0.8,
+     "draw_share": 0.4,
+     "draws": 3
+    }
+   },
+   "grass blades": {
+    "MAIN": {
+     "tris": 5956,
+     "share": 0.4,
+     "draw_share": 0.4,
+     "draws": 3
+    }
+   },
+   "dome inside (hand-built)": {
+    "SHADOW": {
+     "tris": 448412,
+     "share": 43.5,
+     "draw_share": 19.1,
+     "draws": null
+    }
+   }
+  }
+ },
+ "sandbox-1-mid": {
+  "main": 5788896,
+  "shadow": 6373948,
+  "draws": 3293,
+  "parts": {
+   "dome inside (hand-built)": {
+    "MAIN": {
+     "tris": 1042944,
+     "share": 18.0,
+     "draw_share": 38.9,
+     "draws": 657
+    },
+    "SHADOW": {
+     "tris": 2400077,
+     "share": 37.7,
+     "draw_share": 27.1,
+     "draws": null
+    }
+   },
+   "plants and things (asset renderers)": {
+    "MAIN": {
+     "tris": 2714983,
+     "share": 46.9,
+     "draw_share": 8.0,
+     "draws": 135
+    },
+    "SHADOW": {
+     "tris": 2149065,
+     "share": 33.7,
+     "draw_share": 12.8,
+     "draws": null
+    }
+   },
+   "village shells, paths, water, props (hand-built)": {
+    "MAIN": {
+     "tris": 1163237,
+     "share": 20.1,
+     "draw_share": 42.7,
+     "draws": 721
+    },
+    "SHADOW": {
+     "tris": 1494218,
+     "share": 23.4,
+     "draw_share": 52.0,
+     "draws": null
+    }
+   },
+   "animals": {
+    "MAIN": {
+     "tris": 238308,
+     "share": 4.1,
+     "draw_share": 6.6,
+     "draws": 112
+    },
+    "SHADOW": {
+     "tris": 308954,
+     "share": 4.8,
+     "draw_share": 7.5,
+     "draws": null
+    }
+   },
+   "grass blades": {
+    "MAIN": {
+     "tris": 191619,
+     "share": 3.3,
+     "draw_share": 0.2,
+     "draws": 3
+    }
+   },
+   "ground and scatter": {
+    "MAIN": {
+     "tris": 251814,
+     "share": 4.3,
+     "draw_share": 2.6,
+     "draws": 44
+    }
+   },
+   "ground cover (library)": {
+    "MAIN": {
+     "tris": 164058,
+     "share": 2.8,
+     "draw_share": 0.6,
+     "draws": 10
+    }
+   },
+   "sky, stars, output": {
+    "MAIN": {
+     "tris": 12013,
+     "share": 0.2,
+     "draw_share": 0.2,
+     "draws": 3
+    }
+   },
+   "far pictures (cards)": {
+    "MAIN": {
+     "tris": 9920,
+     "share": 0.2,
+     "draw_share": 0.3,
+     "draws": 5
+    },
+    "SHADOW": {
+     "tris": 21634,
+     "share": 0.3,
+     "draw_share": 0.6,
+     "draws": null
+    }
+   }
+  }
+ },
+ "sandbox-1-near": {
+  "main": 3836023,
+  "shadow": 6668975,
+  "draws": 3876,
+  "parts": {
+   "dome inside (hand-built)": {
+    "MAIN": {
+     "tris": 1709036,
+     "share": 44.6,
+     "draw_share": 49.2,
+     "draws": 831
+    },
+    "SHADOW": {
+     "tris": 4816047,
+     "share": 72.2,
+     "draw_share": 43.3,
+     "draws": null
+    }
+   },
+   "village shells, paths, water, props (hand-built)": {
+    "MAIN": {
+     "tris": 851363,
+     "share": 22.2,
+     "draw_share": 29.1,
+     "draws": 491
+    },
+    "SHADOW": {
+     "tris": 1382988,
+     "share": 20.7,
+     "draw_share": 43.2,
+     "draws": null
+    }
+   },
+   "plants and things (asset renderers)": {
+    "MAIN": {
+     "tris": 655547,
+     "share": 17.1,
+     "draw_share": 11.0,
+     "draws": 185
+    },
+    "SHADOW": {
+     "tris": 452479,
+     "share": 6.8,
+     "draw_share": 13.0,
+     "draws": null
+    }
+   },
+   "ground and scatter": {
+    "MAIN": {
+     "tris": 249344,
+     "share": 6.5,
+     "draw_share": 1.8,
+     "draws": 31
+    }
+   },
+   "grass blades": {
+    "MAIN": {
+     "tris": 111620,
+     "share": 2.9,
+     "draw_share": 0.2,
+     "draws": 3
+    }
+   },
+   "animals": {
+    "MAIN": {
+     "tris": 107200,
+     "share": 2.8,
+     "draw_share": 7.7,
+     "draws": 130
+    }
+   },
+   "ground cover (library)": {
+    "MAIN": {
+     "tris": 132318,
+     "share": 3.4,
+     "draw_share": 0.6,
+     "draws": 10
+    }
+   },
+   "sky, stars, output": {
+    "MAIN": {
+     "tris": 12013,
+     "share": 0.3,
+     "draw_share": 0.2,
+     "draws": 3
+    }
+   },
+   "far pictures (cards)": {
+    "MAIN": {
+     "tris": 7582,
+     "share": 0.2,
+     "draw_share": 0.3,
+     "draws": 5
+    },
+    "SHADOW": {
+     "tris": 17461,
+     "share": 0.3,
+     "draw_share": 0.5,
+     "draws": null
+    }
+   }
+  }
+ },
+ "sandbox-3-open": {
+  "main": 336610,
+  "shadow": 0,
+  "draws": 297,
+  "parts": {
+   "village shells, paths, water, props (hand-built)": {
+    "MAIN": {
+     "tris": 218092,
+     "share": 64.8,
+     "draw_share": 8.4,
+     "draws": 25
+    },
+    "SHADOW": {
+     "tris": 0,
+     "share": 48.0,
+     "draw_share": 24.5,
+     "draws": null
+    }
+   },
+   "placed builds (no levels)": {
+    "MAIN": {
+     "tris": 87376,
+     "share": 26.0,
+     "draw_share": 58.6,
+     "draws": 174
+    },
+    "SHADOW": {
+     "tris": 0,
+     "share": 44.8,
+     "draw_share": 62.4,
+     "draws": null
+    }
+   },
+   "sky, stars, output": {
+    "MAIN": {
+     "tris": 12013,
+     "share": 3.6,
+     "draw_share": 1.0,
+     "draws": 3
+    }
+   },
+   "plants and things (asset renderers)": {
+    "MAIN": {
+     "tris": 19129,
+     "share": 5.7,
+     "draw_share": 32.0,
+     "draws": 95
+    },
+    "SHADOW": {
+     "tris": 0,
+     "share": 7.2,
+     "draw_share": 13.0,
+     "draws": null
+    }
+   }
+  }
+ },
+ "sandbox-5-far": {
+  "main": 2178017,
+  "shadow": 1886587,
+  "draws": 1171,
+  "parts": {
+   "forest dome (one build)": {
+    "MAIN": {
+     "tris": 1241499,
+     "share": 57.0,
+     "draw_share": 37.6,
+     "draws": 242
+    },
+    "SHADOW": {
+     "tris": 1017264,
+     "share": 53.9,
+     "draw_share": 29.0,
+     "draws": null
+    }
+   },
+   "village shells, paths, water, props (hand-built)": {
+    "MAIN": {
+     "tris": 640486,
+     "share": 29.4,
+     "draw_share": 51.9,
+     "draws": 334
+    },
+    "SHADOW": {
+     "tris": 339176,
+     "share": 18.0,
+     "draw_share": 51.7,
+     "draws": null
+    }
+   },
+   "ground and scatter": {
+    "MAIN": {
+     "tris": 102850,
+     "share": 4.7,
+     "draw_share": 2.3,
+     "draws": 15
+    }
+   },
+   "plants and things (asset renderers)": {
+    "MAIN": {
+     "tris": 153829,
+     "share": 7.1,
+     "draw_share": 6.1,
+     "draws": 39
+    },
+    "SHADOW": {
+     "tris": 504257,
+     "share": 26.7,
+     "draw_share": 17.8,
+     "draws": null
+    }
+   },
+   "far pictures (cards)": {
+    "MAIN": {
+     "tris": 21372,
+     "share": 1.0,
+     "draw_share": 0.8,
+     "draws": 5
+    },
+    "SHADOW": {
+     "tris": 25890,
+     "share": 1.4,
+     "draw_share": 1.6,
+     "draws": null
+    }
+   },
+   "sky, stars, output": {
+    "MAIN": {
+     "tris": 12013,
+     "share": 0.6,
+     "draw_share": 0.5,
+     "draws": 3
+    }
+   },
+   "grass blades": {
+    "MAIN": {
+     "tris": 5968,
+     "share": 0.3,
+     "draw_share": 0.9,
+     "draws": 6
+    }
+   }
+  }
+ },
+ "sandbox-5-mid": {
+  "main": 5182914,
+  "shadow": 4513673,
+  "draws": 1502,
+  "parts": {
+   "forest dome (one build)": {
+    "MAIN": {
+     "tris": 1241499,
+     "share": 24.0,
+     "draw_share": 29.1,
+     "draws": 242
+    },
+    "SHADOW": {
+     "tris": 1529572,
+     "share": 33.9,
+     "draw_share": 26.4,
+     "draws": null
+    }
+   },
+   "plants and things (asset renderers)": {
+    "MAIN": {
+     "tris": 2708724,
+     "share": 52.3,
+     "draw_share": 20.8,
+     "draws": 173
+    },
+    "SHADOW": {
+     "tris": 2398232,
+     "share": 53.1,
+     "draw_share": 24.8,
+     "draws": null
+    }
+   },
+   "village shells, paths, water, props (hand-built)": {
+    "MAIN": {
+     "tris": 690961,
+     "share": 13.3,
+     "draw_share": 43.1,
+     "draws": 358
+    },
+    "SHADOW": {
+     "tris": 551929,
+     "share": 12.2,
+     "draw_share": 47.4,
+     "draws": null
+    }
+   },
+   "grass blades": {
+    "MAIN": {
+     "tris": 226916,
+     "share": 4.4,
+     "draw_share": 0.7,
+     "draws": 6
+    }
+   },
+   "ground and scatter": {
+    "MAIN": {
+     "tris": 102744,
+     "share": 2.0,
+     "draw_share": 1.7,
+     "draws": 14
+    }
+   },
+   "ground cover (library)": {
+    "MAIN": {
+     "tris": 169861,
+     "share": 3.3,
+     "draw_share": 1.2,
+     "draws": 10
+    }
+   },
+   "far pictures (cards)": {
+    "MAIN": {
+     "tris": 18508,
+     "share": 0.4,
+     "draw_share": 0.6,
+     "draws": 5
+    },
+    "SHADOW": {
+     "tris": 33941,
+     "share": 0.8,
+     "draw_share": 1.4,
+     "draws": null
+    }
+   },
+   "sky, stars, output": {
+    "MAIN": {
+     "tris": 12013,
+     "share": 0.2,
+     "draw_share": 0.4,
+     "draws": 3
+    }
+   },
+   "animals": {
+    "MAIN": {
+     "tris": 11688,
+     "share": 0.2,
+     "draw_share": 2.4,
+     "draws": 20
+    }
+   }
+  }
+ },
+ "sandbox-5-near": {
+  "main": 4787909,
+  "shadow": 5149710,
+  "draws": 1739,
+  "parts": {
+   "forest dome (one build)": {
+    "MAIN": {
+     "tris": 1241499,
+     "share": 25.9,
+     "draw_share": 25.7,
+     "draws": 242
+    },
+    "SHADOW": {
+     "tris": 2369770,
+     "share": 46.0,
+     "draw_share": 36.3,
+     "draws": null
+    }
+   },
+   "plants and things (asset renderers)": {
+    "MAIN": {
+     "tris": 2285717,
+     "share": 47.7,
+     "draw_share": 15.5,
+     "draws": 146
+    },
+    "SHADOW": {
+     "tris": 2172514,
+     "share": 42.2,
+     "draw_share": 20.1,
+     "draws": null
+    }
+   },
+   "village shells, paths, water, props (hand-built)": {
+    "MAIN": {
+     "tris": 673634,
+     "share": 14.1,
+     "draw_share": 35.1,
+     "draws": 330
+    },
+    "SHADOW": {
+     "tris": 577441,
+     "share": 11.2,
+     "draw_share": 42.4,
+     "draws": null
+    }
+   },
+   "ground and scatter": {
+    "MAIN": {
+     "tris": 102650,
+     "share": 2.1,
+     "draw_share": 1.4,
+     "draws": 13
+    }
+   },
+   "grass blades": {
+    "MAIN": {
+     "tris": 148331,
+     "share": 3.1,
+     "draw_share": 0.6,
+     "draws": 6
+    }
+   },
+   "ground cover (library)": {
+    "MAIN": {
+     "tris": 168031,
+     "share": 3.5,
+     "draw_share": 1.1,
+     "draws": 10
+    }
+   },
+   "animals": {
+    "MAIN": {
+     "tris": 141644,
+     "share": 3.0,
+     "draw_share": 19.8,
+     "draws": 186
+    }
+   },
+   "far pictures (cards)": {
+    "MAIN": {
+     "tris": 14390,
+     "share": 0.3,
+     "draw_share": 0.5,
+     "draws": 5
+    },
+    "SHADOW": {
+     "tris": 29985,
+     "share": 0.6,
+     "draw_share": 1.3,
+     "draws": null
+    }
+   },
+   "sky, stars, output": {
+    "MAIN": {
+     "tris": 12013,
+     "share": 0.3,
+     "draw_share": 0.3,
+     "draws": 3
+    }
+   }
+  }
+ }
+}

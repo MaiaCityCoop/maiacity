@@ -1,0 +1,307 @@
+  Letting in the light
+  Laying the paths
+array texture: TypeError: Failed to construct 'Request': Invalid URL "/api/files/7dfe9fb28bb41b928199d3b6e1e12c188ad5f3b689388c4967f06125295f8db9"
+ code: "ERR_INVALID_URL"
+
+      at Request (unknown:1:1)
+      at load (/home/user/maiacity/play/site/node_modules/three/build/three.core.js:45612:19)
+      at load (/home/user/maiacity/play/site/node_modules/three/examples/jsm/loaders/KTX2Loader.js:406:10)
+      at /home/user/maiacity/play/site/node_modules/three/build/three.core.js:45332:10
+      at new Promise (native:1:11)
+      at loadAsync (/home/user/maiacity/play/site/node_modules/three/build/three.core.js:45330:14)
+      at read (/home/user/maiacity/play/site/src/lib/content/render/arrays.js:30:66)
+      at map (native:1:11)
+      at arrayOf (/home/user/maiacity/play/site/src/lib/content/render/arrays.js:46:42)
+      at need (/home/user/maiacity/play/site/src/lib/content/render/nodes/ground.js:37:3)
+
+array texture: TypeError: Failed to construct 'Request': Invalid URL "/api/files/ff6b3a42b3284ed1ff5f8c7dceb9014f2c2aac6551b284645c69b6a1dd418a4f"
+ code: "ERR_INVALID_URL"
+
+      at Request (unknown:1:1)
+      at load (/home/user/maiacity/play/site/node_modules/three/build/three.core.js:45612:19)
+      at load (/home/user/maiacity/play/site/node_modules/three/examples/jsm/loaders/KTX2Loader.js:406:10)
+      at /home/user/maiacity/play/site/node_modules/three/build/three.core.js:45332:10
+      at new Promise (native:1:11)
+      at loadAsync (/home/user/maiacity/play/site/node_modules/three/build/three.core.js:45330:14)
+      at read (/home/user/maiacity/play/site/src/lib/content/render/arrays.js:30:66)
+      at map (native:1:11)
+      at arrayOf (/home/user/maiacity/play/site/src/lib/content/render/arrays.js:46:42)
+      at need (/home/user/maiacity/play/site/src/lib/content/render/nodes/ground.js:37:3)
+
+array texture: TypeError: Failed to construct 'Request': Invalid URL "/api/files/9afb02540afb77638205f5f5b68371d2f6ea6a071897b97b15306aeaf4ab7f39"
+ code: "ERR_INVALID_URL"
+
+      at Request (unknown:1:1)
+      at load (/home/user/maiacity/play/site/node_modules/three/build/three.core.js:45612:19)
+      at load (/home/user/maiacity/play/site/node_modules/three/examples/jsm/loaders/KTX2Loader.js:406:10)
+      at /home/user/maiacity/play/site/node_modules/three/build/three.core.js:45332:10
+      at new Promise (native:1:11)
+      at loadAsync (/home/user/maiacity/play/site/node_modules/three/build/three.core.js:45330:14)
+      at read (/home/user/maiacity/play/site/src/lib/content/render/arrays.js:30:66)
+      at map (native:1:11)
+      at arrayOf (/home/user/maiacity/play/site/src/lib/content/render/arrays.js:46:42)
+      at need (/home/user/maiacity/play/site/src/lib/content/render/nodes/ground.js:37:3)
+
+  Letting the stream in
+  Raising the master domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the medium domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Raising the small domes
+  Planting the edges
+  Sowing the fields
+  Planting the canopy
+  Planting the canopy
+  Planting the canopy
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the fruit trees
+  Planting the shrubs
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+  Covering the ground
+THREE.MeshPhysicalMaterial: The "iridescenceThicknessRange" property has been replaced by "iridescenceThicknessMinimum" and "iridescenceThicknessMaximum".
+THREE.Source: "Source" has been renamed to "TextureSource". Please update your code to use "THREE.TextureSource" instead.
+  Growing the forest: 10 of 198 kinds
+  Growing the forest: 20 of 198 kinds
+  Growing the forest: 30 of 198 kinds
+  Growing the forest: 40 of 198 kinds
+  Growing the forest: 50 of 198 kinds
+  Growing the forest: 60 of 198 kinds
+  Growing the forest: 70 of 198 kinds
+  Growing the forest: 80 of 198 kinds
+  Growing the forest: 90 of 198 kinds
+  Growing the forest: 100 of 198 kinds
+  Growing the forest: 110 of 198 kinds
+  Growing the forest: 120 of 198 kinds
+  Growing the forest: 130 of 198 kinds
+  Growing the forest: 140 of 198 kinds
+  Growing the forest: 150 of 198 kinds
+  Growing the forest: 160 of 198 kinds
+  Growing the forest: 170 of 198 kinds
+  Growing the forest: 180 of 198 kinds
+  Growing the forest: 190 of 198 kinds
+  Growing the forest: 198 of 198 kinds
+  Growing the forest
+  Opening the doors
+  Growing the forest: the plants near you
+  ready
+census: sandbox-1 built in 28.0 s (2 routes live, 0 pinned, 405 files; its workers' answers: 464 read as kept, 0 built)
+   1,696,024  Scene / Scene / Group / Mesh
+     851,363  Scene / Group / Mesh
+     331,934  Scene / assets / Sweet chestnut · level 1
+     249,344  Scene / Mesh
+     125,778  Scene / assets / Small-leaved lime · level 0
+     111,620  Scene / grass / Mesh
+      56,412  Scene / assets / Sea buckthorn · level 1
+      53,600  Scene / Group / fish-kohaku
+      48,024  Scene / assets / Biome cover: Wild strawberry · level 2
+      42,880  Scene / Group / fish-ogon
+      20,468  Scene / assets / Blackberry · level 1
+      17,892  Scene / assets / Plum · level 1
+      15,504  Scene / assets / Biome cover: Moss cushions · level 2
+      15,272  Scene / assets / Biome cover: Leaves and twigs · level 0
+      12,820  Scene / Scene / Mesh
+      12,300  Scene / assets / Biome cover: Wood anemone · level 0
+      12,000  Scene / stars
+      11,832  Scene / assets / Biome cover: Daisy · level 0
+      11,396  Scene / assets / Biome cover: Red clover · level 0
+      11,048  Scene / assets / Cherry · level 1
+      10,720  Scene / Group / fish-carp
+      10,634  Scene / assets / Mango · level 2
+       9,508  Scene / assets / Tomato · level 1
+       8,944  Scene / assets / Rabbit hutch · level 2
+       8,128  Scene / assets / Library · level 2
+  -- MAIN by part
+   1,606,300   177 draws  Scene / Scene / Group [BufferGeometry MeshStandardMaterial]
+     363,174   183 draws  Scene / Group / Mesh [BufferGeometry MeshStandardMaterial]
+     331,934     4 draws  Scene / assets / Sweet chestnut · level 1
+     125,778     2 draws  Scene / assets / Small-leaved lime · level 0
+     122,768     1 draws  Scene / Mesh [BufferGeometry MeshStandardNodeMaterial]
+      83,952     1 draws  Scene / Mesh [DodecahedronGeometry ×2332 MeshStandardMaterial]
+      60,983     1 draws  Scene / grass / Mesh [InstancedBufferGeometry grass L0]
+      56,412     3 draws  Scene / assets / Sea buckthorn · level 1
+      53,600    65 draws  Scene / Group / fish-kohaku
+      49,885     1 draws  Scene / grass / Mesh [InstancedBufferGeometry grass L1]
+      48,024     1 draws  Scene / assets / Biome cover: Wild strawberry · level 2
+      42,880    52 draws  Scene / Group / fish-ogon
+      40,176     3 draws  Scene / Group / Mesh [CylinderGeometry ×558 MeshStandardMaterial]
+      35,576    28 draws  Scene / Group / Mesh [BufferGeometry MeshStandardNodeMaterial]
+      29,484     8 draws  Scene / Group / Mesh [BufferGeometry ×39 ]
+      27,936    25 draws  Scene / Group / Mesh [BufferGeometry ×8 ]
+      27,232     5 draws  Scene / Group / Mesh [BufferGeometry ×37 ]
+      27,216     8 draws  Scene / Group / Mesh [BufferGeometry ×36 ]
+      23,760     1 draws  Scene / Scene / Group [CylinderGeometry ×990 MeshStandardMaterial]
+      23,436     8 draws  Scene / Group / Mesh [BufferGeometry ×31 ]
+      22,800     8 draws  Scene / Group / Mesh [BufferGeometry ×30 ]
+      20,916    22 draws  Scene / Group / Mesh [BufferGeometry ×1 ]
+      20,468     6 draws  Scene / assets / Blackberry · level 1
+      18,684     1 draws  Scene / Mesh [SphereGeometry ×519 MeshStandardMaterial]
+      18,432     9 draws  Scene / Group / Mesh [BufferGeometry ×24 ]
+      18,384     2 draws  Scene / Group / Mesh [CylinderGeometry ×383 MeshStandardMaterial]
+      18,280     2 draws  Scene / Group / Mesh [BufferGeometry ×10 ]
+      18,000     1 draws  Scene / Group / Mesh [BufferGeometry ×20 ]
+      17,892     4 draws  Scene / assets / Plum · level 1
+      17,472    12 draws  Scene / Group / Mesh [BufferGeometry ×16 ]
+      16,744    14 draws  Scene / Group / Mesh [BufferGeometry ×14 ]
+      16,608     1 draws  Scene / Mesh [CylinderGeometry ×519 MeshStandardMaterial]
+      16,432     3 draws  Scene / Group / Mesh [BufferGeometry ×26 ]
+      15,540     5 draws  Scene / Group / Mesh [BufferGeometry ×21 ]
+      15,504     1 draws  Scene / assets / Biome cover: Moss cushions · level 2
+      15,272     1 draws  Scene / assets / Biome cover: Leaves and twigs · level 0
+      14,560    17 draws  Scene / Group / Mesh [BufferGeometry ×5 ]
+      14,336    12 draws  Scene / Group / Mesh [BufferGeometry ×7 ]
+      13,596    27 draws  Scene / Group / Mesh [BufferGeometry ×3 ]
+      13,120    30 draws  Scene / Group / Mesh [BufferGeometry ×4 ]
+      12,636     1 draws  Scene / Group / Mesh [BufferGeometry ×13 ]
+      12,420    81 draws  Scene / Scene / Group [BufferGeometry ×3 ]
+      12,300     1 draws  Scene / assets / Biome cover: Wood anemone · level 0
+      12,000     1 draws  Scene / stars
+      11,832     1 draws  Scene / assets / Biome cover: Daisy · level 0
+      11,396     1 draws  Scene / assets / Biome cover: Red clover · level 0
+      11,048     5 draws  Scene / assets / Cherry · level 1
+      10,920     6 draws  Scene / Group / Mesh [BufferGeometry ×6 ]
+      10,720    13 draws  Scene / Group / fish-carp
+      10,634     4 draws  Scene / assets / Mango · level 2
+       9,508     6 draws  Scene / assets / Tomato · level 1
+       9,456     9 draws  Scene / Scene / Group [TorusGeometry MeshStandardMaterial]
+       8,944     7 draws  Scene / assets / Rabbit hutch · level 2
+       8,128    16 draws  Scene / assets / Library · level 2
+       7,942     1 draws  Scene / assets / Biome cover: Forget-me-not · level 2
+       7,582     5 draws  Scene / assets / asset pictures
+       7,360    72 draws  Scene / Scene / Group [BufferGeometry ×2 ]
+       7,360    36 draws  Scene / Scene / Group [BufferGeometry ×4 ]
+       7,204    26 draws  Scene / Mesh [BufferGeometry MeshStandardMaterial]
+       6,880     2 draws  Scene / assets / Haskap · level 1
+       6,694    12 draws  Scene / assets / Chicken coop · level 2
+       6,440    18 draws  Scene / Scene / Group [BufferGeometry ×7 ]
+       6,288     6 draws  Scene / assets / Blueberry · level 1
+       5,848     1 draws  Scene / assets / Biome cover: Buttercup · level 0
+       5,660     6 draws  Scene / assets / Hardy kiwi · level 1
+       5,320     1 draws  Scene / Scene / Mesh [SphereGeometry ×38 MeshStandardMaterial]
+       5,096     3 draws  Scene / assets / King coconut · level 1
+       5,060     9 draws  Scene / Group / Mesh [BufferGeometry ×11 ]
+       4,600     9 draws  Scene / Scene / Group [BufferGeometry ×10 ]
+       4,140     9 draws  Scene / Group / Mesh [BufferGeometry ×9 ]
+       3,680     9 draws  Scene / Scene / Group [BufferGeometry ×8 ]
+       3,596    30 draws  Scene / Group / Mesh [BufferGeometry MeshPhysicalNodeMaterial]
+       3,568     6 draws  Scene / assets / Playground · level 2
+       3,520     8 draws  Scene / Scene / Group [SphereGeometry MeshStandardMaterial]
+       3,200     4 draws  Scene / Scene / Group [BufferGeometry MeshStandardNodeMaterial]
+       3,024     1 draws  Scene / assets / Biome cover: Meadow cranesbill · level 0
+       2,784   232 draws  Scene / Scene / Group [BoxGeometry MeshStandardMaterial]
+       2,760     9 draws  Scene / Scene / Group [BufferGeometry ×6 ]
+       2,032     4 draws  Scene / assets / Carrot · level 1
+       2,004    11 draws  Scene / assets / Co-working · level 2
+       1,924    12 draws  Scene / assets / Pottery · level 2
+       1,872     4 draws  Scene / assets / Nasturtium · level 1
+       1,764     3 draws  Scene / assets / Swiss chard · level 1
+       1,640     2 draws  Scene / assets / Stinging nettle · level 1
+       1,588    10 draws  Scene / Scene / Mesh [CylinderGeometry MeshPhysicalNodeMaterial]
+       1,580    21 draws  Scene / assets / Art studio · level 2
+       1,504     1 draws  Scene / Group / Mesh [BufferGeometry ×2 ]
+       1,504    11 draws  Scene / Scene / Mesh [CylinderGeometry MeshStandardMaterial]
+       1,498     2 draws  Scene / assets / Shiitake · level 1
+       1,472     8 draws  Scene / Scene / Mesh [RingGeometry MeshStandardMaterial]
+       1,404     1 draws  Scene / assets / Oregano · level 1
+       1,284     4 draws  Scene / Scene / Group [BufferGeometry MeshPhysicalNodeMaterial]
+       1,216     1 draws  Scene / Scene / Mesh [CylinderGeometry ×38 MeshStandardMaterial]
+       1,176     1 draws  Scene / assets / Biome cover: Fern · level 2
+       1,023     9 draws  Scene / assets / Bakery & cooking school · level 2
+       1,010     4 draws  Scene / assets / Comfrey · level 1
+         984    82 draws  Scene / Scene / Mesh [BoxGeometry MeshStandardMaterial]
+         932     4 draws  Scene / assets / Jerusalem artichoke · level 1
+         920    18 draws  Scene / Scene / Group [BufferGeometry ×1 ]
+         756     3 draws  Scene / assets / Woodshop · level 2
+         752     1 draws  Scene / grass / Mesh [InstancedBufferGeometry grass L2]
+         665     3 draws  Scene / Group / Mesh [BufferGeometry ×5 MeshStandardMaterial]
+         592    10 draws  Scene / assets / Repair café · level 2
+         584     3 draws  Scene / assets / Wild garlic · level 1
+         512     1 draws  Scene / Scene / Mesh [RingGeometry MeshStandardNodeMaterial]
+         148     4 draws  Scene / Scene / Group [ShapeGeometry MeshStandardMaterial]
+         128     1 draws  Scene / Mesh [RingGeometry MeshStandardNodeMaterial]
+         128     8 draws  Scene / Scene / Group [CylinderGeometry MeshStandardMaterial]
+         120     5 draws  Scene / Scene / Mesh [CircleGeometry MeshPhysicalMaterial]
+          96     8 draws  Scene / Scene / Group [BoxGeometry MeshPhysicalNodeMaterial]
+          96     1 draws  Scene / Scene / Mesh [CircleGeometry MeshStandardNodeMaterial]
+          12     1 draws  Scene / sky
+           8     4 draws  Scene / Scene / Mesh [PlaneGeometry MeshStandardMaterial]
+           1     1 draws  Render Pipeline
+  -- SHADOW by part
+  2,319,530,584 243458 draws  Scene / Scene / Group [BufferGeometry MeshStandardMaterial]
+  278,700,852 252893 draws  Scene / Group / Mesh [BufferGeometry MeshStandardMaterial]
+  76,026,384  5677 draws  Scene / Group / Mesh [CylinderGeometry ×558 MeshStandardMaterial]
+  50,733,302  3462 draws  Scene / assets / Sweet chestnut · level 2
+  42,430,272  4616 draws  Scene / Group / Mesh [CylinderGeometry ×383 MeshStandardMaterial]
+  32,238,144 28850 draws  Scene / Group / Mesh [BufferGeometry ×8 ]
+  31,425,728  5770 draws  Scene / Group / Mesh [BufferGeometry ×37 ]
+  29,536,112  1552 draws  Scene / assets / Small-leaved lime · level 1
+  24,948,000  1050 draws  Scene / Scene / Group [CylinderGeometry ×990 MeshStandardMaterial]
+  23,984,100   756 draws  Scene / assets / Pecan · level 1
+  21,095,120  2308 draws  Scene / Group / Mesh [BufferGeometry ×10 ]
+  20,772,000  1154 draws  Scene / Group / Mesh [BufferGeometry ×20 ]
+  19,366,594  2192 draws  Scene / assets / Durian · level 1
+  18,962,528  3462 draws  Scene / Group / Mesh [BufferGeometry ×26 ]
+  17,933,160  5770 draws  Scene / Group / Mesh [BufferGeometry ×21 ]
+  16,802,240 19618 draws  Scene / Group / Mesh [BufferGeometry ×5 ]
+  16,652,664 21230 draws  Scene / Group / Mesh [BufferGeometry ×1 ]
+  16,543,744 13848 draws  Scene / Group / Mesh [BufferGeometry ×7 ]
+  15,689,784 31158 draws  Scene / Group / Mesh [BufferGeometry ×3 ]
+  15,140,480 34620 draws  Scene / Group / Mesh [BufferGeometry ×4 ]
+  14,581,944  1154 draws  Scene / Group / Mesh [BufferGeometry ×13 ]
+  13,884,192  3104 draws  Scene / assets / Plum · level 1
+  13,739,804  4380 draws  Scene / assets / King coconut · level 1
+  13,290,402  4744 draws  Scene / assets / Mango · level 2
+  12,601,680  6924 draws  Scene / Group / Mesh [BufferGeometry ×6 ]
+  11,890,816  5770 draws  Scene / Group / Mesh [BufferGeometry ×14 ]
+  11,669,248  3462 draws  Scene / Group / Mesh [BufferGeometry ×16 ]
+  10,542,944  9232 draws  Scene / assets / Rabbit hutch · level 2
+   9,561,888   714 draws  Scene / Scene / Group [CylinderGeometry ×558 MeshStandardMaterial]
+   8,573,248  3880 draws  Scene / assets / Cherry · level 1
+   8,562,636  5562 draws  Scene / assets / asset pictures
+   8,534,400 16800 draws  Scene / assets / Library · level 2
+   7,856,432 16156 draws  Scene / assets / Chicken coop · level 2
+   5,466,176  6924 draws  Scene / assets / Playground · level 2
+   4,783,212  1134 draws  Scene / assets / Walnut · level 2
+   3,326,778  1134 draws  Scene / assets / Black alder · level 1
+   3,231,360   136 draws  Scene / Group / Mesh [CylinderGeometry ×990 MeshStandardMaterial]
+   2,431,872  6333 draws  Scene / Scene / Group [TorusGeometry MeshStandardMaterial]
+   2,104,200 11550 draws  Scene / assets / Co-working · level 2
+   2,020,200 12600 draws  Scene / assets / Pottery · level 2
+   1,735,616  1154 draws  Scene / Group / Mesh [BufferGeometry ×2 ]
+   1,679,360 10474 draws  Scene / Scene / Mesh [RingGeometry MeshStandardMaterial]
+   1,659,000 22050 draws  Scene / assets / Art studio · level 2
+   1,374,792 114566 draws  Scene / Scene / Group [BoxGeometry MeshStandardMaterial]
+   1,132,488 13546 draws  Scene / Group / Mesh [BufferGeometry MeshStandardNodeMaterial]
+   1,074,150  9450 draws  Scene / assets / Bakery & cooking school · level 2
+   1,023,012 85251 draws  Scene / Scene / Mesh [BoxGeometry MeshStandardMaterial]
+     945,792 19704 draws  Scene / Group / Mesh [BufferGeometry MeshPhysicalNodeMaterial]
+     800,256  4220 draws  Scene / Scene / Mesh [CylinderGeometry MeshStandardMaterial]
+     793,800  3150 draws  Scene / assets / Woodshop · level 2
+     621,600 10500 draws  Scene / assets / Repair café · level 2
+     248,677  6721 draws  Scene / Scene / Group [ShapeGeometry MeshStandardMaterial]
+     136,872 11406 draws  Scene / Scene / Group [BoxGeometry MeshPhysicalNodeMaterial]
+census: sandbox-1 near: 10,504,998 triangles a frame (3,836,023 main, 6,668,975 shadow), 3876 draws
+
+sandbox-1 near on WebGPURenderer
+  triangles a frame  10,504,998  (main 3,836,023, shadow 6,668,975, into targets 0)
+  draws              3,876  (meshes 977, instanced batches 709, indirect 3, of 36,608 instances, shadow 2,187; compute passes 3)
+  culled             822 objects, 1,240,972 triangles
+  plants not grown   0
+  out                610,810 triangles, 72 draws, 8,411 copies (3,103 pictures, 0 ghosts), shapes 599,894 triangles
+  in                 17,106 triangles, 8 draws, 753 copies (688 pictures, 0 ghosts), shapes 15,730 triangles
+  library            167,531 triangles, 117 draws, 4,767 copies (0 pictures, 0 ghosts), shapes 19,478 triangles
+
+census: 1 view in 37.6 s
