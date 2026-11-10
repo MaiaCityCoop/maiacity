@@ -1,0 +1,2091 @@
+{
+ "tag": "head-sandbox-1-webkit-v1",
+ "target": "head",
+ "path": "/sandbox-1/",
+ "engine": "webkit",
+ "mode": "full",
+ "samples": [
+  {
+   "t": 2.4,
+   "card": true,
+   "line": "Letting in the light…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 6,
+   "card": true,
+   "line": "Laying the paths…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 8,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 10,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 12,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 14,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 16,
+   "card": true,
+   "line": "Growing the forest: 10 of 23 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 18,
+   "card": true,
+   "line": "Growing the forest: 10 of 23 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 20,
+   "card": true,
+   "line": "Growing the forest: 20 of 23 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 28,
+   "busy": true
+  },
+  {
+   "t": 36,
+   "busy": true
+  },
+  {
+   "t": 44,
+   "busy": true
+  },
+  {
+   "t": 52,
+   "busy": true
+  },
+  {
+   "t": 58.5,
+   "card": true,
+   "line": "Welcome",
+   "kinds": 214,
+   "loaded": 41,
+   "building": 176,
+   "keeping": 32,
+   "boxed": 41,
+   "builds": 41,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 7,
+   "backend": "webgpu"
+  },
+  {
+   "t": 60.5,
+   "card": false,
+   "line": null,
+   "kinds": 221,
+   "loaded": 41,
+   "building": 182,
+   "keeping": 34,
+   "boxed": 41,
+   "builds": 41,
+   "keptLevels": 0,
+   "keptPictures": 0,
+   "taken": 7,
+   "backend": "webgpu"
+  }
+ ],
+ "shown_s": 60.5,
+ "blank": [
+  {
+   "t": 61.2,
+   "mean": [
+    117,
+    123,
+    116
+   ],
+   "bg": 0
+  },
+  {
+   "t": 66.7,
+   "mean": [
+    117,
+    123,
+    115
+   ],
+   "bg": 0
+  },
+  {
+   "t": 72.1,
+   "mean": [
+    117,
+    123,
+    115
+   ],
+   "bg": 0
+  },
+  {
+   "t": 77.5,
+   "mean": [
+    117,
+    123,
+    115
+   ],
+   "bg": 0
+  },
+  {
+   "t": 82.9,
+   "mean": [
+    117,
+    123,
+    115
+   ],
+   "bg": 0
+  },
+  {
+   "t": 88.2,
+   "mean": [
+    117,
+    123,
+    115
+   ],
+   "bg": 0
+  }
+ ],
+ "at_shown": {
+  "t": 60.5,
+  "card": false,
+  "line": null,
+  "kinds": 221,
+  "loaded": 41,
+  "building": 182,
+  "keeping": 34,
+  "boxed": 41,
+  "builds": 41,
+  "keptLevels": 0,
+  "keptPictures": 0,
+  "taken": 7,
+  "backend": "webgpu"
+ },
+ "grown_after_s": null,
+ "grown_at_s": 395.9,
+ "at_grown": {
+  "card": false,
+  "line": null,
+  "kinds": 359,
+  "loaded": 305,
+  "building": 61,
+  "keeping": 0,
+  "boxed": 281,
+  "builds": 308,
+  "keptLevels": 4,
+  "keptPictures": 0,
+  "taken": 114,
+  "backend": "webgpu"
+ },
+ "views": {
+  "near": {
+   "quiet_s": null,
+   "mean": [
+    82,
+    99,
+    96
+   ],
+   "bg": 0.03
+  },
+  "mid": {
+   "quiet_s": null,
+   "mean": [
+    52,
+    70,
+    64
+   ],
+   "bg": 0.22
+  },
+  "far": {
+   "quiet_s": null,
+   "mean": [
+    111,
+    119,
+    113
+   ],
+   "bg": 0.11
+  }
+ },
+ "meter": {
+  "frames": 103,
+  "frame_ms": 303.7,
+  "frame_p95": 545,
+  "cpu_ms": 181.6,
+  "gpu_ms": 50.2,
+  "calls": 1957,
+  "triangles": 6240542,
+  "bound": "cpu"
+ },
+ "holds": [
+  [
+   2327,
+   3637,
+   true
+  ],
+  [
+   5964,
+   390,
+   true
+  ],
+  [
+   6768,
+   312,
+   true
+  ],
+  [
+   7330,
+   217,
+   true
+  ],
+  [
+   17387,
+   229,
+   true
+  ],
+  [
+   19969,
+   259,
+   true
+  ],
+  [
+   20228,
+   38276,
+   true
+  ],
+  [
+   58504,
+   700,
+   true
+  ],
+  [
+   59204,
+   326,
+   false
+  ],
+  [
+   59530,
+   320,
+   false
+  ],
+  [
+   59850,
+   286,
+   false
+  ],
+  [
+   60136,
+   236,
+   false
+  ],
+  [
+   60533,
+   349,
+   false
+  ],
+  [
+   60882,
+   268,
+   false
+  ],
+  [
+   61150,
+   244,
+   false
+  ],
+  [
+   62631,
+   204,
+   false
+  ],
+  [
+   90144,
+   202,
+   false
+  ],
+  [
+   93146,
+   551,
+   false
+  ],
+  [
+   101131,
+   803,
+   false
+  ],
+  [
+   101934,
+   305,
+   false
+  ],
+  [
+   103706,
+   289,
+   false
+  ],
+  [
+   106991,
+   205,
+   false
+  ],
+  [
+   107196,
+   485,
+   false
+  ],
+  [
+   107681,
+   398,
+   false
+  ],
+  [
+   108079,
+   261,
+   false
+  ],
+  [
+   110557,
+   260,
+   false
+  ],
+  [
+   112244,
+   315,
+   false
+  ],
+  [
+   119718,
+   249,
+   false
+  ],
+  [
+   119967,
+   332,
+   false
+  ],
+  [
+   120766,
+   466,
+   false
+  ],
+  [
+   122989,
+   227,
+   false
+  ],
+  [
+   123392,
+   457,
+   false
+  ],
+  [
+   124589,
+   296,
+   false
+  ],
+  [
+   126747,
+   280,
+   false
+  ],
+  [
+   144023,
+   234,
+   false
+  ],
+  [
+   144257,
+   204,
+   false
+  ],
+  [
+   145480,
+   202,
+   false
+  ],
+  [
+   146512,
+   425,
+   false
+  ],
+  [
+   148328,
+   277,
+   false
+  ],
+  [
+   155060,
+   291,
+   false
+  ],
+  [
+   155351,
+   238,
+   false
+  ],
+  [
+   155750,
+   290,
+   false
+  ],
+  [
+   162487,
+   603,
+   false
+  ],
+  [
+   165154,
+   306,
+   false
+  ],
+  [
+   167239,
+   205,
+   false
+  ],
+  [
+   171574,
+   594,
+   false
+  ],
+  [
+   172168,
+   1009,
+   false
+  ],
+  [
+   173177,
+   300,
+   false
+  ],
+  [
+   175554,
+   269,
+   false
+  ],
+  [
+   177422,
+   337,
+   false
+  ],
+  [
+   178019,
+   203,
+   false
+  ],
+  [
+   179087,
+   252,
+   false
+  ],
+  [
+   179886,
+   308,
+   false
+  ],
+  [
+   180609,
+   344,
+   false
+  ],
+  [
+   181656,
+   264,
+   false
+  ],
+  [
+   184051,
+   395,
+   false
+  ],
+  [
+   188889,
+   290,
+   false
+  ],
+  [
+   191927,
+   209,
+   false
+  ],
+  [
+   192982,
+   217,
+   false
+  ],
+  [
+   193199,
+   248,
+   false
+  ],
+  [
+   196049,
+   295,
+   false
+  ],
+  [
+   198531,
+   590,
+   false
+  ],
+  [
+   201628,
+   276,
+   false
+  ],
+  [
+   205396,
+   315,
+   false
+  ],
+  [
+   210009,
+   261,
+   false
+  ],
+  [
+   211260,
+   250,
+   false
+  ],
+  [
+   213242,
+   490,
+   false
+  ],
+  [
+   214187,
+   538,
+   false
+  ],
+  [
+   216840,
+   853,
+   false
+  ],
+  [
+   217828,
+   311,
+   false
+  ],
+  [
+   219260,
+   244,
+   false
+  ],
+  [
+   220975,
+   271,
+   false
+  ],
+  [
+   221246,
+   293,
+   false
+  ],
+  [
+   221692,
+   219,
+   false
+  ],
+  [
+   222132,
+   228,
+   false
+  ],
+  [
+   225198,
+   383,
+   false
+  ],
+  [
+   227498,
+   296,
+   false
+  ],
+  [
+   228788,
+   316,
+   false
+  ],
+  [
+   229104,
+   298,
+   false
+  ],
+  [
+   231124,
+   543,
+   false
+  ],
+  [
+   232932,
+   266,
+   false
+  ],
+  [
+   233521,
+   266,
+   false
+  ],
+  [
+   233787,
+   255,
+   false
+  ],
+  [
+   235094,
+   544,
+   false
+  ],
+  [
+   235805,
+   315,
+   false
+  ],
+  [
+   236120,
+   1005,
+   false
+  ],
+  [
+   237125,
+   887,
+   false
+  ],
+  [
+   238810,
+   203,
+   false
+  ],
+  [
+   239720,
+   430,
+   false
+  ],
+  [
+   240150,
+   1551,
+   false
+  ],
+  [
+   241701,
+   255,
+   false
+  ],
+  [
+   241956,
+   454,
+   false
+  ],
+  [
+   242410,
+   209,
+   false
+  ],
+  [
+   242903,
+   222,
+   false
+  ],
+  [
+   243261,
+   206,
+   false
+  ],
+  [
+   244073,
+   229,
+   false
+  ],
+  [
+   248999,
+   332,
+   false
+  ],
+  [
+   249331,
+   235,
+   false
+  ],
+  [
+   251149,
+   1085,
+   false
+  ],
+  [
+   254523,
+   1438,
+   false
+  ],
+  [
+   255961,
+   481,
+   false
+  ],
+  [
+   256442,
+   254,
+   false
+  ],
+  [
+   258388,
+   319,
+   false
+  ],
+  [
+   260385,
+   463,
+   false
+  ],
+  [
+   260848,
+   539,
+   false
+  ],
+  [
+   261387,
+   728,
+   false
+  ],
+  [
+   268081,
+   278,
+   false
+  ],
+  [
+   268359,
+   326,
+   false
+  ],
+  [
+   268685,
+   319,
+   false
+  ],
+  [
+   269818,
+   306,
+   false
+  ],
+  [
+   270468,
+   314,
+   false
+  ],
+  [
+   271434,
+   349,
+   false
+  ],
+  [
+   272158,
+   219,
+   false
+  ],
+  [
+   273350,
+   298,
+   false
+  ],
+  [
+   273648,
+   246,
+   false
+  ],
+  [
+   274824,
+   355,
+   false
+  ],
+  [
+   278314,
+   205,
+   false
+  ],
+  [
+   278519,
+   251,
+   false
+  ],
+  [
+   279027,
+   204,
+   false
+  ],
+  [
+   281530,
+   419,
+   false
+  ],
+  [
+   281949,
+   211,
+   false
+  ],
+  [
+   284684,
+   249,
+   false
+  ],
+  [
+   284933,
+   262,
+   false
+  ],
+  [
+   285336,
+   221,
+   false
+  ],
+  [
+   287390,
+   236,
+   false
+  ],
+  [
+   287960,
+   207,
+   false
+  ],
+  [
+   288356,
+   228,
+   false
+  ],
+  [
+   289559,
+   700,
+   false
+  ],
+  [
+   290648,
+   585,
+   false
+  ],
+  [
+   291233,
+   207,
+   false
+  ],
+  [
+   293946,
+   332,
+   false
+  ],
+  [
+   296902,
+   274,
+   false
+  ],
+  [
+   297424,
+   667,
+   false
+  ],
+  [
+   298091,
+   350,
+   false
+  ],
+  [
+   299376,
+   593,
+   false
+  ],
+  [
+   300112,
+   452,
+   false
+  ],
+  [
+   300686,
+   311,
+   false
+  ],
+  [
+   302023,
+   274,
+   false
+  ],
+  [
+   304715,
+   201,
+   false
+  ],
+  [
+   306923,
+   613,
+   false
+  ],
+  [
+   307536,
+   460,
+   false
+  ],
+  [
+   310086,
+   315,
+   false
+  ],
+  [
+   310401,
+   421,
+   false
+  ],
+  [
+   315138,
+   536,
+   false
+  ],
+  [
+   315674,
+   205,
+   false
+  ],
+  [
+   320526,
+   334,
+   false
+  ],
+  [
+   320860,
+   546,
+   false
+  ],
+  [
+   321406,
+   373,
+   false
+  ],
+  [
+   321974,
+   591,
+   false
+  ],
+  [
+   323413,
+   362,
+   false
+  ],
+  [
+   326549,
+   340,
+   false
+  ],
+  [
+   326889,
+   239,
+   false
+  ],
+  [
+   327128,
+   212,
+   false
+  ],
+  [
+   327539,
+   208,
+   false
+  ],
+  [
+   327747,
+   438,
+   false
+  ],
+  [
+   328185,
+   338,
+   false
+  ],
+  [
+   329179,
+   1422,
+   false
+  ],
+  [
+   330601,
+   925,
+   false
+  ],
+  [
+   332906,
+   202,
+   false
+  ],
+  [
+   333851,
+   532,
+   false
+  ],
+  [
+   334383,
+   1111,
+   false
+  ],
+  [
+   337473,
+   491,
+   false
+  ],
+  [
+   337964,
+   254,
+   false
+  ],
+  [
+   338386,
+   224,
+   false
+  ],
+  [
+   338764,
+   232,
+   false
+  ],
+  [
+   340434,
+   1003,
+   false
+  ],
+  [
+   341437,
+   478,
+   false
+  ],
+  [
+   341915,
+   248,
+   false
+  ],
+  [
+   343429,
+   293,
+   false
+  ],
+  [
+   345237,
+   245,
+   false
+  ],
+  [
+   345482,
+   440,
+   false
+  ],
+  [
+   346243,
+   219,
+   false
+  ],
+  [
+   348740,
+   334,
+   false
+  ],
+  [
+   349074,
+   237,
+   false
+  ],
+  [
+   349311,
+   219,
+   false
+  ],
+  [
+   350194,
+   304,
+   false
+  ],
+  [
+   350498,
+   214,
+   false
+  ],
+  [
+   351650,
+   391,
+   false
+  ],
+  [
+   354650,
+   370,
+   false
+  ],
+  [
+   355020,
+   415,
+   false
+  ],
+  [
+   358561,
+   321,
+   false
+  ],
+  [
+   359822,
+   336,
+   false
+  ],
+  [
+   360328,
+   350,
+   false
+  ],
+  [
+   360678,
+   753,
+   false
+  ],
+  [
+   361431,
+   277,
+   false
+  ],
+  [
+   362455,
+   257,
+   false
+  ],
+  [
+   363198,
+   205,
+   false
+  ],
+  [
+   363696,
+   285,
+   false
+  ],
+  [
+   365229,
+   861,
+   false
+  ],
+  [
+   366090,
+   255,
+   false
+  ],
+  [
+   367777,
+   260,
+   false
+  ],
+  [
+   369225,
+   208,
+   false
+  ],
+  [
+   369433,
+   497,
+   false
+  ],
+  [
+   369930,
+   216,
+   false
+  ],
+  [
+   371656,
+   292,
+   false
+  ],
+  [
+   373909,
+   287,
+   false
+  ],
+  [
+   374196,
+   403,
+   false
+  ],
+  [
+   378837,
+   357,
+   false
+  ],
+  [
+   389703,
+   889,
+   false
+  ],
+  [
+   390592,
+   1745,
+   false
+  ],
+  [
+   392337,
+   1840,
+   false
+  ],
+  [
+   394177,
+   237,
+   false
+  ],
+  [
+   394844,
+   232,
+   false
+  ],
+  [
+   395259,
+   670,
+   false
+  ],
+  [
+   396048,
+   8794,
+   false
+  ],
+  [
+   404842,
+   603,
+   false
+  ],
+  [
+   405445,
+   319,
+   false
+  ],
+  [
+   405764,
+   355,
+   false
+  ],
+  [
+   406119,
+   273,
+   false
+  ],
+  [
+   407942,
+   229,
+   false
+  ],
+  [
+   408781,
+   223,
+   false
+  ],
+  [
+   410401,
+   290,
+   false
+  ],
+  [
+   410691,
+   217,
+   false
+  ],
+  [
+   411166,
+   395,
+   false
+  ],
+  [
+   411561,
+   336,
+   false
+  ],
+  [
+   412056,
+   407,
+   false
+  ],
+  [
+   414623,
+   889,
+   false
+  ],
+  [
+   417471,
+   1324,
+   false
+  ],
+  [
+   418795,
+   300,
+   false
+  ],
+  [
+   419751,
+   297,
+   false
+  ],
+  [
+   423147,
+   771,
+   false
+  ],
+  [
+   428141,
+   3551,
+   false
+  ],
+  [
+   431692,
+   19291,
+   false
+  ],
+  [
+   450983,
+   211,
+   false
+  ],
+  [
+   451194,
+   512,
+   false
+  ],
+  [
+   451706,
+   2217,
+   false
+  ],
+  [
+   453923,
+   821,
+   false
+  ],
+  [
+   454744,
+   646,
+   false
+  ],
+  [
+   455390,
+   282,
+   false
+  ],
+  [
+   455672,
+   349,
+   false
+  ],
+  [
+   456021,
+   360,
+   false
+  ],
+  [
+   456381,
+   398,
+   false
+  ],
+  [
+   456779,
+   734,
+   false
+  ],
+  [
+   457555,
+   507,
+   false
+  ],
+  [
+   458062,
+   268,
+   false
+  ],
+  [
+   458330,
+   221,
+   false
+  ],
+  [
+   458551,
+   218,
+   false
+  ],
+  [
+   458769,
+   207,
+   false
+  ],
+  [
+   458976,
+   239,
+   false
+  ],
+  [
+   459215,
+   231,
+   false
+  ],
+  [
+   459446,
+   215,
+   false
+  ],
+  [
+   459843,
+   220,
+   false
+  ],
+  [
+   460063,
+   225,
+   false
+  ],
+  [
+   460288,
+   296,
+   false
+  ],
+  [
+   460584,
+   245,
+   false
+  ],
+  [
+   460829,
+   225,
+   false
+  ],
+  [
+   461054,
+   240,
+   false
+  ],
+  [
+   461294,
+   264,
+   false
+  ],
+  [
+   461558,
+   280,
+   false
+  ],
+  [
+   461838,
+   230,
+   false
+  ],
+  [
+   462068,
+   485,
+   false
+  ],
+  [
+   462553,
+   230,
+   false
+  ],
+  [
+   462783,
+   391,
+   false
+  ],
+  [
+   463174,
+   203,
+   false
+  ],
+  [
+   463542,
+   203,
+   false
+  ],
+  [
+   463745,
+   267,
+   false
+  ],
+  [
+   464012,
+   211,
+   false
+  ],
+  [
+   464223,
+   228,
+   false
+  ],
+  [
+   464451,
+   229,
+   false
+  ],
+  [
+   464680,
+   245,
+   false
+  ],
+  [
+   464925,
+   219,
+   false
+  ],
+  [
+   465144,
+   216,
+   false
+  ],
+  [
+   465610,
+   255,
+   false
+  ],
+  [
+   465865,
+   433,
+   false
+  ],
+  [
+   466298,
+   245,
+   false
+  ],
+  [
+   466543,
+   316,
+   false
+  ],
+  [
+   466859,
+   257,
+   false
+  ],
+  [
+   467116,
+   424,
+   false
+  ],
+  [
+   467540,
+   211,
+   false
+  ],
+  [
+   467983,
+   536,
+   false
+  ],
+  [
+   468519,
+   210,
+   false
+  ],
+  [
+   468729,
+   855,
+   false
+  ],
+  [
+   470906,
+   2310,
+   false
+  ],
+  [
+   473216,
+   349,
+   false
+  ],
+  [
+   473565,
+   239,
+   false
+  ],
+  [
+   476439,
+   269,
+   false
+  ],
+  [
+   477528,
+   1029,
+   false
+  ],
+  [
+   478725,
+   205,
+   false
+  ],
+  [
+   479820,
+   358,
+   false
+  ],
+  [
+   480178,
+   235,
+   false
+  ],
+  [
+   480752,
+   420,
+   false
+  ],
+  [
+   483030,
+   2498,
+   false
+  ],
+  [
+   485528,
+   13593,
+   false
+  ],
+  [
+   501291,
+   235,
+   false
+  ],
+  [
+   501774,
+   456,
+   false
+  ],
+  [
+   504525,
+   343,
+   false
+  ],
+  [
+   504999,
+   5346,
+   false
+  ],
+  [
+   510345,
+   515,
+   false
+  ],
+  [
+   511002,
+   2224,
+   false
+  ],
+  [
+   513226,
+   386,
+   false
+  ],
+  [
+   513756,
+   203,
+   false
+  ],
+  [
+   514109,
+   1679,
+   false
+  ],
+  [
+   515788,
+   203,
+   false
+  ],
+  [
+   519559,
+   233,
+   false
+  ],
+  [
+   520741,
+   323,
+   false
+  ],
+  [
+   522136,
+   239,
+   false
+  ],
+  [
+   525386,
+   326,
+   false
+  ],
+  [
+   526475,
+   260,
+   false
+  ],
+  [
+   529169,
+   209,
+   false
+  ],
+  [
+   530868,
+   255,
+   false
+  ],
+  [
+   532927,
+   230,
+   false
+  ],
+  [
+   534367,
+   270,
+   false
+  ],
+  [
+   535212,
+   436,
+   false
+  ],
+  [
+   535648,
+   11095,
+   false
+  ],
+  [
+   546743,
+   607,
+   false
+  ],
+  [
+   547350,
+   863,
+   false
+  ],
+  [
+   548213,
+   318,
+   false
+  ],
+  [
+   548531,
+   282,
+   false
+  ],
+  [
+   548813,
+   546,
+   false
+  ],
+  [
+   549359,
+   228,
+   false
+  ],
+  [
+   549587,
+   356,
+   false
+  ],
+  [
+   549943,
+   265,
+   false
+  ],
+  [
+   550208,
+   219,
+   false
+  ],
+  [
+   550427,
+   220,
+   false
+  ],
+  [
+   551487,
+   907,
+   false
+  ],
+  [
+   552616,
+   1394,
+   false
+  ],
+  [
+   555378,
+   293,
+   false
+  ],
+  [
+   558046,
+   229,
+   false
+  ],
+  [
+   561053,
+   224,
+   false
+  ],
+  [
+   561277,
+   313,
+   false
+  ],
+  [
+   561590,
+   255,
+   false
+  ],
+  [
+   562228,
+   325,
+   false
+  ],
+  [
+   563277,
+   1595,
+   false
+  ],
+  [
+   565063,
+   211,
+   false
+  ]
+ ],
+ "longest_hold": {
+  "at_s": 20.2,
+  "ms": 38276,
+  "card_on": true
+ },
+ "holds_over_1s": [
+  {
+   "at_s": 2.3,
+   "ms": 3637,
+   "card_on": true
+  },
+  {
+   "at_s": 20.2,
+   "ms": 38276,
+   "card_on": true
+  },
+  {
+   "at_s": 172.2,
+   "ms": 1009,
+   "card_on": false
+  },
+  {
+   "at_s": 236.1,
+   "ms": 1005,
+   "card_on": false
+  },
+  {
+   "at_s": 240.2,
+   "ms": 1551,
+   "card_on": false
+  },
+  {
+   "at_s": 251.1,
+   "ms": 1085,
+   "card_on": false
+  },
+  {
+   "at_s": 254.5,
+   "ms": 1438,
+   "card_on": false
+  },
+  {
+   "at_s": 329.2,
+   "ms": 1422,
+   "card_on": false
+  },
+  {
+   "at_s": 334.4,
+   "ms": 1111,
+   "card_on": false
+  },
+  {
+   "at_s": 340.4,
+   "ms": 1003,
+   "card_on": false
+  },
+  {
+   "at_s": 390.6,
+   "ms": 1745,
+   "card_on": false
+  },
+  {
+   "at_s": 392.3,
+   "ms": 1840,
+   "card_on": false
+  },
+  {
+   "at_s": 396,
+   "ms": 8794,
+   "card_on": false
+  },
+  {
+   "at_s": 417.5,
+   "ms": 1324,
+   "card_on": false
+  },
+  {
+   "at_s": 428.1,
+   "ms": 3551,
+   "card_on": false
+  },
+  {
+   "at_s": 431.7,
+   "ms": 19291,
+   "card_on": false
+  },
+  {
+   "at_s": 451.7,
+   "ms": 2217,
+   "card_on": false
+  },
+  {
+   "at_s": 470.9,
+   "ms": 2310,
+   "card_on": false
+  },
+  {
+   "at_s": 477.5,
+   "ms": 1029,
+   "card_on": false
+  },
+  {
+   "at_s": 483,
+   "ms": 2498,
+   "card_on": false
+  },
+  {
+   "at_s": 485.5,
+   "ms": 13593,
+   "card_on": false
+  },
+  {
+   "at_s": 505,
+   "ms": 5346,
+   "card_on": false
+  },
+  {
+   "at_s": 511,
+   "ms": 2224,
+   "card_on": false
+  },
+  {
+   "at_s": 514.1,
+   "ms": 1679,
+   "card_on": false
+  },
+  {
+   "at_s": 535.6,
+   "ms": 11095,
+   "card_on": false
+  },
+  {
+   "at_s": 552.6,
+   "ms": 1394,
+   "card_on": false
+  },
+  {
+   "at_s": 563.3,
+   "ms": 1595,
+   "card_on": false
+  }
+ ],
+ "console": [
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "n": 9,
+   "m": "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+  }
+ ]
+}

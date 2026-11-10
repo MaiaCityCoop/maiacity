@@ -1,0 +1,700 @@
+{
+ "tag": "head-sandbox-5-webkit-v1",
+ "target": "head",
+ "path": "/sandbox-5/",
+ "engine": "webkit",
+ "mode": "full",
+ "samples": [
+  {
+   "t": 2.2,
+   "card": true,
+   "line": "Letting in the light…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": null
+  },
+  {
+   "t": 4.2,
+   "card": true,
+   "line": "Building the dome…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 9.4,
+   "card": true,
+   "line": "Laying the paths…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 11.4,
+   "card": true,
+   "line": "Growing the forest: 10 of 51 kinds…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 19.4,
+   "busy": true
+  },
+  {
+   "t": 27.4,
+   "busy": true
+  },
+  {
+   "t": 35.4,
+   "busy": true
+  },
+  {
+   "t": 43.4,
+   "busy": true
+  },
+  {
+   "t": 51.4,
+   "busy": true
+  },
+  {
+   "t": 53.8,
+   "card": true,
+   "line": "Welcome",
+   "kinds": 196,
+   "loaded": 114,
+   "building": 83,
+   "keeping": 0,
+   "boxed": 0,
+   "builds": 116,
+   "keptLevels": 38,
+   "keptPictures": 0,
+   "taken": 20,
+   "backend": "webgpu"
+  },
+  {
+   "t": 57.7,
+   "card": true,
+   "line": "Welcome",
+   "kinds": 196,
+   "loaded": 154,
+   "building": 43,
+   "keeping": 0,
+   "boxed": 0,
+   "builds": 156,
+   "keptLevels": 42,
+   "keptPictures": 0,
+   "taken": 40,
+   "backend": "webgpu"
+  },
+  {
+   "t": 60.4,
+   "card": false,
+   "line": null,
+   "kinds": 196,
+   "loaded": 183,
+   "building": 13,
+   "keeping": 0,
+   "boxed": 0,
+   "builds": 186,
+   "keptLevels": 48,
+   "keptPictures": 0,
+   "taken": 52,
+   "backend": "webgpu"
+  }
+ ],
+ "shown_s": 60.4,
+ "blank": [
+  {
+   "t": 61.6,
+   "mean": [
+    69,
+    94,
+    98
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 67.5,
+   "mean": [
+    75,
+    98,
+    98
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 73,
+   "mean": [
+    75,
+    98,
+    97
+   ],
+   "bg": 0.07
+  },
+  {
+   "t": 78.5,
+   "mean": [
+    75,
+    98,
+    97
+   ],
+   "bg": 0.07
+  },
+  {
+   "t": 84,
+   "mean": [
+    74,
+    98,
+    97
+   ],
+   "bg": 0.07
+  },
+  {
+   "t": 89.6,
+   "mean": [
+    74,
+    98,
+    97
+   ],
+   "bg": 0.07
+  }
+ ],
+ "at_shown": {
+  "t": 60.4,
+  "card": false,
+  "line": null,
+  "kinds": 196,
+  "loaded": 183,
+  "building": 13,
+  "keeping": 0,
+  "boxed": 0,
+  "builds": 186,
+  "keptLevels": 48,
+  "keptPictures": 0,
+  "taken": 52,
+  "backend": "webgpu"
+ },
+ "grown_after_s": 4,
+ "grown_at_s": 99.1,
+ "at_grown": {
+  "card": false,
+  "line": null,
+  "kinds": 196,
+  "loaded": 196,
+  "building": 0,
+  "keeping": 0,
+  "boxed": 4,
+  "builds": 202,
+  "keptLevels": 52,
+  "keptPictures": 0,
+  "taken": 58,
+  "backend": "webgpu"
+ },
+ "views": {
+  "open": {
+   "quiet_s": 5,
+   "mean": [
+    74,
+    98,
+    97
+   ],
+   "bg": 0.07
+  },
+  "near": {
+   "quiet_s": null,
+   "mean": [
+    74,
+    90,
+    82
+   ],
+   "bg": 0.15
+  },
+  "far": {
+   "quiet_s": 4,
+   "mean": [
+    106,
+    119,
+    104
+   ],
+   "bg": 0.09
+  }
+ },
+ "meter": {
+  "frames": 173,
+  "frame_ms": 187,
+  "frame_p95": 200,
+  "cpu_ms": 107.8,
+  "gpu_ms": 65.5,
+  "calls": 1972,
+  "triangles": 9192791,
+  "bound": "cpu"
+ },
+ "holds": [
+  [
+   5545,
+   441,
+   true
+  ],
+  [
+   5986,
+   3399,
+   true
+  ],
+  [
+   9425,
+   368,
+   true
+  ],
+  [
+   11275,
+   394,
+   true
+  ],
+  [
+   11669,
+   838,
+   true
+  ],
+  [
+   12678,
+   40009,
+   true
+  ],
+  [
+   52687,
+   2764,
+   true
+  ],
+  [
+   55451,
+   3961,
+   true
+  ],
+  [
+   59412,
+   1447,
+   false
+  ],
+  [
+   60859,
+   705,
+   false
+  ],
+  [
+   61564,
+   248,
+   false
+  ],
+  [
+   61926,
+   257,
+   false
+  ],
+  [
+   62183,
+   302,
+   false
+  ],
+  [
+   62931,
+   203,
+   false
+  ],
+  [
+   65020,
+   267,
+   false
+  ],
+  [
+   66599,
+   292,
+   false
+  ],
+  [
+   66891,
+   210,
+   false
+  ],
+  [
+   67101,
+   227,
+   false
+  ],
+  [
+   73449,
+   281,
+   false
+  ],
+  [
+   73822,
+   1174,
+   false
+  ],
+  [
+   78112,
+   209,
+   false
+  ],
+  [
+   79129,
+   212,
+   false
+  ],
+  [
+   81239,
+   237,
+   false
+  ],
+  [
+   84158,
+   248,
+   false
+  ],
+  [
+   87688,
+   483,
+   false
+  ],
+  [
+   88171,
+   293,
+   false
+  ],
+  [
+   89225,
+   212,
+   false
+  ],
+  [
+   89870,
+   252,
+   false
+  ],
+  [
+   91563,
+   232,
+   false
+  ],
+  [
+   95543,
+   484,
+   false
+  ],
+  [
+   96027,
+   343,
+   false
+  ],
+  [
+   98531,
+   498,
+   false
+  ],
+  [
+   99592,
+   223,
+   false
+  ],
+  [
+   101310,
+   715,
+   false
+  ],
+  [
+   102025,
+   1094,
+   false
+  ],
+  [
+   104308,
+   347,
+   false
+  ],
+  [
+   104655,
+   963,
+   false
+  ],
+  [
+   106167,
+   633,
+   false
+  ],
+  [
+   107374,
+   633,
+   false
+  ],
+  [
+   108668,
+   1396,
+   false
+  ],
+  [
+   110064,
+   2628,
+   false
+  ],
+  [
+   112692,
+   20420,
+   false
+  ],
+  [
+   133112,
+   345,
+   false
+  ],
+  [
+   133457,
+   207,
+   false
+  ],
+  [
+   133664,
+   426,
+   false
+  ],
+  [
+   134922,
+   1088,
+   false
+  ],
+  [
+   137291,
+   241,
+   false
+  ],
+  [
+   137532,
+   770,
+   false
+  ],
+  [
+   138987,
+   788,
+   false
+  ],
+  [
+   139775,
+   783,
+   false
+  ],
+  [
+   141549,
+   228,
+   false
+  ],
+  [
+   143756,
+   287,
+   false
+  ],
+  [
+   144043,
+   237,
+   false
+  ],
+  [
+   144605,
+   309,
+   false
+  ],
+  [
+   144914,
+   381,
+   false
+  ],
+  [
+   145295,
+   367,
+   false
+  ],
+  [
+   146171,
+   476,
+   false
+  ],
+  [
+   150439,
+   225,
+   false
+  ],
+  [
+   151541,
+   381,
+   false
+  ],
+  [
+   153932,
+   1556,
+   false
+  ],
+  [
+   155488,
+   12494,
+   false
+  ],
+  [
+   167982,
+   611,
+   false
+  ],
+  [
+   168593,
+   268,
+   false
+  ],
+  [
+   168861,
+   245,
+   false
+  ],
+  [
+   169286,
+   326,
+   false
+  ],
+  [
+   171365,
+   323,
+   false
+  ],
+  [
+   172813,
+   758,
+   false
+  ],
+  [
+   173571,
+   363,
+   false
+  ],
+  [
+   174625,
+   480,
+   false
+  ],
+  [
+   175105,
+   399,
+   false
+  ],
+  [
+   179691,
+   275,
+   false
+  ]
+ ],
+ "longest_hold": {
+  "at_s": 12.7,
+  "ms": 40009,
+  "card_on": true
+ },
+ "holds_over_1s": [
+  {
+   "at_s": 6,
+   "ms": 3399,
+   "card_on": true
+  },
+  {
+   "at_s": 12.7,
+   "ms": 40009,
+   "card_on": true
+  },
+  {
+   "at_s": 52.7,
+   "ms": 2764,
+   "card_on": true
+  },
+  {
+   "at_s": 55.5,
+   "ms": 3961,
+   "card_on": true
+  },
+  {
+   "at_s": 59.4,
+   "ms": 1447,
+   "card_on": false
+  },
+  {
+   "at_s": 73.8,
+   "ms": 1174,
+   "card_on": false
+  },
+  {
+   "at_s": 102,
+   "ms": 1094,
+   "card_on": false
+  },
+  {
+   "at_s": 108.7,
+   "ms": 1396,
+   "card_on": false
+  },
+  {
+   "at_s": 110.1,
+   "ms": 2628,
+   "card_on": false
+  },
+  {
+   "at_s": 112.7,
+   "ms": 20420,
+   "card_on": false
+  },
+  {
+   "at_s": 134.9,
+   "ms": 1088,
+   "card_on": false
+  },
+  {
+   "at_s": 153.9,
+   "ms": 1556,
+   "card_on": false
+  },
+  {
+   "at_s": 155.5,
+   "ms": 12494,
+   "card_on": false
+  }
+ ],
+ "console": [
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "n": 9,
+   "m": "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+  }
+ ]
+}

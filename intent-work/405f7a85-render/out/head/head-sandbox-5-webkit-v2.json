@@ -1,0 +1,415 @@
+{
+ "tag": "head-sandbox-5-webkit-v2",
+ "target": "head",
+ "path": "/sandbox-5/",
+ "engine": "webkit",
+ "mode": "short",
+ "samples": [
+  {
+   "t": 5.1,
+   "card": true,
+   "line": "Laying the paths…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 7.1,
+   "card": true,
+   "line": "Letting the stream in…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 9.2,
+   "card": true,
+   "line": "Covering the ground…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 11.3,
+   "card": true,
+   "line": "Opening the doors…",
+   "kinds": null,
+   "loaded": null,
+   "building": null,
+   "keeping": null,
+   "boxed": null,
+   "builds": null,
+   "keptLevels": null,
+   "keptPictures": null,
+   "taken": null,
+   "backend": "webgpu"
+  },
+  {
+   "t": 16.2,
+   "card": true,
+   "line": "Welcome",
+   "kinds": 196,
+   "loaded": 106,
+   "building": 94,
+   "keeping": 0,
+   "boxed": 0,
+   "builds": 106,
+   "keptLevels": 38,
+   "keptPictures": 0,
+   "taken": 20,
+   "backend": "webgpu"
+  },
+  {
+   "t": 18.4,
+   "card": true,
+   "line": "Welcome",
+   "kinds": 196,
+   "loaded": 140,
+   "building": 55,
+   "keeping": 0,
+   "boxed": 0,
+   "builds": 144,
+   "keptLevels": 42,
+   "keptPictures": 0,
+   "taken": 33,
+   "backend": "webgpu"
+  },
+  {
+   "t": 20.5,
+   "card": false,
+   "line": null,
+   "kinds": 196,
+   "loaded": 169,
+   "building": 27,
+   "keeping": 0,
+   "boxed": 0,
+   "builds": 175,
+   "keptLevels": 44,
+   "keptPictures": 0,
+   "taken": 48,
+   "backend": "webgpu"
+  }
+ ],
+ "shown_s": 20.5,
+ "blank": [
+  {
+   "t": 26.9,
+   "mean": [
+    77,
+    101,
+    101
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 33.3,
+   "mean": [
+    77,
+    101,
+    100
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 39.1,
+   "mean": [
+    77,
+    101,
+    101
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 44.6,
+   "mean": [
+    77,
+    101,
+    101
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 50.2,
+   "mean": [
+    77,
+    101,
+    101
+   ],
+   "bg": 0.08
+  },
+  {
+   "t": 55.8,
+   "mean": [
+    77,
+    101,
+    101
+   ],
+   "bg": 0.08
+  }
+ ],
+ "at_shown": {
+  "t": 20.5,
+  "card": false,
+  "line": null,
+  "kinds": 196,
+  "loaded": 169,
+  "building": 27,
+  "keeping": 0,
+  "boxed": 0,
+  "builds": 175,
+  "keptLevels": 44,
+  "keptPictures": 0,
+  "taken": 48,
+  "backend": "webgpu"
+ },
+ "holds": [
+  [
+   1284,
+   469,
+   true
+  ],
+  [
+   1753,
+   3609,
+   true
+  ],
+  [
+   5362,
+   1108,
+   true
+  ],
+  [
+   6470,
+   781,
+   true
+  ],
+  [
+   7251,
+   451,
+   true
+  ],
+  [
+   8937,
+   220,
+   true
+  ],
+  [
+   10047,
+   296,
+   true
+  ],
+  [
+   10343,
+   780,
+   true
+  ],
+  [
+   11123,
+   233,
+   true
+  ],
+  [
+   11384,
+   5794,
+   true
+  ],
+  [
+   17178,
+   1823,
+   true
+  ],
+  [
+   19001,
+   935,
+   false
+  ],
+  [
+   19936,
+   1044,
+   false
+  ],
+  [
+   20980,
+   3297,
+   false
+  ],
+  [
+   24277,
+   827,
+   false
+  ],
+  [
+   25104,
+   214,
+   false
+  ],
+  [
+   25671,
+   264,
+   false
+  ],
+  [
+   26047,
+   206,
+   false
+  ],
+  [
+   27827,
+   220,
+   false
+  ],
+  [
+   29568,
+   237,
+   false
+  ],
+  [
+   29805,
+   356,
+   false
+  ],
+  [
+   30161,
+   310,
+   false
+  ],
+  [
+   30471,
+   409,
+   false
+  ],
+  [
+   30880,
+   278,
+   false
+  ],
+  [
+   31158,
+   322,
+   false
+  ],
+  [
+   31643,
+   639,
+   false
+  ],
+  [
+   32282,
+   424,
+   false
+  ],
+  [
+   32706,
+   371,
+   false
+  ],
+  [
+   33587,
+   205,
+   false
+  ],
+  [
+   33903,
+   301,
+   false
+  ],
+  [
+   37467,
+   259,
+   false
+  ],
+  [
+   38384,
+   227,
+   false
+  ],
+  [
+   38611,
+   236,
+   false
+  ],
+  [
+   44132,
+   245,
+   false
+  ],
+  [
+   59785,
+   243,
+   false
+  ],
+  [
+   60525,
+   372,
+   false
+  ]
+ ],
+ "longest_hold": {
+  "at_s": 11.4,
+  "ms": 5794,
+  "card_on": true
+ },
+ "holds_over_1s": [
+  {
+   "at_s": 1.8,
+   "ms": 3609,
+   "card_on": true
+  },
+  {
+   "at_s": 5.4,
+   "ms": 1108,
+   "card_on": true
+  },
+  {
+   "at_s": 11.4,
+   "ms": 5794,
+   "card_on": true
+  },
+  {
+   "at_s": 17.2,
+   "ms": 1823,
+   "card_on": true
+  },
+  {
+   "at_s": 19.9,
+   "ms": 1044,
+   "card_on": false
+  },
+  {
+   "at_s": 21,
+   "ms": 3297,
+   "card_on": false
+  }
+ ],
+ "console": [
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "n": 6,
+   "m": "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+  }
+ ]
+}
