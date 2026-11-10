@@ -200,7 +200,7 @@ function keepShadowSwitch() {
 
 /**
  * A WebGPURenderer set up for the app. Node materials are its own; the sun lights
- * them by SunLightNode (./nodes/index.js registers it); a lost device is `onDeviceLost`, never a context event.
+ * them by SunLightNode (../sandbox-kit/sky.js, which makes the sun, registers it); a lost device is `onDeviceLost`, never a context event.
  * @param {RendererOptions} o @param {boolean} forceWebGL its WebGL 2 backend, WebGPU or not
  * @returns {WebGPURenderer}
  */
