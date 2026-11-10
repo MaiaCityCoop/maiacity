@@ -26,6 +26,7 @@ import { INDEX, buildOf, loadRecipes, parseBuild, recipeInfo } from '$lib/conten
 import { loadAsset } from '$lib/content/assets/load.js';
 import { poserOf } from '$lib/content/assets/controls.js';
 import { SANDBOX } from '$lib/content/assets/sandboxes.js';
+import { worldFinish, type WorldFinish } from '$lib/content/render/world.js';
 import { configAt, loadConfig } from '$lib/content/game/code/index.js';
 
 /* ---------------- real measures, metres ---------------- */
@@ -607,14 +608,19 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void, onI
 		const far = smooth(24, 75, camera.position.distanceTo(mode === 'asset' ? focus : PATCH));
 		domeLineMat.opacity = 0.4 * far; skinMat.opacity = 0.08 * far;
 		domeLines.visible = skin.visible = far > 0.01;
-		renderer.render(scene, camera);
+		if (finish) finish.render();
+		else renderer.render(scene, camera);
 		labels.render(scene, camera);
 		tell();
 		raf = requestAnimationFrame(loop);
 	};
 	// the first frame once the renderer is ready (WebGPU's device asked for; on WebGL at once)
+	/** the picture finished as every world's (intent 1f0c6f79): its own room light, so no haze; AO, edges, the grade */
+	let finish: WorldFinish | null = null;
 	void ready(renderer).then(() => {
-		if (!disposed) raf = requestAnimationFrame(loop);
+		if (disposed) return;
+		finish = worldFinish(renderer, scene, camera);
+		raf = requestAnimationFrame(loop);
 	});
 	say();
 
@@ -640,6 +646,7 @@ export function mountJoint(el: HTMLElement, onTick: (s: JointState) => void, onI
 			cancelAnimationFrame(raf);
 			controls.removeEventListener('start', onStart);
 			controls.dispose();
+			finish?.dispose();
 			fitter.dispose();
 			disposeObject(scene);
 			envTex?.dispose();

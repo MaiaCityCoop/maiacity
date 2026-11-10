@@ -19,7 +19,7 @@ import { heroOf } from '../content/assets/hero.js';
 import { Stage } from '../content/assets/stage.js';
 import { PICTURE, makeRenderer } from '../content/render/core.js';
 import { createSky } from '../content/sandbox-kit/sky.js';
-
+import { worldFinish, type WorldFinish } from '../content/render/world.js';
 import { cameraAt, stepAt, worldAt, type CameraKey, type World } from './live';
 import { blobWorker, buildWorld, built, engineOf, type WorldBuildSpec } from './world-build';
 /** the hour a live shot's sky is held at (its sun is the stage's own, pinned: this moves only its clouds and its light) */
@@ -136,7 +136,7 @@ type WorldSpec = WorldBuildSpec & { size: [number, number]; at: number; shots: W
  */
 function world(tl: any, spec: WorldSpec) {
 	const [w, h] = spec.size;
-	let renderer: any, scene: THREE.Scene, camera: THREE.PerspectiveCamera, sky: ReturnType<typeof createSky>, mood: any;
+	let renderer: any, scene: THREE.Scene, camera: THREE.PerspectiveCamera, sky: ReturnType<typeof createSky>, mood: any, finish: WorldFinish;
 	let skyHour = LIVE_HOUR;
 	let copies: THREE.Object3D[] = [], places: Float32Array[] = [];
 	const lamps: { light: THREE.Light; k: number }[] = [];
@@ -159,6 +159,8 @@ function world(tl: any, spec: WorldSpec) {
 		camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 20000);
 		// the sky's hour the shot's (its clouds' drift and its light), never the in-game clock's, which follows the wall clock
 		sky = createSky(renderer, scene, { shadowReach: 500, fog: { far: 1400 }, clock: () => skyHour });
+		// the picture finished as a film's (intent 1f0c6f79): no temporal jitter, its grain on the shot's own clock
+		finish = worldFinish(renderer, scene, camera, { sky, film: true });
 	})();
 	for (const s of spec.shots) {
 		let pen: CanvasRenderingContext2D | null = null, drawn = NaN;
@@ -179,7 +181,7 @@ function world(tl: any, spec: WorldSpec) {
 			camera.fov = at.camera.fov;
 			camera.updateProjectionMatrix();
 			camera.lookAt(...at.camera.target);
-			renderer.render(scene, camera);
+			finish.render(t);
 			pen.clearRect(0, 0, w, h);
 			pen.drawImage(renderer.domElement, 0, 0, w, h);
 		};

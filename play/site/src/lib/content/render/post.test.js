@@ -72,9 +72,11 @@ describe('the post stack on WebGPU', () => {
 		// the NaN guard's bit test, the scene's normals beside its colour, and the grade's vignette in the programs
 		expect(frag).toMatch(/floatBitsToUint/);
 		expect(frag).toMatch(/2139095040u|0x7f800000/i);
-		// the grade's grain hash, and the scene pass's three outputs (colour, normals, the mask)
+		// the grade's grain hash, and the prepass's two outputs (normals, the mask: intent 1f0c6f79 lays the occlusion
+		// on the ambient light from a prepass, the scene itself drawn to its colour alone)
 		expect(frag).toMatch(/43758\.5453/);
-		expect(frag).toMatch(/layout\s*\(\s*location\s*=\s*2\s*\)/);
+		expect(frag).toMatch(/layout\s*\(\s*location\s*=\s*1\s*\)/);
+		expect(post.pipeline).toBeTruthy();
 		expect(shaders.length).toBeGreaterThan(4);
 		post.dispose();
 	});
@@ -101,5 +103,255 @@ describe('the post stack on WebGPU', () => {
 		expect([NaN, Infinity, -Infinity].every(bad)).toBe(true);
 		expect([0, -0, 1, -1, 3.4e38, 1e-40, 65504].some(bad)).toBe(false);
 		expect(typeof finite).toBe('function');
+	});
+});
+
+// The world's finishing (intent 1f0c6f79): the plan per device (./finish.js), its cost, the grade (./grade.js), the
+// atmosphere (./atmosphere.js) and the one RenderPipeline built from a plan (`createFinish`), on the fake context.
+const { finishing, costOf, deviceOf, LIMITS } = await import('./finish.js');
+const { CEILING, WORLD, look, lutData, LUT_SIZE } = await import('./grade.js');
+const atmo = await import('./atmosphere.js');
+const { createFinish } = await import('./post.js');
+
+describe('the finishing plan', () => {
+	test('a desktop: AO on the ambient light, TRAA, bloom, the grade, the haze and contact shadows', () => {
+		const p = finishing({ device: 'desktop' });
+		expect(p.ao?.kind).toBe('ssao');
+		expect(p.ao?.scale).toBe(0.5);
+		expect(p.aa).toBe('traa');
+		expect(p.jitter).toBe(true);
+		expect(p.samples).toBe(0);
+		expect(p.bloom?.threshold).toBeGreaterThanOrEqual(1);
+		expect(p.bloom?.scale).toBe(0.5);
+		expect(p.bloom?.strength).toBeLessThanOrEqual(0.2);
+		expect(p.grade).toEqual(WORLD);
+		expect(p.contact).not.toBeNull();
+		expect(p.fog.reach).toBe(1);
+		expect(p.scale).toBe(1);
+		expect(p.upscale).toBeNull();
+	});
+	test('a small device: none of AO, bloom or contact shadows; 0.6–0.75 of the pixels, brought up by TAAU; the haze closer', () => {
+		const p = finishing({ device: 'small' });
+		expect(p.ao).toBeNull();
+		expect(p.bloom).toBeNull();
+		expect(p.contact).toBeNull();
+		expect(p.scale).toBeGreaterThanOrEqual(LIMITS.smallScale[0]);
+		expect(p.scale).toBeLessThanOrEqual(LIMITS.smallScale[1]);
+		expect(p.upscale).toBe('taau');
+		expect(p.aa).toBe('taau');
+		expect(p.fog.reach).toBeLessThan(1);
+	});
+	test('a film: no temporal jitter on either device, MSAA, the full pixels', () => {
+		for (const device of /** @type {const} */ (['desktop', 'small'])) {
+			const p = finishing({ device, film: true });
+			expect(p.jitter).toBe(false);
+			expect(p.aa).toBe('msaa');
+			expect(p.samples).toBe(4);
+			expect(p.scale).toBe(1);
+			expect(p.upscale).toBeNull();
+		}
+		// where TRAA ghosts, MSAA
+		expect(finishing({ ghosts: true }).aa).toBe('msaa');
+	});
+	test('the budget: a desktop within 2.0 ms at 1440 × 900, a small device under it', () => {
+		const d = costOf(finishing({ device: 'desktop' }));
+		expect(d.ms).toBeLessThanOrEqual(LIMITS.ms);
+		expect(Object.keys(d.passes)).toEqual(expect.arrayContaining(['prepass', 'ssao', 'denoise', 'contact', 'traa', 'bloom', 'grade']));
+		const s = costOf(finishing({ device: 'small' }), [390 * 3, 844 * 3]);
+		expect(s.ms).toBeLessThan(d.ms);
+		expect(s.passes.ssao).toBeUndefined();
+	});
+	test('on the WebGL 2 fallback: nothing drawn with more than its colour (no AO, MSAA), the rest kept', async () => {
+		const { onFallback } = await import('./finish.js');
+		const p = onFallback(finishing({ device: 'desktop' }));
+		expect(p.ao).toBeNull();
+		expect(p.aa).toBe('msaa');
+		expect(p.jitter).toBe(false);
+		expect(p.bloom).not.toBeNull();
+		// the contact shadows are read from the AO's prepass: with no AO, none (laid over the picture they streaked water)
+		expect(p.contact).toBeNull();
+		expect(p.grade).toEqual(WORLD);
+		const s = onFallback(finishing({ device: 'small' }));
+		expect(s.scale).toBe(1);
+		expect(s.upscale).toBeNull();
+	});
+	test('which device a screen is', () => {
+		expect(deviceOf({ width: 1440, height: 900 })).toBe('desktop');
+		expect(deviceOf({ width: 390, height: 844, coarse: true })).toBe('small');
+		expect(deviceOf({ width: 1366, height: 1024, coarse: true })).toBe('desktop');
+		expect(deviceOf({ width: 1440, height: 900, memory: 4 })).toBe('small');
+	});
+});
+
+describe('the grade', () => {
+	test('a world’s grade under the forest demo’s ceiling', () => {
+		for (const k of /** @type {const} */ (['vig', 'grain', 'sat', 'lut'])) expect(WORLD[k]).toBeLessThanOrEqual(CEILING[k]);
+	});
+	test('the look is subtle: black and white stay, mid grey near itself, greys in order, nothing moves far', () => {
+		expect(look([0, 0, 0]).every((v) => v < 0.005)).toBe(true);
+		expect(look([1, 1, 1]).every((v) => v > 0.995)).toBe(true);
+		const mid = look([0.5, 0.5, 0.5]);
+		expect(Math.max(...mid.map((v) => Math.abs(v - 0.5)))).toBeLessThan(0.02);
+		let last = -1, worst = 0;
+		for (let i = 0; i <= 64; i++) {
+			const g = i / 64, o = look([g, g, g]);
+			const y = 0.2126 * o[0] + 0.7152 * o[1] + 0.0722 * o[2];
+			expect(y).toBeGreaterThanOrEqual(last);
+			last = y;
+			worst = Math.max(worst, ...o.map((v) => Math.abs(v - g)));
+		}
+		// at full strength at most 0.06 anywhere on the greys; a world mixes it in at WORLD.lut
+		expect(worst).toBeLessThan(0.06);
+	});
+	test('the LUT is the look, texel for texel', () => {
+		const d = lutData();
+		expect(d.length).toBe(LUT_SIZE ** 3 * 4);
+		const at = (r, g, b) => Array.from(d.slice((r + g * LUT_SIZE + b * LUT_SIZE * LUT_SIZE) * 4, (r + g * LUT_SIZE + b * LUT_SIZE * LUT_SIZE) * 4 + 3));
+		const n = LUT_SIZE - 1;
+		expect(at(n, 3, 9)).toEqual(look([1, 3 / n, 9 / n]).map((v) => Math.round(v * 255)));
+	});
+});
+
+describe('the atmosphere', () => {
+	const rho = 1.6 / 1400;
+	test('at eye level it is the sky’s haze as it was; it deepens with distance and thins with the eye’s height', () => {
+		// the sky's FogExp2 level with the ground: 1 − e^(−(ρd)²), so a world's fog option looks as it did
+		for (const d of [50, 400, 1400]) expect(atmo.transmittance(rho, atmo.FALLOFF, 0, d, 0)).toBeCloseTo(Math.exp(-((rho * d) ** 2)), 9);
+		expect(atmo.transmittance(rho, atmo.FALLOFF, 2, 50, 0)).toBeGreaterThan(atmo.transmittance(rho, atmo.FALLOFF, 2, 1000, 0));
+		expect(atmo.transmittance(rho, atmo.FALLOFF, 400, 1000, 0)).toBeGreaterThan(atmo.transmittance(rho, atmo.FALLOFF, 2, 1000, 0));
+	});
+	test('it pools low: looking down into it is thicker than looking up, within bounds that never white a city out', () => {
+		expect(atmo.transmittance(rho, atmo.FALLOFF, 100, 800, 300)).toBeGreaterThan(atmo.transmittance(rho, atmo.FALLOFF, 100, 800, -90));
+		// a smog mood (0.0026) seen from 300 m up, 1 km off and 300 m down: thicker than level, never more than SLOPE.max times
+		const smog = 0.0026 * 0.35, level = atmo.opticalDepth(smog, atmo.FALLOFF, 300, 1000, 0), down = atmo.opticalDepth(smog, atmo.FALLOFF, 300, 1000, -300);
+		expect(down).toBeGreaterThan(level);
+		expect(down).toBeLessThanOrEqual(level * atmo.SLOPE.max ** 2 + 1e-12);
+		expect(atmo.transmittance(smog, atmo.FALLOFF, 300, 1000, -300)).toBeGreaterThan(0.1);
+		expect(atmo.slopeOf(-50)).toBe(atmo.SLOPE.max);
+		expect(atmo.slopeOf(50)).toBe(atmo.SLOPE.min);
+	});
+	test('its colour is the sky’s haze, warmer toward the sun', () => {
+		const base = [0.5, 0.6, 0.8];
+		const sun = [1, 0.1, 0].map((v, _, s) => v / Math.hypot(...s));
+		const tint = [1, 0.6, 0.3];
+		const toward = atmo.hazeColor(base, sun, sun, tint), away = atmo.hazeColor(base, [-1, 0, 0], sun, tint);
+		expect(toward[0] / toward[2]).toBeGreaterThan(away[0] / away[2]);
+		expect(away).toEqual(base);
+	});
+	test('aerial perspective: far things lose their colour into the haze', () => {
+		const red = [0.8, 0.1, 0.1], haze = [0.5, 0.5, 0.5];
+		expect(atmo.aerial(red, haze, 1)).toEqual(red);
+		const mid = atmo.aerial(red, haze, 0.5);
+		expect(mid[0] - mid[1]).toBeLessThan((red[0] - red[1]) * 0.5);
+		expect(atmo.aerial(red, haze, 0)).toEqual(haze);
+	});
+	test('the far plane follows the haze', () => {
+		const f = atmo.farFor(rho, atmo.FALLOFF, 0);
+		expect(atmo.transmittance(rho, atmo.FALLOFF, 0, f, 0)).toBeCloseTo(atmo.HIDDEN, 6);
+		expect(atmo.farFor(rho * 2)).toBeLessThan(f);
+		expect(atmo.farFor(0)).toBe(20_000);
+	});
+});
+
+describe('the world’s finishing on WebGPU', () => {
+	function sky() {
+		return { horizon: { uniforms: { uSkyRing: { value: Array.from({ length: 16 }, () => new THREE.Vector3(0.6, 0.7, 0.9)) } } }, sunDir: new THREE.Vector3(0.3, 0.4, 0.8).normalize(), sun: { color: new THREE.Color(1, 0.8, 0.6) } };
+	}
+	test('a desktop’s pipeline: AO on the ambient light, contact shadows, TRAA, bloom, the grade; the haze on the scene', async () => {
+		const { r, shaders } = await renderer();
+		const { scene, camera } = world();
+		const sun = new THREE.DirectionalLight('#fff', 3);
+		sun.position.set(3, 5, 2);
+		scene.add(sun);
+		scene.fog = new THREE.FogExp2(0xffffff, 1.6 / 1400);
+		const air = atmo.createAtmosphere(scene, sky());
+		air.update();
+		expect(/** @type {any} */ (scene).fogNode).toBe(air.node);
+		expect(air.uniforms.a.value).toBeCloseTo(1.6 / 1400, 9);
+		const f = createFinish(r, scene, camera, finishing({ device: 'desktop' }), { sun });
+		expect(f.nodes.ao).toBeTruthy();
+		expect(f.nodes.prepass).toBeTruthy();
+		expect(f.nodes.scene.contextNode).toBeTruthy();
+		expect(f.nodes.contact).toBeTruthy();
+		// the occlusion and the contact shadows read in the lighting (the ambient light's, the sun's), not over the picture
+		expect(typeof f.nodes.scene.contextNode?.value?.getAO).toBe('function');
+		expect(typeof f.nodes.scene.contextNode?.value?.getShadow).toBe('function');
+		expect(f.nodes.aa?.isTRAANode).toBe(true);
+		expect(f.nodes.bloom).toBeTruthy();
+		expect(f.pipeline.outputColorTransform).toBe(false);
+		f.render(2);
+		expect(f.nodes.grade.uniforms.uTime.value).toBe(2);
+		const frag = shaders.filter((s) => /void main/.test(s ?? '')).join('\n');
+		// the haze's sum (e^−τ) and the grain's hash are in the programs
+		expect(frag).toMatch(/43758\.5453/);
+		expect(frag).toMatch(/exp\s*\(/);
+		f.dispose();
+		air.dispose();
+		expect(/** @type {any} */ (scene).fogNode ?? null).toBeNull();
+	});
+	test('a small device’s: no AO, bloom or contact shadows; TAAU from 0.7 of the pixels', async () => {
+		const { r } = await renderer();
+		const { scene, camera } = world();
+		const f = createFinish(r, scene, camera, finishing({ device: 'small' }));
+		expect(f.nodes.ao).toBeNull();
+		expect(f.nodes.bloom).toBeNull();
+		expect(f.nodes.contact).toBeNull();
+		expect(f.nodes.aa?.isTAAUNode).toBe(true);
+		expect(f.nodes.scene.getResolutionScale()).toBe(0.7);
+		f.render(0);
+		f.dispose();
+	});
+	test('a film’s: no temporal node, the scene multisampled', async () => {
+		const { r } = await renderer();
+		const { scene, camera } = world();
+		const f = createFinish(r, scene, camera, finishing({ film: true }));
+		expect(f.nodes.aa).toBeNull();
+		expect(f.nodes.scene.options?.samples ?? f.plan.samples).toBe(4);
+		f.render(1);
+		f.dispose();
+	});
+});
+
+describe('a world finished', async () => {
+	const { worldFinish } = await import('./world.js');
+	test('the haze and the pipeline from the one sky; the far plane follows the haze up to the world’s own', async () => {
+		const { r } = await renderer();
+		const { scene, camera } = world();
+		camera.far = 3000;
+		scene.fog = new THREE.FogExp2(0xffffff, 1.6 / 1400);
+		const s = { horizon: { uniforms: { uSkyRing: { value: Array.from({ length: 16 }, () => new THREE.Vector3(0.6, 0.7, 0.9)) } } }, sunDir: new THREE.Vector3(0, 1, 0), sun: new THREE.DirectionalLight() };
+		const w = worldFinish(r, scene, /** @type {any} */ (camera), { sky: s, device: 'desktop' });
+		expect(w.plan?.device).toBe('desktop');
+		w.render(0);
+		const hazeFar = atmo.farFor(1.6 / 1400, atmo.FALLOFF, camera.position.y);
+		expect(camera.far).toBeCloseTo(Math.min(3000, hazeFar), 3);
+		// the world sets its own far again (a bigger world shown): the haze follows up to it
+		camera.far = 900;
+		w.render(0);
+		expect(camera.far).toBeCloseTo(Math.min(900, hazeFar), 3);
+		w.dispose();
+		expect(/** @type {any} */ (scene).fogNode ?? null).toBeNull();
+	});
+	test('the scene’s hooks run once a frame as on screen (the sky asks for its shadows there)', async () => {
+		const { r } = await renderer();
+		const { scene, camera } = world();
+		/** @type {any[]} */
+		const seen = [];
+		scene.onBeforeRender = (_r, _s, _c, target) => seen.push(target ?? null);
+		const w = worldFinish(r, scene, /** @type {any} */ (camera), { device: 'desktop' });
+		w.render(0);
+		// at least once with no target: the screen's frame, whatever the passes drew into their own
+		expect(seen.filter((t) => t === null).length).toBeGreaterThanOrEqual(1);
+		w.dispose();
+	});
+	test('a small device’s haze closer', async () => {
+		const { r } = await renderer();
+		const { scene, camera } = world();
+		scene.fog = new THREE.FogExp2(0xffffff, 1.6 / 1400);
+		const s = { horizon: { uniforms: { uSkyRing: { value: Array.from({ length: 16 }, () => new THREE.Vector3(0.6, 0.7, 0.9)) } } }, sunDir: new THREE.Vector3(0, 1, 0) };
+		const w = worldFinish(r, scene, /** @type {any} */ (camera), { sky: s, device: 'small' });
+		w.render(0);
+		expect(w.atmosphere?.uniforms.a.value).toBeCloseTo(1.6 / 1400 / 0.7, 9);
+		w.dispose();
 	});
 });
