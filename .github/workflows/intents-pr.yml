@@ -18,7 +18,7 @@
 #            intent.ts (handed over by spec) runs the spec's checks there and writes their results; a vs-main call
 #            measures the head only (VS_MAIN_HEAD_OUT), its bound decided by compare
 #   gpu      only when a check's run names play/site/scripts/gpu.ts (intent ba948167): the head as in run (no
-#            credentials, no secret, a read-only GITHUB_TOKEN) on GitHub's macOS runner, Apple silicon and Metal, where
+#            credentials, no secret, a read-only GITHUB_TOKEN) on GitHub's macOS 26 runner, Apple silicon and Metal, where
 #            main's intent.ts runs those checks alone (--gpu): a world's look, its time to the world and its frame time
 #            in Chromium and WebKit, from pinned inputs. The box has no GPU and refuses them (failed, saying so);
 #            compare puts the runner's results in their place
@@ -242,8 +242,8 @@ jobs:
     # beside the box's checks, and only when the spec asks for a GPU: GitHub's macOS runner (Apple silicon, Metal)
     needs: spec
     if: "!cancelled() && needs.spec.result == 'success' && needs.spec.outputs.gpu == 'true'"
-    runs-on: macos-15
-    timeout-minutes: 30
+    runs-on: macos-26
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:

@@ -13,6 +13,7 @@
  * --world          the page's route: a sandbox, or an asset's viewer
  * --world-within   the world is shown within that many seconds of the navigation, in every browser asked
  * --frame-within   a frame takes at most that many ms (the mean over 10 s once the world has settled)
+ * --timeout        how long the world may take to come up (600: GitHub's runner needs 270 to 400 s for Sandbox 5)
  * --settle         how long the world may take to settle before its frames are measured and it is photographed (60)
  * --steps          prints what the page's cover said on the way to the world, each step with the second it began
  * --software       measure even where there is no GPU (the box's software renderer): for this script's own plumbing.
@@ -223,7 +224,7 @@ if (import.meta.main) {
 	console.log(`${world} on ${gpu} (${process.platform} ${process.arch}); pictures in ${out}`);
 	const measures: (Measure & { why: string[] })[] = [];
 	for (const b of browsers) {
-		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '300')) * 1000, settle: Number(arg('--settle', '60')) });
+		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')) });
 		const why = judge(m, bounds);
 		measures.push({ ...m, why });
 		console.log(lineOf(m, why));
