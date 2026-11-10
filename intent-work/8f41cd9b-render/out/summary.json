@@ -1,0 +1,168 @@
+{
+ "intent": "8f41cd9b-c276-4190-9b69-f000d8858fb2",
+ "when_berlin": "2026-11-10 15:50-16:10",
+ "production": "672ae57977efc7d52d2d1d9542b77b31182cc1e9",
+ "where": "this Mac (Apple M1): Chromium 153 on Metal and Playwright's WebKit 26.6 (Safari's engine), WebGPU in both; a fresh profile each; the token to play.maia.city only",
+ "reproduced": false,
+ "production_chromium": {
+  "renderer": "webgpu",
+  "frame_median_ms": 16.7,
+  "frame_p95_ms": 50,
+  "rAF_gaps": 903,
+  "meter_20s": {
+   "frames": 597,
+   "frame_ms": 25.1,
+   "frame_p95": 50,
+   "cpu_ms": 12.3,
+   "gpu_ms": 17.7,
+   "calls": 615,
+   "triangles": 915963,
+   "bound": "gpu"
+  },
+  "last_frame_passes": {
+   "1440x900": {
+    "n": 7,
+    "draws": 599,
+    "tris": 915947
+   },
+   "720x450": {
+    "n": 8,
+    "draws": 8,
+    "tris": 8
+   },
+   "360x225": {
+    "n": 2,
+    "draws": 2,
+    "tris": 2
+   },
+   "180x112": {
+    "n": 2,
+    "draws": 2,
+    "tris": 2
+   },
+   "90x56": {
+    "n": 2,
+    "draws": 2,
+    "tris": 2
+   },
+   "45x28": {
+    "n": 2,
+    "draws": 2,
+    "tris": 2
+   }
+  },
+  "console": [
+   {
+    "n": 16,
+    "msg": "warning: THREE.LightsNode.setupNodeLights: Light node not found for be"
+   },
+   {
+    "n": 1,
+    "msg": "error: Failed to load resource: the server responded with a status of 401 ()"
+   },
+   {
+    "n": 1,
+    "msg": "warning: THREE.Source: \"Source\" has been renamed to \"TextureSource\". Please update your code to use \"THREE.TextureSource\" instead."
+   }
+  ],
+  "drawn": "ground, grass, bushes, the workshop, the walker; tilted up: the sky, its clouds, the horizon (see the shots)"
+ },
+ "production_webkit": {
+  "renderer": "webgpu",
+  "frame_median_ms": 23,
+  "frame_p95_ms": 121,
+  "rAF_gaps": 93,
+  "meter_20s": {
+   "frames": 89,
+   "frame_ms": 148.5,
+   "frame_p95": 73,
+   "cpu_ms": 234.8,
+   "gpu_ms": 12.4,
+   "calls": 333,
+   "triangles": 835636,
+   "bound": "cpu"
+  },
+  "last_frame_passes": {
+   "1440x900": {
+    "n": 7,
+    "draws": 609,
+    "tris": 925421
+   },
+   "720x450": {
+    "n": 8,
+    "draws": 8,
+    "tris": 8
+   },
+   "360x225": {
+    "n": 2,
+    "draws": 2,
+    "tris": 2
+   },
+   "180x112": {
+    "n": 2,
+    "draws": 2,
+    "tris": 2
+   },
+   "90x56": {
+    "n": 2,
+    "draws": 2,
+    "tris": 2
+   },
+   "45x28": {
+    "n": 2,
+    "draws": 2,
+    "tris": 2
+   }
+  },
+  "console": [
+   {
+    "n": 16,
+    "msg": "warning: THREE.LightsNode.setupNodeLights: Light node not found for be"
+   },
+   {
+    "n": 4,
+    "msg": "error: Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+   },
+   {
+    "n": 1,
+    "msg": "error: Failed to load resource: the server responded with a status of 401 ()"
+   },
+   {
+    "n": 1,
+    "msg": "warning: The resource https://play.maia.city/_app/immutable/chunks/DJP9G1Du.js was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it wasn't preloaded for nothing."
+   },
+   {
+    "n": 1,
+    "msg": "warning: THREE.Source: \"Source\" has been renamed to \"TextureSource\". Please update your code to use \"THREE.TextureSource\" instead."
+   }
+  ],
+  "drawn": "ground, grass, bushes, the workshop, the walker; tilted up: the sky, its clouds, the horizon (see the shots)"
+ },
+ "light_class": {
+  "minified": "be",
+  "named_by_the_dev_build": "SunLight",
+  "line": "THREE.LightsNode.setupNodeLights: Light node not found for SunLight",
+  "count": 16,
+  "seen_in": [
+   "production Chromium",
+   "production WebKit",
+   "the dev build of 672ae57 in Chromium"
+  ],
+  "where_registered": "play/site/src/lib/content/render/nodes/index.js:26 SunLight.registerNode(SunLightNode); the sun made in sandbox-kit/sky.js:246"
+ },
+ "bisect": "not run: it needs a broken end, and 672ae57 draws the whole world on both engines this Mac can drive; the picture Samuel saw has to be bisected in his Safari (26.1), which refuses automation (\"Allow remote automation\" is off in Safari Settings, Developer).",
+ "console_dev_build": [
+  {
+   "n": 1,
+   "m": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  },
+  {
+   "n": 16,
+   "m": "THREE.LightsNode.setupNodeLights: Light node not found for SunLight"
+  },
+  {
+   "n": 1,
+   "m": "THREE.Source: \"Source\" has been renamed to \"TextureSource\". Please update your code to use \"THREE.TextureSource\" instead."
+  }
+ ]
+}
