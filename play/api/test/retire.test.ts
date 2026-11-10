@@ -124,6 +124,38 @@ suite("retire a document by an intent", () => {
     expect((await tool("retire_doc", { intent: again, doc: stray.story, reason: "again" })).error).toContain("retired already");
   });
 
+  // intent ce9a5c40: an asset retired leaves the assets' list (GET /api/assets, list_assets) as a story leaves its own
+  test("asset: a retired asset leaves GET /api/assets and list_assets; another stays; it still reads by its UUID", async () => {
+    const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
+    const plant = async (label: string) => {
+      const id = await building(`Grow ${label}`);
+      const a = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label, source: SOURCE, note: `${label}, its first version`, intent: id });
+      expect(a.error).toBeUndefined();
+      expect(await pass(id)).toBe("proposal");
+      expect((await call("POST", `/api/intents/${id}/accept`)).data.stage).toBe("accepted");
+      return a.asset as string;
+    };
+    const stray = await plant("Asset: a stray fern");
+    const kept = await plant("Asset: a kept fern");
+    const lists = async () => ({
+      api: (await call("GET", "/api/assets?group=plants")).data.map((a: any) => a.id),
+      all: (await call("GET", "/api/assets")).data.map((a: any) => a.id),
+      mcp: (await tool("list_assets", { group: "plants" })).map?.((a: any) => a.id) ?? [],
+    });
+    for (const l of Object.values(await lists())) expect(l).toEqual(expect.arrayContaining([stray, kept]));
+    const id = await building("Retire the stray fern");
+    expect((await tool("retire_doc", { intent: id, doc: stray, reason: "a stray copy" })).error).toBeUndefined();
+    expect(await pass(id)).toBe("proposal");
+    expect((await call("POST", `/api/intents/${id}/accept`)).data.stage).toBe("accepted");
+    for (const [k, l] of Object.entries(await lists())) {
+      expect([k, l.includes(stray)]).toEqual([k, false]);
+      expect([k, l.includes(kept)]).toEqual([k, true]);
+    }
+    const read = await call("GET", `/api/assets/${stray}`);
+    expect(read.status).toBe(200);
+    expect(read.data.versions.length).toBe(1);
+  });
+
   test("history: a retired story's history, versions and timeline still read by its UUID, marked retired, no new version made", async () => {
     const stray = await film("History: the stray copy");
     const was = await tool("doc_history", { doc: stray.story });

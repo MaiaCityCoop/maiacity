@@ -6,6 +6,7 @@ import type { Me } from "./access";
 import { piecesShown } from "./pieces";
 import { lodOf } from "./lod";
 import { assetSeen } from "./owners";
+import { assetListed } from "./listed";
 import { HttpError } from "./kit/errors";
 
 /** who asks: their id, for ./owners.ts's rule (null: no one, who sees the coop's alone) */
@@ -33,14 +34,14 @@ export const summary = (record: any, parent?: any) => {
   };
 };
 
-/** every asset with a version that `me` sees, by group and slug, with its newest version's summary */
+/** every asset with a version that `me` sees and no intent retired (./listed.ts), by group and slug, with its newest version's summary */
 export async function listAssets(db: Queryable, grp: string | undefined, me: Pick<Me, "id"> | null) {
   const { rows } = await db.query<any>(
     `SELECT a.id, a.grp, a.slug, a.label, v.number AS head, v.card,
             (SELECT p.card FROM play.asset_versions p WHERE p.id = v.parents[1]) AS parent_card,
             (SELECT count(*) FROM play.asset_versions x WHERE x.asset_id = a.id AND x.number IS NOT NULL) AS versions
        FROM play.assets a JOIN play.asset_versions v ON v.id = a.head
-      WHERE ($1::text IS NULL OR a.grp = $1) AND ${assetSeen("a", "$2")}
+      WHERE ($1::text IS NULL OR a.grp = $1) AND ${assetSeen("a", "$2")} AND ${assetListed("a")}
       ORDER BY a.grp, a.slug`,
     [grp ?? null, asker(me)],
   );
