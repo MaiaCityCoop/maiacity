@@ -5,8 +5,9 @@
 //   bun play/avenbox/pr-intent.ts <pull request number>          the check: green, or red saying why (exit 1)
 //   bun play/avenbox/pr-intent.ts <pull request number> --id     prints the one intent's UUID, or fails as the check
 //
-// Red when it names no intent or several, one not at Build, Proposal or Ship, or isn't the active one while that is
-// open. Reads GitHub (read only) and play (get_intent); runs from main in intent-named.yml and intents-pr.yml, never
+// Red when it names no intent or several, one not at Build, Proposal or Ship (a draft may name one at Specify, its
+// builder's while the spec waits: play takes it as the intent's pull request, so approval wakes it; intent 40397205),
+// or isn't the active one while that is open. Reads GitHub (read only) and play (get_intent); runs from main in intent-named.yml and intents-pr.yml, never
 // checking the pull request out.
 import { intentsIn as trailers } from "../api/src/kit/ids";
 import { call, PLAY_MCP } from "./play";
@@ -19,7 +20,7 @@ const intentsIn = (text: string | null | undefined) => trailers(text, { indented
 export type Verdict = { ok: boolean; intent?: string; why: string; notes: string[] };
 type Env = { github: string; repo: string; ghToken?: string; play: string; playToken?: string };
 
-type Pull = { title?: string | null; body?: string | null; state?: string; merged_at?: string | null };
+type Pull = { title?: string | null; body?: string | null; state?: string; merged_at?: string | null; draft?: boolean };
 type Commit = { commit?: { message?: string | null } };
 
 async function getJson<T>(url: string, headers: Record<string, string>): Promise<T> {
@@ -52,8 +53,9 @@ export async function judge(n: number, env: Env): Promise<Verdict> {
   const res = await call("get_intent", { intent }, { endpoint: env.play, token: env.playToken });
   if (res.isError) return { ok: false, intent, why: `#${n} names intent ${intent}, which play does not know: ${res.text || "no answer"}.`, notes };
   const it = JSON.parse(res.text);
+  if (it.stage === "specify" && pull.draft) return { ok: true, intent, why: `#${n} is a draft while the spec of intent ${intent} waits: marked ready, it needs Build, Proposal or Ship.`, notes };
   if (!LIVE.includes(it.stage))
-    return { ok: false, intent, why: `#${n} names intent ${intent}, which is at the ${it.stage} stage: a pull request is the work of an intent at Build, Proposal or Ship.`, notes };
+    return { ok: false, intent, why: `#${n} names intent ${intent}, which is at the ${it.stage} stage: a pull request is the work of an intent at Build, Proposal or Ship (a draft, at Specify too).`, notes };
   const active = it.pull_request as number | null;
   if (active && active !== n) {
     let unread = "";

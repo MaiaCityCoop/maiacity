@@ -7,12 +7,13 @@ import { admin, type Me } from "./access";
 import type { Queryable } from "./kit/pg";
 import { INTENT_ADMINS, intentRow, waiting, reasonOf, moveBack } from "./intents";
 import { HttpError } from "./kit/errors";
+import { wake, type GitHub } from "./github";
 
 /** one step back, as it is kept on the intent */
 export type Step = { at: string; by: string | null; human: string; via: "mcp"; from: string; to: string; reason: string; spec?: unknown };
 
 /** The intent one stage back with its reason, by an admin's agent over MCP (step_back_intent). */
-export async function stepBack(db: Queryable, me: Me | null, id: string, reason: unknown) {
+export async function stepBack(db: Queryable, me: Me | null, id: string, reason: unknown, gh?: GitHub | null) {
   const who = admin(me, INTENT_ADMINS);
   const why = reasonOf(reason, "A step back", "why the intent goes back");
   const intent = await intentRow(db, id);
@@ -29,5 +30,7 @@ export async function stepBack(db: Queryable, me: Me | null, id: string, reason:
   else return refuse(intent.stage === "ship" ? "it is accepted and on its way to production" : "it is decided already (an admin reopens it)");
   const step: Step = { at: new Date().toISOString(), by: who.name, human: who.id, via: "mcp", from: intent.stage, to, reason: why, ...(to === "idea" ? { spec: intent.spec } : {}) };
   await moveBack(db, intent.id, to, JSON.stringify([step]));
+  // its builder woken on its pull request (./github.ts wake)
+  await wake(db, gh, intent.id, "failure", `stepped back to ${to}: ${why}`);
   return intentRow(db, intent.id);
 }

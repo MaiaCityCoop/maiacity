@@ -11,6 +11,7 @@ import { decidable, sub, unmetOn } from "./substate";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
 import { INTENT_STAGES, type IntentStage } from "./kit/stages";
+import { wake, type GitHub } from "./github";
 
 export { unmetOn };
 
@@ -360,7 +361,7 @@ const prOf = (v: unknown) => {
 };
 
 /** Checks' results recorded (play/SPEC.md §4.12): every must passed, to Proposal by itself; main's only confirm. */
-export async function recordChecks(db: Queryable, me: Me | null, id: string, given: unknown, pr?: unknown) {
+export async function recordChecks(db: Queryable, me: Me | null, id: string, given: unknown, pr?: unknown, gh?: GitHub | null) {
   const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   const named = prOf(pr);
@@ -410,6 +411,13 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   await db.query(`UPDATE play.intents SET results = ($2::text)::jsonb, stage = $3, pull_request = COALESCE($4, pull_request) WHERE id = $1`, [
     intent.id, JSON.stringify(results), stage, named ?? null,
   ]);
+  // its builder woken on its pull request (./github.ts wake): a must failed, or at Proposal
+  if (moves) {
+    const head = (list as ResultGiven[]).map((r) => r?.commit).find((c) => typeof c === "string" && c) as string | undefined;
+    const failed = (intent.spec?.checks ?? []).filter((c: Check) => c.must && results[c.id]?.pass === false);
+    if (failed.length) await wake(db, gh, intent.id, "failure", failed.map((c: Check) => `${c.id} failed: ${results[c.id].evidence.split("\n")[0].trim()}`).join("; "), head);
+    else if (stage === "proposal" && intent.stage === "build") await wake(db, gh, intent.id, "success", "at Proposal: waits for Accept", head);
+  }
   return { ...(await intentRow(db, intent.id)), ...(refused ? { refused: refused.why } : {}) };
 }
 
@@ -507,7 +515,7 @@ export function mustDecide(intent: any) {
 }
 
 /** An admin's decision on the board; one with a pull request is shipped (./ship.ts), steps back are an agent's (./stepback.ts). */
-export async function decideIntent(db: Queryable, me: Me | null, id: string, verdict: IntentVerdict) {
+export async function decideIntent(db: Queryable, me: Me | null, id: string, verdict: IntentVerdict, gh?: GitHub | null) {
   const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   const refuse = (why: string) => {
@@ -518,6 +526,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       await mustMove(db, intent, "build");
       mustDecide(intent);
       await decisions.decided(db, intent.id, "approve", byOf(who));
+      await wake(db, gh, intent.id, "pending", "approved: build it");
       break;
     case "accept":
       await mustMove(db, intent, "accept");

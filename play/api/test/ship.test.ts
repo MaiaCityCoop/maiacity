@@ -6,7 +6,7 @@ import { type Db } from "../src/kit/pg";
 import { reconcile, runningCommit, tailOf } from "../src/ship";
 import { startShipWatcher, watchPulls, watchShips } from "../src/watcher";
 import { mainMergeState, mergeMain } from "../src/mainmerge";
-import { ACCEPTED_CONTEXT, gitHub, shipGitHub, type Pull } from "../src/github";
+import { ACCEPTED_CONTEXT, INTENT_CONTEXT, gitHub, shipGitHub, type Pull } from "../src/github";
 import { fakeGitHub, green, job, REPO, run, sha, TOKEN } from "./fixtures/github";
 import { agentToken, type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool, until } from "./kit";
 import * as fx from "./fixtures/intents";
@@ -85,7 +85,8 @@ suite("accept ships it", () => {
     return { id: i.id as string, pr, head, merge: gh.merges.get(pr)! };
   };
   const intent = async (id: string) => (await call("ada", "GET", `/api/intents/${id}`)).data;
-  const writesSince = (from: number) => gh.calls.slice(from).filter((c) => c.method !== "GET");
+  // the status 'Intent' that wakes a builder is ./intentstatus.test.ts's
+  const writesSince = (from: number) => gh.calls.slice(from).filter((c) => c.method !== "GET" && c.body?.context !== INTENT_CONTEXT);
 
   /** what is in Ship from an earlier case done with: the queue is one for the whole database */
   const clearShips = () => fx.clearShips(db);
@@ -668,7 +669,8 @@ suite("accept ships it", () => {
     // the watcher's look as play runs main's head: the reconcile of the three green in Ship, one compare each
     let from = gh.calls.length;
     await watchShips(db, gh.gh, store, Date.now(), gh.main.head);
-    const asked = gh.calls.slice(from).map((c) => `${c.method} ${c.path.split("?")[0]}`);
+    // (the status 'Intent', "Accepted: live", one each as they are Accepted, is ./intentstatus.test.ts's)
+    const asked = gh.calls.slice(from).filter((c) => c.body?.context !== INTENT_CONTEXT).map((c) => `${c.method} ${c.path.split("?")[0]}`);
     expect(asked.filter((c) => c.startsWith("GET /compare/")).length).toBeLessThanOrEqual(3);
     expect(asked.filter((c) => c === "GET /commits")).toEqual([]);
     expect(asked.length).toBeLessThanOrEqual(3);
