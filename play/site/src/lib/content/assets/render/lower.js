@@ -7,7 +7,7 @@
  */
 import * as THREE from 'three';
 import { LEFT, lowerDraws } from './simplify.js';
-import { turn } from '../../render/turns.js';
+import { levelTurn as buildTurn } from '../../render/turns.js';
 
 /** a typed array on a buffer of its own, so that sending it copies only itself */
 const own = (A) => (A.byteOffset === 0 && A.byteLength === A.buffer.byteLength ? A : A.slice());
@@ -72,8 +72,8 @@ export function levelOf(source, made) {
 
 /**
  * The renderer's maker of lower levels: several kinds at once, each in a worker of its own, as many as the page's turns
- * let work (../../render/turns.js: the turns the recipes' builds take too, a build before a level, so the two together
- * never ask more of the device than its cores to spare, and no build waits behind a level). @param {{ worker?: boolean }} [o] `worker: false` makes them in the page
+ * let work (../../render/budget.js `buildTurn`: the turns the recipes' builds take too, so the two together never ask
+ * more of the device than its cores to spare). @param {{ worker?: boolean }} [o] `worker: false` makes them in the page
  * @returns {{ lower: (source: import('./prepare.js').Level, plans: { budget: number, most?: number, error: number, smallest: number, every?: boolean }[], later?: boolean, raw?: boolean, rank?: (() => number) | null) => Promise<import('./prepare.js').Level[]>, readonly busy: number, dispose: () => void }}
  */
 export function createLowering(o = {}) {
@@ -82,10 +82,12 @@ export function createLowering(o = {}) {
 	let gone = o.worker === false;
 	let disposed = false;
 	let busy = 0;
-	/** the jobs waiting for their turn (to fail them when the renderer goes), and those being made */
-	/** @type {Set<{ no: Function }>} */
-	const waiting = new Set();
-	let running = 0;
+	/** the most wanted first (`rank`, as the renderer's builds: what stands near the eye), else in the order asked for,
+	 *  those that can wait (`later`) after all the others */
+	/** @type {{ source: any, plans: any[], later: boolean, raw: boolean, rank?: (() => number) | null, ok: Function, no: Function }[]} */
+	const jobs = [];
+	/** the jobs being made, and whether a turn is asked for and not yet given */
+	let running = 0, asking = false;
 
 	/** a worker with nothing to do: one started before, else a new one; none where there are no workers (the page makes it) */
 	function free() {
@@ -136,6 +138,33 @@ export function createLowering(o = {}) {
 		return lowerDraws(draws, plans, frame);
 	}
 
+	const wanted = (j) => (j.later ? -Infinity : (j.rank?.() ?? 0));
+
+	function pump() {
+		// one turn asked for at a time, the next as soon as it is given: as many kinds at once as the page has turns free,
+		// yet where recipes wait for turns too, the levels stand in that line once, not once a kind (a world's builds, which
+		// show its plants, are not held up behind every level still to be made lighter). The job is chosen only once its
+		// turn has come: what is wanted most by then. In the page (no workers) one at a time, a step between frames.
+		if (asking || !jobs.length || ((gone || typeof Worker === 'undefined') && running)) return;
+		asking = true;
+		buildTurn().then((back) => {
+			asking = false;
+			if (!jobs.length) return back();
+			const job = jobs.splice(jobs.reduce((best, j, i) => (wanted(j) > wanted(jobs[best]) ? i : best), 0), 1)[0];
+			running++;
+			Promise.resolve()
+				.then(() => run(job.source.draws.map(plainOf), job.plans))
+				.then((made) => job.ok(job.raw ? made : made.map((m) => levelOf(job.source, m))), job.no)
+				.finally(() => {
+					running--;
+					busy--;
+					back();
+					pump();
+				});
+			pump();
+		});
+	}
+
 	return {
 		/**
 		 * The levels of `source` each plan asks for; `later` (a recipe's level made lighter, drawn as it came meanwhile)
@@ -145,22 +174,8 @@ export function createLowering(o = {}) {
 		lower(source, plans, later = false, raw = false, rank = null) {
 			busy++;
 			return new Promise((ok, no) => {
-				const job = { no };
-				waiting.add(job);
-				// each on one of the page's turns (../../render/turns.js): a level after every build that waits, the most
-				// wanted level first, chosen as the turn comes. In the page (no workers) one at a time, a step between frames
-				turn({ level: true, rank: later ? -Infinity : () => rank?.() ?? 0, when: () => !((gone || typeof Worker === 'undefined') && running) }).then((back) => {
-					if (!waiting.delete(job)) return back();
-					running++;
-					Promise.resolve()
-						.then(() => run(source.draws.map(plainOf), plans))
-						.then((made) => ok(raw ? made : made.map((m) => levelOf(source, m))), no)
-						.finally(() => {
-							running--;
-							busy--;
-							back();
-						});
-				});
+				jobs.push({ source, plans, later, raw, rank, ok, no });
+				pump();
 			});
 		},
 		get busy() {
@@ -172,11 +187,10 @@ export function createLowering(o = {}) {
 				x.w.terminate();
 				x.job?.no(new Error('the renderer was disposed'));
 			}
-			for (const j of waiting) {
+			for (const j of jobs.splice(0)) {
 				busy--;
 				j.no(new Error('the renderer was disposed'));
 			}
-			waiting.clear();
 		}
 	};
 }

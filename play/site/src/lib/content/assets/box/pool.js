@@ -9,9 +9,6 @@
  * A build is its recipe's alone: the box hands a worker the recipe's file (its pieces before it, each held to its hash),
  * its values and nothing else, so the same recipe gives the same build in whichever box it lands, and what comes back
  * is moved, not copied (the shell passes its arrays on, ../../../kernel/sandbox/policy.js).
- *
- * Before it, each renderer kept boxes of the newest engine, and every recipe made for an older one (all of play's, on
- * engine 5 while 7 was the newest) fell through to one box of its own engine, built one after another on one core.
  */
 import { AssetBox } from './host.js';
 import { budget } from '../../render/budget.js';

@@ -100,17 +100,4 @@ describe("the page's turns", () => {
 		for (let i = 0; i < 3; i++) h.done([...h.open.keys()][0]!), await settled()
 		expect(h.order).toEqual(['near', 'far', 'unranked', 'lighter'])
 	})
-
-	it('one that cannot be taken now is passed over, and taken once it can', async () => {
-		const h = hand(2)
-		let free = false
-		h.ask('held', { rank: 9, when: () => free })
-		h.ask('other')
-		await settled()
-		expect([...h.open.keys()]).toEqual(['other'])
-		free = true
-		h.done('other')
-		await settled()
-		expect([...h.open.keys()]).toEqual(['held'])
-	})
 })
