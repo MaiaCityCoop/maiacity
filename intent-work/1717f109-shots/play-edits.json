@@ -1,0 +1,80 @@
+{
+ "intent": "1717f109-5353-4c34-8292-841898b25707",
+ "note": "The play edits of intent 1717f109, drafted ahead of Build: apply each with doc_edit (intent, message), then propose_doc_version naming the intent. Numbers as pinned in play/site/src/lib/content/biomes/grass.test.js.",
+ "docs": [
+  {
+   "doc": "84db33e7-55b3-4b91-845a-a36dfc06655f",
+   "label": "Roadside verge",
+   "from_version": 2,
+   "edits": [
+    {
+     "message": "Its grass closes into a sward: blades 22 cm, each drawn 14 mm wide for the few it stands for (cover near the eye 92 %)",
+     "edits": [
+      {
+       "op": "replace",
+       "find": "grass: { height: 0.15, tall: 0.45, heightSpread: 0.5, width: 0.005,",
+       "replace": "grass: { height: 0.22, tall: 0.45, heightSpread: 0.5, width: 0.014,"
+      }
+     ]
+    },
+    {
+     "message": "Its dry grass fills its colonies away from the road (share 8, spread 1.2, fill 1)",
+     "edits": [
+      {
+       "op": "replace",
+       "find": "label: 'Dry grass', what: 'Sparse tufts of the verge\\'s grass, bleached to straw.', share: 6, colony: 2.5, spread: 0.6, fill: 0.7,",
+       "replace": "label: 'Dry grass', what: 'The verge\\'s grass, mown short and bleached to straw, closed away from the road.', share: 8, colony: 2.5, spread: 1.2, fill: 1,"
+      }
+     ]
+    },
+    {
+     "message": "Its gravel only at the road's edge: in a world small patches (share 1, spread 0.25), on its patch the shoulder",
+     "edits": [
+      {
+       "op": "replace",
+       "find": "share: 6, colony: 3, spread: 0.7, fill: 0.9, where: (x) => 0.1 + 0.9 * road(x) }",
+       "replace": "share: 1, colony: 3, spread: 0.25, fill: 0.9, where: (x) => road(x) }"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "doc": "3355de49-5b03-56cf-bca9-2dbfe563ba82",
+   "label": "Clover lawn",
+   "from_version": 2,
+   "edits": [
+    {
+     "message": "Its grass closes into a sward: blades 14 cm (18 cm where taller), each drawn 18 mm wide for the few it stands for (cover near the eye 92 %)",
+     "edits": [
+      {
+       "op": "replace",
+       "find": "\t\theight: .09,\n\t\ttall: .14,\n\t\theightSpread: .3,\n\t\twidth: .005,",
+       "replace": "\t\theight: .14,\n\t\ttall: .18,\n\t\theightSpread: .3,\n\t\twidth: .018,"
+      }
+     ]
+    },
+    {
+     "message": "Grass first, its clover, strawberries and daisies among it",
+     "edits": [
+      {
+       "op": "replace",
+       "find": "\tcover: [\n\t\t{\n\t\t\tkind: \"clover\",\n\t\t\tshare: 6,\n\t\t\tcolony: 3,\n\t\t\tspread: .6\n\t\t},\n\t\t{\n\t\t\tkind: \"strawberry\",\n\t\t\tshare: 4,\n\t\t\tcolony: 3,\n\t\t\tspread: .45\n\t\t},\n\t\t{\n\t\t\tkind: \"grass\",\n\t\t\tshare: 4,\n\t\t\tcolony: 4,\n\t\t\tspread: .6\n\t\t},\n\t\t{\n\t\t\tkind: \"daisy\",\n\t\t\tshare: 2,\n\t\t\tcolony: 2.5,\n\t\t\tspread: .3\n\t\t}\n\t]",
+       "replace": "\tcover: [\n\t\t{\n\t\t\tkind: \"grass\",\n\t\t\tshare: 8,\n\t\t\tcolony: 4,\n\t\t\tspread: 1.2,\n\t\t\tfill: 1\n\t\t},\n\t\t{\n\t\t\tkind: \"clover\",\n\t\t\tshare: 3,\n\t\t\tcolony: 3,\n\t\t\tspread: .4\n\t\t},\n\t\t{\n\t\t\tkind: \"strawberry\",\n\t\t\tshare: 2,\n\t\t\tcolony: 3,\n\t\t\tspread: .3\n\t\t},\n\t\t{\n\t\t\tkind: \"daisy\",\n\t\t\tshare: 1,\n\t\t\tcolony: 2.5,\n\t\t\tspread: .25\n\t\t}\n\t]"
+      },
+      {
+       "op": "replace",
+       "find": "note: \"A living mulch walked on: white and red clover, wild strawberries spreading by their runners, short grass, a daisy here and there.\"",
+       "replace": "note: \"A living mulch walked on: a short grass closed underfoot, white and red clover among it, wild strawberries spreading by their runners, a daisy here and there.\""
+      },
+      {
+       "op": "replace",
+       "find": "\t\tnote: \"Its grass drawn blade by blade (intent 090168c8)\"\n\t}] };",
+       "replace": "\t\tnote: \"Its grass drawn blade by blade (intent 090168c8)\"\n\t}, {\n\t\tv: 3,\n\t\tdate: \"2026-11-10\",\n\t\tnote: \"Its grass closed like a sward, its clover among it (intent 1717f109)\"\n\t}] };"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
