@@ -17,13 +17,14 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { METAL } from './lib/metal.js';
 import { quietness, taken } from './quiet.js';
 import { SEEDED_RANDOM } from './macjob/determinism.js';
 const { chromium } = createRequire(import.meta.url)('playwright');
 
 /** a Mac's Metal, as the render box runs it (the GPU named first); elsewhere the browser as it comes */
 // WebGPU on Metal too (intent c1bee1f8), where the page draws with WebGPURenderer
-export const LAUNCH = process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] } : { args: ['--ignore-gpu-blocklist'] };
+export const LAUNCH = process.platform === 'darwin' ? METAL : { args: ['--ignore-gpu-blocklist'] };
 
 
 /** where a site's profile is kept @param {string} name @param {string} [root] */

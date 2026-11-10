@@ -61,6 +61,7 @@ import { basename, dirname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { meterLine } from '../src/lib/content/render/meter.js';
+import { METAL } from './lib/metal.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const site = resolve(here, '..');
@@ -135,7 +136,7 @@ mkdirSync(o.out, { recursive: true });
 const { chromium } = await playwright();
 const dev = await server(o.url);
 // on a Mac its Metal, WebGPU on (intent c1bee1f8); elsewhere software, as before
-const browser = await chromium.launch(process.platform === 'darwin' ? { channel: 'chromium', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] } : { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch(process.platform === 'darwin' ? METAL : { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const results = [];
 try {
 	for (const r of o.recipes) {

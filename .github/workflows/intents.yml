@@ -67,7 +67,8 @@ jobs:
           red=0
           for id in $IDS; do
             echo "::group::intent $id"
-            bun play/avenbox/intent.ts "$id" --record --where main || red=1
+            # all but the checks measured on a real GPU (intent ba948167): the box has none, and they were measured on the pull request's head
+            bun play/avenbox/intent.ts "$id" --record --where main --no-gpu || red=1
             echo "::endgroup::"
           done
           exit $red

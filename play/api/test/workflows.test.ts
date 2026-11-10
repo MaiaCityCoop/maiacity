@@ -2,7 +2,7 @@
 // to a commit of main once main.yml is green for a push (or by hand, or Accept again, with a sha) with GITHUB_TOKEN and
 // starts production.yml, which writes SHIP_TOKEN into play's environment; the compose file hands it to play-api.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -207,7 +207,7 @@ describe("Intent named", async () => {
     expect(w.on.pull_request_target).toEqual({ branches: ["main"], types: ["opened", "reopened", "synchronize", "ready_for_review"] });
     expect(w.permissions).toEqual({});
     const { spec, main: measures, run, compare, record } = w.jobs;
-    expect(Object.keys(w.jobs)).toEqual(["spec", "main", "run", "compare", "record"]);
+    expect(Object.keys(w.jobs)).toEqual(["spec", "main", "run", "gpu", "compare", "record"]);
     // heads in this repository only, and never on a draft (ready_for_review comes with draft false)
     expect(spec.if).toBe("github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft)");
     // main's measures (intents f63774a3, 006eb26a) and the comparison: no secret, after the spec
@@ -267,7 +267,7 @@ describe("Intent named", async () => {
     expect(src).not.toContain("convertPullRequestToDraft");
     expect(src).not.toContain("pull-requests: write");
     // what stays as it is: main's run after the merge
-    expect(text(".github/workflows/intents.yml")).toContain("bun play/avenbox/intent.ts \"$id\" --record --where main");
+    expect(text(".github/workflows/intents.yml")).toContain("bun play/avenbox/intent.ts \"$id\" --record --where main --no-gpu");
   });
 });
 
@@ -323,11 +323,11 @@ describe("intents-pr.yml: main measured beside the head's checks", () => {
 
   test("compared once both are measured: compare needs main and run, record needs compare and records its results", () => {
     const { compare, record } = w.jobs;
-    expect(compare.needs).toEqual(["spec", "main", "run"]);
+    expect(compare.needs).toEqual(["spec", "main", "run", "gpu"]);
     // a failed main still compares (the checks that needed it fail, saying so); a run that did not finish records nothing
     expect(compare.if).toBe("!cancelled() && needs.run.result == 'success'");
     const got = steps("compare").filter((s) => s.uses?.startsWith("actions/download-artifact")).map((s) => [s.with.name, !!s["continue-on-error"]]);
-    expect(got).toEqual([["box-results", false], ["vs-head", false], ["vs-main", true]]);
+    expect(got).toEqual([["box-results", false], ["vs-head", false], ["vs-main", true], ["gpu-results", true]]);
     const fold = steps("compare").find((s) => s.run?.includes("--fold"));
     expect(fold.run).toBe('bun play/avenbox/vs-main.ts --fold "$RUNNER_TEMP/results/results.json" --main-values "$RUNNER_TEMP/vs-main/main.json" --heads "$RUNNER_TEMP/vs-head" --out "$RUNNER_TEMP/compared/results.json"');
     expect(steps("compare").find((s) => s.uses?.startsWith("actions/upload-artifact")).with).toMatchObject({ name: "box-compared", path: "${{ runner.temp }}/compared/results.json" });
@@ -359,6 +359,61 @@ describe("intents-pr.yml: main measured beside the head's checks", () => {
     const measure = main.find((s) => s.run?.includes("--main-of"));
     expect(measure.run).toContain('bun code/play/avenbox/vs-main.ts --main-of "$RUNNER_TEMP/box/spec.json" --main "$BASE" --repo base --out "$RUNNER_TEMP/vs-main/main.json"');
     expect(measure.env.VS_MAIN_CACHE).toBe("${{ runner.temp }}/vs-main-cache");
+  });
+});
+
+// intent ba948167: a check that measures a world on a real GPU (its run names play/site/scripts/gpu.ts) is run on GitHub's
+// macOS runner beside the box's checks, as untrusted as they are, and its result takes the place of the box's refusal
+describe("intents-pr.yml: the checks on a GPU", () => {
+  const w = yaml(".github/workflows/intents-pr.yml");
+  const { spec, gpu, run, compare } = w.jobs;
+  const named = (job: any, name: string) => job.steps.find((s: any) => s.name === name);
+
+  test("the gpu job runs only when the spec names gpu.ts, beside the box's checks, on a macOS runner", () => {
+    expect(spec.outputs.gpu).toBe("${{ steps.which.outputs.gpu }}");
+    // by the checks' runs alone, as main's intent.ts --gpu chooses them
+    const asks = spec.steps.find((s: any) => s.id === "which").run.split("\n").find((l: string) => l.includes("gpu=true"))!.trim();
+    expect(asks).toBe(String.raw`! jq -e '[.checks[].run // ""] | any(test("\\bbun\\s+(\\S*/)?scripts/gpu\\.ts\\b"))' "$RUNNER_TEMP/box/spec.json" > /dev/null || echo "gpu=true" >> "$GITHUB_OUTPUT"`);
+    // run as the step runs it: a check whose run names the script asks for the job; one that only speaks of it does not
+    const asked = (checks: object[]) => {
+      const dir = mkdtempSync(join(tmpdir(), "gpu-asks-"));
+      mkdirSync(join(dir, "box"));
+      writeFileSync(join(dir, "box/spec.json"), JSON.stringify({ checks }));
+      writeFileSync(join(dir, "out"), "");
+      Bun.spawnSync(["bash", "-e", "-c", asks], { env: { PATH: process.env.PATH!, RUNNER_TEMP: dir, GITHUB_OUTPUT: join(dir, "out") } });
+      return readFileSync(join(dir, "out"), "utf8");
+    };
+    expect(asked([{ id: "c1", run: "true" }, { id: "c2", run: "bun play/site/scripts/gpu.ts --world /sandbox-5/" }])).toBe("gpu=true\n");
+    expect(asked([{ id: "c1", run: "true", by: "not play/site/scripts/gpu.ts" }, { id: "c2", how: "look" }, { id: "c3", run: "cd play/site/scripts && bun gpu.ts" }, { id: "c4", run: "grep -q 'scripts/gpu.ts' play/SPEC.md" }])).toBe("");
+    expect(text("play/avenbox/intent.ts")).toContain(String.raw`const onGpu = (c: { run?: string }) => /\bbun\s+(\S*\/)?scripts\/gpu\.ts\b/.test(c.run ?? "");`);
+    expect(gpu.needs).toBe("spec");
+    expect(gpu.if).toBe("!cancelled() && needs.spec.result == 'success' && needs.spec.outputs.gpu == 'true'");
+    expect(gpu["runs-on"]).toMatch(/^macos-\d+$/);
+    // the box's own checks wait on nothing of it
+    expect(run.needs).toBe("spec");
+  });
+
+  test("it is as untrusted as the box's run: the head without credentials, no secret, no token, main's intent.ts", () => {
+    expect(gpu.steps.find((s: any) => s.uses === "actions/checkout@v4").with).toEqual({ ref: "${{ needs.spec.outputs.head }}", "persist-credentials": false });
+    expect(gpu.permissions).toEqual({ contents: "read" });
+    expect(JSON.stringify(gpu)).not.toContain("secrets.");
+    expect(JSON.stringify(gpu)).not.toContain("github.token");
+    const checks = named(gpu, "The intent's GPU checks on the head (no token)");
+    expect(checks.run).toContain('bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --gpu --no-up --results-out "$RUNNER_TEMP/gpu-results/results.json" --root "$GITHUB_WORKSPACE"');
+    // the site as visitors get it and both browsers, from the lockfile's versions
+    expect(named(gpu, "The site's dependencies, its browsers and its build").run.trim().split("\n").map((l: string) => l.trim())).toEqual(["bun install --frozen-lockfile", "bunx playwright install chromium webkit", "bun run build"]);
+    // its results and its pictures are kept with the run
+    expect(gpu.steps.filter((s: any) => s.uses?.startsWith("actions/upload-artifact")).map((s: any) => [s.with.name, s.with.path])).toEqual([["gpu-results", "${{ runner.temp }}/gpu-results/results.json"], ["gpu-pictures", "${{ runner.temp }}/gpu-pictures"]]);
+    expect(checks.env).toEqual({ GPU_OUT: "${{ runner.temp }}/gpu-pictures" });
+  });
+
+  test("compare takes the runner's results before anything is recorded; without them the box's refusals stand", () => {
+    const over = named(compare, "The GPU runner's results in place of the box's refusals (main's intent.ts, no token)");
+    expect(over.run).toBe('bun play/avenbox/intent.ts --over "$RUNNER_TEMP/results/results.json" --with "$RUNNER_TEMP/gpu-results/results.json"');
+    expect(over.if).toBe("needs.spec.outputs.gpu == 'true'");
+    expect(compare.steps.indexOf(over)).toBeLessThan(compare.steps.findIndex((s: any) => s.run?.includes("--fold")));
+    // a gpu job that failed or never ran still lets the box's results be compared and recorded
+    expect(compare.if).toBe("!cancelled() && needs.run.result == 'success'");
   });
 });
 
