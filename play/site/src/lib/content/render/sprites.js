@@ -10,7 +10,7 @@ import { attribute, cameraProjectionMatrix, modelViewMatrix, positionLocal, unif
 
 /**
  * @param {{ color: THREE.ColorRepresentation, px: number, depthTest?: boolean }} o
- * @returns {{ mesh: THREE.Mesh, set: (xyz: ArrayLike<number>) => void, dispose: () => void }}
+ * @returns {{ mesh: THREE.Mesh, screen: { value: THREE.Vector2 }, set: (xyz: ArrayLike<number>) => void, dispose: () => void }}
  */
 export function dots(o) {
 	const screen = uniform(new THREE.Vector2(1, 1));
@@ -21,9 +21,12 @@ export function dots(o) {
 	geo.instanceCount = 0;
 	const mesh = new THREE.Mesh(geo, m);
 	mesh.frustumCulled = false;
-	mesh.onBeforeRender = (r) => r.getDrawingBufferSize(screen.value);
+	// The canvas's CSS size, not its drawing buffer's: `px` is CSS pixels on every screen, as PointsMaterial drew
+	// (its size times the pixel ratio), so a dot matches the legend's square on a Retina screen too (intent cef10a08).
+	mesh.onBeforeRender = (r) => r.getSize(screen.value);
 	return {
 		mesh,
+		screen,
 		set(xyz) {
 			geo.setAttribute('at', new THREE.InstancedBufferAttribute(new Float32Array(xyz), 3));
 			geo.instanceCount = xyz.length / 3;
