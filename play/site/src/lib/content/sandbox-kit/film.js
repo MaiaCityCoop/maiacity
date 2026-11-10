@@ -1,30 +1,7 @@
 /**
- * THE FILM CAMERA'S HOLD ON A WORLD — what makes any sandbox a set the studio can shoot.
- *
- * The film camera (maia/content/film: the studio's world viewer, the Mac app's plate renderer, the shoot CLI) renders a
- * shot frame by frame, every frame set from the shot alone — the camera, the hour, the world's clock, the lights —
- * never from the frame before it, so the same shot renders the same pixels every time. It does that through one
- * contract, the same for every world: `window.__world`, made here by `connectFilm`.
- *
- * A world built on the kit hands over its stage (renderer, scene, camera), its sky, its camera controller (the
- * walker, the orbit rig, or a bare `createCameraHold`) and whatever else it animates, and keeps three rules in its
- * own frame loop while a film holds it:
- *   · draw nothing itself while `filmDraws()` (the film draws the canvas, only when asked);
- *   · run its animations on `worldTime()` when the film sets it (the shot's clock), else on its own;
- *   · keep its resolution while `filmHoldsSize()` (`stage.adapt(now, filmHoldsSize())`).
- *
- * A shot names its world (maia/content/game/film/worlds.js): `world.sandbox`, and `world.area` where a sandbox has more than one.
- * Each sandbox's film page (/games/<sandbox>/?film) mounts the world for the area and calls `connectFilm`.
- *
- * A shot's camera may ride in one of the world's own frames (maia/content/game/film/camera.js `frame`: the van, the pickup): the
- * world names them (`frames`, each where it stands now), and the pose is put in it once the world has come to the
- * shot's moment. A shot of the world's own camera (camera kind `world`) lets go of the camera: the world's controls
- * (its coded moves) have it. A game playing a film of its own (MaiaCity V1's intro) aims its camera with the same
- * `aim` and `poseIn`, so a shot looks the same in the game, the studio and the plates.
- *
- * A shot may move the world's moving parts (maia/content/game/film/worlds.js `parts`: the van along its road, the tent pitched):
- * their values at the shot's moment go to the world through one hook (`parts`), once the world has come to it and
- * before the camera is put in a frame, so a camera riding in the van rides where the shot put the van.
+ * The film camera's hold on a world: one contract for every world, `window.__world`, made by `connectFilm`. Each frame
+ * is set from the shot alone, so the same shot renders the same pixels every time. While a film holds it, a world
+ * draws nothing itself (`filmDraws()`), runs on `worldTime()` and keeps its resolution (`filmHoldsSize()`).
  */
 import * as THREE from 'three';
 
@@ -38,25 +15,17 @@ import * as THREE from 'three';
  * @property {() => void} release let go: the world's own controls have the camera again
  */
 
-/**
- * @typedef {{ id: string, intensity: number, color?: string }} FilmLight
- *   a light of the shot over what the hour gives it: 'sun', 'fill' and 'sky' in every world (the sky's), and a world's
- *   own ('glow', 'lamps' in the domes)
- */
+/** @typedef {{ id: string, intensity: number, color?: string }} FilmLight a shot's multiplier over the hour's light ('sun', 'fill', 'sky'; a world's own) */
 
 /**
  * @typedef {{ sandbox: string, area?: string, stand: [number, number], dome?: number, props?: string, seed: number, views?: import('./stream.js').View[] }} FilmWorldSpec
- *   views: what the shot's camera sees along its path (maia/content/film `viewsOf`), when the film knows it: a world that
- *   streams by view (./stream.js) builds for exactly these
+ *   views: what the shot's camera sees along its path, for a world that streams by view (./stream.js)
  */
 
 // the three rules of a world under the film camera are the film renderer's
 export { filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/render/film.js';
 
-/**
- * A pose in a frame (an object of the world: its place and its turn now) as a pose in the world.
- * @param {THREE.Object3D} frame @param {Pose | number[]} p @returns {Pose}
- */
+/** A pose in a frame (its place and turn now) as a pose in the world. @param {THREE.Object3D} frame @param {Pose | number[]} p @returns {Pose} */
 export function poseIn(frame, p) {
 	frame.updateMatrixWorld(true);
 	const at = frame.localToWorld(new THREE.Vector3(p[0], p[1], p[2]));
@@ -65,19 +34,13 @@ export function poseIn(frame, p) {
 	return [at.x, at.y, at.z, Math.atan2(-d.x, -d.z), Math.asin(Math.max(-1, Math.min(1, d.y)))];
 }
 
-/**
- * A camera put at a pose, as the film flies it (yaw about y, then pitch).
- * @param {THREE.Camera} camera @param {Pose | number[]} p
- */
+/** A camera put at a pose (yaw about y, then pitch). @param {THREE.Camera} camera @param {Pose | number[]} p */
 export function aim(camera, p) {
 	camera.position.set(p[0], p[1], p[2]);
 	camera.rotation.set(p[4], p[3], 0, 'YXZ');
 }
 
-/**
- * The pose of a camera as the film flies it, in the world or (frame) in one of its frames.
- * @param {THREE.Camera} camera @param {THREE.Object3D} [frame] @returns {Pose}
- */
+/** A camera's pose, in the world or in `frame`. @param {THREE.Camera} camera @param {THREE.Object3D} [frame] @returns {Pose} */
 export function poseOf(camera, frame) {
 	camera.updateMatrixWorld(true);
 	const at = camera.getWorldPosition(new THREE.Vector3());
@@ -90,11 +53,7 @@ export function poseOf(camera, frame) {
 	return [at.x, at.y, at.z, Math.atan2(-d.x, -d.z), Math.asin(Math.max(-1, Math.min(1, d.y)))];
 }
 
-/**
- * A bare hold on a camera, for a world whose camera controls are its own (the planet's).
- * @param {THREE.Camera} camera
- * @returns {CameraHold}
- */
+/** A bare hold on a camera, for a world whose controls are its own (the planet's). @param {THREE.Camera} camera @returns {CameraHold} */
 export function createCameraHold(camera) {
 	/** @type {Pose | null} */
 	let pose = null;
@@ -115,7 +74,7 @@ export function createCameraHold(camera) {
  * @param {{
  *   sandbox: string,
  *   area?: string,
- *   renderer: THREE.WebGLRenderer,
+ *   renderer: import('three/webgpu').WebGPURenderer,
  *   scene: THREE.Scene,
  *   camera: THREE.PerspectiveCamera,
  *   hold: CameraHold,
@@ -134,17 +93,8 @@ export function createCameraHold(camera) {
  *   progress?: () => { label: string, done?: number, total?: number } | null,
  *   extra?: Record<string, unknown>
  * }} o
- *   sandbox, area: which world this is (a shot of another is refused); hold: the camera controller's hold (the walker
- *   and the orbit rig are holds); place: stand the world's walker here (where a shot is staged: what is near is
- *   built); animate: every animation to world time t; advance: anything else a frame needs once the hour is set
- *   (levels of detail, the nearest lamps); lights: the world's own lights a shot may scale and colour; frames: the
- *   world's own frames a shot's camera may ride in (camera `frame`), each where it stands once animate has run; parts: the world's moving parts put where the shot has them
- *   (maia/content/game/film/worlds.js `parts`; each part by its channels' values, called every frame, with {} for none); stage: build
- *   what a shot needs and resolve when it is ready (default: stand at world.stand); holds: whether the world is still
- *   staged for that (default: yes); keep: keep built what these shots need; streams: holds is exact for any shot
- *   wherever it stands, so a cut to a held shot only moves (maia/content/sandbox-kit/stream.js); move: stand there at once;
- *   progress: what its stage is doing now, and how far (`done` of `total`) when it knows (the studio's loading screen
- *   shows it while Play readies the world; default: nothing said); extra: more on window.__world (debugging, sets)
+ *   a shot of another `sandbox`/`area` is refused; `frames` are where a camera may ride (camera `frame`), placed after
+ *   `animate`; `streams`: `holds` is exact anywhere, so a cut to a held shot only moves (./stream.js)
  */
 export function connectFilm(o) {
 	const { renderer, scene, camera, hold, sky = null } = o;
@@ -175,15 +125,8 @@ export function connectFilm(o) {
 		...o.extra,
 		film: {
 			/**
-			 * Bring the world to world time t (seconds), the camera where `fly` put it: animations, the sun and sky for the
-			 * hour, whatever else the world advances, and the shadows drawn again. The world stays at t until the next
-			 * advance: a world whose clock the film holds (the Worlds page's, ../worlds/film.js) never runs on between two,
-			 * so the same t is the same world however the frames before it came. `lights` scales the lights over what the
-			 * hour gives them (1 = as the hour has them) and may recolour them.
-			 * `parts`: the world's moving parts the shot moves, by their channels' values at t (maia/content/game/film/shot.js `evaluate`).
-			 * `live`: a frame of the studio's live viewer, not a plate: the shadows are drawn again only when the world's own
-			 * rules say so (the sky's: when the sun or where they follow moves; every frame for a world that keeps
-			 * `shadowMap.autoUpdate`), as the game draws them.
+			 * Bring the world to world time t (s), the camera where `fly` put it: the same t is the same world. `lights`
+			 * scale over the hour's; `live` (the studio's viewer, not a plate) leaves the shadows to the world's rules.
 			 * @param {number} t @param {FilmLight[]} [lights] @param {Record<string, Record<string, number>>} [parts] @param {boolean} [live]
 			 */
 			advance(t, lights = [], parts = {}, live = false) {
@@ -191,8 +134,7 @@ export function connectFilm(o) {
 				camera.updateMatrixWorld();
 				o.animate?.(t);
 				o.parts?.(parts);
-				// a pose in one of the world's frames, put where that frame stands now; and held again over whatever the
-				// world's own moves did to the camera as it came to t
+				// a pose in one of the world's frames, put where it stands now, held over what the world's moves did to it
 				const fr = framed, f = fr && o.frames?.[fr.frame]?.();
 				if (fr && f) hold.fly(...poseIn(f, fr.pose));
 				hold.apply();
@@ -215,8 +157,7 @@ export function connectFilm(o) {
 			holds: o.holds ?? (() => true),
 			/** @param {FilmWorldSpec[]} ws */
 			keep: o.keep ?? (() => {}),
-			/** whether `holds` is exact for any shot, wherever it stands (a world that streams by view): a cut to a shot it
-			 *  holds is then only a move of the camera, never a staging */
+			/** whether `holds` is exact for any shot wherever it stands: a cut to a held shot is only a camera move */
 			streams: o.streams ?? false,
 			/** stand where shot `w` is, at once, what it sees already built (`streams`) @param {FilmWorldSpec} w */
 			move: o.move ?? ((w) => place(w.stand[0], w.stand[1], 0, 0)),

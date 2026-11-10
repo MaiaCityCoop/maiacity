@@ -1,24 +1,14 @@
-// Intents depend on intents (src/intents.ts mayMove and heldBy, play/SPEC.md §4.12; intent
-// 420ee348-132f-4b04-a67d-082ae8b72efc) against a real Postgres (TEST_DATABASE_URL) and a fake GitHub (./fixtures/github.ts).
-// An intent may name the intents it depends on, each by its UUID; while any of them is not shipped (Accepted) it is held
-// at every forward gate: approve, Proposal on its checks, work proposed for it, accept, Accept and ship, Ship's turn.
-// Every forward gate is one function, mayMove: a stub of it refusing everything makes every forward path refuse.
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { app } from "../src/app";
-import { createHuman, initSessions, tokenFor } from "../src/auth";
-import { folderStore } from "../src/blobs";
+// Intents depend on intents (src/intents.ts mayMove and heldBy, play/SPEC.md §4.12; intent 420ee348-132f-4b04-a67d-082ae8b72efc)
+// against a real Postgres and a fake GitHub (./fixtures/github.ts).
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import type { BlobStore } from "../src/blobs";
 import { gate } from "../src/intents";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
-import { Rate } from "../src/limits";
-import { watchShips, type Pull } from "../src/ship";
+import { type Db } from "../src/kit/pg";
+import { watchShips } from "../src/watcher";
+import { type Pull } from "../src/github";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
+import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tempStore, tool as mcpTool } from "./kit";
+import * as fx from "./fixtures/intents";
 
 const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
 const SPEC = {
@@ -32,29 +22,20 @@ const SPEC = {
 };
 
 suite("intents depend on intents", () => {
-  let admin: Bun.SQL, sql: Bun.SQL, db: Db, name: string;
-  let api: ReturnType<typeof app>;
+  let f: Fresh, db: Db;
+  let api: Api;
+  let store: BlobStore;
   let gh: ReturnType<typeof fakeGitHub>;
   const who: Record<string, { id: string; cookie: string }> = {};
   const tokens: Record<string, string> = {};
 
   beforeAll(async () => {
-    name = `play_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    admin = new Bun.SQL(URL_!);
-    await admin.unsafe(`CREATE DATABASE ${name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${name}`;
-    sql = new Bun.SQL(u.toString());
-    db = fromBunSql(sql);
-    await migrate(db);
-    await initSessions(db);
+    f = await freshDb();
+    db = f.db;
     gh = fakeGitHub();
-    api = app({ db, store: folderStore(mkdtempSync(join(tmpdir(), "play-blobs-"))), rate: new Rate(0), github: gh.gh });
-    for (const n of ["ada", "bea"]) {
-      const h = await createHuman(db, n);
-      who[n] = { id: h.id, cookie: `play_session=${tokenFor(h.id)}` };
-    }
-    await db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = ANY($1)`, [[who.ada.id, who.bea.id]]);
+    store = tempStore();
+    api = appOn(db, { store, github: gh.gh });
+    for (const n of ["ada", "bea"]) who[n] = await human(db, n);
     for (const n of ["ada", "bea"]) {
       const made = (await call(n, "POST", "/api/tokens", { name: "agent" })).data;
       tokens[n] = made.token;
@@ -64,32 +45,11 @@ suite("intents depend on intents", () => {
   });
 
   afterAll(async () => {
-    await sql?.close();
-    await admin?.unsafe(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await admin?.close();
+    await f?.drop();
   });
 
-  const call = async (as: string, method: string, path: string, body?: unknown) => {
-    const headers: Record<string, string> = { cookie: who[as].cookie };
-    if (body !== undefined) headers["content-type"] = "application/json";
-    const r = await api.fetch(new Request(`http://play.test${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }));
-    return { status: r.status, data: await r.json().catch(() => null) };
-  };
-  let n = 0;
-  const tool = async (name: string, args: Record<string, unknown>, as = "ada"): Promise<any> => {
-    const r = await api.fetch(
-      new Request("http://play.test/api/mcp", {
-        method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${tokens[as]}` },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++n, method: "tools/call", params: { name, arguments: args } }),
-      }),
-    );
-    if (r.status !== 200) return { error: `${r.status}` };
-    const j = await r.json();
-    if (j.error) return { error: j.error.message as string };
-    const text = j.result.content[0].text;
-    return j.result.isError ? { error: text as string } : JSON.parse(text);
-  };
+  const call = (as: string, method: string, path: string, body?: unknown) => request(api, { cookie: who[as].cookie }, method, path, body);
+  const tool = (name: string, args: Record<string, unknown>, as = "ada"): Promise<any> => mcpTool(api, tokens[as], name, args);
   const intent = async (id: string) => (await call("ada", "GET", `/api/intents/${id}`)).data;
   const decide = (id: string, verdict: string) => call("ada", "POST", `/api/intents/${id}/${verdict}`);
   const depend = (id: string, on: string, drop?: boolean) => tool("depend_intent", { intent: id, on, ...(drop ? { drop } : {}) });
@@ -142,7 +102,7 @@ suite("intents depend on intents", () => {
       job(base + 34, "The website", "completed", "success"),
     ]);
   };
-  const clearShips = () => db.query(`UPDATE play.intents SET stage = 'archived' WHERE stage = 'ship'`);
+  const clearShips = () => fx.clearShips(db);
   /** the pull requests play merged, since call `from` */
   const merged = (from = 0) => gh.calls.slice(from).filter((c) => c.method === "PUT").map((c) => c.path);
   const setStage = (id: string, stage: string) =>
@@ -177,7 +137,7 @@ suite("intents depend on intents", () => {
     const dep = await add("A dependency");
     const g = await everyGate(dep.id);
     for (const at of ["proposal", "work", "accept", "ship"] as const)
-      expect(g[at]).toBe(heldText((g.ids as any)[at], [{ id: dep.id, title: dep.title, stage: "idea" }]));
+      expect(g[at]).toBe(heldText(g.ids[at], [{ id: dep.id, title: dep.title, stage: "idea" }]));
     expect(g.approve).toBeNull();
     // nothing moved: each held where it was, its results kept
     expect((await intent(g.ids.approve)).stage).toBe("build");
@@ -212,7 +172,7 @@ suite("intents depend on intents", () => {
       expect(await decide(toAccept.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
       expect(await decide(toShip.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
       expect(await decide(withWork.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
-      await watchShips(db, gh.gh);
+      await watchShips(db, gh.gh, store);
       expect(await intent(waiting.id)).toMatchObject({ stage: "proposal", ship: { report: { why: "The stub refuses every move." } } });
       // going back asks it nothing
       const before = asked.length;
@@ -252,7 +212,6 @@ suite("intents depend on intents", () => {
     expect((await intent(d.id)).needed_by.map((x: any) => x.id).sort()).toEqual([b.id, c.id].sort());
     // and D on A would close it
     expect((await depend(d.id, a.id)).error).toContain("nothing waits on itself");
-    // the same edge twice is one
     expect((await depend(a.id, b.id)).depends_on).toHaveLength(2);
   });
 
@@ -262,7 +221,7 @@ suite("intents depend on intents", () => {
       await setStage(dep.id, stage);
       const g = await everyGate(dep.id);
       const deps = [{ id: dep.id, title: dep.title, stage }];
-      for (const at of ["proposal", "work", "accept"] as const) expect(g[at]).toBe(heldText((g.ids as any)[at], deps));
+      for (const at of ["proposal", "work", "accept"] as const) expect(g[at]).toBe(heldText(g.ids[at], deps));
       expect(g.approve).toBeNull();
       // Accept and ship: a dependency in Ship is waited for there, so only one not in Ship refuses
       if (stage === "ship") expect(g.ship).toBeNull();
@@ -334,11 +293,11 @@ suite("intents depend on intents", () => {
     expect((await decide(a.id, "accept")).data.stage).toBe("ship");
     const ready = async (id: string) => (await intent(id)).ship.steps[0];
     expect(await ready(a.id)).toMatchObject({ state: "running", note: `Waits for ${b.id} (${b.title}, at ship) to ship first` });
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     expect(merged(from)).toEqual([`/pulls/${b.pr}/merge`]);
     // B all green: Accepted, and in that same look A merges
     allGreen(b.merge, 9000);
-    await watchShips(db, gh.gh, Date.now(), b.merge);
+    await watchShips(db, gh.gh, store, Date.now(), b.merge);
     expect((await intent(b.id)).stage).toBe("accepted");
     expect(merged(from)).toEqual([`/pulls/${b.pr}/merge`, `/pulls/${a.pr}/merge`]);
     expect((await intent(a.id)).ship).toMatchObject({ merge: a.merge, pending: null });
@@ -351,7 +310,7 @@ suite("intents depend on intents", () => {
     await decide(b2.id, "accept");
     expect((await decide(a2.id, "accept")).data.stage).toBe("ship");
     gh.runs["main.yml"].push(run(9101, b2.merge, { status: "completed", conclusion: "failure" }));
-    await watchShips(db, gh.gh);
+    await watchShips(db, gh.gh, store);
     expect((await intent(b2.id)).stage).toBe("proposal");
     const back = await intent(a2.id);
     expect(back.stage).toBe("proposal");
@@ -381,10 +340,9 @@ suite("intents depend on intents", () => {
     expect((await tool("specify_intent", { intent: a.id, ...SPEC })).depends_on).toHaveLength(1);
     expect((await tool("specify_intent", { intent: a.id, ...SPEC, depends_on: [a.id] })).error).toContain("itself");
     // the tools' schemas say it
-    const r = await api.fetch(new Request("http://play.test/api/mcp", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${tokens.ada}` }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) }));
-    const tools = (await r.json()).result.tools as any[];
-    for (const t of ["add_intent", "specify_intent"]) expect(tools.find((x) => x.name === t).inputSchema.properties.depends_on.type).toBe("array");
-    expect(tools.find((x) => x.name === "depend_intent").inputSchema.required).toEqual(["intent", "on"]);
+    const tools: { name: string; inputSchema: { properties: { depends_on: { type: string } }; required: string[] } }[] = (await kitRpc(api, tokens.ada, "tools/list")).json.result.tools;
+    for (const t of ["add_intent", "specify_intent"]) expect(tools.find((x) => x.name === t)!.inputSchema.properties.depends_on.type).toBe("array");
+    expect(tools.find((x) => x.name === "depend_intent")!.inputSchema.required).toEqual(["intent", "on"]);
     // an admin's agent's only: a token whose owner is no admin opens nothing; no route adds one by hand
     await db.query(`UPDATE play.memberships SET level = 'citizen' WHERE human_id = $1`, [who.bea.id]);
     expect((await tool("depend_intent", { intent: a.id, on: b.id }, "bea")).error).toBe("401");

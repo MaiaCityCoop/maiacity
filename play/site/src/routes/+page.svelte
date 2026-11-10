@@ -10,7 +10,7 @@
 <script lang="ts">
 	import Icon from '$lib/site/app/Icon.svelte';
 	import { asset } from '$lib/site/media/url';
-	import { session } from '$lib/session.svelte';
+	import { session, isAdmin } from '$lib/session.svelte';
 	import { asCity } from '$lib/acting.svelte';
 	import { GROUP_APPS } from '$lib/app/groups';
 
@@ -26,7 +26,7 @@
 		{ href: '/sandbox-6/', label: 'Sandbox 6', note: 'One village at its real size: six living hexes round the tower hex, every number from its sources', cover: '46e52e9e393b192c0a6db481e95fbf623e8d12d2753a3e1d15d1663292d2c716.jpg' },
 		{ href: '/sandbox-7/', label: 'Sandbox 7', note: 'The hex planet: the Earth in 51,842 cards, with the places a new food-forest city could grow', cover: '88528c9521de8682f676c3e2539c3a19ffd2a4731a2343410761025e27fde55e.jpg' }
 	];
-	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media' | 'link' | 'journal' | 'ledger'; admins?: boolean };
+	type Tile = { href: string; label: string; note: string; icon: (typeof GROUP_APPS)[number]['icon'] | 'play' | 'coops' | 'key' | 'database' | 'factory' | 'studio' | 'gear' | 'media' | 'link' | 'journal' | 'ledger' | 'check'; admins?: boolean };
 	const APPS: Tile[] = [
 		// the asset library, a tile per group, each the same viewer (Samuel 2026-11-04)
 		...GROUP_APPS.map((g) => ({ href: g.href, label: g.label, note: g.note, icon: g.icon, admins: 'admins' in g && g.admins })),
@@ -47,7 +47,6 @@
 	// the coop's own, for an admin acting as Maia City (Samuel 2026-11-04: the stories moved here; 2026-11-05: the
 	// proposals left for the nav pill's star)
 	const CITY: Tile[] = [
-		// our films as timelines, storyboard beside the script, to feel whether they work (routes/stories)
 		{ href: '/stories/', label: 'Stories', note: 'Our films as timelines: storyboard, voice, notes', icon: 'studio' },
 		LIBRARY(true),
 		// every link from the net Maia City keeps, its summaries and its authors, kept by avenMAIA: all of them artifacts
@@ -67,7 +66,7 @@
 		{ href: '/postgres/', label: 'Postgres', note: 'Every table and its rows, read only', icon: 'database' }
 	];
 	const city = $derived(asCity());
-	const admin = $derived(session.me?.level === 'admin');
+	const admin = $derived(isAdmin());
 	const apps = $derived([...APPS, ...(city ? [] : [LIBRARY(false)])].filter((t) => !t.admins || admin));
 </script>
 

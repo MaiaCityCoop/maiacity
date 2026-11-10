@@ -1,22 +1,11 @@
-/**
- * WHAT STANDS IN THE WAY — every tree, pillar, table and bed a walker must go round, for the shared walker
- * (./walker.js) and every world that walks.
- *
- * Each is a circle on the ground (x, z, its radius), on the floor it stands on (y; the ground if unset). They are
- * filed in cells 8 m across, so a step looks only at what is near it, never at everything in the dome.
- *
- * Standing in one never traps you: a world can put you down inside a bush (a door, a jump, the film handing the
- * camera back), and a step that takes you further out of it is always allowed. Only a step into one, or deeper into
- * the one you stand in, is refused.
- */
+/** WHAT STANDS IN THE WAY of the walker (./walker.js): circles on the ground (y their floor) in 8 m cells; standing in one
+ * never traps you (a world may put you in a bush): only a step into one, or deeper, is refused. */
 
 /** @typedef {{ x: number, z: number, r: number, y?: number }} Obstacle */
 
 /**
- * @param {Obstacle[]} list
- * @param {{ cell?: number, pad?: number, floor?: number }} [o]
- *   cell: the size of a cell (m); pad: how close a walker's middle may come to an obstacle's edge; floor: how far
- *   apart in height an obstacle and a walker must be for it not to be in the way (a table upstairs is not)
+ * @param {Obstacle[]} list @param {{ cell?: number, pad?: number, floor?: number }} [o] cell: its size (m); pad: how near
+ *   a walker's middle may come to an edge; floor: the height apart past which it is not in the way (a table upstairs)
  */
 export function createObstacles(list, { cell = 8, pad = 0.25, floor = 1 } = {}) {
 	/** @type {Map<string, Obstacle[]>} */
@@ -44,10 +33,9 @@ export function createObstacles(list, { cell = 8, pad = 0.25, floor = 1 } = {}) 
 	};
 	return {
 		/**
-		 * Whether a step to x, z is refused: into an obstacle, or deeper into the one you stand in.
-		 * @param {number} x @param {number} z
-		 * @param {{ y?: number, from?: { x: number, z: number } }} [step] y: the floor the step lands on (obstacles on
-		 *   another floor are not in the way); from: where the step starts (so a step out of an obstacle is never refused)
+		 * Whether a step to x, z is refused: into an obstacle, or deeper into the one you stand in. @param {number} x @param {number} z
+		 * @param {{ y?: number, from?: { x: number, z: number } }} [step] y: the floor it lands on (obstacles on another
+		 *   floor are not in the way); from: where it starts (a step out of an obstacle is never refused)
 		 */
 		blocks(x, z, { y, from } = {}) {
 			return any(x, z, (o) => {

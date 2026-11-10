@@ -1,36 +1,24 @@
 // THE COMPILE (play/SPEC.md §12): a story/1 version made into one HyperFrames composition, the one engine that plays it
-// (StoryPlayer.svelte: HyperFrames' player in play's sealed frame) and renders it (scripts/story-parity.ts: HyperFrames'
-// renderer). `compose(story, links, compositions)` is pure: no clock, chance or environment, so a version always gives the
-// same bytes, kept by their hash. story/1 stays the source; the composition is only ever made from it.
-// - shots: an image, a video (muted, from video_in) or a composition (readable HTML kept by hash, inlined as a
-//   sub-composition and seeked from 0 at the shot's start), each held over a gap until the next shot; its transition
-//   codes (cut, dissolve s, from black s, to black s, dip to black s) GSAP tweens on the story's own timeline
-// - voice: its cues, or its line cut evenly, as caption clips (`em` alone and large)
-// - sound: every clip's recording an <audio> clip with its gain, fades, EQ (data-fx-chain) and gain keys (data-automation),
-//   on its track's bus (<hf-audio-group>, the track's gain); a `duck` track dips under the voice in its automation
-// - links: each linked version a nested sub-composition at its link's place, its sound carrying the link's gain and mute
-// - live shots (intent f270269e, ./live.ts): the real asset drawn in the shot by the asset box's own frozen engine, its
-//   recipe and pieces laid in by hash, built before the composition is ready (its still the poster until then) and
-//   drawn at every seek from the shot's camera and keyed values (./live-runtime.ts, VENDOR.live)
-// - world shots (intent 65d04790, ./live.ts): a whole world (an asset of the group worlds) played in the shot by the same
-//   runtime, its recipe, its guests' recipes and their pieces laid in by hash; a moving world stepped through every frame
-//   of the shot before it is ready, each moment drawn from its frame, its camera, the hour's sun, its exposure and lights
+// (StoryPlayer.svelte, in play's sealed frame) and renders it (scripts/story-parity.ts). `compose(story, links,
+// compositions)` is pure (no clock, chance or environment): a version always gives the same bytes, kept by hash.
+// - shots: an image, a video or a composition (a sub-composition by hash), held to the next; transitions as GSAP tweens
+// - voice: caption clips; sound: <audio> clips on their tracks' buses, a `duck` track dipping under the voice
+// - links: each linked version a nested sub-composition; live and world shots (intents f270269e, 65d04790, ./live.ts):
+//   the real asset or world drawn by the box's frozen engine, by hash, built before ready (./live-runtime.ts)
 import { frameCsp, SANDBOX, DENY } from '../kernel/sandbox/policy.js';
-import { hashBytes } from '../content/game/hash.js';
+import { hashBytes, HEX } from '../kernel/hash.js';
 import { engineAt } from '../kernel/engines.js';
 import { buildsOf, framesOf, stepTimes, type Live, type LiveAsset, type World, type WorldAsset } from './live';
 import { clipsOf, cuesOf, linkedOf, setCuesOf, LINK, MOST_LINK_DEPTH, type Clip, type Links, type Shot, type StoryBody, type Voice } from './timeline';
 
 /** the live runtime's hash: what scripts/live-runtime.ts builds, held to it (`bun scripts/live-runtime.ts --check`) */
 const LIVE_HASH = '0e86441f376f4a4d2ca7d7f9608e9277af8a6c745df7562cae1fac4a788da48c';
-/** HyperFrames' runtime, GSAP and the one font (Inter, where a composition names only a generic family, as HyperFrames'
- *  renderer puts it first), pinned by their BLAKE3 hash: among play's files, never from a CDN */
+/** HyperFrames' runtime, GSAP and the one font (Inter, first where a composition names only a generic family), pinned by BLAKE3 hash among play's files, never a CDN */
 export const VENDOR = {
 	runtime: { hash: '2a2d643f32b99f433c4fd1812fb83de451e2e12b90cbe23ad876e994f815e93b', name: 'hyperframe.runtime.iife.js @hyperframes/core 0.9.20' },
 	gsap: { hash: '0a705954bbbe95f3a0c82d91f20af16b181e87a5f427e54d9be67d9dcec5231f', name: 'gsap.min.js gsap 3.15.0' },
 	font: { hash: '194fdc7f41a1a3e29bcd521e088c7a6b9f0fbb6b621cf513fb01451fc44797d3', name: 'inter-latin-wght-normal.woff2 @fontsource-variable/inter 5.3.0' },
-	/** a live shot's runtime (./live-runtime.ts, bundled by scripts/live-runtime.ts): the asset library's rebuild and
-	 *  stage, and the site's three.js they draw with; the asset is built by the frozen box engine, laid in by its hash */
+	/** a live shot's runtime (./live-runtime.ts, bundled by scripts/live-runtime.ts): the asset library's rebuild and stage and the site's three.js */
 	live: { hash: LIVE_HASH, name: 'live-runtime.js play/site src/lib/stories/live-runtime.ts' }
 };
 /** the live runtimes compositions made before were pinned to, each kept beside it as static/live/<hash>.js, so a
@@ -42,24 +30,22 @@ const GENERIC = /^\s*(sans-serif|serif|monospace|cursive|fantasy|system-ui|ui-sa
 const fonts = (css: string) => css.replace(/((?:^|[;{\s])(?:font-family|--[\w-]+)\s*:\s*)([^;}]+)/g, (m, k, v) => (GENERIC.test(v) ? `${k}${FONT}, ${v.trim()}` : m));
 /** play's files, by hash: the only place a composition loads anything from */
 export const fileUrl = (hash: string) => `/api/files/${hash}`;
-const FILE = /\/api\/files\/([0-9a-f]{64})/g;
+const FILE = new RegExp(`/api/files/(${HEX})`, 'g');
 /** every file a composition names, once each, in order */
 export const filesOf = (html: string) => [...new Set([...html.matchAll(FILE)].map((m) => m[1]))];
-const CODE = /<script type="text\/x-play-code" data-play-code="([0-9a-f]{64})"><\/script>/g;
+const CODE = new RegExp(`<script type="text/x-play-code" data-play-code="(${HEX})"></script>`, 'g');
 /** every code file a composition's live shots run (the frozen box engine, recipes, pieces), laid in as text, not loaded */
 export const codeOf = (html: string) => [...new Set([...html.matchAll(CODE)].map((m) => m[1]))];
-/** a composition with its code files laid in (the renderer's way: the page's is the sealed frame's bridge), each a
- *  JavaScript string, so its bytes come out as they went in; `code` by hash, each held to it by the live runtime */
+/** a composition with its code files laid in (the renderer's way) as JavaScript strings, bytes as they went in; `code` by hash, held by the runtime */
 export const laid = (html: string, code: Record<string, string>) =>
 	html.replace(CODE, (m, h) => (typeof code[h] === 'string' ? `<script>(window.__playCode ??= {})[${JSON.stringify(h)}] = ${JSON.stringify(code[h]).replace(/<\//g, '<\\/').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')};</script>` : m));
-/** the frame's policy: scripts inline (and play's files where it is not sealed: a renderer's), media from play's files or
- *  the frame's own blobs, no connection of any kind */
+/** the frame's policy: inline scripts (and play's files where not sealed), media from play's files or the frame's blobs, no connection */
 export const CSP = frameCsp({ script: "'self' 'unsafe-inline' blob:", open: { 'img-src': "'self' blob: data:", 'media-src': "'self' blob:", 'style-src': "'unsafe-inline'", 'font-src': "'self' blob: data:" } });
 /** the player's frame: play's walls (no same origin, every device feature off; sound may play) */
 export const FRAME = { sandbox: SANDBOX, allow: `autoplay; ${DENY}` };
 
 /** a film's frame in pixels: its short side 1080 */
-export function sizeOf(format: string | undefined): [number, number] {
+function sizeOf(format: string | undefined): [number, number] {
 	const [a, b] = String(format ?? '9:16').split(':').map(Number);
 	if (!(a > 0 && b > 0)) return [1080, 1920];
 	return a >= b ? [Math.round((1080 * a) / b), 1080] : [1080, Math.round((1080 * b) / a)];
@@ -148,8 +134,7 @@ function voiceSpans(body: StoryBody) {
 	}
 	return spans;
 }
-/** a clip's gain over its length, relative to its own level: its keys ([s into the clip, dB]) and, on a ducking track, a
- *  dip of about 6 dB under the voice (in 0.15 s, out over 0.9 s), as one volume lane (linear, HyperFrames' unit) */
+/** a clip's gain over its length: its keys ([s, dB]) and on a ducking track a ~6 dB dip under the voice (in 0.15 s, out 0.9 s), one linear volume lane */
 function lane(c: Clip, duck: [number, number][] | null) {
 	const keys = (Array.isArray(c.keys) ? (c.keys as [number, number][]) : []).filter((k) => Array.isArray(k) && Number.isFinite(k[0]) && Number.isFinite(k[1]));
 	const dips = (duck ?? []).map(([a, b]) => [a - c.at, b - c.at]).filter(([a, b]) => b > 0 && a < c.duration);
@@ -175,8 +160,7 @@ function chain(c: Clip) {
 }
 const attr = (name: string, v: unknown) => (v == null ? '' : ` ${name}='${esc(typeof v === 'string' ? v : JSON.stringify(v))}'`);
 
-/** a shot's live asset as the composition draws it, or null where it has none or play gave nothing for its version (it
- *  then shows its still, as before): its engine, recipe and pieces by hash, its builds' values and their moments */
+/** a shot's live asset as drawn (engine, recipe, pieces by hash, builds' values and moments), or null: none, or play gave nothing (its still shows) */
 function liveOf(s: Shot, ctx: Ctx) {
 	const l = s.live as Live | undefined;
 	if (!l || typeof l !== 'object' || !Array.isArray(l.camera) || !l.camera.length) return null;
@@ -189,8 +173,7 @@ function liveOf(s: Shot, ctx: Ctx) {
 	return { asset: l.asset, version: l.version, engine: { v: engine.v, hash: engine.blake3 }, recipe: v.recipe, pieces: [...(v.pieces ?? [])], builds: buildsOf(l), times: stepTimes(l), camera };
 }
 
-/** a shot's world as the composition plays it, or null where it has none or play gave nothing for its version (it then
- *  shows its still): its engine, recipe, pieces and guests by hash, its camera, hour, exposure and lights as given */
+/** a shot's world as played (engine, recipe, pieces, guests by hash, camera, hour, exposure, lights), or null: none, or play gave nothing (its still) */
 function worldOf(s: Shot, ctx: Ctx) {
 	const w = s.world as World | undefined;
 	if (!w || typeof w !== 'object' || s.live || !Array.isArray(w.camera) || !w.camera.length) return null;
@@ -210,8 +193,7 @@ function lay(body: StoryBody, id: string, ctx: Ctx, out: Out, sound: { db: numbe
 	const [w, h] = ctx.size, D = num(body.duration);
 	const shots = clipsOf<Shot>(body, 'shots');
 	let track = 0;
-	// shots: each on its own track, a later one in front; held to the next shot (the last to the end), and under the next
-	// while it dissolves in over it
+	// shots: each on its own track, a later one in front, held to the next (the last to the end) and under it while it dissolves in
 	const fades = shots.map((s, i) => {
 		const prev = shots[i - 1];
 		return dissolve(prev && Math.abs(prev.at + prev.duration - s.at) < 0.05 ? prev : null, s);
@@ -328,11 +310,7 @@ function shots(tl, veil, list) {
 	}
 }`;
 
-/**
- * A story's version as one HyperFrames composition: HTML, the same bytes for the same version. `links` holds every
- * version it links (by the version's id, as play reads it), `compositions` every composition its shots name (readable
- * HTML by its hash). What it can't read (a link not in `links`, a composition not given) it leaves out.
- */
+/** A story's version as one HyperFrames composition, the same bytes for the same version; what it can't read it leaves out. */
 export function compose(story: StoryBody & { id?: string; title?: string; number?: number | null; version?: string }, links: Links = {}, compositions: Record<string, string> = {}, assets: Record<string, LiveAsset> = {}, worlds: Record<string, WorldAsset> = {}): string {
 	const size = sizeOf(story.format), [w, h] = size, D = num(story.duration);
 	const out: Out = { html: [], script: [] };
@@ -373,8 +351,7 @@ window.__timelines["story"] = tl;
 // ---- sealed: the composition in play's frame, which loads nothing. Its files come from the page (fetched with the page's
 // session, code checked against its hash) as blobs the frame makes its own URLs of; its scripts wait for them
 
-/** the frame's side: asks the page for every file it names, then lays them in and runs the scripts in order; a tap or
- *  key in it is the page's (and a tap plays or pauses there and then, inside the gesture, as a phone's sound needs) */
+/** the frame's side: asks the page for its files, lays them in, runs the scripts in order; a tap or key is the page's (a tap plays or pauses inside the gesture, as a phone's sound needs) */
 const BRIDGE = `(() => {
 	const urls = {};
 	const post = (m) => parent.postMessage(Object.assign({ play: 1 }, m), '*');
@@ -411,8 +388,7 @@ const BRIDGE = `(() => {
 	addEventListener('keydown', (e) => post({ op: 'key', key: e.key, meta: e.metaKey || e.ctrlKey || e.altKey }));
 })();`;
 
-/** the page's side: what the frame asks for, each file fetched by `get` (play's files, with the page's session), a
- *  script's bytes held to the hash that names it, handed in: code as text, media as blobs */
+/** the page's side: each file the frame asks for fetched by `get` (play's files, the page's session), a script held to its hash; code as text, media as blobs */
 export async function feed(frame: Window, need: { code?: string[]; media?: string[] }, get: (hash: string) => Promise<Blob>) {
 	const files: Record<string, Blob | string> = {};
 	await Promise.all([
@@ -426,12 +402,15 @@ export async function feed(frame: Window, need: { code?: string[]; media?: strin
 	frame.postMessage({ play: 1, op: 'files', files }, '*');
 }
 
+const HELD_SCRIPT = new RegExp(`<script\\b([^>]*?)\\ssrc="/api/files/(${HEX})"([^>]*)></script>`, 'g');
+const HELD_SRC = new RegExp(`\\ssrc="/api/files/(${HEX})"`, 'g');
+const HELD_FONT = new RegExp(`<style data-play-font="true">([^<]*?/api/files/(${HEX}))`, 'g');
 /** a composition as the sealed frame takes it: its files and scripts held for the bridge */
 export function seal(html: string): string {
 	return html
-		.replace(/<script\b([^>]*?)\ssrc="\/api\/files\/([0-9a-f]{64})"([^>]*)><\/script>/g, '<script type="text/x-play-held" data-play-file="$2"$1$3></script>')
+		.replace(HELD_SCRIPT, '<script type="text/x-play-held" data-play-file="$2"$1$3></script>')
 		.replace(/<script>/g, '<script type="text/x-play-held">')
-		.replace(/\ssrc="\/api\/files\/([0-9a-f]{64})"/g, ' data-play-file="$1"')
-		.replace(/<style data-play-font="true">([^<]*?\/api\/files\/([0-9a-f]{64}))/g, '<style data-play-file="$2" media="not all">$1')
+		.replace(HELD_SRC, ' data-play-file="$1"')
+		.replace(HELD_FONT, '<style data-play-file="$2" media="not all">$1')
 		.replace(/(<meta http-equiv="Content-Security-Policy"[^>]*>)/, `$1\n<script>${BRIDGE}</script>`);
 }

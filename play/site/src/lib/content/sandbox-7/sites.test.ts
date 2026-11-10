@@ -2,7 +2,7 @@
 // 10,000 people or more, each with its people, climate, the land as it is, water, legal route, access and risks, scored
 // 1 to 5 on water, land, legal, access and climate, each standing on a land card of the globe, and every one with its
 // sources kept in play's Artifacts (each source an artifact's UUID). The scene pins each where it is.
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { WATER } from './globe';
 import { biomes, planet, sites, tiles } from './fixture.test';
 import { buildPlanet, tileAt, topOf } from './scene';

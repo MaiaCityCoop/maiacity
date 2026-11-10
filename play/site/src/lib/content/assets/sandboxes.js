@@ -1,8 +1,2 @@
-// @ts-nocheck — plain JS, runs in the page
-/*
- * The sandboxes by their ids (Samuel 2026-11-04: every reference is a UUID or a hash; a name, a slug or a route is
- * only shown). A slot of a sandbox's pins is `pin:<its id>/<slot>` (./catalog.js) and its config is read at
- * /api/sandboxes/<its id>/config. Written once, in play/api's src/ids.ts `SANDBOX` (beside the migrations that give
- * each its row): this is that object, so the site and the API never name a sandbox by two copies.
- */
-export { SANDBOX } from '../../../../../api/src/ids.ts';
+// the sandboxes' UUIDs are the kernel's (../../kernel/sandboxes.js); held worlds and the census still import them here
+export { SANDBOX } from '../../kernel/sandboxes.js';

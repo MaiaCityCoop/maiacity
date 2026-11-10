@@ -16,5 +16,4 @@ export const GROUP_APPS = [
 	{ grp: 'worlds', label: 'Worlds', href: '/worlds/', note: 'The assets composed into one place, alive', icon: 'universe' }
 ] as const;
 
-/** a group's name, by its key */
 export const GROUPS: Record<string, string> = Object.fromEntries(GROUP_APPS.map((g) => [g.grp, g.label]));

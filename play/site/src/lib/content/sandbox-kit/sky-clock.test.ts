@@ -4,17 +4,21 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import * as THREE from 'three';
 import { fakeGL } from '../render/nodes/fakegl.js';
-import { install } from '../render/nodes/index.js';
 
 (globalThis as any).self ??= globalThis;
 (globalThis as any).ImageBitmap ??= class {};
 (globalThis as any).window ??= globalThis;
+(globalThis as any).requestAnimationFrame ??= () => 0;
+(globalThis as any).cancelAnimationFrame ??= () => {};
 const { createSky } = await import('./sky.js');
+const { createRenderer } = await import('../render/core.js');
 
 function sky(o: Record<string, unknown>) {
 	const { gl } = fakeGL();
-	const r = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl } as any);
-	install(r);
+	const c: any = gl.canvas;
+	c.getContext = (kind: string) => (kind === 'webgl2' ? gl : null);
+	// the app's renderer on its WebGL 2 backend (not yet ready: the sky's hour, light and lens need no drawing)
+	const r: any = createRenderer({ backend: 'webgl2', canvas: c, pixelRatio: 1 });
 	return createSky(r, new THREE.Scene(), { sun: { elevation: 14, azimuth: 218 }, light: false, fog: null, clouds: 0.25, ...o });
 }
 /** the sky at a wall time: its hour, its light and its lens */

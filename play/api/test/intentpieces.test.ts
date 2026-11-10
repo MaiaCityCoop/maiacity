@@ -1,27 +1,19 @@
-// Pieces proposed together (play/SPEC.md §4.5; intent 02e3a85f) against a real Postgres: set TEST_DATABASE_URL, as for
-// api.test.ts. A recipe or piece may require a piece version proposed in the same intent; one intent may carry several
-// versions of one piece; Accept keeps the pieces first, in the order they require each other, then what requires them,
-// in one transaction, or none of it.
-//
-// Its three parts are run on their own (intent 02e3a85f's checks: `-t same`, `-t versions`, `-t order`): each describe
-// makes its own database, and every test's name matches exactly one of those words, its describe's.
+// Pieces proposed together (play/SPEC.md §4.5; intent 02e3a85f) against a real Postgres (as api.test.ts): a recipe or
+// piece may require a piece version proposed in the same intent, which may carry several versions of one piece; Accept
+// keeps the pieces first, in dependency order, then what requires them, in one transaction, or none. Its three parts run
+// alone (`-t same`, `-t versions`, `-t order`): each describe its own database, each test's name matching its describe's word.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { meOf } from "../src/access";
+import { COOP } from "../src/kit/ids";
 import { proposeAsset, recipeAt } from "../src/assetdocs";
-import { createHuman } from "../src/auth";
-import { folderStore, type BlobStore } from "../src/blobs";
-import { hashText } from "../src/hash";
-import { migrate } from "../src/migrations";
-import { fromBunSql, type Db } from "../src/pg";
+import { type BlobStore } from "../src/blobs";
+import { hashText } from "../src/kit/hash";
+import { type Db } from "../src/kit/pg";
 import { MOST_DEEP, PieceError, resolvePieces, type Known } from "../src/pieces";
-import { decide, docAt, proposeDocVersion, reviewOf } from "../src/versioned";
-
-const URL_ = process.env.TEST_DATABASE_URL;
-const suite = URL_ ? describe : describe.skip;
-const COOP = "12f8d4e7-701f-8727-a327-de9b240ea867";
+import { decide, docAt, proposeDocVersion } from "../src/versioned";
+import { reviewOf } from "../src/review";
+import "../src/allkinds";
+import { type Fresh, freshDb, human, suite, tempStore } from "./kit";
 
 const pieceSource = (n: number) => `// a kit, as written\nmodule.exports.wheels = ${n};\n`;
 const onTop = (below: string, n: number) => `// a layer on the one below\nconst below = require("${below}");\nmodule.exports.wheels = below.wheels + ${n};\n`;
@@ -30,25 +22,14 @@ const assetSource = (...pieces: string[]) =>
 
 /** a database of its own for one describe, migrated, with an admin: what every part needs, under any `-t` filter */
 function fixture(tag: string) {
-  const f = {} as { admin: Bun.SQL; sql: Bun.SQL; db: Db; name: string; store: BlobStore; ada: string };
+  const f = {} as { fresh: Fresh; db: Db; store: BlobStore; ada: string };
   beforeAll(async () => {
-    f.name = `play_intentpieces_${tag}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
-    f.admin = new Bun.SQL(URL_!);
-    await f.admin.unsafe(`CREATE DATABASE ${f.name}`);
-    const u = new URL(URL_!);
-    u.pathname = `/${f.name}`;
-    f.sql = new Bun.SQL(u.toString());
-    f.db = fromBunSql(f.sql);
-    await migrate(f.db);
-    f.store = folderStore(mkdtempSync(join(tmpdir(), "play-intentpieces-")));
-    f.ada = (await createHuman(f.db, "ada")).id;
-    await f.db.query(`UPDATE play.memberships SET level = 'admin' WHERE human_id = $1`, [f.ada]);
+    f.fresh = await freshDb({ prefix: `play_intentpieces_${tag}` });
+    f.db = f.fresh.db;
+    f.store = tempStore();
+    f.ada = (await human(f.db, "ada")).id;
   });
-  afterAll(async () => {
-    await f.sql?.close();
-    await f.admin?.unsafe(`DROP DATABASE IF EXISTS ${f.name} WITH (FORCE)`);
-    await f.admin?.close();
-  });
+  afterAll(() => f.fresh?.drop());
   const ctx = () => ({ db: f.db, store: f.store });
   const me = () => meOf(f.db, f.ada);
   /** an intent in Build, its spec approved and its one must check passed (no work without an intent) */

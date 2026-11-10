@@ -1,13 +1,8 @@
 /*
- * THE SONGBIRDS OF THE FOOD FOREST (Sandbox 5) — robins, blackbirds, great tits, house sparrows and chaffinches, each
- * living round a few trees of its own: it sits up in a crown and sings, or settles there a while; drops down to the
- * floor beside the tree and forages there — hops, pecks, looks round; and flies up again to that tree or the next,
- * in a songbird's bounding flight. Every one is a rigged actor (the Actors' songbirds, built in the asset box), drawn
- * as the other animals are ($content/assets/render/crowd.js): near you every bone moving, further off a coarser build of
- * the bird at rest, a hundred a draw call.
- *
- * Where a bird is and what it does is worked out from the world's time alone — each bird's round is laid out once
- * from the seed and repeats — so a film shot draws the same birds every time.
+ * THE SONGBIRDS OF THE FOOD FOREST (Sandbox 5) — robins, blackbirds, tits, sparrows and chaffinches, each round a few
+ * trees of its own: singing in a crown, foraging below, bounding flights between. Rigged actors drawn as the other
+ * animals are ($content/assets/render/crowd.js). Each bird's round is laid out once from the seed and read off the
+ * world's time alone, so a film shot draws the same birds every time.
  */
 import * as THREE from 'three';
 import { crowd } from '$lib/content/assets/render/crowd.js';
@@ -15,7 +10,7 @@ import { seeded } from './plants';
 import { villageAsset } from './things.js';
 
 /** the five kinds, in the Actors' order */
-export const SONGBIRDS = /** @type {const} */ (['robin', 'blackbird', 'greattit', 'sparrow', 'chaffinch']);
+const SONGBIRDS = /** @type {const} */ (['robin', 'blackbird', 'greattit', 'sparrow', 'chaffinch']);
 
 /** @typedef {{ x: number, z: number, height: number, reach: number }} Tree a tree a bird can sit in */
 /** @typedef {{ kind: 'perch' | 'ground' | 'fly', t0: number, t1: number, from: THREE.Vector3, to: THREE.Vector3, act: string, yaw: number }} Leg one stretch of a bird's round */
@@ -25,11 +20,9 @@ export const SONGBIRDS = /** @type {const} */ (['robin', 'blackbird', 'greattit'
 const OFTEN = { robin: 3, blackbird: 3, greattit: 3, sparrow: 4, chaffinch: 3 };
 
 /**
- * The birds round `trees`, `count` of them, never coming down where `open(x, z)` says the ground is not (a path, the
- * water, a dome).
+ * The birds round `trees`, `count` of them, never coming down where `open(x, z)` says no (a path, the water, a dome).
  * @param {Tree[]} trees @param {number} count @param {number} seed
- * @param {(x: number, z: number) => boolean} open
- * @param {() => { x: number, z: number }} [eye]
+ * @param {(x: number, z: number) => boolean} open @param {() => { x: number, z: number }} [eye]
  */
 export function songbirds(trees, count, seed, open, eye) {
 	const r = seeded(seed);

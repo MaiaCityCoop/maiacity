@@ -1,15 +1,12 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
- * A WORLD'S LIGHTS — the lit look of every guest's named lights, drawn by the page over the dark lenses the asset was
- * modelled with (./contract.js): a car's head, tail, brake and indicator lights, an emergency vehicle's beacons, a
- * street lamp, a signal's lamps. A guest is one copy among hundreds, all instances of one drawing (../assets/render),
- * so its own materials are never touched: for each kind, each of its lights is one instanced drawing of that light's
- * own shape, bright and unlit by the scene, and a glow round it (one instanced drawing of sprites for the whole world), and every
- * frame each copy whose state says that light is on is one more instance of it, where its node stands.
- *
- * The light's shape is read off the kind's finest build (loaded through the renderer, so from this device's cache or
- * the same boxes): its meshes named `light:*` and `lamp:*`, each in the guest's own frame. Head and tail lights,
- * street lamps: lit by the mood (lamps=1) unless the guest says otherwise; the rest only by their states.
+ * A WORLD'S LIGHTS — the lit look of every guest's named lights, drawn by the page over the dark lenses it was modelled
+ * with (./contract.js): head, tail, brake and indicator lights, beacons, street lamps, signals. A guest is one copy among
+ * hundreds of one drawing (../assets/render), its materials never touched: each light of a kind is one instanced drawing
+ * of its own shape, bright and unlit, plus a glow (one sprite drawing for the world), each copy whose state lights it one
+ * more instance each frame. The shapes are read off the kind's finest build (through the renderer, cache or boxes): its
+ * `light:*` and `lamp:*` meshes in the guest's frame. Head and tail lights and street lamps are lit by the mood
+ * (lamps=1) unless the guest says otherwise; the rest only by their states.
  */
 import * as THREE from 'three';
 import { OwnBasic } from '../render/tsl.js';
@@ -37,15 +34,13 @@ export const LOOK = {
 
 /** the most glows drawn at once */
 const GLOWS = 16384;
-/** how near (m) a guest's light is drawn as its lit face too (beyond it, its glow alone: one drawing for every light of
- *  the world); a building's windows are faces at any distance (a lit tower is its windows) */
-export const FACES_NEAR = 150;
+/** how near (m) a light is drawn as its lit face too, beyond it its glow alone (one drawing for all); windows at any distance (a lit tower is its windows) */
+const FACES_NEAR = 150;
 
 /**
- * The glows, in TSL: each an instanced sprite (a quad turned to the eye) at `glowAt`, `size` metres across seen as so
- * many pixels at its distance (1.5 to 256), its tint fading from its middle to its rim; added onto the picture, written
- * as it is (../render/tsl.js `raw`), as the cloud of points it was drew it. `pxScale`: the screen's pixels per metre
- * at a metre's distance.
+ * The glows in TSL: each an instanced sprite at `glowAt`, `size` m across seen as 1.5–256 px at its distance, its tint
+ * fading to the rim, added onto the picture as it is (../render/tsl.js `raw`), as the old point cloud drew it.
+ * `pxScale`: the screen's pixels per metre at a metre's distance.
  */
 const glowMaterial = (pxScale) => {
 	const m = new OwnBasic({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
@@ -63,7 +58,7 @@ const glowMaterial = (pxScale) => {
 /**
  * The lights of a world's guests, in `scene`. `update(guests, mood, t)` each frame (guests as ../assets/plantings.js
  * `guests()` lists them), `dispose()`.
- * @param {{ scene: THREE.Object3D, assets: () => any, camera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer }} o
+ * @param {{ scene: THREE.Object3D, assets: () => any, camera: THREE.PerspectiveCamera, renderer: import('three/webgpu').WebGPURenderer }} o
  */
 export function createLights(o) {
 	const group = new THREE.Group();

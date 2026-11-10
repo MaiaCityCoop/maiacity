@@ -7,7 +7,6 @@
 /** a path into a document's JSON: its field names, from the root */
 export type Path = string[];
 
-/** the fields a breed may override */
 export const BREED_FIELDS = ["source", "card"];
 
 const isObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x);

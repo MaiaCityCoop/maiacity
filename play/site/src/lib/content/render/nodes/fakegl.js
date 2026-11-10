@@ -22,7 +22,7 @@ export function fakeGL() {
 		canvas: { width: 300, height: 150, addEventListener() {}, removeEventListener() {}, style: {} },
 		drawingBufferWidth: 300, drawingBufferHeight: 150,
 		getContextAttributes: () => ({ alpha: true, antialias: false, depth: true, stencil: false, premultipliedAlpha: true }),
-		getExtension: (name) => (name === 'WEBGL_lose_context' ? { loseContext() {}, restoreContext() {} } : {}),
+		getExtension: (name) => (name === 'WEBGL_lose_context' ? { loseContext() {}, restoreContext() {} } : name === 'OES_draw_buffers_indexed' ? { enableiOES() {}, disableiOES() {}, blendEquationSeparateiOES() {}, blendFuncSeparateiOES() {}, colorMaskiOES() {} } : {}),
 		getSupportedExtensions: () => [],
 		getParameter: (p) => (p === C.VERSION ? 'WebGL 2.0' : p === C.SHADING_LANGUAGE_VERSION ? 'WebGL GLSL ES 3.00' : p === 0x0ba2 || p === 0x0c10 ? new Int32Array([0, 0, 300, 150]) : 4096),
 		getShaderPrecisionFormat: () => ({ precision: 23, rangeMin: 127, rangeMax: 127 }),
@@ -56,4 +56,24 @@ export function fakeGL() {
 		}
 	});
 	return { gl, shaders };
+}
+
+/**
+ * The app's renderer (../core.js `makeRenderer`, a WebGPURenderer) on its WebGL 2 backend over a fake context, ready to
+ * draw, and every shader it hands the context (intent c1bee1f8: what a test reads of a page's programs).
+ * @param {Record<string, any>} [o] createRenderer's options beside the canvas
+ */
+export async function fakeRenderer(o = {}) {
+	const g = /** @type {any} */ (globalThis);
+	g.self ??= g;
+	g.requestAnimationFrame ??= () => 0;
+	g.cancelAnimationFrame ??= () => {};
+	g.ImageBitmap ??= class {};
+	const { gl, shaders } = fakeGL();
+	const c = /** @type {any} */ (gl.canvas);
+	c.getContext = (/** @type {string} */ kind) => (kind === 'webgl2' ? gl : null);
+	const { makeRenderer } = await import('../core.js');
+	const r = /** @type {any} */ (await makeRenderer({ backend: 'webgl2', pixelRatio: 1, canvas: c, ...o }));
+	r.setSize(64, 64, false);
+	return { r, gl, shaders };
 }

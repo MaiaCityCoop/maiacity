@@ -4,7 +4,7 @@
 // the last the proxy in front names in `X-Forwarded-For` (Caddy sets it), else the socket's.
 
 /** The addresses a rate remembers at most: past it, it forgets the one heard from longest ago. */
-export const ADDRESSES = 16_384;
+const ADDRESSES = 16_384;
 
 /** A token bucket for each address: `perMinute` asks a minute, as many at once; none limits nobody. */
 export class Rate {

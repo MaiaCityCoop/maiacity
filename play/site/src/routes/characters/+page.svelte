@@ -4,15 +4,12 @@
 	as from /library/.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import AssetLibrary from '$lib/app/AssetLibrary.svelte';
-	import { session } from '$lib/session.svelte';
+	import { adminsOnly } from '$lib/admins.svelte';
+	import { isAdmin } from '$lib/session.svelte';
 
-	const admin = $derived(session.me?.level === 'admin');
-	onMount(() => {
-		if (!admin) void goto('/', { replaceState: true });
-	});
+	adminsOnly();
+	const admin = $derived(isAdmin());
 </script>
 
 {#if admin}

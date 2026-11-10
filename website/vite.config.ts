@@ -6,4 +6,4 @@ export default defineConfig({
 	// the website's own tsconfig, also for virtual modules (never one looked up beside it)
 	tsconfig: './tsconfig.json',
 	plugins: [sveltekit()]
-} as never);
+});

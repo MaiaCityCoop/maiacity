@@ -12,7 +12,7 @@
 //                 its hash when it was written), so a deploy no longer reads every file back
 import { mkdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { HASH, hashBytes } from "./hash";
+import { HASH, hashBytes } from "./kit/hash";
 
 export interface BlobStore {
   has(hash: string): Promise<boolean>;
@@ -22,7 +22,6 @@ export interface BlobStore {
   get(hash: string): Promise<Uint8Array | null>;
   /** a URL the browser may read it from for `seconds` */
   url(hash: string, seconds?: number): string;
-  /** its media type where the store keeps one */
   typeOf?(hash: string): Promise<string | null>;
 }
 
@@ -80,8 +79,7 @@ export function folderStore(dir: string, publicBase = "/api/files"): BlobStore {
   };
 }
 
-/** whether a failed call to a bucket is worth asking again: a timeout, a dropped connection, a 5xx or "slow down" is;
- *  a missing key, refused access, or bytes not hashing to their name are not */
+/** whether a failed bucket call is worth asking again (timeout, dropped connection, 5xx, "slow down"); never a missing key, refusal or bad hash */
 export function transient(e: unknown): boolean {
   const x = e as { code?: unknown; name?: unknown; message?: unknown } | null;
   const code = String(x?.code ?? "");
@@ -160,15 +158,14 @@ export function bucketStore(env = process.env, root = "blobs", hold: Steady = {}
 }
 
 /**
- * Every file in two places: `primary` (play's own store) and `mirror` (a second copy, written through on every put).
- * A file the primary doesn't hand back whole (missing, cut short, not hashing to its name, or not answering after its
- * tries) is read from the mirror, checked against its hash, and put back into the primary.
+ * Every file in two places, `primary` and `mirror` (written through on every put): one the primary can't hand back whole
+ * (missing, cut short, misnamed, silent after its tries) is read from the mirror, checked, and put back.
  */
 export function mirroredStore(primary: BlobStore, mirror: BlobStore, log: (s: string) => void = (s) => console.warn(s)): BlobStore {
   async function healed(h: string, why: string): Promise<Uint8Array | null> {
     const bytes = await mirror.get(h).catch((e) => (log(`blobs: ${h} not readable from the mirror either (${(e as Error).message})`), null));
     if (!bytes) return null;
-    const type = (await mirror.typeOf?.(h).catch(() => null)) || "application/octet-stream";
+    const type = (await mirror.typeOf?.(h).catch((e) => (log(`blobs: ${h}'s type not read from the mirror (${(e as Error).message})`), null))) || "application/octet-stream";
     await primary.put(h, bytes, type).then(
       () => log(`blobs: ${h} ${why}: put back from the mirror`),
       (e) => log(`blobs: ${h} ${why}: read from the mirror, not put back (${(e as Error).message})`),
@@ -178,7 +175,7 @@ export function mirroredStore(primary: BlobStore, mirror: BlobStore, log: (s: st
   return {
     has: async (h) => (await primary.has(h).catch(() => false)) || (await mirror.has(h)),
     async size(h) {
-      const n = await primary.size(h).catch(() => null);
+      const n = await primary.size(h).catch((e) => (log(`blobs: ${h} not sized by the primary (${(e as Error).message})`), null));
       if (n !== null) return n;
       // not in the primary: the mirror's copy, put back now, so the primary holds every file again
       const bytes = await healed(h, "missing");
@@ -238,9 +235,8 @@ export function cachedStore(inner: BlobStore, maxBytes: number): BlobStore {
 }
 
 /**
- * The bucket where PLAY_BUCKET is set, else the folder PLAY_BLOBS (default ./blobs). In the bucket, with
- * PLAY_MIRROR_ROOT (the backups' store, BACKUPS/play-files/blobs) every file is kept twice and mended from its second
- * copy; and the files handed out are kept in memory, PLAY_CACHE_MB of them (default 256, 0: none).
+ * The bucket where PLAY_BUCKET is set, else the folder PLAY_BLOBS (./blobs); in the bucket, with PLAY_MIRROR_ROOT (the
+ * backups' store) every file kept twice and mended from its second copy, and PLAY_CACHE_MB in memory (256; 0 none).
  */
 export function blobStore(env = process.env): BlobStore {
   if (!env.PLAY_BUCKET) return folderStore(env.PLAY_BLOBS || "blobs");

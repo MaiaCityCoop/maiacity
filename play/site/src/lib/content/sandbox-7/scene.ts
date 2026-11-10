@@ -1,22 +1,19 @@
 /**
- * SANDBOX 7 · THE SCENE — the globe of hex cards in three.js, from its tiles (./globe.ts) and its two configs: the planet
- * (its radius, a card's depth, the sea floor) and the biomes (each kind's three shades, its lift and its trees).
- *
- * Every card stands at its biome's height above or below the sea, the sea floor lower the deeper it is. All the cards
- * are one mesh of flat colours: a card's face is n − 2 triangles, and an edge has a side only where the card stands
- * above its neighbour, down to the neighbour's top (the old planet drew a fan from the centre and both sides of every
- * edge, three triangles a corner). A dark core just under the lowest tops shows the deep through any seam. The trees
- * are three instanced meshes (trunk, canopy, fruit) placed on the cards by their biome's rate; the candidate sites one
- * instanced pin each, standing on the card they fall on.
+ * SANDBOX 7 · THE SCENE — the globe of hex cards in three.js from its tiles (./globe.ts) and two configs: the planet
+ * (radius, a card's depth, the sea floor) and the biomes (each kind's three shades, lift and trees). Each card stands at
+ * its biome's height, the sea floor lower the deeper it is; all one mesh of flat colours, a face n − 2 triangles and a
+ * side only above a lower neighbour (the old planet drew a fan and both sides of every edge, three triangles a corner).
+ * A dark core under the lowest tops shows the deep through any seam. Trees are three instanced meshes (trunk, canopy,
+ * fruit) by each biome's rate; the sites one instanced pin each, on the card they fall on.
  */
 import * as THREE from 'three';
 import { BIOMES, type Biome, type Tile } from './globe';
 import { unitAt } from './maps';
 
-export type BiomePaint = { shades: [string, string, string]; lift: number; trees: number };
-export type TreeLook = { trunk: string; canopy: string[]; fruit: string; trunkHeight: number; canopyRadius: number; fruited: number };
+type BiomePaint = { shades: [string, string, string]; lift: number; trees: number };
+type TreeLook = { trunk: string; canopy: string[]; fruit: string; trunkHeight: number; canopyRadius: number; fruited: number };
 export type Biomes = { kinds: Record<Biome, BiomePaint>; tree: TreeLook };
-export type MapRef = { file: string; source: string; licence: string };
+type MapRef = { file: string; source: string; licence: string };
 export type Planet = {
 	frequency: number;
 	radius: number;
@@ -67,7 +64,7 @@ export function tileAt(tiles: Tile[], p: readonly number[]): number {
 }
 
 /** every card as one mesh of flat colours: faces of n − 2 triangles, a side only down to a lower neighbour */
-export function cardsGeometry(tiles: Tile[], planet: Planet, biomes: Biomes): THREE.BufferGeometry {
+function cardsGeometry(tiles: Tile[], planet: Planet, biomes: Biomes): THREE.BufferGeometry {
 	const tops = tiles.map((t) => topOf(t, planet, biomes));
 	// count first, so the arrays are made once
 	let verts = 0, tris = 0;
@@ -169,7 +166,7 @@ function forests(tiles: Tile[], planet: Planet, biomes: Biomes): THREE.Instanced
 	return [trunks, canopies, fruits];
 }
 
-export type PlanetScene = {
+type PlanetScene = {
 	root: THREE.Group;
 	cards: THREE.Mesh;
 	markers: THREE.InstancedMesh;

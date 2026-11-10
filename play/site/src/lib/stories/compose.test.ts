@@ -12,7 +12,6 @@ const H = (c: string) => c.repeat(64);
 const [F1, F2, V1, A1, M1, X1] = ['1', '2', '3', '4', '5', '6'].map(H);
 const body = (duration: number, tracks: unknown[], format = '9:16') => ({ schema: 'story/1', format, fps: 30, duration, tracks }) as StoryBody;
 const decode = (s: string) => s.replace(/&#(\d+);/g, (_, c) => String.fromCharCode(Number(c)));
-/** an element's attributes, by its id */
 const el = (html: string, id: string) => {
 	const tag = html.match(new RegExp(`<[\\w-]+ id="${id}"[^>]*>`))?.[0];
 	if (!tag) return null;
@@ -228,7 +227,6 @@ describe('compose: a live shot', () => {
 		// the runtime loads after GSAP and before the story's script, which hands each shot its spec
 		expect(out.indexOf(VENDOR.live.hash)).toBeGreaterThan(out.indexOf(VENDOR.gsap.hash));
 		expect(out.indexOf(VENDOR.live.hash)).toBeLessThan(out.indexOf('playLive.shot('));
-		// no live shot, no runtime and no code
 		expect(compose(shotOf(palm), {}, {}, {})).not.toContain(VENDOR.live.hash);
 	});
 	it('live: each step\'s build named by its values, the camera\'s keys as given', () => {

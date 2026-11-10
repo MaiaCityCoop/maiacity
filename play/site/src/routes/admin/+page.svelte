@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { localDay } from '$lib/format';
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { session } from '$lib/session.svelte';
@@ -45,7 +46,7 @@
 		<h2>Invite a traveler</h2>
 		<p class="muted">Maia City is invite-only: the link lets one person sign up, as a traveler. Make a citizen with their level below.</p>
 		<button class="btn mustard" onclick={makeInvite}>Make an invite link</button>
-		{#if invite}<p><code>{link}</code><br /><span class="muted">Works once, until {new Date(invite.expires).toLocaleDateString()}.</span></p>{/if}
+		{#if invite}<p><code>{link}</code><br /><span class="muted">Works once, until {localDay(invite.expires)}.</span></p>{/if}
 	</section>
 	<section class="card box">
 		<h2>Members ({members.length})</h2>
@@ -68,7 +69,7 @@
 						</td>
 						<td class="muted">{m.founder_number ? `#${m.founder_number}` : '—'}</td>
 						<td><select value={m.level} onchange={(e) => level(m, (e.currentTarget as HTMLSelectElement).value)}><option>admin</option><option>citizen</option><option>traveler</option></select></td>
-						<td class="muted">{new Date(m.granted_at).toLocaleDateString()}{m.granted_by ? ` · by ${m.granted_by}` : ''}</td>
+						<td class="muted">{localDay(m.granted_at)}{m.granted_by ? ` · by ${m.granted_by}` : ''}</td>
 						<td class="actions">
 							{#if editing !== m.id}<button class="btn small ghost" onclick={() => edit(m)}>Edit</button>{/if}
 							{#if m.id !== session.me?.id}<button class="btn small ghost danger" onclick={() => remove(m)}>Remove</button>{/if}

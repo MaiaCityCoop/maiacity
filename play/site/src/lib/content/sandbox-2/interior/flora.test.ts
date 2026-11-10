@@ -1,5 +1,13 @@
+// The garden names each plant by its build, its stage and seed after the build's own values; a plant that does not
+// grow is a counted failure (intent 4a199916).
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createForest, didNotGrow, type FloraDrawn } from './flora.js'
+import { createForest, didNotGrow, refOf, type FloraDrawn } from './flora.js'
+
+const R = 'f'.repeat(64)
+it('names a planting by its build, stage and seed', () => {
+	expect(refOf({ id: 'x', v: 1, asset: `${R}?v=1`, stage: 3, seed: 's/1' })).toBe(`${R}?v=1&stage=3&seed=s%2F1`)
+	expect(refOf({ id: 'x', v: 1, asset: R, stage: 3, seed: 's' })).toBe(`${R}?stage=3&seed=s`)
+})
 
 /** a kind as the renderer gives it back: built, one level with nothing drawn in it */
 const kindOf = () => ({ ready: Promise.resolve(), base: 0, levels: [{ level: { draws: [] } }] })

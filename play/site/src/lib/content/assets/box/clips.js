@@ -1,33 +1,17 @@
 // @ts-nocheck — plain JS, runs inside the box
 /*
- * AN ACTOR'S MOVES, WRITTEN DOWN — a clip is a function in the actor's own code, and the page runs none of an asset's
- * code. So each clip of a rigged build is played here, in the box, and written down as tables of numbers that the page
- * plays back (../clips.js `playerOf`, the mirror of this file) for any number of copies, each at its own time, in step
- * with the world's clock: a film's frame is the same frame however often it is drawn. Each bone's turn (about x, y, z),
- * its size and its offset, and the root's place, is a channel:
- *
- * - A clip that runs in time alone (a goat grazing, a bee's wings) is written down over LOOP seconds, at the rate its
- *   fastest channel needs (15 to 120 a second, the line between two samples nowhere further than a fraction of a
- *   degree from the clip). Past LOOP it repeats, its last SEAM seconds blended into its start; a channel that keeps
- *   going one way (an ant round its hill) carries on from where the loop left it (`drift`).
- * - A gait also takes how the actor moves (how far it has come, how fast, how fast it turns: $content/actors/rig.ts
- *   `Motion`). It is written down at a few paces of the one it is made for (its gear, `PACES`), each channel by what
- *   moves it, found here by trying: time alone (a tail's swing, an ear's flick); distance alone (a foot set down and
- *   kept there), over one stride, found here too; both as one wave (a fish's body: a beat for every length swum and a
- *   slow one in time, `k` the metres a second the wave moves by itself); or both, laid one over the other. And what
- *   turning adds to it, at a few rates of turn (`TURNS`).
- *
- * Every number is finite (a clip's NaN is its rest), and every clip that throws is left out.
+ * An actor's clips written down: a clip is a function in the actor's code and the page runs none, so each clip of a
+ * rigged build is played here in the box and written as tables the page plays back for any number of copies (../clips.js
+ * `playerOf`, this file's mirror). A clip in time repeats every LOOP s, its last SEAM blended into its start; a gait is
+ * written at a few `PACES` and rates of turn (`TURNS`). A clip's NaN is its rest; a clip that throws is left out.
  */
 
-/** how long a clip is written down for before it repeats (s), a gait's time half as long (it is played a few seconds
- *  at a time, between stops), and how much of its end is blended into its start */
-export const LOOP = 32;
-export const GAIT_LOOP = 16;
-export const SEAM = 2;
-/** the paces a gait is written down at, of the pace it is made for (above the last, the last: ours go no faster), and
- *  the rates of turn (rad/s) besides none */
-export const PACES = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5];
+/** how long a clip is written before it repeats (s; a gait's half as long), and how much of its end blends into its start */
+const LOOP = 32;
+const GAIT_LOOP = 16;
+const SEAM = 2;
+/** a gait's paces, of the pace it is made for (above the last, the last: ours go no faster), and rates of turn (rad/s) */
+const PACES = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5];
 const MOST_PACES = 16;
 export const TURNS = [-2, -1, 1, 2];
 /** numbers a bone: its turn about x, y and z, its size, its offset x, y and z; the root's place after the bones */
@@ -36,8 +20,7 @@ export const WIDTH = 7;
 const STRIDE = 64;
 /** the rates a clip in time may be written down at (samples a second) */
 const RATES = [15, 30, 60, 120];
-/** how close the tables keep to the clip: a turn (rad), a size, an offset (of the actor's size); or, for a channel
- *  that moves further, so much of how far it moves (a tail beating six times a second, at a tenth of its swing) */
+/** how close the tables keep to the clip: a turn (rad), a size, an offset (of the actor's size), or a share of a far-moving channel's move */
 const TOL = { turn: 0.01, size: 0.004, offset: 0.002, of: 0.03 };
 /** the most numbers one build's clips may come to, and the most clips */
 export const MOST = 6_000_000;
@@ -54,10 +37,7 @@ function seeded(seed) {
 	return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
 }
 
-/**
- * How a pose is written as numbers, for a rig's bones (`names`, root first): bone b's channel c at b × WIDTH + c,
- * the root's place at the end; what a pose does not name, at rest.
- */
+/** A pose as numbers for a rig's bones (`names`, root first): bone b's channel c at b × WIDTH + c, then the root's place. */
 function layoutOf(names, radius) {
 	const index = new Map(names.map((n, i) => [n, i]));
 	const nb = names.length, width = nb * WIDTH + 3;
@@ -107,11 +87,9 @@ function player(clip, L) {
 }
 
 /**
- * Pose `C` (at ci, its numbers what they add to `baseC`) written the way nearest to pose `R` (at ri, over `baseR`):
- * each turn within half a turn of R's (a whole turn more or less is the same turn), and a bone whose turns may be
- * written either way (`flips`) turned about x and z by half a turn and about y the other way, where that is nearer:
- * the same turn, written the other way round (a bird's folded leg, past a quarter turn about y). So the line between
- * two samples, or two paces, is the short way round.
+ * Pose `C` (at ci, over `baseC`) written the way nearest pose `R` (at ri, over `baseR`): each turn within half a turn of
+ * R's, and a bone in `flips` turned about x and z by half a turn and about y the other way where nearer (the same turn
+ * written the other way round: a bird's folded leg past a quarter turn about y), so samples blend the short way round.
  */
 function nearest(L, flips, R, ri, baseR, C, ci, baseC) {
 	const P = Math.PI;
@@ -137,13 +115,9 @@ function unwrap(S, n, L, base, flips) {
 }
 
 /**
- * One axis of a clip written down: its pose at x = 0 … `length` (seconds, or metres for a gait's distance), as what it
- * adds to `base`, at `rate` samples a unit or more (doubled up to `most` while more than a few midpoints stray further
- * than their channel's tolerance from the line between their neighbours), each channel's drift over the length, and
- * its end blended into its start over `seam` (0: it repeats exactly, a stride). `flips`: the bones whose turns may be
- * written either way round. `like`: the same axis at another pace ({ S, base }, as many samples), each sample written
- * the way nearest its own there, so that the two blend the short way round.
- * @param {(x: number, out: Float64Array, at: number) => void} at the pose at x
+ * One axis of a clip written down: its pose at x = 0 … `length` (s, or m of a gait) over `base`, at `rate` samples a unit
+ * (doubled up to `most` while midpoints stray past tolerance), with drift, its end blended over `seam`; `like`: the same
+ * axis at another pace, sampled nearest it so the two blend the short way. @param {(x: number, out: Float64Array, at: number) => void} at
  */
 function axis(at, length, rate, most, seam, L, base, flips, like) {
 	const w = L.width;
@@ -178,9 +152,8 @@ function axis(at, length, rate, most, seam, L, base, flips, like) {
 		rate *= 2;
 		unwrap(S, n, L, base, flips);
 	}
-	// what keeps going one way (an ant round its hill, a wing's turn written round and round): where it is at the end,
-	// on from the last sample, against its start; it drifts when that is more than twice as far as it wobbles about the
-	// line from start to end. A turn that does not drift still comes back to its start by whole turns.
+	// what keeps going one way (an ant round its hill, a wing's turn round and round) drifts when its end is more than
+	// twice as far from its start as it wobbles about that line; a turn that does not drift returns by whole turns.
 	const drift = new Float64Array(w), end = new Float64Array(w);
 	at(length, end, 0);
 	nearest(L, flips, S, (n - 1) * w, base, end, 0, base);
@@ -227,9 +200,8 @@ function tolerances(S, n, L) {
 }
 
 /**
- * How coarsely each channel of an axis (written down at its fastest channel's rate, in one or more rows) can be kept:
- * every second, fourth or eighth sample, while the line between those kept stays within its tolerance (at all but a
- * few of the samples left out), and no coarser than the slowest rate.
+ * How coarsely each channel of an axis can be kept: every 2nd, 4th or 8th sample while the line between them stays
+ * within tolerance (all but a few of those left out), no coarser than the slowest rate.
  */
 function coarsest(rows, L, slowest) {
 	const w = L.width, { n, rate } = rows[0];
@@ -255,10 +227,7 @@ function coarsest(rows, L, slowest) {
 	return f;
 }
 
-/**
- * The distance a gait repeats over, its stride: found by trying where it comes back to itself, then checked on fresh
- * samples. Null when it does not repeat.
- */
+/** A gait's stride, the distance it repeats over: found where it comes back to itself, checked on fresh samples; or null. */
 function strideOf(at, gear, L, base, flips) {
 	const w = L.width, N = 480, h = gear / 30;
 	const B = new Float64Array(N * w);
@@ -287,8 +256,7 @@ function strideOf(at, gear, L, base, flips) {
 	};
 	const errs = [];
 	for (let k = 0; k <= N / 2 + 1; k++) errs.push(k < 3 ? Infinity : E(k));
-	// the first dip: lower than its neighbours, and well below how far it had come from itself on the way there (a
-	// smooth clip is near itself a few samples on)
+	// the first dip: lower than its neighbours and well below how far it had come from itself
 	let k = -1, top = 0;
 	for (let j = 4; j <= N / 2; j++) {
 		top = Math.max(top, errs[j - 1]);
@@ -326,9 +294,7 @@ function strideOf(at, gear, L, base, flips) {
 	return err(P, true) <= 1 ? P : null;
 }
 
-/**
- * A clip in time alone, written down: its channels as they are at 0 (`base`) and what time adds to them.
- */
+/** A clip in time alone, written down: its channels at 0 (`base`) and what time adds to them. */
 function stillOf(play, L) {
 	const base = new Float64Array(L.width);
 	play(0, undefined, base, 0);
@@ -340,9 +306,8 @@ function stillOf(play, L) {
 }
 
 /**
- * The paces a gait is written down at: `PACES`, and halfway between two wherever the line between them strays from
- * the clip there (a leg that stops reaching further at some pace between), down to a sixteenth of its own pace apart
- * and no more than `MOST_PACES` in all. Tried at time 0, at points along a few strides.
+ * A gait's paces: `PACES`, and halfway between two wherever their line strays from the clip (a leg that stops reaching
+ * further), down to a sixteenth of its pace apart, `MOST_PACES` at most; tried at time 0 along a few strides.
  */
 function pacesOf(play, gear, L) {
 	const w = L.width, r = seeded(0x51ed), K = 24;
@@ -386,9 +351,8 @@ function pacesOf(play, gear, L) {
 }
 
 /**
- * A gait written down: at each of its paces (`pacesOf`), its channels at time 0 and distance 0 (`base`), what time adds to those
- * that time moves (`T`), what distance adds to those that distance moves (`D`, a channel moved by both as one wave at
- * the distance plus k times the time); and at its own pace, what each rate of turn adds (`turn`, along the distance).
+ * A gait written down: at each pace (`pacesOf`) its `base`, what time adds (`T`), what distance adds (`D`), and at its
+ * own pace each rate of turn's (`turn`).
  */
 function gaitOf(play, gear, L) {
 	const w = L.width;
@@ -502,8 +466,7 @@ function gaitOf(play, gear, L) {
 }
 
 /**
- * Every clip of a rig, written down for the page; undefined when it has none to write. `radius` how big the actor is
- * (m), for how closely its offsets are kept.
+ * Every clip of a rig written down for the page, undefined when none; `radius` the actor's size (m), for its offsets.
  * @param {{ rig: { names: string[] }, clips: Record<string, Function>, gears?: Record<string, number> }} cast
  * @param {number} radius
  */
@@ -552,8 +515,7 @@ function takesMotion(play, L) {
 	return false;
 }
 
-/** whether two rows of a channel move out of step (a tail beating faster the faster the animal goes): blended, they
- *  would beat against each other, so the page takes the nearer of the two, crossing over quickly */
+/** whether two rows of a channel beat out of step (a tail faster the faster it goes): the page takes the nearer, crossing over */
 function outOfStep(a, b, n, w, c) {
 	let ma = 0, mb = 0;
 	for (let i = 0; i < n; i++) (ma += a[i * w + c]), (mb += b[i * w + c]);

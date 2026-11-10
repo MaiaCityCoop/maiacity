@@ -8,23 +8,22 @@
 //   Proposal  → decided_at                       a person: Accept
 //   Ship      decided_at → ship.ended            CI: its turn and GitHub ("Ready to merge"), then each ship step
 //
-// Per day over a window (`days`, 7 by default, 1 to 30): the intents accepted, their median and longest Idea→Accepted
-// and each stage's median. Each intent is held to the budgets (BUDGETS), an open stage counted to now. With play's
-// GitHub (SHIP_TOKEN, ./ship.ts) and `ci`, each intent's CI: the runs of its pull request's branch and its ship's
-// main, release and deploy runs, their minutes, the share cancelled, each run's three slowest steps, those over 10
-// minutes flagged. Served as GET /api/delivery and the MCP tool delivery (admins only), shown on /delivery/.
+// Per day over a window (`days`, 7 by default, 1–30): intents accepted, their median and longest Idea→Accepted and each
+// stage's median; each intent held to BUDGETS, an open stage counted to now. With GitHub (SHIP_TOKEN) and `ci`, each
+// intent's CI runs, minutes, share cancelled and three slowest steps, those over 10 minutes flagged. Served as GET
+// /api/delivery and the MCP tool delivery (admins only), shown on /delivery/.
 import { admin, COOP, type Me } from "./access";
 import { INTENT_ADMINS } from "./intents";
 import { intentSeen } from "./owners";
-import type { Queryable } from "./pg";
-import type { GitHub, Job, Run } from "./ship";
-import type { PrSeen } from "./substate";
+import type { Queryable } from "./kit/pg";
+import type { GitHub, Job, Run } from "./github";
+import { type PrSeen } from "./substate";
 
 const MIN = 60_000;
 export const STAGES = ["idea", "specify", "build", "proposal", "ship"] as const;
 export type Stage = (typeof STAGES)[number];
 /** whose time a stage is: an agent's, a person's (a gate), or CI's (Ship) */
-export const WHO: Record<Stage, "agent" | "person" | "ci"> = { idea: "agent", specify: "person", build: "agent", proposal: "person", ship: "ci" };
+const WHO: Record<Stage, "agent" | "person" | "ci"> = { idea: "agent", specify: "person", build: "agent", proposal: "person", ship: "ci" };
 
 /** the budgets an intent is held to (Samuel 2026-10-27: every CI run in 10 minutes) */
 export const BUDGETS = [
@@ -35,15 +34,15 @@ export const BUDGETS = [
   { key: "lead", name: "Idea to Accepted", ms: 180 * MIN },
   { key: "run", name: "A CI run", ms: 10 * MIN },
 ] as const;
-export type BudgetKey = (typeof BUDGETS)[number]["key"];
+type BudgetKey = (typeof BUDGETS)[number]["key"];
 const BUDGET = Object.fromEntries(BUDGETS.map((b) => [b.key, b])) as Record<BudgetKey, (typeof BUDGETS)[number]>;
 
 export type Segment = { stage: Stage; who: "agent" | "person" | "ci"; from: string; to: string | null; ms: number };
-export type ShipPart = { key: string; name: string; state: string; ms: number | null };
+type ShipPart = { key: string; name: string; state: string; ms: number | null };
 export type Over = { budget: BudgetKey; name: string; budget_ms: number; ms: number; over_ms: number; run?: number };
-export type SlowStep = { job: string; step: string; ms: number };
+type SlowStep = { job: string; step: string; ms: number };
 export type CiRun = { id: number; name: string | null; link: string; conclusion: string | null; ms: number; slowest: SlowStep[]; over: boolean };
-export type CiOf = { minutes: number; runs: number; cancelled: number; cancelled_share: number; list: CiRun[] } | { error: string };
+type CiOf = { minutes: number; runs: number; cancelled: number; cancelled_share: number; list: CiRun[] } | { error: string };
 export type Timeline = {
   id: string;
   title: string;
@@ -53,7 +52,6 @@ export type Timeline = {
   /** Idea→Accepted, or Idea→now while it is open */
   lead_ms: number;
   segments: Segment[];
-  /** each stage's time, summed */
   stage_ms: Partial<Record<Stage, number>>;
   ship: ShipPart[] | null;
   step_backs: number;
@@ -64,7 +62,6 @@ export type Timeline = {
   ci?: CiOf;
 };
 
-/** an intent as delivery reads it */
 export type Row = {
   id: string;
   title: string;
@@ -85,7 +82,7 @@ const ms = (v: string | Date | null | undefined) => (v == null ? null : new Date
 const iso = (t: number) => new Date(t).toISOString();
 
 /** when the intent was accepted: its ship ended green, else its decision (an intent without code) */
-export function acceptedAt(r: Pick<Row, "stage" | "decided_at" | "ship">): number | null {
+function acceptedAt(r: Pick<Row, "stage" | "decided_at" | "ship">): number | null {
   if (r.stage !== "accepted") return null;
   return ms(r.ship?.ended) ?? ms(r.decided_at);
 }
@@ -151,7 +148,7 @@ const over = (key: BudgetKey, took: number, run?: number): Over[] =>
   took > BUDGET[key].ms ? [{ budget: key, name: BUDGET[key].name, budget_ms: BUDGET[key].ms, ms: took, over_ms: took - BUDGET[key].ms, ...(run ? { run } : {}) }] : [];
 
 /** the budgets an intent went over, each with by how much: its stages, Idea→Accepted, and each CI run once read */
-export function overOf(t: Pick<Timeline, "stage_ms" | "lead_ms" | "ci">): Over[] {
+function overOf(t: Pick<Timeline, "stage_ms" | "lead_ms" | "ci">): Over[] {
   return [
     ...over("specify", t.stage_ms.specify ?? 0),
     ...over("build", t.stage_ms.build ?? 0),
@@ -212,7 +209,7 @@ export function slowest(jobs: Job[], n = 3): SlowStep[] {
 }
 
 /** one intent's CI: its pull request branch's runs and its ship's runs, each with its time and slowest steps */
-export async function ciOf(gh: GitHub, r: Pick<Row, "pull_request" | "ship">, now: number): Promise<CiOf> {
+async function ciOf(gh: GitHub, r: Pick<Row, "pull_request" | "ship">, now: number): Promise<CiOf> {
   try {
     const runs = new Map<number, Run>();
     if (r.pull_request) {
@@ -245,10 +242,7 @@ export async function ciOf(gh: GitHub, r: Pick<Row, "pull_request" | "ship">, no
 
 export const NO_GITHUB = "play has no GitHub token (SHIP_TOKEN): CI minutes are unavailable";
 
-/**
- * Delivery over the last `days` (admins only): every intent open now or accepted in the window (never archived ones),
- * its timeline and the budgets it went over, each day's numbers, and with `ci` each intent's CI from GitHub.
- */
+/** Delivery over the last `days` (admins): every intent open or accepted in the window, its timeline, budgets over, each day's numbers, and with `ci` its CI. */
 export async function delivery(db: Queryable, me: Me | null, gh: GitHub | null, o: { days?: unknown; ci?: unknown; now?: number } = {}) {
   admin(me, INTENT_ADMINS);
   const now = o.now ?? Date.now();

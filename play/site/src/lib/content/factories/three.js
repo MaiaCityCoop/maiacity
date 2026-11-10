@@ -4,31 +4,19 @@
  * `globalThis.THREE`) gave them. The ported runtime (des.js, kit.js, world.js, look.js, app.js) reads `T.…` exactly as
  * AirSup wrote it, so a newer AirSup version can be diffed against ours line by line.
  *
- * Its renderer, its orbit controls and its composer are the render core's ($content/render, plan C5): T's WebGLRenderer
- * (`new` with three's params), `new T.OrbitControls(camera, dom)` and `new T.EffectComposer(renderer, target)` give back
- * what createRenderer, createControls and createComposer make, set the way three.js's own constructors leave them (one
- * pixel per CSS pixel, no damping), so the runtime sets the rest itself, as it always did.
+ * Its orbit controls are the render core's ($content/render, plan C5): `new T.OrbitControls(camera, dom)` gives back
+ * what createControls makes, set the way three.js's own constructor leaves them (no damping), so the runtime sets the
+ * rest itself, as it always did. Its renderer and post stack are the core's too (look.js calls createRenderer and
+ * createPost; intent c1bee1f8), its two passes `T.NodePass`es.
  */
 import * as THREE from 'three';
-import { createControls, createRenderer } from '$lib/content/render/core.js';
-import { NodePass, createComposer } from '$lib/content/render/post.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { createControls } from '$lib/content/render/core.js';
+import { NodePass } from '$lib/content/render/post.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
-/**
- * three.js's WebGLRenderer, as the core makes it
- * @param {THREE.WebGLRendererParameters} [p]
- */
-function Renderer(p = {}) {
-	return createRenderer({ canvas: /** @type {HTMLCanvasElement | undefined} */ (p.canvas), antialias: p.antialias ?? false, alpha: p.alpha, power: p.powerPreference, preserve: p.preserveDrawingBuffer, pixelRatio: 1 });
-}
 /**
  * OrbitControls, as the core makes them
  * @param {THREE.Camera} camera
@@ -37,25 +25,10 @@ function Renderer(p = {}) {
 function Controls(camera, dom) {
 	return createControls(camera, dom, { enableDamping: false });
 }
-/**
- * EffectComposer, as the core makes it
- * @param {THREE.WebGLRenderer} renderer
- * @param {THREE.WebGLRenderTarget} [target]
- */
-function Composer(renderer, target) {
-	return createComposer(renderer, target);
-}
-
 /** three.js and the addons the factory runtime uses, under one name */
-export const T = /** @type {typeof THREE & { EffectComposer: typeof EffectComposer, RenderPass: typeof RenderPass, NodePass: typeof NodePass, UnrealBloomPass: typeof UnrealBloomPass, GTAOPass: typeof GTAOPass, OutputPass: typeof OutputPass, RoomEnvironment: typeof RoomEnvironment, OrbitControls: typeof OrbitControls, RoundedBoxGeometry: typeof RoundedBoxGeometry, BufferGeometryUtils: typeof BufferGeometryUtils }} */ ({
+export const T = /** @type {typeof THREE & { NodePass: typeof NodePass, RoomEnvironment: typeof RoomEnvironment, OrbitControls: typeof OrbitControls, RoundedBoxGeometry: typeof RoundedBoxGeometry, BufferGeometryUtils: typeof BufferGeometryUtils }} */ ({
 	...THREE,
-	WebGLRenderer: /** @type {typeof THREE.WebGLRenderer} */ (/** @type {unknown} */ (Renderer)),
-	EffectComposer: /** @type {typeof EffectComposer} */ (/** @type {unknown} */ (Composer)),
-	RenderPass,
 	NodePass,
-	UnrealBloomPass,
-	GTAOPass,
-	OutputPass,
 	RoomEnvironment,
 	OrbitControls: /** @type {typeof OrbitControls} */ (/** @type {unknown} */ (Controls)),
 	RoundedBoxGeometry,
