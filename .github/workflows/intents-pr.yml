@@ -200,6 +200,15 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
+      - name: Postgres (CI's container)
+        # the PostgreSQL CI runs (play-checks.yml), from main's box.env, ready in seconds: setup.sh then installs none and
+        # waits on no mirror (intent a3c81d24; apt.postgresql.org once held a run's setup for 15 minutes)
+        run: |
+          . "$RUNNER_TEMP/box/box.env"
+          docker run -d --name postgres -e POSTGRES_PASSWORD="$PG_PASSWORD" -p "$PG_PORT:5432" "postgres:$PG_VERSION-alpine" -c "max_connections=$PG_MAX_CONNECTIONS"
+          # over TCP: the image's first start (initdb) answers only on its socket until it is ready
+          for i in $(seq 1 60); do docker exec postgres pg_isready -h 127.0.0.1 -U postgres > /dev/null && break; sleep 1; done
+          docker exec postgres pg_isready -h 127.0.0.1 -U postgres
       - name: avenBOX (play/avenbox/setup.sh)
         run: sudo env "PATH=$PATH" bash play/avenbox/setup.sh
       - name: The intent's checks on the head (no token)
