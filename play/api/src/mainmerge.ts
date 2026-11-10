@@ -3,17 +3,12 @@
 // behind main updated with GitHub's update-branch (its results carried over: ./substate.ts countsOn, intent b17a4980);
 // one in conflict failed, the status 'Merges with main' posted on its head. Never an intent in Ship or done, nor a merge.
 import type { Db } from "./kit/pg";
-import { GitHubError, intentLink, keepSeen, MERGES_CONTEXT, openPulls, quiet, type GitHub } from "./github";
+import { GitHubError, keepSeen, MERGES_CONTEXT, openPulls, postStatus, quiet, type GitHub } from "./github";
 import { conflictWhy, short, type PlayMerge, type PrSeen } from "./substate";
-
-/** GitHub's longest status description */
-const DESCRIPTION_MOST = 140;
 
 /** what the watcher keeps between ticks: main's head last seen, and each pull request's head looked at against it */
 export type MainMergeState = { main: string | null; done: Map<string, string> };
 export const mainMergeState = (): MainMergeState => ({ main: null, done: new Map() });
-
-const fit = (s: string) => (s.length <= DESCRIPTION_MOST ? s : `${s.slice(0, DESCRIPTION_MOST - 1)}…`);
 
 /**
  * A pull request read again (`seen`) with what play keeps of its main merges from the read before (`was`): its merges in
@@ -30,7 +25,7 @@ export function carrySeen(was: PrSeen | null | undefined, seen: PrSeen, parents?
     else if (parents?.length === 2 && parents[0] === last.from && parents[1] === last.main) out.merged_in = [...row.slice(0, -1), { ...last, to: seen.head }];
   } else if (last && seen.head === last.to) out.merged_in = row;
   if (was.conflicts?.head === seen.head) out.conflicts = was.conflicts;
-  if (was.merges) out.merges = was.merges;
+  if (was.posted) out.posted = was.posted;
   if (was.main_merges) out.main_merges = was.main_merges;
   return out;
 }
@@ -68,21 +63,13 @@ export async function mergeMain(db: Db, gh: GitHub, state: MainMergeState, at = 
     try {
       if (seen.mergeable === false) await conflicted(db, gh, id, seen, main);
       else if (seen.mergeable === true) {
-        if (seen.merges?.state === "failure") await post(db, gh, id, seen, "success", "merges with main again");
+        if (seen.posted?.[MERGES_CONTEXT]?.state === "failure") await postStatus(db, gh, id, seen, MERGES_CONTEXT, "success", "merges with main again");
         await update(db, gh, state, id, seen, main, at);
       }
     } catch (e) {
       if (!quiet(e)) console.warn(`ship: main not merged into #${pull_request} of intent ${id}: ${(e as Error).message}`);
     }
   }
-}
-
-async function post(db: Db, gh: GitHub, id: string, seen: PrSeen, state: "success" | "failure", description: string) {
-  const d = fit(description);
-  if (seen.merges?.head === seen.head && seen.merges.state === state && seen.merges.description === d) return;
-  await gh.status(seen.head, { state, description: d, target_url: intentLink(id), context: MERGES_CONTEXT });
-  seen.merges = { head: seen.head, state, description: d };
-  await keepSeen(db, id, seen);
 }
 
 async function conflicted(db: Db, gh: GitHub, id: string, seen: PrSeen, main: string) {
@@ -96,7 +83,7 @@ async function conflicted(db: Db, gh: GitHub, id: string, seen: PrSeen, main: st
       await keepSeen(db, id, seen);
     }
   }
-  await post(db, gh, id, seen, "failure", conflictWhy(seen));
+  await postStatus(db, gh, id, seen, MERGES_CONTEXT, "failure", conflictWhy(seen));
 }
 
 async function update(db: Db, gh: GitHub, state: MainMergeState, id: string, seen: PrSeen, main: string, at: number) {

@@ -145,7 +145,7 @@ export const intentTools = ({ auto, commit, db, github, store }: ToolCtx): Tool[
         required: ["intent", "reason"],
         additionalProperties: false,
       },
-      run: async ({ intent, reason }, me) => stepBack(db, me, `${intent ?? ""}`, reason),
+      run: async ({ intent, reason }, me) => stepBack(db, me, `${intent ?? ""}`, reason, github),
     },
     {
       name: "withdraw_doc",
@@ -212,7 +212,7 @@ export const intentTools = ({ auto, commit, db, github, store }: ToolCtx): Tool[
         required: ["intent"],
         additionalProperties: false,
       },
-      run: async ({ intent, results, pr }, me) => auto(await recordChecks(db, me, `${intent ?? ""}`, results, pr), me),
+      run: async ({ intent, results, pr }, me) => auto(await recordChecks(db, me, `${intent ?? ""}`, results, pr, github), me),
     },
     {
       name: "archive_intent",

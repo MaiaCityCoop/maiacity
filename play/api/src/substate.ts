@@ -26,8 +26,8 @@ export type PrSeen = {
   conflicts?: { head: string; main: string; files: string[] };
   /** the ETags of the pull request and of its head's check runs as last read, for conditional reads (./github.ts readSeen) */
   etags?: { pull?: string; head?: string; checks?: string };
-  /** the status 'Merges with main' play last posted, on `head` */
-  merges?: { head: string; state: "success" | "failure"; description: string };
+  /** each status play last posted, by context (./github.ts postStatus) */
+  posted?: Record<string, { head: string; state: string; description: string; sent?: false }>;
 };
 
 /** one main merge play made: from the head `from`, main at `main`, at `at`; the head GitHub made of them `to` */
