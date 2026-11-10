@@ -1,13 +1,13 @@
 // GitHub as play speaks to it (play/SPEC.md §4.12 "Accept ships it"): its REST API for one repository with SHIP_TOKEN,
 // which never leaves this server; the commit statuses play posts; and each open intent's pull request as play last
-// read it (its pr_seen: ./substate.ts reads it, so the board asks GitHub nothing). Ship (./ship.ts), main merged in
-// (./mainmerge.ts) and the delivery report (./delivery.ts) speak to it through here.
+// read it (its pr_seen: ./substate.ts reads it, so the board asks GitHub nothing); main's merge queue by GraphQL. Ship
+// (./ship.ts), conflicts with main (./mainmerge.ts) and the delivery report (./delivery.ts) speak to it through here.
 import { COOP } from "./access";
 import { intentsIn } from "./kit/ids";
 import type { Db } from "./kit/pg";
 import { checksSeen, githubSays, type PrSeen } from "./substate";
 
-/** the commit status play posts on the head it merges; main's ruleset requires it */
+/** the commit status play posts on the head it enqueues and on each merge group's commit; main's ruleset requires it */
 export const ACCEPTED_CONTEXT = "Intent accepted";
 /** the commit status play posts on an open intent pull request's head: failure while it conflicts with main (./mainmerge.ts) */
 export const MERGES_CONTEXT = "Merges with main";
@@ -32,6 +32,8 @@ export type Pull = {
   html_url: string;
   title: string;
   body?: string | null;
+  /** its GraphQL id, which the merge queue takes */
+  node_id?: string;
 };
 export type Run = {
   id: number;
@@ -58,6 +60,10 @@ export type Job = {
   completed_at?: string | null;
   steps?: { name: string; status: string; conclusion: string | null; started_at?: string | null; completed_at?: string | null }[];
 };
+
+/** one entry of main's merge queue: its pull request, place (1 first), GitHub's state of it, and its merge group's commit */
+export type QueueEntry = { pr: number; position: number; state: string; group: string | null };
+export type Queued = { state: string; merged: boolean; merge: string | null; entry: QueueEntry | null; removed: { reason: string; at: string; group: string | null } | null };
 
 export type Compare = { status: string; ahead_by: number; behind_by: number; merge_base_commit: { sha: string }; files?: { filename: string; previous_filename?: string }[] };
 
@@ -100,10 +106,10 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
     const reset = Number(r.headers.get("x-ratelimit-reset")) * 1000, after = Number(r.headers.get("retry-after")) * 1000;
     return after > 0 ? at + after : reset > at ? reset : at + 60_000;
   };
-  const call = async (method: string, path: string, body?: unknown, redirect: RequestRedirect = "follow", etag?: string) => {
+  const call = async (method: string, path: string, body?: unknown, redirect: RequestRedirect = "follow", etag?: string, url = `${api}/repos/${repo}${path}`) => {
     const at = now();
     if (said?.until && at < said.until) throw new GitHubError(said.why, 429, true);
-    const r = await get(`${api}/repos/${repo}${path}`, {
+    const r = await get(url, {
       method,
       redirect,
       // an Accept holds its intent's row while it asks, and the watcher looks once at a time: no call hangs on
@@ -121,7 +127,7 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
         say({ why: `GitHub's limit: play reads again at ${hhmm(until)}`, until });
         throw new GitHubError(said!.why, r.status, true);
       }
-      const why = `GitHub answered ${r.status} to ${method} ${path.split("?")[0]}${message ? `: ${message}` : ""}`;
+      const why = `GitHub answered ${r.status} to ${method} ${path.split("?")[0] || "/graphql"}${message ? `: ${message}` : ""}`;
       // a refused token: the board names it, the log says it once
       if (r.status === 401) say({ why: "GitHub refuses play's token (SHIP_TOKEN)" });
       throw new GitHubError(why, r.status, r.status === 401);
@@ -140,6 +146,14 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
   const json = async <T>(method: string, path: string, body?: unknown) => {
     const r = await call(method, path, body);
     return (r.status === 204 ? null : await r.json()) as T;
+  };
+  /** GitHub's GraphQL API (the merge queue has no REST), its `errors` thrown as GitHubError; `owner` and `name` are this repository's */
+  const graphql = async <T>(query: string, variables: Record<string, unknown>): Promise<T> => {
+    const [owner, name] = repo.split("/");
+    const r = await call("POST", "", { query, variables: { owner, name, ...variables } }, "follow", undefined, `${api}/graphql`);
+    const j: any = await r.json();
+    if (j.errors?.length) throw new GitHubError(`GitHub's GraphQL answered: ${j.errors.map((e: any) => e.message).join("; ")}`, 422);
+    return j.data as T;
   };
   const q = (o: Record<string, string | number | undefined>) =>
     Object.entries(o)
@@ -182,10 +196,27 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
       }
       return out;
     },
-    /** main merged into a pull request's branch (GitHub's update-branch), refused (422) where its head is no longer `head` */
-    updateBranch: (n: number, head: string) => json<{ message?: string }>("PUT", `/pulls/${n}/update-branch`, { expected_head_sha: head }),
-    merge: (n: number, sha: string, commit_title: string, commit_message: string) =>
-      json<{ sha: string; merged: boolean }>("PUT", `/pulls/${n}/merge`, { merge_method: "merge", sha, commit_title, commit_message }),
+    /** main's merge queue (GitHub's GraphQL): its entries in order, each its group's commit; null where main's ruleset has none */
+    mergeQueue: async (branch = "main") => {
+      const d = await graphql<any>(`query MergeQueue($owner: String!, $name: String!, $branch: String!) { repository(owner: $owner, name: $name) { mergeQueue(branch: $branch) {
+        entries(first: 100) { nodes { position state headCommit { oid } pullRequest { number } } } } } }`, { branch });
+      const q = d.repository?.mergeQueue;
+      return q ? (q.entries?.nodes ?? []).map((e: any): QueueEntry => ({ pr: e.pullRequest?.number, position: e.position, state: e.state, group: e.headCommit?.oid ?? null })).sort((a: QueueEntry, b: QueueEntry) => a.position - b.position) : null;
+    },
+    /** a pull request added to the merge queue (GraphQL enqueuePullRequest), refused by GitHub where its head is no longer `head` */
+    enqueue: async (nodeId: string, head: string) =>
+      (await graphql<any>(`mutation Enqueue($pr: ID!, $head: GitObjectID) { enqueuePullRequest(input: { pullRequestId: $pr, expectedHeadOid: $head }) { mergeQueueEntry { position state } } }`, { pr: nodeId, head }))
+        .enqueuePullRequest?.mergeQueueEntry as { position: number; state: string } | null,
+    /** a pull request as the queue has it: merged (its merge commit), queued (its entry), or neither (why GitHub last removed it) */
+    queued: async (n: number): Promise<Queued> => {
+      const d = await graphql<any>(`query PullQueue($owner: String!, $name: String!, $n: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $n) {
+        state merged mergeCommit { oid } mergeQueueEntry { position state headCommit { oid } }
+        timelineItems(last: 1, itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT]) { nodes { ... on RemovedFromMergeQueueEvent { reason createdAt beforeCommit { oid } } } } } } }`, { n });
+      const p = d.repository?.pullRequest;
+      if (!p) throw new GitHubError(`GitHub knows no pull request #${n}`, 404);
+      const e = p.mergeQueueEntry, r = p.timelineItems?.nodes?.[0];
+      return { state: p.state, merged: !!p.merged, merge: p.mergeCommit?.oid ?? null, entry: e ? { pr: n, position: e.position, state: e.state, group: e.headCommit?.oid ?? null } : null, removed: r ? { reason: r.reason ?? "", at: r.createdAt, group: r.beforeCommit?.oid ?? null } : null };
+    },
     runs: async (workflow: string, filter: { head_sha?: string; event?: string; created?: string }) =>
       (await json<{ workflow_runs: Run[] }>("GET", `/actions/workflows/${workflow}/runs?${q({ ...filter, per_page: 30 })}`)).workflow_runs,
     /** a branch's runs, every workflow, newest first (./delivery.ts) */

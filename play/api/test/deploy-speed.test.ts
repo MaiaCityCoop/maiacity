@@ -209,7 +209,7 @@ describe("the workflows", () => {
     expect(main.jobs.play.uses).toBe("./.github/workflows/play-checks.yml");
     expect(main.jobs.website.uses).toBe("./.github/workflows/website-checks.yml");
     expect([main.jobs.play.name, main.jobs.website.name]).toEqual(["play", "website"]);
-    expect(main.permissions).toEqual({ contents: "read", actions: "read", checks: "read", "pull-requests": "read" });
+    expect(main.permissions).toEqual({ contents: "read", actions: "read" });
     const jobs = yaml(".github/workflows/play-checks.yml").jobs;
     const site = yaml(".github/workflows/website-checks.yml").jobs.build;
     expect([jobs.checks.name, site.name]).toEqual(["API and site", "build"]);
@@ -218,7 +218,7 @@ describe("the workflows", () => {
     expect(required).toEqual({ play: "play / API and site", website: "website / build" });
     expect(Object.entries(required)).toEqual([["play", `${main.jobs.play.name} / ${jobs.checks.name}`], ["website", `${main.jobs.website.name} / ${site.name}`]]);
     // play's (intent 417af727): the tested tree its own job; the API and the site run only when it did not say the very
-    // tree passed, and the check "API and site" ends by naming the tree it covered
+    // commit passed in the merge queue
     const tested = jobs.tested.steps.find((s: any) => s.id === "tested");
     expect(tested.if).toBe("github.event_name == 'push'");
     expect(tested.env.PART).toBe("play");
@@ -229,8 +229,9 @@ describe("the workflows", () => {
       expect(jobs[k].if).toBe("needs.tested.outputs.skip != 'true'");
       expect(jobs[k].services).toBeUndefined();
     }
-    expect(jobs.checks.steps.at(-1).if).toBe("needs.tested.outputs.skip != 'true'");
-    expect(jobs.checks.steps.at(-1).run).toBe(`echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"`);
+    // the tested tree is the merge queue's run on the very commit: no tree noted any more
+    expect(text(".github/workflows/play-checks.yml")).not.toContain("Tested tree");
+    expect(text(".github/workflows/website-checks.yml")).not.toContain("Tested tree");
     for (const [job, part] of [[site, "website"]] as [any, string][]) {
       expect(job.services).toBeUndefined();
       const tested = job.steps.find((s: any) => s.id === "tested");
@@ -240,8 +241,6 @@ describe("the workflows", () => {
       expect(tested.run).toBe("bash .github/workflows/tested-tree.sh");
       // every step after it runs unless it said the very tree passed
       for (const s of job.steps.slice(job.steps.indexOf(tested) + 1)) expect(s.if).toBe("steps.tested.outputs.skip != 'true'");
-      // a run that tested ends by naming its tree
-      expect(job.steps.at(-1).run).toBe(`echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"`);
     }
     const pgStep = jobs.api.steps.find((s: any) => s.name === "Postgres");
     expect(pgStep.run).toContain('"postgres:$PG_VERSION-alpine"');
@@ -293,98 +292,7 @@ describe("the workflows", () => {
   });
 });
 
-describe("tested tree", () => {
-  const SCRIPT = resolve(ROOT, ".github/workflows/tested-tree.sh");
-  const REPO = "maia/city";
-  const SHA = "a".repeat(40), HEAD = "b".repeat(40), TREE = "c".repeat(40), OTHER = "d".repeat(40);
-  const CHECK = "play / API and site";
-  const PART = "play";
-  type World = { tree?: string; pulls?: any[]; runs?: any[]; jobs?: Record<number, any[]>; notes?: Record<number, any[]>; fail?: string };
-  let world: World = {};
-  let server: ReturnType<typeof Bun.serve>;
-  beforeAll(() => {
-    server = Bun.serve({
-      port: 0,
-      fetch(req) {
-        const u = new URL(req.url);
-        const p = u.pathname.replace(`/repos/${REPO}/`, "");
-        if (req.headers.get("authorization") !== "Bearer t0ken") return new Response("no", { status: 401 });
-        if (world.fail && p.startsWith(world.fail)) return new Response("down", { status: 500 });
-        if (p === `git/commits/${SHA}`) return Response.json({ sha: SHA, tree: { sha: world.tree ?? TREE } });
-        if (p === `commits/${SHA}/pulls`) return Response.json(world.pulls ?? []);
-        if (p === "actions/runs") {
-          expect(u.searchParams.get("head_sha")).toBe(HEAD);
-          expect(u.searchParams.get("event")).toBe("pull_request");
-          return Response.json({ workflow_runs: world.runs ?? [] });
-        }
-        let m = /^actions\/runs\/(\d+)\/jobs$/.exec(p);
-        if (m) return Response.json({ jobs: world.jobs?.[Number(m[1])] ?? [] });
-        m = /^check-runs\/(\d+)\/annotations$/.exec(p);
-        if (m) return Response.json(world.notes?.[Number(m[1])] ?? []);
-        return new Response("not found", { status: 404 });
-      },
-    });
-  });
-  afterAll(() => server?.stop(true));
-
-  const pull = { number: 7, merged_at: "2026-11-06T16:51:42Z", merge_commit_sha: SHA, head: { sha: HEAD } };
-  const prRun = (id: number, more: any = {}) => ({ id, path: ".github/workflows/main.yml", event: "pull_request", status: "completed", conclusion: "success", repository: { full_name: "Maia/City" }, ...more });
-  const passed = (id: number, name = CHECK) => ({ id, name, status: "completed", conclusion: "success" });
-  const note = (tree: string) => [{ annotation_level: "notice", title: "Tested tree", message: tree }];
-  /** the world where #7 merged as SHA and its run 11 tested TREE in job 21 */
-  const tested = (): World => ({ pulls: [pull], runs: [prRun(11)], jobs: { 11: [passed(21), passed(22, "website / build")] }, notes: { 21: note(TREE), 22: note(OTHER) } });
-
-  const decide = async (w: World, env: Record<string, string> = {}) => {
-    world = w;
-    const out = join(mkdtempSync(join(tmpdir(), "tested-")), "out");
-    writeFileSync(out, "");
-    const p = Bun.spawn(["bash", SCRIPT], {
-      env: { PATH: process.env.PATH!, GITHUB_API_URL: `http://127.0.0.1:${server.port}`, GITHUB_OUTPUT: out, GH_TOKEN: "t0ken", EVENT: "push", REPO, SHA, PART, ...env },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const said = await new Response(p.stdout).text();
-    expect(await p.exited).toBe(0); // it never fails the job itself
-    return { skip: readFileSync(out, "utf8").trim(), said };
-  };
-
-  test("tested tree: the pushed tree is the tree the merged pull request's run tested: the checks pass without running", async () => {
-    const r = await decide(tested());
-    expect(r.skip).toBe("skip=true");
-    expect(r.said).toContain("not run again");
-  });
-
-  test("tested tree: a different tree, a failed, cancelled or other workflow's run, another repository, no pull request, an API error: the checks run", async () => {
-    const cases: [string, World, Record<string, string>?][] = [
-      ["another tree pushed", { ...tested(), tree: OTHER }],
-      ["the website's job tested another tree", tested(), { PART: "website" }],
-      ["no required check of that part", tested(), { PART: "nothing" }],
-      ["the run failed", { ...tested(), runs: [prRun(11, { conclusion: "failure" })] }],
-      ["the run was cancelled", { ...tested(), runs: [prRun(11, { conclusion: "cancelled" })] }],
-      ["the run is still going", { ...tested(), runs: [prRun(11, { status: "in_progress", conclusion: null })] }],
-      ["another workflow's run", { ...tested(), runs: [prRun(11, { path: ".github/workflows/other.yml" })] }],
-      ["a run of another repository", { ...tested(), runs: [prRun(11, { repository: { full_name: "fork/city" } })] }],
-      ["the job failed", { ...tested(), jobs: { 11: [{ ...passed(21), conclusion: "failure" }] } }],
-      ["no notice of the tree", { ...tested(), notes: {} }],
-      ["no pull request", { ...tested(), pulls: [] }],
-      ["a pull request not merged as this commit", { ...tested(), pulls: [{ ...pull, merge_commit_sha: OTHER }] }],
-      ["an open pull request", { ...tested(), pulls: [{ ...pull, merged_at: null }] }],
-      ["GitHub's API errs on the runs", { ...tested(), fail: "actions/runs" }],
-      ["GitHub's API errs on the commit", { ...tested(), fail: "git/commits" }],
-      ["GitHub's API errs on the annotations", { ...tested(), fail: "check-runs" }],
-      ["a wrong token", tested(), { GH_TOKEN: "nope" }],
-      ["not a push", tested(), { EVENT: "pull_request" }],
-      ["no commit", tested(), { SHA: "" }],
-    ];
-    for (const [why, w, env] of cases) {
-      const r = await decide(w, env);
-      expect([why, r.skip]).toEqual([why, "skip=false"]);
-    }
-    // the newest passed run decides: an older one that tested this tree does not, once a newer one tested another
-    const newer = { ...tested(), runs: [prRun(11), prRun(12)], jobs: { 11: [passed(21)], 12: [passed(31)] }, notes: { 21: note(TREE), 31: note(OTHER) } };
-    expect((await decide(newer)).skip).toBe("skip=false");
-  }, 120_000);
-});
+// the tested tree on a push to main (tested-tree.sh, the merge queue's run): workflows.test.ts, "merge queue: checks on merge_group"
 
 suite("play-api", () => {
   let t: Awaited<ReturnType<typeof freshDb>>;

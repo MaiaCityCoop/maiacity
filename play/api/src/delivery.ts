@@ -55,8 +55,6 @@ export type Timeline = {
   stage_ms: Partial<Record<Stage, number>>;
   ship: ShipPart[] | null;
   step_backs: number;
-  /** how many times play merged main into its pull request (./mainmerge.ts) */
-  main_merges: number;
   pull_request: number | null;
   over: Over[];
   ci?: CiOf;
@@ -136,7 +134,6 @@ export function timeline(r: Row, now: number): Timeline {
     stage_ms,
     ship,
     step_backs: Array.isArray(r.steps) ? r.steps.length : 0,
-    main_merges: r.pr_seen?.main_merges ?? 0,
     pull_request: r.pull_request ?? null,
     over: [],
   };

@@ -19,7 +19,7 @@
 	type Ci = { minutes: number; runs: number; cancelled: number; cancelled_share: number; list: CiRun[] } | { error: string };
 	type Timeline = {
 		id: string; title: string; stage: string; created: string; accepted_at: string | null; lead_ms: number; segments: Segment[];
-		ship: { key: string; name: string; state: string; ms: number | null }[] | null; step_backs: number; main_merges: number; pull_request: number | null; over: Over[]; ci?: Ci;
+		ship: { key: string; name: string; state: string; ms: number | null }[] | null; step_backs: number; pull_request: number | null; over: Over[]; ci?: Ci;
 	};
 	type Day = { day: string; accepted: number; median_lead_ms: number | null; longest_lead_ms: number | null; median_stage_ms: Partial<Record<Stage, number>> };
 	type Delivery = { now: string; since: string; days: number; budgets: { key: string; name: string; ms: number }[]; per_day: Day[]; over: number; ci: { available: boolean; why?: string; minutes?: number; runs?: number; cancelled_share?: number } | null; intents: Timeline[] };
@@ -95,7 +95,7 @@
 				<li class:flag={t.over.length}>
 					<div class="top">
 						<a href="/intents/#{t.id}" class="title">{t.title}</a>
-						<span class="soft small">{t.stage} · {t.accepted_at ? `accepted ${short(t.accepted_at)}` : `since ${short(t.created)}`} · {span(t.lead_ms)}{t.step_backs ? ` · ${t.step_backs} step back${t.step_backs > 1 ? 's' : ''}` : ''}{t.main_merges ? ` · main merged in ${t.main_merges}×` : ''}</span>
+						<span class="soft small">{t.stage} · {t.accepted_at ? `accepted ${short(t.accepted_at)}` : `since ${short(t.created)}`} · {span(t.lead_ms)}{t.step_backs ? ` · ${t.step_backs} step back${t.step_backs > 1 ? 's' : ''}` : ''}</span>
 					</div>
 					<div class="bar" style:width="{Math.max(2, (t.lead_ms / most) * 100)}%">
 						{#each t.segments as s, i (i)}

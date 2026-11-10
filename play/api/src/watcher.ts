@@ -1,12 +1,14 @@
 // The ship watcher (play/SPEC.md §4.12 "Accept ships it"): every 10 s while play-api runs, one look at a time, its state
 // in Postgres (`ship`, `pr_seen`) so a restarted play goes on. Each look follows every ship (./ship.ts), reads every open
-// intent's pull request, lets a rule take one GitHub finds ready (./decide.ts autoMove), and merges main in (./mainmerge.ts).
+// intent's pull request, lets a rule take one GitHub finds ready (./decide.ts autoMove), posts 'Intent accepted' on the
+// merge queue's groups (./ship.ts acceptGroups) and shows conflicts with main (./mainmerge.ts).
 import type { BlobStore } from "./blobs";
 import type { Db } from "./kit/pg";
 import { canonical } from "./kit/hash";
-import { carried, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
+import { mergeMain } from "./mainmerge";
+import type { PrSeen } from "./substate";
 import { adoptDrafts, keepSeen, openPulls, postAgain, quiet, readSeen, wake, type GitHub } from "./github";
-import { advance, reconcile, runningCommit, saveShip, startIfReady, type Ship } from "./ship";
+import { acceptGroups, advance, reconcile, runningCommit, saveShip, type Ship } from "./ship";
 import { autoMove } from "./decide";
 
 /**
@@ -20,15 +22,10 @@ export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date
   const live = async (ids: string[]) => {
     if (commit && ids.length && !gh.says()?.until) await reconcile(db, gh, store, commit, ids).catch((e) => quiet(e) || console.warn(`ship: the reconcile missed a look: ${(e as Error).message}`));
   };
-  await live(rows.filter((r) => r.ship.outcome === "green" && !r.ship.pending).map((r) => r.id));
+  await live(rows.filter((r) => r.ship.outcome === "green").map((r) => r.id));
   for (const { id, ship } of rows) {
     if (gh.says()?.until) break;
     try {
-      // waiting: its turn and GitHub (read again, as the ones before it may have moved on in this look)
-      if (ship.pending) {
-        await startIfReady(db, gh, id, at);
-        continue;
-      }
       if (ship.outcome) continue;
       const next = await advance(gh, ship, at);
       if (canonical(next) === canonical(ship)) continue;
@@ -38,7 +35,7 @@ export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date
       if (next.outcome) {
         console.log(`ship: intent ${id} ${next.outcome === "green" ? "is green all the way: the reconcile decides once play runs it" : `is red at ${next.report?.step}: back to Proposal`}`);
         if (!commit) console.warn("ship: play knows no commit of its own (PLAY_COMMIT): nothing is reconciled");
-        // as it ends green, at once, so a ship waiting on it starts in this look
+        // as it ends green, at once
         else if (next.outcome === "green") await live([id]);
       }
     } catch (e) {
@@ -54,7 +51,7 @@ export async function watchPulls(db: Db, gh: GitHub, store: BlobStore, at = Date
     if (gh.says()?.until) break;
     try {
       // conditional (ETags kept in pr_seen): an unchanged pull request costs nothing against GitHub's limit
-      await keepSeen(db, id, await carried(gh, pr_seen, await readSeen(gh, pull_request, pr_seen, at)));
+      await keepSeen(db, id, keptFrom(pr_seen, await readSeen(gh, pull_request, pr_seen, at)));
     } catch (e) {
       if (!quiet(e)) console.warn(`ship: #${pull_request} of intent ${id} not read: ${(e as Error).message}`);
       continue;
@@ -64,17 +61,23 @@ export async function watchPulls(db: Db, gh: GitHub, store: BlobStore, at = Date
   }
 }
 
-const MAIN_MERGE = mainMergeState();
+/** what play keeps on a pull request across its reads: the statuses it posted, the conflict's files at the same head */
+const keptFrom = (was: PrSeen | null | undefined, seen: PrSeen): PrSeen =>
+  was?.pr !== seen.pr ? seen : { ...seen, ...(was.posted ? { posted: was.posted } : {}), ...(was.conflicts?.head === seen.head ? { conflicts: was.conflicts } : {}) };
 
-/** One tick: the ships, the open pull requests read, statuses GitHub did not take posted again, then main merged into those behind it and conflicts shown (./mainmerge.ts). */
-export async function watchTick(db: Db, gh: GitHub, store: BlobStore, at = Date.now(), commit: string | null = runningCommit(), merging: MainMergeState = MAIN_MERGE) {
+/** the merge groups' commits 'Intent accepted' was posted on, and how */
+const GROUPS = new Map<string, string>();
+
+/** One tick: the ships, the open pull requests read, statuses GitHub did not take posted again, the queue's groups, conflicts shown (./mainmerge.ts). */
+export async function watchTick(db: Db, gh: GitHub, store: BlobStore, at = Date.now(), commit: string | null = runningCommit(), groups: Map<string, string> = GROUPS) {
   // GitHub's limit: no call until it allows them again, the board saying when (./substate.ts githubSays)
   if (gh.says()?.until) return;
   await watchShips(db, gh, store, at, commit);
   await watchPulls(db, gh, store, at);
   if (gh.says()?.until) return;
   await postAgain(db, gh).catch((e) => quiet(e) || console.warn(`github: statuses not posted again: ${(e as Error).message}`));
-  await mergeMain(db, gh, merging, at).catch((e) => quiet(e) || console.warn(`ship: main not merged into the open pull requests: ${(e as Error).message}`));
+  await acceptGroups(db, gh, groups).catch((e) => quiet(e) || console.warn(`ship: the merge queue's groups not looked at: ${(e as Error).message}`));
+  await mergeMain(db, gh).catch((e) => quiet(e) || console.warn(`ship: conflicts with main not looked at: ${(e as Error).message}`));
 }
 
 /** The ship watcher, every `every` ms while play-api runs (one look at a time), against the commit play runs. */

@@ -1,7 +1,7 @@
 // The way to production (play/SPEC.md §4.12) as the workflows say it, read as YAML: release.yml fast-forwards production
 // to a commit of main once main.yml is green for a push (or by hand, or Accept again, with a sha) with GITHUB_TOKEN and
 // starts production.yml, which writes SHIP_TOKEN into play's environment; the compose file hands it to play-api.
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -185,7 +185,7 @@ describe("Intent named", async () => {
   test("intent-named.yml: on pull_request_target, main's pr-intent.ts, the job Intent named; the pull request only read", () => {
     const w = yaml(".github/workflows/intent-named.yml");
     expect(w.on.pull_request_target).toEqual({ branches: ["main"], types: ["opened", "edited", "reopened", "synchronize", "ready_for_review"] });
-    expect(Object.keys(w.on)).toEqual(["pull_request_target"]);
+    expect(Object.keys(w.on)).toEqual(["pull_request_target", "merge_group"]);
     expect(w.permissions).toEqual({ contents: "read", "pull-requests": "read" });
     const job = w.jobs.named;
     expect(job.name).toBe("Intent named");
@@ -193,6 +193,9 @@ describe("Intent named", async () => {
     expect(checkout.with.ref).toBe("${{ github.event.repository.default_branch }}");
     expect(checkout.with["persist-credentials"]).toBe(false);
     expect(job.steps.at(-1).run).toBe('bun play/avenbox/pr-intent.ts "$PR"');
+    // main's file is read and the box's token handed only on pull_request_target
+    expect(checkout.if).toBe("github.event_name == 'pull_request_target'");
+    expect(job.steps.at(-1).if).toBe("github.event_name == 'pull_request_target'");
     expect(text(".github/workflows/intent-named.yml")).not.toContain("head.sha");
   });
 
@@ -548,5 +551,210 @@ describe("the image's push", () => {
     expect(run(1)).toEqual({ code: 0, calls: ["build", "push", "push"] });
     expect(run(2)).toEqual({ code: 0, calls: ["build", "push", "push", "push"] });
     expect(run(3)).toEqual({ code: 1, calls: ["build", "push", "push", "push"] });
+  });
+});
+
+// Ship is a merge queue (intent f7721142): GitHub's queue runs main.yml and Intent named on each merge group's commit
+// (event merge_group) under the required names, and fast-forwards main to it; the push to main then passes its checks
+// at once only when the queue's run passed on that very commit (tested-tree.sh, against a stand-in GitHub).
+describe("merge queue: checks on merge_group", () => {
+  const required = JSON.parse(text(".github/required-checks.json")) as Record<string, string>;
+
+  test("main.yml runs on merge_group (checks_requested); play and website run there under the required names; no group is cancelled", () => {
+    const main = yaml(".github/workflows/main.yml");
+    expect(main.on.merge_group).toEqual({ types: ["checks_requested"] });
+    expect(Object.keys(main.on).sort()).toEqual(["merge_group", "pull_request", "push"]);
+    for (const [part, job, called, inner] of [["play", "play", ".github/workflows/play-checks.yml", "checks"], ["website", "website", ".github/workflows/website-checks.yml", "build"]] as const) {
+      const j = main.jobs[job];
+      // a draft pull request runs nothing; a merge group and a push always run
+      expect(j.if).toBe("github.event_name != 'pull_request' || !github.event.pull_request.draft");
+      expect(j.uses).toBe(`./${called}`);
+      expect(`${j.name} / ${yaml(called).jobs[inner].name}`).toBe(required[part]);
+    }
+    // cancel only between a pull request's own runs: a merge group has a ref of its own and is never cancelled
+    expect(main.concurrency["cancel-in-progress"]).toBe("${{ github.event_name == 'pull_request' }}");
+    expect(main.concurrency.group).toContain("${{ github.ref }}");
+    // the tested tree's step is only a push's: a merge group runs every check in full
+    expect(yaml(".github/workflows/play-checks.yml").jobs.tested.steps.find((s: any) => s.id === "tested").if).toBe("github.event_name == 'push'");
+    expect(yaml(".github/workflows/website-checks.yml").jobs.build.steps.find((s: any) => s.id === "tested").if).toBe("github.event_name == 'push'");
+  });
+
+  test("intent-named.yml runs on merge_group and passes there at once; its pull request's steps only on pull_request_target", () => {
+    const w = yaml(".github/workflows/intent-named.yml");
+    expect(w.on.merge_group).toEqual({ types: ["checks_requested"] });
+    const job = w.jobs.named;
+    expect(job.name).toBe("Intent named");
+    expect(job.if).toBeUndefined();
+    const queue = job.steps.filter((s: any) => s.if === "github.event_name == 'merge_group'");
+    expect(queue).toHaveLength(1);
+    expect(queue[0].run.startsWith("echo ")).toBe(true);
+    expect(queue[0].run).not.toContain("exit 1");
+    for (const s of job.steps.filter((s: any) => s !== queue[0])) expect(s.if.startsWith("github.event_name == 'pull_request_target'")).toBe(true);
+    // a merge group never shares a group with another, nor is cancelled
+    expect(w.concurrency).toEqual({ group: "intent-named-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}", "cancel-in-progress": "${{ github.event_name == 'pull_request_target' }}" });
+  });
+
+  describe("tested-tree.sh: the queue's run on the pushed commit", () => {
+    const SCRIPT = resolve(ROOT, ".github/workflows/tested-tree.sh");
+    const REPO = "maia/city";
+    const SHA = "a".repeat(40), OTHER = "d".repeat(40);
+    type World = { runs?: any[]; jobs?: Record<number, any[]>; fail?: string };
+    let world: World = {};
+    let server: ReturnType<typeof Bun.serve>;
+    beforeAll(() => {
+      server = Bun.serve({
+        port: 0,
+        fetch(req) {
+          const u = new URL(req.url);
+          const p = u.pathname.replace(`/repos/${REPO}/`, "");
+          if (req.headers.get("authorization") !== "Bearer t0ken") return new Response("no", { status: 401 });
+          if (world.fail && p.startsWith(world.fail)) return new Response("down", { status: 500 });
+          if (p === "actions/runs") {
+            // the stand-in answers as GitHub would: only runs of the asked event and head
+            const runs = (world.runs ?? []).filter((r) => r.event === u.searchParams.get("event") && r.head_sha === u.searchParams.get("head_sha"));
+            return Response.json({ workflow_runs: runs });
+          }
+          const m = /^actions\/runs\/(\d+)\/jobs$/.exec(p);
+          if (m) return Response.json({ jobs: world.jobs?.[Number(m[1])] ?? [] });
+          return new Response("not found", { status: 404 });
+        },
+      });
+    });
+    afterAll(() => server?.stop(true));
+
+    const groupRun = (id: number, more: any = {}) => ({ id, path: ".github/workflows/main.yml", event: "merge_group", head_sha: SHA, status: "completed", conclusion: "success", repository: { full_name: "Maia/City" }, ...more });
+    const passed = (id: number, name: string) => ({ id, name, status: "completed", conclusion: "success" });
+    /** the world where the queue's run 11 passed both required checks on SHA */
+    const queued = (): World => ({ runs: [groupRun(11)], jobs: { 11: [passed(21, required.play), passed(22, required.website)] } });
+
+    const decide = async (w: World, env: Record<string, string> = {}) => {
+      world = w;
+      const out = join(mkdtempSync(join(tmpdir(), "tested-")), "out");
+      writeFileSync(out, "");
+      const p = Bun.spawn(["bash", SCRIPT], {
+        env: { PATH: process.env.PATH!, GITHUB_API_URL: `http://127.0.0.1:${server.port}`, GITHUB_OUTPUT: out, GH_TOKEN: "t0ken", EVENT: "push", REPO, SHA, PART: "play", ...env },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const said = await new Response(p.stdout).text();
+      expect(await p.exited).toBe(0); // it never fails the job itself
+      return { skip: readFileSync(out, "utf8").trim(), said };
+    };
+
+    test("merge queue: checks on merge_group: a successful merge_group run of the pushed sha counts as tested, for play and the website", async () => {
+      for (const PART of ["play", "website"]) {
+        const r = await decide(queued(), { PART });
+        expect([PART, r.skip]).toEqual([PART, "skip=true"]);
+        expect(r.said).toContain("not run again");
+      }
+      // an older failed group of the same commit does not stand in the way of a newer passed one
+      expect((await decide({ runs: [groupRun(10, { conclusion: "failure" }), groupRun(11)], jobs: { 10: [], 11: [passed(21, required.play)] } })).skip).toBe("skip=true");
+    });
+
+    test("merge queue: checks on merge_group: a failed, cancelled or unfinished run, another sha, event pull_request, another workflow or repository, an API error: the checks run", async () => {
+      const cases: [string, World, Record<string, string>?][] = [
+        ["the run failed", { ...queued(), runs: [groupRun(11, { conclusion: "failure" })] }],
+        ["the run was cancelled", { ...queued(), runs: [groupRun(11, { conclusion: "cancelled" })] }],
+        ["the run is still going", { ...queued(), runs: [groupRun(11, { status: "in_progress", conclusion: null })] }],
+        ["the group tested another sha", { ...queued(), runs: [groupRun(11, { head_sha: OTHER })] }],
+        ["a pull_request run of this sha", { ...queued(), runs: [groupRun(11, { event: "pull_request" })] }],
+        ["another workflow's run", { ...queued(), runs: [groupRun(11, { path: ".github/workflows/other.yml" })] }],
+        ["a run of another repository", { ...queued(), runs: [groupRun(11, { repository: { full_name: "fork/city" } })] }],
+        ["the required job failed", { ...queued(), jobs: { 11: [{ ...passed(21, required.play), conclusion: "failure" }, passed(22, required.website)] } }],
+        ["the run has no such job", { ...queued(), jobs: { 11: [passed(22, required.website)] } }],
+        ["no required check of that part", queued(), { PART: "nothing" }],
+        ["no run at all", { runs: [] }],
+        ["GitHub's API errs on the runs", { ...queued(), fail: "actions/runs" }],
+        ["a wrong token", queued(), { GH_TOKEN: "nope" }],
+        ["not a push", queued(), { EVENT: "merge_group" }],
+        ["no commit", queued(), { SHA: "" }],
+      ];
+      for (const [why, w, env] of cases) {
+        const r = await decide(w, env);
+        expect([why, r.skip]).toEqual([why, "skip=false"]);
+      }
+    }, 120_000);
+  });
+});
+
+// Main's ruleset as code (intent f7721142): deploy/rulesets/main.json, applied by deploy/ruleset.sh; play's refusal of
+// Accept while it is not names the way, word for word in deploy/README.md.
+describe("main's ruleset as code", () => {
+  const ruleset = JSON.parse(text("deploy/rulesets/main.json"));
+  const rule = (type: string) => ruleset.rules.find((r: any) => r.type === type);
+  const REFUSAL = "Main's ruleset has no merge queue yet: an admin applies it with deploy/ruleset.sh (deploy/README.md), then Accept again.";
+
+  test("main's ruleset as code: the default branch, active, no bypass; deletion, non_fast_forward, a pull request, the four checks, the merge queue", () => {
+    expect(ruleset).toMatchObject({ name: "main", target: "branch", enforcement: "active", conditions: { ref_name: { include: ["~DEFAULT_BRANCH"], exclude: [] } }, bypass_actors: [] });
+    expect(ruleset.rules.map((r: any) => r.type).sort()).toEqual(["deletion", "merge_queue", "non_fast_forward", "pull_request", "required_status_checks"]);
+    expect(rule("pull_request").parameters).toMatchObject({ required_approving_review_count: 0, allowed_merge_methods: ["merge"] });
+    for (const k of ["dismiss_stale_reviews_on_push", "require_code_owner_review", "require_last_push_approval", "required_review_thread_resolution"]) expect(rule("pull_request").parameters[k]).toBe(false);
+    const checks = rule("required_status_checks").parameters;
+    expect(checks.strict_required_status_checks_policy).toBe(false);
+    const contexts = checks.required_status_checks.map((c: any) => c.context);
+    expect(contexts.sort()).toEqual(["Intent accepted", "Intent named", "play / API and site", "website / build"]);
+    // the required checks of main.yml are the ones named once in .github/required-checks.json, from GitHub Actions
+    for (const name of Object.values(JSON.parse(text(".github/required-checks.json")))) expect(checks.required_status_checks).toContainEqual({ context: name, integration_id: 15368 });
+    expect(checks.required_status_checks).toContainEqual({ context: "Intent accepted" });
+    expect(rule("merge_queue").parameters).toEqual({
+      merge_method: "MERGE", grouping_strategy: "ALLGREEN", max_entries_to_build: 5, max_entries_to_merge: 5,
+      min_entries_to_merge: 1, min_entries_to_merge_wait_minutes: 0, check_response_timeout_minutes: 60,
+    });
+  });
+
+  test("main's ruleset as code: ruleset.sh PUTs to the ruleset named main (else POSTs) and PATCHes the repository's merge commits; --dry-run sends nothing; the token never printed", async () => {
+    const SCRIPT = resolve(ROOT, "deploy/ruleset.sh");
+    let existing: any[] = [];
+    const sent: { method: string; path: string; body: any }[] = [];
+    const server = Bun.serve({
+      port: 0,
+      async fetch(req) {
+        const u = new URL(req.url);
+        if (req.headers.get("authorization") !== "Bearer s3cret-t0ken") return new Response("no", { status: 401 });
+        if (req.method === "GET" && u.pathname === "/repos/maia/city/rulesets") return Response.json(existing);
+        sent.push({ method: req.method, path: u.pathname, body: await req.json() });
+        return Response.json({ id: 99, name: "main", enforcement: "active" });
+      },
+    });
+    const run = async (...args: string[]) => {
+      const p = Bun.spawn(["bash", SCRIPT, ...args], { env: { PATH: process.env.PATH!, GITHUB_API_URL: `http://127.0.0.1:${server.port}`, GH_TOKEN: "s3cret-t0ken" }, stdout: "pipe", stderr: "pipe" });
+      const out = (await new Response(p.stdout).text()) + (await new Response(p.stderr).text());
+      expect([out, await p.exited]).toEqual([out, 0]);
+      expect(out).not.toContain("s3cret-t0ken");
+      return out;
+    };
+    try {
+      existing = [{ id: 7, name: "production" }, { id: 26697743, name: "main" }];
+      let out = await run("maia/city", "--dry-run");
+      expect(out).toContain(`PUT http://127.0.0.1:${server.port}/repos/maia/city/rulesets/26697743`);
+      expect(out).toContain(`PATCH http://127.0.0.1:${server.port}/repos/maia/city`);
+      expect(out).toContain('"merge_commit_title": "PR_TITLE"');
+      expect(sent).toEqual([]);
+      existing = [{ id: 7, name: "production" }];
+      out = await run("--dry-run", "maia/city");
+      expect(out).toContain(`POST http://127.0.0.1:${server.port}/repos/maia/city/rulesets`);
+      expect(sent).toEqual([]);
+      // for real: the json as it is, then the repository's merge commits
+      existing = [{ id: 26697743, name: "main" }];
+      await run("maia/city");
+      expect(sent).toEqual([
+        { method: "PUT", path: "/repos/maia/city/rulesets/26697743", body: ruleset },
+        { method: "PATCH", path: "/repos/maia/city", body: { merge_commit_title: "PR_TITLE", merge_commit_message: "PR_BODY" } },
+      ]);
+      sent.length = 0;
+      existing = [];
+      await run("maia/city");
+      expect(sent.map((s) => `${s.method} ${s.path}`)).toEqual(["POST /repos/maia/city/rulesets", "PATCH /repos/maia/city"]);
+    } finally {
+      server.stop(true);
+    }
+    // the default repository is Maia City's
+    expect(text("deploy/ruleset.sh")).toContain("REPO=MyAvenCEO/maiacity");
+  });
+
+  test("main's ruleset as code: README holds Accept's refusal verbatim, on its own line, and the command that applies it", () => {
+    const readme = text("deploy/README.md");
+    expect(readme.split("\n")).toContain(REFUSAL);
+    expect(readme).toContain("GH_TOKEN=<an admin's token> bash deploy/ruleset.sh");
   });
 });
