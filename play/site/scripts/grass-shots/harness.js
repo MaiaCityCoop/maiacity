@@ -4,7 +4,10 @@
  * by the dev server like any module, so avenBOX's Chromium in software (SwiftShader) can shoot the grass on WebGPU
  * where a whole world can't stay up (intent e85a5860's c4; ../../../../intent-work/e85a5860-shots/shots.mjs loads it).
  *
- * Inlined as a module into a page of the dev server's origin, its address `?backend=webgpu|webgl2`; sets `window.__h`:
+ * Inlined as a module into a page of the dev server's origin, its address `?backend=webgpu|webgl2&biome=<id>`: no biome,
+ * the made-up meadow below; a biome's id (meadow, roadside-verge, clover-lawn, food-forest), its own grass where its
+ * recipe grows grass (`grassOfRecipe`) and its grass as its newest version on play writes it (pinned 2026-11-09, as
+ * grass.test.js's cover measure); sets `window.__h`:
  *   ready      a promise, the renderer up and the scene laid
  *   frame(t, pushers?)  the grass updated at the world's time t (s) with its pushers (x, z, radius, strength), drawn
  *   look(x, y, z, yaw, pitch)  the camera placed (yaw 0 looks to −z)
@@ -14,10 +17,13 @@
 // modules by their path, three by the very URL vite gave core.js (one three, not two)
 const { createRenderer, ready } = await import('/src/lib/content/render/core.js');
 const { grassFieldOn } = await import('/src/lib/content/render/nodes/grass-compute.js');
+const { BIOMES } = await import('/src/lib/content/biomes/index.js');
+const { grassOfRecipe } = await import('/src/lib/content/biomes/grass.js');
 const threeAt = /** @type {string} */ ((await (await fetch('/src/lib/content/render/core.js')).text()).match(/from ["'](\/node_modules\/\.vite\/deps\/three\.js[^"']*)["']/)?.[1]);
 const THREE = await import(threeAt);
 
 const which = new URLSearchParams(location.search).get('backend') ?? 'webgpu';
+const biome = new URLSearchParams(location.search).get('biome');
 document.body.style.margin = '0';
 const canvas = document.createElement('canvas');
 canvas.style.cssText = 'display:block;width:100vw;height:100vh';
@@ -35,8 +41,23 @@ scene.add(sun, new THREE.HemisphereLight(0xcfe2ff, 0x5a6b3a, 0.8));
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x5b5a33, roughness: 1 }));
 scene.add(ground);
 
-/** a meadow: grass nearly everywhere, thinner in patches, some of it tall; the ground flat */
-const at = (/** @type {number} */ x, /** @type {number} */ z) => ({ grass: 0.75 + 0.25 * Math.sin(x * 0.07) * Math.cos(z * 0.05), tall: 0.25 + 0.2 * Math.sin(x * 0.03 + z * 0.02), y: 0 });
+/** each grass biome's grass as its newest version on play writes it (its source's `grass`), and its ground's colour */
+const OF = {
+	meadow: { params: { height: 0.3, tall: 0.6, heightSpread: 0.45, width: 0.006, clump: 1.4, lean: 0.55, base: '#3a5a20', tip: '#a7bf62', dry: '#c2b071', dryShare: 0.15 }, ground: 0x5b5a33 }, // e36c9671 v2
+	'clover-lawn': { params: { height: 0.09, tall: 0.14, heightSpread: 0.3, width: 0.005, clump: 0.8, lean: 0.35, base: '#3d6224', tip: '#86ad4c', dry: '#b5a868', dryShare: 0.05 }, ground: 0x4f6a2e }, // 3355de49 v2
+	'food-forest': { params: { height: 0.22, tall: 0.45, heightSpread: 0.4, width: 0.006, clump: 1.2, lean: 0.5, base: '#3c5e22', tip: '#9ab85a', dry: '#b9a865', dryShare: 0.1 }, ground: 0x4a3b28 }, // 254102d4 v3
+	'roadside-verge': { params: { height: 0.15, tall: 0.45, heightSpread: 0.5, width: 0.005, clump: 1.6, lean: 0.6, base: '#7a7458', tip: '#c9bc92', dry: '#d4c69c', dryShare: 0.7 }, ground: 0x8a8068 } // 84db33e7 v2
+};
+/** the verge's cover as its newest version lays it (84db33e7 v2): its grass the cover kind `drygrass` */
+const VERGE = { id: 'roadside-verge', cover: [{ kind: 'drygrass', share: 6, colony: 2.5, spread: 0.6, fill: 0.7 }, { kind: 'plantain', share: 0.6, colony: 1.5, spread: 0.3 }, { kind: 'gravel', share: 6, colony: 3, spread: 0.7, fill: 0.9 }] };
+const own = biome ? /** @type {any} */ (OF)[biome] : null;
+if (biome && !own) throw new Error(`no grass biome ${biome}`);
+const recipe = biome === 'roadside-verge' ? VERGE : biome ? BIOMES.find((/** @type {any} */ b) => b.id === biome) : null;
+const ofRecipe = recipe ? grassOfRecipe(/** @type {any} */ (recipe)) : null;
+if (own) ground.material.color.setHex(own.ground);
+/** a meadow: grass nearly everywhere, thinner in patches, some of it tall; the ground flat (or the biome's own) */
+const at = (/** @type {number} */ x, /** @type {number} */ z) =>
+	ofRecipe ? { ...ofRecipe(x, z), y: 0 } : { grass: 0.75 + 0.25 * Math.sin(x * 0.07) * Math.cos(z * 0.05), tall: 0.25 + 0.2 * Math.sin(x * 0.03 + z * 0.02), y: 0 };
 /** @type {any} the field, made once the renderer is up (on WebGPU's own backend it chooses the blades on the card) */
 let field = null;
 const sunDir = sun.position.clone().normalize();
@@ -96,7 +117,7 @@ window.__h = {
 		return field;
 	},
 	ready: ready(renderer).then(() => {
-		field = grassFieldOn(renderer, { at, device: 'desktop' });
+		field = grassFieldOn(renderer, { at, device: 'desktop', ...(own ? { params: own.params } : {}) });
 		scene.add(field.object);
 		look(0, 1.65, 0, 0, -0.12);
 	})
