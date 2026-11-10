@@ -56,7 +56,7 @@ describe("subStateOf", () => {
     const check = (name: string, suite: number, conclusion: string | null, started_at: string, id = 1) => ({ name, status: conclusion ? "completed" : "in_progress", conclusion, started_at, id, check_suite: { id: suite } });
     const mainRun = (id: number, suite: number, started: string, status: string, conclusion: string | null = null) => ({ id, check_suite_id: suite, created_at: started, run_started_at: started, status, conclusion });
     const first = [check("play / API", 1, "success", at(20)), check("play / API and site", 1, "success", at(28)), check("website / build", 1, "success", at(22)), check("Intent named", 7, "success", at(20))];
-    const green = { "play / API": "success", "play / API and site": "success", "website / build": "success", "Intent named": "success" };
+    const green = { "play / API": "success", "play / API and site": "success", "website / build": "success", "Intent named": "success" } as const;
     const one = mainRun(1, 1, at(20), "completed", "success");
     // one run, or none listed: the check runs as they are
     expect(checksSeen(first)).toEqual(green);

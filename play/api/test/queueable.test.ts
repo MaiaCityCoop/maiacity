@@ -66,10 +66,10 @@ suite("Accept only where GitHub will queue it", () => {
     return { id: i.id as string, pr, head };
   };
   /** the pull request read at `at`, and the intent's sub-state as the board says it then */
-  const subAt = async (id: string, at: number) => {
+  const subAt = async (id: string, at: number): Promise<{ state: string; tag: string; why: string }> => {
     await watchPulls(db, gh.gh, store, at);
     const i = (await call("GET", `/api/intents/${id}`)).data;
-    return subStateOf(i, i.pr_seen, at + 1_000);
+    return subStateOf(i, i.pr_seen, at + 1_000)!;
   };
   const WAITING = { state: "waiting", tag: "Accept and ship", why: "Accept and ship" };
   const writes = (from: number) => gh.calls.slice(from).filter((c) => c.method !== "GET" && !(c.path === "/graphql" && !`${c.body?.query}`.startsWith("mutation")) && c.body?.context !== "Intent");
