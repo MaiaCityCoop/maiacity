@@ -1,6 +1,11 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+**16:47 Berlin, job 2 correction:** the 16:15 smoke ran beside part A/B's Chromium Sandbox 1 run, which is void; and
+each load spawns its walker elsewhere, so the engines' frames weren't from one view. Sandbox 1 and 5 are being measured
+again in both engines from the census's near view; the per-call costs stand (view-independent: writeBuffer ~1.5 µs a
+call in WebKit, 1.6–3.3 µs in Chromium). The updated tables follow on intent-work/405f7a85-render.
+
 **16:41 Berlin, MAC JOB 2 (405f7a85) pushed: `intent-work/405f7a85-render` `524eb3c33`** (production 672ae57; numbers and
 how each was read in out/summary.json).
 - **Safari: not run.** safaridriver refuses: "Allow remote automation" is off (Samuel's); its session would be clean too.
@@ -31,7 +36,10 @@ how each was read in out/summary.json).
   workers** (the box's recipe workers) ran ~160 s of tasks in those 144 s: about **one core** of eight, the plants built
   one after another. One 3.65 s main-thread task at 194 s, 46 long tasks (8.6 s) in the window.
 
-- **smoke 672ae5797: BROKE** ([ffd02ebf] The sandboxes load again: GPU 12/14's far-tree impostors reverted (the bisect's; 487 s). 16 pages; all drawn; not up: sandbox-1, machine-forklift; new errors: sandbox-1: console: flora: chestnut@6:12:sandbox-5 did not grow: build ran longer than 20000 ms. Frames: near 17.8 ms · mid 16.9 ms · far 16.9 ms.
+- ~~**smoke 672ae5797: BROKE**~~ **void, re-run follows** ([ffd02ebf] The sandboxes load again: GPU 12/14's far-tree impostors reverted (the bisect's; 487 s). 16 pages; all drawn; not up: sandbox-1, machine-forklift; new errors: sandbox-1: console: flora: chestnut@6:12:sandbox-5 did not grow: build ran longer than 20000 ms. Frames: near 17.8 ms · mid 16.9 ms · far 16.9 ms.
+  (16:47 Berlin) This smoke ran beside MAC JOB 2's loads (its hold's one-hour cap ran out at 16:15), so Sandbox 1's card
+  and the chestnut's 20 s build timeout came from two worlds loading at once on this Mac: not a verdict on 672ae57. The
+  hold now waits as long as a job runs; the smoke runs again alone after job 2's re-measure.
 - **smoke 9cbf7c1af: OK** ([e85a5860] Grass by the million: blades culled and chosen on the graphics card (#2224); 429 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 5c9edac10: OK** ([a5faafad] GPU 14/14 · Recipes bring their own shaders, safely: TSL node graphs as checked; 397 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 3f3c6e4ad: OK** ([c1bee1f8] WebGPU on every page: the switch (#2186); 395 s). 16 pages; all drawn. Frames: near 16.7 ms · mid 16.7 ms · far 16.7 ms.
