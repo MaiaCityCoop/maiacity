@@ -6,14 +6,13 @@
 	or edit picked (or as an intent's work would make it, `?intent=<id>`), with the world to open just so; on the right
 	the one aside ($lib/app/Aside.svelte: its Info and History). A layout changes only by proposal, over MCP
 	(doc_edit with its pin, pin_latest, unpin, set and delete; propose_doc_version), decided on the intents' board.
-	`?v=<n>` one of its versions. Admins only.
+	`?v=<n>` one of its versions. Admins only, behind the one gate of the game and the sandboxes ($lib/site/admins,
+	intent aa751ecb).
 -->
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
@@ -27,8 +26,6 @@
 		intent?: { id: string; status: string; note: string };
 	};
 
-	adminsOnly();
-	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let layout = $state<Layout | null>(null);
 	let error = $state('');
@@ -37,12 +34,11 @@
 	const wantV = $derived(params.get('v'));
 	const wantIntent = $derived(params.get('intent'));
 	$effect(() => {
-		if (!admin) return;
 		api<Item[]>('/docs?kind=sandbox').then((l) => (list = l), (e) => (error = e.message));
 	});
 	const query = () => (wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '');
 	$effect(() => {
-		if (!admin || !id) return;
+		if (!id) return;
 		const q = query();
 		let gone = false;
 		api<Layout>(`/docs/${id}${q}`).then(
@@ -89,41 +85,39 @@
 	<Aside doc={layout!} where="Sandboxes · its layout" label={layout!.json.title} shown={wantV ? Number(wantV) : null} propose="Propose v{layout!.number + 1} over MCP (doc_edit with pin, pin_latest, unpin, set and delete; propose_doc_version): the world draws it once accepted." onPick={picked} />
 {/snippet}
 
-{#if admin}
-	<div class="layouts">
-		<Frame nav={list.length ? shelf : undefined} aside={layout ? side : undefined} navLabel="The sandboxes" asideLabel="The layout's history" navIcon="board">
-			<article class="body">
-				{#if error}<p class="bad">{error}</p>{/if}
-				{#if layout}
-					<p class="eyebrow">Sandboxes · {layout.intent ? `its layout as an intent would make it` : layout.edit ? `its layout at edit ${layout.edit}` : `layout v${layout.version ?? layout.number}`}</p>
-					<h1>{layout.json.title}</h1>
-					<p><a class="btn" href={world} target="_blank" rel="noopener">Walk {layout.json.title} as this layout draws it</a></p>
-					<section>
-						<h2>What it draws: {layout.pins.length} pin{layout.pins.length === 1 ? '' : 's'}</h2>
-						<ul class="pins">
-							{#each layout.pins as p (p.slot)}
-								<li><span class="slot">{p.slot}</span><span>{pinText(p)}</span></li>
-							{:else}
-								<li class="soft">Nothing yet.</li>
-							{/each}
-						</ul>
-					</section>
-					<section>
-						<h2>How it lays them out: {configs.length} config{configs.length === 1 ? '' : 's'}</h2>
-						{#each configs as [name, data] (name)}
-							<details>
-								<summary>{name}</summary>
-								<pre>{JSON.stringify(data, null, 1)}</pre>
-							</details>
+<div class="layouts">
+	<Frame nav={list.length ? shelf : undefined} aside={layout ? side : undefined} navLabel="The sandboxes" asideLabel="The layout's history" navIcon="board">
+		<article class="body">
+			{#if error}<p class="bad">{error}</p>{/if}
+			{#if layout}
+				<p class="eyebrow">Sandboxes · {layout.intent ? `its layout as an intent would make it` : layout.edit ? `its layout at edit ${layout.edit}` : `layout v${layout.version ?? layout.number}`}</p>
+				<h1>{layout.json.title}</h1>
+				<p><a class="btn" href={world} target="_blank" rel="noopener">Walk {layout.json.title} as this layout draws it</a></p>
+				<section>
+					<h2>What it draws: {layout.pins.length} pin{layout.pins.length === 1 ? '' : 's'}</h2>
+					<ul class="pins">
+						{#each layout.pins as p (p.slot)}
+							<li><span class="slot">{p.slot}</span><span>{pinText(p)}</span></li>
 						{:else}
-							<p class="soft">None.</p>
+							<li class="soft">Nothing yet.</li>
 						{/each}
-					</section>
-				{/if}
-			</article>
-		</Frame>
-	</div>
-{/if}
+					</ul>
+				</section>
+				<section>
+					<h2>How it lays them out: {configs.length} config{configs.length === 1 ? '' : 's'}</h2>
+					{#each configs as [name, data] (name)}
+						<details>
+							<summary>{name}</summary>
+							<pre>{JSON.stringify(data, null, 1)}</pre>
+						</details>
+					{:else}
+						<p class="soft">None.</p>
+					{/each}
+				</section>
+			{/if}
+		</article>
+	</Frame>
+</div>
 
 <style>
 	.layouts { position: fixed; inset: 0; background: var(--cream); --soft: rgb(38 56 44 / 0.6); --accent: var(--brand-green); }

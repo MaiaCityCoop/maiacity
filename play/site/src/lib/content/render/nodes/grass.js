@@ -19,7 +19,7 @@ import {
 	normalize, cross, dot, length, distance, fract, floor, texture, cameraPosition, modelWorldMatrix, positionGeometry, transformNormalToView,
 	faceDirection, select, sqrt, varyingProperty
 } from 'three/tsl';
-import { BOW, CELL, FADE, PATCH, PUSHERS, STANDS, TILE_CELLS } from '../../biomes/grass.js';
+import { BOW, CELL, FADE, PATCH, PUSHERS, SINK, STANDS, TILE_CELLS } from '../../biomes/grass.js';
 
 /** the uniforms a field's tiles share */
 export function grassUniforms(/** @type {THREE.Texture} */ mask) {
@@ -46,12 +46,12 @@ export function grassUniforms(/** @type {THREE.Texture} */ mask) {
 
 /* ── the hash: grass.js's `pcg`, `seedOf`, `draw` ── */
 
-const pcgU = Fn(([v]) => {
+export const pcgU = Fn(([v]) => {
 	const state = uint(v).mul(uint(747796405)).add(uint(2891336453));
 	const word = state.shiftRight(state.shiftRight(uint(28)).add(uint(4))).bitXor(state).mul(uint(277803737));
 	return word.shiftRight(uint(22)).bitXor(word);
 }).setLayout({ name: 'grassPcg', type: 'uint', inputs: [{ name: 'v', type: 'uint' }] });
-const drawU = (/** @type {any} */ seed, /** @type {number} */ k) => float(pcgU(seed.add(uint(Math.imul(k, 0x9e3779b9) >>> 0)))).mul(1 / 4294967296);
+export const drawU = (/** @type {any} */ seed, /** @type {number} */ k) => float(pcgU(seed.add(uint(Math.imul(k, 0x9e3779b9) >>> 0)))).mul(1 / 4294967296);
 
 /* ── the biomes' value noise (noise.js `vn`) ── */
 const h21 = Fn(([p]) => {
@@ -88,13 +88,61 @@ const clumpCentreT = (/** @type {any} */ g, /** @type {any} */ size) => {
 };
 
 /**
+ * Blade j of a cell (grass.js `bladeOf`): its seed, where it stands, its rank among the cell's `perCell`, and its own
+ * numbers. The one TSL twin of `bladeOf`, for the material and the compute that chooses the blades (./grass-compute.js).
+ * @param {any} cell the cell (vec2 of whole numbers) @param {any} j its number in it (uint) @param {any} perCell
+ */
+export function bladeT(cell, j, perCell) {
+	const seed = pcgU(pcgU(pcgU(int(cell.x).toUint()).add(int(cell.y).toUint())).add(j));
+	return {
+		seed,
+		foot: cell.add(vec2(drawU(seed, 0), drawU(seed, 1))).mul(CELL),
+		rank: float(j).add(drawU(seed, 2)).div(perCell),
+		ownH: drawU(seed, 3).mul(2).sub(1),
+		ownLean: drawU(seed, 4),
+		facing: drawU(seed, 5).mul(Math.PI * 2),
+		ownW: drawU(seed, 6).mul(0.6).add(0.7),
+		shade: drawU(seed, 7),
+		dry: drawU(seed, 8),
+		end: drawU(seed, 9).mul(0.1).add(0.9)
+	};
+}
+
+/**
+ * The two nearest clump centres of four round a foot (grass.js `clumpAt`): A the nearer (x, z, height, shade) and B,
+ * and their distances. @param {any} foot @param {any} size
+ */
+export function clumpsT(foot, size) {
+	const g0 = floor(foot.div(size).sub(0.5));
+	const A = vec4(0, 0, 0, 0).toVar(), Bc = vec4(0, 0, 0, 0).toVar(), dA = float(1e9).toVar(), dB = float(1e9).toVar();
+	for (let dx = 0; dx <= 1; dx++)
+		for (let dz = 0; dz <= 1; dz++) {
+			const cc = clumpCentreT(g0.add(vec2(dx, dz)), size);
+			const dc = distance(foot, cc.xy);
+			const nearer = dc.lessThan(dA);
+			Bc.assign(select(nearer, A, select(dc.lessThan(dB), cc, Bc)));
+			dB.assign(select(nearer, dA, select(dc.lessThan(dB), dc, dB)));
+			A.assign(select(nearer, cc, A));
+			dA.assign(select(nearer, dc, dA));
+		}
+	return { A, Bc, dA, dB };
+}
+
+/**
  * @param {{
  *   level: 0 | 1 | 2,
  *   uniforms: ReturnType<typeof grassUniforms>,
  *   params: import('../../biomes/grass.js').GrassParams,
- *   device: { bands: number[], near: number, minPx: number, falloff?: number },
- *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any }
+ *   device: { bands: number[], near: number, minPx: number, falloff?: number, stands?: number },
+ *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any },
+ *   blade?: (i: any) => { cell: any, j: any },
+ *   trodden?: (foot: any) => any,
+ *   morphEnd?: number
  * }} o
+ *   blade: where the blades are chosen on the graphics card (./grass-compute.js), which blade instance i is (its cell
+ *   and its number), else the tile's own; trodden: how trodden the ground is at a foot (0…1, the trample map), the
+ *   blade flattened by it as by a pusher; morphEnd: where in its band a blade has fully become the next level's shape
+ *   (1, its end; the compute's jittered thresholds start at grass-gpu.js `JITTER`)
  */
 export function grassMaterial(o) {
 	const { level, uniforms: U, params: P, device: D } = o;
@@ -112,13 +160,9 @@ export function grassMaterial(o) {
 		const origin = modelWorldMatrix.element(3).xz;
 		const tile = floor(origin.div(CELL).add(0.5));
 		const i = uint(instanceIndex);
-		const c = i.mod(uint(k * k)), j = i.div(uint(k * k));
-		const cell = tile.add(vec2(float(c.mod(uint(k))), float(c.div(uint(k)))));
-		const seed = pcgU(pcgU(pcgU(int(cell.x).toUint()).add(int(cell.y).toUint())).add(j));
-		const foot = cell.add(vec2(drawU(seed, 0), drawU(seed, 1))).mul(CELL);
-		const rank = float(j).add(drawU(seed, 2)).div(U.perCell);
-		const ownH = drawU(seed, 3).mul(2).sub(1), ownLean = drawU(seed, 4), facing = drawU(seed, 5).mul(Math.PI * 2);
-		const ownW = drawU(seed, 6).mul(0.6).add(0.7), shade = drawU(seed, 7), dry = drawU(seed, 8), end = drawU(seed, 9).mul(0.1).add(0.9);
+		const c = i.mod(uint(k * k));
+		const { cell, j } = o.blade ? o.blade(i) : { cell: tile.add(vec2(float(c.mod(uint(k))), float(c.div(uint(k))))), j: i.div(uint(k * k)) };
+		const { seed, foot, rank, ownH, ownLean, facing, ownW, shade, dry, end } = bladeT(cell, j, U.perCell);
 
 		/* the mask: how much grass, how much of it tall, the ground's height */
 		const m = texture(U.mask, fract(foot.div(U.maskWidth))).level(0);
@@ -129,24 +173,15 @@ export function grassMaterial(o) {
 		const dd = d.toVar();
 		const keepD = select(dd.lessThanEqual(D.near), float(1), select(dd.greaterThanEqual(b2), float(0), pow(float(D.near).div(dd), D.falloff ?? 1.5)));
 		const reach = end.mul(b2);
-		// the mask thins it by rank as distance does (grass.js `growAt`, `standing`: a colony dense, the ground between bare)
-		const kept = keepD.mul(smoothstep(PATCH[0], PATCH[1], m.x));
-		const grow = clamp(kept.mul(1 + FADE).sub(rank).div(kept.mul(FADE).add(1e-4)), 0, 1).mul(float(1).sub(smoothstep(reach.sub(6), reach, dd)));
+		// the mask thins it by rank as distance does (grass.js `growAt`, `keptTo`, `standing`: a colony dense, the ground
+		// between bare): how far out this blade is kept, and it sinks in over SINK + FADE of that before it
+		const standingM = smoothstep(PATCH[0], PATCH[1], m.x);
+		const keptOut = select(rank.lessThan(standingM), pow(max(rank, 1e-6).div(standingM), -1 / (D.falloff ?? 1.5)).mul(D.near), float(0));
+		const grow = clamp(keptOut.sub(dd).div(keptOut.mul(FADE).add(SINK)), 0, 1).mul(float(1).sub(smoothstep(reach.sub(6), reach, dd)));
 
 		/* clumps: grass.js `clumpAt`, the two nearest of four */
 		const size = float(P.clump);
-		const fp = foot.div(size), g0 = floor(fp.sub(0.5));
-		const A = vec4(0, 0, 0, 0).toVar(), Bc = vec4(0, 0, 0, 0).toVar(), dA = float(1e9).toVar(), dB = float(1e9).toVar();
-		for (let dx = 0; dx <= 1; dx++)
-			for (let dz = 0; dz <= 1; dz++) {
-				const cc = clumpCentreT(g0.add(vec2(dx, dz)), size);
-				const dc = distance(foot, cc.xy);
-				const nearer = dc.lessThan(dA);
-				Bc.assign(select(nearer, A, select(dc.lessThan(dB), cc, Bc)));
-				dB.assign(select(nearer, dA, select(dc.lessThan(dB), dc, dB)));
-				A.assign(select(nearer, cc, A));
-				dA.assign(select(nearer, dc, dA));
-			}
+		const { A, Bc, dA, dB } = clumpsT(foot, size);
 		const w = smoothstep(0.5, 0.75, dB.div(max(dA.add(dB), 1e-6))).mul(0.5).add(0.5);
 		const cH = mix(Bc.z, A.z, w), cShade = mix(Bc.w, A.w, w);
 		const out = min(dA.div(size.mul(0.6)), 1);
@@ -159,7 +194,7 @@ export function grassMaterial(o) {
 		// few stand straight, most lean a little, some far over
 		const lean = ownLean.mul(ownLean).mul(1.1).add(0.3).mul(P.lean);
 		const thin = float(1).div(sqrt(max(keepD, 0.12)));
-		const width = max(float(P.width * STANDS).mul(ownW).mul(thin), dd.mul(D.minPx).div(U.pxAt1m));
+		const width = max(float(P.width * (D.stands ?? STANDS)).mul(ownW).mul(thin), dd.mul(D.minPx).div(U.pxAt1m));
 
 		/* the wind: the world's one wind where it has one (intent 6fd5e63f, render/wind.js `windNodes`: its strength at the
 		   blade's foot, gusts travelling along its way, on the world's clock), else the grass's own gusts; each blade its
@@ -183,7 +218,7 @@ export function grassMaterial(o) {
 			push.addAssign(vec3(normalize(v.add(1e-4)).mul(f.mul(height).mul(0.8)), f.mul(0.6)));
 		}
 		const bendW = windBend.add(push.xy);
-		const flat = min(push.z, 0.85);
+		const flat = o.trodden ? max(min(push.z, 0.85), o.trodden(foot).mul(0.85)) : min(push.z, 0.85);
 
 		/* its shape: grass.js `shapeAt` in its own frame (x across, z the way it leans), turned to `leanWay` */
 		const fwd = vec3(leanWay.x, 0, leanWay.y), across = vec3(leanWay.y, 0, leanWay.x.negate());
@@ -202,7 +237,7 @@ export function grassMaterial(o) {
 		};
 		const t = positionGeometry.y, s = positionGeometry.x;
 		const gA = attribute('gA', 'vec4'), gF = attribute('gF', 'float');
-		const morph = level === 2 ? float(0) : smoothstep(band * 0.7, band, dd);
+		const morph = level === 2 ? float(0) : smoothstep(band * 0.7, band * (o.morphEnd ?? 1), dd);
 		const pOwn = shape(t, s), pTo = mix(shape(gA.x, gA.y), shape(gA.z, gA.w), gF);
 		const local = mix(pOwn, pTo, morph);
 		const world = vec3(foot.x, groundY, foot.y).add(across.mul(local.x)).add(vec3(0, local.y, 0)).add(fwd.mul(local.z));

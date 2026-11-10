@@ -2,8 +2,9 @@
 	play's app shell, as legacy's (maia/site/routes/app/+layout.svelte on SNAPSHOT_2611101): no bar across the top — each page is its own,
 	the sandboxes full screen with their own top bars — and at the foot of every page the nav pill ($lib/site/app/NavPill
 	.svelte): back, the intents (a star: their board in a modal over the page, $lib/site/intents, admins only), and
-	you, whose menu switches whom you act as (yourself, or Maia City for its admins) and signs out. A visitor sees only
-	the sign-in page.
+	you, whose menu switches whom you act as (yourself, or Maia City for its admins) and signs out. A visitor sees the
+	sign-in page. Every page is behind the one gate ($lib/site/gate, intent aa751ecb): admins' only unless the table of
+	rights names one the member's level holds, "Coming soon" for anyone else, signed out or in.
 
 	An app shell (Samuel 2026-11-04: on the iPad the pill floated up the page and stayed there): the document itself never
 	scrolls; every page scrolls inside .app-scroll, a box as tall as the screen (100dvh), and the pill sits at the foot of
@@ -29,6 +30,8 @@
 	import { loadMe, session, signOut, isAdmin } from '$lib/session.svelte';
 	import { acting, actAs } from '$lib/acting.svelte';
 	import SignIn from '$lib/SignIn.svelte';
+	import Gate from '$lib/site/gate/Gate.svelte';
+	import { needOf } from '$lib/site/gate/rights';
 	import { dev } from '$app/environment';
 
 	let { children } = $props();
@@ -136,13 +139,16 @@
 
 {#if bench}
 	{@render children()}
+{:else if !session.me && !('open' in needOf(page.url.pathname))}
+	<!-- a page that needs a right, signed out: nothing while the session loads, then "Coming soon" (intent aa751ecb) -->
+	<Gate path={page.url.pathname}>{@render children()}</Gate>
 {:else if !session.ready}
 	<main class="page"><p class="muted">Loading…</p></main>
 {:else if !session.me}
 	<SignIn />
 {:else}
 	<div class="app-shell">
-		<div class="app-scroll" bind:this={scroller}>{@render children()}</div>
+		<div class="app-scroll" bind:this={scroller}><Gate path={page.url.pathname}>{@render children()}</Gate></div>
 		<!-- at the foot of the shell, not fixed to the browser's viewport -->
 		<div class="app-dock">
 			<!-- what floats over the pill (its account menu, a toast) is moved here, so the pill keeps its size -->

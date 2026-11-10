@@ -31,7 +31,9 @@ import { cardOf } from './catalog.js';
 import { groundMaterial, rowsOf } from '$lib/content/biomes/surfaces.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { coverStream } from '$lib/content/biomes/stream.js';
-import { grassField, grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js';
+import { grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js';
+import { GRASSY } from '$lib/content/biomes/index.js';
+import { grassFieldOn } from '$lib/content/render/nodes/grass-compute.js';
 import { smallDevice } from '$lib/content/render/budget.js';
 
 /** a mesh's name that lays a biome's floor on it: `biome:` and the biome's recipe hash */
@@ -211,11 +213,42 @@ export function createPlantings(o) {
 		// its grass, blade by blade ($content/biomes/grass.js): where its grass kinds' colonies are on the floor
 		if (growsGrass(recipe)) {
 			const of = grassOfRecipe(recipe, (x, z) => !Number.isNaN(grid.at(x, z)));
-			const field = grassField({ params: recipe.grass, device: smallDevice() ? 'small' : 'desktop', at: (x, z) => ({ ...of(x, z), y: grid.at(x, z) || 0 }) });
+			const field = grassFieldOn(o.renderer, { params: recipe.grass, device: smallDevice() ? 'small' : 'desktop', at: (x, z) => ({ ...of(x, z), y: grid.at(x, z) || 0 }) });
 			o.scene.add(field.object);
 			covers.push({ update: (/** @type {number} */ _x, /** @type {number} */ _z) => field.update(o.camera, performance.now() / 1000), dispose: () => (field.object.removeFromParent(), field.dispose()) });
 		}
 		state.floors++;
+	};
+	/**
+	 * A biome's own patch (its build, a round floor of it with its `ground` and a group `cover-<kind>` a kind, its card's
+	 * catalog on the root): its grass grown blade by blade on the patch as a world grows it ($content/biomes/grass.js),
+	 * as thick as real grass all over it (the viewer's budget: one floor near, not a world), in place of its grass kinds'
+	 * copies; a biome without grass shown as built.
+	 */
+	const patch = (root) => {
+		const catalog = root.userData?.catalog;
+		const ground = catalog && root.getObjectByName('ground');
+		if (!ground?.isMesh) return;
+		let recipe;
+		try {
+			recipe = biomeOfCard({ group: 'biomes', id: root.name || 'biome', version: 1, label: root.name || 'biome', catalog });
+		} catch {
+			return;
+		}
+		if (!growsGrass(recipe)) return;
+		ground.geometry.computeBoundingSphere();
+		const r = (ground.geometry.parameters?.radius ?? ground.geometry.boundingSphere?.radius ?? 6) - 0.1;
+		recipe.cover.forEach((c) => {
+			if (!c.rows && GRASSY[c.kind]) {
+				const kind = root.getObjectByName(`cover-${c.kind}`);
+				if (kind) kind.visible = false;
+			}
+		});
+		const y = ground.position.y;
+		const of = grassOfRecipe(recipe, (x, z) => Math.hypot(x, z) < r);
+		const field = grassField({ params: recipe.grass, device: smallDevice() ? 'small' : 'viewer', at: (x, z) => ({ ...of(x, z), y }) });
+		root.add(field.object);
+		covers.push({ update: () => field.update(o.camera, performance.now() / 1000), dispose: () => (field.object.removeFromParent(), field.dispose()) });
 	};
 	return {
 		state,
@@ -229,6 +262,7 @@ export function createPlantings(o) {
 			// a build kept running in the box moves what it plants: each node followed (play/SPEC.md §4.11)
 			moving = root.userData?.view?.ticks === true;
 			lay(root);
+			patch(root);
 			if (!list.length) return state;
 			const a = renderer();
 			const kinds = new Map();
