@@ -1,6 +1,23 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+**15:06 Berlin, ffd02ebf ("The sandboxes load again"), the Mac's four loads: all four show their world, production and
+the revert alike.** Pushed to `intent-work/ffd02ebf-render` (`2481d1742`: out/summary.json, out/errors.txt, 4 shots).
+Apple M1, Chromium 153 on Metal, **WebGPU** every time, a fresh profile each, one at a time:
+| load | world shown | before it |
+|---|---|---|
+| production `b95da56` Sandbox 1 | **208 s** | card 10→160 s ("Growing the forest: N of 198 kinds", then "the plants near you" from 61 s); page frozen ~185–208 s (screenshots time out) |
+| production Sandbox 5 | **187 s** | card to 140 s ("N of 180 kinds", "the plants near you" from 70 s, "Welcome" at 165 s); frozen ~165–188 s |
+| fix `da46ab0` Sandbox 1 | **207 s** | the same timeline as production, frozen ~185–208 s |
+| fix Sandbox 5 | **188 s** | the same as production, frozen ~165–188 s |
+No page error in any; the one console error each is the aside's 401 (`/api/docs/<sandbox>`, the token has no session);
+some `/api/files` fetches aborted. Nothing went white within 30 s after showing. **On this Mac in Chromium the revert
+changes nothing**: the hang users see is likely the 20–40 s freeze right before the world (the main thread or GPU
+busy), longer on slower machines. Not checked yet: Safari (WebKit), a phone.
+Watch fixes: GPU 12/14's deploy got no smoke (isgpu.py read shipped intents from list_intents; now the merge's Intent
+line and get_intent), and the smoke now fails Sandbox 1 if its title card is still up after settling (the 08:06 smoke
+of the WebGPU switch said OK on three shots of the card).
+
 - **smoke 9cbf7c1af: OK** ([e85a5860] Grass by the million: blades culled and chosen on the graphics card (#2224); 429 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 5c9edac10: OK** ([a5faafad] GPU 14/14 · Recipes bring their own shaders, safely: TSL node graphs as checked; 397 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 3f3c6e4ad: OK** ([c1bee1f8] WebGPU on every page: the switch (#2186); 395 s). 16 pages; all drawn. Frames: near 16.7 ms · mid 16.7 ms · far 16.7 ms.
