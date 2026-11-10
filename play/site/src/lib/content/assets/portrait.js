@@ -17,10 +17,12 @@ export const VIEW = /** @type {const} */ ([1.5, 0.45, 1.9]);
 /** the sky's hour the viewer holds: four in the afternoon */
 export const HOUR = 16;
 /** how high the sun stands at four in the afternoon (degrees): a summer's 4 pm at Maia City's latitude, high enough
- *  that the triangle falls on the cheek, low enough that the eyes are not in shadow */
-export const ELEVATION = 38;
-/** how far round the subject from the camera's line the sun stands (degrees): Rembrandt's 45° */
-export const TURN = 45;
+ *  that the nose's shadow falls down onto the cheek, low enough that the eyes are not in shadow */
+export const ELEVATION = 42;
+/** how far round the subject from the camera's line the sun stands (degrees): a figure faces +z and the camera stands
+ *  38° off its nose, so 45° put the sun almost on the nose (flat, no triangle; the stand-in's shot, 2026-11-10); 58°
+ *  stands it ~20° off the nose on the far side, the near cheek in shadow with its triangle of light */
+export const TURN = 58;
 
 /** the camera's bearing round what it frames (degrees, from +z toward +x) */
 export const cameraBearing = (view = VIEW) => (Math.atan2(view[0], view[2]) * 180) / Math.PI;
