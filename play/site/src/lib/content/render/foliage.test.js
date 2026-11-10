@@ -1,23 +1,19 @@
-// Light through leaves (intent 6fd5e63f): a look drawn by the page's own TSL on WebGLRenderer through three's
-// WebGLNodesHandler, on a context that only answers (./nodes/fakegl.js, intent cb16b7a5's): instanced, shadowed, as a world draws a plant's
+// Light through leaves (intent 6fd5e63f): a look drawn by the page's own TSL on the app's renderer (WebGPURenderer's
+// WebGL 2 backend), on a context that only answers (./nodes/fakegl.js, intent cb16b7a5's): instanced, shadowed, as a world draws a plant's
 // copies. Each shader it hands the graphics card is read: the wind's uniforms and aWind in the vertex stage, the
 // backlight in the fragment stage, nothing of it in a look that has none.
 import { describe, expect, test } from 'vitest';
 import * as THREE from 'three';
 import * as tsl from 'three/tsl';
-import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
-import { fakeGL } from './nodes/fakegl.js';
+import { fakeRenderer } from './nodes/fakegl.js';
 import { LEAK, foliageOf } from './foliage.js';
 import { windNodes } from './wind.js';
 
 globalThis.self ??= globalThis;
 globalThis.ImageBitmap ??= class {};
 
-function draw(material, { instanced = true, receive = false } = {}) {
-	const { gl, shaders } = fakeGL();
-	const r = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl });
-	r.shadowMap.enabled = true;
-	r.setNodesHandler(new WebGLNodesHandler());
+async function draw(material, { instanced = true, receive = false } = {}) {
+	const { r, shaders } = await fakeRenderer({ shadows: true });
 	const scene = new THREE.Scene();
 	const sun = new THREE.DirectionalLight('#fff', 2);
 	sun.castShadow = true;
@@ -60,19 +56,19 @@ describe('a leaf drawn by its look', () => {
 		expect(() => foliageOf(leafMaterial(), { kind: 'glass' })).toThrow(/no look glass/);
 	});
 
-	test('compiles: the wind bends it in the vertex stage, the backlight lights it in the fragment stage', () => {
+	test('compiles: the wind bends it in the vertex stage, the backlight lights it in the fragment stage', async () => {
 		const wind = windNodes(tsl, { strength: 0.7 });
-		const { vertex, fragment } = draw(foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }));
+		const { vertex, fragment } = await draw(foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }));
 		expect(vertex).toMatch(/aWind/);
 		expect(vertex).toMatch(/vFoliageHeight/);
 		expect(fragment).toMatch(/vFoliageHeight/);
 		expect(fragment).toMatch(/pow\(/);
 	});
 
-	test("a backlit leaf in its own crown's shade still glows: the light through it is the sun before the shadow, let through by LEAK, tinted lighter", () => {
+	test("a backlit leaf in its own crown's shade still glows: the light through it is the sun before the shadow, let through by LEAK, tinted lighter", async () => {
 		const wind = windNodes(tsl, { strength: 0.7 });
 		for (const receive of [false, true]) {
-			const { fragment } = draw(foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }), { receive });
+			const { fragment } = await draw(foliageOf(leafMaterial(), { kind: 'leaf' }, { wind }), { receive });
 			// the glow's tint, the leaf's colour lightened
 			expect(fragment).toMatch(/sqrt\(/);
 			expect(fragment).toMatch(/pow\(/);
@@ -81,20 +77,20 @@ describe('a leaf drawn by its look', () => {
 		expect(LEAK).toBeLessThan(1);
 	});
 
-	test('what is not read far off is left out: no flutter where a look has none or a level is coarse, no glow from level 2', () => {
+	test('what is not read far off is left out: no flutter where a look has none or a level is coarse, no glow from level 2', async () => {
 		const wind = windNodes(tsl, { strength: 0.7 });
 		const count = (src, re) => (src.match(re) ?? []).length;
-		const at = (level, look = { kind: 'leaf' }) => {
+		const at = async (level, look = { kind: 'leaf' }) => {
 			const m = foliageOf(leafMaterial(), look, { wind });
 			m.level = level;
 			return draw(m);
 		};
-		const near = at(0), mid = at(1), far = at(2);
+		const near = await at(0), mid = await at(1), far = await at(2);
 		// the flutter's four smoothed triangle waves (fract) are in the finest level only, behind a per-copy branch
 		expect(count(near.vertex, /fract\(/g)).toBeGreaterThan(count(mid.vertex, /fract\(/g));
 		expect(count(mid.vertex, /fract\(/g)).toBe(count(far.vertex, /fract\(/g));
 		// a look with no flutter (a stem's own is damped, a fruit's none) compiles none even at level 0
-		const fruit = at(0, { kind: 'fruit' });
+		const fruit = await at(0, { kind: 'fruit' });
 		expect(count(fruit.vertex, /fract\(/g)).toBe(count(mid.vertex, /fract\(/g));
 		// the glow (the backlight's pow) is gone from level 2; the bend and the darker foot stay at every level
 		expect(count(far.fragment, /pow\(/g)).toBeLessThan(count(mid.fragment, /pow\(/g));
@@ -107,14 +103,14 @@ describe('a leaf drawn by its look', () => {
 		expect(new Set([0, 1, 2, 3].map(key)).size).toBe(3);
 	});
 
-	test('a look the wind does not move (stone) and a material with no look compile without it', () => {
+	test('a look the wind does not move (stone) and a material with no look compile without it', async () => {
 		const wind = windNodes(tsl);
 		const stone = new THREE.MeshStandardMaterial({ color: 0x888888 });
-		const { vertex } = draw(foliageOf(stone, { kind: 'stone' }, { wind }));
+		const { vertex } = await draw(foliageOf(stone, { kind: 'stone' }, { wind }));
 		expect(vertex).not.toMatch(/aWind/);
 		const plain = foliageOf(stone, null);
 		expect(plain.look).toBeNull();
-		const drawn = draw(plain, { instanced: false });
+		const drawn = await draw(plain, { instanced: false });
 		expect(drawn.vertex).not.toMatch(/aWind|vFoliageHeight/);
 	});
 
@@ -128,9 +124,8 @@ describe('a leaf drawn by its look', () => {
 
 describe("on the render kit's own materials (intent cb16b7a5)", () => {
 	test("a level's leaf material: the kit's node material with its fade and cut, the look on top, compiled whole", async () => {
-		const { nodeOf, cutBy, cutOf, aFade, install } = await import('./nodes/index.js');
+		const { nodeOf, cutBy, cutOf, aFade } = await import('./nodes/index.js');
 		const { lookedOf } = await import('./foliage.js');
-		const { fakeGL: kitGL } = await import('./nodes/fakegl.js');
 		const wind = windNodes(tsl);
 		const leaf = leafMaterial();
 		leaf.userData.look = { kind: 'leaf' };
@@ -138,9 +133,7 @@ describe("on the render kit's own materials (intent cb16b7a5)", () => {
 		n.fade = aFade;
 		expect(n.look?.kind).toBe('leaf');
 		expect(n.cut).toBeTruthy();
-		const { gl, shaders } = kitGL();
-		const r = new THREE.WebGLRenderer({ canvas: gl.canvas, context: gl });
-		install(r);
+		const { r, shaders } = await fakeRenderer();
 		const scene = new THREE.Scene();
 		scene.add(new THREE.DirectionalLight('#fff', 2));
 		const g = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
@@ -151,9 +144,10 @@ describe("on the render kit's own materials (intent cb16b7a5)", () => {
 		const vertex = shaders.filter((s) => /gl_Position/.test(s)).join('\n');
 		expect(vertex).toMatch(/aWind/);
 		expect(vertex).toMatch(/aFade/);
-		expect(vertex).toMatch(/instanceMatrix/);
-		// the wind after the kit's own instancing
-		expect(vertex.indexOf('instanceMatrix')).toBeLessThan(vertex.lastIndexOf('aWind'));
+		// three's instancing (the matrix from four vec4 attributes), the wind after it
+		const placed = vertex.search(/mat4\( nodeAttribute/);
+		expect(placed).toBeGreaterThan(-1);
+		expect(placed).toBeLessThan(vertex.lastIndexOf('aWind'));
 	});
 
 	test('a material with no look is the kit\'s own, untouched', async () => {
@@ -166,14 +160,14 @@ describe("on the render kit's own materials (intent cb16b7a5)", () => {
 });
 
 describe('one copy bends as one', () => {
-	test('every look of a copy takes the same main bend (stiffness 1): its leaves stay on its branches', () => {
+	test('every look of a copy takes the same main bend (stiffness 1): its leaves stay on its branches', async () => {
 		const wind = windNodes(tsl);
 		const asked = [];
 		const positionOf = wind.positionOf;
 		wind.positionOf = (o) => (asked.push(o), positionOf(o));
 		for (const kind of ['leaf', 'bark', 'stem', 'fruit']) {
 			const m = new THREE.MeshStandardMaterial();
-			draw(foliageOf(m, { kind }, { wind }));
+			await draw(foliageOf(m, { kind }, { wind }));
 		}
 		expect(asked.length).toBe(4);
 		for (const o of asked) expect(o.stiffness).toBe(1);

@@ -51,6 +51,8 @@ export async function mountPlanet(stage: HTMLDivElement, onProgress: (label: str
 	const built = buildPlanet(tiles, planet, biomes, pins);
 
 	const world = createStage(stage, { fov: 40, near: 0.05, far: planet.radius * 12 });
+	// nothing drawn before the renderer may draw (WebGPU's device asked for, intent c1bee1f8; on WebGL at once)
+	await world.ready;
 	const { renderer, scene, camera } = world;
 	scene.background = new THREE.Color(planet.view.background);
 	scene.add(built.root);

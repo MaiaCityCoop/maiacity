@@ -13,7 +13,7 @@ let loader = null;
 /** @type {Map<string, Promise<THREE.CompressedTexture>>} each file, transcoded once */
 const files = new Map();
 
-/** the renderer the files are transcoded for (the first one made on the page) @param {THREE.WebGLRenderer} renderer */
+/** the renderer the files are transcoded for (the first one made on the page) @param {import('three/webgpu').WebGPURenderer} renderer */
 export function useRenderer(renderer) {
 	if (loader || typeof window === 'undefined') return;
 	try {

@@ -79,6 +79,8 @@ export async function openStage(box, { onLost, hold } = {}) {
 	let view, stage;
 	try {
 		view = createStageRenderer(box, { pixelRatio: topPixelRatio(low), shadows: 'pcf', onLost, fov: 40, turntable: true, fit, onResize: (w, h) => stage?.resize(w, h) });
+		// its first frame waits for the renderer (WebGPU's device asked for; on WebGL ready as made)
+		await view.ready;
 		stage = new Stage(view.renderer, view.camera, { low, sky: true });
 	} catch (e) {
 		view?.dispose?.();

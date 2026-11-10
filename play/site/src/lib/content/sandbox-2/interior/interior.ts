@@ -578,7 +578,7 @@ export type InteriorOptions = {
  * camera and renderer, and where the dome stands. The dome then brings no sky,
  * sun or land of its own, does not walk, and hands back its floors instead.
  */
-export type DomeHost = { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: THREE.WebGLRenderer; x: number; z: number }
+export type DomeHost = { scene: THREE.Scene; camera: THREE.PerspectiveCamera; renderer: import('three/webgpu').WebGPURenderer; x: number; z: number }
 /** A dome built into a host world, in its own coordinates (centre at 0, 0). */
 export type EmbeddedDome = {
 	root: THREE.Object3D
@@ -809,6 +809,8 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 	// standing alone (Sandbox 3) the dome has the kit's stage, sky and walker ($content/sandbox-kit); built into a host's
 	// world (Sandbox 4) it draws with the host's
 	const stage: StageHandle | null = host ? null : createWorldRenderer(container, { maxPixelRatio: huge ? 1.25 : 1.5, near: 0.05, far: R * 30 + 500 })
+	// nothing is drawn before the renderer may draw (WebGPU's device asked for; on WebGL at once)
+	if (stage) await stage.ready
 	const renderer = host?.renderer ?? stage!.renderer
 
 	// built into a host's world, the dome is a scene of its own standing in it

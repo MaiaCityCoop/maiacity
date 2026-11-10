@@ -13,12 +13,11 @@
  *   distance from the eye (`aCover`, `aReach` per copy; `coverEye`), so it thins out with distance and has no edge.
  * - the far pictures' card, the x-ray ghost, the contact shadow's blur and the stage floor's fade into the horizon.
  *
- * Drawn on WebGLRenderer through three's WebGLNodesHandler (`install`), what it lacks in r186 made good here: each
- * instanced mesh's own matrices, our clipping, a target drawn linear and untoned, a node material's shadow.
+ * Drawn by the WebGPURenderer (../core.js, intent c1bee1f8), on WebGPU or its WebGL 2 backend: each instanced mesh's
+ * own matrices and our clipping made good here, the sun's cascades by SunLightNode.
  */
 import * as THREE from 'three';
 import { AttributeNode, MeshBasicNodeMaterial, MeshLambertNodeMaterial, MeshPhongNodeMaterial, MeshPhysicalNodeMaterial, MeshStandardNodeMaterial, NodeMaterial } from 'three/webgpu';
-import { WebGLNodesHandler } from 'three/addons/tsl/WebGLNodesHandler.js';
 import { SunLight } from 'three/addons/lights/SunLight.js';
 import { SunLightNode } from 'three/addons/lights/SunLightNode.js';
 import { applyGraph } from './graph.js';
@@ -28,90 +27,17 @@ SunLight.registerNode(SunLightNode);
 import {
 	If, abs, atan, int, uniformArray, cameraPosition, cameraViewMatrix, clamp, diffuseColor, dot, float, floor, fract, frontFacing, instanceColor, length, mat3, materialMetalness, materialNormal,
 	materialOpacity, materialRoughness, max, mix, mod, nodeObject, normalLocal, normalView, normalize, output, positionLocal, positionView, positionViewDirection, positionWorld, pow,
-	screenCoordinate, select, sin, smoothstep, texture, uniform, uv, varying, vec2, vec3, vec4
+	screenCoordinate, depth, select, sin, smoothstep, texture, uniform, uv, varying, vec2, vec3, vec4
 } from 'three/tsl';
-
-// ---------------------------------------------------------------- the handler
-
-const handlers = new WeakMap();
-
-/**
- * Lets a renderer draw node materials (three's WebGLNodesHandler, r184+), as we need it: every node material drawn
- * into a target comes out linear and untoned, as three's own do (the handler would tone-map and encode it for the
- * screen), the sky's and the environment three bakes from it too.
- * @param {THREE.WebGLRenderer} r
- */
-export function install(r) {
-	if (handlers.has(r) || !r.setNodesHandler) return handlers.get(r);
-	const h = new WebGLNodesHandler();
-	r.setNodesHandler(h);
-	const screen = h.getOutputCallback;
-	const onScreen = () => r.getRenderTarget() === null;
-	// the object being keyed, for the kit's shapes (shapeOf)
-	const keyOf = h.customProgramCacheKeyCallback;
-	h.customProgramCacheKeyCallback = function () {
-		drawing = h.nodeFrame.object;
-		try {
-			return keyOf.call(this);
-		} finally {
-			drawing = null;
-		}
-	};
-	// three builds a node material once per program (a mesh's shadows, a target) but keeps only its last build. Its
-	// n-th build made its n-th program (each build is a miss of three's `programs`, which keeps their order), and a
-	// program met first takes that build, in a frame or after a warm-up's compile (8823eb7c: a car's paint drew its body
-	// with its ends' build; ed6694c3: one rule for both)
-	const made = new WeakMap(), build = h.build.bind(h), meet = h.onUpdateProgram.bind(h);
-	h.build = (m, o, q) => {
-		build(m, o, q);
-		if (!made.has(m)) made.set(m, []), m.addEventListener('dispose', () => made.delete(m));
-		made.get(m).push({ uniforms: q.uniforms, builder: m._latestBuilder });
-	};
-	h.onUpdateProgram = (m, p, q) => {
-		const own = !h.programCache.get(m)?.has(p) && made.get(m)?.[[...(q.programs?.values() ?? [])].indexOf(p)];
-		if (own) (q.uniforms = own.uniforms), (m._latestBuilder = own.builder);
-		meet(m, p, q);
-	};
-	// in a target three's own materials come out linear and untoned, the screen alone tone mapped and encoded: so do
-	// ours, every node material, the sky's too (544485e2: the viewers' sky, toned in its own shader and again at the
-	// post stack's output, came out a dark olive under AgX, a washed cream under Neutral). Keyed apart, the screen's
-	// program by the renderer's tone and colour space, a target's as one.
-	h.getOutputCallback = (node, builder) => (onScreen() ? screen(node, builder) : node);
-	if (h.renderer) h.renderer.getCacheKey = () => (onScreen() ? `${r.toneMapping}${r.outputColorSpace}` : 'target');
-	handlers.set(r, h);
-	return h;
-}
-
-/**
- * A mesh whose shadow is drawn by a node material (its `customDepthMaterial`): drawn from the light (the handler keeps
- * the eye's camera through the shadow pass and updates nothing there).
- * @param {THREE.Mesh} mesh @param {THREE.WebGLRenderer} r
- */
-export function castsAsNode(mesh, r) {
-	let was = null;
-	mesh.onBeforeShadow = (_r, o, _c, light, g, depth) => {
-		const h = handlers.get(r);
-		// (only a real renderer: the census's counting one keeps no programs)
-		if (!h || !depth.isNodeMaterial || typeof r.properties?.has !== 'function') return;
-		was = h.nodeFrame.camera;
-		h.nodeFrame.camera = light;
-		h.setObject(o, depth);
-		depth.onBeforeRender(r, null, light, g, o);
-	};
-	mesh.onAfterShadow = () => {
-		const h = handlers.get(r);
-		if (h && was) h.nodeFrame.camera = was;
-		was = null;
-	};
-}
 
 // ---------------------------------------------------------------- the pieces
 
-/** an attribute declared whether the geometry has it or not (unbound it reads 0, as three's own `aFade` did) */
+/** an attribute the geometry may not have: read where it has it, else 0, as three's own `aFade` read (three's
+ *  AttributeNode, without its warning). Never declared without its buffer: WebGPU would refuse the pipeline, or read
+ *  the attributes after it from the wrong places (intent c1bee1f8) */
 class Always extends AttributeNode {
 	generate(b) {
-		const type = this.getNodeType(b);
-		return b.shaderStage === 'vertex' ? b.getAttribute(this.getAttributeName(b), type).name : varying(this).build(b, type);
+		return b.hasGeometryAttribute(this.getAttributeName(b)) ? super.generate(b) : b.generateConst(this.getNodeType(b));
 	}
 }
 const always = (name, type) => nodeObject(new Always(name, type));
@@ -208,35 +134,31 @@ const ours = (Base) =>
 		/** @type {any} */ cut = null;
 		/** @type {any} */ cap = null;
 		gloss = 1;
-		setup(builder) {
-			// a matrix takes four attribute places: the handler's builder counts one
-			if (!builder.ours) {
-				builder.ours = true;
-				const list = builder.getAttributes.bind(builder);
-				builder.getAttributes = (stage) => {
-					let at = 0;
-					return list(stage).replace(/layout\( location = \d+ \) in (\w+)/g, (_, t) => `layout( location = ${(at += t === 'mat4' ? 4 : 1) - (t === 'mat4' ? 4 : 1)} ) in ${t}`);
-				};
-			}
-			return super.setup(builder);
-		}
 		setupPosition(builder) {
 			const o = builder.object;
 			if (!o.isInstancedMesh) return super.setupPosition(builder);
-			// each mesh's own `instanceMatrix` and `instanceColor`, bound by the renderer as three's own materials take them
-			o.isInstancedMesh = false;
-			try {
-				super.setupPosition(builder);
-			} finally {
-				o.isInstancedMesh = true;
-			}
-			const m = always('instanceMatrix', 'mat4');
-			const c0 = m.element(0).xyz, c1 = m.element(1).xyz, c2 = m.element(2).xyz;
-			positionLocal.assign(grown(m.mul(vec4(positionLocal, 1)).xyz));
-			normalLocal.assign(mat3(c0, c1, c2).mul(normalLocal.div(vec3(dot(c0, c0), dot(c1, c1), dot(c2, c2)))));
-			if (o.instanceColor) instanceColor.assign(always('instanceColor', 'vec3'));
+			// three's own instancing (each mesh's `instanceMatrix` and `instanceColor`, its own render object on the
+			// WebGPURenderer), then a cover's growth on the placed position (intent c1bee1f8: the WebGL handler needed the
+			// matrix as a mat4 attribute, which WGSL refuses)
+			super.setupPosition(builder);
+			positionLocal.assign(grown(positionLocal));
 			return positionLocal;
 		}
+		/**
+		 * What the shadow pass keeps (WebGPU, intent c1bee1f8): its own shadow material draws every caster, never this
+		 * one's diffuse step, so the cut and the fade are handed to it as the mask three reads there; null without them.
+		 * Made once for the cut and fade it has (three's constructor sets it; what it sets is not kept).
+		 */
+		get maskShadowNode() {
+			if (!this.cut && !this.fade) return null;
+			if (this._mask?.cut !== this.cut || this._mask?.fade !== this.fade) {
+				let gone = this.cut ? cuts(this.cut) : null;
+				if (this.fade) gone = gone ? gone.or(faded(this.fade)) : faded(this.fade);
+				this._mask = { cut: this.cut, fade: this.fade, node: gone.not() };
+			}
+			return this._mask.node;
+		}
+		set maskShadowNode(_v) {}
 		setupDiffuseColor(builder) {
 			if (this.cut) cuts(this.cut).discard();
 			if (this.fade) faded(this.fade).discard();
@@ -256,7 +178,7 @@ const ours = (Base) =>
 		}
 		// a program for each shape, not each material (by id, Safari linked 88 in 8 frames in Sandbox 5: bd087014)
 		customProgramCacheKey() {
-			return `${super.customProgramCacheKey()}#${shapeOf(this, drawing)}`;
+			return `${super.customProgramCacheKey()}#${shapeOf(this)}`;
 		}
 		copy(source) {
 			super.copy(source);
@@ -266,12 +188,10 @@ const ours = (Base) =>
 	};
 
 const I3 = new THREE.Matrix3();
-/** the object being keyed (install) */
-let drawing = null;
 /** What makes two of our shaders differ beside three's node hash: the kit's settings, each texture slot's kind and
- * the drawn geometry (a map reads `uv`, vertex colours `color`: 660ad67f); the object being keyed unless one is named
- * (./tsl.js keys ours by it too). @param {any} m @param {any} [o] */
-export function shapeOf(m, o = drawing) {
+ * the drawn geometry where one is named (a map reads `uv`, vertex colours `color`: 660ad67f; a render object keys its
+ * geometry itself); ./tsl.js keys ours by it too. @param {any} m @param {any} [o] */
+export function shapeOf(m, o) {
 	let s = `${m.fade ? 'f' : ''}${m.cut ? 'c' : ''}${m.cap ? 'p' : ''}${m.gloss === 1 ? '' : `g${m.gloss}`}|${o?.type}${o?.instanceColor ? 'ic' : ''}`;
 	const g = o?.geometry;
 	for (const [k, a] of Object.entries(g?.attributes ?? {}).sort()) s += `|${k}${a.itemSize}${a.array?.constructor.name}${a.normalized ? 'n' : ''}${a.isInstancedBufferAttribute ? 'i' : ''}`;
@@ -418,6 +338,22 @@ export function blurMaterial(map) {
 export function poolMaterial(map, color, opacity) {
 	const m = new MeshBasicNodeMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false });
 	m.opacityNode = drawn(map).a.mul(materialOpacity);
+	m.isKit = true;
+	return m;
+}
+
+/**
+ * The contact shadow's depth picture (as three's MeshDepthMaterial drew it: white near the camera, 1 - depth), a node
+ * material WebGPU draws (intent c1bee1f8: it takes no classic depth material). Given a cut-out part's material, its
+ * picture's alpha cuts what that cuts.
+ * @param {THREE.Material & { map?: THREE.Texture | null, alphaMap?: THREE.Texture | null }} [of]
+ */
+export function depthMaterial(of) {
+	const m = new MeshBasicNodeMaterial({ depthTest: false, depthWrite: false, toneMapped: false });
+	m.colorNode = vec3(float(1).sub(depth));
+	if (of?.map) m.opacityNode = texture(of.map).a;
+	else if (of?.alphaMap) m.opacityNode = texture(of.alphaMap).g;
+	if (of) (m.alphaTest = of.alphaTest), (m.side = of.side);
 	m.isKit = true;
 	return m;
 }

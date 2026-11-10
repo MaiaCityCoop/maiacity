@@ -124,7 +124,7 @@ function still(file, out, { at, last }) {
 async function browser(chromium) {
 	if (mac) {
 		const chrome = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-		const args = ['--use-gl=angle', '--use-angle=metal', '--ignore-gpu-blocklist', '--hide-scrollbars'];
+		const args = ['--use-gl=angle', '--use-angle=metal', '--ignore-gpu-blocklist', '--hide-scrollbars', '--enable-unsafe-webgpu'];
 		return chromium.launch({ headless: true, args, ...(existsSync(chrome) ? { executablePath: chrome } : {}) });
 	}
 	return chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
