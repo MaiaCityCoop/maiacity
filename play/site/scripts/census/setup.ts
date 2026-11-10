@@ -18,14 +18,13 @@
  */
 import { plugin } from 'bun';
 import { compileModule } from 'svelte/compiler';
-import { createHash } from 'node:crypto';
-import { gunzipSync, gzipSync } from 'node:zlib';
 import { hashOf } from '../../src/lib/content/assets/box/headless.js';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { El, VIEWPORT, contexts, makeDocument } from './dom';
 import { SEEDED_RANDOM, frameWindow } from './box';
 import { opfs } from './opfs';
+import { fileOf, pinFile, pinnedFile, pinnedRoute } from './pinned';
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 /** this checkout's play/site */
@@ -269,11 +268,11 @@ export function setup(o: Setup = {}) {
 		if (url.pathname.startsWith('/api/')) {
 			if (method !== 'GET' && method !== 'HEAD') return new Response('census: read-only', { status: 405 });
 			const route = url.pathname + url.search;
-			const file = /^\/api\/files\/([0-9a-f]{64})$/.exec(url.pathname)?.[1];
+			const file = fileOf(url.pathname);
 			if (file) {
 				// a file is what its hash names: pinned with the inputs, else kept on disk, else read from play once
-				const pinned = done.inputs && join(done.inputs, 'files', `${file}.gz`);
-				let bytes: Uint8Array | null = pinned && existsSync(pinned) ? gunzipSync(readFileSync(pinned)) : null;
+				let bytes = done.inputs ? pinnedFile(done.inputs, file) : null;
+				const wasPinned = !!bytes;
 				const at = join(filesDir, file);
 				if (!bytes && existsSync(at)) bytes = readFileSync(at);
 				if (!bytes) {
@@ -283,13 +282,12 @@ export function setup(o: Setup = {}) {
 					writeFileSync(at, bytes);
 				}
 				if (hashOf(bytes) !== file) throw new Error(`census: the file ${file.slice(0, 12)}… is not what its hash names`);
-				if (done.record && pinned && !existsSync(pinned)) mkdirSync(join(done.inputs!, 'files'), { recursive: true }), writeFileSync(pinned, gzipSync(bytes, { level: 9 }));
+				if (done.record && done.inputs && !wasPinned) pinFile(done.inputs, file, bytes);
 				fetched.files++;
 				return new Response(bytes, { status: 200, headers: { 'content-type': 'application/octet-stream' } });
 			}
-			const pinnedAt = done.inputs && join(done.inputs, `${createHash('sha256').update(route).digest('hex').slice(0, 20)}.json.gz`);
-			if (pinnedAt && existsSync(pinnedAt) && !(done.record && done.fresh)) {
-				const p = JSON.parse(gunzipSync(readFileSync(pinnedAt)).toString('utf8'));
+			const p = done.inputs && !(done.record && done.fresh) ? pinnedRoute(done.inputs, route) : null;
+			if (p) {
 				fetched.pinned.add(route);
 				return new Response(p.body, { status: p.status, headers: { 'content-type': p.type } });
 			}
@@ -297,9 +295,10 @@ export function setup(o: Setup = {}) {
 			fetched.live.add(route);
 			if (done.verbose) console.error('census: live', r.status, route);
 			const body = await r.text();
+			const type = r.headers.get('content-type') ?? 'application/json';
 			// a route that names nothing (404) is pinned too: "no such variant" is an answer as it was (8823eb7c)
-			if (done.record && pinnedAt && (r.ok || r.status === 404)) writeFileSync(pinnedAt, gzipSync(JSON.stringify({ route, status: r.status, type: r.headers.get('content-type') ?? 'application/json', blake3: hashOf(body), body }), { level: 9 }));
-			return new Response(body, { status: r.status, headers: { 'content-type': r.headers.get('content-type') ?? 'application/json' } });
+			if (done.record && done.inputs && (r.ok || r.status === 404)) pinRoute(done.inputs, route, r.status, type, body);
+			return new Response(body, { status: r.status, headers: { 'content-type': type } });
 		}
 		// the site's static files: the frozen engines from this checkout's (they never change), the rest from root's
 		const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '');

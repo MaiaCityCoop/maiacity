@@ -1,152 +1,150 @@
 #!/usr/bin/env bun
 /*
- * A WORLD ON A REAL GPU — a page of play's site opened in a real browser, on the machine's own GPU, and measured
- * (intent ba948167): the adapter it draws with, whether the world is shown, the time to the world, its frame time,
- * and a screenshot. In Chromium and in WebKit (Samuel uses Safari). It needs no token and reads no network: the
- * site's build (`bun run build`) served as play serves it (play/api/src/site.ts), and `/api` answered from the
- * census's pinned inputs (./census/inputs: play's routes and files by hash, as ./census/setup.ts reads them), the one
- * signed in an admin.
+ * A WORLD ON A REAL GPU — a page of play's site opened in real browsers on the machine's own GPU and measured (intent
+ * ba948167): the adapter it draws with, whether the world is shown, the time to the world, its frame time (the frame
+ * meter's: src/lib/content/render/meter.js) and a screenshot, in Chromium and in WebKit (Safari's engine). It needs
+ * no token and reads no network: the site's build (`bun run build`) served as play serves it (play/api/src/site.ts),
+ * `/api` answered from the pinned inputs (./census/pinned.ts), the one signed in an admin.
  *
  *   bun play/site/scripts/gpu.ts [--world /sandbox-5/] [--browser chromium,webkit] [--out <dir>]
- *                                [--timeout <seconds>] [--frames <n>] [--inputs <dir>] [--record]
+ *        [--world-within <seconds>] [--frame-within <ms>] [--settle <seconds>] [--timeout <seconds>]
+ *        [--inputs <dir>] [--software] [--record]
  *
- * --record   pins what the page reads and the inputs lack (a world's ground textures, its cover), read from play with
- *            PLAY_MCP_TOKEN (the header to play only) and held to its hash; sound is never pinned (no picture needs it)
+ * --world          the page's route: a sandbox, or an asset's viewer
+ * --world-within   the world is shown within that many seconds of the navigation, in every browser asked
+ * --frame-within   a frame takes at most that many ms (the mean over 3 s once the world has settled)
+ * --settle         how long the world may take to settle before its frames are measured and it is photographed (60)
+ * --software       measure even where there is no GPU (the box's software renderer): for this script's own plumbing.
+ *                  Without it a machine without a GPU measures nothing and fails, saying so: what needs a GPU is
+ *                  not decided in a software renderer.
+ * --record         pins what the page reads and the inputs lack (a world's ground textures, its cover), read from
+ *                  play with PLAY_MCP_TOKEN (the header to play only); sound is never pinned (no picture needs it)
  *
- * Writes <out>/gpu.json (every measure) and <out>/<browser>.png, and prints one line a browser. On GitHub's macOS
- * runners this is Metal (.github/workflows/intents-pr.yml's gpu job); in avenBOX it is the software renderer, which
- * the report says by the adapter's name: nothing here pretends a CPU is a GPU.
+ * Prints one line a browser and writes <out>/gpu.json and <out>/<browser>.png. Exit 0 only when the world is shown
+ * in every browser, the graphics device was never lost, and every bound given holds. An intent's check asks for it by
+ * this command as its `run`; on its pull request the box run measures it on GitHub's macOS runner, on Metal
+ * (.github/workflows/intents-pr.yml's job `gpu`), and records what it printed as the check's evidence.
  */
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { gzipSync } from 'node:zlib';
 import { join, resolve } from 'node:path';
-import { gunzipSync } from 'node:zlib';
 import { chromium, webkit, type Browser, type BrowserType } from 'playwright';
 import { siteHandler } from '../../api/src/site.ts';
-import { hashBytes } from '../src/lib/kernel/hash.js';
+import { fileOf, pinFile, pinRoute, pinnedFile, pinnedRoute } from './census/pinned';
+import { quietness } from './lib/quiet.js';
+import { SEEDED_RANDOM } from './macjob/determinism.js';
+import { LAUNCH, gpuOf, webgpuOf } from './mac-page.mjs';
 
-const argv = process.argv.slice(2);
-const arg = (k: string, d?: string) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
 const SITE = resolve(import.meta.dir, '..');
-const world = arg('--world', '/sandbox-5/')!;
-const browsers = arg('--browser', 'chromium,webkit')!.split(',');
-const out = resolve(arg('--out', 'gpu-out')!);
-const timeout = Number(arg('--timeout', '300')) * 1000;
-const frames = Number(arg('--frames', '300'));
-const inputs = resolve(arg('--inputs', join(SITE, 'scripts/census/inputs'))!);
-if (!existsSync(join(SITE, 'build/200.html'))) throw new Error('gpu: play/site has no build (bun run build)');
-mkdirSync(out, { recursive: true });
+const PLAY = 'https://play.maia.city';
 
-/** `/api` from the pinned inputs: a file by its hash, a route by its URL; what is not pinned is a 404, and named */
-const unpinned = new Set<string>();
+/** whether a renderer's name, as a browser gives it, is a software one: no GPU */
+export const software = (name: string) => /swiftshader|llvmpipe|softpipe|software|basic render|^none/i.test(name.trim());
+
+/** the one signed in, where nobody is: an admin, so every page opens */
 const ME = { id: '00000000-0000-4000-8000-000000000000', name: 'gpu', level: 'admin', may: { read: ['*'] } };
-const record = argv.includes('--record');
-const routeAt = (route: string) => join(inputs, `${createHash('sha256').update(route).digest('hex').slice(0, 20)}.json.gz`);
-async function api(u: URL): Promise<Response> {
-	if (u.pathname === '/api/me') return Response.json(ME);
-	const route = u.pathname + u.search;
-	const file = /^\/api\/files\/([0-9a-f]{64})(\.\w+)?$/.exec(u.pathname)?.[1];
-	const at = file ? join(inputs, 'files', `${file}.gz`) : routeAt(route);
-	if (!existsSync(at) && record) {
-		const r = await fetch(`https://play.maia.city${route}`, { headers: { authorization: `Bearer ${process.env.PLAY_MCP_TOKEN}` } });
-		const type = r.headers.get('content-type') ?? 'application/octet-stream';
-		const bytes = new Uint8Array(await r.arrayBuffer());
-		if (file && r.ok && !type.startsWith('audio/') && hashBytes(bytes) === file) writeFileSync(at, gzipSync(bytes, { level: 9 }));
-		else if (!file && r.ok) writeFileSync(at, gzipSync(JSON.stringify({ route, status: r.status, type, blake3: hashBytes(bytes), body: new TextDecoder().decode(bytes) }), { level: 9 }));
-	}
-	if (existsSync(at)) {
-		if (file) return new Response(gunzipSync(readFileSync(at)), { headers: { 'content-type': 'application/octet-stream', 'cache-control': 'public, max-age=31536000, immutable' } });
-		const p = JSON.parse(gunzipSync(readFileSync(at)).toString('utf8'));
-		return new Response(p.body, { status: p.status, headers: { 'content-type': p.type } });
-	}
-	unpinned.add(route);
-	return Response.json({ error: 'not pinned' }, { status: 404 });
-}
-const site = siteHandler(join(SITE, 'build'));
-const server = Bun.serve({
-	port: 0,
-	hostname: '127.0.0.1',
-	fetch(req) {
+
+/**
+ * `/api` from the pinned inputs: a file by its hash, a route by its URL, read-only. What is not pinned is a 404 and
+ * kept in `unpinned`; with `live` (--record) it is read from play first and pinned.
+ */
+export function pinnedApi(inputs: string, unpinned: Set<string>, live?: (route: string) => Promise<Response>) {
+	return async (req: Request): Promise<Response> => {
+		if (req.method !== 'GET' && req.method !== 'HEAD') return new Response('read-only', { status: 405 });
 		const u = new URL(req.url);
-		if (u.pathname.startsWith('/api/')) return req.method === 'GET' || req.method === 'HEAD' ? api(u) : new Response('read-only', { status: 405 });
-		return site(req);
-	}
-});
-const origin = `http://127.0.0.1:${server.port}`;
+		const route = u.pathname + u.search;
+		if (u.pathname === '/api/me') return Response.json(ME);
+		const file = fileOf(u.pathname);
+		if (live && !(file ? pinnedFile(inputs, file) : pinnedRoute(inputs, route))) {
+			const r = await live(route);
+			const type = r.headers.get('content-type') ?? 'application/octet-stream';
+			const bytes = new Uint8Array(await r.arrayBuffer());
+			if (file && r.ok && !type.startsWith('audio/')) pinFile(inputs, file, bytes);
+			else if (!file && r.ok) pinRoute(inputs, route, r.status, type, new TextDecoder().decode(bytes));
+		}
+		if (file) {
+			const bytes = pinnedFile(inputs, file);
+			if (bytes) return new Response(bytes, { headers: { 'content-type': 'application/octet-stream', 'cache-control': 'public, max-age=31536000, immutable' } });
+		} else {
+			const p = pinnedRoute(inputs, route);
+			if (p) return new Response(p.body, { status: p.status, headers: { 'content-type': p.type } });
+		}
+		unpinned.add(route);
+		return Response.json({ error: 'not pinned' }, { status: 404 });
+	};
+}
 
-/** a Mac's Metal for Chromium, WebGPU asked for; WebKit as it comes */
-const LAUNCH: Record<string, [BrowserType, object]> = {
-	chromium: [chromium, { channel: 'chromium', headless: true, args: ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu', ...(process.platform === 'darwin' ? ['--use-angle=metal'] : [])] }],
-	webkit: [webkit, { headless: true }]
-};
-
-type Measure = {
+export type Measure = {
 	browser: string;
 	version: string;
-	/** WebGPU's adapter as the browser names it, or none */
+	/** WebGPU's adapter and WebGL's renderer as the browser names them, or none */
 	webgpu: string;
-	/** WebGL's renderer as the browser names it, or none */
 	webgl: string;
-	/** what the page's renderer drew with: webgpu, webgl2 (WebGPURenderer's fallback) or none */
+	/** what the page's renderer drew with: webgpu, webgl2 (WebGPURenderer's fallback) or null */
 	backend: string | null;
-	/** the cover gone and a canvas drawn into: the world is shown */
+	/** the world is up (its cover open) and the picture is not blank */
 	shown: boolean;
-	/** seconds from the navigation to the world (the page's mount answered) */
+	/** seconds from the navigation to the world */
 	world_s: number | null;
-	/** the frame time over `frames` frames once the world is up: median and 95th percentile, ms */
+	/** seconds more until it had settled (./lib/quiet.js), or null where it had not within --settle */
+	settled_s: number | null;
+	/** the frame meter's 3 s once settled: frames' mean and p95 interval, CPU and GPU ms a frame, draws, triangles */
 	frame_ms: number | null;
 	frame_p95: number | null;
-	/** the share of the screenshot's pixels that are not its most frequent colour: a blank picture is near 0 */
+	cpu_ms: number | null;
+	gpu_ms: number | null;
+	calls: number | null;
+	triangles: number | null;
+	/** the share of the screenshot that is not its most frequent colour: a blank picture is near 0 */
 	painted: number | null;
 	errors: string[];
 };
+export type Bounds = { worldWithin?: number; frameWithin?: number };
 
-async function measure(name: string): Promise<Measure> {
-	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, frame_ms: null, frame_p95: null, painted: null, errors: [] };
+/** why a measure fails: nothing when the world is shown, the device held and every bound given holds */
+export function judge(m: Measure, b: Bounds = {}): string[] {
+	const why: string[] = [];
+	if (m.world_s === null) why.push(`the world never came up${m.errors[0] ? `: ${m.errors[0]}` : ''}`);
+	else if (!m.shown) why.push(`the picture is blank (${m.painted} painted)`);
+	if (m.errors.some((e) => /device was lost/i.test(e))) why.push('the graphics device was lost');
+	if (b.worldWithin !== undefined && m.world_s !== null && m.world_s > b.worldWithin) why.push(`the world took ${m.world_s} s, more than ${b.worldWithin} s`);
+	if (b.frameWithin !== undefined && (m.frame_ms === null || m.frame_ms > b.frameWithin)) why.push(`a frame took ${m.frame_ms ?? '—'} ms, more than ${b.frameWithin} ms`);
+	return why;
+}
+
+/** one line a browser, as the check's evidence keeps it */
+export const lineOf = (m: Measure, why: string[]) =>
+	`${why.length ? '✗' : '✓'} ${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world in ${m.world_s ?? '—'} s, settled ${m.settled_s === null ? 'not' : `in ${m.settled_s} s more`} · frame ${m.frame_ms ?? '—'} ms (p95 ${m.frame_p95 ?? '—'}, CPU ${m.cpu_ms ?? '—'}, GPU ${m.gpu_ms ?? '—'}) · ${m.calls ?? '—'} draws, ${m.triangles ?? '—'} triangles · ${m.painted ?? '—'} painted${why.length ? ` · ${why.join('; ')}` : ''}`;
+
+const BROWSERS: Record<string, [BrowserType, object]> = { chromium: [chromium, LAUNCH], webkit: [webkit, { headless: true }] };
+
+async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number }): Promise<Measure> {
+	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, settled_s: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, painted: null, errors: [] };
 	let browser: Browser | undefined;
 	try {
-		const [type, options] = LAUNCH[name] ?? (() => { throw new Error(`no browser ${name} (chromium, webkit)`); })();
-		browser = await type.launch(options);
+		browser = await BROWSERS[name][0].launch(BROWSERS[name][1]);
 		m.version = browser.version();
 		const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+		// every page's Math.random one sequence, and the frame meter in before the page makes its renderer
+		await page.addInitScript({ content: SEEDED_RANDOM });
+		await page.addInitScript({ content: `${readFileSync(join(SITE, 'src/lib/content/render/meter.js'), 'utf8').replace(/^export /gm, '')};window.__meter = installMeter(window);` });
 		page.on('pageerror', (e) => m.errors.push(String(e.message).slice(0, 300)));
-		// a route not pinned is named once, below, not as each 404 it made
+		// a route not pinned is named once, at the end, not as each 404 it made
 		page.on('console', (c) => c.type() === 'error' && !c.text().startsWith('Failed to load resource') && m.errors.push(c.text().slice(0, 300)));
 		const t0 = performance.now();
-		await page.goto(origin + world, { waitUntil: 'commit' });
-		[m.webgpu, m.webgl] = await page.evaluate(async () => {
-			const a = await (navigator as any).gpu?.requestAdapter?.().catch(() => null);
-			const i = a?.info;
-			const g = document.createElement('canvas').getContext('webgl2');
-			const e = g?.getExtension('WEBGL_debug_renderer_info');
-			return [a ? [i?.vendor, i?.architecture, i?.device, i?.description].filter(Boolean).join(' ') || 'an adapter' : 'none', g ? String(e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)) : 'none'];
-		});
-		// the world is up once its cover opens (WorldPage.svelte: `mount` answered) or, on a page without one, its pill is gone
-		await page.waitForFunction(() => !!document.querySelector('.world canvas') && !document.querySelector('.world .loading:not(.opening)') && !document.querySelector('.world .status'), null, { timeout, polling: 100 });
+		await page.goto(origin + o.world, { waitUntil: 'commit' });
+		[m.webgpu, m.webgl] = [await webgpuOf(page), await gpuOf(page)];
+		// up: a canvas drawn into, and the page's cover open (WorldPage.svelte: its `mount` answered) or its pill gone
+		await page.waitForFunction(() => !!document.querySelector('canvas') && !document.querySelector('.world .loading:not(.opening), .world .status'), null, { timeout: o.timeout, polling: 100 });
 		m.world_s = Math.round((performance.now() - t0) / 100) / 10;
-		await page.waitForFunction(() => !document.querySelector('.world .loading'), null, { timeout: 10_000 }).catch(() => {});
 		m.backend = await page.evaluate(() => (window as any).__rendererBackend ?? null);
-		const dts = await page.evaluate(
-			(n) =>
-				new Promise<number[]>((ok) => {
-					const dts: number[] = [];
-					let last = 0;
-					const end = performance.now() + 30_000;
-					const tick = (now: number) => {
-						if (last) dts.push(now - last);
-						last = now;
-						dts.length < n && now < end ? requestAnimationFrame(tick) : ok(dts);
-					};
-					requestAnimationFrame(tick);
-				}),
-			frames
-		);
-		const sorted = [...dts].sort((a, b) => a - b);
-		const q = (p: number) => (sorted.length ? Math.round(sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] * 10) / 10 : null);
-		[m.frame_ms, m.frame_p95] = [q(0.5), q(0.95)];
-		const png = await page.screenshot({ path: join(out, `${name}.png`) });
-		// how much of the picture is painted, counted in the page (its own decoder): a white or one-colour world is near 0
+		const t1 = performance.now();
+		for (let zero = 0; performance.now() - t1 < o.settle * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
+		if ((await page.evaluate(quietness).catch(() => null)) === 0) m.settled_s = Math.round((performance.now() - t1) / 100) / 10;
+		await page.waitForFunction(() => !document.querySelector('.world .loading'), null, { timeout: 10_000 }).catch(() => {});
+		const s = await page.evaluate(() => (window as any).__meter.sample(3));
+		Object.assign(m, { frame_ms: s.frame_ms, frame_p95: s.frame_p95, cpu_ms: s.cpu_ms, gpu_ms: s.gpu_ms, calls: s.calls, triangles: s.triangles });
+		const png = await page.screenshot({ path: join(o.out, `${name}.png`) });
+		// how much of the picture is painted, counted in the page (its own decoder)
 		m.painted = await page.evaluate(async (b64) => {
 			const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
 			const c = Object.assign(document.createElement('canvas'), { width: 144, height: 90 });
@@ -169,13 +167,55 @@ async function measure(name: string): Promise<Measure> {
 	return m;
 }
 
-const got: Measure[] = [];
-for (const b of browsers) {
-	const m = await measure(b);
-	got.push(m);
-	console.log(`${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world ${m.shown ? 'shown' : 'NOT shown'} in ${m.world_s ?? '—'} s · frame ${m.frame_ms ?? '—'} ms (p95 ${m.frame_p95 ?? '—'}) · painted ${m.painted ?? '—'}${m.errors.length ? ` · ${m.errors.length} errors: ${m.errors[0]}` : ''}`);
+/** the machine's GPU as Chromium's WebGL names it (a software renderer's name where there is none) */
+async function machineGpu(): Promise<string> {
+	const b = await chromium.launch(LAUNCH);
+	try {
+		const page = await b.newPage();
+		await page.goto('about:blank');
+		return await gpuOf(page);
+	} finally {
+		await b.close();
+	}
 }
-if (unpinned.size) console.log(`not pinned (answered 404): ${[...unpinned].slice(0, 12).join(' ')}${unpinned.size > 12 ? ` … ${unpinned.size} in all` : ''}`);
-writeFileSync(join(out, 'gpu.json'), JSON.stringify({ world, platform: `${process.platform} ${process.arch}`, measures: got, unpinned: [...unpinned] }, null, '\t') + '\n');
-server.stop(true);
-process.exit(got.every((m) => m.shown) ? 0 : 1);
+
+if (import.meta.main) {
+	const argv = process.argv.slice(2);
+	const arg = (k: string, d?: string) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
+	const num = (k: string) => (arg(k) === undefined ? undefined : Number(arg(k)));
+	const world = arg('--world', '/sandbox-5/')!;
+	const browsers = arg('--browser', 'chromium,webkit')!.split(',');
+	const out = resolve(arg('--out', 'gpu-out')!);
+	const inputs = resolve(arg('--inputs', join(SITE, 'scripts/census/inputs'))!);
+	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within') };
+	const fail = (why: string): never => (console.log(`gpu: ${why}`), process.exit(1));
+	for (const b of browsers) if (!BROWSERS[b]) fail(`no browser ${b} (chromium, webkit)`);
+
+	const gpu = await machineGpu().catch((e) => `none (${String(e?.message ?? e).split('\n')[0]})`);
+	if (software(gpu)) {
+		if (!argv.includes('--software')) fail(`no GPU here (${gpu}): nothing measured. A world's look, load time and frame time are measured on a real GPU: on its pull request the box run takes this check on GitHub's macOS runner (intents-pr.yml's job gpu).`);
+		console.log(`gpu: no GPU here (${gpu}): measured in the software renderer, as asked (--software)`);
+	}
+	if (!existsSync(join(SITE, 'build/200.html'))) fail('play/site has no build (cd play/site && bun run build)');
+	mkdirSync(out, { recursive: true });
+
+	const unpinned = new Set<string>();
+	const token = process.env.PLAY_MCP_TOKEN;
+	if (argv.includes('--record') && !token) fail('--record reads play with PLAY_MCP_TOKEN');
+	const api = pinnedApi(inputs, unpinned, argv.includes('--record') ? (route) => fetch(PLAY + route, { headers: { authorization: `Bearer ${token}` } }) : undefined);
+	const site = siteHandler(join(SITE, 'build'));
+	const server = Bun.serve({ port: 0, hostname: '127.0.0.1', idleTimeout: 0, fetch: (req) => (new URL(req.url).pathname.startsWith('/api/') ? api(req) : site(req)) });
+
+	console.log(`${world} on ${gpu} (${process.platform} ${process.arch})`);
+	const measures: (Measure & { why: string[] })[] = [];
+	for (const b of browsers) {
+		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '300')) * 1000, settle: Number(arg('--settle', '60')) });
+		const why = judge(m, bounds);
+		measures.push({ ...m, why });
+		console.log(lineOf(m, why));
+	}
+	if (unpinned.size) console.log(`not pinned (answered 404; --record pins a picture's): ${[...unpinned].slice(0, 6).join(' ')}${unpinned.size > 6 ? ` … ${unpinned.size} in all` : ''}`);
+	writeFileSync(join(out, 'gpu.json'), JSON.stringify({ world, gpu, platform: `${process.platform} ${process.arch}`, bounds, measures, unpinned: [...unpinned] }, null, '\t') + '\n');
+	server.stop(true);
+	process.exit(measures.every((m) => !m.why.length) ? 0 : 1);
+}
