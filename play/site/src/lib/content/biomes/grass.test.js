@@ -325,9 +325,10 @@ describe('on WebGPU: chosen on the graphics card', async () => {
 	});
 
 	test('the card draws the fallback’s density (700 a square metre at the eye on a desktop) out further and wider', () => {
-		for (const d of /** @type {const} */ (['desktop', 'small', 'viewer'])) {
+		for (const d of /** @type {const} */ (['desktop', 'small'])) {
 			const g = G.gpuDevice(d);
-			expect(g.density).toBe(DEVICES[d].density);
+			// a phone's denser than its fallback (intent 5fe91a2f), so its sward closes too
+			expect(g.density).toBeGreaterThanOrEqual(DEVICES[d].density);
 			expect(g.near).toBeGreaterThanOrEqual(DEVICES[d].near);
 		}
 		expect(G.gpuDevice('desktop').near).toBe(4);

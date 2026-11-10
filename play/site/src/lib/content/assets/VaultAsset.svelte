@@ -280,7 +280,7 @@
 				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: grounded ? 0 : undefined, keep: shownHash === h0, studio: !grounded });
 				if (grounded) earth.fit(got.obj, biome ? { open: patch || Math.max(s.x, s.z) / 2 } : undefined);
 				earth.show(grounded);
-				plantings.show(got.obj);
+				plantings.show(got.obj, { biome });
 				// round a plant on its ground the camera may go down below the ground line, to 60° under it, but no further;
 				// in every other group's viewer it is held above the ground (./camerafloor.js, each frame in the loop)
 				Object.assign(floorCam, { group: got.card?.group ?? '', soiled, y: stage.groundY, margin: Math.max(0.002, Math.max(s.x, s.y, s.z) * 0.002) });

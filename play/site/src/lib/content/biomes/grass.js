@@ -63,13 +63,12 @@ export const PUSHERS = 8;
  * meadow holds hundreds to thousands of shoots), thinning as the square of the distance past `near`, so a world draws
  * about as many triangles as at 150 out to 6 m: 700 within 2.5 m, about 70 at 8 m, 7 at 25 m on a desktop; each kept
  * blade drawn wider as fewer stand, so the ground stays covered. Real density all the way out is intent e85a5860's
- * (blades chosen on the graphics card). `viewer`: one biome's 12 m patch in the asset viewer, all of it near.
- * @type {Record<'desktop' | 'small' | 'viewer', { density: number, bands: [number, number, number], near: number, minPx: number, falloff: number }>}
+ * (blades chosen on the graphics card); a biome in the asset viewer grows the same field (intent 5fe91a2f).
+ * @type {Record<'desktop' | 'small', { density: number, bands: [number, number, number], near: number, minPx: number, falloff: number }>}
  */
 export const DEVICES = {
 	desktop: { density: 700, bands: [8, 25, 70], near: 2.5, minPx: 1.5, falloff: 2 },
-	small: { density: 260, bands: [5, 15, 35], near: 1.9, minPx: 1.5, falloff: 2 },
-	viewer: { density: 700, bands: [16, 30, 60], near: 14, minPx: 1.5, falloff: 2 }
+	small: { density: 260, bands: [5, 15, 35], near: 1.9, minPx: 1.5, falloff: 2 }
 };
 
 /**
@@ -530,7 +529,7 @@ export const fieldMask = (dev, at) => new GrassMask({ at, size: 256, texel: Math
  * A biome's grass, drawn round the eye.
  * @param {{
  *   params?: Partial<GrassParams>, at: (x: number, z: number) => { grass: number, tall: number, y?: number },
- *   device?: 'desktop' | 'small' | 'viewer', shadows?: boolean,
+ *   device?: 'desktop' | 'small', shadows?: boolean,
  *   wind?: { uniforms: { direction: any, time: any }, strength: (x: any, z: any) => any, tick?: (t?: number) => void } | null
  * }} o
  *   at: where grass grows and how tall, and the ground's height (`grassOfRecipe`); device: whose budget; wind: the
