@@ -20,8 +20,16 @@ export PATH="$HOME/.bun/bin:/usr/lib/postgresql/$PG/bin:$PATH"
 say() { echo "avenBOX setup: $*"; }
 [ "$(id -u)" = 0 ] || { say "run me as root (the environment's setup script does); nothing done"; exit 0; }
 
+# a PostgreSQL 17 already answering on our port (the box run's container on GitHub, intent a3c81d24): none installed,
+# no cluster made; elsewhere (avenBOX's sessions) nothing answers yet and the box makes its own, as below
+. "$ROOT/play/avenbox/box.env"
+SERVED=0
+case "$(PGPASSWORD=$PG_PASSWORD timeout 10 psql -h 127.0.0.1 -p "$PORT" -U postgres -tAc 'show server_version_num' postgres 2> /dev/null)" in
+  "$PG"*) SERVED=1; say "PostgreSQL $PG already answers on 127.0.0.1:$PORT: none installed" ;;
+esac
+
 # PostgreSQL 17 from apt.postgresql.org (Ubuntu's own stops at 16)
-if [ ! -x "/usr/lib/postgresql/$PG/bin/postgres" ]; then
+if [ $SERVED = 0 ] && [ ! -x "/usr/lib/postgresql/$PG/bin/postgres" ]; then
   say "installing PostgreSQL $PG from apt.postgresql.org"
   if (
     set -e
@@ -42,7 +50,9 @@ if [ ! -x "/usr/lib/postgresql/$PG/bin/postgres" ]; then
 fi
 
 # the cluster on 127.0.0.1:5432: 17/main if 17 is there, else the newest there is
-if command -v pg_lsclusters > /dev/null; then
+if [ $SERVED = 1 ]; then
+  :
+elif command -v pg_lsclusters > /dev/null; then
   if [ -x "/usr/lib/postgresql/$PG/bin/postgres" ]; then V=$PG; else V=$(ls /usr/lib/postgresql 2>/dev/null | sort -n | tail -1); fi
   if [ -n "${V:-}" ]; then
     # any other cluster on our port steps aside: to port 5433, started only by hand
