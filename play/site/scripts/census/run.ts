@@ -15,16 +15,19 @@ import { CountingRenderer } from './counting.js';
 import { refusedContexts } from './dom';
 import { quietness } from '../quiet.js';
 
-/** Sandbox 1's views, as the Mac's runs (selector-shots.mjs): x, z (m; the cell's middle the master dome), yaw, pitch */
+/** Sandbox 1's views, as the Mac's runs (selector-shots.mjs): x, z (m; the cell's middle the master dome), yaw, pitch;
+ *  Sandbox 5's the same, the forest dome alone in the cell's middle */
 export const VIEWS = {
 	near: { x: 0, z: 95, yaw: 0, pitch: -0.05 },
 	mid: { x: 0, z: 235, yaw: 0, pitch: -0.05 },
 	far: { x: 0, z: 370, yaw: 0, pitch: -0.12 }
 } as const;
 export type ViewName = keyof typeof VIEWS | 'open';
-export type World = 'sandbox-1' | 'sandbox-3' | 'worlds';
-/** the views each world is counted from: Sandbox 1's named cameras; the others as they open */
-export const VIEWS_OF: Record<World, ViewName[]> = { 'sandbox-1': ['near', 'mid', 'far'], 'sandbox-3': ['open'], worlds: ['open'] };
+export type World = 'sandbox-1' | 'sandbox-5' | 'sandbox-3' | 'worlds';
+/** the views each world is counted from: the dome cells' named cameras; the others as they open */
+export const VIEWS_OF: Record<World, ViewName[]> = { 'sandbox-1': ['near', 'mid', 'far'], 'sandbox-5': ['near', 'mid', 'far'], 'sandbox-3': ['open'], worlds: ['open'] };
+/** Sandbox 5's one building (play/site/src/routes/sandbox-5/+page.svelte): the forest dome by its UUID, and its gates' bearings */
+const SOLO = { asset: 'cac16350-08a4-4d51-8cdf-3ade5f61836e', gates: [Math.PI, Math.PI / 2, -Math.PI / 2, 0] };
 /** the hour every census is taken at: noon, lamps out (the Mac's runs); the world's clock held (s): fish, birds still */
 export const HOUR = 12, MOMENT = 60;
 /** the field of view the worlds draw with (render/world.js), for a copy's size on screen */
@@ -124,8 +127,8 @@ function quiet() {
 /** frames turned until the world is quiet, at most `ms`: whether it was (./settle.ts) */
 export const untilQuiet = (ms: number) => run(ms, quiet);
 
-/** builds Sandbox 1 (the route's own mount: play/site/src/routes/sandbox-1/+page.svelte) and gives its handle */
-export async function mountSandbox1(log: (s: string) => void) {
+/** builds Sandbox 1, or Sandbox 5 (`solo`), as DomeCellPage.svelte mounts them, and gives its handle */
+export async function mountSandbox1(log: (s: string) => void, solo?: typeof SOLO) {
 	(g.__interiorHour = HOUR), (g.__worldTime = MOMENT);
 	const { catalogReady } = await import(lib('recipes'));
 	const { SANDBOX } = await import(lib('content/assets/sandboxes.js'));
@@ -134,7 +137,7 @@ export async function mountSandbox1(log: (s: string) => void) {
 	const S5 = await (await import(lib('content/sandbox-2/interior/sandbox5.js'))).sandbox5();
 	const el = g.document.createElement('div');
 	g.document.body.appendChild(el);
-	return turnUntil(mountVillage(el, (l: string) => log(`  ${l}`), S5));
+	return turnUntil(mountVillage(el, (l: string) => log(`  ${l}`), solo ? { ...S5, solo } : S5));
 }
 
 /** builds Sandbox 3, the old city, as its route opens it (play/site/src/routes/sandbox-3/+page.svelte) */
@@ -180,7 +183,7 @@ async function mountWorlds(log: (s: string) => void, asset?: string) {
 /** builds a world as its route opens it, frames turned while it builds: the census's and the Mac jobs' dry run's (../macjob) */
 export async function mount(world: World, o: { asset?: string; log?: (s: string) => void } = {}) {
 	const log = o.log ?? ((s: string) => console.error(s));
-	return world === 'sandbox-1' ? mountSandbox1(log) : world === 'sandbox-3' ? mountSandbox3() : mountWorlds(log, o.asset);
+	return world === 'sandbox-1' ? mountSandbox1(log) : world === 'sandbox-5' ? mountSandbox1(log, SOLO) : world === 'sandbox-3' ? mountSandbox3() : mountWorlds(log, o.asset);
 }
 
 /** frames turned while a promise is open */
@@ -213,9 +216,9 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 	const flora = await import(lib('content/sandbox-2/interior/flora.js'));
 	const didNotGrow = (): { kind: string; error: string }[] => [...(flora.didNotGrow ?? [])];
 	await mount(o.world, { asset: o.asset, log });
-	// Sandbox 1 where it opens, all streamed in round the eye, the domes' insides built ahead too (each copy it ever put
-	// down stays held by its renderer, put away: `Copy`'s ghosts)
-	const up = o.world !== 'sandbox-1' || (await run(o.settleMs ?? 180_000, quiet));
+	// a dome cell where it opens, all streamed in round the eye, the domes' insides built ahead too (each copy it ever
+	// put down stays held by its renderer, put away: `Copy`'s ghosts)
+	const up = !(o.world === 'sandbox-1' || o.world === 'sandbox-5') || (await run(o.settleMs ?? 180_000, quiet));
 	if (CountingRenderer.made.length !== 1) throw new Error(`census: ${CountingRenderer.made.length} renderers were made, not one`);
 	log(`census: ${o.world} built in ${((performance.now() - t0) / 1000).toFixed(1)} s${up ? '' : ' (still building)'} (${fetched.live.size} routes live, ${fetched.pinned.size} pinned, ${fetched.files} files)`);
 	const out: ViewCensus[] = [];
@@ -227,7 +230,7 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 		await run(1500);
 		const settled = await run(o.settleMs ?? 180_000, quiet);
 		// then until each frame draws the same triangles for three seconds running, at most a minute
-		const stable = await steady(60_000, 3000, v ? 0 : 0.1);
+		const stable = await steady(Math.min(60_000, o.settleMs ?? 60_000), 3000, v ? 0 : 0.1);
 		const frames: { tris: number; calls: number; shadowTris: number; t: any }[] = [];
 		for (let i = 0; i < (o.measureFrames ?? 90); i++) {
 			const f = frameTally();

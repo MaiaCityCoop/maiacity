@@ -3,12 +3,15 @@
  * THE CENSUS — what a world draws from each named camera, counted on the CPU in avenBOX in Bun, no GPU and no WebGL
  * context (intent bba45d6e; ./census/). The world is built by its own code with three.js, its renderer swapped for one
  * that counts every draw three would send (./census/counting.js), and the Mac then measures only the frame time.
+ * A page draws through a RenderPipeline: its scene passes are drawn and counted as the main pass (the scene once for
+ * the depth and normals, once lit), their shadows with them, the picture's own triangle last (intent 009e04d3).
  *
- *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-3|worlds] [--view near|mid|far|open|all] [--at <commit>]
+ *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-5|sandbox-3|worlds] [--view near|mid|far|open|all] [--at <commit>]
  *                                   [--asset <uuid>] [--inputs <dir> | --live] [--record] [--json <file>] [--copies]
- *                                   [--renderer webgl|webgpu|webgl2] [--smoke]
+ *                                   [--renderer webgl|webgpu|webgl2] [--smoke] [--settle <seconds>] [--frames <n>]
  *
- * --world         Sandbox 1 (the village: near, mid, far), Sandbox 3 (the old city) or the worlds view (a world asset:
+ * --world         Sandbox 1 (the village: near, mid, far), Sandbox 5 (the forest dome alone in the cell, the same views;
+ *                 intent 009e04d3), Sandbox 3 (the old city) or the worlds view (a world asset:
  *                 --asset names it by its UUID, else the first world play lists), the last two as they open (`open`)
  *
  * --at <commit>   that commit's play/site (./census/tree.ts, with this checkout's node_modules and frozen engines),
@@ -19,12 +22,14 @@
  * --live          read play live (play.maia.city with PLAY_MCP_TOKEN, the header to play only), nothing pinned
  * --json <file>   every view's census as JSON (each copy, each frame, the totals)
  * --copies        a table of each kind's copies drawn as shapes, the costliest first
+ * --settle <s>    how long a view may take to settle (180 by default), --frames how many frames are measured (90):
+ *                 a quick look, or a test, counts a view as it stands, marked "still building" (intent 009e04d3)
  * --smoke         no count: the world on three's own WebGPURenderer (its WebGL 2 backend over a context that only
  *                 answers), its views walked, and every error its code logged or threw printed; exit 1 if any (c1bee1f8)
  * --renderer      the switch's backend asked of the page (`?renderer=`, intent c1bee1f8): `webgpu` and `webgl2` counted
  *                 as WebGPURenderer draws (./census/counting.js CountingWebGPURenderer), `webgl` as WebGLRenderer; left
  *                 out, the page's own default. A commit from before the switch (--at) draws with WebGLRenderer whatever
- *                 is asked, and is counted as before
+ *                 is asked, and is counted without its shadow pass (no page draws with it: intent 009e04d3)
  *
  * Prints per view: triangles a frame (main pass and shadows), draws (meshes, instanced batches), what culling removed,
  * each asset renderer's triangles, draws, copies, pictures and ghosts (copies put away yet still drawn: ./census/run.ts
@@ -39,8 +44,8 @@ const arg = (k: string) => {
 	const i = argv.indexOf(k);
 	return i >= 0 ? argv[i + 1] : undefined;
 };
-const world = (arg('--world') ?? 'sandbox-1') as 'sandbox-1' | 'sandbox-3' | 'worlds';
-if (!['sandbox-1', 'sandbox-3', 'worlds'].includes(world)) throw new Error(`census: no world ${world} (sandbox-1, sandbox-3, worlds)`);
+const world = (arg('--world') ?? 'sandbox-1') as 'sandbox-1' | 'sandbox-5' | 'sandbox-3' | 'worlds';
+if (!['sandbox-1', 'sandbox-5', 'sandbox-3', 'worlds'].includes(world)) throw new Error(`census: no world ${world} (sandbox-1, sandbox-5, sandbox-3, worlds)`);
 const view = arg('--view') ?? 'all';
 const at = arg('--at');
 const SITE = resolve(import.meta.dir, '..');
@@ -65,7 +70,7 @@ if (smoke) {
 	process.exit(s.errors.length ? 1 : 0);
 }
 const t0 = performance.now();
-const got = await censusOf({ world, views, asset: arg('--asset'), log: (s) => console.error(s) });
+const got = await censusOf({ world, views, asset: arg('--asset'), settleMs: arg('--settle') ? Number(arg('--settle')) * 1000 : undefined, measureFrames: arg('--frames') ? Number(arg('--frames')) : undefined, log: (s) => console.error(s) });
 const { CountingRenderer } = await import('./census/counting.js');
 /** which renderer the world drew with: WebGPURenderer (on WebGPU or its WebGL 2 backend) or WebGLRenderer */
 const drewWith = (CountingRenderer.made[0] as any)?.isWebGPURenderer ? 'WebGPURenderer' : 'WebGLRenderer';
