@@ -98,8 +98,9 @@
 						<span class="label"><b>{g.label}</b><span>{g.note}</span></span>
 					</a>
 				{:else}
+					<!-- no cover: a file is read only with the right to read assets (/api/files) -->
 					<div class="shut" aria-disabled="true">
-						{#if g.cover}<img src={asset(g.cover)} alt="" loading="lazy" />{:else}<span class="nocover"></span>{/if}
+						<span class="nocover"></span>
 						<span class="label"><b>{g.label}</b><span>Coming soon · Invite only</span></span>
 					</div>
 				{/if}
@@ -149,8 +150,7 @@
 	.game a, .game .shut { display: block; height: 100%; color: #fff; text-decoration: none; }
 	/* a non-admin's: greyed out, coming soon, as the game is */
 	.game.off { cursor: not-allowed; }
-	.game.off img { filter: grayscale(1) opacity(0.55); }
-	.game.off:hover img { transform: none; }
+	.game.off .nocover { background: linear-gradient(160deg, #8a918b, #5b625d); }
 	.game img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 300ms ease; }
 	.game:hover img { transform: scale(1.03); }
 	.nocover { display: block; width: 100%; height: 100%; background: linear-gradient(160deg, #4f7a5a, #24452f); }
