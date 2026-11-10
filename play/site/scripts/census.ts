@@ -31,13 +31,19 @@
  *                 out, the page's own default. A commit from before the switch (--at) draws with WebGLRenderer whatever
  *                 is asked, and is counted without its shadow pass (no page draws with it: intent 009e04d3)
  *
+ * A world's kinds are built once (./census/kept.ts; intent 629840f2): what the asset box and the simplifier answer is
+ * kept in the census's cache folder (./census/tree.ts `CACHE`, under `kept`) by the hash of its code and its question, so a second
+ * census, of this commit or another, builds only what changed (Sandbox 1: about 7 minutes with nothing kept, one
+ * with all of it). `CENSUS_KEPT=0` keeps and reads nothing. A view is counted once the page's renderers are quiet,
+ * no worker builds for it and its frames draw the same for three seconds (./census/run.ts).
+ *
  * Prints per view: triangles a frame (main pass and shadows), draws (meshes, instanced batches), what culling removed,
  * each asset renderer's triangles, draws, copies, pictures and ghosts (copies put away yet still drawn: ./census/run.ts
  * `Copy`), and each kind's copies when asked.
  */
 import { writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { CACHE, treeAt } from './census/tree';
+import { treeAt } from './census/tree';
 
 const argv = process.argv.slice(2);
 const arg = (k: string) => {
@@ -56,7 +62,7 @@ const { setup } = await import('./census/setup');
 // same world today as when it was pinned
 const live = argv.includes('--live');
 const smoke = argv.includes('--smoke');
-setup({ real: smoke, renderer: arg('--renderer'), root: tree ? join(tree.dir, 'play/site') : undefined, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record'), cache: CACHE });
+setup({ real: smoke, renderer: arg('--renderer'), root: tree ? join(tree.dir, 'play/site') : undefined, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record') });
 const { censusOf, smokeOf, VIEWS_OF } = await import('./census/run');
 const views = view === 'all' ? VIEWS_OF[world] : (view.split(',') as typeof VIEWS_OF[typeof world]);
 if (smoke) {

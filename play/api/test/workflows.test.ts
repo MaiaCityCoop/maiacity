@@ -2,7 +2,7 @@
 // to a commit of main once main.yml is green for a push (or by hand, or Accept again, with a sha) with GITHUB_TOKEN and
 // starts production.yml, which writes SHIP_TOKEN into play's environment; the compose file hands it to play-api.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -85,7 +85,7 @@ describe("Intent named", async () => {
   const { judge } = await import("../../avenbox/pr-intent");
   const A = "4ea6b2ed-f96a-4bf6-83fd-4d165a793194";
   const B = "c9113886-0803-4ab9-bc3c-8e73b6667484";
-  type Pull = { number: number; title: string; body: string; state: string; merged_at?: string | null; commits: string[] };
+  type Pull = { number: number; title: string; body: string; state: string; merged_at?: string | null; commits: string[]; head?: string };
   const pulls = new Map<number, Pull>();
   const intents = new Map<string, { id: string; stage: string; pull_request: number | null }>();
   let gh: ReturnType<typeof Bun.serve>, play: ReturnType<typeof Bun.serve>;
@@ -100,7 +100,7 @@ describe("Intent named", async () => {
         const p = m && pulls.get(Number(m[1]));
         if (!p) return new Response("not found", { status: 404 });
         if (m![2]) return Response.json(Number(new URL(req.url).searchParams.get("page") ?? 1) > 1 ? [] : p.commits.map((message) => ({ commit: { message } })));
-        return Response.json({ number: p.number, title: p.title, body: p.body, state: p.state, merged_at: p.merged_at ?? null });
+        return Response.json({ number: p.number, title: p.title, body: p.body, state: p.state, merged_at: p.merged_at ?? null, head: { sha: p.head } });
       },
     });
     play = Bun.serve({
@@ -263,11 +263,132 @@ describe("Intent named", async () => {
     expect(which.run).toContain('[ "$DRY" != true ] || HEAD_SHA=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .head.sha)');
     expect(which.run).toContain('git show "$GITHUB_SHA:play/avenbox/intent.ts" > "$RUNNER_TEMP/box/intent.ts"');
     expect(which.run).not.toMatch(/bun [^\n]*(\$GITHUB_SHA|\$RUNNER_TEMP\/box\/intent\.ts)/);
-    expect(record.permissions).toEqual({ contents: "read" });
+    expect(record.permissions).toEqual({ contents: "read", "pull-requests": "read" });
     expect(src).not.toContain("convertPullRequestToDraft");
     expect(src).not.toContain("pull-requests: write");
     // what stays as it is: main's run after the merge
     expect(text(".github/workflows/intents.yml")).toContain("bun play/avenbox/intent.ts \"$id\" --record --where main --no-gpu");
+  });
+});
+
+// A re-run of the box run records as a first run does (intent 090ef921). What failed on #2238 was no re-run's own
+// fault: GitHub did not list an artifact seconds after its upload (runs 42823521975 attempt 2, 42824884700 attempt 1),
+// and each job looked once. And a re-run carries its first event's head: an older head's run records nothing.
+describe("the box run, run again", async () => {
+  const { headIs } = await import("../../avenbox/pr-intent");
+  const w = yaml(".github/workflows/intents-pr.yml");
+  const DL = "actions/download-artifact@v4";
+
+  test("intents-pr.yml: an artifact not found is downloaded once more after a wait", () => {
+    const found: string[] = [];
+    for (const [name, job] of Object.entries<any>(w.jobs)) {
+      const steps: any[] = job.steps;
+      for (let i = 0; i < steps.length; i++) {
+        const first = steps[i];
+        if (first.uses !== DL || !first.id) continue;
+        const [wait, again] = [steps[i + 1], steps[i + 2]];
+        found.push(`${name}:${first.with.name}`);
+        // the first try may fail; only then the wait, and the same download again, which decides
+        expect(first["continue-on-error"]).toBe(true);
+        const failed = `steps.${first.id}.outcome == 'failure'`;
+        // main's measures and the GPU runner's results may be missing by right: looked for again only when their job succeeded
+        const maker: Record<string, string> = { "vs-main": "main", "gpu-results": "gpu" };
+        const optional = first.with.name in maker;
+        const only = optional ? `${failed} && needs.${maker[first.with.name]}.result == 'success'` : failed;
+        expect(wait).toMatchObject({ if: only, run: "sleep 60" });
+        expect(again).toMatchObject({ uses: DL, if: only, with: first.with });
+        expect(again.id).toBeUndefined();
+        // (compare says so in each check): neither try fails the job
+        expect(again["continue-on-error"]).toBe(optional ? true : undefined);
+      }
+      // no download without its second try, and every step id of a job its own
+      expect(steps.filter((s) => s.uses === DL).length % 2).toBe(0);
+      expect(steps.filter((s) => s.uses === DL && s.id).length * 2).toBe(steps.filter((s) => s.uses === DL).length);
+      const ids = steps.map((s) => s.id).filter(Boolean);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+    expect(found).toEqual(["main:box-spec", "run:box-spec", "gpu:box-spec", "compare:box-results", "compare:vs-head", "compare:vs-main", "compare:gpu-results", "record:box-compared"]);
+    expect(w.jobs.compare.steps.find((s: any) => s.id === "gpu_results").if).toBe("needs.spec.outputs.gpu == 'true'");
+    // every artifact a job uploads is one a later job takes: a re-run of failed jobs alone finds the earlier attempt's
+    const up = Object.values<any>(w.jobs).flatMap((j) => j.steps.filter((s: any) => s.uses === "actions/upload-artifact@v4").map((s: any) => s.with.name));
+    // (the GPU runner's pictures are kept for people: no job takes them)
+    expect(up.filter((n) => n !== "gpu-pictures").sort()).toEqual([...new Set(found.map((f) => f.split(":")[1]))].sort());
+    // record still waits on compare's success before it looks for the results at all
+    expect(w.jobs.record.steps.find((s: any) => s.id === "compared").if).toBe("needs.compare.result == 'success'");
+  });
+
+  describe("the pull request's head", () => {
+    const HEAD = "a".repeat(40), OLD = "b".repeat(40);
+    const seen: string[] = [];
+    let head: string | undefined = HEAD;
+    const gh = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch(req) {
+        seen.push(`${req.headers.get("authorization")} ${new URL(req.url).pathname}`);
+        if (new URL(req.url).pathname !== "/repos/maia/city/pulls/7") return new Response("not found", { status: 404 });
+        return Response.json({ number: 7, state: "open", head: { sha: head } });
+      },
+    });
+    afterAll(() => gh.stop(true));
+    const env = () => ({ github: `${gh.url}`, repo: "maia/city", ghToken: "ghs_read" });
+
+    test("pr-intent.ts --head: a run of an older head records nothing", async () => {
+      head = HEAD;
+      expect(await headIs(7, HEAD, env())).toMatchObject({ ok: true });
+      // a push since: the run of the older head is refused, naming both
+      const late = await headIs(7, OLD, env());
+      expect(late.ok).toBe(false);
+      expect(late.why).toContain(`#7's head is ${HEAD}, not ${OLD}`);
+      expect(late.why).toContain("records nothing");
+      // a head GitHub does not say is never taken for the run's
+      head = undefined;
+      expect(await headIs(7, HEAD, env())).toMatchObject({ ok: false });
+      await expect(headIs(8, HEAD, env())).rejects.toThrow("answered 404");
+      expect(seen.every((s) => s.startsWith("Bearer ghs_read /repos/maia/city/pulls/"))).toBe(true);
+
+      // the command, in a tree holding only what record checks out of main: exit 0 on the head, 1 on any other, no play
+      head = HEAD;
+      const tree = mkdtempSync(join(tmpdir(), "record-tree-"));
+      const sparse = String(w.jobs.record.steps.find((s: any) => s.uses === "actions/checkout@v4").with["sparse-checkout"]).trim().split("\n").map((l) => l.trim());
+      expect(sparse).toEqual(["play/avenbox", "play/api/src/kit"]);
+      for (const dir of sparse) cpSync(resolve(import.meta.dir, "../../..", dir), join(tree, dir), { recursive: true });
+      const cli = async (...args: string[]) => {
+        const p = Bun.spawn([process.execPath, join(tree, "play/avenbox/pr-intent.ts"), ...args], {
+          env: { PATH: process.env.PATH, GITHUB_API_URL: `${gh.url}`, GITHUB_REPOSITORY: "maia/city", GITHUB_TOKEN: "ghs_read", PLAY_MCP_URL: "http://127.0.0.1:1/api/mcp" },
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        return { out: await new Response(p.stdout).text(), code: await p.exited };
+      };
+      expect(await cli("7", "--head", HEAD)).toMatchObject({ code: 0 });
+      const no = await cli("7", "--head", OLD);
+      expect(no.code).toBe(1);
+      expect(no.out).toContain(`::error title=Not the pull request's head::#7's head is ${HEAD}, not ${OLD}`);
+      expect((await cli("7", "--head", "main")).code).toBe(1);
+      expect((await cli("8", "--head", HEAD)).code).toBe(1);
+      rmSync(tree, { recursive: true, force: true });
+    });
+
+    test("intents-pr.yml: spec and record ask GitHub for the head first; a run of an older head records nothing", () => {
+      const lines = (s: any) => String(s.run).split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+      // record: the head asked for with the job's own read-only token, before anything is recorded
+      const rec = w.jobs.record.steps.find((s: any) => s.id === "recorded");
+      expect(rec.env).toMatchObject({ GITHUB_TOKEN: "${{ github.token }}", PR: "${{ github.event.pull_request.number }}", HEAD: "${{ needs.spec.outputs.head }}" });
+      expect(lines(rec).slice(-2)).toEqual([
+        'bun play/avenbox/pr-intent.ts "$PR" --head "$HEAD"',
+        'bun play/avenbox/intent.ts "$INTENT" --record-from "$RUNNER_TEMP/results/results.json" --pr "$PR" --head "$HEAD"',
+      ]);
+      expect(rec.shell).toBeUndefined(); // bash -e: the refused head ends the step
+      expect(w.jobs.record.permissions).toEqual({ contents: "read", "pull-requests": "read" });
+      // spec: a re-run of an older head's run stops before the box runs; a dry run asks GitHub for its head itself
+      const which = lines(w.jobs.spec.steps.find((s: any) => s.id === "which"));
+      const asked = which.indexOf('[ "$DRY" = true ] || bun play/avenbox/pr-intent.ts "$PR" --head "$HEAD_SHA"');
+      expect(asked).toBeGreaterThan(-1);
+      expect(asked).toBeLessThan(which.findIndex((l) => l.includes("--spec-out")));
+      // and the job that runs the head's code still reads nothing of GitHub's
+      expect(JSON.stringify(w.jobs.run)).not.toContain("pr-intent");
+    });
   });
 });
 
@@ -312,9 +433,10 @@ describe("intents-pr.yml: main measured beside the head's checks", () => {
     expect(w.jobs.main.needs).toBe("spec");
     // the head's vs-main calls measure the head only, into a directory handed to compare; main's measures never reach it
     const checks = steps("run").find((s) => s.name === "The intent's checks on the head (no token)");
-    expect(checks.env).toEqual({ VS_MAIN_HEAD_OUT: "${{ runner.temp }}/vs-head" });
+    expect(checks.env).toEqual({ VS_MAIN_HEAD_OUT: "${{ runner.temp }}/vs-head", CENSUS_CACHE: "${{ runner.temp }}/census-cache" });
     expect(steps("run").some((s) => s.uses?.startsWith("actions/download-artifact") && s.with?.name === "vs-main")).toBe(false);
-    expect(steps("run").some((s) => s.uses?.startsWith("actions/cache"))).toBe(false);
+    // of GitHub's cache the head reads one thing, main's kept builds, and writes nothing
+    expect(steps("run").filter((s) => s.uses?.startsWith("actions/cache")).map((s) => [s.uses, s.with.path])).toEqual([["actions/cache/restore@v4", "${{ runner.temp }}/census-cache/kept"]]);
     const up = steps("run").find((s) => s.uses?.startsWith("actions/upload-artifact") && s.with.name === "vs-head");
     expect(up.with.path).toBe("${{ runner.temp }}/vs-head");
     // main's intent.ts names each check to its command, so a deferred call is folded into its own check
@@ -326,7 +448,8 @@ describe("intents-pr.yml: main measured beside the head's checks", () => {
     expect(compare.needs).toEqual(["spec", "main", "run", "gpu"]);
     // a failed main still compares (the checks that needed it fail, saying so); a run that did not finish records nothing
     expect(compare.if).toBe("!cancelled() && needs.run.result == 'success'");
-    const got = steps("compare").filter((s) => s.uses?.startsWith("actions/download-artifact")).map((s) => [s.with.name, !!s["continue-on-error"]]);
+    // of each download's two tries (intent 090ef921) the second decides: the one without an id
+    const got = steps("compare").filter((s) => s.uses?.startsWith("actions/download-artifact") && !s.id).map((s) => [s.with.name, !!s["continue-on-error"]]);
     expect(got).toEqual([["box-results", false], ["vs-head", false], ["vs-main", true], ["gpu-results", true]]);
     const fold = steps("compare").find((s) => s.run?.includes("--fold"));
     expect(fold.run).toBe('bun play/avenbox/vs-main.ts --fold "$RUNNER_TEMP/results/results.json" --main-values "$RUNNER_TEMP/vs-main/main.json" --heads "$RUNNER_TEMP/vs-head" --out "$RUNNER_TEMP/compared/results.json"');
@@ -334,7 +457,7 @@ describe("intents-pr.yml: main measured beside the head's checks", () => {
     // record reads only the compared results, never the run's own
     expect(record.needs).toEqual(["spec", "compare"]);
     const dl = steps("record").filter((s) => s.uses?.startsWith("actions/download-artifact"));
-    expect(dl.map((s) => [s.with.name, s.if])).toEqual([["box-compared", "needs.compare.result == 'success'"]]);
+    expect(dl.map((s) => [s.with.name, s.if])).toEqual([["box-compared", "needs.compare.result == 'success'"], ["box-compared", "steps.compared.outcome == 'failure'"]]);
     expect(JSON.stringify(record)).not.toContain("box-results");
   });
 
@@ -359,6 +482,41 @@ describe("intents-pr.yml: main measured beside the head's checks", () => {
     const measure = main.find((s) => s.run?.includes("--main-of"));
     expect(measure.run).toContain('bun code/play/avenbox/vs-main.ts --main-of "$RUNNER_TEMP/box/spec.json" --main "$BASE" --repo base --out "$RUNNER_TEMP/vs-main/main.json"');
     expect(measure.env.VS_MAIN_CACHE).toBe("${{ runner.temp }}/vs-main-cache");
+  });
+});
+
+describe("intents-pr.yml: what a census builds travels in GitHub's cache (intent 629840f2)", () => {
+  const w = yaml(".github/workflows/intents-pr.yml");
+  const steps = (job: string) => w.jobs[job].steps as any[];
+  const KEPT = "${{ runner.temp }}/census-cache/kept";
+  const kept = (job: string) => steps(job).filter((s) => s.uses?.startsWith("actions/cache") && s.with.path === KEPT);
+
+  test("kept builds: main's measure reads the newest store and saves it only when it built something new", () => {
+    const [restore, save] = kept("main");
+    expect(restore.uses).toBe("actions/cache/restore@v4");
+    // never an exact hit: the newest store whatever its key
+    expect(restore.with).toEqual({ path: KEPT, key: "census-kept-${{ github.run_id }}", "restore-keys": "census-kept-" });
+    const measure = steps("main").find((s) => s.id === "measure");
+    expect(measure.env.CENSUS_CACHE).toBe("${{ runner.temp }}/census-cache");
+    // let go of what was not used for two weeks, then named by what it holds: the same store is not saved twice
+    expect(measure.run).toContain('bun code/play/site/scripts/census/kept.ts --trim 14 "$CENSUS_CACHE/kept"');
+    expect(measure.run).toContain('[ "$(kept)" = "$before" ] || echo "kept=$(kept)" >> "$GITHUB_OUTPUT"');
+    expect(save).toEqual({ uses: "actions/cache/save@v4", if: "steps.measure.outputs.kept", with: { path: KEPT, key: "census-kept-${{ steps.measure.outputs.kept }}" } });
+    expect(steps("main").indexOf(restore)).toBeLessThan(steps("main").indexOf(measure));
+    expect(steps("main").indexOf(measure)).toBeLessThan(steps("main").indexOf(save));
+  });
+
+  test("kept builds: the head's run reads main's store, only for a spec that counts a world, and never saves one", () => {
+    expect(kept("run").map((s) => s.uses)).toEqual(["actions/cache/restore@v4"]);
+    const [restore] = kept("run");
+    expect(restore.with).toEqual({ path: KEPT, key: "census-kept-${{ github.run_id }}", "restore-keys": "census-kept-" });
+    expect(restore.if).toBe("steps.census.outputs.counted");
+    expect(steps("run").find((s) => s.id === "census").run).toContain('grep -q census "$RUNNER_TEMP/box/spec.json"');
+    const checks = steps("run").find((s) => s.name === "The intent's checks on the head (no token)");
+    expect(steps("run").indexOf(restore)).toBeLessThan(steps("run").indexOf(checks));
+    // no other job touches it
+    for (const job of ["spec", "compare", "record"]) expect(JSON.stringify(w.jobs[job])).not.toContain("census-kept");
+    expect(JSON.stringify(w.jobs.run)).not.toContain("actions/cache/save");
   });
 });
 
