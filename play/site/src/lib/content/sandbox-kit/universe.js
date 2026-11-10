@@ -33,7 +33,10 @@ const MIE = [1.8399918514433978e14, 2.7798023919660528e14, 4.0790479543861094e14
 export function airOf(sunY, a = AIR) {
 	const sunE = 1000 * Math.max(0, 1 - Math.exp(-((1.6110731556870734 - Math.acos(Math.max(-1, Math.min(1, sunY)))) / 1.5)));
 	const fade = Math.min(1, Math.exp(sunY / 450000));
-	return { sunE, betaR: RAYLEIGH.map((v) => v * (a.rayleigh - (1 - fade))), betaM: MIE.map((v) => 0.434 * 0.2 * a.turbidity * 10e-18 * v * a.mie) };
+	const betaR = RAYLEIGH.map((v) => v * (a.rayleigh - (1 - fade))), betaM = MIE.map((v) => 0.434 * 0.2 * a.turbidity * 10e-18 * v * a.mie);
+	// what of the sun's light is left once it has come through the air to the clouds: white from high up, red from the horizon
+	const zen = Math.acos(Math.max(0, Math.min(1, sunY))), path = 1 / (Math.cos(zen) + 0.15 * Math.pow(93.885 - (zen * 180) / Math.PI, -1.253));
+	return { sunE, betaR, betaM, through: betaR.map((r, i) => sunE * Math.exp(-(r * path * 8.4e3 + betaM[i] * path * 1.25e3))) };
 }
 
 /** The sky's linear colour along unit d (sun unit s, up +y) without clouds, moon or stars. @param {number[]} d @param {number[]} s @param {ReturnType<typeof airOf>} air */
@@ -141,6 +144,7 @@ function skyMaterial() {
 		disc: uniform(1),
 		clouds: uniform(0),
 		wind: uniform(0),
+		through: uniform(new THREE.Vector3()),
 		moon: uniform(new THREE.Vector3(0, 1, 0)),
 		moonLight: uniform(0),
 		stars: uniform(0),
@@ -175,7 +179,7 @@ function skyMaterial() {
 		const lin = pow(ratio.mul(U.sunE).mul(sub(1, fex)), vec3(1.5)).mul(mix(vec3(1), pow(ratio.mul(U.sunE).mul(fex), vec3(0.5)), clamp(pow(sub(1, U.sun.y), 5), 0, 1)));
 		const disc = clamp(cosT.sub(0.9999566769).mul(50000), 0, 1).mul(U.disc);
 		const sky = lin.add(fex.mul(0.1)).mul(0.04).add(min(fex.mul(U.sunE), 80).mul(760 * 0.04).mul(disc)).add(vec3(0, 0.0003, 0.00075)).toVar();
-		cloudsOver(sky, { d, lin, fex, sun: U.sun, sunE: U.sunE, cover: U.clouds, wind: U.wind });
+		cloudsOver(sky, { d, lin, fex, sun: U.sun, light: U.through, cover: U.clouds, wind: U.wind });
 		// the universe behind the air: space, the Milky Way's uneven glow along the galactic plane, the full moon
 		const gb = dot(d, U.pole);
 		const band = exp(gb.mul(gb).mul(-55)).mul(sin(atan(d.z, d.x).mul(3).add(gb.mul(9))).mul(0.35).add(0.65));
@@ -277,6 +281,7 @@ export function createUniverse(o = {}) {
 			U.sunE.value = air.sunE;
 			U.betaR.value.fromArray(air.betaR);
 			U.betaM.value.fromArray(air.betaM);
+			U.through.value.fromArray(air.through);
 			U.wind.value = windOf(v.hour ?? 0);
 			U.moon.value.copy(v.moon);
 			turn.copy(v.stars);

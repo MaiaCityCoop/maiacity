@@ -71,11 +71,12 @@ const fbm = (/** @type {any} */ u, /** @type {any} */ wind, /** @type {number} *
  * The clouds laid over the sky's colour along d: lit by the sun through the air on the side that faces it, shaded on
  * the far side and in their thick middles, bright-rimmed toward the sun, thinning to the horizon.
  * @param {any} sky the sky's colour there, a variable: assigned
- * @param {{ d: any, lin: any, fex: any, sun: any, sunE: any, cover: any, wind: any }} o d: the eye's direction (unit);
- *   lin, fex: the air's scattered light and its extinction along d; cover: how much of the sky they cover (0: none);
+ * @param {{ d: any, lin: any, fex: any, sun: any, light: any, cover: any, wind: any }} o d: the eye's direction (unit);
+ *   lin, fex: the air's scattered light and its extinction along d; light: the sun's light where the clouds are (through
+ *   the air: white from high up, red from the horizon); cover: how much of the sky they cover (0: none);
  *   wind: `windOf` the hour
  */
-export function cloudsOver(sky, { d, lin, fex, sun, sunE, cover, wind }) {
+export function cloudsOver(sky, { d, lin, fex, sun, light, cover, wind }) {
 	const h = d.y, { plane, freq, period, horizon } = CLOUDS;
 	If(h.greaterThan(0).and(cover.greaterThan(0)), () => {
 		const flat = d.xz.div(h.mul(plane)).mul(freq);
@@ -87,12 +88,12 @@ export function cloudsOver(sky, { d, lin, fex, sun, sunE, cover, wind }) {
 		// the same cloud a little way toward the sun, coarsely: what stands between this spot and its light
 		const sunAt = sun.xz.div(max(sun.y, 0.12).mul(plane)).mul(freq);
 		const before = max(0, fbm(u.add(normalize(sunAt.sub(u).add(1e-4)).mul(0.16)), wind, 2).mul(0.9).add(0.5).sub(open));
-		// seen from below: light comes through the thin edges, the thick middles are the grey bases
-		const thin = exp(depth.mul(-6));
-		const shade = mix(0.3, 1, exp(before.mul(-7))).mul(mix(0.5, 1, thin));
+		// seen from below: light comes through the thin edges, the thick middles are the grey bases; a low sun shines
+		// under them and lights the bases too
+		const thin = exp(depth.mul(-6)), low = sub(1, smoothstep(0.05, 0.4, sun.y));
+		const shade = mix(0.3, 1, exp(before.mul(-7))).mul(mix(mix(0.5, 0.85, low), 1, thin));
 		const rim = pow(max(dot(d, sun), 0), 24).mul(thin).mul(0.35).add(1);
-		const lit = fex.mul(sunE).mul(0.021).mul(shade).mul(rim);
-		const cloud = lin.mul(0.036).add(lit).mul(smoothstep(-0.08, 0.3, sun.y).max(0.03));
+		const cloud = lin.mul(0.036).add(light.mul(0.021).mul(shade).mul(rim)).mul(smoothstep(-0.08, 0.3, sun.y).max(0.03));
 		sky.assign(mix(sky, mix(sky, cloud, fex), sub(1, exp(depth.mul(-9))).mul(smoothstep(0, horizon, h))));
 	});
 }

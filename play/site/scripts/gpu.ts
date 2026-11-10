@@ -113,7 +113,7 @@ export type Measure = {
 export type Bounds = { worldWithin?: number; frameWithin?: number; sky?: boolean };
 
 /** --sky: the hours of the world's day the sky is photographed at, and the sizes */
-export const SKY_HOURS = { dawn: 6.6, noon: 12, dusk: 17.4, night: 23 };
+export const SKY_HOURS = { dawn: 5.35, noon: 12.5, dusk: 19.65, night: 23 };
 export const SKY_VIEWS = [[1440, 900], [390, 844]];
 /** how far up the eye looks for them (rad): the horizon stays in the picture's lower fifth */
 const SKY_PITCH = 0.42;
