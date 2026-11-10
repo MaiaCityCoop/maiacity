@@ -87,13 +87,13 @@ export function cloudsOver(sky, { d, lin, fex, sun, light, cover, wind }) {
 		const depth = max(0, fbm(u, wind, SLIDES.length).mul(0.7).add(0.5).sub(open)).toVar();
 		// the same cloud a little way toward the sun, coarsely: what stands between this spot and its light
 		const sunAt = sun.xz.div(max(sun.y, 0.12).mul(plane)).mul(freq);
-		const before = max(0, fbm(u.add(normalize(sunAt.sub(u).add(1e-4)).mul(0.16)), wind, 2).mul(0.9).add(0.5).sub(open));
+		const before = max(0, fbm(u.add(normalize(sunAt.sub(u).add(1e-4)).mul(0.22)), wind, 2).mul(0.9).add(0.5).sub(open));
 		// seen from below: light comes through the thin edges, the thick middles are the grey bases; a low sun shines
 		// under them and lights the bases too
 		const thin = exp(depth.mul(-6)), low = sub(1, smoothstep(0.05, 0.4, sun.y));
-		const shade = mix(0.3, 1, exp(before.mul(-7))).mul(mix(mix(0.5, 0.85, low), 1, thin));
+		const shade = mix(0.26, 1, exp(before.mul(-9))).mul(mix(mix(0.4, 0.85, low), 1, thin));
 		const rim = pow(max(dot(d, sun), 0), 24).mul(thin).mul(0.35).add(1);
-		const cloud = lin.mul(0.036).add(light.mul(0.021).mul(shade).mul(rim)).mul(smoothstep(-0.08, 0.3, sun.y).max(0.03));
+		const cloud = lin.mul(0.036).add(light.mul(0.024).mul(shade).mul(rim)).mul(smoothstep(-0.08, 0.3, sun.y).max(0.03));
 		sky.assign(mix(sky, mix(sky, cloud, fex), sub(1, exp(depth.mul(-9))).mul(smoothstep(0, horizon, h))));
 	});
 }
