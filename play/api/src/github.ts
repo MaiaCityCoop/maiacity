@@ -3,6 +3,7 @@
 // read it (its pr_seen: ./substate.ts reads it, so the board asks GitHub nothing). Ship (./ship.ts), main merged in
 // (./mainmerge.ts) and the delivery report (./delivery.ts) speak to it through here.
 import { COOP } from "./access";
+import { intentsIn } from "./kit/ids";
 import type { Db } from "./kit/pg";
 import { checksSeen, type PrSeen } from "./substate";
 
@@ -10,6 +11,8 @@ import { checksSeen, type PrSeen } from "./substate";
 export const ACCEPTED_CONTEXT = "Intent accepted";
 /** the commit status play posts on an open intent pull request's head: failure while it conflicts with main (./mainmerge.ts) */
 export const MERGES_CONTEXT = "Merges with main";
+/** the commit status that wakes an intent's builder on its pull request's head (play/SPEC.md §4.12; intent 40397205): not a required check */
+export const INTENT_CONTEXT = "Intent";
 /** GitHub's longest status description */
 const DESCRIPTION_MOST = 140;
 export const fit = (s: string) => (s.length <= DESCRIPTION_MOST ? s : `${s.slice(0, DESCRIPTION_MOST - 1)}…`);
@@ -28,6 +31,7 @@ export type Pull = {
   head: { sha: string; ref: string };
   html_url: string;
   title: string;
+  body?: string | null;
 };
 export type Run = {
   id: number;
@@ -102,6 +106,16 @@ export function gitHub({ token, repo, fetch: get = fetch, api = "https://api.git
   return {
     repo,
     pull: (n: number) => json<Pull>("GET", `/pulls/${n}`),
+    /** the open pull requests into main (up to 300) */
+    openPulls: async () => {
+      const out: Pull[] = [];
+      for (let page = 1; page <= 3; page++) {
+        const got = await json<Pull[]>("GET", `/pulls?${q({ state: "open", base: "main", per_page: 100, page })}`);
+        out.push(...got);
+        if (got.length < 100) break;
+      }
+      return out;
+    },
     checkRuns: async (sha: string) => (await json<{ check_runs: any[] }>("GET", `/commits/${sha}/check-runs?per_page=100`)).check_runs,
     /** a commit status on `sha`, 'Intent accepted' unless `context` names another ('Merges with main', ./mainmerge.ts) */
     status: (sha: string, { context = ACCEPTED_CONTEXT, ...s }: { state: "success" | "failure" | "error" | "pending"; description: string; target_url?: string; context?: string }) =>
@@ -204,11 +218,62 @@ export async function postStatus(q: Pick<Db, "query">, gh: GitHub, id: string, s
   await keepSeen(q, id, seen);
 }
 
-/** the open intents (Build or Proposal) that name a pull request, each with it as last read */
-export async function openPulls(q: Pick<Db, "query">) {
+/** the open intents (Build or Proposal, or `stages`) that name a pull request, each with it as last read */
+export async function openPulls(q: Pick<Db, "query">, stages = ["build", "proposal"]) {
   const { rows } = await q.query<{ id: string; pull_request: number; pr_seen: PrSeen | null }>(
-    `SELECT id, pull_request, pr_seen FROM play.intents WHERE coop_id = $1 AND stage IN ('build', 'proposal') AND pull_request IS NOT NULL ORDER BY created, id`,
-    [COOP],
+    `SELECT id, pull_request, pr_seen FROM play.intents WHERE coop_id = $1 AND stage = ANY($2::text[]) AND pull_request IS NOT NULL ORDER BY created, id`,
+    [COOP, stages],
   );
   return rows;
+}
+
+/** a pull request not read yet: read on the next tick (./watcher.ts), what was posted on it kept */
+const unread = (pr: number): PrSeen => ({ pr, head: "", draft: false, mergeable: null, state: "open", merged: false, base: "main", checks: {}, at: new Date(0).toISOString() });
+
+/**
+ * The status 'Intent' on the head of the intent's pull request (`head` where named: the commit its checks were recorded
+ * on, the head it shipped), each line once per head (play/SPEC.md §4.12; intent 40397205): its builder, watching its pull
+ * request, is woken by it. Never throws: GitHub unreachable, it is logged and posted on the next tick (postAgain).
+ */
+export async function wake(q: Pick<Db, "query">, gh: GitHub | null | undefined, id: string, state: Posted["state"], line: string, head?: string) {
+  if (!gh) return;
+  try {
+    const { rows: [row] } = await q.query<{ pull_request: number | null; pr_seen: PrSeen | null }>(`SELECT pull_request, pr_seen FROM play.intents WHERE id = $1`, [id]);
+    if (!row?.pull_request) return;
+    const n = row.pull_request;
+    const seen =
+      row.pr_seen?.pr === n ? row.pr_seen : await readPull(gh, n).then((r) => r.seen, (e) => (console.warn(`github: #${n} not read: ${(e as Error).message}`), unread(n)));
+    await postStatus(q, gh, id, seen, INTENT_CONTEXT, state, line, { head, again: true });
+  } catch (e) {
+    console.warn(`github: '${INTENT_CONTEXT}' not kept for intent ${id}: ${(e as Error).message}`);
+  }
+}
+
+/** Every status GitHub did not take, posted again (each tick of ./watcher.ts). */
+export async function postAgain(q: Pick<Db, "query">, gh: GitHub) {
+  const { rows } = await q.query<{ id: string; pr_seen: PrSeen }>(
+    `SELECT id, pr_seen FROM play.intents WHERE coop_id = $1 AND jsonb_path_exists(pr_seen, '$.posted.* ? (@.sent == false)') ORDER BY created, id`,
+    [COOP],
+  );
+  for (const { id, pr_seen } of rows)
+    for (const [context, p] of Object.entries(pr_seen.posted ?? {}))
+      if (p.sent === false) await postStatus(q, gh, id, pr_seen, context, p.state as Posted["state"], p.description, { head: p.head || undefined, again: true });
+}
+
+/**
+ * A draft into main naming an intent at Specify that names no pull request yet, the only one naming it, taken as its
+ * pull request (play/SPEC.md §4.12; intent 40397205): its builder opened it while the spec waits, and approval reaches it.
+ */
+export async function adoptDrafts(q: Pick<Db, "query">, gh: GitHub, at = Date.now()) {
+  const { rows } = await q.query<{ id: string }>(`SELECT id FROM play.intents WHERE coop_id = $1 AND stage = 'specify' AND pull_request IS NULL`, [COOP]);
+  if (!rows.length) return;
+  const open = await gh.openPulls();
+  for (const { id } of rows) {
+    const naming = open.filter((p) => intentsIn(p.body, { indented: true }).includes(id));
+    if (naming.length !== 1 || !naming[0].draft) continue;
+    const n = naming[0].number;
+    await q.query(`UPDATE play.intents SET pull_request = $2 WHERE id = $1 AND stage = 'specify' AND pull_request IS NULL`, [id, n]);
+    await keepSeen(q, id, (await readPull(gh, n, at)).seen);
+    console.log(`github: draft #${n} is intent ${id}'s pull request while its spec waits`);
+  }
 }

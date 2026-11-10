@@ -4,7 +4,7 @@ import { admin, meOf, type Me } from "./access";
 import { COOP, intentsIn } from "./kit/ids";
 import type { Db, Queryable } from "./kit/pg";
 import { canonical } from "./kit/hash";
-import { ACCEPTED_CONTEXT, intentLink, keepSeen, postStatus, readPull, type GitHub, type Job, type Pull, type Run } from "./github";
+import { ACCEPTED_CONTEXT, intentLink, keepSeen, postStatus, readPull, wake, type GitHub, type Job, type Pull, type Run } from "./github";
 import { INTENT_ADMINS, byOf, decisions, gate, getIntent, mustMove } from "./intents";
 import { carried } from "./mainmerge";
 import { decidable, prBlock, short, sub } from "./substate";
@@ -179,6 +179,7 @@ export async function startIfReady(db: Db, gh: GitHub, id: string, at = Date.now
       ship.pending = null;
       ship.again = pending.kind === "merge" ? undefined : pending.kind;
       await save("proposal");
+      await wake(tx, gh, id, "failure", `${ready.name} red: ${why.split("\n")[0]}`, ship.head);
       console.log(`ship: intent ${id} is red before it started (${why}): back to Proposal`);
     };
     const wait = async (why: string, timed: boolean) => {
@@ -437,6 +438,7 @@ export async function reconcile(db: Db, gh: GitHub, store: BlobStore, commit: st
         return done;
       });
       if (done.length) {
+        await wake(db, gh, i.id, "success", "Accepted: live", i.ship?.head);
         out.accepted.push(i.id);
         console.log(`reconcile: intent ${i.id} (${i.stage}) is live at ${short(commit)}: accepted`);
       }

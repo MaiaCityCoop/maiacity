@@ -6,7 +6,7 @@ import { seedSkills } from "../import/skills";
 import { mainMergeState, mergeMain } from "../src/mainmerge";
 import { type Db } from "../src/kit/pg";
 import { watchPulls, watchTick } from "../src/watcher";
-import { type Pull, MERGES_CONTEXT } from "../src/github";
+import { type Pull, INTENT_CONTEXT, MERGES_CONTEXT } from "../src/github";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
 import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
 
@@ -137,7 +137,7 @@ suite("main merged into open intent pull requests", () => {
     await watchTick(db, gh.gh, store, Date.now(), null, state);
     expect(updates(from)).toEqual([]);
     expect(merges(0)).toEqual([]);
-    expect(gh.calls.filter((c) => c.method === "POST" && c.path.startsWith("/statuses/") && c.body.context !== MERGES_CONTEXT)).toEqual([]);
+    expect(gh.calls.filter((c) => c.method === "POST" && c.path.startsWith("/statuses/") && c.body.context !== MERGES_CONTEXT && c.body.context !== INTENT_CONTEXT)).toEqual([]);
     // main merged in: its head is GitHub's merge commit, main's head in it
     const pr = gh.pulls.get(atProposal.pr)!;
     expect(pr.head.sha).not.toBe(atProposal.head);

@@ -20,6 +20,7 @@ export function fakeGitHub() {
   const calls: Call[] = [];
   const merges = new Map<number, string>();
   let mergeRefused: string | null = null;
+  let statusRefused: string | null = null;
   // the repository's commits (each its parents and message) and main's head: a merge makes a merge commit on main
   const ROOT = "f".repeat(40);
   const graph = new Map<string, { parents: string[]; message: string; files?: string[] }>([[ROOT, { parents: [], message: "the first commit" }]]);
@@ -66,7 +67,9 @@ export function fakeGitHub() {
     if (method === "GET" && (m = p.match(/^\/commits\/([0-9a-f]{40})\/check-runs$/))) return reply(200, { check_runs: checks.get(m[1]) ?? [] });
     if (method === "GET" && (m = p.match(/^\/commits\/([0-9a-f]{40})$/)))
       return graph.has(m[1]) ? reply(200, { sha: m[1], commit: { message: graph.get(m[1])!.message }, parents: graph.get(m[1])!.parents.map((x) => ({ sha: x })) }) : reply(422, { message: `No commit found for SHA: ${m[1]}` });
-    if (method === "POST" && p.startsWith("/statuses/")) return reply(201, { id: 1, ...body });
+    if (method === "POST" && p.startsWith("/statuses/")) return statusRefused ? reply(503, { message: statusRefused }) : reply(201, { id: 1, ...body });
+    if (method === "GET" && p === "/pulls")
+      return reply(200, Number(q.get("page") ?? 1) > 1 ? [] : [...pulls.values()].filter((x) => x.state === "open" && !x.merged && x.base.ref === (q.get("base") ?? x.base.ref)));
     if (method === "GET" && p === "/commits") {
       const from = q.get("sha") === "main" ? main.head : q.get("sha")!;
       if (!graph.has(from)) return reply(422, { message: `No commit found for SHA: ${from}` });
@@ -135,6 +138,8 @@ export function fakeGitHub() {
   return {
     pulls, checks, runs, branchRuns, jobs, logs, calls, merges, graph, main, commit, pullFiles,
     refuseMerge: (why: string | null) => (mergeRefused = why),
+    /** every status POST answered 503 with `why`, until null */
+    refuseStatus: (why: string | null) => (statusRefused = why),
     refuseUpdate: (how: { status: number; message: string } | null) => (updateRefused = how),
     gh: gitHub({ token: TOKEN, repo: REPO, fetch, api: "https://api.github.test" }),
     fetch,

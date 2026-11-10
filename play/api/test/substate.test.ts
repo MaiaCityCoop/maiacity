@@ -5,7 +5,7 @@ import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
 import { type Db } from "../src/kit/pg";
 import { watchTick } from "../src/watcher";
-import { type Pull } from "../src/github";
+import { INTENT_CONTEXT, type Pull } from "../src/github";
 import { carrySeen } from "../src/mainmerge";
 import { checksSeen, sub, subStateOf, type PrSeen } from "../src/substate";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
@@ -314,7 +314,7 @@ suite("sub-states on the board", () => {
     pr.mergeable = false;
     await refused("conflicts with main");
     expect((await intent(c.id)).sub.state).toBe("failed");
-    expect(gh.calls.filter((x) => x.method !== "GET")).toEqual([]);
+    expect(gh.calls.filter((x) => x.method !== "GET" && x.body?.context !== INTENT_CONTEXT)).toEqual([]);
     pr.mergeable = true;
     await watchTick(db, gh.gh, store, Date.now(), null);
     expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });

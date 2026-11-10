@@ -5,7 +5,7 @@ import type { BlobStore } from "./blobs";
 import type { Db } from "./kit/pg";
 import { canonical } from "./kit/hash";
 import { carried, mainMergeState, mergeMain, type MainMergeState } from "./mainmerge";
-import { keepSeen, openPulls, readPull, type GitHub } from "./github";
+import { adoptDrafts, keepSeen, openPulls, postAgain, readPull, wake, type GitHub } from "./github";
 import { advance, reconcile, runningCommit, saveShip, startIfReady, type Ship } from "./ship";
 import { autoMove } from "./decide";
 
@@ -26,6 +26,8 @@ export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date
       const next = await advance(gh, ship, at);
       if (canonical(next) === canonical(ship)) continue;
       await saveShip(db, id, next, next.outcome === "red" ? "proposal" : "ship");
+      // its builder woken on the head it shipped (./github.ts wake)
+      if (next.outcome === "red") await wake(db, gh, id, "failure", `${next.report?.step} red: ${`${next.report?.why ?? ""}`.split("\n")[0]}`, next.head);
       if (next.outcome) {
         console.log(`ship: intent ${id} ${next.outcome === "green" ? "is green all the way: the reconcile decides once play runs it" : `is red at ${next.report?.step}: back to Proposal`}`);
         if (!commit) console.warn("ship: play knows no commit of its own (PLAY_COMMIT): nothing is reconciled");
@@ -37,9 +39,10 @@ export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date
   }
 }
 
-/** Every open intent's pull request read as GitHub has it, kept as pr_seen, so GET /api/intents asks GitHub nothing. */
+/** Every open intent's pull request read as GitHub has it (a draft at Specify too), kept as pr_seen, so GET /api/intents asks GitHub nothing. */
 export async function watchPulls(db: Db, gh: GitHub, store: BlobStore, at = Date.now()) {
-  for (const { id, pull_request, pr_seen } of await openPulls(db)) {
+  await adoptDrafts(db, gh, at).catch((e) => console.warn(`github: drafts at Specify not read: ${(e as Error).message}`));
+  for (const { id, pull_request, pr_seen } of await openPulls(db, ["specify", "build", "proposal"])) {
     try {
       await keepSeen(db, id, await carried(gh, pr_seen, (await readPull(gh, pull_request, at)).seen));
     } catch (e) {
@@ -53,10 +56,11 @@ export async function watchPulls(db: Db, gh: GitHub, store: BlobStore, at = Date
 
 const MAIN_MERGE = mainMergeState();
 
-/** One tick: the ships, the open pull requests read, then main merged into those behind it and conflicts shown (./mainmerge.ts). */
+/** One tick: the ships, the open pull requests read, statuses GitHub did not take posted again, then main merged into those behind it and conflicts shown (./mainmerge.ts). */
 export async function watchTick(db: Db, gh: GitHub, store: BlobStore, at = Date.now(), commit: string | null = runningCommit(), merging: MainMergeState = MAIN_MERGE) {
   await watchShips(db, gh, store, at, commit);
   await watchPulls(db, gh, store, at);
+  await postAgain(db, gh).catch((e) => console.warn(`github: statuses not posted again: ${(e as Error).message}`));
   await mergeMain(db, gh, merging, at).catch((e) => console.warn(`ship: main not merged into the open pull requests: ${(e as Error).message}`));
 }
 
