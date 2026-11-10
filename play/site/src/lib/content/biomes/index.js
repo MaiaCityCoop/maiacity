@@ -165,15 +165,15 @@ const LIST = [
 	{
 		id: 'clover-lawn',
 		label: 'Clover lawn',
-		note: 'A living mulch walked on: white and red clover, wild strawberries spreading by their runners, short grass, a daisy here and there.',
+		note: 'A living mulch walked on: a short grass closed underfoot, white and red clover among it, wild strawberries spreading by their runners, a daisy here and there.',
 		from: 'Paths’ edges and the squares',
 		surface: { green: 10, soil: 0.3 },
 		density: 9,
 		cover: [
-			{ kind: 'clover', share: 6, colony: 3, spread: 0.6 },
-			{ kind: 'strawberry', share: 4, colony: 3, spread: 0.45 },
-			{ kind: 'grass', share: 4, colony: 4, spread: 0.6 },
-			{ kind: 'daisy', share: 2, colony: 2.5, spread: 0.3 }
+			{ kind: 'grass', share: 8, colony: 4, spread: 1.2, fill: 1 },
+			{ kind: 'clover', share: 3, colony: 3, spread: 0.4 },
+			{ kind: 'strawberry', share: 2, colony: 3, spread: 0.3 },
+			{ kind: 'daisy', share: 1, colony: 2.5, spread: 0.25 }
 		]
 	}
 ];

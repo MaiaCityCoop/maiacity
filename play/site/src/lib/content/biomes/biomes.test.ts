@@ -38,7 +38,8 @@ const BEFORE: Record<string, { surfaces: string; cover: string }> = {
 	'beech-forest': { surfaces: '7b7d8bec', cover: '99169c20' },
 	'spruce-forest': { surfaces: '6ec70bdb', cover: '03f06b3d' },
 	'meadow': { surfaces: '000de99a', cover: 'd980ca91' },
-	'clover-lawn': { surfaces: '84c6bbd9', cover: '5f19d769' }
+	// the lawn's cover grass first, its clover among it (intent 1717f109; before: '5f19d769')
+	'clover-lawn': { surfaces: '84c6bbd9', cover: '03c5f201' }
 };
 
 describe('the biomes that were', () => {
