@@ -380,7 +380,7 @@ export function createAssets(o) {
 		const list = k.levels.map((_, j) => j).filter((j) => !k.levels[j].name && k.levels[j].state === 'idle');
 		const made = want(k, k.base).then(() => {
 			const from = k.levels[k.base].level;
-			return kept.lower(k.names[k.base], from, list.map((j) => ({ L: j, plan: planOf(k, j, from) })));
+			return kept.lower(k.names[k.base], from, list.map((j) => ({ L: j, plan: planOf(k, j, from) })), false, k.rank);
 		});
 		list.forEach((j, n) => {
 			const lv = k.levels[j];

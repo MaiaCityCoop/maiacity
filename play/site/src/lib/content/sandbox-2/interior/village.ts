@@ -1130,38 +1130,49 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	}
 	if (!flora) grassOpen = true
 	await pause('Planting the edges')
-	if (forest) {
-		await plantGarden()
-		// every kind built (in the asset box, side by side), then each tree stands in the walker's way by its trunk
-		await forest.grown((done, of) => {
-			if (done === of || done % 10 === 0) onProgress(`Growing the forest: ${done} of ${of} kinds`)
-		})
-		for (const t of plantedTrees) colliders.push({ x: t.x, z: t.z, r: Math.min(0.6, (forest.shape(t.kind)?.foot ?? 0.3) * t.s) + 0.2 })
-		// songbirds: robins, blackbirds, great tits, sparrows and chaffinches, each round a few trees of its own —
-		// singing up in the crowns, down to the floor to forage, and up again (./birds.js)
-		const birdTrees = plantedTrees.flatMap((t) => {
-			const sh = forest.shape(t.kind)
-			return sh && sh.height * t.s > 2.5 ? [{ x: t.x, z: t.z, height: sh.height * t.s, reach: sh.reach * t.s }] : []
-		})
-		const birds = songbirds(birdTrees, 160, 81, (x, z) => (inHex(x, z) && !inDome(x, z, 1) && !inSquare(x, z) && !nearPath(x, z, 1) && !nearWater(x, z, W / 2 + 0.6)) || inBand(x, z, 0.5, 1), eye)
-		scene.add(birds.object)
-		animated.push(birds.update)
-		// where they are, for a look from the console: __birds.where()
-		;(window as unknown as { __birds?: typeof birds }).__birds = birds
-		// for a look at its weight from the console: __forest.weight()
-		;(window as unknown as { __forest?: Forest }).__forest = forest
-		await pause('Growing the forest')
-	}
-	if (ground && flora) {
-		// the ground's map: shade under the crowns that really stand (the garden's and the forest beyond), wet beside the
-		// paths and the water and in the hollows
+	// Sandbox 5: a little way out on the path to the building's south gate
+	const start = solo ? new THREE.Vector3(soloFoot.x, 0, soloFoot.z - soloFoot.ext - 18) : doorPoint(master, Math.PI, 10)
+	/** the ground's map: shade under the crowns that really stand (the garden's and the forest beyond, each as wide as
+	 *  its kind once that is built), wet beside the paths and the water and in the hollows */
+	let shaded: THREE.Texture | null = null
+	const shade = () => {
+		if (!ground || !flora) return
 		const crowns = plantedTrees.map((t) => ({ x: t.x, z: t.z, r: Math.max(1, (forest?.shape(t.kind)?.reach ?? 2) * t.s) }))
 		for (const t of tiles.values()) for (const c of t.farCrowns) crowns.push({ x: c.elements[12]!, z: c.elements[14]!, r: Math.hypot(c.elements[0]!, c.elements[1]!, c.elements[2]!) * 0.5 })
-		const wet = (x: number, z: number) =>
-			Math.min(1, (nearPath(x, z, 1.4) ? 0.55 : 0) + (nearWater(x, z, W / 2 + 2.5) ? 0.8 : 0) + Math.max(0, (-groundY(x, z) - 0.04) / 0.06) * 0.7)
+		const wet = (x: number, z: number) => Math.min(1, (nearPath(x, z, 1.4) ? 0.55 : 0) + (nearWater(x, z, W / 2 + 2.5) ? 0.8 : 0) + Math.max(0, (-groundY(x, z) - 0.04) / 0.06) * 0.7)
+		shaded?.dispose()
 		const map = groundMap(WORLD, 2, crowns, wet)
-		hex.material.userData.map(map.texture, map.rect)
+		hex.material.userData.map((shaded = map.texture), map.rect)
 	}
+	if (forest) {
+		await plantGarden()
+		// the kinds standing near the start built (in the asset box, side by side): the world shows, and the others grow
+		// in behind it, nearest first (./flora.js `grown`)
+		await forest.grown((done, of) => {
+			if (done === of || done % 10 === 0) onProgress(`Growing the forest: ${done} of ${of} kinds`)
+		}, { x: start.x, z: start.z, dx: 0, dz: 1 })
+		// each tree stands in the walker's way by its trunk, as thick as its kind's foot once that is built
+		const trunks = plantedTrees.map((t) => ({ t, c: { x: t.x, z: t.z, r: 0 } }))
+		const feet = () => trunks.forEach(({ t, c }) => (c.r = Math.min(0.6, (forest.shape(t.kind)?.foot ?? 0.3) * t.s) + 0.2))
+		colliders.push(...trunks.map((x) => x.c))
+		feet()
+		void forest.rest().then(() => {
+			feet(), shade()
+			// songbirds: robins, blackbirds, great tits, sparrows and chaffinches, each round a few trees of its own —
+			// singing up in the crowns, down to the floor to forage, and up again (./birds.js)
+			const birdTrees = plantedTrees.flatMap((t) => {
+				const sh = forest.shape(t.kind)
+				return sh && sh.height * t.s > 2.5 ? [{ x: t.x, z: t.z, height: sh.height * t.s, reach: sh.reach * t.s }] : []
+			})
+			const birds = songbirds(birdTrees, 160, 81, (x, z) => (inHex(x, z) && !inDome(x, z, 1) && !inSquare(x, z) && !nearPath(x, z, 1) && !nearWater(x, z, W / 2 + 0.6)) || inBand(x, z, 0.5, 1), eye)
+			scene.add(birds.object), animated.push(birds.update)
+			// where they are, for a look from the console: __birds.where()
+			;(window as unknown as { __birds?: typeof birds }).__birds = birds
+		})
+		// for a look at its weight from the console: __forest.weight()
+		;(window as unknown as { __forest?: Forest }).__forest = forest
+	}
+	shade()
 	{
 		const trunkMat = new THREE.MeshStandardMaterial({ color: '#6d5238', roughness: 0.9 })
 		const crownMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.85, flatShading: true })
@@ -1311,8 +1322,6 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	await pause('Opening the doors')
 
 	/* ── walking: WASD or the touch joystick, drag to look; through a door, into the dome ── */
-	// Sandbox 5: a little way out on the path to the building's south gate
-	const start = solo ? new THREE.Vector3(soloFoot.x, 0, soloFoot.z - soloFoot.ext - 18) : doorPoint(master, Math.PI, 10)
 	// facing the master dome; where you may stand and how high (canStand, floorHere) is the cell's, below
 	const walker = createWalker(camera, renderer.domElement, {
 		x: start.x,
@@ -1580,16 +1589,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	await library.ready()
 	// for a look from the console at what the renderers draw and hold: __assets.stats(), and each kind (__assets.kinds())
 	;(window as unknown as { __assets?: unknown }).__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }), kinds: () => ({ out: plantsOut?.assets.kinds(), in: plantsIn?.assets.kinds(), library: library.assets.kinds() }) }
-	// Sandbox 5: the plants near where you stand at their finer shapes before the first frame, as they always were
-	if (plantsOut) {
-		onProgress('Growing the forest: the plants near you')
-		forestTick()
-		// two minutes at most by the clock (each tick grows plants: on a slow device a count of ticks waits far longer)
-		for (const until = performance.now() + 120000; performance.now() < until && !(plantsOut.settled() && plantsIn!.settled() && library.settled()); ) {
-			await new Promise((r) => setTimeout(r, 100))
-			forestTick()
-		}
-	}
+	// Sandbox 5: what stands near you drawn from the first frame; its finer shapes come as they are built
+	forestTick()
 	onProgress('ready')
 	tick()
 

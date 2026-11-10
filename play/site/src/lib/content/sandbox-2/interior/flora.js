@@ -42,6 +42,11 @@ export const refOf = (k) => {
 /** @type {DidNotGrow[]} every plant of every forest that did not grow since the page (or the census) began */
 export const didNotGrow = [];
 
+/** How near the start (m) a kind stands for a world to wait for it before it shows (`grown`): a tree where its shape is drawn (past it, its picture), a small plant as far as the village streams it. */
+export const NEAR = { tree: 40, ...STREAMS.village };
+/** a plant is before the eye within this cosine of where it looks (the worlds' view, 68° high, is 47° to either side), else BEHIND times as far */
+export const AHEAD = 0.68, BEHIND = 4;
+
 /** the side of a cell of the ground the small plants are filed in, metres */
 const CELL = 8;
 /** @param {number} ix @param {number} iz */
@@ -137,72 +142,66 @@ export function createForest(o) {
 
 	/**
 	 * Builds every kind (coarsest shape first, side by side) and puts its trees down. A kind that will not build leaves
-	 * its places empty and the rest grow: a failure, given back and kept in `didNotGrow`.
-	 * @param {(done: number, of: number) => void} [onKind] @returns {Promise<DidNotGrow[]>} this forest's kinds that did not grow
+	 * its places empty and the rest grow: a failure, given back and kept in `didNotGrow`. With `from` (where the eye
+	 * starts and which way it looks, a unit) it settles once the kinds within NEAR of it are built (a plant not before the
+	 * eye counted BEHIND times as far): the world shows, the others grow in behind it, nearest first (`rest()`: all have).
+	 * @param {(done: number, of: number) => void} [onKind] @param {{ x: number, z: number, dx: number, dz: number }} [from]
+	 * @returns {Promise<DidNotGrow[]>} this forest's kinds that did not grow (so far)
 	 */
-	async function grown(onKind) {
+	async function grown(onKind, from) {
 		const list = [...stands.values()];
-		/** @type {DidNotGrow[]} */
-		const failed = [];
+		const failed = /** @type {DidNotGrow[]} */ ([]);
+		const far = (/** @type {number} */ x, /** @type {number} */ z, d = Math.hypot(x, z)) => (x * from.dx + z * from.dz > d * AHEAD ? d : d * BEHIND);
+		const off = new Map(list.map((st) => [st, from ? st.add.reduce((d, x, i, a) => (i % 5 ? d : Math.min(d, far(x - from.x, a[i + 2] - from.z))), Infinity) : 0]));
+		const first = new Set(list.filter((st) => /** @type {number} */ (off.get(st)) < NEAR[st.reach]));
+		// those the world waits for before all others, each lot nearest first: its turn is how much a kind is wanted
+		list.sort((a, b) => Number(first.has(b)) - Number(first.has(a)) || /** @type {number} */ (off.get(a)) - /** @type {number} */ (off.get(b)));
+		list.forEach((st, i) => off.set(st, i));
 		let done = 0;
-		await Promise.all(
-			list.map(async (st) => {
-				let k = null;
-				try {
-					// a tree casts its shadow at every level, also as a picture; small plants cast none and are left out first
-					const tree = st.reach === 'tree';
-					k = flora.use(refOf(st.kind), tree, tree);
-					await k.ready;
-				} catch (err) {
-					k = { error: String(/** @type {Error} */ (err)?.message ?? err) };
-				}
-				if (gone) return;
-				if (k.error) {
-					// a kind that will not build (a setting its recipe refuses, a plant or a version the library has not got)
-					// leaves its places empty: a failure, counted
-					const f = { kind: keyOf(st.kind), error: k.error };
-					failed.push(f);
-					didNotGrow.push(f);
-					console.error(`flora: ${f.kind} did not grow: ${f.error}`);
-					onKind?.(++done, list.length);
-					return;
-				}
-				st.k = k;
-				st.shape = measure(k.levels[k.base].level);
-				// where each stands, packed; and the small ones filed by their cell of the ground
-				const n = st.n, a = st.add;
-				st.x = new Float32Array(n);
-				st.y = new Float32Array(n);
-				st.z = new Float32Array(n);
-				st.turn = new Float32Array(n);
-				st.scale = new Float32Array(n);
-				st.copies = new Array(n).fill(null);
-				if (st.reach !== 'tree') {
-					st.cells = new Map();
-					st.placed = [];
-				}
+		const jobs = list.map(async (st) => {
+			let k = null;
+			try {
+				// a tree casts its shadow at every level, also as a picture; small plants cast none and are left out first
+				const tree = st.reach === 'tree';
+				k = flora.use(refOf(st.kind), tree, tree);
+				// built before whatever stands further off (the renderer's boxes take the most wanted first)
+				k.rank ??= () => -(/** @type {number} */ (off.get(st)));
+				await k.ready;
+			} catch (err) {
+				k = { error: String(/** @type {Error} */ (err)?.message ?? err) };
+			}
+			if (gone) return;
+			if (first.has(st)) onKind?.(++done, first.size);
+			if (k.error) {
+				// a kind that will not build (a setting its recipe refuses, a version the library has not got): a failure, counted
+				const f = { kind: keyOf(st.kind), error: k.error };
+				failed.push(f), didNotGrow.push(f);
+				return console.error(`flora: ${f.kind} did not grow: ${f.error}`);
+			}
+			st.k = k;
+			st.shape = measure(k.levels[k.base].level);
+			// where each stands, packed; and the small ones filed by their cell of the ground
+			const n = st.n, a = st.add;
+			[st.x, st.y, st.z, st.turn, st.scale] = [0, 1, 2, 3, 4].map((j) => Float32Array.from({ length: n }, (_, i) => a[i * 5 + j]));
+			st.copies = new Array(n).fill(null);
+			if (st.reach !== 'tree') {
+				(st.cells = new Map()), (st.placed = []);
 				for (let i = 0; i < n; i++) {
-					st.x[i] = a[i * 5];
-					st.y[i] = a[i * 5 + 1];
-					st.z[i] = a[i * 5 + 2];
-					st.turn[i] = a[i * 5 + 3];
-					st.scale[i] = a[i * 5 + 4];
-					if (st.cells) {
-						const key = cellKey(Math.floor(st.x[i] / CELL), Math.floor(st.z[i] / CELL));
-						let cell = st.cells.get(key);
-						if (!cell) st.cells.set(key, (cell = []));
-						cell.push(i);
-					}
+					const key = cellKey(Math.floor(st.x[i] / CELL), Math.floor(st.z[i] / CELL));
+					st.cells.set(key, [...(st.cells.get(key) ?? []), i]);
 				}
-				st.add = [];
-				// every tree stands from the start, however far off (as its picture); the rest come as the eye nears them
-				if (!st.cells && !hidden) for (let i = 0; i < n; i++) if (!isMasked(st.x[i], st.z[i])) draw(st, i, true);
-				onKind?.(++done, list.length);
-			})
-		);
-		dirty = true;
+			}
+			st.add = [];
+			// every tree stands from the start, however far off (as its picture); the rest come as the eye nears them
+			if (!st.cells && !hidden) for (let i = 0; i < n; i++) if (!isMasked(st.x[i], st.z[i])) draw(st, i, true);
+			dirty = true;
+		});
+		whole = Promise.all(jobs).then(() => failed);
+		await Promise.all(jobs.filter((_, i) => first.has(list[i])));
 		return failed;
 	}
+	/** @type {Promise<DidNotGrow[]>} every kind built (or failed): what `grown` left growing has grown */
+	let whole = Promise.resolve([]);
 
 	/** the plants of a stand within `far` of x, z, by their cells @param {Stand} st @param {number} x @param {number} z @param {number} far @param {(i: number) => void} each */
 	const within = (st, x, z, far, each) => {
@@ -355,7 +354,7 @@ export function createForest(o) {
 		stands.clear();
 	}
 
-	return { add, kinds, grown, update, weight, plants, shape, pick, mask, show, dispose };
+	return { add, kinds, grown, rest: () => whole, update, weight, plants, shape, pick, mask, show, dispose };
 }
 
 /** @typedef {ReturnType<typeof createForest>} Forest */

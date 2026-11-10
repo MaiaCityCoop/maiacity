@@ -80,8 +80,9 @@ export function createLowering(o = {}) {
 	let next = 1, busy = 0;
 	/** @type {Map<number, { ok: Function, no: Function }>} */
 	const waiting = new Map();
-	/** one kind at a time, in the order asked for, those that can wait (`later`) after all the others */
-	/** @type {{ source: any, plans: any[], later: boolean, raw: boolean, ok: Function, no: Function }[]} */
+	/** one kind at a time, the most wanted first (`rank`, as the renderer's builds: what stands near the eye), else in the
+	 *  order asked for, those that can wait (`later`) after all the others */
+	/** @type {{ source: any, plans: any[], later: boolean, raw: boolean, rank?: (() => number) | null, ok: Function, no: Function }[]} */
 	const jobs = [];
 	let running = false;
 
@@ -132,8 +133,8 @@ export function createLowering(o = {}) {
 
 	function pump() {
 		if (running || !jobs.length) return;
-		const i = jobs.findIndex((j) => !j.later);
-		const job = jobs.splice(i >= 0 ? i : 0, 1)[0];
+		const wanted = (j) => (j.later ? -Infinity : (j.rank?.() ?? 0));
+		const job = jobs.splice(jobs.reduce((best, j, i) => (wanted(j) > wanted(jobs[best]) ? i : best), 0), 1)[0];
 		running = true;
 		Promise.resolve()
 			.then(() => run(job.source.draws.map(plainOf), job.plans))
@@ -148,12 +149,13 @@ export function createLowering(o = {}) {
 	return {
 		/**
 		 * The levels of `source` each plan asks for; `later` (a recipe's level made lighter, drawn as it came meanwhile)
-		 * waits for every other; `raw` gives the simplifier's plain data (to keep: ./levels.js), not yet a level (`levelOf`).
+		 * waits for every other; `raw` gives the simplifier's plain data (to keep: ./levels.js), not yet a level (`levelOf`);
+		 * `rank` how much it is wanted while it waits (asked again each time the worker is free).
 		 */
-		lower(source, plans, later = false, raw = false) {
+		lower(source, plans, later = false, raw = false, rank = null) {
 			busy++;
 			return new Promise((ok, no) => {
-				jobs.push({ source, plans, later, raw, ok, no });
+				jobs.push({ source, plans, later, raw, rank, ok, no });
 				pump();
 			});
 		},
