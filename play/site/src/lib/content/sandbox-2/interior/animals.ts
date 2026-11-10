@@ -266,11 +266,8 @@ export function fishes(pools: { x: number; z: number; r: number; y: number; n: n
 	const school = crowd(
 		kinds.map(actorRef),
 		Array.from({ length: COATS }, (_, c) => fish.filter((f) => f.coat === c).length),
-		// a fish's middle is 0.15 m over its origin ($content/actors/species/fish.ts): the pool gives where its middle swims.
-		// It casts no shadow: it swims a hand's breadth over the bed, under the water, and like what lies on the ground
-		// (./village.ts) its shadow is not worth its draws (twenty rigged fish, six meshes each, in every cascade: 520 of
-		// Sandbox 5's 4,361 draws a frame, intent 405f7a85)
-		{ near: 18, max: 20, lift: 0.15, shadows: false }
+		// a fish's middle is 0.15 m over its origin ($content/actors/species/fish.ts): the pool gives where its middle swims
+		{ near: 18, max: 20, lift: 0.15 }
 	)
 	const swimmers = { clips: clipsOf(school) }
 	const update = (t: number) => {
