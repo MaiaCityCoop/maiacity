@@ -71,8 +71,8 @@ const resultsOut = option("--results-out");
 const recordFrom = option("--record-from");
 const over = option("--over");
 const withFile = option("--with");
-/** a check measured on a real GPU: its run names the one script that does (play/site/scripts/gpu.ts) */
-const onGpu = (c: { run?: string }) => /\bscripts\/gpu\.ts\b/.test(c.run ?? "");
+/** a check measured on a real GPU: its run runs the one script that does (`bun play/site/scripts/gpu.ts …`); one that only speaks of it is not */
+const onGpu = (c: { run?: string }) => /\bbun\s+(\S*\/)?scripts\/gpu\.ts\b/.test(c.run ?? "");
 const head = option("--head");
 if (head !== undefined && !SHA.test(head)) usage("--head is the pull request's head, a 40-character git hash.");
 const ROOT = resolve(option("--root") ?? resolve(import.meta.dir, "../.."));

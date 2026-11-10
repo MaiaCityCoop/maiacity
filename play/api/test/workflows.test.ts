@@ -373,7 +373,7 @@ describe("intents-pr.yml: the checks on a GPU", () => {
     expect(spec.outputs.gpu).toBe("${{ steps.which.outputs.gpu }}");
     // by the checks' runs alone, as main's intent.ts --gpu chooses them
     const asks = spec.steps.find((s: any) => s.id === "which").run.split("\n").find((l: string) => l.includes("gpu=true"))!.trim();
-    expect(asks).toBe(String.raw`! jq -e '[.checks[].run // ""] | any(test("\\bscripts/gpu\\.ts\\b"))' "$RUNNER_TEMP/box/spec.json" > /dev/null || echo "gpu=true" >> "$GITHUB_OUTPUT"`);
+    expect(asks).toBe(String.raw`! jq -e '[.checks[].run // ""] | any(test("\\bbun\\s+(\\S*/)?scripts/gpu\\.ts\\b"))' "$RUNNER_TEMP/box/spec.json" > /dev/null || echo "gpu=true" >> "$GITHUB_OUTPUT"`);
     // run as the step runs it: a check whose run names the script asks for the job; one that only speaks of it does not
     const asked = (checks: object[]) => {
       const dir = mkdtempSync(join(tmpdir(), "gpu-asks-"));
@@ -384,8 +384,8 @@ describe("intents-pr.yml: the checks on a GPU", () => {
       return readFileSync(join(dir, "out"), "utf8");
     };
     expect(asked([{ id: "c1", run: "true" }, { id: "c2", run: "bun play/site/scripts/gpu.ts --world /sandbox-5/" }])).toBe("gpu=true\n");
-    expect(asked([{ id: "c1", run: "true", by: "not play/site/scripts/gpu.ts" }, { id: "c2", how: "look" }, { id: "c3", run: "cd play/site/scripts && bun gpu.ts" }])).toBe("");
-    expect(text("play/avenbox/intent.ts")).toContain(String.raw`const onGpu = (c: { run?: string }) => /\bscripts\/gpu\.ts\b/.test(c.run ?? "");`);
+    expect(asked([{ id: "c1", run: "true", by: "not play/site/scripts/gpu.ts" }, { id: "c2", how: "look" }, { id: "c3", run: "cd play/site/scripts && bun gpu.ts" }, { id: "c4", run: "grep -q 'scripts/gpu.ts' play/SPEC.md" }])).toBe("");
+    expect(text("play/avenbox/intent.ts")).toContain(String.raw`const onGpu = (c: { run?: string }) => /\bbun\s+(\S*\/)?scripts\/gpu\.ts\b/.test(c.run ?? "");`);
     expect(gpu.needs).toBe("spec");
     expect(gpu.if).toBe("!cancelled() && needs.spec.result == 'success' && needs.spec.outputs.gpu == 'true'");
     expect(gpu["runs-on"]).toMatch(/^macos-\d+$/);

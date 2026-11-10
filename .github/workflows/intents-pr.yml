@@ -98,8 +98,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/box"
           bun play/avenbox/intent.ts "$intent" --spec-out "$RUNNER_TEMP/box/spec.json"
           cp play/avenbox/intent.ts play/avenbox/play.ts play/avenbox/box.env "$RUNNER_TEMP/box/"
-          # a check that measures on a real GPU names the one script that does: the gpu job runs only then
-          ! jq -e '[.checks[].run // ""] | any(test("\\bscripts/gpu\\.ts\\b"))' "$RUNNER_TEMP/box/spec.json" > /dev/null || echo "gpu=true" >> "$GITHUB_OUTPUT"
+          # a check that measures on a real GPU runs the one script that does: the gpu job runs only then
+          ! jq -e '[.checks[].run // ""] | any(test("\\bbun\\s+(\\S*/)?scripts/gpu\\.ts\\b"))' "$RUNNER_TEMP/box/spec.json" > /dev/null || echo "gpu=true" >> "$GITHUB_OUTPUT"
           # a dry run hands over the dispatched branch's intent.ts (and what it reads beside it), read with git show, never run here
           if [ "$DRY" = true ]; then git fetch --quiet --depth=1 origin "$GITHUB_SHA" && git show "$GITHUB_SHA:play/avenbox/intent.ts" > "$RUNNER_TEMP/box/intent.ts" && git show "$GITHUB_SHA:play/avenbox/play.ts" > "$RUNNER_TEMP/box/play.ts" && git show "$GITHUB_SHA:play/avenbox/box.env" > "$RUNNER_TEMP/box/box.env"; fi
       - uses: actions/upload-artifact@v4
