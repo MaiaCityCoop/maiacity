@@ -77,3 +77,19 @@ Decisions.
   (`lower`, `dispose`), and index.js only at the reads' line.
 
 Marked ready 23:50 UTC; the box's run records.
+
+## 2026-11-11 00:00–00:15 UTC · round 2: written to merge with the memory intent (1893a631)
+
+| round | the change | before | after | kept |
+|---|---|---|---|---|
+| 2 | round 1's level maker (each job asking its own ranked turn, no line of its own) | merge with origin/intent/1893a631-memory: conflict in render/lower.js (it rebuilds the jobs, one heavy shape at a time, the workers' lifetime) | — | thrown away |
+| 2 | lower.js as on main but for one line: the turn it asks is a level's (`levelTurn`, after every build); the line's `when` gone with it | conflict | both neighbours merge by themselves (`git merge --no-commit`, 1893a631-memory and 405f7a85-worlds-fast) | kept |
+| 2 | c2 lines after that | 621 | 608 of 609 (history retold in comments cut: it is in git) | kept |
+| 2 | beside.ts on it | 99 %, 42 %, 96 % | 113 %, 47 %, 103 % then 100 %, 40 %, 89 % | kept |
+| 2 | beside.ts: the two arms held against each other run twice, the sooner taken (8 s arms moved by a second of noise; the command and its bounds unchanged) | one run each | 2 min 52 s for the whole measure | kept |
+
+So the scope's "lower.js keeps no order of its own" is not what was built: the level maker still picks its most
+wanted job as its turn comes (main's code, which 1893a631 builds on). The fault was never that order; it was that a
+level's turn came before a build's. c1 and c2 hold as specified.
+
+Pushed 50bd98b5 to the ready pull request #2256 at 00:15 UTC.
