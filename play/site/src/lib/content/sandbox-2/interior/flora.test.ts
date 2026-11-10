@@ -109,7 +109,6 @@ function deviceOf(quota: number, weigh: number) {
 
 describe('flora: a world visited again', () => {
 	afterEach(() => {
-		vi.useRealTimers()
 		vi.unstubAllGlobals()
 		vi.resetModules()
 	})
