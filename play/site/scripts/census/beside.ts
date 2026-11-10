@@ -12,7 +12,7 @@
  *
  *   bun play/site/scripts/census/beside.ts [--kinds 48] [--heavy 4] [--most 125%] [--sooner 65%] [--work 110%] [--cores <n>]
  *
- * Prints each arm's seconds until every plant is built, until its levels are made, and the CPU seconds the whole
+ * The two arms in the pool are run twice and the sooner build of each taken. Prints each arm's seconds until every plant is built, until its levels are made, and the CPU seconds the whole
  * process spent on it (every worker's). Exits 0 only if every plant and level was made, the plants beside the levels
  * were built within --most of the seconds they take alone and --sooner of the seconds they take in one box, and the arm on every core spent at most --work of the CPU
  * seconds of the arm in one box. Both are ratios of one run, so a slower machine is slower at every arm.
@@ -79,9 +79,11 @@ async function arm(size: number | undefined, levelsOf: Set<string>) {
 
 // the engine read and a first worker made before any arm is timed
 await arm(1, new Set()).catch(() => {});
-const alone = await arm(undefined, new Set());
+// (the two arms held against each other are run twice, the sooner of each taken: a second of another's work on the machine is not the page's)
+const sooner2 = (a: Awaited<ReturnType<typeof arm>>, b: Awaited<ReturnType<typeof arm>>) => (b.builds < a.builds ? { ...a, builds: b.builds } : a);
+const alone = sooner2(await arm(undefined, new Set()), await arm(undefined, new Set()));
 const heaviest = new Set(Object.entries(alone.tris).sort((a, b) => b[1] - a[1]).slice(0, heavy).map(([h]) => h));
-const beside = await arm(undefined, heaviest);
+const beside = sooner2(await arm(undefined, heaviest), await arm(undefined, heaviest));
 const one = await arm(1, heaviest);
 const line = (name: string, a: typeof alone) => console.log(`  ${name.padEnd(46)} every plant built after ${a.builds.toFixed(1).padStart(5)} s, its ${a.levels} levels made after ${a.all.toFixed(1).padStart(5)} s, ${a.cpu.toFixed(0).padStart(4)} CPU s`);
 console.log(`beside: ${kinds.length} plants on box engine ${engine}, ${cores} cores, the page's turns ${turns}; levels of the ${heavy} heaviest (${[...heaviest].map((h) => alone.tris[h]).join(', ')} triangles)`);
