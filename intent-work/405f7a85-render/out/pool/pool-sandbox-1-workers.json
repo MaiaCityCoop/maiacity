@@ -1,0 +1,1 @@
+{"shown_s": 156.9, "worker_threads_seen": 340, "workers_busy_over_1s": 101, "worker_seconds_total": 889.3, "mean_workers_busy": 5.5, "peak_workers_busy_1s": 10.0, "seconds_with_4plus_busy": 138, "seconds_with_under_1_busy": 11, "main_thread_busy_s": 68.7, "per_10s_mean_busy": [3.43, 6.12, 8.26, 7.52, 6.1, 6.02, 6.08, 5.23, 5.15, 5.22, 6.14, 6.15, 6.0, 6.2, 2.36, 0.55]}

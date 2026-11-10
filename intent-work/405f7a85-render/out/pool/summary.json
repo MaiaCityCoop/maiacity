@@ -1,0 +1,93 @@
+{
+ "intent": "08d00b84 (the every-core pool), measured for 405f7a85",
+ "when_berlin": "2026-11-10 20:53-21:12",
+ "production": {
+  "sandbox-1": "83c6c77eab55405c8340fc3433f3d57ec1f8f319 (live at its start)",
+  "sandbox-5": "ead28d28a8040fd97f2b93c41f71b30bb6fc0e6d (live at its start)",
+  "pool_merge": "ab3cc9227 [08d00b84], in both"
+ },
+ "mac": "Apple M1, 8 cores (navigator.hardwareConcurrency 8), 8 GB; Chromium 153 on Metal, WebGPU; a fresh profile; the token to play.maia.city only",
+ "how": "the loading card looked at every 2 s until gone; a Chromium trace of category toplevel: each thread's top-level tasks, spread over the seconds they span; 'workers busy' = the dedicated workers' task time in a second (so 5.5 = five and a half cores' worth on average); from navigation to the world shown",
+ "shown_s": {
+  "sandbox-1": 156.9,
+  "sandbox-5": 173.3
+ },
+ "before_the_pool_first_visits_s": {
+  "sandbox-1": {
+   "job1": 208,
+   "job2_baseline": 175,
+   "job2_C": 190,
+   "job4": 169
+  },
+  "sandbox-5": {
+   "job1": 187,
+   "job2_baseline": 172,
+   "job2_C": 160,
+   "job4": 149
+  }
+ },
+ "workers": {
+  "sandbox-1": {
+   "shown_s": 156.9,
+   "worker_threads_seen": 340,
+   "workers_busy_over_1s": 101,
+   "worker_seconds_total": 889.3,
+   "mean_workers_busy": 5.5,
+   "peak_workers_busy_1s": 10.0,
+   "seconds_with_4plus_busy": 138,
+   "seconds_with_under_1_busy": 11,
+   "main_thread_busy_s": 68.7,
+   "per_10s_mean_busy": [
+    3.43,
+    6.12,
+    8.26,
+    7.52,
+    6.1,
+    6.02,
+    6.08,
+    5.23,
+    5.15,
+    5.22,
+    6.14,
+    6.15,
+    6.0,
+    6.2,
+    2.36,
+    0.55
+   ]
+  },
+  "sandbox-5": {
+   "shown_s": 173.3,
+   "worker_threads_seen": 346,
+   "workers_busy_over_1s": 116,
+   "worker_seconds_total": 1024.5,
+   "mean_workers_busy": 5.88,
+   "peak_workers_busy_1s": 8.68,
+   "seconds_with_4plus_busy": 148,
+   "seconds_with_under_1_busy": 15,
+   "main_thread_busy_s": 81.5,
+   "per_10s_mean_busy": [
+    1.52,
+    6.89,
+    6.21,
+    6.97,
+    5.77,
+    7.24,
+    7.19,
+    6.9,
+    7.12,
+    7.11,
+    6.13,
+    6.15,
+    6.4,
+    7.43,
+    7.17,
+    5.31,
+    0.51,
+    0.74
+   ]
+  }
+ },
+ "before_the_pool_workers": "job 2's profile of Sandbox 1 (672ae57): ~160 s of worker tasks in its 144 s window, about one worker busy at a time; the page's main thread busy 16 s of it",
+ "reading": "The pool fills the cores (on average 5.5 and 5.9 workers busy, 138 and 148 seconds with four or more), but the world shows about as late as before (157 s and 173 s against 149-208 s): the workers' total task time rose about sixfold (889 s and 1,024 s against ~160 s), so the same builds take far longer each when they run eight at a time on this Mac (four performance and four efficiency cores, 8 GB), or work is repeated per box. The page's main thread is also far busier (69 s and 82 s against 16 s). Caveat: Sandbox 1's run began with the Mac's load at 13.9 (the quiet wait gave up after 400 s); Sandbox 5's at 3.0."
+}

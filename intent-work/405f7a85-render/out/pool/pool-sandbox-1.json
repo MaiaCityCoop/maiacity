@@ -1,0 +1,405 @@
+{
+ "tag": "pool-sandbox-1",
+ "path": "/sandbox-1/",
+ "lines": [
+  {
+   "t": 2.7,
+   "card": true,
+   "line": "Letting the stream in…"
+  },
+  {
+   "t": 4.8,
+   "card": true,
+   "line": "Covering the ground…"
+  },
+  {
+   "t": 6.9,
+   "card": true,
+   "line": "Covering the ground…"
+  },
+  {
+   "t": 9.2,
+   "card": true,
+   "line": "Covering the ground…"
+  },
+  {
+   "t": 11.4,
+   "card": true,
+   "line": "Growing the forest: 20 of 198 kinds…"
+  },
+  {
+   "t": 13.5,
+   "card": true,
+   "line": "Growing the forest: 30 of 198 kinds…"
+  },
+  {
+   "t": 16.7,
+   "card": true,
+   "line": "Growing the forest: 40 of 198 kinds…"
+  },
+  {
+   "t": 23.3,
+   "card": true,
+   "line": "Growing the forest: 50 of 198 kinds…"
+  },
+  {
+   "t": 29.4,
+   "card": true,
+   "line": "Growing the forest: 50 of 198 kinds…"
+  },
+  {
+   "t": 32.3,
+   "card": true,
+   "line": "Growing the forest: 50 of 198 kinds…"
+  },
+  {
+   "t": 35.1,
+   "card": true,
+   "line": "Growing the forest: 60 of 198 kinds…"
+  },
+  {
+   "t": 37.1,
+   "card": true,
+   "line": "Growing the forest: 60 of 198 kinds…"
+  },
+  {
+   "t": 39.7,
+   "card": true,
+   "line": "Growing the forest: 60 of 198 kinds…"
+  },
+  {
+   "t": 42.5,
+   "card": true,
+   "line": "Growing the forest: 70 of 198 kinds…"
+  },
+  {
+   "t": 45.6,
+   "card": true,
+   "line": "Growing the forest: 70 of 198 kinds…"
+  },
+  {
+   "t": 48.1,
+   "card": true,
+   "line": "Growing the forest: 70 of 198 kinds…"
+  },
+  {
+   "t": 52.6,
+   "card": true,
+   "line": "Growing the forest: 70 of 198 kinds…"
+  },
+  {
+   "t": 56.4,
+   "card": true,
+   "line": "Growing the forest: 70 of 198 kinds…"
+  },
+  {
+   "t": 58.8,
+   "card": true,
+   "line": "Growing the forest: 70 of 198 kinds…"
+  },
+  {
+   "t": 60.8,
+   "card": true,
+   "line": "Growing the forest: 70 of 198 kinds…"
+  },
+  {
+   "t": 62.9,
+   "card": true,
+   "line": "Growing the forest: 70 of 198 kinds…"
+  },
+  {
+   "t": 65,
+   "card": true,
+   "line": "Growing the forest: 70 of 198 kinds…"
+  },
+  {
+   "t": 68,
+   "card": true,
+   "line": "Growing the forest: 70 of 198 kinds…"
+  },
+  {
+   "t": 70.5,
+   "card": true,
+   "line": "Growing the forest: 80 of 198 kinds…"
+  },
+  {
+   "t": 72.6,
+   "card": true,
+   "line": "Growing the forest: 80 of 198 kinds…"
+  },
+  {
+   "t": 75,
+   "card": true,
+   "line": "Growing the forest: 80 of 198 kinds…"
+  },
+  {
+   "t": 77.2,
+   "card": true,
+   "line": "Growing the forest: 80 of 198 kinds…"
+  },
+  {
+   "t": 79.8,
+   "card": true,
+   "line": "Growing the forest: 80 of 198 kinds…"
+  },
+  {
+   "t": 82,
+   "card": true,
+   "line": "Growing the forest: 80 of 198 kinds…"
+  },
+  {
+   "t": 85.1,
+   "card": true,
+   "line": "Growing the forest: 80 of 198 kinds…"
+  },
+  {
+   "t": 87.3,
+   "card": true,
+   "line": "Growing the forest: 80 of 198 kinds…"
+  },
+  {
+   "t": 89.4,
+   "card": true,
+   "line": "Growing the forest: 80 of 198 kinds…"
+  },
+  {
+   "t": 91.8,
+   "card": true,
+   "line": "Growing the forest: 90 of 198 kinds…"
+  },
+  {
+   "t": 93.9,
+   "card": true,
+   "line": "Growing the forest: 90 of 198 kinds…"
+  },
+  {
+   "t": 95.9,
+   "card": true,
+   "line": "Growing the forest: 90 of 198 kinds…"
+  },
+  {
+   "t": 98,
+   "card": true,
+   "line": "Growing the forest: 90 of 198 kinds…"
+  },
+  {
+   "t": 100,
+   "card": true,
+   "line": "Growing the forest: 90 of 198 kinds…"
+  },
+  {
+   "t": 102,
+   "card": true,
+   "line": "Growing the forest: 100 of 198 kinds…"
+  },
+  {
+   "t": 104,
+   "card": true,
+   "line": "Growing the forest: 100 of 198 kinds…"
+  },
+  {
+   "t": 106.1,
+   "card": true,
+   "line": "Growing the forest: 100 of 198 kinds…"
+  },
+  {
+   "t": 108.2,
+   "card": true,
+   "line": "Growing the forest: 110 of 198 kinds…"
+  },
+  {
+   "t": 110.6,
+   "card": true,
+   "line": "Growing the forest: 120 of 198 kinds…"
+  },
+  {
+   "t": 112.7,
+   "card": true,
+   "line": "Growing the forest: 120 of 198 kinds…"
+  },
+  {
+   "t": 115.7,
+   "card": true,
+   "line": "Growing the forest: 120 of 198 kinds…"
+  },
+  {
+   "t": 117.9,
+   "card": true,
+   "line": "Growing the forest: 130 of 198 kinds…"
+  },
+  {
+   "t": 121,
+   "card": true,
+   "line": "Growing the forest: 130 of 198 kinds…"
+  },
+  {
+   "t": 123,
+   "card": true,
+   "line": "Growing the forest: 130 of 198 kinds…"
+  },
+  {
+   "t": 125.1,
+   "card": true,
+   "line": "Growing the forest: 170 of 198 kinds…"
+  },
+  {
+   "t": 127.1,
+   "card": true,
+   "line": "Growing the forest: 190 of 198 kinds…"
+  },
+  {
+   "t": 129.2,
+   "card": true,
+   "line": "Growing the forest: the plants near you…"
+  },
+  {
+   "t": 131.3,
+   "card": true,
+   "line": "Growing the forest: the plants near you…"
+  },
+  {
+   "t": 133.7,
+   "card": true,
+   "line": "Growing the forest: the plants near you…"
+  },
+  {
+   "t": 135.9,
+   "card": true,
+   "line": "Growing the forest: the plants near you…"
+  },
+  {
+   "t": 138.1,
+   "card": true,
+   "line": "Growing the forest: the plants near you…"
+  },
+  {
+   "t": 140.2,
+   "card": true,
+   "line": "Growing the forest: the plants near you…"
+  },
+  {
+   "t": 142.2,
+   "card": true,
+   "line": "Growing the forest: the plants near you…"
+  },
+  {
+   "t": 144.2,
+   "card": true,
+   "line": "Growing the forest: the plants near you…"
+  },
+  {
+   "t": 146.5,
+   "card": true,
+   "line": "Growing the forest: the plants near you…"
+  },
+  {
+   "t": 148.5,
+   "card": true,
+   "line": "Growing the forest: the plants near you…"
+  },
+  {
+   "t": 154.8,
+   "card": true,
+   "line": "Welcome"
+  },
+  {
+   "t": 156.9,
+   "card": false,
+   "line": null
+  }
+ ],
+ "shown_s": 156.9,
+ "cores": 8,
+ "stats": {
+  "out": {
+   "kinds": 198,
+   "loaded": 196,
+   "copies": 8316,
+   "pictures": 2990,
+   "posed": 0,
+   "culled": 5308,
+   "tris": 663576,
+   "calls": 41,
+   "materials": 107,
+   "pages": 3,
+   "building": 0,
+   "busy": {
+    "queue": 0,
+    "loads": 0,
+    "compiling": 0,
+    "lowering": 0
+   },
+   "builds": 199,
+   "made": 20,
+   "derived": 20,
+   "keptLevels": 0,
+   "taken": 74,
+   "keptPictures": 0,
+   "boxed": 199,
+   "retaken": 0,
+   "unkept": 94,
+   "keeping": 0,
+   "same": 0
+  },
+  "in": {
+   "kinds": 129,
+   "loaded": 45,
+   "copies": 0,
+   "pictures": 0,
+   "posed": 0,
+   "culled": 0,
+   "tris": 0,
+   "calls": 0,
+   "materials": 17,
+   "pages": 1,
+   "building": 84,
+   "busy": {
+    "queue": 43,
+    "loads": 39,
+    "compiling": 2,
+    "lowering": 0
+   },
+   "builds": 45,
+   "made": 0,
+   "derived": 0,
+   "keptLevels": 0,
+   "taken": 3,
+   "keptPictures": 0,
+   "boxed": 43,
+   "retaken": 2,
+   "unkept": 3,
+   "keeping": 0,
+   "same": 0
+  },
+  "library": {
+   "kinds": 32,
+   "loaded": 30,
+   "copies": 5182,
+   "pictures": 0,
+   "posed": 0,
+   "culled": 1562,
+   "tris": 54563,
+   "calls": 33,
+   "materials": 64,
+   "pages": 0,
+   "building": 1,
+   "busy": {
+    "queue": 0,
+    "loads": 1,
+    "compiling": 0,
+    "lowering": 0
+   },
+   "builds": 30,
+   "made": 60,
+   "derived": 60,
+   "keptLevels": 0,
+   "taken": 0,
+   "keptPictures": 0,
+   "boxed": 30,
+   "retaken": 0,
+   "unkept": 0,
+   "keeping": 30,
+   "same": 28
+  }
+ }
+}
