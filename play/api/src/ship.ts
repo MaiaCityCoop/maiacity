@@ -72,6 +72,9 @@ const KEYS = new Set(STEPS.map((s) => s.key));
 
 // ---- Accept: into the merge queue at once (or, merged already and red after, shipped again)
 
+/** GitHub's refusal to queue a pull request for a required check not there yet: "Required status check "…" is expected", "2 of 4 required status checks are expected" */
+const EXPECTED = /required status checks? .*\bexpected\b/i;
+
 function refuse(why: string): never {
   throw new HttpError(why, 409);
 }
@@ -138,6 +141,9 @@ export async function acceptAndShip(db: Db, gh: GitHub | null, who: Me | null, i
         entry = await gh!.enqueue(pr.node_id ?? "", head);
       } catch (e) {
         await postStatus(tx, gh!, intent.id, seen, ACCEPTED_CONTEXT, "failure", "Accepted, but not queued: accept it again", { head }).catch(() => {});
+        // a required check GitHub still expects (a newer run play has not read yet): no error, it waits for it at Proposal (intent 33f81b80)
+        const why = (e as Error).message.replace(/^GitHub's GraphQL answered: /, "");
+        if (EXPECTED.test(why)) return void (await keepSeen(tx, intent.id, { ...seen, unqueued: { head, why: why.replace(/\.$/, ""), at } }));
         refuse(`GitHub did not queue #${pr.number}: ${(e as Error).message}`);
       }
       const steps = stepsFor([], "queued");

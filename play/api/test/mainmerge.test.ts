@@ -179,12 +179,13 @@ suite("main moving and open intent pull requests", () => {
     const t0 = Date.now();
     await watchPulls(db, gh.gh, store, t0);
     const first = (await db.query(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id])).rows[0].pr_seen;
-    expect(first.etags).toMatchObject({ pull: expect.any(String), head: c.head, checks: expect.any(String) });
+    expect(first.etags).toMatchObject({ pull: expect.any(String), head: c.head, checks: expect.any(String), runs: expect.any(String) });
     // read again, nothing changed: both asked with the ETags kept, both 304, pr_seen fresh and otherwise as it was
     const from = gh.calls.length;
     await watchPulls(db, gh.gh, store, t0 + 30_000);
-    const again = gh.calls.slice(from).filter((x) => x.path === `/pulls/${c.pr}` || x.path.startsWith(`/commits/${c.head}/check-runs`));
-    expect(again.map((x) => [x.etag, x.status])).toEqual([[first.etags.pull, 304], [first.etags.checks, 304]]);
+    const again = gh.calls.slice(from).filter((x) => x.path === `/pulls/${c.pr}` || x.path.includes(c.head));
+    // (main.yml's runs on the head too, asked while its required checks look green: intent 33f81b80)
+    expect(again.map((x) => [x.etag, x.status])).toEqual([[first.etags.pull, 304], [first.etags.checks, 304], [first.etags.runs, 304]]);
     const kept = (await db.query(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id])).rows[0].pr_seen;
     expect(kept.at).toBe(new Date(t0 + 30_000).toISOString());
     expect({ ...kept, at: first.at }).toEqual(first);
@@ -263,6 +264,6 @@ suite("main moving and open intent pull requests", () => {
     await watchTick(db, gh.gh, store, Date.now(), null, state);
     const counted = gh.calls.slice(from).filter((x) => x.status !== 304);
     expect(counted.length).toBeLessThanOrEqual(7);
-    expect(gh.calls.slice(from).filter((x) => x.status === 304).length).toBe(12);
+    expect(gh.calls.slice(from).filter((x) => x.status === 304).length).toBe(18);
   });
 });

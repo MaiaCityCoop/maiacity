@@ -51,6 +51,32 @@ describe("subStateOf", () => {
     expect(gate({ ...green, "website / build": "cancelled" })).toMatchObject({ state: "failed", tag: "check red", why: expect.stringContaining("'website / build' is cancelled") });
   });
 
+  test("the newest run of main.yml decides: a check from an older run that the newest has not made reads as that run does (running, queued, skipped), never as the older green", () => {
+    const at = (min: number) => `2026-11-10T19:${min}:00Z`;
+    const check = (name: string, suite: number, conclusion: string | null, started_at: string, id = 1) => ({ name, status: conclusion ? "completed" : "in_progress", conclusion, started_at, id, check_suite: { id: suite } });
+    const mainRun = (id: number, suite: number, started: string, status: string, conclusion: string | null = null) => ({ id, check_suite_id: suite, created_at: started, run_started_at: started, status, conclusion });
+    const first = [check("play / API", 1, "success", at(20)), check("play / API and site", 1, "success", at(28)), check("website / build", 1, "success", at(22)), check("Intent named", 7, "success", at(20))];
+    const green = { "play / API": "success", "play / API and site": "success", "website / build": "success", "Intent named": "success" };
+    const one = mainRun(1, 1, at(20), "completed", "success");
+    // one run, or none listed: the check runs as they are
+    expect(checksSeen(first)).toEqual(green);
+    expect(checksSeen(first, [one])).toEqual(green);
+    // #2250: a second run in progress, its required job not made yet; another workflow's check stays as it is
+    const second = [...first, check("play / API", 2, null, at(37))];
+    expect(checksSeen(second, [one, mainRun(2, 2, at(37), "in_progress")])).toEqual({ ...green, "play / API": "running", "play / API and site": "running", "website / build": "running" });
+    expect(checksSeen(first, [mainRun(2, 2, at(37), "queued"), one])).toEqual({ ...green, "play / API": "queued", "play / API and site": "queued", "website / build": "queued" });
+    // #2243: a later run whose jobs were skipped; one cancelled before it made them
+    const skipped = [...first, check("play", 2, "skipped", at(30)), check("website", 2, "skipped", at(30))];
+    expect(checksSeen(skipped, [one, mainRun(2, 2, at(30), "completed", "skipped")])).toEqual({ ...green, "play / API": "skipped", "play / API and site": "skipped", "website / build": "skipped", play: "skipped", website: "skipped" });
+    expect(checksSeen(first, [one, mainRun(2, 2, at(30), "completed", "cancelled")])).toMatchObject({ "play / API and site": "cancelled", "Intent named": "success" });
+    // the newest run's own checks decide once it made them, whatever an older run said; a re-run starts its run again
+    expect(checksSeen([...skipped, check("play / API and site", 3, "success", at(45)), check("website / build", 3, "success", at(41))], [one, mainRun(2, 2, at(30), "completed", "skipped"), mainRun(3, 3, at(40), "completed", "success")]))
+      .toMatchObject({ "play / API and site": "success", "website / build": "success", "play / API": "skipped" });
+    expect(checksSeen(second, [{ ...one, run_started_at: at(50) }, mainRun(2, 2, at(37), "completed", "success")])).toMatchObject({ "play / API and site": "success", "play / API": "skipped" });
+    const row_ = (checks: PrSeen["checks"]) => of(row({ pr_seen: seen({ checks }) }));
+    expect(row_(checksSeen(second, [one, mainRun(2, 2, at(37), "in_progress")]))).toEqual({ state: "working", tag: "checks running", why: "Waiting for #7's checks (play / API and site, website / build)" });
+  });
+
   test("four sub-states: each stage, held or not, a failed must, a red ship, and code whose head moved, whose checks run, whose mergeable is null, false or true, or whose pr_seen is stale", () => {
     const dep = [{ id: "d", title: "The engine", stage: "build" }];
     const table: [string, any, string, string][] = [
