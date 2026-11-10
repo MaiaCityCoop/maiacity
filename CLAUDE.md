@@ -54,7 +54,9 @@ checks in avenBOX on GitHub on its head and records them with the head, the run'
 the box's run is evidence**: play takes a code intent's test and measure results from avenBOX's token alone; looks you
 still record by hand with check_intent). Every must green, the intent moves to Proposal by itself: **stop there**; any
 red, the intent stays in Build, failed on the board, its pull request as it is: fix and push. Each push to a ready pull
-request is run and recorded again (a newer head cancels the older head's run, which records nothing).
+request is run and recorded again (a newer head cancels the older head's run, which records nothing); a re-run of the
+head's run, whole or its failed jobs, records as a first run does, and a re-run of an older head's run records nothing
+(intent 090ef921).
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
 play's intents' board takes **only a waiting intent** (play/SPEC.md §4.12 *Sub-states*: its pull request's head the
 checked one, mergeable, its required checks green; working or failed, Accept is refused with why; so is every Accept
