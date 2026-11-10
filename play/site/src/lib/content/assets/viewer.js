@@ -292,7 +292,9 @@ export function loop(tick) {
 export function safeArea(box, { inView = false } = {}) {
 	const b = box.getBoundingClientRect();
 	const safe = { left: 0, right: b.width, top: 0, bottom: b.height };
-	for (const el of (box.closest('.view') ?? (inView ? null : box.parentElement))?.querySelectorAll('.card') ?? []) {
+	// the cards round the canvas, and the turntable's head floating over its top edge (intent cd431267)
+	const head = box.closest('.turntable')?.querySelector(':scope > .head');
+	for (const el of [...((box.closest('.view') ?? (inView ? null : box.parentElement))?.querySelectorAll('.card') ?? []), ...(head ? [head] : [])]) {
 		const r = el.getBoundingClientRect();
 		if (!r.width || !r.height || (inView && (r.top >= b.bottom || r.bottom <= b.top))) continue;
 		const l = r.left - b.left, t = r.top - b.top;
