@@ -45,6 +45,7 @@ import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
 import { coverEye, coverGrow } from '../../render/nodes/index.js';
 import { createPresets } from './presets.js';
+import { sender } from './send.js';
 import { lookByName, lookOfBuilt } from '../look.js';
 import * as TSL from 'three/tsl';
 import { windNodes, windOfCopy, worldSeconds } from '../../render/wind.js';
@@ -601,6 +602,9 @@ export function createAssets(o) {
 	/** every per-copy attribute a drawing may carry beside its matrix and fade: the cover's and the wind's (aWind) */
 	const PER_COPY = [...COVER, ['aWind', 4]];
 
+	/** a per-copy buffer sent to the graphics card only where it differs from what was last sent (./send.js) */
+	const send = sender();
+
 	/** room in a drawing for `need` instances */
 	function room(m, need) {
 		if (m.cap >= need) return;
@@ -1022,22 +1026,11 @@ export function createAssets(o) {
 					m.visible = held > 0;
 					if (!m.visible) continue;
 					lv.seen = now;
-					m.instanceMatrix.clearUpdateRanges();
-					m.instanceMatrix.addUpdateRange(0, held * 16);
-					m.instanceMatrix.needsUpdate = true;
-					const f = m.geometry.attributes.aFade;
-					f.clearUpdateRanges();
-					f.addUpdateRange(0, held);
-					f.needsUpdate = true;
-					for (const [name, w] of PER_COPY) {
-						const a = m.geometry.attributes[name];
-						if (!a) continue;
-						a.clearUpdateRanges();
-						a.addUpdateRange(0, held * w);
-						a.needsUpdate = true;
-					}
+					send(m.instanceMatrix, held * 16);
+					send(m.geometry.attributes.aFade, held);
+					for (const [name, w] of PER_COPY) if (m.geometry.attributes[name]) send(m.geometry.attributes[name], held * w);
 					if (!d.used) continue;
-					if (m.instanceColor) m.instanceColor.needsUpdate = true;
+					if (m.instanceColor) send(m.instanceColor, held * 3);
 					tris += d.draw.tris * d.used;
 					calls++;
 				}
