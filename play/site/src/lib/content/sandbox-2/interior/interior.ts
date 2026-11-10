@@ -911,7 +911,8 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			for (const l of lamps) l.light.intensity = l.base * night
 			lightNearest()
 		}
-		beamMat.opacity = 0.15 * night
+		// by day a lamp's beam shows nothing: not drawn at all (each lamp's cone was a draw of its own, twice a frame)
+		beamMat.visible = (beamMat.opacity = 0.15 * night) > 0
 		glowMat.emissiveIntensity = 0.1 + 2.4 * night
 		m.paper.emissiveIntensity = 0.6 + 2.2 * night
 	}
