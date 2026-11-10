@@ -1,6 +1,25 @@
 # Mac render box: queue and handover
 
 ## SMOKE (newest first)
+**19:48 Berlin, MAC JOB 4 (405f7a85, the load fix's head `ed90418`) pushed: `intent-work/405f7a85-render` out/head/,
+summary.json last (`4280786c3`).** Shown (s), first / second visit:
+| | production | head |
+|---|---|---|
+| Sandbox 1, Chromium | 169 / 31 | **28 / 16** |
+| Sandbox 5, Chromium | 149 / 157 | **38 / 11** |
+| Sandbox 1, WebKit | 200 / 169 | **60 / 20** |
+| Sandbox 5, WebKit | 118 / 115 | **60 / 21** |
+Never blank. **But the head is not the same look and not cheaper once grown:**
+- **Frames once grown (meter, 20 s at near), same draws and triangles:** Chromium Sandbox 1 61 ms vs 42, Sandbox 5 68.5
+  vs 37 (GPU time about doubled); WebKit 304 vs 81 (head still building 61) and 187 vs 102.5.
+- **Holds:** WebKit's first visit 38 s and 40 s with the card on; Chromium Sandbox 1's second visit 17 s right after the
+  world shows (card off). Production's worst: 22 s right after showing in WebKit.
+- **Look:** the far forest differs (Sandbox 1's palms and bananas gone from the far ring; Sandbox 5's far trees browner,
+  speckled); in WebKit the ground read from the device's cache is broken (Sandbox 5: flat red, streaked soil near, an
+  olive plane with herringbone streaks far; Sandbox 1: black ground patches under the arcade as it opens).
+- The head never went quiet within 300 s in three of four first visits; WebKit's storage outlived its profile folder.
+Deploy smokes resume: 2d0cfaf6e's (18:43, ba948167) runs now; it covers the void 672ae57 smoke.
+
 **16:47 Berlin, job 2 correction:** the 16:15 smoke ran beside part A/B's Chromium Sandbox 1 run, which is void; and
 each load spawns its walker elsewhere, so the engines' frames weren't from one view. Sandbox 1 and 5 are being measured
 again in both engines from the census's near view; the per-call costs stand (view-independent: writeBuffer ~1.5 µs a
