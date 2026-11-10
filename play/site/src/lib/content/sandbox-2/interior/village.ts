@@ -1155,8 +1155,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// each tree stands in the walker's way by its trunk, as thick as its kind's foot once that is built
 		const trunks = plantedTrees.map((t) => ({ t, c: { x: t.x, z: t.z, r: 0 } }))
 		const feet = () => trunks.forEach(({ t, c }) => (c.r = Math.min(0.6, (forest.shape(t.kind)?.foot ?? 0.3) * t.s) + 0.2))
-		colliders.push(...trunks.map((x) => x.c))
-		feet()
+		colliders.push(...trunks.map((x) => x.c)), feet()
 		void forest.rest().then(() => {
 			feet(), shade()
 			// songbirds: robins, blackbirds, great tits, sparrows and chaffinches, each round a few trees of its own —
@@ -1587,8 +1586,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		frame = requestAnimationFrame(tick)
 	}
 	walker.update(0)
-	// what the library's assets are built from, there before the first frame
-	await library.ready()
+	// what the library's assets are built from and the ground's own maps, there before the first frame (a world shown
+	// sooner than its ground's maps drew its placeholder, then built its ground again: intent 405f7a85)
+	await Promise.all([library.ready(), hex.material.userData.ready])
 	// for a look from the console at what the renderers draw and hold: __assets.stats(), and each kind (__assets.kinds())
 	;(window as unknown as { __assets?: unknown }).__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }), kinds: () => ({ out: plantsOut?.assets.kinds(), in: plantsIn?.assets.kinds(), library: library.assets.kinds() }) }
 	// Sandbox 5: what stands near you drawn from the first frame; its finer shapes come as they are built
