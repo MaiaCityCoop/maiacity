@@ -13,8 +13,10 @@
  *   goes to play and nowhere else); a file by its hash kept on disk once fetched (`/api/files/<hash>`: what it names
  *   never changes); every other route read from `inputs`, the world's inputs pinned as they were (./run5/), where it is
  *   pinned there; the site's static files from its `static/` (the frozen engines from this checkout's: they never change).
- * - OPFS (`navigator.storage`) on disk: the asset cache keeps its builds between runs, as a browser does, so a second
- *   census reads them instead of building them again.
+ * - What its workers build, kept between runs (./kept.ts; intent 629840f2): each recipe the asset box builds and each
+ *   lower level the simplifier makes, under the hash of its code and its question, so a kind is built once whichever
+ *   commit or world asks next. The page's own device cache (OPFS, `navigator.storage`; ./opfs.ts) is off: it is
+ *   bounded for a device and kept nothing of a whole world between runs; only ./settle.ts, which measures it, asks for it.
  */
 import { plugin } from 'bun';
 import { compileModule } from 'svelte/compiler';
@@ -28,6 +30,7 @@ import { El, VIEWPORT, contexts, makeDocument } from './dom';
 import { SEEDED_RANDOM, frameWindow } from './box';
 import { opfs } from './opfs';
 import { codeOf, keptIn, keptWorker } from './kept';
+import { CACHE } from './tree';
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 /** this checkout's play/site */
@@ -46,8 +49,6 @@ export type Setup = {
 	/** with `record`: read every route live and pin it anew, not only the routes not pinned yet (an asset's chain pinned
 	 * before an Accept is stale after it: the viewer's census then builds the version before; intent e5ddf0b2) */
 	fresh?: boolean;
-	/** where files by hash and the asset cache are kept between runs */
-	cache?: string;
 	/** the page's own cache of its builds on disk (OPFS, ./opfs.ts), as a browser keeps it: only ./settle.ts, which
 	 *  measures that cache, asks for it. A census keeps what its workers build itself (./kept.ts), whole and unbounded */
 	device?: boolean;
@@ -61,7 +62,7 @@ export type Setup = {
 	real?: boolean;
 };
 
-let done: Required<Pick<Setup, 'root' | 'cache'>> & Setup;
+let done: Required<Pick<Setup, 'root'>> & Setup & { /** where files by hash and what the workers built are kept between runs (./tree.ts) */ cache: string };
 
 /** the census's own clock: callbacks asked for the next frame, run by `frame` */
 let rafs = new Map<number, FrameRequestCallback>();
@@ -85,7 +86,7 @@ export const fetched = { live: new Set<string>(), pinned: new Set<string>(), fil
 
 export function setup(o: Setup = {}) {
 	if (done) return done;
-	done = { ...o, root: resolve(o.root ?? SITE), cache: resolve(o.cache ?? join(process.env.HOME ?? '/tmp', '.cache/maiacity-census')) };
+	done = { ...o, root: resolve(o.root ?? SITE), cache: CACHE };
 	const root = done.root;
 	mkdirSync(done.cache, { recursive: true });
 

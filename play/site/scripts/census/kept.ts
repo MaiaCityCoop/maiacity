@@ -11,7 +11,7 @@
  */
 import { deserialize, serialize } from 'bun:jsc';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 export type Kept = {
@@ -47,7 +47,7 @@ export function keptIn(dir: string | null): Kept {
 			const file = at(key);
 			if (!existsSync(file)) return undefined;
 			try {
-				const answer = deserialize(readFileSync(file));
+				const answer = deserialize(Bun.zstdDecompressSync(readFileSync(file)));
 				// used now: what a store lets go first is what was used longest ago (`trim`)
 				utimesSync(file, new Date(), new Date());
 				counted.read++;
@@ -62,11 +62,27 @@ export function keptIn(dir: string | null): Kept {
 			mkdirSync(dirname(file), { recursive: true });
 			// whole or not at all: another census may read it meanwhile (main's and the head's side by side)
 			const part = `${file}.${process.pid}.part`;
-			writeFileSync(part, new Uint8Array(serialize(answer)));
+			writeFileSync(part, Bun.zstdCompressSync(new Uint8Array(serialize(answer)), { level: 1 }));
 			renameSync(part, file);
 			counted.made++;
 		}
 	};
+}
+
+/**
+ * Lets go of every answer in `dir` not used (read or made) in the `days` before `now` (ms): a recipe no world draws any
+ * more, a simplifier since changed. How many went. `bun kept.ts --trim <days> [dir]` before a store is saved.
+ */
+export function trimmed(dir: string, days: number, now: number) {
+	if (!existsSync(dir)) return 0;
+	let gone = 0;
+	for (const sub of readdirSync(dir)) {
+		for (const name of readdirSync(join(dir, sub))) {
+			const file = join(dir, sub, name);
+			if (statSync(file).mtimeMs < now - days * 86_400_000) rmSync(file), gone++;
+		}
+	}
+	return gone;
 }
 
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"]([^'"\n]+)['"]/g;
@@ -143,4 +159,13 @@ export function keptWorker(make: () => Worker, kept: Kept, code: string) {
 		}
 	};
 	return self;
+}
+
+if (import.meta.main) {
+	const argv = process.argv.slice(2);
+	const days = Number(argv[argv.indexOf('--trim') + 1]);
+	if (!argv.includes('--trim') || !(days > 0)) throw new Error('usage: bun kept.ts --trim <days> [<folder>]');
+	const { CACHE } = await import('./tree');
+	const dir = argv.find((a, i) => !a.startsWith('--') && argv[i - 1] !== '--trim') ?? join(CACHE, 'kept');
+	console.log(`kept: ${trimmed(dir, days, Date.now())} answers not used for ${days} days let go (${dir})`);
 }

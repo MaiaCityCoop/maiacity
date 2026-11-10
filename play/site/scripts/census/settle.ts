@@ -11,8 +11,9 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
-import { tmpdir, homedir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { CACHE } from './tree';
 
 const argv = process.argv.slice(2);
 const SITE = resolve(import.meta.dir, '../..');
@@ -20,7 +21,7 @@ type Load = { quiet: boolean; seconds: number; taken: number; walkTaken: number;
 
 if (argv[0] === '--one') {
 	const { setup } = await import('./setup');
-	setup({ inputs: join(SITE, 'scripts/census/inputs'), cache: process.env.CENSUS_CACHE, device: true });
+	setup({ inputs: join(SITE, 'scripts/census/inputs'), device: true });
 	const { mountSandbox1, untilQuiet, VIEWS } = await import('./run');
 	const { taken } = await import('../lib/quiet.js');
 	const g = globalThis as any;
@@ -47,7 +48,7 @@ const opt = (k: string, d: number) => (argv.includes(k) ? Number(argv[argv.index
 const ratio = opt('--ratio', 0.25), max = opt('--max', 30);
 const cache = mkdtempSync(join(tmpdir(), 'census-settle-'));
 // play's files by hash, as the census keeps them (what they name never changes): the world's inputs, not its cache
-const files = join(resolve(process.env.CENSUS_CACHE ?? join(homedir(), '.cache/maiacity-census')), 'files');
+const files = join(CACHE, 'files');
 if (existsSync(files)) symlinkSync(files, join(cache, 'files'));
 const loads: Record<string, Load> = {};
 try {

@@ -13,10 +13,12 @@
 #   main     main's measures (intents f63774a3, 006eb26a): no secret. Main is the merge base of main and the head (GitHub's
 #            compare: no history fetched), checked out alone at depth 1, sparse (the paths vs-main measures); main's
 #            vs-main.ts measures it for every vs-main call in the spec, kept in GitHub's cache by what those calls read
-#            (so main is measured again only when that changed)
+#            (so main is measured again only when that changed); what its census builds is kept too (census/kept.ts,
+#            intent 629840f2), saved here and nowhere else
 #   run      the pull request's head, checked out without credentials, no secret, a read-only GITHUB_TOKEN: main's
 #            intent.ts (handed over by spec) runs the spec's checks there and writes their results; a vs-main call
-#            measures the head only (VS_MAIN_HEAD_OUT), its bound decided by compare
+#            measures the head only (VS_MAIN_HEAD_OUT), its bound decided by compare; its census reads main's kept
+#            builds and builds only what the head changed
 #   compare  main's vs-main.ts, no secret: each of the head's vs-main calls against main's measures, into its check's
 #            result and evidence (--fold), once both are measured; nothing is recorded before it
 #   record   main's intent.ts, with avenBOX's token: records the results (only if they ran on the head), skipped if cancelled
@@ -162,14 +164,33 @@ jobs:
           path: ${{ runner.temp }}/vs-main-cache
           key: vs-main-${{ steps.key.outputs.key }}
           restore-keys: vs-main-
+      # what main's census builds, kept by the hash of its code and its question (play/site/scripts/census/kept.ts; intent
+      # 629840f2): the newest store read, and saved again only when main's measure built something new
+      - uses: actions/cache/restore@v4
+        if: steps.base.outputs.base
+        with:
+          path: ${{ runner.temp }}/census-cache/kept
+          key: census-kept-${{ github.run_id }}
+          restore-keys: census-kept-
       - name: Main measured in its own checkout, or read from the cache (main's vs-main.ts)
+        id: measure
         if: steps.base.outputs.base
         env:
           VS_MAIN_CACHE: ${{ runner.temp }}/vs-main-cache
+          CENSUS_CACHE: ${{ runner.temp }}/census-cache
           BASE: ${{ steps.base.outputs.base }}
         run: |
+          kept() { find "$CENSUS_CACHE/kept" -type f 2> /dev/null | sort | sha256sum | cut -c1-24; }
+          before=$(kept)
           (cd base/play/site && bun install --frozen-lockfile > /dev/null)
           bun code/play/avenbox/vs-main.ts --main-of "$RUNNER_TEMP/box/spec.json" --main "$BASE" --repo base --out "$RUNNER_TEMP/vs-main/main.json"
+          bun code/play/site/scripts/census/kept.ts --trim 14 "$CENSUS_CACHE/kept"
+          [ "$(kept)" = "$before" ] || echo "kept=$(kept)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/save@v4
+        if: steps.measure.outputs.kept
+        with:
+          path: ${{ runner.temp }}/census-cache/kept
+          key: census-kept-${{ steps.measure.outputs.kept }}
       - name: Nothing to measure
         if: "!steps.base.outputs.base"
         run: mkdir -p "$RUNNER_TEMP/vs-main" && echo '{"side":"main","sha":null,"measures":{}}' > "$RUNNER_TEMP/vs-main/main.json"
@@ -211,9 +232,22 @@ jobs:
           docker exec postgres pg_isready -h 127.0.0.1 -U postgres
       - name: avenBOX (play/avenbox/setup.sh)
         run: sudo env "PATH=$PATH" bash play/avenbox/setup.sh
+      # main's kept builds, read and never written here (intent 629840f2): what the head's census shares with main's is
+      # not built again; only a spec that counts a world fetches them
+      - name: Whether the spec counts a world
+        id: census
+        run: |
+          if grep -q census "$RUNNER_TEMP/box/spec.json"; then echo "counted=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/cache/restore@v4
+        if: steps.census.outputs.counted
+        with:
+          path: ${{ runner.temp }}/census-cache/kept
+          key: census-kept-${{ github.run_id }}
+          restore-keys: census-kept-
       - name: The intent's checks on the head (no token)
         env:
           VS_MAIN_HEAD_OUT: ${{ runner.temp }}/vs-head
+          CENSUS_CACHE: ${{ runner.temp }}/census-cache
         run: |
           mkdir -p "$RUNNER_TEMP/results" "$RUNNER_TEMP/vs-head" && touch "$RUNNER_TEMP/vs-head/.none"
           bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --results-out "$RUNNER_TEMP/results/results.json" --root "$GITHUB_WORKSPACE" || echo "a must check failed: recorded as it ran"

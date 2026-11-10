@@ -326,8 +326,9 @@ describe('cache key: what a census reads', () => {
 describe('measured apart: each side on its own, compared after', () => {
 	// a census as census.ts answers it, its triangles read from tris.txt at --at (git show) or in its tree
 	const FAKE = `import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 const a = process.argv.slice(2), o = (k) => a[a.indexOf(k) + 1];
+if (process.env.CENSUS_RUNS) appendFileSync(process.env.CENSUS_RUNS, 'x');
 const at = a.includes('--at') ? o('--at') : null;
 const [near, far] = (at ? execFileSync('git', ['show', at + ':tris.txt'], { encoding: 'utf8' }) : readFileSync('tris.txt', 'utf8')).trim().split(' ').map(Number);
 const v = (view, tris) => ({ view, settled: true, totals: { tris, calls: 10, mainTris: tris, mainCalls: 10 } });
@@ -399,6 +400,26 @@ writeFileSync(o('--json'), JSON.stringify({ views: [v('near', near), v('far', fa
 			expect(folded[1]).toEqual({ check: 'c6', how: 'test', must: true, pass: true, code: 0, evidence: 'ok' });
 		});
 	}
+
+	test('counted once: on main itself the head is main, and its census runs once; any other head is counted itself', () => {
+		// main's own checkout, as intents.yml's confirmation runs an intent's checks after its merge (intent 629840f2)
+		const itself = join(TMP, 'apart-itself');
+		execFileSync('git', ['clone', '-q', repo, itself]);
+		git(itself, 'checkout', '-q', main);
+		const census = (dir: string, runs: string) => {
+			const r = Bun.spawnSync(['bun', VS_MAIN, 'census', '--within', '3%', '--main', main, '--repo', dir], { cwd: dir, env: { ...ENV, VS_MAIN_CACHE: join(TMP, `${runs}-cache`), CENSUS_RUNS: join(TMP, runs) } });
+			return { code: r.exitCode, out: `${r.stdout}`, runs: readFileSync(join(TMP, runs), 'utf8').length };
+		};
+		const one = census(itself, 'runs-itself');
+		expect(one.out).toMatch(/head census: the head is main [0-9a-f]{9} itself, counted once/);
+		expect(one.out).toMatch(/ok {3}near tris {4}main 1,000 → head 1,000/);
+		expect(one).toMatchObject({ code: 0, runs: 1 });
+		// the branch's head: main at its commit, then the head
+		const two = census(repo, 'runs-head');
+		expect(two.out).not.toMatch(/counted once/);
+		expect(two.out).toMatch(/main 1,000 → head 1,020/);
+		expect(two).toMatchObject({ code: 0, runs: 2 });
+	});
 
 	test("measured apart: main's measures missing fail the check, saying so; nothing deferred without a check's name", () => {
 		const r = vm.fold({ results: [{ check: 'c5', pass: true, code: 0, evidence: 'ran' }] }, null, [{ check: 'c5', call: ['census', '--within', '3%'], values: { 'near tris': 1 } }]);

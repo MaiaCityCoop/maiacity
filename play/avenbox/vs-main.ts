@@ -32,7 +32,8 @@
  * census: play/site/scripts/census.ts --json, main by its --at (in place in main's checkout); per view triangles and draws
  * a frame. bytes, lines: the files' sum, main's by git show (missing: 0). count: the command by bash in main's tree
  * (play/site/scripts/census/tree.ts) and the head, its last number. Cache: $VS_MAIN_CACHE (~/.cache/maiacity-vs-main)/<key>.json.
- * Exits 0 only when every value is in its bound. A blind census (a view of either side with at most 1 draw) is no bound
+ * On main itself (the checkout is main's commit, as intents.yml's confirmation runs it) a census is counted once: the
+ * head is main (intent 629840f2). Exits 0 only when every value is in its bound. A blind census (a view of either side with at most 1 draw) is no bound
  * and fails, naming the view and the side (intent 009e04d3).
  */
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -436,8 +437,10 @@ if (import.meta.main) {
 		if (o.mainOnly) process.exit(0);
 		if (!o.bound) throw new Error('vs-main: a bound, --within N% or --down N%');
 		const t0 = performance.now();
-		const head = measure(o.measure, null, repo);
-		console.log(`head ${o.measure.what}: measured in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
+		// on main itself the head is main: a census of one tree is the same census (census's test "the same every run"), counted once
+		const itself = o.measure.what === 'census' && isCheckoutOf(sha, repo);
+		const head = itself ? main : measure(o.measure, null, repo);
+		console.log(itself ? `head census: the head is main ${sha.slice(0, 9)} itself, counted once` : `head ${o.measure.what}: measured in ${((performance.now() - t0) / 1000).toFixed(1)} s`);
 		const r = report(o.measure, main, head, o.bound, sha);
 		console.log(r.text);
 		process.exit(r.ok ? 0 : 1);

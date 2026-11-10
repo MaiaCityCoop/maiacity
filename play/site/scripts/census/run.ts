@@ -10,7 +10,7 @@
  * - `copies`: every copy each asset renderer holds, its distance, size on screen, level and triangles (the census of
  *   `__assets.kinds()`, the same as the Mac's `--census`).
  */
-import { setup, frame, lib, fetched, smoked } from './setup';
+import { setup, frame, lib, fetched, built, smoked } from './setup';
 import { CountingRenderer } from './counting.js';
 import { refusedContexts } from './dom';
 import { quietness } from '../quiet.js';
@@ -85,11 +85,21 @@ async function paced() {
 }
 const g = globalThis as any;
 
+/** a frame the census only turns: nothing is read of what it drew, so the page counts nothing for it (./counting.js `tally`) */
+function turn() {
+	CountingRenderer.unread = true;
+	try {
+		frame();
+	} finally {
+		CountingRenderer.unread = false;
+	}
+}
+
 /** turns frames for `ms` (paced), or until `until` */
 async function run(ms: number, until?: () => boolean) {
 	const end = performance.now() + ms;
 	while (performance.now() < end) {
-		frame();
+		turn();
 		await paced();
 		if (until?.()) return true;
 	}
@@ -191,7 +201,7 @@ async function turnUntil<T>(p: Promise<T>) {
 	let done = false;
 	const q = p.finally(() => (done = true));
 	while (!done) {
-		frame();
+		turn();
 		await paced();
 	}
 	return q;
@@ -220,7 +230,7 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 	// put down stays held by its renderer, put away: `Copy`'s ghosts)
 	const up = !(o.world === 'sandbox-1' || o.world === 'sandbox-5') || (await run(o.settleMs ?? 180_000, quiet));
 	if (CountingRenderer.made.length !== 1) throw new Error(`census: ${CountingRenderer.made.length} renderers were made, not one`);
-	log(`census: ${o.world} built in ${((performance.now() - t0) / 1000).toFixed(1)} s${up ? '' : ' (still building)'} (${fetched.live.size} routes live, ${fetched.pinned.size} pinned, ${fetched.files} files)`);
+	log(`census: ${o.world} built in ${((performance.now() - t0) / 1000).toFixed(1)} s${up ? '' : ' (still building)'} (${fetched.live.size} routes live, ${fetched.pinned.size} pinned, ${fetched.files} files; its workers' answers: ${built.read} read as kept, ${built.made} built)`);
 	const out: ViewCensus[] = [];
 	for (const name of views) {
 		const v = name === 'open' ? null : VIEWS[name];
