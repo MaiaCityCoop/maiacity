@@ -13,8 +13,6 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
@@ -25,8 +23,6 @@
 	type Schema = { id: string; json: { label: string; type: string; name: string; note?: string; node: Node }; number: number; version?: number; edit?: number; intent?: { id: string; status: string; note: string } };
 	type Doc = { id: string; kind: string; label: string; number: number };
 
-	adminsOnly();
-	const admin = $derived(isAdmin());
 	let list = $state<Item[]>([]);
 	let all = $state<Map<string, Doc>>(new Map());
 	let schema = $state<Schema | null>(null);
@@ -36,14 +32,13 @@
 	const wantV = $derived(params.get('v'));
 	const wantIntent = $derived(params.get('intent'));
 	$effect(() => {
-		if (!admin) return;
 		api<Item[]>('/docs?kind=schema').then((l) => (list = [...l].sort((a, b) => (a.type === 'schema' ? -1 : b.type === 'schema' ? 1 : 0))), (e) => (error = e.message));
 		// every document's label (only shown), to name the documents a schema holds
 		api<Doc[]>('/docs').then((l) => (all = new Map(l.map((d) => [d.id, d]))), () => {});
 	});
 	const query = () => (wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '');
 	$effect(() => {
-		if (!admin || !id) return;
+		if (!id) return;
 		const q = query();
 		let gone = false;
 		api<Schema>(`/docs/${id}${q}`).then(
@@ -121,46 +116,44 @@
 	</ul>
 {/snippet}
 
-{#if admin}
-	<div class="schemas">
-		<Frame nav={list.length ? shelf : undefined} aside={schema ? side : undefined} navLabel="Every type of document" asideLabel="The schema's history" navIcon="board">
-			<article class="body">
-				{#if error}<p class="bad">{error}</p>{/if}
-				{#if schema}
-					<p class="eyebrow">Schemas · {schema.json.type === 'schema' ? 'the meta-schema' : schema.json.name}</p>
-					<h1>{schema.json.label}</h1>
-					{#if schema.json.note}<p class="lead">{schema.json.note}</p>{/if}
-					<p class="facts"><span>Its documents <code>{schema.json.type}:&lt;uuid&gt;</code></span><span>Old name <code>{schema.json.name}</code> (only shown)</span><span>This schema <code>{schema.id}</code></span></p>
-					<section>
-						<h2>Its node, field by field</h2>
-						{@render tree(schema.json.node, 0)}
-						<details>
-							<summary>The node as JSON</summary>
-							<pre>{JSON.stringify(schema.json.node, null, 2)}</pre>
-						</details>
-					</section>
-					<section>
-						<h2>Written against it{item ? ` · ${item.documents.length}` : ''}</h2>
-						{#if item?.documents.length}
-							<ul class="docs">
-								{#each item.documents as d (d.id)}
-									{@const known = all.get(d.id)}
-									<li>
-										{#if d.kind && route[d.kind]}<a href={route[d.kind](d.id)}>{known?.label ?? d.id}</a>{:else}<span>{known?.label ?? d.id}</span>{/if}
-										<span class="soft">{d.kind ?? 'unknown'}{known ? ` · v${known.number}` : ''}</span>
-										<span class="soft ver">written against v{d.schemaVersion ?? '?'}</span>
-									</li>
-								{/each}
-							</ul>
-						{:else}
-							<p class="soft">No document is written against it yet.</p>
-						{/if}
-					</section>
-				{/if}
-			</article>
-		</Frame>
-	</div>
-{/if}
+<div class="schemas">
+	<Frame nav={list.length ? shelf : undefined} aside={schema ? side : undefined} navLabel="Every type of document" asideLabel="The schema's history" navIcon="board">
+		<article class="body">
+			{#if error}<p class="bad">{error}</p>{/if}
+			{#if schema}
+				<p class="eyebrow">Schemas · {schema.json.type === 'schema' ? 'the meta-schema' : schema.json.name}</p>
+				<h1>{schema.json.label}</h1>
+				{#if schema.json.note}<p class="lead">{schema.json.note}</p>{/if}
+				<p class="facts"><span>Its documents <code>{schema.json.type}:&lt;uuid&gt;</code></span><span>Old name <code>{schema.json.name}</code> (only shown)</span><span>This schema <code>{schema.id}</code></span></p>
+				<section>
+					<h2>Its node, field by field</h2>
+					{@render tree(schema.json.node, 0)}
+					<details>
+						<summary>The node as JSON</summary>
+						<pre>{JSON.stringify(schema.json.node, null, 2)}</pre>
+					</details>
+				</section>
+				<section>
+					<h2>Written against it{item ? ` · ${item.documents.length}` : ''}</h2>
+					{#if item?.documents.length}
+						<ul class="docs">
+							{#each item.documents as d (d.id)}
+								{@const known = all.get(d.id)}
+								<li>
+									{#if d.kind && route[d.kind]}<a href={route[d.kind](d.id)}>{known?.label ?? d.id}</a>{:else}<span>{known?.label ?? d.id}</span>{/if}
+									<span class="soft">{d.kind ?? 'unknown'}{known ? ` · v${known.number}` : ''}</span>
+									<span class="soft ver">written against v{d.schemaVersion ?? '?'}</span>
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="soft">No document is written against it yet.</p>
+					{/if}
+				</section>
+			{/if}
+		</article>
+	</Frame>
+</div>
 
 <style>
 	.schemas { position: fixed; inset: 0; background: var(--cream); --soft: rgb(38 56 44 / 0.6); --accent: var(--brand-green); }

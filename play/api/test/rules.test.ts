@@ -5,7 +5,7 @@ import type { BlobStore } from "../src/blobs";
 import * as docs from "../src/docs";
 import { RULE, RULES, SCHEMA } from "../src/kit/ids";
 import { decisions } from "../src/intents";
-import type { Pull } from "../src/github";
+import { INTENT_CONTEXT, type Pull } from "../src/github";
 import { autoMove } from "../src/decide";
 import { watchPulls } from "../src/watcher";
 import { migrate } from "../src/migrations";
@@ -362,8 +362,8 @@ suite("auto-accept rules", () => {
     const i = await intent(ruled.id);
     expect(i).toMatchObject({ stage: "ship", decided_by: null, auto: { accept: { label: "Code passes" } }, ship: { pr: pull.pr, head: pull.head, by: "rule Code passes" } });
     expect(i.ship.steps.map((s: any) => s.key)).toEqual(steps);
-    const writes = gh.calls.slice(from).filter((c) => c.method !== "GET").map((c) => c.path);
-    expect(writes).toEqual([`/statuses/${pull.head}`, `/pulls/${pull.pr}/merge`]);
+    const writes = gh.calls.slice(from).filter((c) => c.method !== "GET" && c.body?.context !== INTENT_CONTEXT && !`${c.body?.query ?? "mutation"}`.startsWith("query")).map((c) => c.path);
+    expect(writes).toEqual([`/statuses/${pull.head}`, "/graphql"]);
     await clearShips();
     // refused by Accept: a draft, a red required check, a conflict, a head not the one checked: at Proposal, saying why
     const cases: [string, ReturnType<typeof openPull>, string | undefined, RegExp][] = [
@@ -377,7 +377,7 @@ suite("auto-accept rules", () => {
       expect([what, c.r.stage, c.r.auto_refused]).toEqual([what, "proposal", expect.stringMatching(why)]);
       expect([what, await intent(c.id)]).toEqual([what, expect.objectContaining({ stage: "proposal", decided_by: null, auto: {} })]);
     }
-    expect(gh.calls.filter((c) => c.method !== "GET" && cases.some(([, p]) => c.path.includes(`${p.pr}`) || c.path.includes(p.head))).length).toBe(0);
+    expect(gh.calls.filter((c) => c.method !== "GET" && c.body?.context !== INTENT_CONTEXT && cases.some(([, p]) => c.path.includes(`${p.pr}`) || c.path.includes(p.head))).length).toBe(0);
     await setRules([FIRST_RULE]);
   });
 

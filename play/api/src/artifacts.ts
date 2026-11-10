@@ -34,7 +34,7 @@ const URL_MOST = 2000;
 
 // ---- who may
 
-const ARTIFACT_ADMINS = "Only Maia City's admins open the Artifacts.";
+export const ARTIFACT_ADMINS = "Only Maia City's admins open the Artifacts.";
 
 // ---- a link, made one
 

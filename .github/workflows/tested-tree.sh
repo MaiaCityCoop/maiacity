@@ -1,16 +1,18 @@
 #!/bin/bash
-# The tested tree (intent 5ab64b8e), for play-checks.yml and website-checks.yml on a push to main: whether the pushed
-# commit's tree is the very tree a successful pull_request run of this repository's .github/workflows/main.yml tested,
-# for the pull request merged as that commit, in the job of the required check PART names (../required-checks.json).
-# That job, on a pull request, ends by printing the tree it tested as a notice titled "Tested tree" (its check run's
-# annotation); GitHub's API is asked for it here.
+# The tested tree (intent 5ab64b8e; the merge queue, intent f7721142), for play-checks.yml and website-checks.yml on a
+# push to main: whether the pushed commit is the very commit a merge group of main's merge queue tested. The queue
+# runs this repository's .github/workflows/main.yml on the group's commit (event merge_group) and, once the required
+# checks pass there, fast-forwards main to that same commit; so a successful merge_group run whose head is the pushed
+# SHA, with the job of the required check PART names (../required-checks.json) passed, tested the pushed tree itself.
+# GitHub's API is asked for it here.
 #
 #   EVENT=push REPO=<owner/name> SHA=<pushed commit> PART=play|website GH_TOKEN=… bash tested-tree.sh
 #
-# Writes skip=true to $GITHUB_OUTPUT only when the trees are equal: the same bytes passed already, so the job passes
-# without running them again. Anything else (another event, no merged pull request, a run that failed, was cancelled
-# or is another workflow's or repository's, no notice, a different tree, any error of the API): skip=false, and the job
-# runs its checks in full. It never fails the job itself.
+# Writes skip=true to $GITHUB_OUTPUT only then: the same bytes passed already, so the job passes without running them
+# again; a run still finishing counts once that job passed (the queue moves main as the required checks pass, perhaps
+# before the run itself is marked done). Anything else (another event, no such run, a run that failed or was
+# cancelled or is another workflow's, event's or repository's, the job not passed, any error of the API): skip=false, and the job runs its
+# checks in full. It never fails the job itself.
 set -uo pipefail
 API=${GITHUB_API_URL:-https://api.github.com}
 OUT=${GITHUB_OUTPUT:-/dev/stdout}
@@ -31,25 +33,14 @@ get() {
 [[ "${SHA:-}" =~ ^[0-9a-f]{40}$ ]] || decide false "no commit ('${SHA:-}'): the checks run"
 [ -n "${REPO:-}" ] && [ -n "${CHECK:-}" ] || decide false "no repository or required check named: the checks run"
 
-tree=$(get "git/commits/$SHA" | jq -er '.tree.sha') || decide false "the pushed commit's tree could not be read: the checks run"
-pull=$(get "commits/$SHA/pulls" | jq -er --arg s "$SHA" \
-  '[.[] | select(.merged_at != null and .merge_commit_sha == $s)][0] | select(. != null) | "\(.number) \(.head.sha)"') \
-  || decide false "$SHA is no pull request's merge: the checks run"
-read -r number head <<< "$pull"
-[[ "$head" =~ ^[0-9a-f]{40}$ ]] || decide false "#$number names no head: the checks run"
-
-runs=$(get "actions/runs?event=pull_request&head_sha=$head&per_page=100" | jq -er --arg r "$REPO" --arg w "$WORKFLOW" \
-  '[.workflow_runs[] | select(.path == $w and .event == "pull_request" and .status == "completed" and .conclusion == "success"
+runs=$(get "actions/runs?event=merge_group&head_sha=$SHA&per_page=100" | jq -er --arg r "$REPO" --arg w "$WORKFLOW" --arg s "$SHA" \
+  '[.workflow_runs[] | select(.path == $w and .event == "merge_group" and .head_sha == $s and (.conclusion == null or .conclusion == "success")
      and (.repository.full_name | ascii_downcase) == ($r | ascii_downcase))] | sort_by(.id) | reverse | map(.id) | .[]') \
-  || decide false "no successful run of $WORKFLOW for #$number's head ${head::7}: the checks run"
+  || decide false "no passing merge_group run of $WORKFLOW for ${SHA::7}: the checks run"
 for run in $runs; do
-  job=$(get "actions/runs/$run/jobs?per_page=100" | jq -er --arg c "$CHECK" \
-    '[.jobs[] | select(.name == $c and .status == "completed" and .conclusion == "success")][0].id | select(. != null)') || continue
-  tested=$(get "check-runs/$job/annotations?per_page=100" | jq -er \
-    '[.[] | select(.annotation_level == "notice" and .title == "Tested tree") | .message | select(test("^[0-9a-f]{40}$"))] | last | select(. != null)') || continue
-  if [ "$tested" = "$tree" ]; then
-    decide true "'$CHECK' passed on this very tree ($tree) for #$number (run $run): not run again"
+  if get "actions/runs/$run/jobs?per_page=100" | jq -e --arg c "$CHECK" \
+    'any(.jobs[]; .name == $c and .status == "completed" and .conclusion == "success")' > /dev/null; then
+    decide true "'$CHECK' passed on this very commit in the merge queue (run $run): not run again"
   fi
-  decide false "'$CHECK' for #$number (run $run) tested $tested, not the pushed tree $tree: the checks run"
 done
-decide false "no passed '$CHECK' for #$number's head ${head::7} says what tree it tested: the checks run"
+decide false "no merge_group run passed '$CHECK' on ${SHA::7}: the checks run"

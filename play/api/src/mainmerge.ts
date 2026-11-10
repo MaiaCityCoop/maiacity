@@ -1,51 +1,10 @@
-// Main merged into open intent pull requests by play (play/SPEC.md §4.12 "Accept ships it"; intent f28822d9, Samuel
-// 2026-11-07: "This merging main conflicts steps should be also automated right?"), each tick of Ship's watcher: one
-// behind main updated with GitHub's update-branch (its results carried over: ./substate.ts countsOn, intent b17a4980);
-// one in conflict failed, the status 'Merges with main' posted on its head. Never an intent in Ship or done, nor a merge.
+// Conflicts with main shown (play/SPEC.md §4.12 "Accept ships it"; intents f28822d9, f7721142), each tick of Ship's
+// watcher: an open intent pull request GitHub finds not mergeable is failed, the status 'Merges with main' posted on
+// its head (failure, then success once it merges again). play never merges main into a pull request: one behind main
+// is fine, GitHub's merge queue tests it with main as it lands, and main moving resets nothing.
 import type { Db } from "./kit/pg";
-import { GitHubError, intentLink, keepSeen, MERGES_CONTEXT, openPulls, type GitHub } from "./github";
-import { conflictWhy, short, type PlayMerge, type PrSeen } from "./substate";
-
-/** GitHub's longest status description */
-const DESCRIPTION_MOST = 140;
-
-/** what the watcher keeps between ticks: main's head last seen, and each pull request's head looked at against it */
-export type MainMergeState = { main: string | null; done: Map<string, string> };
-export const mainMergeState = (): MainMergeState => ({ main: null, done: new Map() });
-
-const fit = (s: string) => (s.length <= DESCRIPTION_MOST ? s : `${s.slice(0, DESCRIPTION_MOST - 1)}…`);
-
-/**
- * A pull request read again (`seen`) with what play keeps of its main merges from the read before (`was`): its merges in
- * a row, the conflict's files (same head), the status last posted. A new head is play's merge only where its parents
- * (carried()) are the head it merged from and main as merged; any other head (a builder's push) ends the row.
- */
-export function carrySeen(was: PrSeen | null | undefined, seen: PrSeen, parents?: string[]): PrSeen {
-  if (!was || was.pr !== seen.pr) return seen;
-  const out: PrSeen = { ...seen };
-  const row = was.merged_in ?? [];
-  const last = row.at(-1);
-  if (last && !last.to) {
-    if (seen.head === last.from) out.merged_in = row;
-    else if (parents?.length === 2 && parents[0] === last.from && parents[1] === last.main) out.merged_in = [...row.slice(0, -1), { ...last, to: seen.head }];
-  } else if (last && seen.head === last.to) out.merged_in = row;
-  if (was.conflicts?.head === seen.head) out.conflicts = was.conflicts;
-  if (was.merges) out.merges = was.merges;
-  if (was.main_merges) out.main_merges = was.main_merges;
-  return out;
-}
-
-/** a merge play made and GitHub has not been seen to make yet, its new head read now: the head's parents are asked */
-export async function carried(gh: GitHub, was: PrSeen | null | undefined, seen: PrSeen): Promise<PrSeen> {
-  const last = was?.pr === seen.pr ? was.merged_in?.at(-1) : undefined;
-  let parents: string[] | undefined;
-  if (last && !last.to && seen.head !== last.from && !seen.merged && seen.state === "open")
-    parents = await gh.commit(seen.head).then(
-      (c) => c.parents.map((p) => p.sha),
-      (e) => (console.warn(`ship: #${seen.pr}'s head ${short(seen.head)} not read: ${(e as Error).message}`), undefined),
-    );
-  return carrySeen(was, seen, parents);
-}
+import { MERGES_CONTEXT, openPulls, postStatus, quiet, type GitHub } from "./github";
+import { conflictWhy, type PrSeen } from "./substate";
 
 /** the files both the branch and main changed since their merge base: every file a conflict can be in */
 async function conflictFiles(gh: GitHub, seen: PrSeen, main: string) {
@@ -54,89 +13,24 @@ async function conflictFiles(gh: GitHub, seen: PrSeen, main: string) {
   return [...new Set((await gh.pullFiles(seen.pr)).filter((f) => onMain.has(f)))].sort();
 }
 
-/** One look: main's head read, then each open intent pull request into main updated, or its conflict shown, under the intent's row. */
-export async function mergeMain(db: Db, gh: GitHub, state: MainMergeState, at = Date.now()) {
-  const main = await gh.branchHead("main");
-  if (state.main !== main) {
-    if (state.main) console.log(`ship: main moved to ${short(main)}: open intent pull requests behind it are updated`);
-    state.main = main;
-  }
-  for (const { id, pull_request, pr_seen } of await openPulls(db)) {
-    const seen = pr_seen;
+/** One look: each open intent pull request into main in conflict shown so, one that merges again cleared; no branch is changed. */
+export async function mergeMain(db: Db, gh: GitHub) {
+  let main: string | null = null;
+  for (const { id, pull_request, pr_seen: seen } of await openPulls(db)) {
+    if (gh.says()?.until) break;
     if (!seen || seen.pr !== pull_request || seen.state !== "open" || seen.merged || seen.base !== "main") continue;
     try {
-      if (seen.mergeable === false) await conflicted(db, gh, id, seen, main);
-      else if (seen.mergeable === true) {
-        if (seen.merges?.state === "failure") await post(db, gh, id, seen, "success", "merges with main again");
-        await update(db, gh, state, id, seen, main, at);
-      }
+      if (seen.mergeable === false) {
+        main ??= await gh.branchHead("main");
+        if (seen.conflicts?.head !== seen.head || seen.conflicts.main !== main) {
+          const files = await conflictFiles(gh, seen, main).catch((e) => void console.warn(`ship: #${seen.pr}'s files in conflict not worked out: ${(e as Error).message}`));
+          if (files) seen.conflicts = { head: seen.head, main, files };
+        }
+        await postStatus(db, gh, id, seen, MERGES_CONTEXT, "failure", conflictWhy(seen));
+      } else if (seen.mergeable === true && seen.posted?.[MERGES_CONTEXT]?.state === "failure")
+        await postStatus(db, gh, id, seen, MERGES_CONTEXT, "success", "merges with main again");
     } catch (e) {
-      console.warn(`ship: main not merged into #${pull_request} of intent ${id}: ${(e as Error).message}`);
+      if (!quiet(e)) console.warn(`ship: #${pull_request} of intent ${id} not looked at against main: ${(e as Error).message}`);
     }
   }
-}
-
-async function post(db: Db, gh: GitHub, id: string, seen: PrSeen, state: "success" | "failure", description: string) {
-  const d = fit(description);
-  if (seen.merges?.head === seen.head && seen.merges.state === state && seen.merges.description === d) return;
-  await gh.status(seen.head, { state, description: d, target_url: intentLink(id), context: MERGES_CONTEXT });
-  seen.merges = { head: seen.head, state, description: d };
-  await keepSeen(db, id, seen);
-}
-
-async function conflicted(db: Db, gh: GitHub, id: string, seen: PrSeen, main: string) {
-  if (seen.conflicts?.head !== seen.head || seen.conflicts.main !== main) {
-    const files = await conflictFiles(gh, seen, main).catch((e) => {
-      console.warn(`ship: #${seen.pr}'s files in conflict not worked out: ${(e as Error).message}`);
-      return null;
-    });
-    if (files) {
-      seen.conflicts = { head: seen.head, main, files };
-      await keepSeen(db, id, seen);
-    }
-  }
-  await post(db, gh, id, seen, "failure", conflictWhy(seen));
-}
-
-async function update(db: Db, gh: GitHub, state: MainMergeState, id: string, seen: PrSeen, main: string, at: number) {
-  const key = `${seen.pr}:${seen.head}`;
-  if (state.done.get(key) === main) return;
-  // GitHub's compare of main against the head: main's head not in the branch is behind
-  let behind: boolean;
-  try {
-    behind = (await gh.compare(main, seen.head)).behind_by > 0;
-  } catch (e) {
-    // a head GitHub can't compare (gone, or not of this repository) is not looked at again against this main
-    if (e instanceof GitHubError && (e.status === 404 || e.status === 422)) {
-      state.done.set(key, main);
-      return;
-    }
-    throw e;
-  }
-  if (!behind) {
-    state.done.set(key, main);
-    return;
-  }
-  await db.transaction(async (tx) => {
-    // under the intent's row: an Accept holds it while it decides, so it never merges a head play is moving
-    const { rows: [row] } = await tx.query<{ stage: string; pr_seen: PrSeen | null }>(`SELECT stage, pr_seen FROM play.intents WHERE id = $1 FOR UPDATE`, [id]);
-    if (!row || (row.stage !== "build" && row.stage !== "proposal") || row.pr_seen?.head !== seen.head) return;
-    try {
-      await gh.updateBranch(seen.pr, seen.head);
-    } catch (e) {
-      // the head moved (a builder's push): nothing done, the next tick reads the new head first
-      if (e instanceof GitHubError && e.status === 422) {
-        console.log(`ship: #${seen.pr} moved past ${short(seen.head)}: main is merged into it on a later look`);
-        return;
-      }
-      throw e;
-    }
-    state.done.set(key, main);
-    // the row of play's merges goes on where the head is the last one's, else starts here
-    const was = row.pr_seen!.merged_in ?? [];
-    const made: PlayMerge = { from: seen.head, main, at: new Date(at).toISOString() };
-    const merged_in = was.at(-1)?.to === seen.head ? [...was, made] : [made];
-    await keepSeen(tx, id, { ...row.pr_seen!, merged_in, main_merges: (row.pr_seen!.main_merges ?? 0) + 1 });
-    console.log(`ship: main ${short(main)} merged into #${seen.pr} of intent ${id} (from ${short(seen.head)}): its checks run on the new head`);
-  });
 }

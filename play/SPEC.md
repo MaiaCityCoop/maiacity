@@ -534,7 +534,7 @@ agent building and checking until the spec is met (any intent an agent is workin
 work done and checked, waiting for the decision: an intent moves there **by itself** the moment every must check has
 passed (Samuel 2026-11-06), so after the spec's approval there is one gate with a person in it, the decision at
 Proposal, and none in Build. **Ship** (Samuel 2026-11-06) is an intent of code accepted and on its way to
-production: its Accept merged its pull request into main, and the board shows each step of the way live until it is
+production: its Accept put its pull request in GitHub's merge queue, and the board shows each step of the way live until it is
 in production (Accepted) or a step is red (back to Proposal with the report): *Accept ships it*, below. Each column folds away to a strip and opens again, each viewer's own choice
 kept in their browser; Accepted and Archived are folded at first.
 
@@ -614,7 +614,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   DAG (`play/api/src/work.ts` `putAtProposal`). Every propose tool gives back the intent (`intent`, and its `stage`:
   `build` while its work waits there, else `proposal`).
   Other work (code) holds none of play's: its work is its pull request into main, which the agent opens and names
-  (`check_intent`'s `pr`, `intent.ts --pr`) and **never merges**: an admin's Accept merges it (*Accept ships it*,
+  (`check_intent`'s `pr`, `intent.ts --pr`) and **never merges**: an admin's Accept queues it (*Accept ships it*,
   below). `list_intents` (the open stages, or one stage, or all; `work`, one kind of work) and `get_intent` (one whole,
   its work and its work's review) read them. No tool approves, accepts or rejects an intent; an agent archives only its
   own intents at Proposal that it put there over MCP (`archive_intent`: its work proposed over MCP, or, with no work,
@@ -647,7 +647,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     under its `by`.
   - **what is merged is what was checked.** Code goes by pull request into main, its commits naming the intent (the
     trailer `Intent: <UUID>`), its checks recorded on the pull request's head by its run in avenBOX on GitHub
-    (`.github/workflows/intents-pr.yml`, below): an Accept merges it only when every must check with a `run` last passed on that head (`unmetOn`). Once
+    (`.github/workflows/intents-pr.yml`, below): an Accept queues it only when every must check with a `run` last passed on that head (`unmetOn`). Once
     merged, **`.github/workflows/intents.yml`** (*intents on main*; also by hand, an intent's UUID, on main's head)
     builds the same box on GitHub's runner (`sudo bash play/avenbox/setup.sh`) and runs `intent.ts <intent> --record
     --where main` on the merged commit, with the repository secret `PLAY_MCP_TOKEN` (an admin's access token). It
@@ -677,8 +677,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     pull request's head, recorded on the intent with that head, the run's link and `pr` (so it becomes the active pull
     request). Every must green: the intent moves to Proposal. Any must red: it stays in (or goes back to) Build with
     the failures, failed on the board, its pull request as it is: fix and push. Each new push to a ready pull request
-    (play's main-merge included) runs and records again on the new head, so Accept merges only a head every must
-    passed on (`ship.ts`, unchanged); the older head's run is cancelled (`concurrency`) and its record skipped
+    runs and records again on the new head, so Accept queues only a head every must passed on (`ship.ts`); the older head's run is cancelled (`concurrency`) and its record skipped
     (`!cancelled()`): it records nothing and is not red. Looks are still judged and recorded by hand (`check_intent`).
   - **Only the box's run is evidence.** intents-pr.yml runs on `pull_request_target`, for heads in this repository
     only, in five jobs, **main** and **run** side by side once **spec** is done, so a run with a Sandbox 1 census
@@ -706,47 +705,52 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   - Later: work of play's own, proposed with `intent`, would dispatch the same box run on main's head.
 - **Accept ships it** (Samuel 2026-11-06: *"only the manual accept should directly trigger the flow … it should
   instantly start the merge into main and prod"*; intent `d29933ff-3636-4148-8df7-c183c6065216`). The intent flow is the
-  one authority over what lands on main and goes to production, and GitHub requires it.
+  one authority over what lands on main and goes to production, and GitHub requires it. **Ship is a merge queue**
+  (Samuel 2026-11-10, intent `f7721142`): Accept enqueues at once, what lands is tested once, one deploy per batch, and
+  main moving resets nothing.
   - **Accept and ship** (admins, at Proposal, an intent whose work is code: its pull request named;
     `play/api/src/ship.ts` `acceptAndShip`). On the press, play reads the pull request with `SHIP_TOKEN` (a
     fine-grained token of Samuel's, the repository secret written into play's environment; deploy/README.md).
-    **Accept takes only a waiting intent** (*Sub-states*, below; Samuel 2026-11-07, intent `2bf8af96`: *"if an
-    intent is still working / waiting on main merging we can't promote accept it"*): its head the commit every must
-    check with a `run` last passed on, `play / API and site` and `website / build` green on that head, `mergeable`
-    true, open into main, not a draft. Anything else is refused with its reason, nothing posted or merged, the intent
-    left at Proposal: failed (a conflict, a red check, closed, a draft) or working (its head moved, its checks running,
-    `mergeable` null). Taken, the intent is in **Ship** at once (Samuel 2026-11-06, intent `2f13976c`: *"ship should
-    self queue smartly"*), decided by the admin, its first step **Ready to merge** waiting with its reason, shown on its
-    card and in its dialog:
-    - *Queued · behind \<title\>*: **one ship at a time, in the order accepted**. An intent waits behind every ship
-      accepted before it until that one is Accepted or back at Proposal.
-    - *Waiting for #N's checks* or *Waiting for GitHub to work out whether #N merges*, where GitHub changed while it
-      waited its turn (read again then).
-
-    When its turn comes and GitHub is ready (`startIfReady`, from Accept itself and from the watcher, one decision at
-    a time under a lock), play posts the commit status **`Intent accepted`** on that head and merges the pull request
-    (a merge commit, that head's sha): *Ready to merge* and *Merged into main* go green. First in line and ready, that
-    happens within Accept's own request. While it waits, a required check turning red, the head moving, a conflict,
-    the pull request closed, GitHub refusing the merge (the status posted back as failed) or **30 minutes** first in
-    line without GitHub or its checks ready takes it back to Proposal with the report, nothing merged; waiting its
-    turn has no limit. An intent with no pull request named is accepted on its checks, straight to Accepted, as
-    play's own work is, unless its code is on main by its trailer: then the reconcile accepts it once play runs it
+    **Accept takes only a waiting intent** (*Sub-states*, below; Samuel 2026-11-07, intent `2bf8af96`): its head the
+    commit every must check with a `run` last passed on, `play / API and site` and `website / build` green on that
+    head, `mergeable` true, open into main, not a draft. Anything else is refused with its reason, nothing posted or
+    queued, the intent left at Proposal: failed (a conflict, a red check, closed, a draft) or working (its head moved,
+    its checks running, `mergeable` null). Until main's ruleset has the merge queue, Accept is refused: *Main's ruleset
+    has no merge queue yet: an admin applies it with deploy/ruleset.sh (deploy/README.md), then Accept again.* Taken,
+    within Accept's own request, play posts the commit status **`Intent accepted`** on that head and adds the pull
+    request to the merge queue (GraphQL `enqueuePullRequest`, `expectedHeadOid` that head): the intent is in **Ship**,
+    *In the merge queue*. Several Accepts in a row all enqueue; none waits for another, and main moving never refuses
+    one: the queue orders them. An intent with no pull request named is accepted on its checks, straight to Accepted,
+    as play's own work is, unless its code is on main by its trailer: then the reconcile accepts it once play runs it
     (below).
+  - **The merge queue** (main's ruleset, `deploy/rulesets/main.json`, applied by an admin with `GH_TOKEN=… bash
+    deploy/ruleset.sh`; deploy/README.md): merge commits, grouping `ALLGREEN`, groups of up to 5; each merge commit's
+    title and message are its pull request's title and description, so each keeps its `Intent:` line. The queue tests
+    what will land, main and the batch, **once**: main.yml runs on `merge_group` with the same required checks (`play /
+    API and site`, `website / build`), and intent-named.yml passes there (each pull request passed it on its head).
+    play posts `Intent accepted` on each merge group's commit: `success` only when play accepted every pull request in
+    the group, else `failure` naming the one it did not: nothing lands without play's Accept. All green, GitHub
+    fast-forwards main to the group's commit, whose push's checks pass at once (*production follows main*, below): one
+    push, one release, one deploy for the whole batch, shared by every intent it merged.
   - **The ship watcher** (in play-api, every 10 s, `startShipWatcher`; its state is the intent's `ship` in Postgres, so
-    it goes on after a restart) reads GitHub's Actions for the merge commit: **main's checks** (main.yml's run for the
+    it goes on after a restart) follows the queue: **In the merge queue** (its position, its group's checks), **Merged
+    into main** (its merge commit), then GitHub's Actions for the push: **main's checks** (main.yml's run for the
     push), the **release** (release.yml's run named `release <sha>`), and the **deploy** (production.yml's run on the
     commit and its jobs *The image* and the **backup** (*The backup*) side by side, then *The server*, with *The
     website* beside them). Each step is kept on the intent as it changes: queued, running, green, red (skipped
     where a job did not run), when it started and finished, its link. A step whose run has not begun 15 minutes after
     the one before it is red.
-  - **All green: ended in Ship**, its steps and links kept, until the reconcile finds it live (below; it holds no
-    ship behind it up). **Any red: back to Proposal** with the **ship report**: the
-    failing step, why, its link and the last 60 lines of the failed job's log (fetched from where GitHub points,
-    without the token). From there an agent fixes it (a new pull request of the intent, named with `pr`, its checks
-    recorded on its head) and Accept ships that one; or, its pull request merged already by a ship of it, **Ship
-    again** runs main's failed jobs again (a red on main) or the release of the commit last merged (a red release or
-    deploy), waiting its turn like any ship (*Ready to run main's checks again*, *Ready to release again*), and it is
-    in Ship again (`round` 2, 3 …), the earlier round's runs never this one's.
+  - **Out of the queue: back to Proposal.** A pull request GitHub removes from the queue (a red group check, a
+    conflict, a timeout) is Ship red, back at Proposal with the failing check and its link; the rest of the queue goes
+    on (GitHub builds its groups again without it). Its builder fixes it and pushes, the box's run records again on the
+    new head, and Accept queues it again.
+  - **All green: ended in Ship**, its steps and links kept, until the reconcile finds it live (below). **A red after
+    the merge** (main's checks, the release, the deploy): back to Proposal with the **ship report**: the failing step,
+    why, its link and the last 60 lines of the failed job's log (fetched from where GitHub points, without the token).
+    From there an agent fixes it (a new pull request of the intent, named with `pr`, its checks recorded on its head)
+    and Accept ships that one; or, its pull request merged already, Accept ships it again (**Ship again**): main's
+    failed jobs run again (a red on main) or the release of the commit last merged (a red release or deploy), and it
+    is in Ship again (`round` 2, 3 …), the earlier round's runs never this one's.
   - **Accepted exactly when it is live: the reconcile** (Samuel 2026-11-07: *"ensure that our intents' state is always
     coupled correctly to its shipped state"*; intent `9876ef00-70dd-4b64-8bad-c43e7a33993b`; `play/api/src/ship.ts`
     `reconcile`). play knows the commit it runs: production.yml builds the image with it (`--build-arg
@@ -770,33 +774,35 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     as before (`decideIntent`), and play's own work straight to Accepted, its version applied in the same transaction.
     **`bun play/avenbox/live-audit.ts`** checks the same from outside: the commit from `/api/version`, every intent over
     MCP, main's history from git; it prints every mismatch and exits 0 only with none.
-  - **Main merged into open pull requests by play** (Samuel 2026-11-07: *"This merging main conflicts steps should be
-    also automated right?"*; intent `f28822d9-6ef1-49d9-aa2c-e52f1897ee89`; `play/api/src/mainmerge.ts`). No one merges
-    main into an intent's branch by hand: a pull request behind main is play's to update, only a real conflict is a
-    person's or its builder's. Each tick of the watcher, after it has read the open intents' pull requests, it reads
-    main's head and looks at every intent in Build or at Proposal whose named pull request is open into main:
-    - **mergeable and behind** (GitHub's compare: main's head not in the branch): play calls GitHub's
-      **`update-branch`** (`PUT /pulls/<n>/update-branch`, `expected_head_sha` the head it read), once per head and main's
-      head, under the intent's row (an Accept pressed meanwhile waits and finds it moved). It is a push made with
-      `SHIP_TOKEN`, so GitHub runs the required checks and the box's run (`intents-pr.yml` on `synchronize`) records the
-      intent's checks on the new head. **A clean main merge keeps an intent's results** (intent b17a4980, Samuel
-      2026-11-09): a must's result counts on the commit it was recorded on and on every head play's own main merges in a
-      row made from it (`pr_seen.merged_in`: each `{from, main, to}`, `to` taken only where GitHub's merge commit has
-      the parents `[from, main]`), while the required checks are green on that head; the board says so (*Accept and
-      ship: c1, c2 passed on 7aa4590, kept across main's merge*). So an intent at Proposal stays **waiting**: working
-      only while GitHub makes the new head (*main merged in: GitHub makes #N's new head*) and its required checks run.
-      The box's run still records on the new head, and a red it records replaces the kept pass (**failed**). A builder's
-      push, a conflict, a red or missing required check, or a merge play did not make carries nothing. A builder's push
-      in between makes GitHub refuse the update (422): nothing is done, the next tick reads the new head first.
-    - **in conflict** (`mergeable` false): **failed**, *conflicts with main: \<files\>*, the files changed both on the
-      branch (`GET /pulls/<n>/files`) and on main since their merge base (`GET /compare/<base>...main`), in Build too.
-      play posts the commit status **`Merges with main`** (`failure`, that line, the intent's link) on its head, once per
-      head and line, and `success` once it merges again; not a required check. A builder session subscribed to its
-      pull request (`subscribe_pr_activity`) is woken by that status as a PR event.
-
-    Never an intent in Ship, Accepted or Archived, never a pull request into another branch or naming no intent, never a
-    merge into main or production. Ship itself (its queue, steps and re-read at its turn), the reconcile and how checks
-    are recorded stay as they are.
+  - **Main moving resets nothing** (intents `f28822d9`, `f7721142`; `play/api/src/mainmerge.ts`). play merges main into
+    no pull request: one behind main is fine, the queue tests it with main.
+    As main moves, every intent's head, results and sub-state stay as they are (waiting stays waiting). Each tick of the
+    watcher, after it has read the open intents' pull requests, one of an intent in Build or at Proposal open into main
+    that GitHub finds **in conflict** (`mergeable` false) is **failed**, *conflicts with main: \<files\>*, the files
+    changed both on the branch (`GET /pulls/<n>/files`) and on main since their merge base (`GET
+    /compare/<base>...main`), in Build too. play posts the commit status **`Merges with main`** (`failure`, that line,
+    the intent's link) on its head, once per head and line, and `success` once it merges again; not a required check.
+    A builder session subscribed to its pull request (`subscribe_pr_activity`) is woken by that status as a PR event:
+    it resolves the conflict and pushes, merging main into its branch itself only then. Never an intent in Ship,
+    Accepted or Archived, never a pull request into another branch or naming no intent.
+  - **play wakes each builder the moment it must act** (intent 40397205, Samuel 2026-11-10: "The hourly orchestrator
+    sweep is bad, so we need a real-time solution"): every commit status play puts on GitHub (`Intent accepted`,
+    `Merges with main`, `Intent`) goes through one poster, `github.ts` `postStatus`, each line once per head and context,
+    its memory on the intent's `pr_seen.posted`. The status **`Intent`** (not a required check), on the head of the
+    intent's pull request, its target the intent's link: checks recorded with a must failed, `failure`, the failed musts
+    each with its evidence's first line (*c1 failed: 2 fail*, fitted to GitHub's 140 characters), on the commit they ran
+    on; every must passed, Build → Proposal, `success` *at Proposal: waits for Accept*; a spec approved, `pending`
+    *approved: build it*; a step back, `failure` *stepped back to \<stage\>: \<reason\>*; a red Ship step, back at
+    Proposal, `failure` *\<step\> red: \<report's first line\>* on the head it shipped; Accepted by the reconcile,
+    `success` *Accepted: live*. A GitHub error posting it never fails what play was doing (the record, the approval,
+    the step back, the ship): it is logged and kept unsent, and the watcher's next tick posts it (`postAgain`). **A
+    draft at Specify**: a draft pull request may name an intent at Specify (*Intent named* green, "a draft while its spec
+    waits"); marked ready it still needs Build, Proposal or Ship. Each tick play takes such a draft, the only open one
+    naming the intent in its body, as the intent's pull request (`adoptDrafts`) and reads it, so approval posts on it.
+    Nothing is recorded or proposed before Build. **Builders watch, never poll**: a builder opens its draft at its first
+    commit (at Specify too, as soon as it is started) and subscribes to it at once (`subscribe_pr_activity`); it is
+    woken by `Intent`, `Merges with main`, CI and reviews and acts on each; it schedules no check-ins and runs no sweeps,
+    and no orchestrator sweeps or relays for it.
   - **production follows main** (`.github/workflows/release.yml`): once main.yml is green for a push to main, or by
     `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
     with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no
@@ -805,12 +811,13 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     (one shared action, `.github/actions/main-green`), so *The image*, *The backup* and *The website* start together,
     and *The server* needs the image and the backup: nothing on the server changes before play is backed up (intent
     `5ab64b8e-f0b6-4688-9621-b38b0e665585`: merge to live in at most 90 s). production moves only by this fast-forward;
-    no pull request into production is taken. On that push, main's checks pass without running again only when the
-    pushed tree is the very tree the merged pull request's run of main.yml tested (`.github/workflows/tested-tree.sh`,
-    from GitHub's API); anything else runs them in full.
-  - **GitHub requires it**: one repository ruleset on main, with no bypass: a pull request (0 approvals), the status
-    checks `play / API and site`, `website / build` and **`Intent accepted`** (only play posts it, on Accept), no
-    force pushes, no deletion. Agents open the pull request and **never merge**, into main or production.
+    no pull request into production is taken. On a push to main, main's checks pass without running again only when
+    the pushed commit is the very commit a successful `merge_group` run of main.yml tested (`.github/workflows/tested-tree.sh`,
+    from GitHub's API), so they are not run twice; anything else runs them in full.
+  - **GitHub requires it**: one repository ruleset on main (`deploy/rulesets/main.json`), with no bypass: a pull
+    request (0 approvals), the merge queue, the status checks `play / API and site`, `website / build` and **`Intent
+    accepted`** (only play posts it, on Accept and on each merge group), no force pushes, no deletion. Agents open the
+    pull request and **never merge**, into main or production; nor does play: only the queue merges.
   - What it does not stop: someone acting as Samuel on GitHub on purpose (agents act as him there). It stops every
     change landing without his Accept by mistake. `SHIP_TOKEN` never leaves play's server: no route answers with it,
     no page holds it, no log names it; play only calls GitHub's API, no proposed code runs on its server.
@@ -826,14 +833,13 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     (Specify → Build; never held, Samuel 2026-11-07: an approved intent whose dependencies aren't shipped waits in
     Build, idle, its brief null, check_intent refused with the held text, main's confirmations still taken), Build →
     Proposal on its checks, work proposed for it (`intentReady`, `play/api/src/work.ts`
-    `putAtProposal`), accept, its work accepted (`play/api/src/versioned.ts` `decide`), Accept and ship and Ship's turn
-    (`play/api/src/ship.ts` `acceptAndShip`, `startIfReady`). Each move's stage rules, its must checks and *held* are
+    `putAtProposal`), accept, its work accepted (`play/api/src/versioned.ts` `decide`), Accept and ship
+    (`play/api/src/ship.ts` `acceptAndShip`). Each move's stage rules, its must checks and *held* are
     rules inside it; no path tests the stage on its own, and every refusal names the intents it waits for (UUID, title,
     stage). Going back (`step_back_intent`, reject, reopen, `archive_intent`) and specifying are never held, so a whole chain is
     specified up front.
-  - **Ship's queue**: Accept refuses an intent whose dependency is not in Ship; one whose dependency is ahead of it in
-    Ship waits (its first step says it waits for that one to ship) and merges only once that one is Accepted; that one
-    going back to Proposal takes it back too, its report naming it.
+  - **The merge queue**: Accept refuses an intent whose dependency is not in Ship; one already in Ship was queued
+    ahead of it, and the queue lands them in that order.
   - **MCP**: `add_intent` and `specify_intent` take `depends_on` (UUIDs; specify's replaces those before),
     `depend_intent { intent, on, drop? }` adds or drops one edge (an admin's agent's only, as every tool); `list_intents`
     and `get_intent` give `depends_on` (each with its stage), `held_by` and `needed_by`. On the board, each card shows
@@ -847,19 +853,16 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
   `subStateOf` (`play/api/src/substate.ts`), first match wins. **failed** (a person is needed): Ship red (back at
   Proposal with its report, until its checks are recorded again or another pull request is named), a must check whose
   last result failed, its pull request in conflict with main (*conflicts with main: \<files\>*, in Build too: *Main
-  merged into open pull requests by play*, above), red, a draft, closed or not into main. **waiting** (a human
+  moving resets nothing*, above), red, a draft, closed or not into main. **waiting** (a human
   gate): at Specify a spec with its reduce step (*Approve spec*, held or not); at Proposal work of play's (*Accept*), or
-  code whose pull request's head is the one every must check with a run last passed on (or a head play's clean main
-  merges made from it, its results kept), mergeable, its required checks
-  green, not a draft, not held (*Accept and ship*). **working** (an agent, GitHub or Ship busy): in Build; code with
-  main merged in by play while GitHub makes its new head or its required checks run there (*main merged in*); code whose head moved past the checked commit, whose required checks run, whose mergeability GitHub hasn't worked out, or whose
-  pull request was read more than 60 s ago (*reading #N on GitHub*); in Ship on its way. **idle** (nothing moves until
-  something else does): held by a dependency (*held: waits for …*), in Ship queued behind another, an Idea. What GitHub
+  code whose pull request's head is the one every must check with a run last passed on, mergeable, its required checks
+  green, not a draft, not held (*Accept and ship*). **working** (an agent, GitHub or Ship busy): in Build; code whose head moved past the checked commit, whose required checks run, whose mergeability GitHub hasn't worked out, or whose
+  pull request was read more than 60 s ago (*reading #N on GitHub*); in Ship on its way (in the merge queue, then after the merge). **idle** (nothing moves until
+  something else does): held by a dependency (*held: waits for …*), an Idea. Main moving resets none of them, a conflict it makes aside. What GitHub
   says is read by Ship's watcher every 10 s into the intent's `pr_seen` (head, draft, mergeable, the required checks,
   when), so the board's request asks GitHub nothing. **Only a waiting intent is decided**: Approve spec and Accept, on
   the board and on the server (`decideIntent`, a work's `decide`, `acceptAndShip`, each 409 with the reason), the one
-  exception a red ship after its merge, which Accept ships again; Ship's turn reads GitHub again (`startIfReady`, the
-  same checks). The board groups each column's cards under the dividers Failed, Waiting, Working and Idle, in that
+  exception a red ship after its merge, which Accept ships again. The board groups each column's cards under the dividers Failed, Waiting, Working and Idle, in that
   order, each with its count, empty ones left out, each card's reason its one status line.
 - **No work without an intent** (intent 706ed873; Samuel 2026-11-07): every propose path (every `propose_*` tool,
   `add_artifact`, `update_artifact`, `doc_edit` and `POST /api/intents`) requires `intent`, one in Build or at Proposal,
@@ -1387,8 +1390,8 @@ over MCP. It stays an admin's app for now; opening it to every member, each thei
 - `play-api` service + a Caddy block for `play.maia.city`; DNS to the same machine.
 - Env: `DATABASE_URL` (role `play`), `PLAY_BUCKET`, `PLAY_BUCKET_ENDPOINT`, `PLAY_BUCKET_ACCESS_KEY`,
   `PLAY_BUCKET_SECRET_KEY`, `RP_ID=maia.city`, `SITE_ORIGIN=https://play.maia.city`.
-- production follows main (§4.12, *Accept ships it*): an admin's Accept merges an intent's pull request, and once
-  main.yml is green `.github/workflows/release.yml` moves `production` to the commit (fast-forward) and starts
+- production follows main (§4.12, *Accept ships it*): an admin's Accept puts an intent's pull request in main's merge
+  queue, and once main.yml is green for the push that lands its batch `.github/workflows/release.yml` moves `production` to the commit (fast-forward) and starts
   `production.yml`, which deploys play and the website; play's ship watcher follows it with `SHIP_TOKEN` (written into
   `play.env` by the deploy, with `SHIP_REPO`).
 - Backups: before every deploy a snapshot, like Time Machine's: a full `pg_dump -n play` and the list of the files it

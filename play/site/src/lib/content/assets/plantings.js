@@ -31,7 +31,8 @@ import { cardOf } from './catalog.js';
 import { groundMaterial, rowsOf } from '$lib/content/biomes/surfaces.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { coverStream } from '$lib/content/biomes/stream.js';
-import { grassField, grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js';
+import { grassOfRecipe, growsGrass } from '$lib/content/biomes/grass.js';
+import { grassFieldOn } from '$lib/content/render/nodes/grass-compute.js';
 import { smallDevice } from '$lib/content/render/budget.js';
 
 /** a mesh's name that lays a biome's floor on it: `biome:` and the biome's recipe hash */
@@ -211,16 +212,55 @@ export function createPlantings(o) {
 		// its grass, blade by blade ($content/biomes/grass.js): where its grass kinds' colonies are on the floor
 		if (growsGrass(recipe)) {
 			const of = grassOfRecipe(recipe, (x, z) => !Number.isNaN(grid.at(x, z)));
-			const field = grassField({ params: recipe.grass, device: smallDevice() ? 'small' : 'desktop', at: (x, z) => ({ ...of(x, z), y: grid.at(x, z) || 0 }) });
+			const field = grassFieldOn(o.renderer, { params: recipe.grass, device: smallDevice() ? 'small' : 'desktop', at: (x, z) => ({ ...of(x, z), y: grid.at(x, z) || 0 }) });
 			o.scene.add(field.object);
 			covers.push({ update: (/** @type {number} */ _x, /** @type {number} */ _z) => field.update(o.camera, performance.now() / 1000), dispose: () => (field.object.removeFromParent(), field.dispose()) });
 		}
 		state.floors++;
 	};
+	/**
+	 * A biome shown on its own (its build: a round patch of it, a `ground` and a group `cover-<kind>` a kind; its recipe
+	 * as its card says it, given by the page, or its card's catalog on the root): its grass grown blade by blade over the whole ground round the eye, as a world grows it
+	 * (`grassFieldOn`: chosen on the graphics card on WebGPU, its tiles on the fallback; a phone's budget on a phone),
+	 * never bound to the patch; the patch's own copies of its cover put away, as the earth streams its cover over the
+	 * whole ground round the eye (./ground.js, intent 5fe91a2f). A biome without grass: its cover by the earth alone.
+	 */
+	const patch = (root, biome = null) => {
+		// the viewer's build carries no catalog on its root (its card has it): the page gives the recipe it read from the
+		// card; a root with its catalog on it is read here (intent 5fe91a2f: without either, nothing grew and its grass
+		// stood as its copies, tufts on bare soil)
+		let recipe = biome;
+		const catalog = root.userData?.catalog;
+		if (!recipe && catalog)
+			try {
+				recipe = biomeOfCard({ group: 'biomes', id: root.name || 'biome', version: 1, label: root.name || 'biome', catalog });
+			} catch {
+				return;
+			}
+		if (!recipe) return;
+		const ground = root.getObjectByName('ground');
+		for (const c of recipe.cover) {
+			const kind = root.getObjectByName(`cover-${c.kind}`);
+			if (kind) kind.visible = false;
+		}
+		if (!growsGrass(recipe)) return;
+		// in the world, at the ground's height as the stage stands the patch: the field follows the eye, not the patch
+		const at = ground ?? root;
+		at.updateWorldMatrix(true, false);
+		const y = new THREE.Vector3().setFromMatrixPosition(at.matrixWorld).y;
+		const of = grassOfRecipe(recipe);
+		const field = grassFieldOn(o.renderer, { params: recipe.grass, device: smallDevice() ? 'small' : 'desktop', at: (x, z) => ({ ...of(x, z), y }) });
+		o.scene.add(field.object);
+		covers.push({ update: () => field.update(o.camera, performance.now() / 1000), dispose: () => (field.object.removeFromParent(), field.dispose()) });
+	};
 	return {
 		state,
-		/** the plantings of `root` drawn, those shown before put away; how many it plants and how many of them are missing */
-		show(root) {
+		/**
+		 * the plantings of `root` drawn, those shown before put away; how many it plants and how many of them are missing;
+		 * `biome`: the root is that biome shown on its own (its recipe from its card), grown over the whole ground
+		 * @param {THREE.Object3D} root @param {{ biome?: any }} [shown]
+		 */
+		show(root, { biome = null } = {}) {
 			const list = plantingsOf(root);
 			generation++;
 			for (const c of covers.splice(0)) c.dispose();
@@ -229,6 +269,7 @@ export function createPlantings(o) {
 			// a build kept running in the box moves what it plants: each node followed (play/SPEC.md §4.11)
 			moving = root.userData?.view?.ticks === true;
 			lay(root);
+			patch(root, biome);
 			if (!list.length) return state;
 			const a = renderer();
 			const kinds = new Map();

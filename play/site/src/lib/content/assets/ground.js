@@ -15,6 +15,7 @@ import {
 import { groundMaterial } from '$lib/content/biomes/surfaces.js';
 import { PER, surfaceRead, vn } from '$lib/content/render/nodes/ground.js';
 import { coverStream } from '$lib/content/biomes/stream.js';
+import { growsGrass } from '$lib/content/biomes/grass.js';
 import { coverAway } from '$lib/content/render/nodes/index.js';
 import { biomeOfCard } from '$lib/content/biomes/card.js';
 import { MOST, PED, soilOf } from './soils.js';
@@ -429,7 +430,7 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 	group.add(floor, under);
 	/** @type {null | ReturnType<typeof coverStream>} */
 	let stream = null;
-	let recipe = null, ringAt = 0, reachAt = 0, tall = false, soilNow = soilOf();
+	let recipe = null, ringAt = 0, reachAt = 0, tall = false, whole = false, soilNow = soilOf();
 	setSoil(soil, soilNow);
 	const at = new THREE.Vector3();
 	/** the plant as fitted: how deep and how far out its roots reach, and how big it is */
@@ -449,8 +450,20 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 	const coverFor = () => {
 		stream?.dispose();
 		stream = null;
+		if (!drawn || !recipe?.cover?.length) return;
+		// a biome shown on its own (intent 5fe91a2f): its cover over the whole ground, round the eye as a world streams it,
+		// its grass left to the blades (./plantings.js), on a phone too, thinner
+		if (whole) {
+			drawn.round(null);
+			try {
+				stream = coverStream({ drawn, recipe, tile: 8, reach: stage.low ? 16 : 24, near: stage.low ? 6 : 9, thin: 0.25, perFrame: 2, seed: 707, density: stage.low ? recipe.density * 0.5 : undefined, blades: growsGrass(recipe) });
+			} catch (e) {
+				console.warn(`no cover: ${e?.message ?? e}`);
+			}
+			return;
+		}
 		// the cover is drawn for standing height (round a seedling its clover would stand like trees): none for a small plant
-		if (!cover || !drawn || !tall || !recipe?.cover?.length) return;
+		if (!cover || !tall) return;
 		const ring = ringAt, cx = g.uC.value.x, cz = g.uC.value.z;
 		// out to where the floor starts fading into the backdrop, never beyond it (no plants standing in the haze)
 		const reach = reachAt;
@@ -482,8 +495,9 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 			setSoil(soil, soilNow);
 			coverFor();
 		},
-		/** Sized to a plant's roots and crown; surface at 0. With `open` (a biome's patch, its radius in metres): no mulch
-		 *  ring, the cover streamed only beyond it. @param {THREE.Object3D} root @param {{ open?: number }} [o] */
+		/** Sized to a plant's roots and crown; surface at 0. With `open` (a biome shown on its own, its patch's radius in
+		 *  metres): no mulch ring, its cover over the whole ground round the eye (intent 5fe91a2f). Without: a mulch ring
+		 *  round the stem, the cover beyond it. @param {THREE.Object3D} root @param {{ open?: number }} [o] */
 		fit(root, o = {}) {
 			root.updateMatrixWorld(true);
 			root.getWorldPosition(at);
@@ -535,7 +549,8 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 			g.uRing.value = o.open != null ? 1e-4 : ring;
 			const coverReach = Math.max(4, (o.open ?? 0) + 8, Math.min(14, fade.x * 1.15));
 			const big = Math.max(bs.x, bs.y, bs.z) > 0.35;
-			if (Math.abs(ring - ringAt) > ringAt * 0.25 || Math.abs(coverReach - reachAt) > reachAt * 0.25 || big !== tall || (!stream && big)) {
+			if (whole !== (o.open != null) || Math.abs(ring - ringAt) > ringAt * 0.25 || Math.abs(coverReach - reachAt) > reachAt * 0.25 || big !== tall || (!stream && big)) {
+				whole = o.open != null;
 				ringAt = ring;
 				reachAt = coverReach;
 				tall = big;
@@ -600,8 +615,10 @@ export function groundOf(stage, { cover = !stage.low, drawn = null } = {}) {
 				// the haze counts from the face's nearest point to the eye: right behind the roots it is clear
 				soil.userData.soil.uHazeNear.value = Math.max(0, (e.x - at.x) * fx + (e.z - at.z) * fz + behind);
 			}
-			// on a turntable the plant is the middle of what is seen: the cover stands full round it and thins outwards
-			stream?.update(at.x, at.z);
+			// on a turntable the plant is the middle of what is seen: the cover stands full round it and thins outwards; a
+			// biome shown on its own has no middle, its cover round the eye as in a world
+			if (whole) stream?.update(e.x, e.z);
+			else stream?.update(at.x, at.z);
 		},
 		dispose() {
 			group.removeFromParent();

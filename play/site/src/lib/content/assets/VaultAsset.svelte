@@ -79,6 +79,13 @@
 	const stageName = $derived(staged && Number.isFinite(values.stage) ? staged.names[Math.min(staged.names.length - 1, Math.round(values.stage - staged.min))] : '');
 
 	let canvasBox = $state();
+	/** the height the turntable's floating head takes over the canvas (its `room`), and the camera framed clear of it */
+	let room = $state(0);
+	let roomed = null;
+	$effect(() => {
+		room;
+		untrack(() => roomed?.());
+	});
 	let hero = $state.raw(null);
 	let building = $state(false);
 	let buildPhase = $state('file');
@@ -183,6 +190,9 @@
 			return;
 		}
 		const { THREE, view, renderer, camera, controls, adapt, resize } = up;
+		// framed clear of the turntable's floating head (its `room`, $lib/site/app/turntable.js `fit`), as it changes
+		roomed = () => ((camera.userData.top = room), resize());
+		roomed();
 		const { createWalker, PACE } = await import('$lib/content/sandbox-kit/walker.js');
 		stage = up.stage;
 		// what a build plants (a dome's forest: play's plants, named by their builds' hashes), drawn where it stands them
@@ -270,7 +280,7 @@
 				const { centre, size: s } = stage.show(got.obj, { asset: h, ground: grounded ? 0 : undefined, keep: shownHash === h0, studio: !grounded });
 				if (grounded) earth.fit(got.obj, biome ? { open: patch || Math.max(s.x, s.z) / 2 } : undefined);
 				earth.show(grounded);
-				plantings.show(got.obj);
+				plantings.show(got.obj, { biome });
 				// round a plant on its ground the camera may go down below the ground line, to 60° under it, but no further;
 				// in every other group's viewer it is held above the ground (./camerafloor.js, each frame in the loop)
 				Object.assign(floorCam, { group: got.card?.group ?? '', soiled, y: stage.groundY, margin: Math.max(0.002, Math.max(s.x, s.y, s.z) * 0.002) });
@@ -598,7 +608,7 @@
 	</div>
 {/if}
 
-<Turntable name="vault-asset" inline {compact} {fill} panel={details ? undefined : panelBody} readout={details ? undefined : readoutBody} bind:canvas={canvasBox}>
+<Turntable name="vault-asset" inline {compact} {fill} bind:room panel={details ? undefined : panelBody} readout={details ? undefined : readoutBody} bind:canvas={canvasBox}>
 	{#snippet head()}
 		{#if named}<h2 class="name">{title || source.nameOf?.(hash) || 'An asset'}{#if stageName}<small>{` · ${stageName}`}</small>{/if}</h2>{/if}
 		{#if viewTabs.length > 1}
@@ -744,7 +754,7 @@
 	/* the part shown on its own, and the way back to all of it, at the canvas's top left */
 	.picked {
 		position: absolute;
-		top: 0.75rem;
+		top: calc(var(--head-room, 0px) + 0.75rem);
 		left: 0.75rem;
 		z-index: 2;
 		display: flex;

@@ -5,8 +5,7 @@ import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
 import { type Db } from "../src/kit/pg";
 import { watchTick } from "../src/watcher";
-import { type Pull } from "../src/github";
-import { carrySeen } from "../src/mainmerge";
+import { INTENT_CONTEXT, type Pull } from "../src/github";
 import { checksSeen, sub, subStateOf, type PrSeen } from "../src/substate";
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
 import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
@@ -75,9 +74,8 @@ describe("subStateOf", () => {
       ["code, a draft", row({ pr_seen: seen({ draft: true }) }), "failed", "is a draft"],
       ["code, pr_seen stale", row({ pr_seen: seen({ at: new Date(now - 61_000).toISOString() }) }), "working", "reading #7 on GitHub"],
       ["code, not read yet", row({ pr_seen: null }), "working", "reading #7 on GitHub"],
-      ["in Ship, queued", row({ stage: "ship", ship: { pending: { kind: "merge" }, steps: [{ key: "ready", note: "Queued · behind The engine" }] } }), "idle", "Queued · behind The engine"],
-      ["in Ship, waiting for GitHub", row({ stage: "ship", ship: { pending: { kind: "merge" }, steps: [{ key: "ready", note: "Waiting for #7's checks (website / build)" }] } }), "working", "Waiting for #7's checks"],
-      ["in Ship, on its way", row({ stage: "ship", ship: { pending: null, steps: [{ key: "ready", state: "green" }, { key: "merged", state: "green" }, { key: "main", name: "main's checks", state: "running" }] } }), "working", "main's checks"],
+      ["in Ship, in the merge queue", row({ stage: "ship", ship: { steps: [{ key: "queued", state: "running", note: "2nd in the merge queue · its group 1234567: 1 of 2 checks done" }] } }), "working", "2nd in the merge queue"],
+      ["in Ship, on its way", row({ stage: "ship", ship: { steps: [{ key: "queued", state: "green" }, { key: "merged", state: "green" }, { key: "main", name: "main's checks", state: "running" }] } }), "working", "main's checks"],
     ];
     for (const [what, r, state, why] of table) {
       const s = of(r);
@@ -102,13 +100,6 @@ describe("subStateOf", () => {
     const OLD = sha(9), NEW = sha(2);
     const checks = ["c1", "c2", "c3", "c4", "c5"].map((id) => ({ id, check: `The statement of ${id}, long and whole`, must: true, run: "true" }));
     const results = { c1: { pass: true, commit: OLD }, c2: { pass: true, commit: OLD }, c3: { pass: true, commit: OLD }, c5: { pass: true, commit: NEW } };
-    // play merged main in: c1–c3 kept across it while the required checks run on the new head, c4 lacks a result
-    const merged_in = [{ from: OLD, main: sha(5), at: "2026-11-07T11:50:00Z", to: NEW }];
-    const stale = row({ spec: { checks, nothing_to_reduce: "x" }, results, pr_seen: seen({ head: NEW, merged_in, checks: { "play / API and site": "running", "website / build": "success" } }) });
-    const s = of(stale)!;
-    expect(s).toMatchObject({ state: "working", tag: "main merged in" });
-    expect(s.why).toBe(`main merged in: its checks run on ${NEW.slice(0, 7)} (c1, c2, c3 passed on ${OLD.slice(0, 7)}, kept across main's merge once the required checks are green on ${NEW.slice(0, 7)}; c4 no result yet)`);
-    expect(s.why).not.toContain("statement");
     const moved = of(row({ spec: { checks, nothing_to_reduce: "x" }, results, pr_seen: seen({ head: NEW }) }))!;
     expect(moved).toMatchObject({ state: "working", tag: "head moved" });
     expect(moved.why).toContain(`c1, c2, c3 passed on ${OLD.slice(0, 7)}, not yet on the head ${NEW.slice(0, 7)}; c4 no result yet`);
@@ -120,262 +111,25 @@ describe("subStateOf", () => {
   });
 });
 
-// intent b17a4980-ade4-4df9-96ad-9d85df34eabe: a pass counts on its own commit and on every head play's own clean main
-// merges made from it, while the required checks are green there; nothing else carries it
-describe("results across play's main merges", () => {
+// intent f7721142-936b-4c1c-8be8-23e8cff21f89: a pass counts on its own commit only; a pull request behind main is fine,
+// the merge queue tests it with main, so main moving changes nothing of its sub-state
+describe("results on the head, main moving resets nothing", () => {
   const now = Date.parse("2026-11-09T16:00:00Z");
-  const A = sha(21), B = sha(22), C = sha(23), M1 = sha(31), M2 = sha(32);
+  const A = sha(21), B = sha(22);
   const GREEN = { "play / API and site": "success", "website / build": "success" } as const;
   const checks = ["c1", "c2", "c3"].map((id) => ({ id, check: `statement ${id}`, must: true, run: "true" }));
   const on = (commit: string) => Object.fromEntries(checks.map((c) => [c.id, { pass: true, at: "2026-11-09T15:00:00Z", commit }]));
-  const merge = (from: string, main: string, to?: string) => ({ from, main, at: "2026-11-09T15:30:00Z", ...(to ? { to } : {}) });
   const seen = (more: Partial<PrSeen> = {}): PrSeen => ({
-    pr: 9, head: B, draft: false, mergeable: true, state: "open", merged: false, base: "main", checks: { ...GREEN }, at: new Date(now - 5_000).toISOString(), ...more,
+    pr: 9, head: A, draft: false, mergeable: true, state: "open", merged: false, base: "main", checks: { ...GREEN }, at: new Date(now - 5_000).toISOString(), ...more,
   });
   const row = (pr_seen: PrSeen, results: Record<string, unknown> = on(A)) => ({ stage: "proposal", spec: { checks, nothing_to_reduce: "x" }, results, work: null, pull_request: 9, ship: null, held_by: [], pr_seen }) as any;
   const of = (r: any) => subStateOf(r, r.pr_seen, now);
 
-  test("kept across a clean main merge: waiting, the board saying so", () => {
-    // play merged main M1 into A; GitHub made B of them, its required checks green
-    const was = seen({ head: A, merged_in: [merge(A, M1)] });
-    const s1 = carrySeen(was, seen({ head: B }), [A, M1]);
-    expect(s1.merged_in).toEqual([merge(A, M1, B)]);
-    expect(of(row(s1))).toEqual({ state: "waiting", tag: "Accept and ship", why: `Accept and ship: c1, c2, c3 passed on ${A.slice(0, 7)}, kept across main's merge` });
-    // while GitHub makes the new head: working, never waiting
-    expect(of(row(was))).toMatchObject({ state: "working", tag: "main merged in" });
-    // its required checks still running: working, kept once they are green
-    const running = of(row({ ...s1, checks: { ...GREEN, "website / build": "running" } }))!;
-    expect(running).toMatchObject({ state: "working", tag: "main merged in" });
-    expect(running.why).toContain(`c1, c2, c3 passed on ${A.slice(0, 7)}, kept across main's merge once the required checks are green on ${B.slice(0, 7)}`);
-    // the box records again on B: counted on the head itself, nothing said kept
-    expect(of(row(s1, on(B)))).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
-  });
-
-  test("kept across two main merges in a row", () => {
-    let s = carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B }), [A, M1]);
-    // main moves again: play merges M2 into B (../src/mainmerge.ts goes on with the row), GitHub makes C
-    s = { ...s, merged_in: [...s.merged_in!, merge(B, M2)] };
-    s = carrySeen(s, seen({ head: B }));
-    expect(s.merged_in).toHaveLength(2);
-    s = carrySeen(s, seen({ head: C }), [B, M2]);
-    expect(s.merged_in).toEqual([merge(A, M1, B), merge(B, M2, C)]);
-    expect(of(row(s))).toEqual({ state: "waiting", tag: "Accept and ship", why: `Accept and ship: c1, c2, c3 passed on ${A.slice(0, 7)}, kept across main's merge` });
-    // results on the middle head count too, grouped by commit
-    const mixed = { ...on(A), c3: { pass: true, at: "2026-11-09T15:40:00Z", commit: B } };
-    expect(of(row(s, mixed))!.why).toBe(`Accept and ship: c1, c2 passed on ${A.slice(0, 7)}; c3 passed on ${B.slice(0, 7)}, kept across main's merge`);
-  });
-
-  test("not kept: a builder's push, a conflict, a red or missing required check, a merge play did not make", () => {
-    const made = carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B }), [A, M1]);
-    // a builder's push after play's merge ends the row: the head moved
-    const pushed = carrySeen(made, seen({ head: C }));
-    expect(pushed.merged_in).toBeUndefined();
-    expect(of(row(pushed))).toMatchObject({ state: "working", tag: "head moved" });
-    // a builder's push while GitHub was making play's merge: its parents are not [A, M1], nothing carried
-    const raced = carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: C }), [A]);
-    expect(raced.merged_in).toBeUndefined();
-    expect(of(row(raced))).toMatchObject({ state: "working", tag: "head moved" });
-    // a merge of main play did not make (the builder's own, or of another main): no row, nothing carried
-    expect(carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: C }), [A, M2]).merged_in).toBeUndefined();
+  test("waiting on its head, behind main or not; a new head is working until recorded there; a conflict failed", () => {
+    expect(of(row(seen()))).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
     expect(of(row(seen({ head: B })))).toMatchObject({ state: "working", tag: "head moved" });
-    // parents not read (GitHub refused): nothing carried
-    expect(carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B })).merged_in).toBeUndefined();
-    expect(of(row({ ...made, mergeable: false }))).toMatchObject({ state: "failed", tag: "conflicts with main" });
-    // a red required check on the merged head: failed, nothing kept
-    expect(of(row({ ...made, checks: { ...GREEN, "play / API and site": "failure" } }))).toMatchObject({ state: "failed", tag: "check red" });
-    // a missing required check: working, nothing kept
-    const missing = of(row({ ...made, checks: { "play / API and site": "success" } }))!;
-    expect(missing.state).toBe("working");
-    expect(missing.why).toContain("kept across main's merge once the required checks are green");
-    // a result on a commit before the row's start counts nothing
-    expect(of(row(made, on(C)))).toMatchObject({ state: "working", tag: "main merged in" });
-  });
-
-  test("red on the merged head replaces the kept pass: failed", () => {
-    const made = carrySeen(seen({ head: A, merged_in: [merge(A, M1)] }), seen({ head: B }), [A, M1]);
-    const red = { ...on(A), c2: { pass: false, at: "2026-11-09T15:50:00Z", commit: B } };
-    expect(of(row(made, red))).toEqual({ state: "failed", tag: "c2 failed", why: "c2 failed" });
-  });
-});
-
-suite("sub-states on the board", () => {
-  let f: Fresh, db: Db;
-  let api: Api;
-  let store: BlobStore;
-  let gh: ReturnType<typeof fakeGitHub>;
-  const who: Record<string, { id: string; cookie: string }> = {};
-  let token = "";
-
-  beforeAll(async () => {
-    f = await freshDb();
-    db = f.db;
-    await seedSkills(db); // the Intents skill: an intent's brief
-    gh = fakeGitHub();
-    store = tempStore();
-    api = appOn(db, { store, github: gh.gh });
-    who.ada = await human(db, "ada");
-    const made = (await call("POST", "/api/tokens", { name: "agent" })).data;
-    token = made.token;
-    // avenBOX's token (play/SPEC.md §4.12): a code intent's results on a commit, and its pull request, are taken from it alone
-    await call("POST", `/api/tokens/${made.id}/avenbox`, { avenbox: true });
-  });
-
-  afterAll(async () => {
-    await f?.drop();
-  });
-
-  const call = (method: string, path: string, body?: unknown) => request(api, { cookie: who.ada.cookie }, method, path, body);
-  const tool = (name: string, args: Record<string, unknown>): Promise<any> => mcpTool(api, token, name, args);
-  const intent = async (id: string) => (await call("GET", `/api/intents/${id}`)).data;
-  const decide = (id: string, verdict: string) => call("POST", `/api/intents/${id}/${verdict}`);
-  const clearShips = () => fx.clearShips(db);
-  let k = 0;
-  const add = async (title = "Intent") => (await tool("add_intent", { title: `${title} ${++k}`, kind: "improve" })) as { id: string; title: string };
-  const specified = async (title?: string) => {
-    const i = await add(title);
-    expect((await tool("specify_intent", { intent: i.id, ...SPEC })).stage).toBe("specify");
-    return i;
-  };
-  const built = async () => {
-    const i = await specified();
-    expect((await decide(i.id, "approve")).data.stage).toBe("build");
-    return i;
-  };
-  const passed = (id: string) => tool("check_intent", { intent: id, results: [{ check: "c1", pass: true, evidence: "bun test: 0 fail" }] });
-  let prs = 900;
-  let commits = 9000;
-  const codeAtProposal = async (more: Partial<Pull> = {}) => {
-    const i = await built();
-    const pr = ++prs;
-    const head = sha(++commits);
-    expect((await tool("check_intent", { intent: i.id, pr, results: [{ check: "c1", pass: true, evidence: "0 fail", commit: head }] })).stage).toBe("proposal");
-    gh.pulls.set(pr, {
-      number: pr, state: "open", merged: false, merge_commit_sha: null, mergeable: true, base: { ref: "main" }, head: { sha: head, ref: `claude/${pr}` },
-      html_url: `https://github.test/${REPO}/pull/${pr}`, title: i.title, ...more,
-    });
-    gh.checks.set(head, [green("play / API and site"), green("website / build")]);
-    gh.merges.set(pr, sha(++commits));
-    return { ...i, pr, head };
-  };
-  const heldText = (id: string, deps: { id: string; title: string; stage: string }[]) =>
-    `Intent ${id} is held: it depends on intents not shipped yet: ${deps.map((d) => `${d.id} (${d.title}, at ${d.stage})`).join("; ")}.`;
-
-  test("one rule: a stub of subStateOf saying working refuses approve, accept, a work's accept and Accept and ship with its reason, and GET /api/intents reports it", async () => {
-    await clearShips();
-    const atSpecify = await specified();
-    const toAccept = await built();
-    expect((await passed(toAccept.id)).stage).toBe("proposal");
-    const withWork = await built();
-    expect((await passed(withWork.id)).stage).toBe("proposal");
-    expect((await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: `Fern ${++k}`, source: SOURCE, note: "x", intent: withWork.id })).error).toBeUndefined();
-    const toShip = await codeAtProposal();
-    const STUB = { state: "working" as const, tag: "stub", why: "The stub says it is working" };
-    const real = sub.of;
-    sub.of = () => STUB;
-    try {
-      for (const [id, verdict] of [[atSpecify.id, "approve"], [toAccept.id, "accept"], [withWork.id, "accept"], [toShip.id, "accept"]]) {
-        const r = await decide(id, verdict);
-        expect({ id, status: r.status }).toEqual({ id, status: 409 });
-        expect(r.data.error).toContain(STUB.why);
-      }
-      const listed: { id: string; sub: unknown }[] = (await call("GET", "/api/intents")).data;
-      expect(listed.length).toBeGreaterThan(3);
-      for (const i of listed) expect(i.sub).toEqual(STUB);
-    } finally {
-      sub.of = real;
-    }
-    expect((await intent(atSpecify.id)).stage).toBe("specify");
-    for (const i of [toAccept, withWork, toShip]) expect((await intent(i.id)).stage).toBe("proposal");
-    expect(gh.calls.filter((c) => c.method === "PUT")).toEqual([]);
-  });
-
-  test("only a waiting intent is accepted: its head moved, its checks running, mergeable null or false, each refused with its reason at Proposal; waiting, the same Accept puts it in Ship", async () => {
-    await clearShips();
-    const c = await codeAtProposal();
-    const pr = gh.pulls.get(c.pr)!;
-    const refused = async (says: string) => {
-      const r = await decide(c.id, "accept");
-      expect(r.status).toBe(409);
-      expect(r.data.error).toContain(says);
-      const now = await intent(c.id);
-      expect(now.stage).toBe("proposal");
-      expect(now.sub.why).toContain(says);
-    };
-    pr.head.sha = sha(++commits);
-    gh.checks.set(pr.head.sha, [green("play / API and site"), green("website / build")]);
-    await refused("moved past the checked commit");
-    pr.head.sha = c.head;
-    gh.checks.set(c.head, [green("play / API and site"), { ...green("website / build"), status: "in_progress", conclusion: null }]);
-    await refused(`Waiting for #${c.pr}'s checks (website / build)`);
-    expect((await intent(c.id)).sub.state).toBe("working");
-    gh.checks.set(c.head, [green("play / API and site"), green("website / build")]);
-    pr.mergeable = null;
-    await refused(`Waiting for GitHub to work out whether #${c.pr} merges`);
-    pr.mergeable = false;
-    await refused("conflicts with main");
-    expect((await intent(c.id)).sub.state).toBe("failed");
-    expect(gh.calls.filter((x) => x.method !== "GET")).toEqual([]);
-    pr.mergeable = true;
-    await watchTick(db, gh.gh, store, Date.now(), null);
-    expect((await intent(c.id)).sub).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
-    expect((await decide(c.id, "accept")).data).toMatchObject({ stage: "ship", ship: { pending: null } });
-    await clearShips();
-  });
-
-  test("the watcher reads GitHub, the board doesn't: a tick keeps each open intent's pull request in pr_seen; GET /api/intents then makes no GitHub call", async () => {
-    await clearShips();
-    const c = await codeAtProposal({ mergeable: null });
-    gh.checks.set(c.head, [green("play / API and site"), { ...green("website / build"), status: "queued", conclusion: null }]);
-    expect((await intent(c.id)).sub).toEqual({ state: "working", tag: "reading GitHub", why: `reading #${c.pr} on GitHub` });
-    const before = Date.now();
-    await watchTick(db, gh.gh, store, Date.now(), null);
-    const { rows: [r] } = await db.query<any>(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id]);
-    expect(r.pr_seen).toMatchObject({ pr: c.pr, head: c.head, draft: false, mergeable: null, state: "open", checks: { "play / API and site": "success", "website / build": "queued" } });
-    expect(Date.parse(r.pr_seen.at)).toBeGreaterThanOrEqual(before - 1000);
-    expect((await intent(c.id)).sub).toEqual({ state: "working", tag: "checks running", why: `Waiting for #${c.pr}'s checks (website / build)` });
-    const from = gh.calls.length;
-    await call("GET", "/api/intents");
-    await call("GET", `/api/intents/${c.id}`);
-    await tool("list_intents", {});
-    await tool("get_intent", { intent: c.id });
-    expect(gh.calls.length).toBe(from);
-  });
-
-  test("read everywhere: list_intents, get_intent, GET /api/intents and /api/intents/<uuid> give sub { state, tag, why }, null for an Accepted one", async () => {
-    const open = await specified();
-    const done = await specified();
-    await db.query(`UPDATE play.intents SET stage = 'accepted' WHERE id = $1`, [done.id]);
-    const want = { state: "waiting", tag: "Approve spec", why: "Approve spec" };
-    expect((await intent(open.id)).sub).toEqual(want);
-    expect((await call("GET", "/api/intents")).data.find((x: any) => x.id === open.id).sub).toEqual(want);
-    expect((await tool("get_intent", { intent: open.id })).sub).toEqual(want);
-    expect((await tool("list_intents", {})).find((x: any) => x.id === open.id).sub).toEqual(want);
-    expect((await intent(done.id)).sub).toBeNull();
-    expect((await tool("get_intent", { intent: done.id })).sub).toBeNull();
-    expect((await tool("list_intents", { stage: "all" })).find((x: any) => x.id === done.id).sub).toBeNull();
-  });
-
-  test("approve is never held: approved into Build, idle, held, its brief null; check_intent and a propose naming it refused, nothing recorded; the dependency Accepted, it is working and its checks taken", async () => {
-    const dep = await add("The engine");
-    const s = await add();
-    expect((await tool("depend_intent", { intent: s.id, on: dep.id })).error).toBeUndefined();
-    expect((await tool("specify_intent", { intent: s.id, ...SPEC })).sub).toEqual({ state: "waiting", tag: "Approve spec", why: "Approve spec" });
-    expect((await decide(s.id, "approve")).data).toMatchObject({ stage: "build", sub: { state: "idle", tag: "held", why: `held: waits for ${dep.title}` } });
-    expect((await tool("get_intent", { intent: s.id })).brief).toBeNull();
-    const held = heldText(s.id, [{ id: dep.id, title: dep.title, stage: "idea" }]);
-    expect(await passed(s.id)).toEqual({ error: held });
-    expect((await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: `Fern ${++k}`, source: SOURCE, note: "x", intent: s.id })).error).toBe(held);
-    expect(await intent(s.id)).toMatchObject({ stage: "build", results: null, work: null });
-    // main's confirmations after a merge are still taken
-    expect((await tool("check_intent", { intent: s.id, results: [{ check: "c1", pass: true, evidence: "on main", where: "main" }] })).stage).toBe("build");
-    await db.query(`UPDATE play.intents SET results = NULL WHERE id = $1`, [s.id]);
-    // its dependency Accepted: working, its brief back, its checks taken
-    await db.query(`UPDATE play.intents SET stage = 'accepted' WHERE id = $1`, [dep.id]);
-    expect((await intent(s.id)).sub.state).toBe("working");
-    const free = await built();
-    const brief = (await tool("get_intent", { intent: s.id })).brief;
-    expect(brief).toContain(s.id);
-    expect((await tool("get_intent", { intent: free.id })).brief).toContain(free.id);
-    expect((await passed(s.id)).stage).toBe("proposal");
+    expect(of(row(seen({ head: B }), on(B)))).toEqual({ state: "waiting", tag: "Accept and ship", why: "Accept and ship" });
+    expect(of(row(seen({ mergeable: false })))).toMatchObject({ state: "failed", tag: "conflicts with main" });
+    expect(of(row(seen({ checks: { ...GREEN, "play / API and site": "failure" } })))).toMatchObject({ state: "failed", tag: "check red" });
   });
 });

@@ -11,8 +11,6 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 
 	type Stage = 'idea' | 'specify' | 'build' | 'proposal' | 'ship';
 	type Segment = { stage: Stage; who: 'agent' | 'person' | 'ci'; from: string; to: string | null; ms: number };
@@ -21,7 +19,7 @@
 	type Ci = { minutes: number; runs: number; cancelled: number; cancelled_share: number; list: CiRun[] } | { error: string };
 	type Timeline = {
 		id: string; title: string; stage: string; created: string; accepted_at: string | null; lead_ms: number; segments: Segment[];
-		ship: { key: string; name: string; state: string; ms: number | null }[] | null; step_backs: number; main_merges: number; pull_request: number | null; over: Over[]; ci?: Ci;
+		ship: { key: string; name: string; state: string; ms: number | null }[] | null; step_backs: number; pull_request: number | null; over: Over[]; ci?: Ci;
 	};
 	type Day = { day: string; accepted: number; median_lead_ms: number | null; longest_lead_ms: number | null; median_stage_ms: Partial<Record<Stage, number>> };
 	type Delivery = { now: string; since: string; days: number; budgets: { key: string; name: string; ms: number }[]; per_day: Day[]; over: number; ci: { available: boolean; why?: string; minutes?: number; runs?: number; cancelled_share?: number } | null; intents: Timeline[] };
@@ -33,15 +31,12 @@
 		['proposal', 'Proposal', 'waiting for a person: Accept'],
 		['ship', 'Ship', 'CI: merge, main, release, deploy']
 	];
-	adminsOnly();
-	const admin = $derived(isAdmin());
 	const days = $derived(Number(page.url.searchParams.get('days') ?? 7) || 7);
 	let ci = $state(false);
 	let d = $state<Delivery | null>(null);
 	let error = $state('');
 	let busy = $state(false);
 	$effect(() => {
-		if (!admin) return;
 		let gone = false;
 		busy = true;
 		api<Delivery>(`/delivery?days=${days}${ci ? '&ci=1' : ''}`).then(
@@ -56,87 +51,85 @@
 
 <svelte:head><title>Delivery · play</title></svelte:head>
 
-{#if admin}
-	<main class="delivery">
-		<p class="eyebrow"><a href="/intents/">Intents</a></p>
-		<h1>Delivery</h1>
-		<p class="lead">Where the intents' time goes: each stage, waiting for a person or an agent at work, Ship's steps, CI, and the budgets.</p>
-		<div class="controls">
-			<label>Window
-				<select value={`${days}`} onchange={(e) => goto(`?days=${(e.currentTarget as HTMLSelectElement).value}`, { keepFocus: true, noScroll: true })}>
-					{#each [1, 3, 7, 14, 30] as n (n)}<option value={`${n}`}>{n === 1 ? 'today' : `${n} days`}</option>{/each}
-				</select>
-			</label>
-			<label><input type="checkbox" bind:checked={ci} /> CI from GitHub</label>
-			{#if busy}<span class="soft small">Reading…</span>{/if}
+<main class="delivery">
+	<p class="eyebrow"><a href="/intents/">Intents</a></p>
+	<h1>Delivery</h1>
+	<p class="lead">Where the intents' time goes: each stage, waiting for a person or an agent at work, Ship's steps, CI, and the budgets.</p>
+	<div class="controls">
+		<label>Window
+			<select value={`${days}`} onchange={(e) => goto(`?days=${(e.currentTarget as HTMLSelectElement).value}`, { keepFocus: true, noScroll: true })}>
+				{#each [1, 3, 7, 14, 30] as n (n)}<option value={`${n}`}>{n === 1 ? 'today' : `${n} days`}</option>{/each}
+			</select>
+		</label>
+		<label><input type="checkbox" bind:checked={ci} /> CI from GitHub</label>
+		{#if busy}<span class="soft small">Reading…</span>{/if}
+	</div>
+	{#if error}<p class="bad">{error}</p>{/if}
+	{#if d}
+		<ul class="legend small">
+			{#each STAGES as [s, name, what] (s)}<li><i class="seg {s}"></i>{name} <span class="soft">· {what}</span></li>{/each}
+		</ul>
+		<p class="small soft">
+			Budgets: {d.budgets.map((b) => `${b.name} ${span(b.ms)}`).join(' · ')}.
+			{#if d.ci?.available}CI: {d.ci.minutes} min over {d.ci.runs} runs, {Math.round((d.ci.cancelled_share ?? 0) * 100)}% cancelled.{:else if d.ci}{d.ci.why}{/if}
+		</p>
+
+		<h2>Each day</h2>
+		<div class="scroll">
+			<table>
+				<thead><tr><th>Day</th><th>Accepted</th><th>Median idea→accepted</th><th>Longest</th>{#each STAGES as [s, name] (s)}<th>{name}</th>{/each}</tr></thead>
+				<tbody>
+					{#each d.per_day as day (day.day)}
+						<tr class:none={!day.accepted}>
+							<td>{dayName(day.day)}</td><td>{day.accepted}</td><td>{span(day.median_lead_ms)}</td><td>{span(day.longest_lead_ms)}</td>
+							{#each STAGES as [s] (s)}<td>{span(day.median_stage_ms[s])}</td>{/each}
+						</tr>
+					{/each}
+				</tbody>
+			</table>
 		</div>
-		{#if error}<p class="bad">{error}</p>{/if}
-		{#if d}
-			<ul class="legend small">
-				{#each STAGES as [s, name, what] (s)}<li><i class="seg {s}"></i>{name} <span class="soft">· {what}</span></li>{/each}
-			</ul>
-			<p class="small soft">
-				Budgets: {d.budgets.map((b) => `${b.name} ${span(b.ms)}`).join(' · ')}.
-				{#if d.ci?.available}CI: {d.ci.minutes} min over {d.ci.runs} runs, {Math.round((d.ci.cancelled_share ?? 0) * 100)}% cancelled.{:else if d.ci}{d.ci.why}{/if}
-			</p>
 
-			<h2>Each day</h2>
-			<div class="scroll">
-				<table>
-					<thead><tr><th>Day</th><th>Accepted</th><th>Median idea→accepted</th><th>Longest</th>{#each STAGES as [s, name] (s)}<th>{name}</th>{/each}</tr></thead>
-					<tbody>
-						{#each d.per_day as day (day.day)}
-							<tr class:none={!day.accepted}>
-								<td>{dayName(day.day)}</td><td>{day.accepted}</td><td>{span(day.median_lead_ms)}</td><td>{span(day.longest_lead_ms)}</td>
-								{#each STAGES as [s] (s)}<td>{span(day.median_stage_ms[s])}</td>{/each}
-							</tr>
+		<h2>Each intent <span class="soft small">{d.intents.length}, {d.over} over a budget</span></h2>
+		<ul class="intents">
+			{#each d.intents as t (t.id)}
+				<li class:flag={t.over.length}>
+					<div class="top">
+						<a href="/intents/#{t.id}" class="title">{t.title}</a>
+						<span class="soft small">{t.stage} · {t.accepted_at ? `accepted ${short(t.accepted_at)}` : `since ${short(t.created)}`} · {span(t.lead_ms)}{t.step_backs ? ` · ${t.step_backs} step back${t.step_backs > 1 ? 's' : ''}` : ''}</span>
+					</div>
+					<div class="bar" style:width="{Math.max(2, (t.lead_ms / most) * 100)}%">
+						{#each t.segments as s, i (i)}
+							<i class="seg {s.stage}" class:open={!s.to} style:flex-grow={s.ms} title="{s.stage}: {span(s.ms)}{s.to ? '' : ' so far'}"></i>
 						{/each}
-					</tbody>
-				</table>
-			</div>
-
-			<h2>Each intent <span class="soft small">{d.intents.length}, {d.over} over a budget</span></h2>
-			<ul class="intents">
-				{#each d.intents as t (t.id)}
-					<li class:flag={t.over.length}>
-						<div class="top">
-							<a href="/intents/#{t.id}" class="title">{t.title}</a>
-							<span class="soft small">{t.stage} · {t.accepted_at ? `accepted ${short(t.accepted_at)}` : `since ${short(t.created)}`} · {span(t.lead_ms)}{t.step_backs ? ` · ${t.step_backs} step back${t.step_backs > 1 ? 's' : ''}` : ''}{t.main_merges ? ` · main merged in ${t.main_merges}×` : ''}</span>
-						</div>
-						<div class="bar" style:width="{Math.max(2, (t.lead_ms / most) * 100)}%">
-							{#each t.segments as s, i (i)}
-								<i class="seg {s.stage}" class:open={!s.to} style:flex-grow={s.ms} title="{s.stage}: {span(s.ms)}{s.to ? '' : ' so far'}"></i>
-							{/each}
-						</div>
-						<p class="small times">
-							{#each t.segments as s, i (i)}<span><i class="seg {s.stage}"></i>{s.stage} {span(s.ms)}{s.to ? '' : '…'}</span>{/each}
-						</p>
-						{#if t.ship?.length}
-							<p class="small soft">Ship: {t.ship.filter((s) => s.ms != null).map((s) => `${s.name} ${span(s.ms)}`).join(' · ')}</p>
-						{/if}
-						{#if t.over.length}
-							<p class="small over">Over: {t.over.map((o) => `${o.name}${o.run ? ` (run ${o.run})` : ''} by ${span(o.over_ms)}`).join(' · ')}</p>
-						{/if}
-						{#if t.ci && 'error' in t.ci}<p class="small bad">{t.ci.error}</p>{/if}
-						{#if hasCi(t.ci) && t.ci.runs}
-							<details class="small">
-								<summary>CI: {t.ci.minutes} min over {t.ci.runs} runs{t.ci.cancelled ? `, ${t.ci.cancelled} cancelled` : ''}</summary>
-								<ul class="runs">
-									{#each t.ci.list as r (r.id)}
-										<li class:over={r.over}>
-											<a href={r.link} target="_blank" rel="noreferrer">{r.name ?? `run ${r.id}`}</a> {span(r.ms)} <span class="soft">{r.conclusion ?? 'running'}</span>
-											{#if r.slowest.length}<span class="soft">· slowest: {r.slowest.map((x) => `${x.step} (${x.job}) ${span(x.ms)}`).join(', ')}</span>{/if}
-										</li>
-									{/each}
-								</ul>
-							</details>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</main>
-{/if}
+					</div>
+					<p class="small times">
+						{#each t.segments as s, i (i)}<span><i class="seg {s.stage}"></i>{s.stage} {span(s.ms)}{s.to ? '' : '…'}</span>{/each}
+					</p>
+					{#if t.ship?.length}
+						<p class="small soft">Ship: {t.ship.filter((s) => s.ms != null).map((s) => `${s.name} ${span(s.ms)}`).join(' · ')}</p>
+					{/if}
+					{#if t.over.length}
+						<p class="small over">Over: {t.over.map((o) => `${o.name}${o.run ? ` (run ${o.run})` : ''} by ${span(o.over_ms)}`).join(' · ')}</p>
+					{/if}
+					{#if t.ci && 'error' in t.ci}<p class="small bad">{t.ci.error}</p>{/if}
+					{#if hasCi(t.ci) && t.ci.runs}
+						<details class="small">
+							<summary>CI: {t.ci.minutes} min over {t.ci.runs} runs{t.ci.cancelled ? `, ${t.ci.cancelled} cancelled` : ''}</summary>
+							<ul class="runs">
+								{#each t.ci.list as r (r.id)}
+									<li class:over={r.over}>
+										<a href={r.link} target="_blank" rel="noreferrer">{r.name ?? `run ${r.id}`}</a> {span(r.ms)} <span class="soft">{r.conclusion ?? 'running'}</span>
+										{#if r.slowest.length}<span class="soft">· slowest: {r.slowest.map((x) => `${x.step} (${x.job}) ${span(x.ms)}`).join(', ')}</span>{/if}
+									</li>
+								{/each}
+							</ul>
+						</details>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</main>
 
 <style>
 	.delivery { max-width: 64rem; margin: 0 auto; padding: 1rem 16px 3rem; background: var(--cream); min-height: 100vh; box-sizing: border-box; --soft: rgb(38 56 44 / 0.6); }

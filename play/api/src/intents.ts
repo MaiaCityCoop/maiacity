@@ -11,6 +11,7 @@ import { decidable, sub, unmetOn } from "./substate";
 import { HttpError } from "./kit/errors";
 import { LOCK, lockSql } from "./kit/locks";
 import { INTENT_STAGES, type IntentStage } from "./kit/stages";
+import { wake, type GitHub } from "./github";
 
 export { unmetOn };
 
@@ -360,7 +361,7 @@ const prOf = (v: unknown) => {
 };
 
 /** Checks' results recorded (play/SPEC.md §4.12): every must passed, to Proposal by itself; main's only confirm. */
-export async function recordChecks(db: Queryable, me: Me | null, id: string, given: unknown, pr?: unknown) {
+export async function recordChecks(db: Queryable, me: Me | null, id: string, given: unknown, pr?: unknown, gh?: GitHub | null) {
   const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   const named = prOf(pr);
@@ -410,6 +411,13 @@ export async function recordChecks(db: Queryable, me: Me | null, id: string, giv
   await db.query(`UPDATE play.intents SET results = ($2::text)::jsonb, stage = $3, pull_request = COALESCE($4, pull_request) WHERE id = $1`, [
     intent.id, JSON.stringify(results), stage, named ?? null,
   ]);
+  // its builder woken on its pull request (./github.ts wake): a must failed, or at Proposal
+  if (moves) {
+    const head = (list as ResultGiven[]).map((r) => r?.commit).find((c) => typeof c === "string" && c) as string | undefined;
+    const failed = (intent.spec?.checks ?? []).filter((c: Check) => c.must && results[c.id]?.pass === false);
+    if (failed.length) await wake(db, gh, intent.id, "failure", failed.map((c: Check) => `${c.id} failed: ${results[c.id].evidence.split("\n")[0].trim()}`).join("; "), head);
+    else if (stage === "proposal" && intent.stage === "build") await wake(db, gh, intent.id, "success", "at Proposal: waits for Accept", head);
+  }
   return { ...(await intentRow(db, intent.id)), ...(refused ? { refused: refused.why } : {}) };
 }
 
@@ -419,7 +427,7 @@ function unmet(intent: { spec: Spec | null; results: Record<string, Result> | nu
     .map((c) => `${c.id} (${c.check}): ${intent.results?.[c.id] ? "failed" : "no result yet"}`);
 }
 
-export type Move = "build" | "proposal" | "work" | "accept" | "accept_work" | "ship" | "merge";
+export type Move = "build" | "proposal" | "work" | "accept" | "accept_work" | "ship";
 /** why a move is refused; `wait` where only a dependency still in Ship refuses it (Ship's turn waits for it) */
 type Refusal = { why: string; wait?: boolean };
 type GateRow = { id: string; stage: string; spec: Spec | null; results: Record<string, Result> | null; work?: unknown; pull_request?: number | null; approved_at?: unknown; held_by?: Dep[]; work_kind?: string[] | null };
@@ -458,8 +466,6 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move, what?:
         return i.pull_request ? `Its code is pull request #${i.pull_request}: Accept and ship ships it, and its work of play's is accepted once the code is live (./ship.ts).` : "";
       case "ship":
         return at === "proposal" ? "" : at === "build" ? NOT_IN_BUILD : `Intent ${i.id} is at the ${at} stage now.`;
-      case "merge":
-        return at === "ship" ? "" : `Intent ${i.id} is at the ${at} stage, not in Ship.`;
     }
   };
   const bad = stage();
@@ -467,14 +473,13 @@ async function mayMove(db: Queryable, intent: string | GateRow, to: Move, what?:
   const undeclared = to === "work" && what ? notDeclared(i, what) : "";
   if (undeclared) return no(undeclared);
   // approving a spec is never held (Samuel 2026-11-07): it waits in Build, idle, until its dependencies are shipped
-  // Accept into Ship waits there for a dependency ahead of it in Ship; one anywhere else refuses, before its checks
+  // Accept into the merge queue takes one whose dependency is in Ship (queued ahead of it); one anywhere else refuses
   const held = to === "build" ? [] : (i.held_by ?? (await heldBy(db, i.id))).filter((d) => to !== "ship" || d.stage !== "ship");
   if (held.length) {
-    if (to === "merge" && held.every((d) => d.stage === "ship")) return { why: `Waits for ${named(held)} to ship first`, wait: true };
     return no(heldText(i.id, held));
   }
   // work proposed in Build waits on the intent (intent 94061718): the move to Proposal alone waits for every must
-  const missing = to === "accept_work" || to === "merge" || to === "build" || to === "work" ? [] : unmet(i);
+  const missing = to === "accept_work" || to === "build" || to === "work" ? [] : unmet(i);
   if (missing.length) return no(`Every must check passes before an intent is ${to === "proposal" ? "at Proposal" : "accepted"}: ${missing.join("; ")}.`);
   return null;
 }
@@ -507,7 +512,7 @@ export function mustDecide(intent: any) {
 }
 
 /** An admin's decision on the board; one with a pull request is shipped (./ship.ts), steps back are an agent's (./stepback.ts). */
-export async function decideIntent(db: Queryable, me: Me | null, id: string, verdict: IntentVerdict) {
+export async function decideIntent(db: Queryable, me: Me | null, id: string, verdict: IntentVerdict, gh?: GitHub | null) {
   const who = admin(me, INTENT_ADMINS);
   const intent = await intentRow(db, id);
   const refuse = (why: string) => {
@@ -518,6 +523,7 @@ export async function decideIntent(db: Queryable, me: Me | null, id: string, ver
       await mustMove(db, intent, "build");
       mustDecide(intent);
       await decisions.decided(db, intent.id, "approve", byOf(who));
+      await wake(db, gh, intent.id, "pending", "approved: build it");
       break;
     case "accept":
       await mustMove(db, intent, "accept");

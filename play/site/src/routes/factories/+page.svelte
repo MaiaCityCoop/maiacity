@@ -21,8 +21,6 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import { adminsOnly } from '$lib/admins.svelte';
-	import { isAdmin } from '$lib/session.svelte';
 	import Frame from '$lib/app/Frame.svelte';
 	import Icon from '$lib/app/Icon.svelte';
 	import Aside, { type Pick } from '$lib/app/Aside.svelte';
@@ -43,10 +41,8 @@
 	let missing = $state<{ ref: string; why: string }[]>([]);
 	let app: App | undefined;
 
-	// admins only for now (Samuel 2026-11-03): anyone else is taken back to the dashboard, and the API hands the
-	// factories and the Factories' pins to admins alone
-	adminsOnly();
-	const admin = $derived(isAdmin());
+	// admins only for now (Samuel 2026-11-03), behind the one gate ($lib/site/gate): anyone else sees "Coming soon", and
+	// the API hands the factories and the Factories' pins to admins alone
 
 	// the factories, and the one picked by the address: at a version, or as an intent's work would make it
 	let list = $state<Item[]>([]);
@@ -56,11 +52,10 @@
 	const wantV = $derived(params.get('v'));
 	const wantIntent = $derived(params.get('intent'));
 	$effect(() => {
-		if (!admin) return;
 		api<Item[]>('/docs?kind=factory').then((l) => (list = l), (e) => (error = e.message));
 	});
 	$effect(() => {
-		if (!admin || !id) return;
+		if (!id) return;
 		const q = wantIntent ? `?intent=${encodeURIComponent(wantIntent)}` : wantV ? `?v=${encodeURIComponent(wantV)}` : '';
 		let gone = false;
 		api<Factory>(`/docs/${id}${q}`).then(
@@ -127,7 +122,6 @@
 
 	// the line, built and booted in its host; again whenever another factory, version or intent's work is shown
 	$effect(() => {
-		if (!admin) return;
 		const line = L, el = host;
 		if (!line || !el) return;
 		let gone = false;
@@ -224,17 +218,15 @@
 	{/if}
 {/snippet}
 
-{#if admin}
-	<div class="factories">
-		<Frame nav={list.length ? shelf : undefined} aside={factory ? side : undefined} navLabel="Maia City's factories" asideLabel="The factory, its history and its bill of process" navIcon="board" flush>
-			<div class="stage">
-				{#key `${factory?.id}:${factory?.version}:${factory?.edit}:${factory?.intent?.id}`}<div class="factory" bind:this={host}></div>{/key}
-				{#if phase && !error}<p class="phase">{phase}</p>{/if}
-				{#if error}<p class="bad">The factory could not be built: {error}</p>{/if}
-			</div>
-		</Frame>
-	</div>
-{/if}
+<div class="factories">
+	<Frame nav={list.length ? shelf : undefined} aside={factory ? side : undefined} navLabel="Maia City's factories" asideLabel="The factory, its history and its bill of process" navIcon="board" flush>
+		<div class="stage">
+			{#key `${factory?.id}:${factory?.version}:${factory?.edit}:${factory?.intent?.id}`}<div class="factory" bind:this={host}></div>{/key}
+			{#if phase && !error}<p class="phase">{phase}</p>{/if}
+			{#if error}<p class="bad">The factory could not be built: {error}</p>{/if}
+		</div>
+	</Frame>
+</div>
 
 <style>
 	/* the whole screen, in the asset library's frame; the nav pill floats over it */

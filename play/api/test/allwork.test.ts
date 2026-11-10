@@ -204,7 +204,8 @@ suite("one intent holds all its work", () => {
     const old = gh.main.head;
     const r = await call("POST", `/api/intents/${c.id}/accept`);
     expect(r.status).toBe(200);
-    expect(r.data).toMatchObject({ stage: "ship", ship: { pr: c.pr, merge: c.merge }, work: { status: "proposal" } });
+    expect(r.data).toMatchObject({ stage: "ship", ship: { pr: c.pr, merge: "" }, work: { status: "proposal" } });
+    gh.land();
     for (const a of c.assets) expect(await headOf(a.asset)).toBeNull();
     // all green on GitHub: ended in Ship, its work still waiting until play runs its merge
     gh.runs["main.yml"].push(run(31001, c.merge, { status: "completed", conclusion: "success" }));
@@ -228,6 +229,7 @@ suite("one intent holds all its work", () => {
     await clearShips();
     const c = await codeAndWork("Red at the backup");
     expect((await call("POST", `/api/intents/${c.id}/accept`)).data.stage).toBe("ship");
+    gh.land();
     gh.runs["main.yml"].push(run(32001, c.merge, { status: "completed", conclusion: "success" }));
     gh.runs["release.yml"].push(run(32002, c.merge, { display_title: `release ${c.merge}`, status: "completed", conclusion: "success" }));
     gh.runs["production.yml"].push(run(32003, c.merge, { event: "workflow_dispatch", status: "completed", conclusion: "failure" }));

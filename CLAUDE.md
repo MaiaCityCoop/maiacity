@@ -16,12 +16,17 @@
 
 Every change is an intent's (play/SPEC.md §4.12) and goes to `main` by pull request; `.github/workflows/main.yml` runs
 play's checks (`play-checks.yml`: the API's tests against Postgres, its types, the site's build) and the website's
-(`website-checks.yml`: its types and build). Once main is green for the merged commit, `.github/workflows/release.yml`
-moves `production` to it (fast-forward) and starts `production.yml`, which deploys play (backup and image side by
+(`website-checks.yml`: its types and build). Main's ruleset requires GitHub's **merge queue**
+(`deploy/rulesets/main.json`, applied by an admin with `GH_TOKEN=… bash deploy/ruleset.sh`; `deploy/README.md`): merge
+commits, grouping `ALLGREEN`, groups of up to 5, each merge commit's title and message its pull request's, so each keeps
+its `Intent:` line. The queue tests what will land, main plus the batch, once: main.yml runs on `merge_group` with the
+same required checks, and GitHub fast-forwards main to the group's commit. Once main is green for that commit,
+`.github/workflows/release.yml` moves `production` to it (fast-forward) and starts `production.yml`, which deploys play (backup and image side by
 side, then DNS, server, import, Caddy) and the website (its build into the server's `site/releases/<commit>`,
 `site/current` switched); every job's first step after its checkout reads main's checks for that commit
 (`.github/actions/main-green`) instead of running them again, and on the push to main those checks pass at once only on
-the very tree the pull request's run tested (`.github/workflows/tested-tree.sh`), else they run in full.
+the very commit a successful `merge_group` run tested (`.github/workflows/tested-tree.sh`), else they run in full: one
+push, one release, one deploy for the whole batch.
 
 **All work on play starts in an avenBOX session** (Samuel 2026-11-06; play/SPEC.md §4.12): an intent at any stage,
 its code and its checks are done in a cloud session on avenBOX, `env_011Zm65erarH7ffXio13u5pG`, the only environment
@@ -51,19 +56,29 @@ still record by hand with check_intent). Every must green, the intent moves to P
 red, the intent stays in Build, failed on the board, its pull request as it is: fix and push. Each push to a ready pull
 request is run and recorded again (a newer head cancels the older head's run, which records nothing).
 **Never merge** into `main` or `production` by hand, and open no pull request into `production`. An admin's Accept on
-play's intents' board takes **only a waiting intent** (play/SPEC.md §4.12 *Sub-states*: its pull request's head the checked one, mergeable, its required checks green; working or failed, Accept is refused with why) and puts it in **Ship** at once: there it waits its turn (one ship at a time, in the order
-accepted) and for GitHub (the pull request's checks green, its mergeability worked out), its reason shown live, and
-play then merges the pull request itself (it posts the commit status **`Intent accepted`** on its head first; main's
-ruleset requires it, with the checks `.github/required-checks.json` names); Ship shows live main's checks, the release and
-the deploy (backup, image, server, website); it is Accepted exactly when play runs its merge commit (the reconcile, `play/api/src/ship.ts`, against the commit `GET /api/version` names; an Accepted one not live is flagged); a red step brings it back to Proposal with the report: fix it in a new pull request of the intent (its
-run records its checks on its head as it is marked ready), and Accept ships it again. After the merge,
-`.github/workflows/intents.yml` runs the intent's checks again on main in the same box and records them as main's, a
-confirmation. **Main is merged in by play** (intent f28822d9, `play/api/src/mainmerge.ts`): whenever main moves, Ship's
-watcher merges main into every open intent pull request (Build or Proposal) that merges cleanly with GitHub's
-`update-branch`, its checks then run and recorded again on the new head by the box's run (working until then); never
-merge main into your branch by hand for that. A real conflict shows the intent failed, "conflicts with main: <files>",
-and play posts the commit status **`Merges with main`** (failure) on its head, which wakes you as a PR event: resolve
-it, push, and it turns success. Say what you opened and that it waits for Accept; report a failing check instead of going past it.
+play's intents' board takes **only a waiting intent** (play/SPEC.md §4.12 *Sub-states*: its pull request's head the
+checked one, mergeable, its required checks green; working or failed, Accept is refused with why; so is every Accept
+until main's ruleset has the merge queue), posts the commit status **`Intent accepted`** on its head and adds the pull
+request to the merge queue at once (it is in **Ship**); several Accepts all enqueue, none waits for another, and main
+moving refuses none. play posts `Intent accepted` on each merge group's commit too, success only when it accepted every
+pull request in it (main's ruleset requires it, with the checks `.github/required-checks.json` names): nothing lands
+without play's Accept. Ship shows live the queue (its position, its group's checks), the merge, main's checks, the
+release and the deploy (backup, image, server, website); it is Accepted exactly when play runs its merge commit (the
+reconcile, `play/api/src/ship.ts`, against the commit `GET /api/version` names; an Accepted one not live is flagged).
+Removed from the queue (a red group check, a conflict, a timeout), it goes back to Proposal, Ship red, with the failing
+check and its link, the rest of the queue going on: fix it, push (its run records again), and Accept queues it again. A
+red step after the merge brings it back to Proposal with the report, and Accept ships it again (main's failed jobs, or
+the release, again). After the merge, `.github/workflows/intents.yml` runs the intent's checks again on main in the
+same box and records them as main's, a confirmation. **Main moving resets nothing** (intent f7721142,
+`play/api/src/mainmerge.ts`): play merges main into no pull request (one behind main is fine, the queue tests it with
+main) and heads, results and sub-states stay (waiting stays waiting). A real conflict shows the intent failed,
+"conflicts with main: <files>", and play posts the commit status **`Merges with main`** (failure) on its head, which
+wakes you as a PR event: resolve it, push (merging main into your branch yourself only then), and it turns success. **Watch, never poll** (intent 40397205; play/SPEC.md §4.12): open your draft at your
+first commit (at Specify too: a draft may name an intent whose spec waits, and play takes it as the intent's pull
+request) and subscribe to it at once (`subscribe_pr_activity`). play posts the commit status **`Intent`** on its head the
+moment you must act (a must failed, with its evidence's first line; at Proposal; approved: build it; stepped back; a
+Ship step red; Accepted: live); it, `Merges with main`, CI and reviews wake you as PR events: act on each. Schedule no
+check-ins, run no sweeps. Say what you opened and that it waits for Accept; report a failing check instead of going past it.
 
 ## Backups
 

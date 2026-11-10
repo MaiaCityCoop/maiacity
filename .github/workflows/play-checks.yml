@@ -7,10 +7,10 @@
 # 2026-11-09): no workflow runs them; they run by hand only (play/avenbox/gate.sh physics). The required
 # check keeps its name: the job "API and site" needs "API" and "Site" and is green only when both are.
 #
-# On a pull request they always run in full, and end by noting the tree they tested ("Tested tree"). On a push to main
-# (intent 5ab64b8e) they pass without running again only when the pushed tree is that very tree, for the pull request
-# merged as the commit (./tested-tree.sh asks GitHub's API); anything else, or any doubt, runs them in full. Postgres is
-# started only when they run.
+# On a pull request and on a merge group of main's merge queue they always run in full. On a push to main (intents
+# 5ab64b8e, f7721142) they pass without running again only when the pushed commit is the merge group's commit they
+# passed on (./tested-tree.sh asks GitHub's API); anything else, or any doubt, runs them in full. Postgres is started
+# only when they run.
 name: play checks
 
 on:
@@ -27,8 +27,6 @@ jobs:
     permissions:
       contents: read
       actions: read
-      checks: read
-      pull-requests: read
     outputs:
       skip: ${{ steps.tested.outputs.skip }}
     steps:
@@ -110,9 +108,4 @@ jobs:
           [ "$TESTED" = success ] || exit 1
           if [ "$SKIP" = true ]; then [ "$API" = skipped ] && [ "$SITE" = skipped ] && exit 0; exit 1; fi
           [ "$API" = success ] && [ "$SITE" = success ]
-      - uses: actions/checkout@v4
-        if: needs.tested.outputs.skip != 'true'
-      - name: Tested tree
-        if: needs.tested.outputs.skip != 'true'
-        run: echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"
 
