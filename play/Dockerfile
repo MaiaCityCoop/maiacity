@@ -11,8 +11,10 @@ COPY play/site/package.json play/site/bun.lock ./
 RUN --mount=type=secret,id=ca,required=false NODE_EXTRA_CA_CERTS=/run/secrets/ca bun install --frozen-lockfile
 COPY play/site ./
 # the site's own code imports play's id table from the API (src/lib/kernel/sandboxes.js: a sandbox's UUID is
-# written only there), at its place in the repository; play/api/test/image.test.ts holds this stage to every such import
+# written only there) and the intents' stages ($stages, svelte.config.js), at their place in the repository;
+# play/api/test/image.test.ts holds this stage to every such import, relative or through an alias
 COPY play/api/src/kit/ids.ts /src/play/api/src/kit/ids.ts
+COPY play/api/src/kit/stages.ts /src/play/api/src/kit/stages.ts
 RUN bun run build
 
 FROM oven/bun:${BUN_VERSION}-alpine
