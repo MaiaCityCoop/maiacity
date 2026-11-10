@@ -2,7 +2,10 @@
 
 ## SMOKE (newest first)
 - **smoke 2d0cfaf6e: OK** ([ba948167] World checks run on a real GPU: a world's look is taken on a macOS runner's Met; 467 s). 16 pages; all drawn. Frames: near 173.8 ms · mid 43.1 ms · far 29.6 ms.
-- **smoke 2d0cfaf6e: BROKE** ([ba948167] World checks run on a real GPU: a world's look is taken on a macOS runner's Met; 422 s). 16 pages; all drawn; not up: sandbox-1. Frames: near 16.7 ms · mid 17.9 ms · far 16.7 ms.
+- ~~**smoke 2d0cfaf6e: BROKE**~~ **void: the harness** ([ba948167] World checks run on a real GPU: a world's look is taken on a macOS runner's Met; 422 s). 16 pages; all drawn; not up: sandbox-1. Frames: near 16.7 ms · mid 17.9 ms · far 16.7 ms.
+  (20:05 Berlin) vite dev's Sandbox 1 was still on its card at the smoke's ~270 s check; production builds show it at
+  169–208 s here. The smoke now builds play/site and serves it with vite preview (as production serves it) and gives
+  Sandbox 1 eight minutes; re-run on the same commit: OK, the world shown by 187 s (the line above).
 - **smoke 672ae5797: BROKE** ([ffd02ebf] The sandboxes load again: GPU 12/14's far-tree impostors reverted (the bisect's; 487 s). 16 pages; all drawn; not up: sandbox-1, machine-forklift; new errors: sandbox-1: console: flora: chestnut@6:12:sandbox-5 did not grow: build ran longer than 20000 ms. Frames: near 17.8 ms · mid 16.9 ms · far 16.9 ms.
 - **smoke 9cbf7c1af: OK** ([e85a5860] Grass by the million: blades culled and chosen on the graphics card (#2224); 429 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
 - **smoke 5c9edac10: OK** ([a5faafad] GPU 14/14 · Recipes bring their own shaders, safely: TSL node graphs as checked; 397 s). 16 pages; all drawn. Frames: near 16.9 ms · mid 16.7 ms · far 16.7 ms.
