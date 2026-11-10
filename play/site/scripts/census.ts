@@ -4,11 +4,12 @@
  * context (intent bba45d6e; ./census/). The world is built by its own code with three.js, its renderer swapped for one
  * that counts every draw three would send (./census/counting.js), and the Mac then measures only the frame time.
  *
- *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-3|worlds] [--view near|mid|far|open|all] [--at <commit>]
+ *   bun play/site/scripts/census.ts [--world sandbox-1|sandbox-5|sandbox-3|worlds] [--view near|mid|far|open|all] [--at <commit>]
  *                                   [--asset <uuid>] [--inputs <dir> | --live] [--record] [--json <file>] [--copies]
  *                                   [--renderer webgl|webgpu|webgl2] [--smoke]
  *
- * --world         Sandbox 1 (the village: near, mid, far), Sandbox 3 (the old city) or the worlds view (a world asset:
+ * --world         Sandbox 1 (the village: near, mid, far), Sandbox 5 (the forest dome alone in the cell, the same views;
+ *                 intent 009e04d3), Sandbox 3 (the old city) or the worlds view (a world asset:
  *                 --asset names it by its UUID, else the first world play lists), the last two as they open (`open`)
  *
  * --at <commit>   that commit's play/site (./census/tree.ts, with this checkout's node_modules and frozen engines),
@@ -39,8 +40,8 @@ const arg = (k: string) => {
 	const i = argv.indexOf(k);
 	return i >= 0 ? argv[i + 1] : undefined;
 };
-const world = (arg('--world') ?? 'sandbox-1') as 'sandbox-1' | 'sandbox-3' | 'worlds';
-if (!['sandbox-1', 'sandbox-3', 'worlds'].includes(world)) throw new Error(`census: no world ${world} (sandbox-1, sandbox-3, worlds)`);
+const world = (arg('--world') ?? 'sandbox-1') as 'sandbox-1' | 'sandbox-5' | 'sandbox-3' | 'worlds';
+if (!['sandbox-1', 'sandbox-5', 'sandbox-3', 'worlds'].includes(world)) throw new Error(`census: no world ${world} (sandbox-1, sandbox-5, sandbox-3, worlds)`);
 const view = arg('--view') ?? 'all';
 const at = arg('--at');
 const SITE = resolve(import.meta.dir, '..');
