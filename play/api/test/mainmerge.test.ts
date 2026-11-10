@@ -189,13 +189,11 @@ suite("main merged into open intent pull requests", () => {
     // GitHub has made the new head, not yet read by the watcher
     const head = gh.pulls.get(c.pr)!.head.sha;
     expect(head).not.toBe(c.head);
-    // between the update and the read of the new head: working, never waiting (Accept takes no head play is moving)
+    // between the update and the read of the new head: working, never waiting (Accept rides it: test/ship.test.ts)
     const { rows: [row] } = await db.query<any>(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id]);
     expect(row.pr_seen.merged_in).toEqual([{ from: c.head, main: gh.main.head, at: expect.any(String) }]);
     let s = (await intent(c.id)).sub;
     expect(s).toMatchObject({ state: "working", tag: "main merged in", why: `main merged in: GitHub makes #${c.pr}'s new head` });
-    const refused = await call("POST", `/api/intents/${c.id}/accept`);
-    expect(refused.status).toBe(409);
     // the new head read, its required checks not run yet: working, c1 kept once they are green
     await watchTick(db, gh.gh, store, Date.now(), null, state);
     const { rows: [read] } = await db.query<any>(`SELECT pr_seen FROM play.intents WHERE id = $1`, [c.id]);

@@ -106,8 +106,9 @@ describe("subStateOf", () => {
     const merged_in = [{ from: OLD, main: sha(5), at: "2026-11-07T11:50:00Z", to: NEW }];
     const stale = row({ spec: { checks, nothing_to_reduce: "x" }, results, pr_seen: seen({ head: NEW, merged_in, checks: { "play / API and site": "running", "website / build": "success" } }) });
     const s = of(stale)!;
-    expect(s).toMatchObject({ state: "working", tag: "main merged in" });
-    expect(s.why).toBe(`main merged in: its checks run on ${NEW.slice(0, 7)} (c1, c2, c3 passed on ${OLD.slice(0, 7)}, kept across main's merge once the required checks are green on ${NEW.slice(0, 7)}; c4 no result yet)`);
+    // c4 without a result: not ridden across the merge, the head moved past the checked commit (intent d3b44f49)
+    expect(s).toMatchObject({ state: "working", tag: "head moved" });
+    expect(s.why).toBe(`#7's head moved past the checked commit (c1, c2, c3 passed on ${OLD.slice(0, 7)}, kept across main's merge once the required checks are green on ${NEW.slice(0, 7)}; c4 no result yet): every must check with a run passes on #7's head ${NEW.slice(0, 7)} first (mark it ready, or push to it)`);
     expect(s.why).not.toContain("statement");
     const moved = of(row({ spec: { checks, nothing_to_reduce: "x" }, results, pr_seen: seen({ head: NEW }) }))!;
     expect(moved).toMatchObject({ state: "working", tag: "head moved" });
@@ -188,7 +189,7 @@ describe("results across play's main merges", () => {
     expect(missing.state).toBe("working");
     expect(missing.why).toContain("kept across main's merge once the required checks are green");
     // a result on a commit before the row's start counts nothing
-    expect(of(row(made, on(C)))).toMatchObject({ state: "working", tag: "main merged in" });
+    expect(of(row(made, on(C)))).toMatchObject({ state: "working", tag: "head moved" });
   });
 
   test("red on the merged head replaces the kept pass: failed", () => {
