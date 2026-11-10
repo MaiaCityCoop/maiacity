@@ -16,6 +16,11 @@ import { autoMove } from "./decide";
  */
 export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date.now(), commit: string | null = runningCommit()) {
   const { rows } = await db.query<{ id: string; ship: Ship }>(`SELECT id, ship FROM play.intents WHERE stage = 'ship' AND ship IS NOT NULL ORDER BY decided_at, id`);
+  // the reconcile, each look while any intent sits green in Ship (one compare each, none once decided against `commit`)
+  const live = async (ids: string[]) => {
+    if (commit && ids.length && !gh.says()?.until) await reconcile(db, gh, store, commit, ids).catch((e) => quiet(e) || console.warn(`ship: the reconcile missed a look: ${(e as Error).message}`));
+  };
+  await live(rows.filter((r) => r.ship.outcome === "green" && !r.ship.pending).map((r) => r.id));
   for (const { id, ship } of rows) {
     if (gh.says()?.until) break;
     try {
@@ -31,15 +36,13 @@ export async function watchShips(db: Db, gh: GitHub, store: BlobStore, at = Date
       if (next.outcome) {
         console.log(`ship: intent ${id} ${next.outcome === "green" ? "is green all the way: the reconcile decides once play runs it" : `is red at ${next.report?.step}: back to Proposal`}`);
         if (!commit) console.warn("ship: play knows no commit of its own (PLAY_COMMIT): nothing is reconciled");
+        // as it ends green, at once, so a ship waiting on it starts in this look
+        else if (next.outcome === "green") await live([id]);
       }
     } catch (e) {
       if (!quiet(e)) console.warn(`ship: intent ${id} not looked at: ${(e as Error).message}`);
     }
   }
-  // the reconcile, each look while any intent sits green in Ship: one compare each, none once decided against `commit`
-  const { rows: green } = await db.query<{ id: string }>(`SELECT id FROM play.intents WHERE stage = 'ship' AND ship->>'outcome' = 'green' AND COALESCE(ship->>'pending', '') = '' ORDER BY decided_at, id`);
-  if (commit && green.length && !gh.says()?.until)
-    await reconcile(db, gh, store, commit, green.map((g) => g.id)).catch((e) => quiet(e) || console.warn(`ship: the reconcile missed a look: ${(e as Error).message}`));
 }
 
 /** Every open intent's pull request read as GitHub has it, kept as pr_seen, so GET /api/intents asks GitHub nothing. */
