@@ -41,6 +41,7 @@ import { createSky } from '$lib/content/sandbox-kit/sky.js';
 import { frameAt as reelFrame } from '../game/film/reel.js';
 import { plantRef } from './plants.js';
 import { orbitTarget } from './watering.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /** the hex's radius in metres: 114.75, one and a half times 76.5 again (Samuel 2026-10-13, 17:49) */
 const HEX_R = 114.75;
@@ -190,6 +191,69 @@ function overLand(o, all = false) {
 		}
 		for (const mm of [].concat(c.material)) Object.assign(mm, { polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
 	});
+}
+
+/**
+ * A built thing that stands still, welded: its plain meshes of one material drawn as one (the bell tent's 253 pieces
+ * as its handful of materials; Safari pays for every draw on the main thread, intent 8f41cd9b). The pieces stay as the
+ * box built them, hidden while welded: `off()` shows them again before a pose moves them, `on()` welds them as they
+ * then stand. Skinned and instanced pieces, and those of several materials, are left as they are.
+ * @param {THREE.Object3D} obj @param {string} name what a tap on it says (the pieces' own name)
+ */
+function welded(obj, name) {
+	const anchor = obj.parent;
+	/** @type {THREE.Mesh[]} */
+	let hidden = [];
+	/** @type {THREE.Mesh[]} */
+	let made = [];
+	const off = () => {
+		for (const m of hidden) m.visible = true;
+		for (const m of made) (anchor.remove(m), m.geometry.dispose());
+		(hidden = []), (made = []);
+	};
+	const on = () => {
+		off();
+		anchor.updateMatrixWorld(true);
+		const into = anchor.matrixWorld.clone().invert();
+		/** @type {Map<string, { like: THREE.Mesh, meshes: THREE.Mesh[] }>} */
+		const sets = new Map();
+		const walk = (/** @type {any} */ o) => {
+			if (!o.visible) return;
+			if (o.isMesh && !o.isSkinnedMesh && !o.isInstancedMesh && !o.isBatchedMesh && !Array.isArray(o.material) && !o.geometry.morphAttributes.position) {
+				const g = o.geometry;
+				const key = [o.material.uuid, o.castShadow, o.receiveShadow, o.renderOrder, !!g.index, ...Object.keys(g.attributes).sort().map((k) => `${k}${g.attributes[k].itemSize}`)].join('|');
+				const set = sets.get(key) ?? { like: o, meshes: [] };
+				set.meshes.push(o);
+				sets.set(key, set);
+			}
+			for (const c of o.children) walk(c);
+		};
+		walk(obj);
+		for (const { like, meshes } of sets.values()) {
+			if (meshes.length < 2) continue;
+			const parts = meshes.map((m) => {
+				const at = into.clone().multiply(m.matrixWorld);
+				const g = m.geometry.clone().applyMatrix4(at);
+				// a mirrored piece keeps its faces outward
+				if (at.determinant() < 0) {
+					const i = g.index ? g.index.array : null, p = g.attributes;
+					if (i) for (let k = 0; k < i.length; k += 3) [i[k], i[k + 2]] = [i[k + 2], i[k]];
+					else for (const a of Object.values(p)) for (let k = 0, n = a.itemSize, v = a.array; k < a.count; k += 3) for (let c = 0; c < n; c++) [v[k * n + c], v[(k + 2) * n + c]] = [v[(k + 2) * n + c], v[k * n + c]];
+				}
+				return g;
+			});
+			const geo = mergeGeometries(parts);
+			for (const g of parts) g.dispose();
+			if (!geo) continue;
+			const one = new THREE.Mesh(geo, like.material);
+			one.name = name;
+			(one.castShadow = like.castShadow), (one.receiveShadow = like.receiveShadow), (one.renderOrder = like.renderOrder);
+			anchor.add(one);
+			made.push(one);
+			for (const m of meshes) (m.visible = false), hidden.push(m);
+		}
+	};
+	return { on, off };
 }
 
 /** the steppe all round, and every hex of the plot as a tile of its biome: prairie at the city's centre, grass in the
@@ -788,6 +852,9 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 			// the bell tent's own two packs stand in for ours: hidden
 			for (const c of pitched.packs?.children ?? []) for (const pk of c.children) pk.visible = false;
 			if (homePitch !== 1) pitched.poser.set('pitch', homePitch);
+			// standing pitched it never moves: welded, until it is pitched or struck again (setPitch)
+			pitched.weld = welded(got.obj, 'asset:tent');
+			if (homePitch === 1) pitched.weld.on();
 		},
 		() => {}
 	);
@@ -795,7 +862,9 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 	function setPitch(e) {
 		if (e === homePitch) return;
 		homePitch = e;
+		pitched?.weld.off();
 		pitched?.poser.set('pitch', e);
+		if (e === 1) pitched?.weld.on();
 	}
 	// The third settler's supplies are separate objects: the first home and power system stay in place.
 	const secondHome = new THREE.Group(), secondBag = new THREE.Group(), waterCan = new THREE.Group();
