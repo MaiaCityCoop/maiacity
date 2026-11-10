@@ -111,6 +111,17 @@ export async function frameOf(o: { world: World; views?: ViewName[]; asset?: str
 			said[k](...a);
 		};
 	const t0 = real();
+	// FRAME_PASSES=1: each thing added to a tree remembers the line of the world's code that added it
+	if (process.env.FRAME_PASSES) {
+		const { Object3D } = await import('three');
+		const add = Object3D.prototype.add;
+		Object3D.prototype.add = function (this: any, ...things: any[]) {
+			const from = (new Error().stack ?? '').split('\n').find((l) => /src\/lib\/content\//.test(l) && !/node_modules/.test(l));
+			const at = from ? from.replace(/^.*src\/lib\/content\//, '').replace(/\)?$/, '').replace(/:\d+$/, '') : '';
+			for (const t of things) if (t && at && !t.__from) t.__from = at;
+			return add.apply(this, things);
+		};
+	}
 	await mount(o.world, { asset: o.asset, log });
 	// from here a visitor's frames on the page's own clock: the world's clock let go (the hour stays pinned)
 	g.__worldTime = undefined;
@@ -125,6 +136,28 @@ export async function frameOf(o: { world: World; views?: ViewName[]; asset?: str
 		if (v) g.__walker.place(v.x, v.z, v.yaw, v.pitch);
 		const settled = await quiet(settle);
 		const still = await count(n);
+		// FRAME_PASSES=1: what is drawn, by the names up its tree, in one more frame
+		if (process.env.FRAME_PASSES) {
+			const { Object3D } = await import('three');
+			const tally = new Map<string, number>();
+			const was = Object3D.prototype.onBeforeRender;
+			Object3D.prototype.onBeforeRender = function (this: any) {
+				let from = '';
+				for (let o = this; o && !from; o = o.parent) from = o.__from ?? '';
+				const key = `${from || '?'} [${Array.isArray(this.material) ? `${this.material.length} materials (${new Set(this.material).size} different, ${new Set(this.material.map((m: any) => [m.type, m.roughness, m.metalness, m.transparent, m.side, m.map?.uuid, m.emissive?.getHex?.(), m.vertexColors, m.opacity].join())).size} but for colour) x${this.count} ${this.geometry?.index ? this.geometry.index.count / 3 : 0} tris` : this.material?.name || this.material?.type}${this.isInstancedMesh ? ' instanced' : ''}${this.isSkinnedMesh ? ' skinned' : ''}${this.castShadow ? ' casts' : ''}]`;
+				tally.set(key, (tally.get(key) ?? 0) + 1);
+			};
+			turn();
+			Object3D.prototype.onBeforeRender = was;
+			log(`census: ${name} drawn, by tree:\n${[...tally].sort((x, y) => y[1] - x[1]).slice(0, 110).map(([k, v]) => `  ${v}  ${k}`).join('\n')}`);
+		}
+		// FRAME_PASSES=1: the last frame's passes, each its target and draws, and what the asset renderers say they draw
+		if (process.env.FRAME_PASSES) {
+			const per = Math.round(still.passes);
+			log(`census: ${name} passes: ${(gpu.fake.passes as { width: number; height: number; colors: number; draws: number }[]).slice(-per).map((p) => `${p.width}x${p.height}/${p.colors}:${p.draws}`).join(' ')}`);
+			const st = g.__assets?.stats?.();
+			if (st) for (const [where, x] of Object.entries(st) as [string, any][]) if (x) log(`census: ${name} assets ${where}: ${x.kinds} kinds, ${x.copies} copies, ${x.culled} not looked at or out of view, ${x.calls} draws, ${x.tris} triangles, levels ${x.levels}, pictures ${x.pictures}`);
+		}
 		// a walk from the view: forward along its yaw and turning, a step a frame; then back where it stood
 		let walk: FrameCount | null = null;
 		if (v && g.__walker) {

@@ -96,6 +96,47 @@ export async function settled() {
 	}
 }
 
+/** @type {WeakMap<THREE.BufferGeometry, THREE.BufferGeometry>} */
+const runsMerged = new WeakMap();
+/**
+ * A shape whose triangles of one material lie in one run (intent 0356b0ea): three sends a draw for every run
+ * (`groups`), and a build comes with its materials' triangles in many (a hen: 9 runs of 2 materials, 9 draws where 2
+ * do). The same triangles and vertices, only their order in the index; made once a shape. A shape with a see-through
+ * material keeps its runs (their order is the order they blend in), as does one with a run per material already.
+ * @param {THREE.BufferGeometry} g @param {THREE.Material | THREE.Material[]} material
+ */
+export function oneRunPerMaterial(g, material) {
+	if (!Array.isArray(material) || g.groups.length <= new Set(g.groups.map((x) => x.materialIndex)).size || material.some((m) => m?.transparent)) return g;
+	let out = runsMerged.get(g);
+	if (out) return out;
+	const count = g.index ? g.index.count : g.attributes.position.count;
+	const from = g.index ? g.index.array : null;
+	const runs = g.groups.map((x) => ({ start: Math.max(0, x.start), end: Math.min(count, x.start + x.count), m: x.materialIndex ?? 0 })).filter((x) => x.end > x.start);
+	const total = runs.reduce((a, x) => a + x.end - x.start, 0);
+	const index = new (g.attributes.position.count > 65535 ? Uint32Array : Uint16Array)(total);
+	out = new THREE.BufferGeometry();
+	for (const [name, a] of Object.entries(g.attributes)) out.setAttribute(name, a);
+	for (const [name, a] of Object.entries(g.morphAttributes)) out.morphAttributes[name] = a;
+	out.morphTargetsRelative = g.morphTargetsRelative;
+	let at = 0;
+	for (const m of [...new Set(runs.map((x) => x.m))].sort((a, b) => a - b)) {
+		const start = at;
+		for (const r of runs) {
+			if (r.m !== m) continue;
+			if (from) index.set(from.subarray(r.start, r.end), at);
+			else for (let i = r.start; i < r.end; i++) index[at + i - r.start] = i;
+			at += r.end - r.start;
+		}
+		out.addGroup(start, at - start, m);
+	}
+	out.setIndex(new THREE.BufferAttribute(index, 1));
+	out.boundingBox = g.boundingBox;
+	out.boundingSphere = g.boundingSphere;
+	out.userData = g.userData;
+	runsMerged.set(g, out);
+	return out;
+}
+
 const nearer = (/** @type {{ d2: number }} */ a, /** @type {{ d2: number }} */ b) => a.d2 - b.d2;
 
 const meshOf = (root) => {
@@ -124,6 +165,7 @@ export function crowd(refs, counts, o) {
 	const farMesh = (c, shape) => {
 		const mesh = new THREE.InstancedMesh(shape.geometry, shape.material, Math.max(1, counts[c]));
 		mesh.count = 0;
+		mesh.visible = false;
 		mesh.castShadow = shadows;
 		mesh.frustumCulled = false;
 		object.add(mesh);
@@ -157,7 +199,7 @@ export function crowd(refs, counts, o) {
 		void built(refs[c], detail).then((got) => {
 			if (!got) return void (retried(refs[c], detail) && setTimeout(() => (askedFar[c] = false), AGAIN_AFTER));
 			const m = meshOf(got.obj);
-			if (m) farMesh(c, { geometry: m.geometry, material: m.material });
+			if (m) farMesh(c, { geometry: oneRunPerMaterial(m.geometry, m.material), material: m.material });
 		});
 	};
 	if (o.farShape) refs.forEach((_, c) => askFar(c));
@@ -177,6 +219,7 @@ export function crowd(refs, counts, o) {
 			const mesh = meshOf(copy);
 			copy.traverse((x) => {
 				if (!x.isMesh) return;
+				x.geometry = oneRunPerMaterial(x.geometry, x.material);
 				x.frustumCulled = false;
 				x.castShadow = shadows;
 				x.receiveShadow = true;
@@ -296,6 +339,10 @@ export function crowd(refs, counts, o) {
 			for (let c = 0; c < far.length; c++) {
 				const mesh = far[c];
 				if (!mesh) continue;
+				// a coat none of which stands afar this frame is not drawn at all: three sends a draw for each of its
+				// materials even at a count of 0 (intent 0356b0ea: 483 of Sandbox 1's 1,700 draws a frame)
+				mesh.visible = slot[c] > 0;
+				if (mesh.count === slot[c] && !slot[c]) continue;
 				mesh.count = slot[c];
 				mesh.instanceMatrix.needsUpdate = true;
 			}
@@ -311,7 +358,7 @@ export function actor(ref, detail = FAR) {
 	const out = { far: null, model: null, clips: undefined, ready: Promise.resolve(), copy: () => ({ object: new THREE.Group(), pose: () => {} }) };
 	out.ready = built(ref, detail).then((got) => {
 		const m = got && meshOf(got.obj);
-		if (m) out.far = { geometry: m.geometry, material: m.material };
+		if (m) out.far = { geometry: oneRunPerMaterial(m.geometry, m.material), material: m.material };
 		return built(ref, 1).then((n) => {
 			if (!n) return;
 			const view = n.obj.userData.view;
@@ -331,7 +378,7 @@ export function actor(ref, detail = FAR) {
 			model.userData = notes;
 		}
 		const mesh = meshOf(copy);
-		copy.traverse((x) => x.isMesh && (x.frustumCulled = false));
+		copy.traverse((x) => x.isMesh && ((x.geometry = oneRunPerMaterial(x.geometry, x.material)), (x.frustumCulled = false)));
 		return { object: copy, pose: poser(mesh?.skeleton?.bones ?? []) };
 	};
 	return out;
