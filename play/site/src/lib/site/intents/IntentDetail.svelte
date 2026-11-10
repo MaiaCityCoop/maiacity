@@ -242,7 +242,7 @@
 				{#if reduce.length}<h3>First, what it removes</h3>{@render checkList(reduce)}{/if}
 				{#if mvp.length}<h3>Then, what it delivers</h3>{@render checkList(mvp)}{/if}
 			{:else if current === 'changes'}
-				{#if i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? `Accept merges it into main and ships it${i.work ? ', its work of play’s accepted once it is live' : ''}` : i.stage === 'ship' ? (i.ship?.pending ? 'in Ship, merged in its turn' : 'merged, on its way to production') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>{/if}
+				{#if i.pull_request}<p class="small">Code: <a href="{REPO_URL}/pull/{i.pull_request}" target="_blank" rel="noopener">pull request #{i.pull_request}</a> <span class="muted">· {i.stage === 'proposal' ? `Accept puts it in the merge queue and ships it${i.work ? ', its work of play’s accepted once it is live' : ''}` : i.stage === 'ship' ? (i.ship?.merge ? 'merged, on its way to production' : 'in the merge queue') : i.stage === 'accepted' ? 'in production' : 'named by its agent'}</span></p>{/if}
 				{#if i.work}
 					{@const w = i.work}
 					<!-- an asset upgrade drawn right here, as the review draws it, in the asset box; the whole review (versions,

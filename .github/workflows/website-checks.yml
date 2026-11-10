@@ -1,7 +1,7 @@
 # the website's checks (website/), called by main.yml: its types and its prerendered build, by avenBOX's gate
-# (play/avenbox/gate.sh website). On a pull request they always run, and end by noting the tree they tested; on a push
-# to main they pass without running again only when the pushed tree is that very tree (./tested-tree.sh; intent
-# 5ab64b8e), else they run in full.
+# (play/avenbox/gate.sh website). On a pull request and on a merge group of main's merge queue they always run; on a
+# push to main they pass without running again only when the pushed commit is the merge group's commit they passed on
+# (./tested-tree.sh; intents 5ab64b8e, f7721142), else they run in full.
 name: website checks
 
 on:
@@ -18,8 +18,6 @@ jobs:
     permissions:
       contents: read
       actions: read
-      checks: read
-      pull-requests: read
     defaults:
       run:
         working-directory: website
@@ -44,6 +42,3 @@ jobs:
         run: bun install --frozen-lockfile
       - if: steps.tested.outputs.skip != 'true'
         run: bash ../play/avenbox/gate.sh website --no-up
-      - name: Tested tree
-        if: steps.tested.outputs.skip != 'true'
-        run: echo "::notice title=Tested tree::$(git rev-parse 'HEAD^{tree}')"

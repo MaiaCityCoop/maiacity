@@ -104,7 +104,9 @@ suite("intents depend on intents", () => {
   };
   const clearShips = () => fx.clearShips(db);
   /** the pull requests play merged, since call `from` */
-  const merged = (from = 0) => gh.calls.slice(from).filter((c) => c.method === "PUT").map((c) => c.path);
+  /** what play put in the merge queue (and any merge, never made by play) */
+  const merged = (from = 0) =>
+    gh.calls.slice(from).filter((c) => c.method === "PUT" || `${c.body?.query ?? ""}`.startsWith("mutation Enqueue")).map((c) => (c.method === "PUT" ? c.path : `enqueue #${`${c.body.variables.pr}`.slice(3)}`));
   const setStage = (id: string, stage: string) =>
     db.query(`UPDATE play.intents SET stage = $2, approved_at = CASE WHEN $2 IN ('idea', 'specify') THEN approved_at ELSE now() END WHERE id = $1`, [id, stage]);
 
@@ -155,32 +157,23 @@ suite("intents depend on intents", () => {
     const toShip = await codeAtProposal();
     const withWork = await atProposal();
     expect((await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: `Fern ${++k}`, source: SOURCE, note: "x", intent: withWork.id })).error).toBeUndefined();
-    // in Ship, waiting its turn behind another (only a waiting intent is accepted, intent 2bf8af96): its turn is the gate too
-    const ahead = await codeAtProposal();
-    const pending = { pr: ahead.pr, head: ahead.head, merge: "", by: "ada", round: 1, started: new Date().toISOString(), steps: [{ key: "ready", name: "Ready to merge", state: "running" }], pending: { kind: "merge", head: ahead.head } };
-    await db.query(`UPDATE play.intents SET stage = 'ship', decided_at = now() - interval '1 minute', ship = ($2::text)::jsonb WHERE id = $1`, [ahead.id, JSON.stringify(pending)]);
-    const waiting = await codeAtProposal();
-    expect((await decide(waiting.id, "accept")).data.stage).toBe("ship");
     const real = gate.mayMove;
     const asked: string[] = [];
     gate.mayMove = async (_db, _i, to) => (asked.push(to), { why: "The stub refuses every move." });
     try {
-      gh.pulls.get(waiting.pr)!.mergeable = true;
       expect(await decide(atSpecify.id, "approve")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
       expect(await passed(inBuild.id)).toMatchObject({ stage: "build", refused: "The stub refuses every move." });
       expect((await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: `Fern ${++k}`, source: SOURCE, note: "x", intent: forWork.id })).error).toBe("The stub refuses every move.");
       expect(await decide(toAccept.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
       expect(await decide(toShip.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
       expect(await decide(withWork.id, "accept")).toMatchObject({ status: 409, data: { error: "The stub refuses every move." } });
-      await watchShips(db, gh.gh, store);
-      expect(await intent(waiting.id)).toMatchObject({ stage: "proposal", ship: { report: { why: "The stub refuses every move." } } });
       // going back asks it nothing
       const before = asked.length;
       expect((await tool("step_back_intent", { intent: inBuild.id, reason: "its spec is unbuildable as written" })).stage).toBe("specify");
       expect((await decide(toAccept.id, "reject")).data.stage).toBe("archived");
       expect((await decide(toAccept.id, "reopen")).data.stage).toBe("specify");
       expect(asked.length).toBe(before);
-      expect(new Set(asked)).toEqual(new Set(["build", "proposal", "work", "accept", "ship", "accept_work", "merge"]));
+      expect(new Set(asked)).toEqual(new Set(["build", "proposal", "work", "accept", "ship", "accept_work"]));
     } finally {
       gate.mayMove = real;
     }
@@ -279,43 +272,23 @@ suite("intents depend on intents", () => {
     expect((await decide(c.id, "reject")).data.stage).toBe("archived");
   });
 
-  test("ship waits for its dependency: behind it in Ship until it is Accepted; taken back with it; refused with it not in Ship", async () => {
+  test("ship after its dependency: refused with it not in Ship; queued behind it once it is, the queue landing them in that order", async () => {
     await clearShips();
+    gh.queue.entries.length = 0;
     const from = gh.calls.length;
     const b = await codeAtProposal();
     const a = await codeAtProposal();
     expect((await depend(a.id, b.id)).error).toBeUndefined();
-    // B not in Ship: Accept refuses, nothing merged
+    // B not in Ship: Accept refuses, nothing queued
     expect(await decide(a.id, "accept")).toMatchObject({ status: 409, data: { error: heldText(a.id, [{ id: b.id, title: b.title, stage: "proposal" }]) } });
     expect(merged(from)).toEqual([]);
-    // B accepted: merged, shipping; A accepted after it waits, its reason naming B
-    expect((await decide(b.id, "accept")).data).toMatchObject({ stage: "ship", ship: { pending: null } });
+    // B accepted: queued; A accepted after it: queued behind it at once
+    expect((await decide(b.id, "accept")).data.stage).toBe("ship");
     expect((await decide(a.id, "accept")).data.stage).toBe("ship");
-    const ready = async (id: string) => (await intent(id)).ship.steps[0];
-    expect(await ready(a.id)).toMatchObject({ state: "running", note: `Waits for ${b.id} (${b.title}, at ship) to ship first` });
-    await watchShips(db, gh.gh, store);
-    expect(merged(from)).toEqual([`/pulls/${b.pr}/merge`]);
-    // B all green: Accepted, and in that same look A merges
-    allGreen(b.merge, 9000);
-    await watchShips(db, gh.gh, store, Date.now(), b.merge);
-    expect((await intent(b.id)).stage).toBe("accepted");
-    expect(merged(from)).toEqual([`/pulls/${b.pr}/merge`, `/pulls/${a.pr}/merge`]);
-    expect((await intent(a.id)).ship).toMatchObject({ merge: a.merge, pending: null });
+    expect(merged(from)).toEqual([`enqueue #${b.pr}`, `enqueue #${a.pr}`]);
+    expect(gh.queue.entries.map((e) => e.pr)).toEqual([b.pr, a.pr]);
+    gh.queue.entries.length = 0;
     await clearShips();
-
-    // B2 goes red on main: back to Proposal, and A2, waiting on it, back with it, its report naming B2
-    const b2 = await codeAtProposal();
-    const a2 = await codeAtProposal();
-    await depend(a2.id, b2.id);
-    await decide(b2.id, "accept");
-    expect((await decide(a2.id, "accept")).data.stage).toBe("ship");
-    gh.runs["main.yml"].push(run(9101, b2.merge, { status: "completed", conclusion: "failure" }));
-    await watchShips(db, gh.gh, store);
-    expect((await intent(b2.id)).stage).toBe("proposal");
-    const back = await intent(a2.id);
-    expect(back.stage).toBe("proposal");
-    expect(back.ship.report.why).toBe(heldText(a2.id, [{ id: b2.id, title: b2.title, stage: "proposal" }]));
-    expect(merged(from)).not.toContain(`/pulls/${a2.pr}/merge`);
   });
 
   test("over MCP: add_intent and specify_intent take depends_on; list_intents and get_intent give depends_on, held_by and needed_by; depend_intent is an admin's agent's", async () => {

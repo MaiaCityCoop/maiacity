@@ -362,8 +362,8 @@ suite("auto-accept rules", () => {
     const i = await intent(ruled.id);
     expect(i).toMatchObject({ stage: "ship", decided_by: null, auto: { accept: { label: "Code passes" } }, ship: { pr: pull.pr, head: pull.head, by: "rule Code passes" } });
     expect(i.ship.steps.map((s: any) => s.key)).toEqual(steps);
-    const writes = gh.calls.slice(from).filter((c) => c.method !== "GET" && c.body?.context !== INTENT_CONTEXT).map((c) => c.path);
-    expect(writes).toEqual([`/statuses/${pull.head}`, `/pulls/${pull.pr}/merge`]);
+    const writes = gh.calls.slice(from).filter((c) => c.method !== "GET" && c.body?.context !== INTENT_CONTEXT && !`${c.body?.query ?? "mutation"}`.startsWith("query")).map((c) => c.path);
+    expect(writes).toEqual([`/statuses/${pull.head}`, "/graphql"]);
     await clearShips();
     // refused by Accept: a draft, a red required check, a conflict, a head not the one checked: at Proposal, saying why
     const cases: [string, ReturnType<typeof openPull>, string | undefined, RegExp][] = [

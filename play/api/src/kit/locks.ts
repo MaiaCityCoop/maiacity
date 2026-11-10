@@ -4,7 +4,7 @@
 export const LOCK = {
   /** every migration step (../migrations.ts) */
   migrations: 4_711_029,
-  /** Ship's queue: its order read and its head started one at a time (../ship.ts startIfReady) */
+  /** Ship's queue (unused since Ship is GitHub's merge queue, intent f7721142; kept so its number is never reused) */
   shipQueue: 4_711_030,
   /** an intent's dependencies: two edges added at once could close a cycle (../intents.ts) */
   intentEdges: 4_711_031,

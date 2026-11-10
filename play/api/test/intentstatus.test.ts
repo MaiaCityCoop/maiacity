@@ -7,7 +7,6 @@ import type { BlobStore } from "../src/blobs";
 import { seedSkills } from "../import/skills";
 import { type Db } from "../src/kit/pg";
 import { watchShips, watchTick } from "../src/watcher";
-import { mainMergeState } from "../src/mainmerge";
 import { INTENT_CONTEXT, postAgain, type Pull } from "../src/github";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
 import { agentToken, type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
@@ -119,19 +118,18 @@ suite("Intent status", () => {
 
   test("Intent status: ship: a red Ship step posts failure '<step> red: <report's first line>' on the shipped head; Accepted posts success 'Accepted: live'", async () => {
     await fx.clearShips(db);
-    // red before the merge: GitHub refuses it
+    // red before the merge: GitHub removes it from the merge queue
     const red = await inBuild("Ship goes red");
     await tool("check_intent", { intent: red.id, pr: red.pr, results: [{ check: "c1", pass: true, evidence: "0 fail", commit: red.head }, { check: "c2", pass: true, evidence: "1 s", commit: red.head }] });
     gh.pulls.get(red.pr)!.draft = false;
-    gh.merges.set(red.pr, sha(++commits));
-    gh.refuseMerge("Base branch was modified");
+    expect((await call("POST", `/api/intents/${red.id}/accept`)).data.stage).toBe("ship");
+    gh.dequeue(red.pr, "MERGE_CONFLICT");
     let from = gh.calls.length;
-    await call("POST", `/api/intents/${red.id}/accept`);
-    gh.refuseMerge(null);
+    await watchShips(db, gh.gh, store);
     expect((await intent(red.id)).stage).toBe("proposal");
     const [[head, state, line]] = posted(from);
     expect([head, state]).toEqual([red.head, "failure"]);
-    expect(line).toStartWith(`Ready to merge red: GitHub did not merge #${red.pr}`);
+    expect(line).toBe(`In the merge queue red: GitHub removed #${red.pr} from the merge queue (merge conflict)`);
 
     // all green, live: Accepted
     await fx.clearShips(db);
@@ -141,6 +139,7 @@ suite("Intent status", () => {
     const merge = sha(++commits);
     gh.merges.set(ok.pr, merge);
     expect((await call("POST", `/api/intents/${ok.id}/accept`)).data.stage).toBe("ship");
+    gh.land();
     gh.runs["main.yml"].push(run(9001, merge, { status: "completed", conclusion: "success" }));
     gh.runs["release.yml"].push(run(9002, merge, { display_title: `release ${merge}`, event: "workflow_run", status: "completed", conclusion: "success" }));
     gh.runs["production.yml"].push(run(9003, merge, { event: "workflow_dispatch", status: "completed", conclusion: "success" }));
@@ -172,20 +171,22 @@ suite("Intent status", () => {
     expect((await intent(rec.id)).results.c1.pass).toBe(false);
     expect((await approve(app_)).stage).toBe("build");
     expect((await tool("step_back_intent", { intent: back.id, reason: "GitHub down, still stepped back" })).stage).toBe("specify");
-    // Ship: its 'Intent accepted' refused too, so it is red, back at Proposal, and says so
-    await call("POST", `/api/intents/${shipped.id}/accept`);
+    // Accept: its 'Intent accepted' refused too, so it is refused, left at Proposal, nothing queued
+    const no = await call("POST", `/api/intents/${shipped.id}/accept`);
+    expect(no.status).toBe(409);
+    expect(no.data.error).toContain("GitHub took no 'Intent accepted'");
     expect((await intent(shipped.id)).stage).toBe("proposal");
-    expect(tried(from)).toBe(4);
-    expect(posted(from).length).toBe(4);
+    expect(gh.queue.entries.map((e) => e.pr)).not.toContain(shipped.pr);
+    expect(tried(from)).toBe(3);
+    expect(posted(from).length).toBe(3);
 
     gh.refuseStatus(null);
     const next = gh.calls.length;
-    await watchTick(db, gh.gh, store, Date.now(), null, mainMergeState());
+    await watchTick(db, gh.gh, store, Date.now(), null, new Map<string, string>());
     const after = posted(next);
     expect(after).toContainEqual([rec.head, "failure", "c1 failed: 1 fail"]);
     expect(after).toContainEqual([head, "pending", "approved: build it"]);
     expect(after).toContainEqual([back.head, "failure", "stepped back to specify: GitHub down, still stepped back"]);
-    expect(after.find(([h]) => h === shipped.head)?.[2]).toStartWith("Ready to merge red: GitHub took no 'Intent accepted'");
     // posted: the tick after posts nothing again
     const later = gh.calls.length;
     await postAgain(db, gh.gh);
@@ -236,7 +237,7 @@ suite("Intent status", () => {
     const pr2 = ++prs;
     openPull(pr2, sha(++commits), "ready", { draft: false, body: `Intent: ${other}` });
     // play's tick takes the draft as its pull request, read
-    await watchTick(db, gh.gh, store, Date.now(), null, mainMergeState());
+    await watchTick(db, gh.gh, store, Date.now(), null, new Map<string, string>());
     const it = await intent(id);
     expect(it).toMatchObject({ stage: "specify", pull_request: pr });
     expect(it.pr_seen).toMatchObject({ pr, head, draft: true });
