@@ -1587,8 +1587,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	}
 	walker.update(0)
 	// what the library's assets are built from and the ground's own maps, there before the first frame (a world shown
-	// sooner than its ground's maps drew its placeholder, then built its ground again: intent 405f7a85)
-	await Promise.all([library.ready(), hex.material.userData.ready])
+	// sooner than its maps drew its ground's placeholder, then built it again: intent 405f7a85); the maps 15 s at most
+	await Promise.all([library.ready(), Promise.race([hex.material.userData.ready, new Promise((ok) => setTimeout(ok, 15000))])])
 	// for a look from the console at what the renderers draw and hold: __assets.stats(), and each kind (__assets.kinds())
 	;(window as unknown as { __assets?: unknown }).__assets = { stats: () => ({ out: plantsOut?.assets.stats(), in: plantsIn?.assets.stats(), library: library.assets.stats() }), kinds: () => ({ out: plantsOut?.assets.kinds(), in: plantsIn?.assets.kinds(), library: library.assets.kinds() }) }
 	// Sandbox 5: what stands near you drawn from the first frame; its finer shapes come as they are built
