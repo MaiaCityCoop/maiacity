@@ -24,6 +24,8 @@ export type PrSeen = {
   main_merges?: number;
   /** in conflict at `head` with main at `main`: the files both sides changed since their merge base */
   conflicts?: { head: string; main: string; files: string[] };
+  /** the ETags of the pull request and of its head's check runs as last read, for conditional reads (./github.ts readSeen) */
+  etags?: { pull?: string; head?: string; checks?: string };
   /** the status 'Merges with main' play last posted, on `head` */
   merges?: { head: string; state: "success" | "failure"; description: string };
 };
@@ -44,6 +46,13 @@ type Row = {
 };
 
 export const short = (s: string) => s.slice(0, 7);
+/** what play's GitHub says now (./github.ts shipGitHub sets it): its limit until a time, or its token refused; null while it answers */
+export const githubSays: { now: { why: string; until?: number } | null } = { now: null };
+/** a pull request not read lately: GitHub's limit or refusal named where it says so, else being read */
+const reading = (pr: number, now: number): Sub => {
+  const s = githubSays.now && !(githubSays.now.until && now >= githubSays.now.until) ? githubSays.now : null;
+  return s ? S("working", s.until ? "GitHub's limit" : "GitHub refuses the token", s.why) : S("working", "reading GitHub", `reading #${pr} on GitHub`);
+};
 const heldWhy = (held: { title: string }[]) => `held: waits for ${held.map((d) => d.title).join(", ")}`;
 
 const greenOn = (seen: Pick<PrSeen, "checks">) => REQUIRED_CHECKS.every((c) => seen.checks?.[c] === "success");
@@ -198,7 +207,7 @@ export function subStateOf(intent: Row, seen: PrSeen | null | undefined = intent
 
   // code, with play's work beside it or not (intent 7c8986c5), is Accept and ship
   if (!pr) return S("waiting", "Accept", "Accept");
-  if (!seen || seen.pr !== pr || now - Date.parse(seen.at) > SEEN_MOST_MS) return S("working", "reading GitHub", `reading #${pr} on GitHub`);
+  if (!seen || seen.pr !== pr || now - Date.parse(seen.at) > SEEN_MOST_MS) return reading(pr, now);
   const kept = keptWhy(intent, seen);
   return prBlock(intent, seen) ?? S("waiting", "Accept and ship", kept ? `Accept and ship: ${kept}` : "Accept and ship");
 }

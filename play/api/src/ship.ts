@@ -4,7 +4,7 @@ import { admin, meOf, type Me } from "./access";
 import { COOP, intentsIn } from "./kit/ids";
 import type { Db, Queryable } from "./kit/pg";
 import { canonical } from "./kit/hash";
-import { ACCEPTED_CONTEXT, intentLink, keepSeen, readPull, type GitHub, type Job, type Pull, type Run } from "./github";
+import { ACCEPTED_CONTEXT, GitHubError, intentLink, quiet, keepSeen, readPull, type GitHub, type Job, type Pull, type Run } from "./github";
 import { INTENT_ADMINS, byOf, decisions, gate, getIntent, mustMove } from "./intents";
 import { carried } from "./mainmerge";
 import { decidable, prBlock, short, sub } from "./substate";
@@ -375,53 +375,57 @@ export function runningCommit(env: Record<string, string | undefined> = process.
   return c && /^[0-9a-f]{40}$/.test(c) ? c : null;
 }
 
-const HISTORY_PAGES = 200;
-
-async function history(gh: GitHub, ref: string) {
-  const all = new Map<string, string>();
-  for (let page = 1; page <= HISTORY_PAGES; page++) {
-    const list = await gh.commits(ref, page);
-    for (const c of list) all.set(c.sha, c.commit?.message ?? "");
-    if (list.length < 100) return all;
-  }
-  throw new Error(`the history of ${ref.slice(0, 12)} is longer than ${HISTORY_PAGES * 100} commits`);
+/** a merge is in what play runs where GitHub's compare of it against `commit` is behind or identical: one call each, kept */
+function inCommit(gh: GitHub, commit: string) {
+  const seen = new Map<string, Promise<boolean>>();
+  return (sha: string) => {
+    if (!seen.has(sha)) seen.set(sha, gh.compare(commit, sha).then((c) => c.status === "behind" || c.status === "identical", (e) => (e instanceof GitHubError && e.status === 404 ? false : Promise.reject(e))));
+    return seen.get(sha)!;
+  };
 }
 
-function trailersOf(main: Map<string, string>) {
-  const by = new Map<string, string[]>();
-  for (const [sha, message] of main) for (const id of intentsIn(message)) by.set(id, [...(by.get(id) ?? []), sha]);
-  return by;
+/** the commits on main whose trailer names one of `of`, main read back only to the oldest one's creation */
+async function trailers(gh: GitHub, of: { id: string; created: string | Date }[]) {
+  const by = new Map<string, string[]>(), want = new Set(of.map((i) => i.id));
+  if (!of.length) return by;
+  const since = new Date(Math.min(...of.map((i) => new Date(i.created).getTime()))).toISOString();
+  for (let page = 1; ; page++) {
+    const list = await gh.commits("main", page, since);
+    for (const c of list) for (const id of intentsIn(c.commit?.message ?? "")) if (want.has(id)) by.set(id, [...(by.get(id) ?? []), c.sha]);
+    if (list.length < 100) return by;
+  }
 }
 
 type Reconciled = { commit: string; accepted: string[]; flagged: string[]; cleared: string[] };
 
-/** The one place a code intent becomes Accepted: its merge commit in what play runs (intent 9876ef00); else flagged, not moved. */
-export async function reconcile(db: Db, gh: GitHub, store: BlobStore, commit: string): Promise<Reconciled> {
-  const live = await history(gh, commit);
-  const trailers = trailersOf(await history(gh, "main"));
-  const { rows } = await db.query<{ id: string; stage: string; pull_request: number | null; ship: Ship | null }>(
-    `SELECT id, stage, pull_request, ship FROM play.intents
-      WHERE coop_id = $1 AND stage IN ('build', 'proposal', 'ship', 'archived', 'accepted')
-        AND (pull_request IS NOT NULL OR (work IS NULL AND id = ANY($2::uuid[]))) ORDER BY created, id`,
-    [COOP, [...trailers.keys()]],
+/** The one place a code intent becomes Accepted: its merge in what play runs (intent 9876ef00), else flagged; `only` the watcher's (green in Ship) */
+export async function reconcile(db: Db, gh: GitHub, store: BlobStore, commit: string, only?: string[]): Promise<Reconciled> {
+  const { rows } = await db.query<{ id: string; stage: string; pull_request: number | null; ship: Ship | null; created: Date }>(
+    `SELECT id, stage, pull_request, ship, created FROM play.intents
+      WHERE coop_id = $1 AND stage IN ('build', 'proposal', 'ship', 'archived', 'accepted') AND ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))
+        AND (pull_request IS NOT NULL OR (work IS NULL AND (stage IN ('build', 'proposal') OR (stage = 'accepted' AND ship->>'merge' <> '')))) ORDER BY created, id`,
+    [COOP, only ?? null],
   );
+  // on its way still (the watcher's), or decided against this commit already, it is not asked again
+  const looked = rows.filter((i) => !(i.stage === "ship" && (i.ship?.pending || !i.ship?.outcome)) && !(i.ship?.commit === commit && (i.ship.live === false || i.stage === "accepted")));
+  const named = await trailers(gh, looked.filter((i) => !i.pull_request && i.stage !== "accepted"));
+  const isIn = inCommit(gh, commit);
   const out: Reconciled = { commit, accepted: [], flagged: [], cleared: [] };
-  for (const i of rows) {
-    // on its way still: the watcher's, which asks again as it ends
-    if (i.stage === "ship" && (i.ship?.pending || !i.ship?.outcome)) continue;
-    let merges: string[];
+  for (const i of looked) {
+    let merges: string[], isLive: boolean;
     try {
       if (i.pull_request) {
         const shipped = i.ship?.pr === i.pull_request && i.ship.merge ? i.ship.merge : null;
         const pr = shipped ? null : await gh.pull(i.pull_request);
-        const merge = shipped ?? (pr?.merged ? pr.merge_commit_sha : null);
-        merges = merge ? [merge] : [];
-      } else merges = trailers.get(i.id) ?? [];
+        merges = [shipped ?? (pr?.merged ? pr.merge_commit_sha : null)].filter((m): m is string => !!m);
+      } else merges = i.stage === "accepted" ? [i.ship!.merge] : named.get(i.id) ?? [];
+      // live at a commit play runs now: one question for every intent live there
+      const was = i.stage === "accepted" && i.ship?.live && i.ship.commit;
+      isLive = merges.length > 0 && ((!!was && (await isIn(was))) || (await merges.reduce(async (a, m) => (await a) && isIn(m), Promise.resolve(true))));
     } catch (e) {
-      console.warn(`reconcile: intent ${i.id} not looked at: ${(e as Error).message}`);
+      if (!quiet(e)) console.warn(`reconcile: intent ${i.id} not looked at: ${(e as Error).message}`);
       continue;
     }
-    const isLive = merges.length > 0 && merges.every((m) => live.has(m));
     const merge = merges[0] ?? null;
     const patch = (p: Partial<Ship>) => JSON.stringify({ ...p, merge: i.ship?.merge || merge || "" });
     if (isLive && i.stage !== "accepted") {
@@ -433,24 +437,20 @@ export async function reconcile(db: Db, gh: GitHub, store: BlobStore, commit: st
             WHERE id = $1 AND stage = $2 RETURNING id`,
           [i.id, i.stage, patch({ live: true, commit, note })],
         );
-        if (done.length) await acceptWorkLive(tx, store, i.id);
-        return done;
+        return done.length ? (await acceptWorkLive(tx, store, i.id), done) : done;
       });
-      if (done.length) {
-        out.accepted.push(i.id);
-        console.log(`reconcile: intent ${i.id} (${i.stage}) is live at ${short(commit)}: accepted`);
-      }
-    } else if (!isLive && (i.stage === "accepted" || i.stage === "ship") && (i.ship?.live !== false || i.ship.commit !== commit)) {
+      if (done.length) out.accepted.push(i.id), console.log(`reconcile: intent ${i.id} (${i.stage}) is live at ${short(commit)}: accepted`);
+    } else if (!isLive && (i.stage === "accepted" || i.stage === "ship")) {
       await db.query(
         `UPDATE play.intents SET ship = COALESCE(ship, jsonb_build_object('pr', pull_request, 'steps', '[]'::jsonb)) || ($3::text)::jsonb WHERE id = $1 AND stage = $2`,
         [i.id, i.stage, patch({ live: false, commit })],
       );
       out.flagged.push(i.id);
       console.warn(`reconcile: intent ${i.id} is ${i.stage} but not live: production runs ${short(commit)}`);
-    } else if (isLive && i.ship?.live === false) {
-      await db.query(`UPDATE play.intents SET ship = ship || ($2::text)::jsonb WHERE id = $1 AND stage = 'accepted'`, [i.id, JSON.stringify({ live: true, commit })]);
-      out.cleared.push(i.id);
-      console.log(`reconcile: intent ${i.id} is live again at ${short(commit)}`);
+    } else if (isLive) {
+      // Accepted and live: kept as live at this commit, so the next commit asks once for all of them
+      await db.query(`UPDATE play.intents SET ship = COALESCE(ship, jsonb_build_object('pr', pull_request, 'steps', '[]'::jsonb)) || ($2::text)::jsonb WHERE id = $1 AND stage = 'accepted'`, [i.id, patch({ live: true, commit })]);
+      if (i.ship?.live === false) out.cleared.push(i.id), console.log(`reconcile: intent ${i.id} is live again at ${short(commit)}`);
     }
   }
   return out;
@@ -491,10 +491,10 @@ export async function acceptCode(db: Db, gh: GitHub | null, store: BlobStore, wh
   const intent = await getIntent(db, id);
   if (intent.work || intent.pull_request || !gh) return null;
   await mustMove(db, intent, "accept");
-  const on = trailersOf(await history(gh, "main")).get(intent.id);
+  const on = (await trailers(gh, [intent])).get(intent.id);
   if (!on?.length) return null;
   if (!commit) refuse("Its code is on main, and play knows no commit of its own (PLAY_COMMIT) to find it in: it is Accepted once play runs it.");
-  await reconcile(db, gh, store, commit!);
+  await reconcile(db, gh, store, commit!, [intent.id]);
   const now = await getIntent(db, intent.id);
   if (now.stage !== "accepted")
     refuse(`Its code is on main (${on.map((s) => s.slice(0, 7)).join(", ")}), not yet in what play runs (${commit!.slice(0, 7)}): it is Accepted by itself once production runs it.`);
