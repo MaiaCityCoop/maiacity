@@ -20,7 +20,8 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { afterNavigate, beforeNavigate } from '$app/navigation';
-	import { page, updated } from '$app/state';
+	import { page } from '$app/state';
+	import { watchNewBuild } from '$lib/site/app/newbuild';
 	import NavPill from '$lib/site/app/NavPill.svelte';
 	import IntentsModal from '$lib/site/intents/IntentsModal.svelte';
 	import { closeIntents, intentsModal, openIntents } from '$lib/site/app/intents.svelte';
@@ -41,13 +42,8 @@
 	// the world map under the film camera (/game/map/film, ./game/map/film/+page.svelte) are developer's tools: in
 	// development they need no account
 	const bench = $derived(dev && /^\/(render|worlds\/bench|game\/map\/film)/.test(page.url.pathname));
-	// a new build deployed while this page was open (svelte.config's pollInterval sets updated.current): the next
-	// navigation loads it whole instead of going on with the old code; a tab coming back into view (an iPad's Safari
-	// keeps one for days) checks and reloads where nothing is lost by it, the sandboxes and the game going on until
-	// their next navigation
-	beforeNavigate(({ willUnload, to }) => {
-		if (updated.current && !willUnload && to?.url) location.href = to.url.href;
-	});
+	// a new build deployed while this page was open: the page moves to it ($lib/site/app/newbuild.ts)
+	watchNewBuild();
 	// the intents' board is a modal over the page (Samuel 2026-11-05): a link that names it (/intents/) opens it here
 	// instead, and going anywhere else closes it
 	beforeNavigate((nav) => {
@@ -56,15 +52,6 @@
 			nav.cancel();
 			openIntents(nav.to.url.hash.slice(1));
 		} else closeIntents();
-	});
-	const keepsPlay = () => /^\/(sandbox-|game)/.test(page.url.pathname);
-	onMount(() => {
-		const back = async () => {
-			if (document.visibilityState !== 'visible' || keepsPlay()) return;
-			if (await updated.check().catch(() => false)) location.reload();
-		};
-		document.addEventListener('visibilitychange', back);
-		return () => document.removeEventListener('visibilitychange', back);
 	});
 
 	// ---- the shell's scroll: where each entry of the history was, so Back and Forward come back to it

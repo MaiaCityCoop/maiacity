@@ -173,6 +173,8 @@
 	// admin's decision
 	let intent = $state<Intent | null>(null);
 	let intentError = $state('');
+	// the intent open now (its dialog or its work's review), for a reload onto a new build ($lib/site/app/newbuild.ts)
+	$effect(() => void (intentsModal.at = intent?.id ?? open?.intent_id ?? null));
 	const intentOf = async (id: string) => intents.find((x) => x.id === id) ?? (await api<Intent>(`/intents/${id}`));
 	/** the intent a proposal was made for, from its review */
 	async function openIntentOf(id: string) {
