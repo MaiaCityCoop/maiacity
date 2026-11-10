@@ -88,6 +88,8 @@ export function setup(o: Setup = {}) {
 		if (s === 'three') return /\/census\/(counting|three)\.js$/.test(from) ? THREE_REAL : join(HERE, 'three.js');
 		// three's WebGPU build, its renderer the counting one (intent c1bee1f8); ./webgpu.js itself reads the real one
 		if (s === 'three/webgpu') return o.real || /\/census\/webgpu\.js$/.test(from) ? THREE_WEBGPU_REAL : join(HERE, 'webgpu.js');
+		// TSL, its scene passes kept for their pipeline (intent 009e04d3); the census's own modules read the real one
+		if (s === 'three/tsl') return from.startsWith(HERE + '/') ? s : join(HERE, 'tsl.js');
 		if (s.startsWith('$lib/') || s === '$lib') return resolveFile(join(root, 'src/lib', s.slice(5)));
 		if (s.startsWith('$app/')) return stub(`app-${s.slice(5)}.js`);
 		if (s.endsWith('.svelte')) return stub('svelte.js');

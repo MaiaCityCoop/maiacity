@@ -21,6 +21,9 @@
 import * as THREE from 'three';
 import { context } from 'three/tsl';
 
+/** the scene passes made (./tsl.js `pass`) since a pipeline was last made, which takes them as its own (./webgpu.js) */
+export const madePasses = [];
+
 const _frustum = new THREE.Frustum();
 const _proj = new THREE.Matrix4();
 
@@ -385,8 +388,6 @@ export class CountingWebGPURenderer extends CountingRenderer {
 		this.contextNode = context();
 		this.transparent = this.opaque = true;
 		this.lighting = this._mrt = null;
-		/** the pipeline's picture last drawn (its output node) and the scene passes it is made from */
-		this._passes = { of: null, list: [] };
 	}
 	getOutputRenderTarget() {
 		return null;
@@ -399,27 +400,13 @@ export class CountingWebGPURenderer extends CountingRenderer {
 	}
 	/**
 	 * A RenderPipeline's frame (intent 009e04d3): its picture is one triangle (a QuadMesh), made from scene passes three
-	 * draws before it (PassNode.updateBefore: the scene into the pass's target, its shadows with it). Each pass the
-	 * picture's node reads is drawn here by three's own PassNode, once a frame, and counted as the picture's main pass,
-	 * a pass read only through another's lighting too (its context's `getAO`: render/post.js's prepass, which the
-	 * occlusion is made from). The post passes' own triangles between them (occlusion, bloom, edges) are not counted.
+	 * draws before it (PassNode.updateBefore: the scene into the pass's target, its shadows with it). Which passes a
+	 * picture reads three learns as it builds its shader, which nothing here does: they are the passes made for the
+	 * pipeline (./tsl.js `pass`, ./webgpu.js `RenderPipeline`). Each is drawn by three's own PassNode, once a frame, and
+	 * counted as the picture's main pass. The post passes' own triangles between them (occlusion, bloom, edges) are not.
 	 */
 	_drawPasses(quad) {
-		const root = quad.material.fragmentNode;
-		if (this._passes.of !== root) {
-			const seen = new Set(), list = [];
-			const walk = (n) => {
-				if (!n?.isNode || seen.has(n)) return;
-				seen.add(n);
-				for (const c of n.getChildren()) walk(c);
-				if (n.isPassNode !== true) return;
-				walk(n.contextNode?.value?.getAO?.(null, { material: {} }));
-				list.push(n);
-			};
-			walk(root);
-			this._passes = { of: root, list };
-		}
-		for (const pass of this._passes.list) {
+		for (const pass of quad.userData.passes ?? []) {
 			this._pass = pass.renderTarget;
 			try {
 				pass.updateBefore({ renderer: this });

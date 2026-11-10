@@ -230,7 +230,7 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 		await run(1500);
 		const settled = await run(o.settleMs ?? 180_000, quiet);
 		// then until each frame draws the same triangles for three seconds running, at most a minute
-		const stable = await steady(60_000, 3000, v ? 0 : 0.1);
+		const stable = await steady(Math.min(60_000, o.settleMs ?? 60_000), 3000, v ? 0 : 0.1);
 		const frames: { tris: number; calls: number; shadowTris: number; t: any }[] = [];
 		for (let i = 0; i < (o.measureFrames ?? 90); i++) {
 			const f = frameTally();

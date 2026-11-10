@@ -9,8 +9,8 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as THREE from 'three';
-import { context, pass } from 'three/tsl';
-import { RenderPipeline } from 'three/webgpu';
+import { pass } from './tsl.js';
+import { RenderPipeline } from './webgpu.js';
 import { BACKGROUND_SPHERE_TRIS, CountingRenderer, CountingWebGPURenderer, drawOf } from './counting.js';
 
 const HERE = import.meta.dir;
@@ -240,11 +240,10 @@ describe('the counting WebGPU renderer counts as WebGPU draws', () => {
 		expect(drawn(r, scene, camera).shadowCalls).toBe(1);
 	});
 	// intent 009e04d3: the page draws through a RenderPipeline, whose picture is one triangle made from scene passes
-	test('a RenderPipeline’s scene passes are counted, the prepass its lighting reads too, not the picture’s triangle alone', () => {
+	test('a RenderPipeline’s scene passes are counted, each pass made for it, not the picture’s triangle alone', () => {
 		const { scene, camera, r, caster } = sunlit();
 		const scenePass = pass(scene, camera);
-		const prepass = pass(scene, camera);
-		scenePass.contextNode = context({ getAO: () => prepass.getTextureNode('depth') });
+		pass(scene, camera); // a prepass, read only by the lighting
 		const pipeline = new RenderPipeline(r as any, scenePass.getTextureNode('output'));
 		r.tally.reset();
 		pipeline.render();
@@ -366,3 +365,27 @@ describe('the other worlds on the CPU', () => {
 		expect(v.totals.tris).toBeGreaterThan(0);
 	}, 300_000);
 });
+
+// intent 009e04d3: since the WebGPU switch the page draws through a RenderPipeline and the census counted its picture's
+// one triangle. Floors far below the real values: they only tell a seen world from the screen quad. One build a world,
+// its views counted as they stand (--settle, --frames: the box gives a check ten minutes), from the pinned inputs.
+const seen = (world: string) => census(['--world', world, '--view', 'all', '--settle', '2', '--frames', '3']);
+
+test('census sees the world', () => {
+	const got = seen('sandbox-1');
+	expect(got.renderer).toBe('WebGPURenderer');
+	expect(got.views.map((v: any) => v.view)).toEqual(['near', 'mid', 'far']);
+	for (const v of got.views) {
+		expect(v.totals.calls).toBeGreaterThan(100);
+		expect(v.totals.tris).toBeGreaterThan(100_000);
+		// the scene's own draws, not what goes into targets beside it
+		expect(v.totals.mainCalls).toBeGreaterThan(100);
+		expect(v.totals.tris).toBe(v.totals.mainTris + v.totals.shadowTris + v.totals.targetTris);
+	}
+}, 590_000);
+
+test('census counts Sandbox 5', () => {
+	const got = seen('sandbox-5');
+	expect(got.views.map((v: any) => v.view)).toEqual(['near', 'mid', 'far']);
+	for (const v of got.views) expect(v.totals.calls).toBeGreaterThan(100);
+}, 590_000);
