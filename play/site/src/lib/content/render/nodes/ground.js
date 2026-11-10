@@ -13,6 +13,7 @@ import {
 	normalView, normalWorldGeometry, normalize, positionWorld, pow, sin, smoothstep, step, struct, texture, uniform, uniformArray, vec2, vec3, vec4
 } from 'three/tsl';
 import { budget } from '../budget.js';
+import { canopyShade } from './canopy.js';
 import { arrayOf } from '../arrays.js';
 import { SETS } from '../../biomes/sets.js';
 
@@ -193,7 +194,8 @@ export function groundNodes(weights, o) {
 	});
 	// worked out once a pixel, read by each of the material's parts
 	const out = shade().toVar('ground');
-	m.colorNode = out.get('col');
+	// past the sun's cascades, the far woods' shadow (./canopy.js)
+	m.colorNode = out.get('col').mul(canopyShade);
 	m.roughnessNode = out.get('ar').y;
 	m.aoNode = out.get('ar').x;
 	m.userData.xz = xz;

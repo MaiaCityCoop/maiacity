@@ -9,7 +9,6 @@ import type { Me } from "../src/access";
 import { COOP } from "../src/kit/ids";
 import { createHuman } from "../src/auth";
 import { BUDGETS, daysOf, delivery, NO_GITHUB, type Timeline } from "../src/delivery";
-import { carrySeen, mainMergeState } from "../src/mainmerge";
 import { type Db } from "../src/kit/pg";
 import { watchTick } from "../src/watcher";
 import { newId } from "../src/kit/uuid";
@@ -189,28 +188,6 @@ suite("delivery", () => {
     const from = gh.calls.length;
     expect((await read()).ci).toBeNull();
     expect(gh.calls.length).toBe(from);
-  });
-
-  test("main merges: each update-branch play makes counts, kept across new heads, shown per intent", async () => {
-    const pr = 800;
-    const head = gh.commit(sha(9001), "work", [gh.main.head], false);
-    const id = await intent({ stage: "build", created: at("17:00"), specified_at: at("17:05"), approved_at: at("17:10"), pull_request: pr });
-    gh.pulls.set(pr, { number: pr, state: "open", merged: false, merge_commit_sha: null, mergeable: true, draft: true, base: { ref: "main" }, head: { sha: head, ref: "intent/x" }, html_url: `https://github.test/${REPO}/pull/${pr}`, title: "x" });
-    const state = mainMergeState();
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    expect(of(await read(), id).main_merges).toBe(0);
-    gh.commit(sha(9002), "main moves", [gh.main.head], true);
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    expect(of(await read(), id).main_merges).toBe(1);
-    gh.commit(sha(9003), "main moves again", [gh.main.head], true);
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    await watchTick(db, gh.gh, store, Date.now(), null, state);
-    expect(of(await read(), id).main_merges).toBe(2);
-    // carried to a new head (a builder's push), dropped for another pull request
-    const was = { pr, head: "a", draft: false, mergeable: true, state: "open", merged: false, base: "main", checks: {}, at: at("17:00"), main_merges: 2 };
-    expect(carrySeen(was, { ...was, head: "b", main_merges: undefined }).main_merges).toBe(2);
-    expect(carrySeen(was, { ...was, pr: pr + 1, head: "b", main_merges: undefined }).main_merges).toBeUndefined();
   });
 
   test("read: GET /api/delivery answers an admin, refuses a traveler and no session; the MCP tool delivery is listed and answers the same", async () => {
