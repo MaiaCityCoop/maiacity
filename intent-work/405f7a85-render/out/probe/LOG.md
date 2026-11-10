@@ -1,1 +1,2 @@
 - 2026-11-11 00:12 · 42d58366a · sandbox-1 webkit first · lifted at 27.4 s; hold 3615 ms; 0 errors; Playwright WebKit 26.6 · fetched 27 s, built 6 s, probed 31 s, pushed ~8 s
+- 2026-11-11 00:24 · 42d58366a · sandbox-5 webkit first · lifted at 46.5 s; hold 3406 ms; 0 errors; Playwright WebKit 26.6 · fetched 3 s, built 0 s, probed 61 s, pushed ~9 s
