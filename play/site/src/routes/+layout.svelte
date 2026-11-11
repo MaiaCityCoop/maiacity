@@ -136,12 +136,13 @@
 {:else}
 	<div class="app-shell">
 		<div class="app-scroll" bind:this={scroller}><Gate path={page.url.pathname}>{@render children()}</Gate></div>
-		<!-- at the foot of the shell, not fixed to the browser's viewport -->
-		<div class="app-dock">
+		<!-- at the foot of the shell, not fixed to the browser's viewport; a page that brings its own frame (its
+		     +page.ts says `ownFrame`: Butler James's landing page, intent 42a96129) is drawn without it -->
+		{#if !page.data.ownFrame}<div class="app-dock">
 			<!-- what floats over the pill (its account menu, a toast) is moved here, so the pill keeps its size -->
 			<div class="foot-stack" use:footHost></div>
 			<NavPill founder={session.me.founder == null ? null : { number: session.me.founder }} name={session.me.name} onsignout={signOut} intents={isAdmin()} />
-		</div>
+		</div>{/if}
 		{#if intentsModal.open && isAdmin()}<IntentsModal />{/if}
 	</div>
 {/if}

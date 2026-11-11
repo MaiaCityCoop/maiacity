@@ -8,19 +8,15 @@
  *   bun scripts/story-room-shots.ts <main|branch> [out dir]
  */
 import { chromium, type Page } from 'playwright';
+import { ADMIN as ME, DESKTOP, PHONE, SITE as BASE } from './lib/shots';
 
-const BASE = process.env.SITE ?? 'http://localhost:5173';
 const LABEL = process.argv[2] ?? 'branch';
 const OUT = process.argv[3] ?? '../shots/4d47a98c-story-room';
 const PLAY = 'https://play.maia.city';
 const TOKEN = process.env.PLAY_MCP_TOKEN;
 if (!TOKEN) throw new Error('PLAY_MCP_TOKEN is not set: the story is drawn from play');
 const STORY = '60f6da00-979d-89e4-b1e5-53667ba41fe4';
-const ME = { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 };
-const SIZES = [
-	{ width: 1440, height: 900 },
-	{ width: 390, height: 844 }
-];
+const SIZES = [DESKTOP, PHONE];
 
 /** a read over play's MCP: the token opens no /api/stories, so the stories are read as get_story and list_stories give them */
 async function mcp(name: string, args: object) {

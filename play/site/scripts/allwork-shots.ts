@@ -8,14 +8,10 @@
  */
 import { chromium } from 'playwright';
 import { ALL_WORK_DOCS, BRIEF, FIXTURES } from '../src/lib/site/intents/fixtures';
+import { ADMIN as ME, DESKTOP, PHONE, SITE as BASE } from './lib/shots';
 
-const BASE = process.env.SITE ?? 'http://localhost:5173';
 const OUT = process.argv[2] ?? '../shots/7c8986c5-all-work';
-const SIZES = [
-	{ width: 390, height: 844 },
-	{ width: 1440, height: 900 }
-];
-const ME = { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 };
+const SIZES = [PHONE, DESKTOP];
 const all = Object.values(FIXTURES);
 const i = FIXTURES['proposal-all'];
 
