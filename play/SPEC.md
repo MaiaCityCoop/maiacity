@@ -762,9 +762,7 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     takes the sky's pictures too, once the world is measured: the eye lifted 45 m where it stands, turned round and up
     (the film camera's hold, `window.__world`), the hour pinned as a film pins it, at dawn, noon, dusk and night (`SKY_HOURS`: the sun 4°
     up at either end of the day), at 1440 × 900 and at a phone's 390 × 844, `<browser>-sky-<hour>-<size>.png` beside
-    the world's own; a world that gives none fails. Without a time bound the browsers load side by side (two engines
-    one after the other pass a check's ten minutes there: Sandbox 1 took Chromium 239 s, and the run was killed in
-    WebKit); with one, one after the other as before. The sky's clouds are noise in its shader
+    the world's own; a world that gives none fails. The sky's clouds are noise in its shader
     (`play/site/src/lib/content/sandbox-kit/clouds.js`), and that noise only ever reads small numbers: the hour reaches
     it as a fraction of the day and every octave's lattice repeats, since a GPU's 32-bit float fed coordinates in the
     hundred thousands leaves no fraction of a cell and draws flat blocks (`clouds.test.js` holds it). A builder gets the same

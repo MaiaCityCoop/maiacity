@@ -14,10 +14,7 @@
  * --world-within   the world is shown within that many seconds of the navigation, in every browser asked
  * --frame-within   a frame takes at most that many ms (the mean over 10 s once the world has settled)
  * --timeout        how long the world may take to come up (600: GitHub's runner needs 270 to 400 s for Sandbox 5)
- * --settle         how long the world may take to settle before its frames are measured and it is photographed (60;
- *                  30 without a time bound)
- * Without a time bound (--world-within, --frame-within) the browsers load side by side and their times are only told:
- * the look is what is decided, and two engines one after the other pass a check's ten minutes on GitHub's runner.
+ * --settle         how long the world may take to settle before its frames are measured and it is photographed (60)
  * --sky            the sky's pictures too (intent c929d52c): once the world is measured, the eye lifted 45 m where
  *                  it stands, turned round and up, at dawn, noon, dusk and night (the hour pinned as a film pins it), at 1440 × 900 and at a
  *                  phone's 390 × 844: <out>/<browser>-sky-<hour>-<width>x<height>.png. A world without them fails
@@ -266,13 +263,8 @@ if (import.meta.main) {
 
 	console.log(`${world} on ${gpu} (${process.platform} ${process.arch}); pictures in ${out}`);
 	const measures: (Measure & { why: string[] })[] = [];
-	// a time bound needs the machine to itself: one browser after the other. Without one only the look is decided, and
-	// the browsers load side by side: two engines one after the other do not fit a check's ten minutes on the runner
-	const timed = bounds.worldWithin !== undefined || bounds.frameWithin !== undefined;
-	const one = (b: string) => measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', timed ? '60' : '30')), sky: bounds.sky });
-	const beside = timed ? [] : await Promise.all(browsers.map(one));
-	for (const [i, b] of browsers.entries()) {
-		const m = timed ? await one(b) : beside[i];
+	for (const b of browsers) {
+		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), sky: bounds.sky });
 		const why = judge(m, bounds);
 		measures.push({ ...m, why });
 		console.log(lineOf(m, why));
