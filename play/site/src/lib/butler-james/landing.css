@@ -325,6 +325,8 @@
 	.bj-cards b, .bj-cards .plan b { grid-row: span 2; font-size: 0.9rem; }
 	.bj-split, .bj-split.reverse { grid-template-columns: minmax(0, 1fr); }
 	.bj-split.reverse > :first-child { order: 0; }
+	/* the ring turns: its corners must stay on the screen */
+	.bj-seal { width: 62vw; }
 	.bj-plans { grid-template-columns: minmax(0, 1fr); }
 	.bj-plan, .bj-stack, .bj-calc { padding: 24px; }
 	.bj-value-list, .bj-steps { grid-template-columns: minmax(0, 1fr); }
