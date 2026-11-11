@@ -258,13 +258,25 @@ const sideOf = (/** @type {any} */ m) => {
  * @param {THREE.Mesh[]} meshes @returns {THREE.Mesh[]}
  */
 export function standIns(meshes) {
+	const steps = standInSteps(meshes);
+	for (let r = steps.next(); ; r = steps.next()) if (r.done) return r.value;
+}
+
+/**
+ * `standIns`, a step at a time: it yields after each mesh it lowers (meshoptimizer on the page's thread), so a builder
+ * that walks it between frames (`for … of`, its own pause between steps) never holds a walked world (intent 095bc67c:
+ * a dome's stand-ins made whole at once). Returns the stand-ins.
+ * @param {THREE.Mesh[]} meshes @returns {Generator<void, THREE.Mesh[], void>}
+ */
+export function* standInSteps(meshes) {
 	const out = [];
-	CASCADES.forEach((c) => {
+	for (const c of CASCADES) {
 		/** @type {Map<THREE.Material, { meshes: THREE.Mesh[], n: number }>} */
 		const bySide = new Map();
 		for (const o of meshes) {
 			if (!o.geometry?.attributes.position || seeThrough(Array.isArray(o.material) ? o.material[0] : o.material) || widthOf(o) < c.least) continue;
 			const corners = /** @type {Float32Array} */ (lowerOf(o.geometry, c.error / o.matrixWorld.getMaxScaleOnAxis()).attributes.position.array);
+			yield;
 			const mat = sideOf(Array.isArray(o.material) ? o.material[0] : o.material);
 			const e = bySide.get(mat) ?? { meshes: [], n: 0, corners: [] };
 			e.corners.push([corners, o.matrixWorld]);
@@ -288,7 +300,7 @@ export function standIns(meshes) {
 			s.receiveShadow = false;
 			out.push(s);
 		}
-	});
+	}
 	return out;
 }
 

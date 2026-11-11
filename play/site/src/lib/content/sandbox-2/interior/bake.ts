@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { standIns } from '$lib/content/sandbox-kit/casters.js'
+import { standIns, standInSteps } from '$lib/content/sandbox-kit/casters.js'
 
 /** Polar placement: angle 0 faces +z, clockwise to +x — the same sense as three's cylinders. */
 export const polar = (r: number, a: number): [number, number] => [r * Math.sin(a), r * Math.cos(a)]
@@ -125,8 +125,18 @@ export async function bakeSliced(group: THREE.Group, shadows: boolean, slice: ()
 			if (merged) out.add(bakedMesh(merged, mat))
 		}
 	await slice()
-	// what it casts: its pieces' stand-ins (../../sandbox-kit/casters.js), its own meshes casting nothing
-	if (shadows) for (const s of standIns(meshes)) out.add(s)
+	// what it casts: its pieces' stand-ins (../../sandbox-kit/casters.js), its own meshes casting nothing; lowered a
+	// mesh a step
+	if (shadows) {
+		const steps = standInSteps(meshes)
+		for (let r = steps.next(); ; r = steps.next()) {
+			if (r.done) {
+				for (const s of r.value) out.add(s)
+				break
+			}
+			await slice()
+		}
+	}
 	letGo(group)
 	return out
 }
