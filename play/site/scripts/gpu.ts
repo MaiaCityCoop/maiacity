@@ -235,8 +235,10 @@ export function readLoad(loads: { at: string; load: LoadFile }[], world: string,
 
 const BROWSERS: Record<string, [BrowserType, object]> = { chromium: [chromium, LAUNCH], webkit: [webkit, { headless: true }] };
 
-async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; stroll?: number; walk?: boolean; views?: (keyof typeof VIEWS)[]; sky?: boolean }): Promise<Measure> {
+async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; live?: boolean; stroll?: number; walk?: boolean; views?: (keyof typeof VIEWS)[]; sky?: boolean }): Promise<Measure> {
 	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, steps: [], settled_s: null, frames: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, walk_ms: null, walk_p95: null, walk_cpu: null, walk_gpu: null, painted: null, errors: [] };
+	// each step printed as it is taken too (--steps): a load that runs out of its job's time still says where it was
+	if (o.live) m.steps.push = (...xs: string[]) => (xs.forEach((x) => console.log(`    ${name}: ${x}`)), Array.prototype.push.apply(m.steps, xs));
 	let browser: Browser | undefined;
 	try {
 		browser = await BROWSERS[name][0].launch(BROWSERS[name][1]);
@@ -456,13 +458,13 @@ if (import.meta.main) {
 	console.log(`${world} on ${gpu} (${process.platform} ${process.arch}); pictures in ${out}`);
 	const measures: (Measure & { why: string[] })[] = [];
 	for (const b of browsers) {
-		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), stroll: num('--stroll'), walk: argv.includes('--walk') || argv.includes('--walk-within'), views: arg('--views') ? (arg('--views')!.split(',') as (keyof typeof VIEWS)[]) : undefined, sky: bounds.sky });
+		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), live: argv.includes('--steps'), stroll: num('--stroll'), walk: argv.includes('--walk') || argv.includes('--walk-within'), views: arg('--views') ? (arg('--views')!.split(',') as (keyof typeof VIEWS)[]) : undefined, sky: bounds.sky });
 		const why = judge(m, bounds);
 		measures.push({ ...m, why });
 		// its steps and every error the page said (each once, with how often), then its line last: a check's evidence
 		// keeps the tail of what it printed, so the line that decides it is never pushed out by what came before it
 		if (argv.includes('--steps')) {
-			for (const st of m.steps) console.log(`    ${st}`);
+			// (its steps were printed as they were taken)
 			const said = new Map<string, number>();
 			for (const e of m.errors) said.set(e, (said.get(e) ?? 0) + 1);
 			for (const [e, n] of said) console.log(`    error${n > 1 ? ` (${n} times)` : ''}: ${e}`);

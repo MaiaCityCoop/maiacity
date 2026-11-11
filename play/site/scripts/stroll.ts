@@ -11,8 +11,8 @@
 
 export type Pt = { x: number; z: number };
 /** a stroll's frames: each frame's end (ms from the stroll's start) and interval, the long tasks and the making spans */
-export type Trace = { at: number[]; dt: number[]; long: [number, number][]; spans: [string, number, number][] };
-export type StrollStats = { frames: number; seconds: number; max_ms: number; p99_ms: number; over50: number; over33_min: number; worst: string[] };
+export type Trace = { at: number[]; dt: number[]; long: [number, number][]; spans: [string, number, number][]; cut?: boolean };
+export type StrollStats = { frames: number; seconds: number; max_ms: number; p99_ms: number; over50: number; over33_min: number; worst: string[]; cut?: boolean };
 export type StrollBounds = { max?: number; p99?: number; perMinute?: number; overStanding?: number; standingP95?: number | null };
 
 /** the walker's own pace (sandbox-kit/walker.js PACE.walk), m/s */
@@ -99,7 +99,8 @@ export function statsOf(t: Trace): StrollStats {
 		p99_ms: r1(percentile(t.dt, 99)),
 		over50: t.dt.filter((d) => d > 50).length,
 		over33_min: over33,
-		worst
+		worst,
+		...(t.cut ? { cut: true } : {})
 	};
 }
 
@@ -107,7 +108,7 @@ export function statsOf(t: Trace): StrollStats {
 export function judgeStroll(label: string, s: StrollStats | null, b: StrollBounds): string[] {
 	if (b.max === undefined && b.p99 === undefined && b.perMinute === undefined && b.overStanding === undefined) return [];
 	if (!s || s.frames < 2) return [`the ${label} stroll drew no frames`];
-	const why: string[] = [];
+	const why: string[] = s.cut ? [`the ${label} stroll's page stopped drawing frames: it was ended a minute past its time`] : [];
 	if (b.max !== undefined && s.max_ms > b.max) why.push(`the ${label} stroll held a frame ${s.max_ms} ms (${s.over50} over 50 ms), more than ${b.max} ms`);
 	if (b.p99 !== undefined && s.p99_ms > b.p99) why.push(`the ${label} stroll's 99th percentile frame ${s.p99_ms} ms, more than ${b.p99} ms`);
 	// a walking frame against the same world's standing frames in the same load: on a machine slow at everything (GitHub's
@@ -158,7 +159,10 @@ export async function walkInPage({ route, seconds, pace }: { route: Pt[]; second
 		}
 	}
 	let yaw = where(0)[2];
-	await new Promise<void>((done) => {
+	await new Promise<void>((finish) => {
+		// a page that stops drawing frames ends its stroll all the same, a minute past its time, saying so
+		const cut = setTimeout(() => ((t.cut = true), finish()), (seconds + 60) * 1000);
+		const done = () => (clearTimeout(cut), finish());
 		let last = t0;
 		const each = (now: number) => {
 			const s = (now - t0) / 1000;

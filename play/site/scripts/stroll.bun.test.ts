@@ -71,6 +71,10 @@ test('a smooth stroll passes; a held frame, a heavy tail or a minute of hitches 
 	expect(judgeStroll('cold', statsOf(trace(60, 25)), b)).toEqual(['the cold stroll\'s 99th percentile frame 25 ms, more than 20 ms']);
 	expect(judgeStroll('cold', null, b)).toEqual(['the cold stroll drew no frames']);
 	expect(judgeStroll('cold', null, {})).toEqual([]);
+	// a page that stopped drawing frames fails, whatever its frames say
+	const stopped = trace(60, 16.7);
+	stopped.cut = true;
+	expect(judgeStroll('warm', statsOf(stopped), b)).toEqual(["the warm stroll's page stopped drawing frames: it was ended a minute past its time"]);
 	// against the world's standing frames: a slow machine's slowness passes, a stall out of it fails
 	const slow = statsOf(trace(60, 280, { 50: 900 }));
 	expect(judgeStroll('cold', slow, { overStanding: 2, standingP95: 1031 })).toEqual([]);
