@@ -167,6 +167,7 @@ export async function frameOf(o: { world: World; views?: ViewName[]; asset?: str
 			log(`census: ${name} drawn, by tree:\n${[...tally].sort((x, y) => y[1] - x[1]).slice(0, 110).map(([k, v]) => `  ${v}  ${k}`).join('\n')}`);
 		}
 		if (process.env.FRAME_PASSES) log(`census: ${name} buffers written in ${n} frames at rest, by buffer:\n${[...(gpu.fake.writesBy as Map<string, number>)].sort((x, y) => y[1] - x[1]).slice(0, 70).map(([k, v]) => `  ${v}  ${k}`).join('\n')}`);
+		if (process.env.FRAME_PASSES) log(`census: ${name} textures written in ${n} frames at rest:\n${[...(gpu.fake.textures as Map<string, { times: number; bytes: number }>)].sort((x, y) => y[1].bytes - x[1].bytes).slice(0, 15).map(([k, v]) => `  ${v.times} times, ${(v.bytes / 1e6).toFixed(2)} MB  ${k}`).join('\n')}`);
 		if (process.env.FRAME_PASSES) log(`census: ${name} what differed between a buffer's writes (float index: times; -1 nothing):\n${[...(gpu.fake.differs as Map<string, Map<number | string, number>>)].filter(([k]) => /_object_|UniformBuffer/.test(k)).sort((x, y) => [...y[1].values()].reduce((p, q) => p + q, 0) - [...x[1].values()].reduce((p, q) => p + q, 0)).slice(0, 14).map(([k, d]) => `  ${k}: ${[...d].sort((p, q) => q[1] - p[1]).slice(0, 12).map(([i, c]) => `${i}:${c}`).join(' ')}`).join('\n')}`);
 		// FRAME_PASSES=1: the last frame's passes, each its target and draws, and what the asset renderers say they draw
 		if (process.env.FRAME_PASSES) {

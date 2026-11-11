@@ -15,7 +15,7 @@ const LIMITS = { maxTextureDimension1D: 8192, maxTextureDimension2D: 8192, maxTe
 
 export function fakeGPU() {
 	const calls = new Map();
-	const state = { last: new Map(), differs: new Map(), bytes: 0, writes: /** @type {Map<object, number>} */ (new Map()), passes: /** @type {{ width: number, height: number, colors: number, draws: number }[]} */ ([]) };
+	const state = { textures: new Map(), last: new Map(), differs: new Map(), bytes: 0, writes: /** @type {Map<object, number>} */ (new Map()), passes: /** @type {{ width: number, height: number, colors: number, draws: number }[]} */ ([]) };
 	const hit = (name) => calls.set(name, (calls.get(name) ?? 0) + 1);
 	/** an object of the API: its own fields, and every other method counted under `kind.method`, answering `answer` */
 	const thing = (kind, own = {}, answer = () => undefined) =>
@@ -80,7 +80,16 @@ export function fakeGPU() {
 				state.last.set(b, now);
 			}
 		},
-		writeTexture() {},
+		writeTexture(dest, data, layout, size) {
+			// FRAME_PASSES=1: the texture's size and the bytes handed over, by texture
+			if (process.env.FRAME_PASSES) {
+				const t = dest?.texture, k = `texture ${t?.label || 'unnamed'} ${t?.width}x${t?.height}x${t?.depthOrArrayLayers} ${t?.format}`;
+				const n = data?.byteLength ?? 0;
+				const w = state.textures.get(k) ?? { times: 0, bytes: 0 };
+				w.times++, (w.bytes += n);
+				state.textures.set(k, w);
+			}
+		},
 		copyExternalImageToTexture() {},
 		submit() {},
 		onSubmittedWorkDone: async () => {}
@@ -140,6 +149,10 @@ export function fakeGPU() {
 		get buffersWritten() {
 			return state.writes.size;
 		},
+		/** FRAME_PASSES=1: the textures written since the last reset: by texture, times and bytes */
+		get textures() {
+			return state.textures;
+		},
 		/** FRAME_PASSES=1: per buffer label and size, which floats differed between one write and the next (-1: none), and how often */
 		get differs() {
 			return state.differs;
@@ -163,6 +176,7 @@ export function fakeGPU() {
 			state.bytes = 0;
 			state.writes.clear();
 			state.differs.clear();
+			state.textures.clear();
 		}
 	};
 }
