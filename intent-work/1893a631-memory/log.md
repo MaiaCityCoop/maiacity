@@ -14,6 +14,10 @@
 | 4 | the same | 5 | 3,904 | 1,120 | 210 | |
 | 4 | the same | 3 | 1,054 | 427 | 11 | |
 | 5 | at once at most 400,000 triangles: a few middling trees, never two great ones | 1 | 4,619 | 2,169 | 186 | kept. What is left of the peak at 46 s is the pool's builds in flight, seven trees at full detail at once: intent 7a6c3f1b's files (`box/pool.js`), and gone with the six trees' own levels (play's work) |
+| 5 | the same | 5 | 3,702 | 1,072 | 201 | |
+| 5 | the same | 3 | 1,080 | 435 | 11 | |
+| — | `bash play/avenbox/gate.sh site` on round 5 | | | | | green: the build, and its tests (38 pass, 0 fail) |
+| — | the dry run of intents-pr.yml (round 4's head) | | | | | the box job's memory checks failed at once: GitHub's run job has no site build and no Playwright browser. `memory.ts` now builds the site where there is none and installs Playwright's Chromium where it is missing (the `run`s stay as approved); tried with no build in a fresh worktree: built, then Sandbox 3 at 1,050 / 436 MB. The GPU job was cancelled by the next push (one concurrency group), so dispatched again |
 
 **The world shows later in the box than on main** (Sandbox 1 172 to 190 s against 132 s, Sandbox 5 179 to 210 s against 127 s): the cover waits up to two minutes for the plants near the start to settle (`village.ts`), and fewer shapes are made lighter at once. The box has 4 real cores told 8; a Mac has 8. Intent 405f7a85 changes that wait (the world shown once the kinds near its start stand). Not bounded by this intent's checks; Samuel's to weigh at Proposal.
 
