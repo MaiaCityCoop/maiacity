@@ -14,7 +14,8 @@
  * out of a door and you are in the village again, outside it.
  */
 import * as THREE from 'three'
-import { DOMES, DOORS, adiff, bake, box, breath, geodesic, glassSheen, lantern, mats, mountInterior, polar, portal, sofa, table, type DomeKind, type EmbeddedDome } from './interior'
+import { bake, box, breath, glassSheen, lantern, mats, mountInterior, polar, portal, sofa, table, type EmbeddedDome } from './interior'
+import { DOMES, DOORS, adiff, geodesic, type DomeKind } from './shell'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
 import { water } from './textures'
 import { groundMaterial } from '$lib/content/biomes'
