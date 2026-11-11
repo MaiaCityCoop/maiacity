@@ -14,13 +14,14 @@ import { FIRST_RULE, RULES_DOC, RULES_V1, matchRule, type Rule } from "../src/ru
 import { fakeGitHub, green, REPO, sha } from "./fixtures/github";
 import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
 import * as fx from "./fixtures/intents";
+import { LEVELS, OWNED } from "./fixtures/lod";
 
 const words = (k: number, w: string) => Array.from({ length: k }, () => w).join(" ");
 const SUMMARY = `## What it is\n\n${words(200, "artifact")}\n\n## Key points\n\n${Array.from({ length: 20 }, () => `- ${words(10, "point")}`).join("\n")}\n\n## The topic\n\n${words(193, "topic")}`;
 const ARTIFACT = (url: string, title = "A page kept with no tap", origin = "human") => ({ url, title, description: "A page Maia City keeps, added over MCP.", summary: SUMMARY, authors: [{ name: "Ann Author", kind: "person" }], kind: "page", origin });
 const SPEC = fx.spec("It is done.", "A test.");
 const BODY = { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] };
-const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
+const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n` + LEVELS;
 
 suite("auto-accept rules", () => {
   let f: Fresh, db: Db;
@@ -248,7 +249,7 @@ suite("auto-accept rules", () => {
     // any other kind: refused naming the declared kinds, nothing written
     const story = await tool("propose_story", { title: "Not an artifact", body: BODY, note: "v1", intent: only.id });
     expect(story.error).toContain(`declares its work as ${SCHEMA.artifact}`);
-    const asset = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Not an artifact", source: SOURCE("no"), note: "v1", intent: only.id });
+    const asset = await tool("propose_asset", { ...OWNED, group: "plants", label: "Not an artifact", source: SOURCE("no"), note: "v1", intent: only.id });
     expect(asset.error).toContain(`declares its work as ${SCHEMA.artifact}`);
     const pr = await tool("check_intent", { intent: only.id, pr: 4242, results: [{ check: "c1", pass: true, evidence: "exit 0", commit: sha(4242) }] });
     expect(pr.error).toContain(`declares its work as ${SCHEMA.artifact}`);

@@ -3,13 +3,20 @@
 // Every asset is drawn at four levels by one contract (play/site's renderer, lib/content/assets/render/): L0 its build,
 // L1 and L2 its recipe's own where it declares them (`module.exports.levels = [{ values }, …]`, the same recipe built
 // with those values), else derived from its build by simplifying it, and L3 its picture. A new version names which on
-// its card, `lod: { levels: 'declared' | 'derived', budgets? }`; a version from before the contract names none and is
+// its card, `lod: { levels: 'declared' | 'derived', budgets?, tris? }`; a version from before the contract names none and is
 // read as derived (`lodOf`): no migration.
+//
+// **Its own levels, within the ceiling** (intent a7507347; Samuel 2026-11-11): a new asset, or a version whose source
+// changed, declares its levels (none left to be derived on a visitor's device) and carries the triangles of its finest
+// shape, `lod.tris`, at most `CEILING`: fewer, better-spent triangles, never a poorer asset. play runs no code, so the
+// number is its proposer's claim, refused here where it already breaks the rule and proven where the asset is built:
+// in avenBOX, by play/site/scripts/census/ceiling.ts, which counts every stage and variant and fails a card claiming
+// less than it has. A version that changes its card alone is held as before.
 //
 // play runs no code, so a recipe's declared levels are read here from its source as a plain literal (`levelsIn`) and
 // written onto the card (`lod.values`), where the page reads them before it builds anything, as it reads its params.
 
-export type Lod = { levels: "declared" | "derived"; budgets?: number[]; values?: Record<string, string | number>[] };
+export type Lod = { levels: "declared" | "derived"; budgets?: number[]; tris?: number; values?: Record<string, string | number>[] };
 
 export class LodError extends Error {}
 
@@ -17,6 +24,14 @@ export class LodError extends Error {}
 const KEY = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/;
 /** how many levels a recipe may declare: L1 and L2 (L0 is its build, L3 its picture) */
 export const DECLARED_MOST = 2;
+/**
+ * The most triangles an asset's finest shape (L0, its build) may have, at any stage and variant. One ceiling for every
+ * kind today, asked only through `ceilingOf`: a ceiling by kind is later decided there, and nowhere else.
+ */
+export const CEILING = 300_000;
+/** the ceiling an asset of `group` is held to (every group the same, for now) */
+export const ceilingOf = (_group?: string): number => CEILING;
+const thousands = (n: number) => n.toLocaleString("en-US");
 
 /** the levels a card names: its own `lod`, or, a version from before the contract, derived */
 export function lodOf(card: any): Lod {
@@ -27,16 +42,20 @@ export function lodOf(card: any): Lod {
 
 /** a card's `lod` as given, checked for shape; throws saying what is wrong */
 export function lodGiven(v: unknown): Lod {
-  if (!v || typeof v !== "object" || Array.isArray(v)) throw new LodError("lod is an object: { levels: 'declared' | 'derived', budgets? }.");
-  const { levels, budgets, values, ...rest } = v as any;
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new LodError("lod is an object: { levels: 'declared' | 'derived', budgets?, tris? }.");
+  const { levels, budgets, tris, values, ...rest } = v as any;
   const extra = Object.keys(rest);
-  if (extra.length) throw new LodError(`lod names only levels and budgets, not ${extra.join(", ")}.`);
-  if (levels !== "declared" && levels !== "derived") throw new LodError("lod.levels is 'declared' (its recipe's own, module.exports.levels) or 'derived' (simplified from its build).");
+  if (extra.length) throw new LodError(`lod names only levels, budgets and tris, not ${extra.join(", ")}.`);
+  if (levels !== "declared" && levels !== "derived") throw new LodError("lod.levels is 'declared' (its recipe's own, module.exports.levels) or 'derived' (simplified from its build: only where its source is its head's).");
   const out: Lod = { levels };
   if (budgets !== undefined) {
     if (!Array.isArray(budgets) || budgets.length > 4 || budgets.some((b) => !Number.isSafeInteger(b) || b < 1))
       throw new LodError("lod.budgets is a list of at most four triangle counts (whole numbers above 0), L0 first.");
     out.budgets = budgets;
+  }
+  if (tris !== undefined) {
+    if (!Number.isSafeInteger(tris) || tris < 1) throw new LodError("lod.tris is the triangle count of its finest shape (a whole number above 0), the most over every stage and variant it has.");
+    out.tris = tris;
   }
   // (values are read from the source, never taken as given: see `heldLod`)
   void values;
@@ -58,15 +77,30 @@ export function levelsIn(source: string): unknown[] | null {
 /**
  * A version's card's `lod` held to its source: given (refused without), its shape checked, and a declared one's levels
  * read from the source and written as `values`; a derived one's source declares none. `params`, the ids of the
- * parameters its card declares, which a level's values name.
+ * parameters its card declares, which a level's values name. `touched` (a new asset, or a source its head was not
+ * accepted with): its levels are its own and its finest shape's count is on its card, within the ceiling of its `group`.
  */
-export function heldLod(given: unknown, source: string, params: string[], what = "A new asset version"): Lod {
+export function heldLod(given: unknown, source: string, params: string[], what = "A new asset version", { touched = false, group }: { touched?: boolean; group?: string } = {}): Lod {
   if (given === undefined || given === null)
     throw new LodError(
-      `${what} names its levels of detail on its card: lod = { levels: 'declared' } when its recipe declares its own (module.exports.levels = [{ values }, …], L1 and L2), else { levels: 'derived' } (L1 and L2 simplified from its build, L3 its picture).`,
+      `${what} names its levels of detail on its card: lod = { levels: 'declared' } with its recipe's own (module.exports.levels = [{ values }, …], L1 and L2) and, where its source is new or changed, tris, its finest shape's triangle count; only a version that changes its card alone may stay { levels: 'derived' } (L1 and L2 simplified from its build, L3 its picture).`,
     );
   const lod = lodGiven(given);
   const declared = levelsIn(source);
+  if (touched) {
+    const most = ceilingOf(group);
+    const missing: string[] = [];
+    if (lod.levels !== "declared" || !declared)
+      missing.push("its own lighter levels (lod.levels 'declared', its source exporting module.exports.levels = [{ values: { … } }, …]: L1 and L2 built by its own recipe, none left to be derived on a visitor's device)");
+    if (lod.tris === undefined) missing.push(`its finest shape's triangle count on its card (lod.tris, at most ${thousands(most)}: count it with bun play/site/scripts/census/ceiling.ts --intent <the intent's UUID>)`);
+    const over = lod.tris !== undefined && lod.tris > most;
+    if (over || missing.length)
+      throw new LodError(
+        `${what} changes its source, so it carries its own levels of detail and stays within ${thousands(most)} triangles at its finest.` +
+          (over ? ` Its finest shape has ${thousands(lod.tris!)} triangles, ${thousands(lod.tris! - most)} over: spend fewer, better (cut-out foliage, instanced parts, detail where the eye rests), never a poorer asset.` : "") +
+          (missing.length ? ` Missing: ${missing.join("; ")}.` : ""),
+      );
+  }
   if (lod.levels === "derived") {
     if (declared) throw new LodError("Its source declares its own levels (module.exports.levels): name them with lod.levels 'declared'.");
     return lod;

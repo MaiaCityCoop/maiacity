@@ -10,6 +10,7 @@ import { hashText } from "../../src/kit/hash";
 import type { Db } from "../../src/kit/pg";
 import { proposeDocVersion } from "../../src/versioned";
 import "../../src/allkinds";
+import { DETAIL, LEVELS, OWN } from "./lod";
 
 
 /** about `kb` KB of motion-capture-like data, as readable lines (a frame a line) */
@@ -27,7 +28,7 @@ const pieceSource = (label: string, below: string[], kb: number, n = 0) =>
 
 /** a host's source: an asset requiring pieces by hash */
 const hostSource = (label: string, pieces: string[], kb: number) =>
-  `// ${label}\n${pieces.map((p, i) => `const p${i} = require("${p}");\n`).join("")}const pose = [\n${motion(label.length * 7, kb)}\n];\nmodule.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant }, build() { return pose.length + ${pieces.length ? "p0.depth" : "0"}; } };\n};\n`;
+  `// ${label}\n${pieces.map((p, i) => `const p${i} = require("${p}");\n`).join("")}const pose = [\n${motion(label.length * 7, kb)}\n];\nmodule.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant }, build() { return pose.length + ${pieces.length ? "p0.depth" : "0"}; } };\n};\n${LEVELS}`;
 
 /** an intent in Build, its spec approved and its one must check passed: what takes work */
 async function building(db: Db, author: string, title: string) {
@@ -75,7 +76,7 @@ export async function heavy(db: Db, store: BlobStore, author: string, o: { title
   for (let h = 0; h < o.hosts; h++) {
     const label = o.hostLabels?.[h] ?? `Host ${h + 1}`;
     const req = [tops[h % tops.length].hashes.at(-1)!];
-    const a = await proposeAsset(db, store, await me(), { card: { lod: { levels: "derived" } }, new: { group: "actors", label }, note: `${label}, a host`, source: hostSource(label, req, o.kb), intent });
+    const a = await proposeAsset(db, store, await me(), { card: { lod: OWN, params: DETAIL }, new: { group: "actors", label }, note: `${label}, a host`, source: hostSource(label, req, o.kb), intent });
     out.hosts.push({ asset: a.asset, label, version: a.version });
   }
   return out;

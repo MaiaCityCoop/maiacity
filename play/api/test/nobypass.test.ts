@@ -8,11 +8,12 @@ import { seedDoc } from "../src/versioned";
 import { RULE, SCHEMA } from "../src/kit/ids";
 import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 import * as fx from "./fixtures/intents";
+import { LEVELS, OWNED } from "./fixtures/lod";
 
 /** the tools that only read: everything else tools/list holds is called below */
 const READS = ["list_assets", "get_asset", "get_file", "list_docs", "doc_at", "doc_history", "doc_changes", "list_sandboxes", "get_sandbox", "list_stories", "get_story", "list_intents", "get_intent", "list_artifacts", "get_artifact", "list_authors", "get_author", "list_library", "delivery"];
 
-const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
+const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n` + LEVELS;
 const SPEC = fx.spec("Nothing passes the Accept.", "Every write path.");
 const words = (k: number, w: string) => Array.from({ length: k }, () => w).join(" ");
 const SUMMARY = `## What it is\n\n${words(200, "artifact")}\n\n## Key points\n\n${Array.from({ length: 20 }, () => `- ${words(10, "point")}`).join("\n")}\n\n## The topic\n\n${words(193, "topic")}`;
@@ -62,7 +63,7 @@ suite("no write past an Accept", () => {
     await seedDoc(db, "factory", { id: F, json: { schema: "factory/1", label: "A line", line, parts: [] }, note: "v1" });
     await seedDoc(db, "game_config", { id: L, json: { schema: "levels/1", label: "Levels", villager: { euros: 1, hearts: 1 }, minds: { heartsPerMind: 1, step: 1, heartsPerEuro: 1 }, levels: [{ id: "l1", villagers: 1, phase: "tents", investor: 0, unlocks: [] }] }, note: "v1" });
     await seedDoc(db, "skill", { id: K, json: { schema: "skill/1", label: "A skill", group: "tests", system: "Say it." }, note: "v1" });
-    const asset = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "A fern", source: SOURCE("a fern"), note: "v1", intent: await readyIntent("A fern") });
+    const asset = await tool("propose_asset", { ...OWNED, group: "plants", label: "A fern", source: SOURCE("a fern"), note: "v1", intent: await readyIntent("A fern") });
     await call("ada", "POST", `/api/intents/${asset.intent}/accept`);
     const body = { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] };
     const story = await tool("propose_story", { title: "A film", body, note: "v1", intent: await readyIntent("A film") });
@@ -86,7 +87,7 @@ suite("no write past an Accept", () => {
 
     // every tool that is not a read, called with work it takes
     const CALLS: Record<string, Record<string, unknown>> = {
-      propose_asset: { lod: { levels: "derived" }, group: "plants", label: "A second fern", source: SOURCE("a second fern"), note: "a new asset", intent: forWork.propose_asset },
+      propose_asset: { ...OWNED, group: "plants", label: "A second fern", source: SOURCE("a second fern"), note: "a new asset", intent: forWork.propose_asset },
       doc_edit: { doc: F, intent: ready, message: "more demand", edits: [{ op: "set", path: ["line", "demand", "perDay"], value: 12 }] },
       propose_doc_version: { doc: L, note: "more euros", edits: [{ op: "set", path: ["villager", "euros"], value: 2 }], intent: forWork.propose_doc_version },
       propose_story: { title: "A second film", body, note: "a new story", intent: forWork.propose_story },

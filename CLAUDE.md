@@ -151,7 +151,13 @@ source, card and variants, its history made from its versions (and the work kept
 `play/api/import/history`); an agent makes an asset's change edit by edit with `doc_edit` (a replace by its text, a
 range, a card field, each edit with its message), reads it with `doc_history` and `get_asset`'s `edit` or `intent`, and
 proposes it with `propose_doc_version`, its edits shown on the intents' board; admins play an asset's making in its
-History tab. A
+History tab. **An asset carries its own levels and stays within 300,000 triangles** (intent a7507347; play/SPEC.md
+§4.5): a new asset, or a version whose source changed, declares its lighter levels in its source (`lod.levels:
+'declared'`) and carries its finest shape's count on its card (`lod.tris`, at most 300,000 at every stage and variant),
+or play refuses it; the count is made and proven in avenBOX (`bun play/site/scripts/census/ceiling.ts --intent <the
+intent's UUID>`, a must of every intent that changes an asset's source), the assets outside the rule today named by
+UUID in `play/site/scripts/census/ceiling.known.json`, a list that only shrinks. Realism first: fewer, better-spent
+triangles, never a poorer asset. A
 **sandbox's layout** (which asset version and variant each slot draws, and any field of its configs: Sandbox 1's garden,
 where a thing stands) is a document too, `sandbox:<uuid>` (play/SPEC.md §4.6): `get_sandbox` reads it, `doc_edit`
 drafts a change in an intent variant with its helpers (`pin`, `pin_latest`, `unpin`, `set`, `delete`) and
