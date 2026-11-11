@@ -150,3 +150,11 @@ Sandbox 1 and stays as approved.
 
 Every change is looked at in the box's sky-alone harness: one engine, under a minute. The runner's two-engine check
 is not a loop: once per finished head.
+
+## Round 12 · a field, not a few big clouds (00:15)
+
+The first octave's cells a little smaller (freq 0.5 → 0.8): more clouds across the sky, rows of small ones flattening
+toward the horizon as a real field of fair-weather cumulus does. `box/round12.png`, `box/round12-phone.png` (390 ×
+844: dawn, noon, dusk, night). Against the references: the noon picture at a phone's size is the closest yet (lobed
+white tops, grey undersides, rows into the haze); dawn and dusk read as rose cumulus but stay evenly tinted; night is
+right in kind (dark shapes hiding stars). Still one layer, no parallax.
