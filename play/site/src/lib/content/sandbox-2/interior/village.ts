@@ -33,7 +33,7 @@ import { flow, pond, shore, stream } from './water'
 import { createWorldRenderer, worldFinish } from '$lib/content/render/world.js'
 import { createSky, SUN } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
-import { spanned } from '$lib/content/render/making.js'
+import { renderParts, spanned } from '$lib/content/render/making.js'
 import { castBySize, ready as standInsReady } from '$lib/content/sandbox-kit/casters.js'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
@@ -1504,7 +1504,10 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			finish.render()
 			;(renderer as unknown as { drawWhenReady: boolean }).drawWhenReady = false
 		}
+		renderParts(at)
 		part('render')
+		// the whole frame's own work: what a slow frame took beyond it was done outside it (a worker's answer, a build's step)
+		spanned('frame', now)
 		// keep it smooth; while a film is shot every frame is rendered at the resolution it asks for
 		stage.adapt(now, filmHoldsSize())
 		frame = requestAnimationFrame(tick)

@@ -153,3 +153,39 @@ export function drawWhenReady(renderer) {
 		}
 	};
 }
+
+/** three's own steps inside a draw, timed (`timeRender`): each kind's milliseconds this frame */
+const inside = new Map();
+/**
+ * A renderer's own steps inside its draw timed by kind, so a slow `make:render` says which (intent 095bc67c): `objects`
+ * (a new object's node material built, its shader code written), `uploads` (its corners sent), `bindings` (its uniforms
+ * and textures sent), `pipelines` (its shader modules and pipeline made). Each kind's frame total is named by
+ * `renderParts`.
+ * @param {any} renderer
+ */
+export function timeRender(renderer) {
+	if (renderer.__timed) return;
+	renderer.__timed = true;
+	const wrap = (/** @type {any} */ o, /** @type {string} */ method, /** @type {string} */ kind) => {
+		if (!o?.[method]) return;
+		const was = o[method].bind(o);
+		o[method] = (/** @type {any[]} */ ...a) => {
+			const t = performance.now();
+			try {
+				return was(...a);
+			} finally {
+				inside.set(kind, (inside.get(kind) ?? 0) + performance.now() - t);
+			}
+		};
+	};
+	wrap(renderer._objects, 'get', 'objects');
+	wrap(renderer._geometries, 'updateForRender', 'uploads');
+	wrap(renderer._bindings, 'updateForRender', 'bindings');
+	wrap(renderer._pipelines, 'getForRender', 'pipelines');
+	wrap(renderer._textures, 'updateTexture', 'textures');
+}
+/** this frame's steps inside the draw named, each `make:render <kind>` laid from `start` (where it took 2 ms or more), and cleared */
+export function renderParts(/** @type {number} */ start) {
+	for (const [kind, ms] of inside) named(`render ${kind}`, start, start + ms);
+	inside.clear();
+}
