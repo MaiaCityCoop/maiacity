@@ -126,6 +126,8 @@ export const making = createMaking();
 let compiling = 0;
 /** the most pipelines compiled beside the page at once */
 export const COMPILING = 2;
+/** the most compiled at once while the eye stands */
+export const STANDING = 6;
 /** how many pipelines are being compiled beside the page: a world is not settled while any is (../../../../scripts/lib/quiet.js) */
 export const pipelinesPending = () => compiling;
 if (typeof window !== 'undefined') /** @type {any} */ (window).__pipelinesPending = pipelinesPending;
@@ -151,9 +153,10 @@ export function drawWhenReady(renderer) {
 		// a few at a time: WebKit's graphics process compiles them, and with all a walk meets at once it presented no
 		// frame for seconds (GitHub's runner at 1d74348: 3.3 s frames whose page's own work was 0.5 s). One with none
 		// yet waits its turn, not drawn (three's own while a pipeline compiles); one being remade goes on
-		// only while the eye moves (`renderer.compileFew`): standing (a world just opened), all compile at once, so
-		// what is there is drawn as soon as it can be
-		if (renderer.compileFew && compiling >= COMPILING && pipelines.get(renderObject).pipeline === undefined) return;
+		// fewer while the eye moves (`renderer.compileFew`); standing (a world just opened) more, so what is there is
+		// drawn soon. Never all at once: with every new buffer written beside them, WebKit's graphics process gave out
+		// (GitHub's runner at 843e7ac: "Unable to make command encoder", the page drawing nothing)
+		if (compiling >= (renderer.compileFew ? COMPILING : STANDING) && pipelines.get(renderObject).pipeline === undefined) return;
 		/** @type {Promise<void>[]} */
 		const made = [];
 		pipelines.getForRender(renderObject, made);

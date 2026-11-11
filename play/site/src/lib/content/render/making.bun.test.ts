@@ -8,7 +8,7 @@ import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { COMPILING, SLICE, createMaking, drawWhenReady, pipelinesPending, writeOnUnmap } from './making.js';
+import { COMPILING, SLICE, STANDING, createMaking, drawWhenReady, pipelinesPending, writeOnUnmap } from './making.js';
 
 /** a page whose clock and frames the test drives: work moves the clock; each frame's making is kept */
 function page() {
@@ -205,12 +205,12 @@ test('while the eye moves, a few pipelines compile at once: a new object waits i
 	expect(pipelinesPending()).toBe(0);
 });
 
-test('standing still, every new pipeline compiles at once: a world just opened is drawn as soon as it can be', async () => {
+test('standing still, more compile at once (a world just opened is drawn soon), never all', async () => {
 	const { renderer, asked, ready } = fakeRenderer();
 	drawWhenReady(renderer);
 	renderer.drawWhenReady = true;
-	for (let i = 0; i < COMPILING + 3; i++) renderer._pipelines.updateForRender({});
-	expect(asked.length).toBe(COMPILING + 3);
+	for (let i = 0; i < STANDING + 3; i++) renderer._pipelines.updateForRender({});
+	expect(asked.length).toBe(STANDING);
 	for (const r of ready) r();
 	await Promise.resolve();
 	await Promise.resolve();
