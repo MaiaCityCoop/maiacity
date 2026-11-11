@@ -166,6 +166,39 @@ describe('stand-ins', () => {
 		});
 	});
 
+	it('stand-in: a rigged caster is drawn into the far cascade only while its shadow can reach that cascade\'s slice', () => {
+		const sun = new SunLight();
+		seeStandIns(sun.shadow);
+		// the far cascade's receivers from 70 m of the view's depth on, the sun 45° high
+		sun.shadow._cascadeData[1].set(70, 300, 280, 0);
+		const far = sun.shadow.getCamera(1);
+		far.position.set(0, 100, 100);
+		far.lookAt(0, 0, 0);
+		far.updateMatrixWorld();
+		const skinned = (z) => {
+			const g = new THREE.BoxGeometry(1, 1, 1);
+			const m = new THREE.SkinnedMesh(g, new THREE.MeshStandardMaterial());
+			m.bind(new THREE.Skeleton([new THREE.Bone()]));
+			m.position.set(0, 0.5, z);
+			m.castShadow = true;
+			return m;
+		};
+		const scene = new THREE.Scene(), near = skinned(-10), farOff = skinned(-150);
+		scene.add(near, farOff);
+		scene.updateMatrixWorld();
+		castBySize(scene, cameraAt(0, 0));
+		expect([near, farOff].map((o) => o.userData.castsFar)).toEqual([false, true]);
+		// its shadow pass in the far cascade draws none of the near one, the near cascade all of it, and nothing is lost after
+		const n = near.geometry.drawRange.count;
+		near.onBeforeShadow(null, near, far);
+		expect(near.geometry.drawRange.count).toBe(0);
+		near.onAfterShadow();
+		expect(near.geometry.drawRange.count).toBe(n);
+		near.onBeforeShadow(null, near, sun.shadow.getCamera(0));
+		expect(near.geometry.drawRange.count).toBe(n);
+		near.onAfterShadow();
+	});
+
 	it('stand-in: the shadows are drawn again once the eye has moved 2 m or turned 2°, not before', () => {
 		const eye = new THREE.Vector3(), look = new THREE.Vector3(0, 0, -1);
 		const turned = (deg) => look.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(deg));

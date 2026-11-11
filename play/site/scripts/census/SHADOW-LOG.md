@@ -66,3 +66,16 @@ cascades, plus a flock of sheep (275 k, skinned: left as they are).
 Head after round 4 (shadow / picture, the box): Sandbox 1 near 1.73 M / 3.84 M, mid 3.01 M / 5.96 M, far 0.40 M /
 1.55 M; Sandbox 5 near 2.01 M / 4.79 M, mid 2.04 M / 5.21 M, far 0.44 M / 2.19 M. Against main in the same run:
 Sandbox 1 near −74 %, mid −55 %; Sandbox 5 near −61 %, mid −55 %, far −77 %; the picture the same to the triangle.
+
+## Round 5: the domes landed (92fbecea), and the flocks
+
+Main took the domes at their levels: the bake moved to `sandbox-2/interior/bake.ts` (the stand-ins went with it) and
+the domes' insides no longer cast at mid, so main's Sandbox 1 mid frame fell to 8.41 M and this head's 6.51 M was
+only 22.6 % under it (c4 asks 25 %). What was left at mid: the asset renderer's trees, cast only where they reach
+(round 3), and four flocks of sheep, rigged, drawn whole into both cascades (477 k).
+
+- **A rigged caster is left out of the far cascade's pass while its shadow cannot reach that cascade's slice**
+  (`casters.js reachOf`, the round 3 rule for what moves its own shape: its draw range none for that pass only). The
+  near flocks no longer cast into the far cascade. Sandbox 1 mid: **6.51 M → 6.27 M** (main 8.41 M: −25.4 %), near
+  4.68 M (main 9.43 M: −50.3 %), the picture the same. **Kept.**
+- `shell.test.ts` (the domes') counts the triangles a dome's picture draws: a shadow's stand-ins are the sun's alone.

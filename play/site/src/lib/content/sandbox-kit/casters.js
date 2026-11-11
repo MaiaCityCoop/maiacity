@@ -72,7 +72,10 @@ export function castBySize(root, camera) {
 		if (casts !== o.castShadow) (o.castShadow = casts), (changed = true);
 	};
 	root.traverseVisible((/** @type {any} */ o) => {
-		if (!o.isMesh || o.isSkinnedMesh || o.morphTargetInfluences?.length || !o.geometry?.attributes?.position) return;
+		if (!o.isMesh || !o.geometry?.attributes?.position) return;
+		// a rigged one moves its own shape, so it casts itself: only into the cascades its shadow can reach
+		if (o.isSkinnedMesh) return void (o.castShadow && reachOf(o, camera));
+		if (o.morphTargetInfluences?.length) return;
 		const made = (o.userData.casts ??= o.castShadow);
 		if (!made) return;
 		// a caster met for the first time is cast by its stand-ins, unless its renderer draws its shadow itself
@@ -155,6 +158,41 @@ export function seeStandIns(shadow) {
 		// renderer that draws its own shadows leaves out what cannot reach it (../assets/render/index.js `castersFirst`)
 		camera.userData.slice = shadow._cascadeData?.[i];
 	});
+	sun = shadow;
+}
+
+/** the sun's shadow whose cascades see the stand-ins (`seeStandIns`): one a page */
+let sun = /** @type {any} */ (null);
+const _ahead = new THREE.Vector3(), _light = new THREE.Vector3(), _at = new THREE.Vector3();
+/**
+ * Whether rigged `o`'s shadow can reach the far cascade's slice of the view from `camera` (its receivers begin some
+ * 70 m out): its ball, with its longest shadow (its ball's width and half again over the sun's slope). One that cannot
+ * is left out of that cascade's pass (its draw range none, for that pass only), as the asset renderer leaves its copies
+ * (../assets/render/index.js `castersFirst`). @param {any} o @param {THREE.PerspectiveCamera} camera
+ */
+function reachOf(o, camera) {
+	const far = sun?.getCamera?.(1), slice = far?.userData.slice;
+	if (!slice) return;
+	far.getWorldDirection(_light);
+	const slope = -_light.y > 0.05 ? 1 + 3 / Math.tan(Math.asin(-_light.y)) : Infinity;
+	const b = o.geometry.boundingSphere ?? (o.geometry.computeBoundingSphere(), o.geometry.boundingSphere);
+	// a rigged shape's ball is its bind pose's: taken half again for the poses it moves through
+	const radius = b.radius * o.matrixWorld.getMaxScaleOnAxis() * 1.5;
+	const d = _at.copy(b.center).applyMatrix4(o.matrixWorld).sub(camera.getWorldPosition(_ahead)).dot(camera.getWorldDirection(_ahead));
+	o.userData.castsFar = d + radius * slope >= slice.x;
+	if (o.userData.reach) return;
+	o.userData.reach = true;
+	let held = -1;
+	o.onBeforeShadow = (r, x, shadowCamera) => {
+		if (o.userData.castsFar || !shadowCamera?.layers?.isEnabled(CASCADES[1].layer)) return;
+		held = o.geometry.drawRange.count;
+		o.geometry.drawRange.count = 0;
+	};
+	o.onAfterShadow = () => {
+		if (held < 0) return;
+		o.geometry.drawRange.count = held;
+		held = -1;
+	};
 }
 
 /** triangles at or under which a piece is its own stand-in: simplifying it saves nothing worth the work */
