@@ -64,3 +64,31 @@ never had its turn. Round 2 answers it in `gpu.ts`.
 - **`gpu.ts` brings every browser's world up at once, then measures each alone** (the others' frames held), and
   settles for 30 s at most (60 before): so two engines fit in a check's 600 s. A time to the world is now a time
   beside the other browser, longer than alone; frame times are still one browser at a time.
+
+## Round 3: what is written to the graphics card every frame though nothing changed
+
+How it was found: `FRAME_PASSES=1 bun play/site/scripts/census.ts --frame --world sandbox-5 --view near` now prints
+the buffers written a frame by buffer, and for each, which of its floats differ from the last write. Standing still in
+Sandbox 5, 567 buffers were written a frame. Two causes:
+
+- **The wind's clock and the cover's eye were each drawing's own.** Every swaying plant's and every piece of cover's
+  per-drawing buffer was written again every frame, only for the wind's time and the eye's place (the same few
+  floats in every one). They are the world's and now sit in three's one shared buffer (`renderGroup`), sent once a
+  frame (`render/wind.js`, `render/nodes/index.js`). box, Sandbox 5 near: buffers written 567 → 432 standing,
+  1,248 → 932 walking; calls 5,941 → 5,471 standing. Same values in the shaders, read from another buffer. **Kept.**
+- **A crowd's places were sent whole every frame** (`crowd.js`, `instanceMatrix.needsUpdate`). They now go through the
+  same sender as the forest's copies (`send.js`): only what moved. box: Sandbox 5 writes 432 → 420 standing;
+  walking within noise (989). **Kept.**
+
+Where the box stands after round 3 (vs main, Sandbox near view; standing / walking):
+
+| | draws | buffers written | WebGPU calls | JavaScript ms (the box's CPU) |
+|---|---|---|---|---|
+| Sandbox 1 main | 1,709 / 2,075 | 555 / 1,618 | 9,362 / 12,538 | 39 / 55 |
+| Sandbox 1 head | 849 / 1,079 | 443 / 1,303 | 6,630 / 8,925 | 27 / 41 |
+| Sandbox 5 main | 597 / 679 | 567 / 1,248 | 5,941 / 7,459 | 22 / 31 |
+| Sandbox 5 head | 597 / 715 | 420 / 989 | 5,455 / 6,921 | 19 / 33 |
+
+`gpu.ts --walk` now lets the world settle where the walk starts before it walks (what streams in round a new place is
+no part of a walk), and in Chromium profiles 5 s more of the walk and prints a walking frame's JavaScript by function
+(with `--steps`): the next rounds cut by what the runner's real browser says, not the box's.

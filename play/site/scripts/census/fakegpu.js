@@ -15,7 +15,7 @@ const LIMITS = { maxTextureDimension1D: 8192, maxTextureDimension2D: 8192, maxTe
 
 export function fakeGPU() {
 	const calls = new Map();
-	const state = { bytes: 0, writes: /** @type {Map<object, number>} */ (new Map()), passes: /** @type {{ width: number, height: number, colors: number, draws: number }[]} */ ([]) };
+	const state = { last: new Map(), differs: new Map(), bytes: 0, writes: /** @type {Map<object, number>} */ (new Map()), passes: /** @type {{ width: number, height: number, colors: number, draws: number }[]} */ ([]) };
 	const hit = (name) => calls.set(name, (calls.get(name) ?? 0) + 1);
 	/** an object of the API: its own fields, and every other method counted under `kind.method`, answering `answer` */
 	const thing = (kind, own = {}, answer = () => undefined) =>
@@ -61,6 +61,24 @@ export function fakeGPU() {
 			const n = size ?? data?.byteLength ?? 0;
 			state.bytes += n;
 			state.writes.set(b, (state.writes.get(b) ?? 0) + 1);
+			// FRAME_PASSES=1: which floats of a buffer differ from what was last written to it, by its label and size
+			if (process.env.FRAME_PASSES && (_o || _from)) {
+				// a part of it written: which floats (from, count), by its label and size
+				const k = `${b.label} ${b.size}`, d = state.differs.get(k) ?? state.differs.set(k, new Map()).get(k);
+				const span = `part ${_o / 4}+${n / 4}`;
+				d.set(span, (d.get(span) ?? 0) + 1);
+			}
+			if (process.env.FRAME_PASSES && data && ArrayBuffer.isView(data) && !_o) {
+				const now = new Float32Array(data.buffer.slice(data.byteOffset, data.byteOffset + (n & ~3)));
+				const was = state.last.get(b);
+				if (was && was.length === now.length) {
+					const k = `${b.label} ${b.size}`, d = state.differs.get(k) ?? state.differs.set(k, new Map()).get(k);
+					let any = false;
+					for (let i = 0; i < now.length; i++) if (now[i] !== was[i] && !(Number.isNaN(now[i]) && Number.isNaN(was[i]))) (any = true), d.set(i, (d.get(i) ?? 0) + 1);
+					if (!any) d.set(-1, (d.get(-1) ?? 0) + 1);
+				}
+				state.last.set(b, now);
+			}
 		},
 		writeTexture() {},
 		copyExternalImageToTexture() {},
@@ -122,6 +140,19 @@ export function fakeGPU() {
 		get buffersWritten() {
 			return state.writes.size;
 		},
+		/** FRAME_PASSES=1: per buffer label and size, which floats differed between one write and the next (-1: none), and how often */
+		get differs() {
+			return state.differs;
+		},
+		/** the writes since the last reset by what was written: a buffer's label, size and usage → times */
+		get writesBy() {
+			const by = new Map();
+			for (const [b, n] of state.writes) {
+				const k = `${b.label || 'unnamed'} ${b.size} bytes, usage ${b.usage}`;
+				by.set(k, (by.get(k) ?? 0) + n);
+			}
+			return by;
+		},
 		/** every render pass begun since the last reset: its target's size, its colour targets, its draws */
 		get passes() {
 			return state.passes;
@@ -131,6 +162,7 @@ export function fakeGPU() {
 			calls.clear();
 			state.bytes = 0;
 			state.writes.clear();
+			state.differs.clear();
 		}
 	};
 }

@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { blend, playerOf, poser } from '../clips.js';
+import { sender } from './send.js';
 
 export { blend };
 
@@ -136,6 +137,9 @@ export function oneRunPerMaterial(g, material) {
 	runsMerged.set(g, out);
 	return out;
 }
+
+/** a coat's places sent to the graphics card only where they changed */
+const send = sender();
 
 const nearer = (/** @type {{ d2: number }} */ a, /** @type {{ d2: number }} */ b) => a.d2 - b.d2;
 
@@ -342,9 +346,9 @@ export function crowd(refs, counts, o) {
 				// a coat none of which stands afar this frame is not drawn at all: three sends a draw for each of its
 				// materials even at a count of 0 (intent 0356b0ea: 483 of Sandbox 1's 1,700 draws a frame)
 				mesh.visible = slot[c] > 0;
-				if (mesh.count === slot[c] && !slot[c]) continue;
 				mesh.count = slot[c];
-				mesh.instanceMatrix.needsUpdate = true;
+				// sent only where an animal moved: a coat at rest sends nothing (./send.js)
+				if (slot[c]) send(mesh.instanceMatrix, slot[c] * 16);
 			}
 		}
 	};
