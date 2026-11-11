@@ -331,6 +331,8 @@ export function createAssets(o) {
 			lv.promise = made.then(
 				async (out) => {
 					lv.level = out[n];
+					// its materials are its build's: held by it too, so they stay while it is drawn (`evict`)
+					lv.mats = presets.hold(lv.level);
 					// made here by simplifying, or read from this device's cache, made once before (./levels.js)
 					lv.from = out[n].kept ? 'kept' : 'made';
 					// nothing taken away (a kiosk of sixty triangles): drawn as the level it was made from
