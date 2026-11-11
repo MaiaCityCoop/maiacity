@@ -148,10 +148,10 @@ export function createKept(o) {
 		/**
 		 * The levels of `source` (a build's, named `build`) each plan asks for, each read from this device's cache by its
 		 * key, else made by the simplifier (together, its corners welded once for all) and kept. `later`: as
-		 * ./lower.js's. In the order of `plans`.
-		 * @param {string} build @param {import('./prepare.js').Level} source @param {{ L: number, plan: object }[]} plans @param {boolean} [later]
+		 * ./lower.js's, and `rank`. In the order of `plans`.
+		 * @param {string} build @param {import('./prepare.js').Level} source @param {{ L: number, plan: object }[]} plans @param {boolean} [later] @param {(() => number) | null} [rank]
 		 */
-		async lower(build, source, plans, later = false) {
+		async lower(build, source, plans, later = false, rank = null) {
 			const keys = plans.map(({ L, plan }) => levelKey(build, L, plan));
 			const got = await Promise.all(keys.map(read));
 			const out = new Array(plans.length);
@@ -166,7 +166,7 @@ export function createKept(o) {
 				} else missing.push(i);
 			});
 			if (missing.length) {
-				const making = o.lowering.lower(source, missing.map((i) => plans[i].plan), later, true);
+				const making = o.lowering.lower(source, missing.map((i) => plans[i].plan), later, true, rank);
 				// (made by another renderer: waited for as this one's own work, so its world is not settled before it comes)
 				if (!o.mine) counted.awaited++, making.then(() => counted.awaited--, () => counted.awaited--);
 				const made = await making;
