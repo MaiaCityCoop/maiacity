@@ -10,4 +10,11 @@
 | 3 | the shapes made lighter at once hold at most 150,000 triangles between them (a heavy one alone) | 1 | 4,305 | 1,796 | 174 | kept, then widened in round 4: too strict for the world's time |
 | 3 | the same | 5 | 4,123 | 1,207 | 179 | |
 | 3 | the same | 3 | 1,125 | 524 | 8 | holds (bound 1,200 / 700) |
-| 4 | at once at most 1.7 million triangles (what the heaviest tree holds alone): middling trees side by side, two great ones never; the pool's boxes keep no spare worker (seven engines held for a 29 ms start) | | | | | measuring (the container restarted during the first try; nothing of it was kept) |
+| 4 | at once at most 1.7 million triangles (what the heaviest tree holds alone): middling trees side by side, two great ones never; the pool's boxes keep no spare worker (seven engines held for a 29 ms start) | 1 | 4,872 | 2,106 | 190 | spare workers kept out; the 1.7 million thrown away in round 5. The peak moved to 45 s: seven boxes building great trees at once (1,148 MB of their workers' heaps), two trees made lighter (534 MB), the page's arrived builds (914 MB). The probe again: 4,771 MB |
+| 4 | the same | 5 | 3,904 | 1,120 | 210 | |
+| 4 | the same | 3 | 1,054 | 427 | 11 | |
+| 5 | at once at most 400,000 triangles: a few middling trees, never two great ones | 1 | 4,619 | 2,169 | 186 | kept. What is left of the peak at 46 s is the pool's builds in flight, seven trees at full detail at once: intent 7a6c3f1b's files (`box/pool.js`), and gone with the six trees' own levels (play's work) |
+
+**The world shows later in the box than on main** (Sandbox 1 172 to 190 s against 132 s, Sandbox 5 179 to 210 s against 127 s): the cover waits up to two minutes for the plants near the start to settle (`village.ts`), and fewer shapes are made lighter at once. The box has 4 real cores told 8; a Mac has 8. Intent 405f7a85 changes that wait (the world shown once the kinds near its start stand). Not bounded by this intent's checks; Samuel's to weigh at Proposal.
+
+**The graphics card's render targets** (holder 4): the four sizes alive are exactly the world stage's steps down in resolution (`render/world.js` `adapt`: 1.25, 1.15, 1.05, 1.0 of the CSS pixels, 1800 to 1440 px wide). three r187 destroys a resized target's textures (`RenderTarget.setSize` disposes them, the backend destroys the GPU texture), so what stays is still to be named: the probe now lists the live textures by size and label (`mem.ts`, `liveTextures`).
