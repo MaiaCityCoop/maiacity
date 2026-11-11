@@ -117,25 +117,33 @@ export function createMaking(o = {}) {
 /** the page's one making: every world's makers take from it */
 export const making = createMaking();
 
-/** the pipelines being compiled beside the page (`drawWhenReady`), every renderer's */
-let compiling = 0;
-/** how many pipelines are being compiled beside the page: a world is not settled while any is (../../../../scripts/lib/quiet.js) */
-export const pipelinesPending = () => compiling;
+/** the pipelines being compiled beside the page (`drawWhenReady`), every renderer's, and the objects held back a frame for their uploads */
+let compiling = 0, holding = 0, held = 0;
+/** how much a walked world still makes beside the page: pipelines compiling, objects waiting for their corners to be
+ *  sent. A world is not settled while any is (../../../../scripts/lib/quiet.js) */
+export const pipelinesPending = () => compiling + Math.max(holding, held);
 if (typeof window !== 'undefined') /** @type {any} */ (window).__pipelinesPending = pipelinesPending;
 
+/** the most new geometry (bytes) sent to the graphics card in one of the walker's frames */
+export const UPLOAD = 2 * 1024 * 1024;
+/** three's RenderObjectRefreshType.FULL: an object's nodes, corners and bindings all made again */
+const FULL = 2;
+
 /**
- * A renderer whose new pipelines are compiled beside the page while `renderer.drawWhenReady` is true (the walker's
- * frames): what is met for the first time (a plant's level, a dome's inside, its shadow) is drawn from the frame its
- * pipeline is ready, a few frames on, and no frame waits for it. three's `render()` makes a new pipeline at once
- * (`device.createRenderPipeline`), which WebKit compiles there and then: the walk's frames held 0.7 to 6.6 s in
- * `make:render` (GitHub's runner, intent 095bc67c). Its async path (`createRenderPipelineAsync`, compileAsync's) is
- * taken instead, and three's own render skips an object until its pipeline is ready (Renderer `_renderObjectDirect`,
- * Pipelines `isReady`). A film's frames (`drawWhenReady` false) still wait for every pipeline: no shot misses a thing.
- * After the renderer's `init` (its pipelines are made there).
+ * A renderer that, while `renderer.drawWhenReady` is true (the walker's frames), never holds a frame for what it meets
+ * the first time (intent 095bc67c; GitHub's runner, WebKit: the walk's frames held 2 to 6 s in `make:render`, all but
+ * milliseconds of it three's geometry uploads):
+ * - its new pipelines are compiled beside the page (`createRenderPipelineAsync`, compileAsync's path, taken instead of
+ *   `render()`'s `createRenderPipeline`, which WebKit compiles there and then);
+ * - its new corners go to the graphics card `UPLOAD` bytes a frame at most (one object's whatever its size, first): an
+ *   object whose corners wait is held back that frame and drawn once they are sent, a few frames on.
+ * three's own render skips an object until it is ready (Renderer `_renderObjectDirect`: `isReady`); a held one is made
+ * whole again the next frame (`needsRefresh` FULL). A film's frames (`drawWhenReady` false) wait for everything: no
+ * shot misses a thing. After the renderer's `init` (its pipelines, geometries and nodes are made there).
  * @param {any} renderer
  */
 export function drawWhenReady(renderer) {
-	const pipelines = renderer._pipelines;
+	const pipelines = renderer._pipelines, geometries = renderer._geometries, nodes = renderer._nodes;
 	if (!pipelines || pipelines.__drawWhenReady) return;
 	pipelines.__drawWhenReady = true;
 	const now = pipelines.updateForRender.bind(pipelines);
@@ -152,6 +160,37 @@ export function drawWhenReady(renderer) {
 			);
 		}
 	};
+	if (!geometries || !nodes) return;
+	/** the attributes already sent, the objects held back, and this frame's bytes */
+	const sent = new WeakSet(), back = new WeakSet();
+	let bytes = 0, frame = -1;
+	const attributesOf = (/** @type {any} */ ro) => {
+		const out = ro.getAttributes().map((/** @type {any} */ a) => renderer.backend.getBufferAttribute?.(a) ?? a);
+		const index = geometries.getIndex(ro);
+		if (index) out.push(index);
+		return out;
+	};
+	const upload = geometries.updateForRender.bind(geometries);
+	geometries.updateForRender = (/** @type {any} */ ro) => {
+		// a frame is the page's animation frame: one stamp for every render call in it (the shadows', the picture's)
+		const stamp = (typeof document !== 'undefined' && /** @type {number | null} */ (document.timeline?.currentTime)) || 0;
+		if (stamp !== frame) (frame = stamp), (bytes = 0), (held = holding), (holding = 0);
+		const fresh = attributesOf(ro).filter((/** @type {any} */ a) => !sent.has(a));
+		const size = fresh.reduce((/** @type {number} */ n, /** @type {any} */ a) => n + (a.array?.byteLength ?? 0), 0);
+		if (renderer.drawWhenReady && size && bytes && bytes + size > UPLOAD) {
+			back.add(ro);
+			holding++;
+			return;
+		}
+		bytes += size;
+		back.delete(ro);
+		upload(ro);
+		for (const a of fresh) sent.add(a);
+	};
+	const ready = pipelines.isReady.bind(pipelines);
+	pipelines.isReady = (/** @type {any} */ ro) => !back.has(ro) && ready(ro);
+	const refresh = nodes.needsRefresh.bind(nodes);
+	nodes.needsRefresh = (/** @type {any} */ ro) => (back.has(ro) ? FULL : refresh(ro));
 }
 
 /** three's own steps inside a draw, timed (`timeRender`): each kind's milliseconds this frame */
