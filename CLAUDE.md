@@ -41,7 +41,7 @@ against the box's Postgres 17; in `play/site` `bun run build`; in `website` `bun
 api|site|website` one part. **No test reads the real clock** (intent a07e6773; `play/avenbox/clock.ts`, play/SPEC.md
 §4.12): every suite runs at one pinned instant (2100-01-01 12:00 UTC), `Date` standing still; a test that needs another
 time sets it or hands it in, measures time that passes with `performance.now()`, and compares a time only with times of
-the same clock (Postgres's `now()` is its own); `play/api/test/clock.test.ts` is red on any test file reaching past the pin. A cloud session starts with the box up (`.claude/settings.json` runs `play/avenbox/up.sh`:
+the same clock (Postgres's `now()` is its own); `play/api/test/clock.test.ts` is red on any test file reaching past the pin. **Every world has a budget** (play/SPEC.md §4.16): `bun play/site/scripts/budget.ts --world sandbox-1|sandbox-5|sandbox-3|all` holds a world's triangles, draws, calls and what it hands the device's simplifier to `play/site/scripts/census/budgets.json`; play's checks run it on every pull request that can move a count. A cloud session starts with the box up (`.claude/settings.json` runs `play/avenbox/up.sh`:
 Postgres on 127.0.0.1:5432, `TEST_DATABASE_URL` set). A change made for an intent names it in its commits, the line
 `Intent: <the intent's UUID>` at the end of each message.
 

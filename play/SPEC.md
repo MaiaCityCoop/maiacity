@@ -1352,6 +1352,51 @@ keep naming a variant by it), beside Main.
   `/api/docs/<uuid>?breed=` the same; `/changes?variant=` of a breed is what it overrides of Main.
 
 
+### 4.16 A world's budget and the fast pattern (Samuel 2026-11-11; intent 1f6a98dd)
+
+A world is fast by its design, and stays so by a budget a check holds. The audit behind it (every part of Sandbox 1,
+3 and 5 counted, its raw numbers and scripts) is on the branch `intent-work/1f6a98dd-audit`.
+
+**The aims**, absolute, on Samuel's M1 with 8 GB in Safari, never a share of main: the world shown within 10 s on a
+first visit and 3 s on a second; at most 2.5 GB held; 16.7 ms a frame standing and walking; the picture judged against
+the real thing. In what avenBOX counts without a GPU, 16.7 ms on that Mac is at most 1.5 million triangles, 600 draws
+and 2,500 WebGPU calls in any frame, shadow passes included, and no triangle handed to the device's simplifier (an
+estimate from the Mac's measures of 2026-11-10, to be corrected by real-GPU rounds). **An asset's own ceiling**: at
+most 300,000 triangles at its finest, counted at its heaviest stage and variant, its levels declared with its source.
+
+**The budget** is `play/site/scripts/census/budgets.json`: the aims, the asset's ceiling with the versions over it
+named by UUID and hash (a list that only shrinks; play does not yet refuse at propose: its own intent), and for each
+sandbox, by its UUID, a ceiling per view for every pass's triangles and draws, the WebGPU calls at rest and walking,
+and the triangles its load hands the simplifier: the count when the ceiling was written, 5 % over, rounded up.
+`bun play/site/scripts/budget.ts --world <world>|all` counts a world from the pinned inputs, with no token, and holds
+it to its ceilings: over one fails; 15 % or more under one asks for it to be lowered (`--strict` fails then), so a
+ceiling only moves down, or up by a pull request that says so. Seconds, memory and milliseconds are reported with
+their aims and not held yet (`gpu.ts`, `memory.ts`). Every pull request that can move a count (a world's code, the
+census, the budget, the frozen engines, the site's packages) runs it, a world a job (`play-checks.yml` "Budget",
+needed by the required "API and site"); any other passes at once.
+
+**The pattern** every world is built by, each earned by a number of the audit:
+
+- **P1. No device makes a level.** A pinned version declares its levels or brings them made. 25 builds of six
+  trees, built whole (up to 1.68 million triangles) and simplified on the device, were 400 of a first visit's 550 CPU
+  seconds and most of its memory.
+- **P2. No device runs a recipe for a world.** A version's shapes, level by level, and its far pictures are made
+  once, at its Accept, in avenBOX on GitHub in a job without secrets (never on play's server), kept among play's files
+  by hash, and downloaded: a world's first minutes are about 37 MB of ready shapes against about 150 CPU seconds of
+  building on every new device.
+- **P3. Everything drawn has levels, the hand-built too.** Hand-built domes, insides, shells and paths and one build
+  without levels drew 38 to 86 % of every view's picture and 46 to 93 % of its shadow triangles.
+- **P4. Shadows are cast by stand-ins.** A redraw never costs more than the picture: it was 6.67 million triangles
+  against 3.84 million in Sandbox 1's near view, every 2 m walked.
+- **P5. A world streams, by one rule from the kit.** Near first and whole, far as its cheapest stand-in, nothing
+  built, photographed or uploaded that cannot be seen; copies in cells, one asset renderer a page.
+- **P6. Drawn as one.** What repeats is instanced, what never moves welded, materials shared, passes few.
+- **P7. A budget for every world, held at every door.** The budget above; later the seconds and milliseconds on a
+  real GPU, and a layout or asset version a world pins measured before its Accept.
+
+**Fast pays for realism, never the reverse**: a change that makes a world look more real is priced against the
+budget before it is built, and raises no ceiling without saying what it bought.
+
 ## 5. The sandboxes
 
 | New | Cloned from | What changes |
