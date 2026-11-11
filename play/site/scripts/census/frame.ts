@@ -140,15 +140,30 @@ export async function frameOf(o: { world: World; views?: ViewName[]; asset?: str
 		if (process.env.FRAME_PASSES) {
 			const { Object3D } = await import('three');
 			const tally = new Map<string, number>();
+			const baked = new Map<number, { n: number; bakedN: number; mats: Set<string>; sig: Set<string>; verts: number; small: number }>();
 			const was = Object3D.prototype.onBeforeRender;
 			Object3D.prototype.onBeforeRender = function (this: any) {
 				let from = '';
 				for (let o = this; o && !from; o = o.parent) from = o.__from ?? '';
 				const key = `${from || '?'} [${Array.isArray(this.material) ? `${this.material.length} materials (${new Set(this.material).size} different, ${new Set(this.material.map((m: any) => [m.type, m.roughness, m.metalness, m.transparent, m.side, m.map?.uuid, m.emissive?.getHex?.(), m.vertexColors, m.opacity].join())).size} but for colour) x${this.count} ${this.geometry?.index ? this.geometry.index.count / 3 : 0} tris` : this.material?.name || this.material?.type}${this.isInstancedMesh ? ' instanced' : ''}${this.isSkinnedMesh ? ' skinned' : ''}${this.castShadow ? ' casts' : ''}]`;
 				tally.set(key, (tally.get(key) ?? 0) + 1);
+				if (this.geometry?.userData?.baked || /interior\.ts/.test(from)) {
+					let top = this;
+					while (top.parent && top.parent.parent) top = top.parent;
+					const b = (baked.get(top.id) ?? baked.set(top.id, { n: 0, bakedN: 0, mats: new Set(), sig: new Set(), verts: 0, small: 0 }).get(top.id))!;
+					b.n++;
+					if (this.geometry?.userData?.baked) b.bakedN++;
+					const m = this.material;
+					b.mats.add(`${m?.uuid}${this.castShadow}`);
+					b.sig.add([m?.type, m?.color?.getHex?.(), m?.map?.uuid, m?.roughness, m?.metalness, m?.emissive?.getHex?.(), m?.emissiveIntensity, m?.transparent, m?.opacity, m?.side, m?.flatShading, m?.vertexColors, m?.normalMap?.uuid, this.castShadow].join());
+					const v = this.geometry?.attributes?.position?.count ?? 0;
+					b.verts += v;
+					if (v < 20000) b.small++;
+				}
 			};
 			turn();
 			Object3D.prototype.onBeforeRender = was;
+			for (const [id, b] of baked) log(`census: ${name} interior ${id}: ${b.n} draws (${b.bakedN} baked, ${b.small} under 20k vertices), ${b.mats.size} materials, ${b.sig.size} that look different, ${b.verts} vertices`);
 			log(`census: ${name} drawn, by tree:\n${[...tally].sort((x, y) => y[1] - x[1]).slice(0, 110).map(([k, v]) => `  ${v}  ${k}`).join('\n')}`);
 		}
 		// FRAME_PASSES=1: the last frame's passes, each its target and draws, and what the asset renderers say they draw

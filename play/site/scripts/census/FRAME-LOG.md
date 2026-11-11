@@ -36,3 +36,31 @@ domes' insides about 720 (`sandbox-2/interior/interior.ts`), the village 50.
   2 materials in about 9 runs, and three sends a draw a run. box, Sandbox 1 near: draws 1,709 → 1,173 standing, 2,075
   → 1,430 walking; calls 9,362 → 8,803 standing (−6 %), 12,538 → 11,553 walking (−8 %); JavaScript 39.6 / 53.3 ms
   (within noise). Same triangles, same materials; a shape with a see-through material is left as it is. **Kept.**
+
+## Round 0 on the runner: main's render code (head a74e640: main plus `gpu.ts --walk`), Chromium only
+
+runner, run 42923712272 (cancelled by my next push; a push to the pull request cancels a dry run):
+
+| | world up | standing | walking | draws, triangles (the meter's) |
+|---|---|---|---|---|
+| Sandbox 1 | 300.3 s | 104.6 ms a frame (p95 316.6, CPU 63.5) | 492.7 ms (p95 1,583, CPU 284.6) | 699, 1.96 M |
+| Sandbox 5 | 303 s | 1 frame in 10 s (CPU 426 ms) | 162.2 ms (p95 400, CPU 89.9) | 1,519, 8.35 M |
+
+**No WebKit number, and c5 and c6 failed there for a reason that is not the frame:** a check is killed after 600 s
+(`intent.ts`), and a world alone takes 300 s to come up on the runner with main's load path, so the second browser
+never had its turn. Round 2 answers it in `gpu.ts`.
+
+## Round 2
+
+- **The dome's stairs and gallery pillars are baked** (`sandbox-2/interior/interior.ts`): each tread, each tread's
+  light and each pillar was a mesh and a draw of its own (387 of the big dome's 562 draws were such single pieces).
+  box, Sandbox 1 near: draws 1,173 → 918 standing, 1,430 → 1,136 walking; JavaScript 39.6 → 26.3 ms a frame standing,
+  53.3 → 41.9 ms walking. A stair is now one thing to the shadows' size rule (`sandbox-kit/casters.js`), where its
+  treads were each too small to cast: a stair may cast a shadow where it cast none. **Kept.**
+- **A dome's small baked meshes are joined, one a material** (`interior.ts joinBaked`): baked in a few dozen goes, one
+  material was drawn many times. Only meshes under 20,000 vertices of the very same material. box: the big dome 307 →
+  238 draws; Sandbox 1 near 918 → 849 standing, 1,136 → 1,079 walking; JavaScript 31.8 / 43.6 ms (noise: no worse).
+  **Kept.**
+- **`gpu.ts` brings every browser's world up at once, then measures each alone** (the others' frames held), and
+  settles for 30 s at most (60 before): so two engines fit in a check's 600 s. A time to the world is now a time
+  beside the other browser, longer than alone; frame times are still one browser at a time.
