@@ -19,8 +19,10 @@ export type Kept = {
 	get(key: string): unknown;
 	/** keeps `answer` (anything a worker can post) under `key` */
 	put(key: string, answer: unknown): void;
-	/** how many answers were read, and how many made and kept, since it was opened */
-	counted: { read: number; made: number };
+	/** how many answers were read, and how many made and kept, since it was opened; `lowered`: what the page handed
+	 *  its simplifier (./keptWorker), the shapes and their triangles, whether answered from what was kept or made:
+	 *  the work a visitor's device does to make a world's lighter levels (intent 1f6a98dd) */
+	counted: { read: number; made: number; lowered: { jobs: number; tris: number } };
 };
 
 /** a key: the SHA-256 of its parts, each one's length before it, so no two lists of parts share a key */
@@ -38,7 +40,7 @@ const bytesOf = (question: unknown) => new Uint8Array(serialize(question));
 
 /** the answers kept in `dir`; none kept (every get undefined, every put dropped) where dir is null */
 export function keptIn(dir: string | null): Kept {
-	const counted = { read: 0, made: 0 };
+	const counted = { read: 0, made: 0, lowered: { jobs: 0, tris: 0 } };
 	if (!dir) return { get: () => undefined, put: () => {}, counted };
 	const at = (key: string) => join(dir, key.slice(0, 2), key);
 	return {
@@ -150,6 +152,9 @@ export function keptWorker(make: () => Worker, kept: Kept, code: string) {
 		onerror: null as ((e: ErrorEvent) => void) | null,
 		postMessage(m: { id: unknown }) {
 			const { id, ...question } = m;
+			// a shape handed over to be made lighter: its drawings' triangles (assets/render/lower.js posts `draws`)
+			const draws = (question as { draws?: { tris?: number }[] }).draws;
+			if (draws) (kept.counted.lowered.jobs += 1), (kept.counted.lowered.tris += draws.reduce((n, d) => n + (d.tris ?? 0), 0));
 			const key = keyOf(code, bytesOf(question));
 			const answer = kept.get(key);
 			// a turn later, as a worker answers

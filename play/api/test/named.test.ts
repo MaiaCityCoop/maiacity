@@ -15,10 +15,13 @@ import { newId } from "../src/kit/uuid";
 import { proposeDocVersion } from "../src/versioned";
 import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
 import * as fx from "./fixtures/intents";
+import { DETAIL, LEVELS, OWN, OWNED } from "./fixtures/lod";
 
 const HASH = "d263fb371f62595f0a2062bfdab1c70b3d5dc120a131d899cb7fbd0ef7befb67";
 const SPEC = fx.spec("A cube is carried.", "One asset. Nothing else changes.");
-const SOURCE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
+/** a source as one was written before an asset carried its own levels (../src/lod.ts): what a legacy head holds */
+const BARE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
+const SOURCE = (line: string) => BARE(line) + LEVELS;
 const REFUSED = /names (machines\/powercube@3|biomes\/cover@\$\{V\}:fern) by group, slug and version/;
 
 describe("namedAssets", () => {
@@ -55,7 +58,7 @@ suite("named", () => {
   /** an asset accepted before the rule, as the legacy import wrote one: its source's comment names the Power Cube */
   const legacy = async (slug: string) => {
     const asset = newId();
-    const source = SOURCE("// carried in from another (`machines/powercube@3`, $lib/assets)");
+    const source = BARE("// carried in from another (`machines/powercube@3`, $lib/assets)");
     const sourceHash = await keep(source);
     const recipe = await keep(RECIPE_HEAD + source + recipeTail(slug, 1, null));
     await db.query(`INSERT INTO play.assets (id, coop_id, grp, slug, label) VALUES ($1, $2, 'machines', $3, $4)`, [asset, COOP, slug, `Legacy ${slug}`]);
@@ -83,7 +86,7 @@ suite("named", () => {
 
   test("a new asset naming another by group, slug and version is refused, in code and in a comment; by hash it is taken", async () => {
     const propose = async (label: string, line: string) =>
-      tool("propose_asset", { lod: { levels: "derived" }, group: "machines", label, note: "new", source: SOURCE(line), intent: await readyIntent(label) });
+      tool("propose_asset", { ...OWNED, group: "machines", label, note: "new", source: SOURCE(line), intent: await readyIntent(label) });
     expect((await propose("A cube by name", 'const ref = "machines/powercube@3";')).error).toMatch(REFUSED);
     expect((await propose("A cube by a worked-out name", "const ref = (V) => `biomes/cover@${V}:fern`;")).error).toMatch(REFUSED);
     expect((await propose("A cube named in a comment", "// its guest (`machines/powercube@3`)")).error).toMatch(REFUSED);
@@ -103,7 +106,7 @@ suite("named", () => {
     expect((await tool("propose_doc_version", { doc: asset, intent: kept, variant: k.variant, note: "The name kept." })).error).toMatch(REFUSED);
 
     const gone = await readyIntent("Its source, by hash");
-    const g = await tool("doc_edit", { doc: asset, intent: gone, message: "named by hash", edits: [{ op: "replace", find: "`machines/powercube@3`, $lib/assets", replace: `its recipe's hash, ${HASH.slice(0, 12)}…` }, { op: "set", path: ["card", "card", "lod"], value: { levels: "derived" } }] });
+    const g = await tool("doc_edit", { doc: asset, intent: gone, message: "named by hash", edits: [{ op: "replace", find: "`machines/powercube@3`, $lib/assets", replace: `its recipe's hash, ${HASH.slice(0, 12)}…` }, { op: "replace", find: "build: () => null };\n};\n", replace: `build: () => null };\n};\n${LEVELS}` }, { op: "set", path: ["card", "card", "params"], value: DETAIL }, { op: "set", path: ["card", "card", "lod"], value: OWN }] });
     expect(g.error).toBeUndefined();
     expect((await tool("propose_doc_version", { doc: asset, intent: gone, variant: g.variant, note: "By hash." })).error).toBeUndefined();
   });

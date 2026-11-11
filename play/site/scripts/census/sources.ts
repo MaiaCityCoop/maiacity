@@ -34,19 +34,26 @@ export async function* sources(o: { intent?: string; record?: boolean }): AsyncG
 		}
 }
 
+/**
+ * One asset judged against its named exception: `found`, what is wrong with it (none: fine), `known`, whether it is
+ * named an exception (by its UUID). An exception is `known` while something is found, and `stale` once nothing is:
+ * its reason is gone, and so must its name be; so a list of exceptions only shrinks.
+ */
+export const judged = (known: boolean, found: readonly string[]): 'ok' | 'known' | 'stale' | 'fail' => (known ? (found.length ? 'known' : 'stale') : found.length ? 'fail' : 'ok');
+
 /** every asset checked by `why` (what is wrong with a source, in words; none: fine): the failing ones printed, a count a
  * group; whether all pass. An asset in `known` (by its UUID) is printed, `KNOWN`, and fails nothing while it is found;
- * known and fine, it fails: its exception has no reason left */
+ * known and fine, it fails: its exception has no reason left (`judged`) */
 export async function checkAll(o: { intent?: string; record?: boolean; known?: string[] }, why: (text: string) => string[], what: string) {
 	const groups = new Map(GROUPS.map((g) => [g, { n: 0, bad: 0 }]));
 	for await (const s of sources(o)) {
 		const g = groups.get(s.group)!;
-		const found = new Set(s.texts.flatMap(why));
+		const found = [...new Set(s.texts.flatMap(why))];
 		g.n++;
-		const known = o.known?.includes(s.id);
-		if (known && found.size) console.log(`KNOWN ${s.group}/${s.slug} (${s.id}) ${s.at}: ${[...found].join(', ')}`);
-		else if (known) g.bad++, console.log(`FAIL ${s.group}/${s.slug} (${s.id}) ${s.at}: named --known, and nothing is found in it any more: drop its --known`);
-		else if (found.size) g.bad++, console.log(`FAIL ${s.group}/${s.slug} (${s.id}) ${s.at}: ${[...found].join(', ')}`);
+		const is = judged(!!o.known?.includes(s.id), found);
+		if (is === 'known') console.log(`KNOWN ${s.group}/${s.slug} (${s.id}) ${s.at}: ${found.join(', ')}`);
+		else if (is === 'stale') g.bad++, console.log(`FAIL ${s.group}/${s.slug} (${s.id}) ${s.at}: named --known, and nothing is found in it any more: drop its --known`);
+		else if (is === 'fail') g.bad++, console.log(`FAIL ${s.group}/${s.slug} (${s.id}) ${s.at}: ${found.join(', ')}`);
 	}
 	for (const [group, g] of groups) console.log(`${g.bad ? 'FAIL' : 'ok  '} ${group}: ${g.bad} of ${g.n} ${what}`);
 	return [...groups.values()].every((g) => !g.bad);

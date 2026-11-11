@@ -321,6 +321,62 @@ export async function bakeSliced(group: THREE.Group, shadows: boolean, slice: ()
 	return out
 }
 
+/** a baked mesh small enough to be joined with the others of its material (`joinBaked`), and how large they may get together */
+const JOIN = { each: 20_000, together: 120_000 }
+/**
+ * The small baked meshes of a scene joined, one mesh a material (intent 0356b0ea): each `bake` makes a mesh a material,
+ * and a dome is baked in a few dozen goes, so one material is drawn many times (the big dome: 188 baked meshes of 110
+ * materials). Only what a bake made and put straight into the scene, where it stands (a baked group that was moved or
+ * is held elsewhere keeps its meshes); only meshes of the very same material, casting alike, carrying the same
+ * attributes; the large ones stay as they are (joining them would hold the page and copy megabytes).
+ * @returns how many meshes fewer the scene has
+ */
+export function joinBaked(scene: THREE.Object3D): number {
+	const still = (o: THREE.Object3D) => o.position.lengthSq() === 0 && o.quaternion.x === 0 && o.quaternion.y === 0 && o.quaternion.z === 0 && o.scale.x === 1 && o.scale.y === 1 && o.scale.z === 1
+	const runs = new Map<string, THREE.Mesh[]>()
+	for (const group of scene.children) {
+		if (group.type !== 'Group' || !still(group) || !group.visible || !group.children.length) continue
+		for (const o of group.children) {
+			const mesh = o as THREE.Mesh, g = mesh.geometry
+			if (!mesh.isMesh || mesh.type !== 'Mesh' || !g?.userData.baked || g.index || Array.isArray(mesh.material) || mesh.children.length || !still(mesh) || !mesh.visible || mesh.renderOrder !== 0) continue
+			if (g.attributes.position!.count > JOIN.each || Object.keys(g.morphAttributes).length) continue
+			const key = `${mesh.material.uuid} ${mesh.castShadow} ${mesh.receiveShadow} ${Object.keys(g.attributes).sort().join()}`
+			runs.set(key, [...(runs.get(key) ?? []), mesh])
+		}
+	}
+	let fewer = 0
+	for (const list of runs.values()) {
+		// in runs of at most `together` vertices
+		for (let from = 0; from < list.length; ) {
+			let to = from, n = 0
+			while (to < list.length && (to === from || n + list[to]!.geometry.attributes.position!.count <= JOIN.together)) n += list[to++]!.geometry.attributes.position!.count
+			const run = list.slice(from, to)
+			from = to
+			if (run.length < 2) continue
+			const first = run[0]!, joined = new THREE.BufferGeometry()
+			for (const [name, a] of Object.entries(first.geometry.attributes)) {
+				const size = (a as THREE.BufferAttribute).itemSize, out = new Float32Array(n * size)
+				let at = 0
+				for (const m of run) {
+					const src = (m.geometry.attributes[name] as THREE.BufferAttribute).array
+					out.set(src, at)
+					at += src.length
+				}
+				joined.setAttribute(name, new THREE.BufferAttribute(out, size))
+			}
+			joined.userData.baked = true
+			for (const m of run.slice(1)) {
+				m.geometry.dispose()
+				m.removeFromParent()
+				fewer++
+			}
+			first.geometry.dispose()
+			first.geometry = joined
+		}
+	}
+	return fewer
+}
+
 /** Bakes a group into one mesh per material, so a forest costs a handful of draw calls; the group is left empty. */
 export function bake(group: THREE.Group, shadows = true): THREE.Group {
 	const out = new THREE.Group()
@@ -1858,14 +1914,17 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			scene.add(await bakeIn(vines))
 		}
 		const pillars = Math.round((2 * Math.PI * rIn) / 6)
+		const pillarsAll = new THREE.Group()
 		for (let k = 0; k < pillars; k++) {
 			const a = (k / pillars) * Math.PI * 2 + 0.05
 			if ([...STAIRS, ...doors].some((d) => Math.abs(adiff(a, d)) * rIn < 2) || !onGal(a, 1)) continue
 			const [x, z] = polar(rIn + 0.4, a)
 			const pl = box(0.7, H, 0.7, m.lime(0.5, H / 2), x, 0, z, a)
-			scene.add(pl)
+			pillarsAll.add(pl)
 			colliders.push({ x, z, r: 0.55 })
 		}
+		// the gallery's pillars one mesh, where each was a draw of its own
+		if (pillarsAll.children.length) scene.add(bake(pillarsAll, pillarsAll.children[0]!.castShadow))
 
 		await slice()
 		/* the private rooms, facing out through the glass — one floor, or two */
@@ -2369,7 +2428,9 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 				handrail.position.y += 0.95
 				stair.add(handrail)
 			}
-			scene.add(stair)
+			// one mesh a material (its treads, its lights, its steel), where each tread was a draw of its own (intent
+			// 0356b0ea: 200 of the big dome's 562 draws a frame); as it stood, casting or not
+			scene.add(bake(stair, stair.children[0]?.castShadow ?? false))
 			// and a lamp over the middle of each flight
 			const [mx, mz] = polar(r0 + run / 2, aStair)
 			addLamp(mx, H / 2 + 2.3, mz, 7, 10)
@@ -2440,6 +2501,10 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 	// the library's Things built (in the asset box), so the dome stands whole when it is first seen
 	await things?.ready()
 	stopIfCancelled()
+
+	// what was baked in many goes drawn as one mesh a material
+	joinBaked(scene)
+	await slice()
 
 	// the lamps are all in place: set them for the hour
 	setSun(hourNow())
