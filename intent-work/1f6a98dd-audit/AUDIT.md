@@ -5,6 +5,49 @@ Intent 1f6a98dd-0da4-465d-9189-40126577438c, the night of 2026-11-10 to 11. orig
 and two reports (`reports/code-map.md`: how the three worlds are built, file and line, every number in the code;
 `reports/realism.md`: the history of the grass and the far trees, and the Mac's pictures read as a critic would).
 
+## For tonight's builders: what a frame of Sandbox 1 and 5 spends, ranked, and the cheapest cut that loses no picture
+
+For the frame (intent 0356b0ea) and anyone mending the old worlds tonight. Box numbers (the census on main eadbf2f7,
+`out/box/parts-*.txt` name every mesh; `tools/census-parts.diff` on `scripts/census/counting.js` and `run.ts` prints
+them with `CENSUS_DEBUG=1`, shadow passes too). The counts are measured; **each cut is a candidate I have not built**:
+what to check before it is kept is said with it. A standing frame draws the picture only (the Mac's median frame has
+0 shadow triangles); the shadow passes are the cost of every 2 m walked, 0.035 rad turned and each sky re-bake.
+
+**Sandbox 1, near (0, 95): picture 3,836,023 triangles, shadow redraw 6,668,975, 3,876 draws, 9,364 calls standing**
+
+| | what | where | picture | shadow redraw | the cheapest cut that loses no picture |
+|---|---|---|---|---|---|
+| 1 | **a dome's inside** (the nested `Scene`: `interior.ts:817`, added to the world when complete) | `sandbox-2/interior/interior.ts` (its mesh maker `:209` sets `castShadow = receiveShadow = true` on every mesh), `factory.ts` (`traverse(o => o.castShadow = true)` at `:187, :661, :1286, :1326`), `spaces.ts`, `rooms.ts` | 1,709,036 (45 %), 831 draws: 177 plain meshes hold 1,606,300 of it | **about 4.8 M (72 %)**: 2.8 times its picture, so each caster is drawn into both cascades and some twice more (a see-through double-sided caster is drawn back and front: `counting.js:543`) | (a) glass and other see-through materials cast nothing: check which of the 177 are `transparent` or `transmission > 0` and double-sided; (b) under its own shell the inside casts into the near cascade only: the far cascade's texels cannot show a chair's shadow; (c) the 177 static meshes welded per material: the same triangles in a few draws. Check: the dapple inside a dome at noon, eye inside and outside. |
+| 2 | **the village's hand-built meshes**: 13 dome shells, paths, water, lamps, props (`Scene / Group / Mesh`) | `interior.ts` (`geodesic`, shells at `:298, :415, :439, :473, :486`), `village.ts` | 851,363 (22 %), 491 draws: 183 plain meshes hold 363,174; the rest instanced props of 3 to 40 thousand each | about 1.38 M (21 %); `CylinderGeometry ×558` alone 76 M of the run's shadow sum, `×383` 42 M (struts or posts) | (a) struts and posts under 20 px cast nothing: `sandbox-kit/casters.js castBySize` already does this per mesh, but an instanced mesh is judged by its nearest copy, so all 558 cast when one is near: cast per cell of copies; (b) a far dome's shell at a coarser geodesic by its size on screen (the far view draws 1,173,044 triangles of this group, 76 % of its picture, at any distance): where a strut is under a pixel a coarser shell is the same picture. Check: far view's dome outlines. |
+| 3 | plants and things (the three asset renderers) | `assets/render/index.js` | 655,547 (17 %), 185 draws | 452,479 (7 %) | already cast by their coarsest; nothing cheap left here in this view |
+| 4 | ground, stones, relief | `village.ts`, `relief.ts`; `DodecahedronGeometry ×2332` = 83,952 | 249,344 (6 %) | 0 | none needed |
+| 5 | fish | `animals.ts`: `fish-kohaku` 65 draws, `fish-ogon` 52, `fish-carp` | 107,200 (3 %), 130 draws | 0 | one instanced draw a kind in place of a draw a fish: 130 draws to 3, the same picture (as 0356b0ea's one run per material for the crowds) |
+| 6 | cover, grass | `biomes/stream.js`, `grass-gpu.js` | 243,938 (6 %), 13 draws | 0 | none needed |
+
+Mid (0, 235): picture 5.79 M = plants 47 %, village 20 %, dome inside 18 %; shadow 6.37 M = dome inside 38 %, plants
+34 %, village 23 %; sheep 137,440 + 37,348 + 34,360 + 29,160 triangles as their own draws (112). Far (0, 370): picture
+1.55 M, of it village 1,173,044; shadow 1.03 M = dome inside 44 % (an inside built and casting while the eye is 370 m
+from the centre: check why it is in the cascades at all), village 42 %.
+
+**Sandbox 5, near: picture 4,787,909, shadow redraw 5,149,710, 1,739 draws, 5,980 calls standing**
+
+| | what | where | picture | shadow redraw | the cheapest cut that loses no picture |
+|---|---|---|---|---|---|
+| 1 | plants (the asset renderers) | `assets/render/index.js` | 2,285,717 (48 %), 146 draws: lime, walnut, pecan, chestnut at level 1 hold 1.07 M | 2,172,514 (42 %): lime L1, pecan L1, tree hazel L1, chestnut L2, walnut L2 lead | trees cast by level 1 here, not by their coarsest (`castCoarse`, `index.js:527`, only for kinds that "cast alike"): cast every tree by its level 2 or its picture. Check: a near tree's shadow edge on the path. 3e27d730's trees under 300,000 lower both columns. |
+| 2 | **the forest dome** (`buildings/forest-dome` 6: one build, one level, 242 draws) | placed by `village.ts:147` (`loadAsset(newestOf(asset))`); its nodes `outside:limestone:*` (133,198 triangles each, 561,272 in view), `building:oak:*` and `building:plaster:*` (304,966), `shell:ceramic:*` (207,832), `ground:*` (167,429) | 1,241,499 (26 %; 57 % in the far view) | 2,369,770 (46 %): `outside` half of it, `building` 27 %, `shell` 18 % | (a) `village.ts:172-179` already stops what lies under 0.12 m from casting (113 thousand triangles); `outside:limestone` still casts 1.18 M a redraw: if it is paving or a low kerb, raise that rule's height for it, if it is the arcade it must cast; (b) its shell casts into the far cascade only as its outline; (c) the asset's next version under 300,000 with levels (play's work, the rule of part 4b). Check: the arcade's shadow on the gravel. |
+| 3 | hand-built shells, paths, props | `village.ts` | 673,634 (14 %), 330 draws | 577,441 (11 %) | as Sandbox 1's row 2 |
+| 4 | cover, grass, ground, fish | | 560,656 (12 %) | 0 | fish as Sandbox 1's row 5 |
+
+**The calls** (`out/box/frame-sandbox-1.json`, near, standing: 9,364 calls = 1,709 draws + 3,699 vertex-buffer sets
++ 1,837 bind groups + 681 pipeline switches + 556 buffers written, in 22 render passes): the scene pass is one of the
+22; of its draws the dome insides are about 720, the crowds 613, the instanced asset renderers 200 (0356b0ea's round
+1). Welding a dome's inside per material (row 1c) and one draw a fish kind (row 5) are the two cuts that take draws
+out without touching a triangle.
+
+**Ranked by what a walking frame gets back, picture unchanged**: Sandbox 1: the inside's shadow casters (up to
+4.8 M a redraw), then the instanced struts' casting (1.4 M), then the welds (about 700 draws). Sandbox 5: the trees'
+casters at level 2 (up to 2.2 M a redraw), then the dome's `outside` casting (1.2 M), then the dome's far cascade.
+
 ## Whose numbers
 
 Never mixed, named at each number:
@@ -259,6 +302,8 @@ use. The rule itself (play's refusal, the box's count, the skills) is its own in
 
 ## 4c. A clean world from the ground up, or the legacy worlds mended?
 
+> **Notes, not decided.** Samuel plans the new world himself, with us, after tonight (2026-11-11: "we plan the new world tomorrow, not tonight"). What follows is kept as material for that, nothing here is a plan anyone builds on, and tonight's work is the old worlds.
+
 Samuel's question, 2026-11-11: "does it make sense to start a clean world with clean assets from the ground up,
 instead of optimizing legacy worlds?" Short answer: **a clean world, yes; clean machinery, no; and the three sandboxes
 are moved onto its path piece by piece, never rebuilt whole.**
@@ -387,6 +432,8 @@ held, seconds and milliseconds printed); the picture of its ground and sky besid
 counted the same as before (nothing of theirs touched). It needs this intent's budget; it waits for nothing else.
 
 ## 4d. The line between the legacy and the new, drawn in play so it holds by itself
+
+> **Notes, not decided.** Samuel plans the new world himself, with us, after tonight (2026-11-11: "we plan the new world tomorrow, not tonight"). What follows is kept as material for that, nothing here is a plan anyone builds on, and tonight's work is the old worlds.
 
 Samuel, 2026-11-11: "we keep on developing this one after another, but we make a clean transition cut for the new
 hard-fork asset library plus 3D world". Two things side by side. **The legacy**: today's library and Sandbox 1 to 7,
