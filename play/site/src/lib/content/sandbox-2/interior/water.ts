@@ -173,6 +173,7 @@ function reeds(g: THREE.Group, x: number, z: number, r: () => number, size: numb
 		if (r() < 0.25) {
 			const head = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 6), headMat())
 			head.position.set(b.position.x, h * 0.9, b.position.z)
+			head.userData.fine = true
 			g.add(head)
 		}
 	}
@@ -180,7 +181,8 @@ function reeds(g: THREE.Group, x: number, z: number, r: () => number, size: numb
 
 /**
  * Plants the shore of a line of water (a stream's centre or a pond's outline): reeds at the edge now and then, lily pads
- * near the bank, a flower here and there. `inside` says which side of an outline is water (+1 toward the middle); a
+ * near the bank, a flower here and there. What is under a pixel a little way off (a bulrush's head, a pad, a bloom) is
+ * marked `userData.fine`: the waterside's lighter level leaves it out (village.ts). `inside` says which side of an outline is water (+1 toward the middle); a
  * stream's both banks are planted.
  */
 export function shore(line: THREE.Vector3[], halfWidth: number, seed: number, outlineCentre?: { x: number; z: number }): THREE.Group {
@@ -212,11 +214,13 @@ export function shore(line: THREE.Vector3[], halfWidth: number, seed: number, ou
 					const s = 0.18 + r() * 0.2
 					pad.scale.set(s, s, 1)
 					pad.rotation.set(-Math.PI / 2, 0, r() * 6.28)
+					pad.userData.fine = true
 					pad.position.set(bx + wx * (0.8 + r() * 1.6) + (r() - 0.5) * 0.8, 0.095, bz + wz * (0.8 + r() * 1.6) + (r() - 0.5) * 0.8)
 					g.add(pad)
 					if (r() < 0.2) {
 						const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), bloomMat[r() < 0.6 ? 0 : 1]!())
 						bloom.scale.y = 0.6
+						bloom.userData.fine = true
 						bloom.position.set(pad.position.x, 0.13, pad.position.z)
 						g.add(bloom)
 					}
