@@ -8,6 +8,7 @@
 import * as THREE from 'three'
 import type { Mats } from './interior'
 import { stageParts } from './parts'
+import { casting } from '$lib/content/sandbox-kit/casters.js'
 
 type Collider = { x: number; z: number; r: number; y?: number }
 type FactoryCtx = {
@@ -184,7 +185,7 @@ function robotArm(ctx: FactoryCtx, paint: THREE.Material, from: number, to: numb
 		cup.position.set(cx, 0.28, cz)
 		wrist.add(cup)
 	}
-	g.traverse((o) => (o.castShadow = true))
+	casting(g)
 	const update = (t: number) => {
 		// reach down to the belt, lift, swing across, reach down into the machine, swing back
 		const u = ((t / period + phase) % 1 + 1) % 1
@@ -296,7 +297,7 @@ function crowd(walkers: Walker[]): { object: THREE.Group; update: (t: number, dt
 		for (const k of ['armL', 'armR'] as const) meshes[k].setColorAt(i, c.set(robot ? '#b9c1c7' : suit))
 	})
 	for (const mesh of Object.values(meshes)) {
-		mesh.castShadow = true
+		casting(mesh)
 		mesh.frustumCulled = false
 		object.add(mesh)
 	}
@@ -658,7 +659,7 @@ export function buildFactory(ctx: FactoryCtx): FactoryWalk {
 			leaf.rotation.x = sd * 0.12
 			cabin.add(leaf)
 		}
-		cabin.traverse((o) => (o.castShadow = true))
+		casting(cabin)
 		scene.add(cabin)
 	}
 	colliders.push({ x: 0, z: 0, r: 0.35, y: 0 })
@@ -988,7 +989,7 @@ export function buildFactory(ctx: FactoryCtx): FactoryWalk {
 			const meshes = parts.geos.map((geo) => {
 				const mesh = new THREE.InstancedMesh(geo, parts.material, cap)
 				mesh.frustumCulled = false
-				mesh.castShadow = true
+				casting(mesh)
 				mesh.count = 0
 				scene.add(mesh)
 				return mesh
@@ -1167,7 +1168,7 @@ export function buildFactory(ctx: FactoryCtx): FactoryWalk {
 		}
 		const inst = (geo: THREE.BufferGeometry, mat: THREE.Material, count: number) => {
 			const m = new THREE.InstancedMesh(geo, mat, count)
-			m.castShadow = true
+			casting(m)
 			m.receiveShadow = true
 			scene.add(m)
 			return m
@@ -1283,7 +1284,7 @@ export function buildFactory(ctx: FactoryCtx): FactoryWalk {
 				carriage.add(box(1.1, 0.8, 0.95, (ai + q) % 2 ? M.cardboard : M.cassette, 0, 0.21, 1.75))
 				carriage.position.y = 0.15
 				g.add(carriage)
-				g.traverse((o) => (o.castShadow = true))
+				casting(g)
 				scene.add(g)
 				return { g, carriage, aisle, a0: d + 0.2, a1: d + Math.PI / 2 - 0.2, phase: ai * 7 + q * 3 }
 			})
@@ -1323,7 +1324,7 @@ export function buildFactory(ctx: FactoryCtx): FactoryWalk {
 				leaf.rotation.x = sd * 0.12
 				g.add(leaf)
 			}
-			g.traverse((o) => (o.castShadow = true))
+			casting(g)
 			scene.add(g)
 			return { g, phase: i / 6 }
 		})

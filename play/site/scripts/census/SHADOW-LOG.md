@@ -49,3 +49,20 @@ cascades, plus a flock of sheep (275 k, skinned: left as they are).
   after the pass where the picture draws them first). A near tree is no longer drawn into the far cascade, whose
   receivers begin some 70 m out. Sandbox 1 mid: **4.46 M → 3.01 M** (main 6.71 M: −55 %), near 1.77 M → 1.74 M
   (main 6.68 M: −74 %). **Kept.**
+
+## Round 4: who casts is decided in one place
+
+- **The builders' own shadow flags that a bake never read are gone**: every plant's and every space's pieces are
+  baked, and a bake decides what casts (a probe in the census: each such flag's meshes were baked, none cast live);
+  the factory's "everything in this casts" walks are `casters.js casting`. `castShadow =` in `sandbox-2`: 37 → 16.
+  Gone too: the export of the workshops' builders for a models library file that no longer exists.
+- **Glass casts nothing** (`casters.js seeThrough`: transmission, or see-through under 0.9): three would draw its
+  shadow as black as stone's; the dome's glazing already cast none.
+- **A twin is held to the size rule as it is made**, so a far small thing does not cast for one redraw first.
+- **The redraw rule is pinned** (`casters.js shadowsMoved`, 2 m or 2°, used by `sky.js`): unchanged, for the reason
+  0356b0ea's round 4 gives (the cascades follow the view).
+- Tests: `casters.test.js`, "stand-in …" (7), and the size rule's three read what casts for a caster (its twins).
+
+Head after round 4 (shadow / picture, the box): Sandbox 1 near 1.73 M / 3.84 M, mid 3.01 M / 5.96 M, far 0.40 M /
+1.55 M; Sandbox 5 near 2.01 M / 4.79 M, mid 2.04 M / 5.21 M, far 0.44 M / 2.19 M. Against main in the same run:
+Sandbox 1 near −74 %, mid −55 %; Sandbox 5 near −61 %, mid −55 %, far −77 %; the picture the same to the triangle.

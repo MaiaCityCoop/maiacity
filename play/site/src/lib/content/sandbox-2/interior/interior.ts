@@ -299,10 +299,6 @@ function bakedMesh(merged: THREE.BufferGeometry, mat: THREE.Material): THREE.Mes
 	m.receiveShadow = true
 	return m
 }
-/** what a bake casts: its meshes' stand-ins (../../sandbox-kit/casters.js), the picture's own meshes casting nothing */
-function castOf(out: THREE.Group, meshes: THREE.Mesh[], shadows: boolean) {
-	if (shadows) for (const s of standIns(meshes)) out.add(s)
-}
 
 /**
  * bake(), a slice at a time: the same meshes, but the page gets a frame back every few
@@ -323,7 +319,8 @@ export async function bakeSliced(group: THREE.Group, shadows: boolean, slice: ()
 			if (merged) out.add(bakedMesh(merged, mat))
 		}
 	await slice()
-	castOf(out, meshes, shadows)
+	// what it casts: its pieces' stand-ins (../../sandbox-kit/casters.js), its own meshes casting nothing
+	if (shadows) for (const s of standIns(meshes)) out.add(s)
 	letGo(group)
 	return out
 }
@@ -394,7 +391,8 @@ export function bake(group: THREE.Group, shadows = true): THREE.Group {
 		if (merged) out.add(bakedMesh(merged, mat))
 		meshes.push(...list)
 	}
-	castOf(out, meshes, shadows)
+	// what it casts: its pieces' stand-ins (../../sandbox-kit/casters.js), its own meshes casting nothing
+	if (shadows) for (const s of standIns(meshes)) out.add(s)
 	letGo(group)
 	return out
 }

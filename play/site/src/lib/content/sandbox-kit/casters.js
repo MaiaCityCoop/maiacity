@@ -54,12 +54,8 @@ export function castBySize(root, camera) {
 	let changed = false;
 	/** casters met for the first time, each to be cast by its stand-ins from now on */
 	const fresh = [];
-	root.traverseVisible((/** @type {any} */ o) => {
-		if (!o.isMesh || o.isSkinnedMesh || o.morphTargetInfluences?.length || !o.geometry?.attributes?.position) return;
-		const made = (o.userData.casts ??= o.castShadow);
-		if (!made) return;
-		// a caster met for the first time is cast by its stand-ins, unless its renderer draws its shadow itself
-		if (!o.userData.standIn && o.onBeforeShadow === OWN_SHADOW) return void fresh.push(o);
+	/** whether `o` reads as a thing from here: it casts while it does @param {any} o */
+	const bySize = (o) => {
 		if (!o.frustumCulled) return;
 		let radius = 0, far = Infinity;
 		if (o.isInstancedMesh) {
@@ -74,8 +70,16 @@ export function castBySize(root, camera) {
 		const size = radius / (Math.max(far, 1e-3) * tanHalf);
 		const casts = size >= SMALL * (o.castShadow ? 1 : HOLD);
 		if (casts !== o.castShadow) (o.castShadow = casts), (changed = true);
+	};
+	root.traverseVisible((/** @type {any} */ o) => {
+		if (!o.isMesh || o.isSkinnedMesh || o.morphTargetInfluences?.length || !o.geometry?.attributes?.position) return;
+		const made = (o.userData.casts ??= o.castShadow);
+		if (!made) return;
+		// a caster met for the first time is cast by its stand-ins, unless its renderer draws its shadow itself
+		if (!o.userData.standIn && o.onBeforeShadow === OWN_SHADOW) fresh.push(o);
+		else bySize(o);
 	});
-	for (const o of fresh) castByTwins(o);
+	for (const o of fresh) for (const twin of castByTwins(o)) bySize(twin);
 	return changed || fresh.length > 0;
 }
 
@@ -83,13 +87,13 @@ export function castBySize(root, camera) {
  * A caster cast from now on by its twins (STAND-INS, below): one a cascade it is wide enough to show in, each its
  * shape simplified for that cascade, hung under it so it goes, turns and hides with it, an instanced one's copies its
  * own (the same buffer, the same count). The caster itself casts no more.
- * @param {any} o
+ * @param {any} o @returns {THREE.Mesh[]} its twins
  */
 function castByTwins(o) {
 	o.updateWorldMatrix(true, false);
-	const mat = sideOf(Array.isArray(o.material) ? o.material[0] : o.material);
+	const own = Array.isArray(o.material) ? o.material[0] : o.material, mat = sideOf(own), twins = [];
 	for (const c of CASCADES) {
-		if (widthOf(o) < c.least) continue;
+		if (seeThrough(own) || widthOf(o) < c.least) continue;
 		const g = lowerOf(o.geometry, c.error / o.matrixWorld.getMaxScaleOnAxis());
 		/** @type {any} */
 		let twin;
@@ -102,10 +106,13 @@ function castByTwins(o) {
 		twin.frustumCulled = o.frustumCulled;
 		twin.layers.set(c.layer);
 		twin.castShadow = true;
-		twin.userData.standIn = true;
+		twin.userData.standIn = twin.userData.casts = true;
 		o.add(twin);
+		twin.updateMatrixWorld();
+		twins.push(twin);
 	}
 	o.castShadow = o.userData.casts = false;
+	return twins;
 }
 
 /*
@@ -129,6 +136,14 @@ export const CASCADES = [
 	{ layer: 28, error: 0.02, least: 0.04 },
 	{ layer: 29, error: 0.07, least: 0.15 }
 ];
+
+/**
+ * Whether the sun's shadows are to be drawn again for an eye now at `at` looking `ahead`, last drawn for one at `eye`
+ * looking `look`: moved more than `step` (m), or turned more than 2° (0.035 rad: the cascades are fitted to the view,
+ * so a turned eye sees ground the old map does not cover). @param {THREE.Vector3} eye @param {THREE.Vector3} look
+ * @param {THREE.Vector3} at @param {THREE.Vector3} ahead @param {number} step
+ */
+export const shadowsMoved = (eye, look, at, ahead, step) => at.distanceTo(eye) > step || ahead.angleTo(look) > 0.035;
 
 /** the sun's cascades each made to see its stand-ins' layer (and every caster on layer 0, as before) @param {any} shadow a SunLight's */
 export function seeStandIns(shadow) {
@@ -168,6 +183,13 @@ function lowerOf(g, error) {
 	return out;
 }
 
+/**
+ * Whether light passes through a material: glass (transmission) or a see-through one (opacity under 0.9). Its shadow
+ * would be drawn as black as stone's, so it has none, as the dome's glazing has none.
+ * @param {any} m
+ */
+export const seeThrough = (m) => (m?.transmission ?? 0) > 0 || (m?.transparent === true && (m.opacity ?? 1) < 0.9);
+
 const _p = new THREE.Vector3(), _s = new THREE.Vector3(), _box = new THREE.Box3();
 /**
  * How wide a mesh's shadow can be at its narrowest: the middle of its box's three sides, where it stands (a stick's
@@ -203,7 +225,7 @@ export function standIns(meshes) {
 		/** @type {Map<THREE.Material, { meshes: THREE.Mesh[], n: number }>} */
 		const bySide = new Map();
 		for (const o of meshes) {
-			if (!o.geometry?.attributes.position || widthOf(o) < c.least) continue;
+			if (!o.geometry?.attributes.position || seeThrough(Array.isArray(o.material) ? o.material[0] : o.material) || widthOf(o) < c.least) continue;
 			const corners = /** @type {Float32Array} */ (lowerOf(o.geometry, c.error / o.matrixWorld.getMaxScaleOnAxis()).attributes.position.array);
 			const mat = sideOf(Array.isArray(o.material) ? o.material[0] : o.material);
 			const e = bySide.get(mat) ?? { meshes: [], n: 0, corners: [] };
@@ -230,4 +252,10 @@ export function standIns(meshes) {
 		}
 	});
 	return out;
+}
+
+/** what a builder makes to cast a shadow: every mesh in `o`, cast by its stand-ins once the size rule meets it @template {THREE.Object3D} T @param {T} o @returns {T} */
+export function casting(o) {
+	o.traverse((/** @type {any} */ c) => c.isMesh && (c.castShadow = true));
+	return o;
 }
