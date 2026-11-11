@@ -4,7 +4,7 @@ export * from 'three';
 export { CountingRenderer as WebGLRenderer } from './counting.js';
 
 // three r187 renamed PMREMGenerator's `_allocateTargets` to `_allocateTarget` (its targets now cubes): the trees made
-// before (match.ts's run 5) hook the old name to reuse one target, so the census, which counts them on r187, gives them
+// before (a commit from before r187, counted with --at) hook the old name to reuse one target, so the census, which counts them on r187, gives them
 // both names
 import { PMREMGenerator } from 'three';
 const proto = /** @type {any} */ (PMREMGenerator.prototype);
