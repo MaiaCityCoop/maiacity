@@ -5,7 +5,7 @@
 # the API's types and its whole suite, alone) and the job "Site" (its build, then its fast suite: vitest without Sandbox
 # 2's physics, then its *.bun.test.ts with Bun). Sandbox 2's physics are switched off (intent 94c11a28; Samuel
 # 2026-11-09): no workflow runs them; they run by hand only (play/avenbox/gate.sh physics). The required
-# check keeps its name: the job "API and site" needs "API" and "Site" and is green only when both are.
+# check keeps its name: the job "API and site" needs "API", "Site" and each world's "Budget" and is green only when all are.
 #
 # On a pull request and on a merge group of main's merge queue they always run in full. On a push to main (intents
 # 5ab64b8e, f7721142) they pass without running again only when the pushed commit is the merge group's commit they
@@ -90,9 +90,67 @@ jobs:
         # the fast suite: vitest without Sandbox 2's physics, then the *.bun.test.ts with Bun
         run: bun run test
 
+  budget:
+    # each world held to its budget (play/SPEC.md §4.16, intent 1f6a98dd): its census and frame count from the pinned
+    # inputs, no token, against play/site/scripts/census/budgets.json; measured only when the change can move a count
+    # (a world's code, the census, the budget, the frozen engines, the site's packages), else passed at once
+    name: Budget (${{ matrix.world }})
+    needs: tested
+    if: needs.tested.outputs.skip != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        world: [sandbox-1, sandbox-5, sandbox-3]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Whether the change can move a world's count
+        id: moved
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+        run: |
+          # GitHub's compare: no history fetched; a push to main, or a list cut at 300 files, measures
+          if [ -z "$BASE" ] || [ -z "$HEAD" ]; then echo "measure=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(gh api "repos/$REPO/compare/$BASE...$HEAD" --jq '.files[].filename') || { echo "measure=true" >> "$GITHUB_OUTPUT"; exit 0; }
+          if [ "$(printf '%s\n' "$files" | grep -c .)" -ge 300 ] || printf '%s\n' "$files" | grep -Eq '^(play/site/src/lib/content/|play/site/scripts/census|play/site/scripts/budget\.ts$|play/site/static/engines/|play/site/package\.json$|play/site/bun\.lock$|\.github/workflows/play-checks\.yml$)'; then
+            echo "measure=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "nothing of a world changed: its budget holds as on main"
+          fi
+      - uses: oven-sh/setup-bun@v2
+        if: steps.moved.outputs.measure
+        with:
+          bun-version-file: .bun-version
+      # what main's census builds, kept by the hash of its code and its question (intents-pr.yml saves it): read only
+      - uses: actions/cache/restore@v4
+        if: steps.moved.outputs.measure
+        with:
+          path: ${{ runner.temp }}/census-cache/kept
+          key: census-kept-${{ github.run_id }}
+          restore-keys: census-kept-
+      - name: The world against its budget
+        if: steps.moved.outputs.measure
+        env:
+          CENSUS_CACHE: ${{ runner.temp }}/census-cache
+          WORLD: ${{ matrix.world }}
+        run: |
+          (cd play/site && bun install --frozen-lockfile > /dev/null)
+          extra=""
+          [ "$WORLD" != sandbox-3 ] || extra="--aim tris,draws,calls"
+          # shellcheck disable=SC2086
+          bun play/site/scripts/budget.ts --world "$WORLD" $extra
+
   checks:
     name: API and site
-    needs: [tested, api, site]
+    needs: [tested, api, site, budget]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -103,9 +161,10 @@ jobs:
           SKIP: ${{ needs.tested.outputs.skip }}
           API: ${{ needs.api.result }}
           SITE: ${{ needs.site.result }}
+          BUDGET: ${{ needs.budget.result }}
         run: |
-          echo "the tested tree: $TESTED (skip: ${SKIP:-false}); API: $API; Site: $SITE"
+          echo "the tested tree: $TESTED (skip: ${SKIP:-false}); API: $API; Site: $SITE; Budget: $BUDGET"
           [ "$TESTED" = success ] || exit 1
-          if [ "$SKIP" = true ]; then [ "$API" = skipped ] && [ "$SITE" = skipped ] && exit 0; exit 1; fi
-          [ "$API" = success ] && [ "$SITE" = success ]
+          if [ "$SKIP" = true ]; then [ "$API" = skipped ] && [ "$SITE" = skipped ] && [ "$BUDGET" = skipped ] && exit 0; exit 1; fi
+          [ "$API" = success ] && [ "$SITE" = success ] && [ "$BUDGET" = success ]
 

@@ -49,7 +49,7 @@ function countsOf(world: string): Counts {
 	return { views, simplified: Math.round(c.lowered?.tris ?? 0) };
 }
 
-const n = (x: number | null) => (x === null ? '—' : Math.round(x).toLocaleString('en'));
+const n = (x: number | null) => (x === null ? '—' : x < 100 && !Number.isInteger(x) ? x.toFixed(1) : Math.round(x).toLocaleString('en'));
 const all: Record<string, Row[]> = {};
 let ok = true;
 for (const world of worlds) {
