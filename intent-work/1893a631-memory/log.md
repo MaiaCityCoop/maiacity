@@ -33,6 +33,9 @@
 
 | round | change | Sandbox | peak MB | rest MB | world s | kept? |
 |---|---|---|---|---|---|---|
-| 6 | the picture first (Samuel: realism is a hard limit): a kind's full build is kept while any copy was drawn at the level next to it within 15 s, and a copy drawn at that level asks for it back at once (`hold.js` `ahead`), so it is read from the cache while you are a band away and never stands in lighter as you walk up | | | | | measuring |
+| 6 | the picture first (Samuel: realism is a hard limit): a kind's full build is kept while any copy was drawn at the level next to it within 15 s, and a copy drawn at that level asks for it back at once (`hold.js` `ahead`), so it is read from the cache while you are a band away and never stands in lighter as you walk up | 1 | 4,474 | 2,414 | 181 | kept: the picture is a hard limit. It costs about 250 MB at rest in Sandbox 1 (2,169 → 2,414): the full trees within a band of the start stay |
+| 6 | the same | 5 | 3,856 | 1,303 | 195 | |
+
+Round 6 against the absolute aim (2,500 / 1,500 MB): Sandbox 1 1,974 MB over at its peak and 914 MB over at rest; Sandbox 5 1,356 MB over at its peak and 197 MB under at rest.
 
 **Against the absolute aim** (c11: a world never more than 2,500 MB, at rest 1,500 MB, on an 8 GB Mac), round 5: Sandbox 1 2,119 MB over at its peak and 669 MB over at rest; Sandbox 5 1,202 MB over and 428 MB under at rest; Sandbox 3 holds (1,080 / 435). What is left at the peak is the asset boxes building seven full-detail trees at once (about 1.1 GB of their heaps at 45 s) and the full builds waiting for their lighter levels: both go with the six trees' own levels (play's work).
