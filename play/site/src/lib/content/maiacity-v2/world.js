@@ -815,6 +815,10 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 	scene.add(world);
 	// the library's assets, built in the asset box and drawn by the universal renderer (./drawn.js, ./things.js)
 	const drawn = createDrawn({ renderer, camera, scene });
+	// what it draws, reported as every world reports its asset renderers (scripts/lib/quiet.js): a measure of this world
+	// waits until nothing is built or made lighter for it, not 60 frames whatever is still coming (intent 7a6c3f1b)
+	const report = { stats: () => ({ out: drawn.stats() ?? undefined }) };
+	if (typeof window !== 'undefined') /** @type {any} */ (window).__assets = report;
 	const { group: ground, rims } = land();
 	world.add(ground, highway(), steppe(), gravel(), bushes(), tallGrass());
 	const fore = clump(); // the grass close in front of a low camera
@@ -3909,6 +3913,7 @@ export function createWorld(canvas, { onPick = () => {}, onLabels = () => {}, on
 			left = true;
 			cancelAnimationFrame(raf);
 			drawn.dispose();
+			if (typeof window !== 'undefined' && /** @type {any} */ (window).__assets === report) delete /** @type {any} */ (window).__assets;
 			ro.disconnect();
 			window.removeEventListener('blur', stopInput);
 			for (const event of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel']) canvas.removeEventListener(event, touchPointer, true);
