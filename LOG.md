@@ -79,3 +79,36 @@ bristle-tipped teeth, light undersides):
 - `chestnut/v6-s12-whole.jpg` / `chestnut/v7-s12-whole.jpg`: the 50-year tree as the viewer frames it: same silhouette.
 
 Source: `chestnut/chestnut-v7.js`.
+
+## Hazel (`33a534e9-80c7-5892-89b2-84d1a2efbdac`, both forms: one source): v6 drafted, **not proposed** (waits on c1's bound)
+
+Its `tree` breed (what Sandbox 1 draws) and its `bush` breed share Main's source (a breed only picks the form), so
+the change is Main's and both forms are counted.
+
+| stage (age) | L0 v5 tree | **L0 v6 tree** | L1 v6 (0.25) | L2 v6 (0.1) | seconds L0 / L1 / L2 |
+|---|---|---|---|---|---|
+| 9 (8 y, ripe, default) | 687,289 | **194,157** | 33,311 | 9,355 | 0.9 / 0.4 / 0.3 |
+| 10 (12 y) | 624,759 | **214,327** | 39,759 | 11,981 | 1.1 / 0.7 / 0.7 |
+| 11 (16 y) | 749,847 | **232,719** | 36,880 | 11,363 | 1.1 / 0.9 / 0.7 |
+| 12 (20 y) | 1,004,807 | **276,339** | 40,680 | 12,801 | 1.1 / 0.9 / 0.8 |
+
+Seven seeds × both forms × stages 9–12: 124,154 to 294,590 (the bush 'e' at 20 years the highest), all under
+300,000. **Why not proposed:** c1 as written allows 150,000 at the default stage; it needs 194,157. Variant 1986 on
+play (6 edits, card `declared`), ready to propose once c1 reads 600,000.
+
+How: leaves cut out of their picture (the round, double-toothed `leafShape`, seven pairs of straight side veins
+pressed in) on a cupped sheet, 6 triangles each where a leaf was 24–48 and its 6-triangle stalk (hidden under the
+blade, as the grown tree already drew it); at most 12,000 leaves, each grown to fill. Wood rings by bend and girth,
+sides by girth, at most 70,000 triangles. Next year's closed catkins in summer as short cones of two spans, at most
+1,500 drawn; nuts on the tree as the grown tree draws them; past 300 clusters of a heavy crop, round lumps. Roots coarse.
+
+Looked at (render bench, same shots as v5; no reference sheet on its card, judged against photographs of
+*Corylus avellana* trained as a small tree in August: round, double-toothed, softly hairy leaves, mid-green above and
+paler beneath, nuts in leafy husks in twos and threes):
+- `hazel/v5-s9-crown.jpg` / `hazel/v6-s9-crown.jpg`: the eight-year tree: the same form and crown fill; v6 a shade
+  darker where more undersides face away. Judged: no poorer than v5.
+- `hazel/v5-s9-leaves.jpg` / `hazel/v6-s9-leaves.jpg`: closer: round toothed leaves, pale undersides, the nuts and
+  the reddish young shoots kept. Judged: as v5.
+- `hazel/v5-s12-whole.jpg` / `hazel/v6-s12-whole.jpg`: the 20-year tree as the viewer frames it: same silhouette.
+
+Source: `hazel/hazel-v6.js`.
