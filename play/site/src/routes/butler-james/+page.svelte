@@ -261,7 +261,7 @@
 	.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; padding: 0.7rem 1rem; border-bottom: 1px solid var(--line); background: rgb(255 255 255 / 0.94); font-size: 0.85rem; }
 	.bar b { font-size: 1rem; }
 	.wrap { flex: 1; min-height: 0; overflow: auto; padding: 0 0 var(--nav-room, 6rem); }
-	table { width: 100%; border-collapse: collapse; font-size: 0.82rem; background: var(--paper, #fff); }
+	table { width: 100%; min-width: 62rem; border-collapse: collapse; font-size: 0.82rem; background: var(--paper, #fff); }
 	thead th { position: sticky; top: 0; z-index: 1; background: var(--paper, #fff); border-bottom: 1px solid var(--line); text-align: left; padding: 0; white-space: nowrap; }
 	th button { width: 100%; padding: 0.55rem 0.7rem; border: 0; background: none; font: inherit; font-weight: 700; font-size: 0.74rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--soft); text-align: left; cursor: pointer; }
 	th[aria-sort='ascending'] button, th[aria-sort='descending'] button { color: var(--ink); }
@@ -280,7 +280,7 @@
 	.s-won { background: var(--brand-green, #24452f); color: #fff; }
 	.s-lost { background: rgb(190 80 60 / 0.15); color: var(--terracotta); }
 	.next { min-width: 8rem; }
-	.mail a, .out { color: var(--brand-green, #24452f); text-decoration: none; overflow-wrap: anywhere; }
+	.mail a, .out { color: var(--brand-green, #24452f); text-decoration: none; white-space: nowrap; }
 	.out { white-space: nowrap; font-weight: 600; }
 	.empty { padding: 1.2rem; text-align: center; }
 	.fields { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 0.7rem; margin: 0.6rem 0 0; font-size: 0.8rem; }
@@ -291,6 +291,7 @@
 	.notes { margin-top: 0.7rem; padding-top: 0.5rem; border-top: 1px solid var(--line); font-size: 0.82rem; line-height: 1.5; }
 	.notes :global(p) { margin: 0 0 0.5rem; }
 	@media (max-width: 720px) {
+		table { min-width: 0; }
 		/* on a phone the table keeps company, stage and next; the rest is the lead's aside */
 		th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4), th:nth-child(7), td:nth-child(7), th:nth-child(8), td:nth-child(8) { display: none; }
 	}
