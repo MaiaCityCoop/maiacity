@@ -189,7 +189,7 @@ first suspect is the runner's memory (a 7 GB VM; 1893a631 measured WebKit at 8.7
 
 Stopped at Proposal. Never merged.
 
-## 2026-11-11 06:19–07:25 UTC · round 7: out of the merge queue, the Sandbox 3 budget
+## 2026-11-11 06:19–07:04 UTC · round 7: out of the merge queue, the Sandbox 3 budget
 
 Samuel accepted at 06:12; the queue's group 10ee81f5 (main + a7507347 + 1f6a98dd + 0356b0ea + this) failed the new
 required budget job: "Sandbox 3 open: calls 1603 is over its ceiling 1590" (draws 300). The groups before it: 1,510 and
@@ -209,4 +209,4 @@ required budget job: "Sandbox 3 open: calls 1603 is over its ceiling 1590" (draw
 | gate | `gate.sh site` | green (174 s) |
 
 The ceiling is untouched. Fix 2 also makes every other measure of Sandbox 3 that waits for it to settle (gpu.ts's settle, the Mac's jobs) really wait.
-Pushed 6077040a at 07:23 UTC; the box's run records again.
+Pushed 6077040a at 07:03 UTC; the box's run records again.
