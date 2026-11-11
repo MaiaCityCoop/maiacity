@@ -7,7 +7,7 @@
  * every `period` cells of the first, and the day's drift is a whole number of periods: the hour reaches the shader as
  * a fraction of the day (`windOf`), no coordinate passes a few hundred cells, and midnight joins without a jump.
  */
-import { Fn, If, dot, exp, float, floor, fract, max, mix, normalize, pow, smoothstep, sub, vec2, vec3 } from 'three/tsl';
+import { Fn, If, dot, exp, float, floor, fract, max, mix, mod, normalize, pow, smoothstep, sub, vec2, vec3 } from 'three/tsl';
 
 /**
  * plane: how flat the layer lies (d.xz / (plane · d.y)); freq: cells of the first octave per unit of the plane;
@@ -47,13 +47,11 @@ const grad = Fn(([/** @type {any} */ i]) => {
 });
 /** gradient noise that repeats every `per` cells, about −1…1; `seed` tells the octaves apart */
 const noise = (/** @type {any} */ p, /** @type {number} */ per, /** @type {number} */ seed) => {
-	const i = floor(p), f = fract(p);
-	const u = f.mul(f).mul(f).mul(f.mul(f.mul(6).sub(15)).add(10));
-	const n = (/** @type {number} */ x, /** @type {number} */ y) => {
-		const c = i.add(vec2(x, y));
-		return dot(grad(c.sub(floor(c.div(per)).mul(per)).add(seed)), f.sub(vec2(x, y)));
-	};
-	return mix(mix(n(0, 0), n(1, 0), u.x), mix(n(0, 1), n(1, 1), u.x), u.y).mul(1.6);
+	const f = fract(p), u = f.mul(f).mul(f).mul(f.mul(f.mul(6).sub(15)).add(10));
+	// the cell's two corners along each axis, wrapped once (not once a corner)
+	const a = mod(floor(p), per), b = mod(a.add(1), per);
+	const n = (/** @type {any} */ c, /** @type {number} */ x, /** @type {number} */ y) => dot(grad(c.add(seed)), f.sub(vec2(x, y)));
+	return mix(mix(n(a, 0, 0), n(vec2(b.x, a.y), 1, 0), u.x), mix(n(vec2(a.x, b.y), 0, 1), n(b, 1, 1), u.x), u.y).mul(1.6);
 };
 /** the first `octaves` of the clouds' noise at u (cells of the first octave), each slid by the wind */
 const fbm = (/** @type {any} */ u, /** @type {any} */ wind, /** @type {number} */ octaves) => {
@@ -87,7 +85,7 @@ export function cloudsOver(sky, { d, lin, fex, sun, light, cover, wind }) {
 		const depth = max(0, fbm(u, wind, SLIDES.length).mul(0.7).add(0.5).sub(open)).toVar();
 		// the same cloud a little way toward the sun, coarsely: what stands between this spot and its light
 		const sunAt = sun.xz.div(max(sun.y, 0.12).mul(plane)).mul(freq);
-		const before = max(0, fbm(u.add(normalize(sunAt.sub(u).add(1e-4)).mul(0.22)), wind, 2).mul(0.9).add(0.5).sub(open));
+		const before = max(0, fbm(u.add(normalize(sunAt.sub(u).add(1e-4)).mul(0.22)), wind, 1).mul(0.9).add(0.5).sub(open));
 		// seen from below: light comes through the thin edges, the thick middles are the grey bases; a low sun shines
 		// under them and lights the bases too
 		const thin = exp(depth.mul(-6)), low = sub(1, smoothstep(0.05, 0.4, sun.y));
