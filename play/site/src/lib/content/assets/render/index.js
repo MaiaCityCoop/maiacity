@@ -1056,9 +1056,9 @@ export function createAssets(o) {
 			calls: counted.calls,
 			materials: presets.size,
 			pages: pictures.pages,
-			building: reads.waiting() + loads + compiling + lowering.busy,
+			building: reads.waiting() + loads + compiling + lowering.busy + kept.counted.awaited,
 			/** what `building` is made of: builds queued, loads, shaders being made, levels being simplified */
-			busy: { queue: reads.waiting(), loads, compiling, lowering: lowering.busy },
+			busy: { queue: reads.waiting(), loads, compiling, lowering: lowering.busy + kept.counted.awaited },
 			builds: list.reduce((a, k) => a + k.levels.filter((l) => l.state === 'ready' && l.from !== 'made' && l.from !== 'kept').length, 0),
 			/** the levels made by simplifying a build (here, or read from this device's cache), and those of them it took nothing from */
 			made: list.reduce((a, k) => a + k.levels.filter((l) => l.state === 'ready' && (l.from === 'made' || l.from === 'kept')).length, 0),

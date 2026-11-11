@@ -123,7 +123,7 @@ export function createKept(o) {
 	const of = o.of ?? levelOf;
 	const keep = o.keep !== false;
 	/** what was made here, and what was read from this device's cache instead */
-	const counted = { derived: 0, keptLevels: 0, taken: 0, keptPictures: 0, unkept: 0, why: '', keeping: 0 };
+	const counted = { derived: 0, keptLevels: 0, taken: 0, keptPictures: 0, unkept: 0, why: '', keeping: 0, awaited: 0 };
 	/** what was made and could not be kept (its picture not read back, its file not written): counted, its reason the last */
 	const lost = (why) => {
 		counted.unkept++;
@@ -166,7 +166,10 @@ export function createKept(o) {
 				} else missing.push(i);
 			});
 			if (missing.length) {
-				const made = await o.lowering.lower(source, missing.map((i) => plans[i].plan), later, true);
+				const making = o.lowering.lower(source, missing.map((i) => plans[i].plan), later, true);
+				// (made by another renderer: waited for as this one's own work, so its world is not settled before it comes)
+				if (!o.mine) counted.awaited++, making.then(() => counted.awaited--, () => counted.awaited--);
+				const made = await making;
 				missing.forEach((i, n) => {
 					out[i] = of(source, made[n]);
 					counted.derived++;

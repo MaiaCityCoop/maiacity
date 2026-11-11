@@ -131,7 +131,12 @@ describe('every asset has its levels', () => {
 		const b = createKept({ lowering: inside.lowering, store })
 		// each renderer its own build of it
 		const sa = built(), sb = built()
-		const [la, lb] = await Promise.all([a.lower(name, sa, plansOf(sa)), b.lower(name, sb, plansOf(sb))])
+		const asked = [a.lower(name, sa, plansOf(sa)), b.lower(name, sb, plansOf(sb))]
+		// the one that waits for the other's making counts it as its own work while it waits (its world not yet settled)
+		for (let i = 0; i < 20; i++) await Promise.resolve()
+		expect(a.counted.awaited + b.counted.awaited).toBe(1)
+		const [la, lb] = await Promise.all(asked)
+		expect(a.counted.awaited + b.counted.awaited).toBe(0)
 		expect(outside.n.calls + inside.n.calls).toBe(1)
 		expect(la.map((l: any) => l.tris)).toEqual(lb.map((l: any) => l.tris))
 		expect(la[0].tris).toBeLessThan(sa.tris)
