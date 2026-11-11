@@ -111,6 +111,17 @@ export async function frameOf(o: { world: World; views?: ViewName[]; asset?: str
 			said[k](...a);
 		};
 	const t0 = real();
+	// FRAME_PASSES=1: each thing added to a tree remembers the line of the world's code that added it
+	if (process.env.FRAME_PASSES) {
+		const { Object3D } = await import('three');
+		const add = Object3D.prototype.add;
+		Object3D.prototype.add = function (this: any, ...things: any[]) {
+			const from = (new Error().stack ?? '').split('\n').find((l) => /src\/lib\/content\//.test(l) && !/node_modules/.test(l));
+			const at = from ? from.replace(/^.*src\/lib\/content\//, '').replace(/\)?$/, '').replace(/:\d+$/, '') : '';
+			for (const t of things) if (t && at && !t.__from) t.__from = at;
+			return add.apply(this, things);
+		};
+	}
 	await mount(o.world, { asset: o.asset, log });
 	// from here a visitor's frames on the page's own clock: the world's clock let go (the hour stays pinned)
 	g.__worldTime = undefined;
@@ -125,6 +136,45 @@ export async function frameOf(o: { world: World; views?: ViewName[]; asset?: str
 		if (v) g.__walker.place(v.x, v.z, v.yaw, v.pitch);
 		const settled = await quiet(settle);
 		const still = await count(n);
+		// FRAME_PASSES=1: what is drawn, by the names up its tree, in one more frame
+		if (process.env.FRAME_PASSES) {
+			const { Object3D } = await import('three');
+			const tally = new Map<string, number>();
+			const baked = new Map<number, { n: number; bakedN: number; mats: Set<string>; sig: Set<string>; verts: number; small: number }>();
+			const was = Object3D.prototype.onBeforeRender;
+			Object3D.prototype.onBeforeRender = function (this: any) {
+				let from = '';
+				for (let o = this; o && !from; o = o.parent) from = o.__from ?? '';
+				const key = `${from || '?'} [${Array.isArray(this.material) ? `${this.material.length} materials (${new Set(this.material).size} different, ${new Set(this.material.map((m: any) => [m.type, m.roughness, m.metalness, m.transparent, m.side, m.map?.uuid, m.emissive?.getHex?.(), m.vertexColors, m.opacity].join())).size} but for colour) x${this.count} ${this.geometry?.index ? this.geometry.index.count / 3 : 0} tris` : this.material?.name || this.material?.type}${this.isInstancedMesh ? ' instanced' : ''}${this.isSkinnedMesh ? ' skinned' : ''}${this.castShadow ? ' casts' : ''}]`;
+				tally.set(key, (tally.get(key) ?? 0) + 1);
+				if (this.geometry?.userData?.baked || /interior\.ts/.test(from)) {
+					let top = this;
+					while (top.parent && top.parent.parent) top = top.parent;
+					const b = (baked.get(top.id) ?? baked.set(top.id, { n: 0, bakedN: 0, mats: new Set(), sig: new Set(), verts: 0, small: 0 }).get(top.id))!;
+					b.n++;
+					if (this.geometry?.userData?.baked) b.bakedN++;
+					const m = this.material;
+					b.mats.add(`${m?.uuid}${this.castShadow}`);
+					b.sig.add([m?.type, m?.color?.getHex?.(), m?.map?.uuid, m?.roughness, m?.metalness, m?.emissive?.getHex?.(), m?.emissiveIntensity, m?.transparent, m?.opacity, m?.side, m?.flatShading, m?.vertexColors, m?.normalMap?.uuid, this.castShadow].join());
+					const v = this.geometry?.attributes?.position?.count ?? 0;
+					b.verts += v;
+					if (v < 20000) b.small++;
+				}
+			};
+			turn();
+			Object3D.prototype.onBeforeRender = was;
+			for (const [id, b] of baked) log(`census: ${name} interior ${id}: ${b.n} draws (${b.bakedN} baked, ${b.small} under 20k vertices), ${b.mats.size} materials, ${b.sig.size} that look different, ${b.verts} vertices`);
+			log(`census: ${name} drawn, by tree:\n${[...tally].sort((x, y) => y[1] - x[1]).slice(0, 110).map(([k, v]) => `  ${v}  ${k}`).join('\n')}`);
+		}
+		if (process.env.FRAME_PASSES) log(`census: ${name} buffers written in ${n} frames at rest, by buffer:\n${[...(gpu.fake.writesBy as Map<string, number>)].sort((x, y) => y[1] - x[1]).slice(0, 70).map(([k, v]) => `  ${v}  ${k}`).join('\n')}`);
+		if (process.env.FRAME_PASSES) log(`census: ${name} what differed between a buffer's writes (float index: times; -1 nothing):\n${[...(gpu.fake.differs as Map<string, Map<number | string, number>>)].filter(([k]) => /_object_|UniformBuffer/.test(k)).sort((x, y) => [...y[1].values()].reduce((p, q) => p + q, 0) - [...x[1].values()].reduce((p, q) => p + q, 0)).slice(0, 14).map(([k, d]) => `  ${k}: ${[...d].sort((p, q) => q[1] - p[1]).slice(0, 12).map(([i, c]) => `${i}:${c}`).join(' ')}`).join('\n')}`);
+		// FRAME_PASSES=1: the last frame's passes, each its target and draws, and what the asset renderers say they draw
+		if (process.env.FRAME_PASSES) {
+			const per = Math.round(still.passes);
+			log(`census: ${name} passes: ${(gpu.fake.passes as { width: number; height: number; colors: number; draws: number }[]).slice(-per).map((p) => `${p.width}x${p.height}/${p.colors}:${p.draws}`).join(' ')}`);
+			const st = g.__assets?.stats?.();
+			if (st) for (const [where, x] of Object.entries(st) as [string, any][]) if (x) log(`census: ${name} assets ${where}: ${x.kinds} kinds, ${x.copies} copies, ${x.culled} not looked at or out of view, ${x.calls} draws, ${x.tris} triangles, levels ${x.levels}, pictures ${x.pictures}`);
+		}
 		// a walk from the view: forward along its yaw and turning, a step a frame; then back where it stood
 		let walk: FrameCount | null = null;
 		if (v && g.__walker) {
