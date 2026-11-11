@@ -27,12 +27,14 @@ export function engineCode(v) {
 
 export class AssetBox extends Shell {
 	/**
-	 * @param {{ engine?: number, timeout?: number, rooms?: number }} [o] the engine it runs (the latest); `rooms`: how
+	 * @param {{ engine?: number, timeout?: number, rooms?: number, spare?: boolean }} [o] the engine it runs (the latest); `rooms`: how
 	 *   many it keeps at most, where fewer than the budget's (one, for a box of the page's pool: the next build of a
-	 *   recipe lands in whichever box is free, so a room kept is seldom found again, and each holds a worker)
+	 *   recipe lands in whichever box is free, so a room kept is seldom found again, and each holds a worker); `spare`:
+	 *   whether it keeps a worker made ahead (the budget's; never a box of the page's pool: seven boxes each with a
+	 *   second worker holding the engine are seven engines held for the 29 ms a worker takes to start, intent 1893a631)
 	 */
-	constructor({ engine = LATEST.v, timeout = TIMEOUT, rooms = ROOMS } = {}) {
-		super({ code: () => engineCode(engine), timeout, spare: budget().spare, apart: true });
+	constructor({ engine = LATEST.v, timeout = TIMEOUT, rooms = ROOMS, spare = budget().spare } = {}) {
+		super({ code: () => engineCode(engine), timeout, spare, apart: true });
 		this.engine = engine;
 		this.most = Math.max(1, Math.min(rooms, ROOMS));
 		/** @type {{ room: number, code: string }[]} the recipes' rooms, the one asked of last at the end */
