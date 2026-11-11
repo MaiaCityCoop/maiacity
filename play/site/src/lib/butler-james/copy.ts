@@ -24,15 +24,48 @@ export const COPY = {
 
 	hero: {
 		eyebrow: 'Begehbare 3D-Welten für Makler und Immobilienunternehmen',
-		title: 'Ihre Immobilie, begehbar – noch vor der ersten Besichtigung.',
-		lead: `Butler James baut aus Ihrem Inserat eine 3D-Welt, durch die Ihre Interessenten online gehen. Geliefert in ${H} ab Buchung, zum Festpreis. Die erste Demo Ihres eigenen Objekts erhalten Sie kostenlos, bevor Sie etwas bezahlen.`,
+		title: ['Ihre Immobilie.', 'Begehbar.', `In ${H}.`],
+		lead: `Butler James baut aus Ihren Fotos und dem Grundriss eine 3D-Welt, durch die Ihre Interessenten online gehen. Zum Festpreis. Die erste Demo Ihres eigenen Objekts erhalten Sie kostenlos, bevor Sie etwas bezahlen.`,
 		second: 'Preise ansehen',
-		promises: ['Demo Ihres Objekts vorab, kostenlos', `Lieferung in ${H} ab Buchung`, `${BACK}, ohne Fragen`],
-		sceneLabel: 'Platzhalter-Demo',
-		sceneHint: 'Ziehen: umsehen · Tippen: gehen',
-		sceneNote: 'Diese Wohnung ist ein Platzhalter. Hier steht später eine echte Demo-Immobilie.',
-		sceneStill: 'Standbild: eine Platzhalter-Wohnung mit Fenster, Sofa und Tisch'
+		scroll: 'Scrollen: zusehen, wie sie entsteht',
+		promises: ['Demo Ihres Objekts vorab, kostenlos', `Lieferung in ${H} ab Buchung`, `${BACK}, ohne Fragen`]
 	},
+
+	// the 3D show's own words: its label, its controls, its rooms
+	scene: {
+		label: 'Platzhalter-Demo',
+		hint: 'Ziehen: drehen · Raum antippen',
+		note: 'Diese Wohnung ist ein Platzhalter. Hier steht später eine echte Demo-Immobilie.',
+		still: 'Standbild: der Grundriss einer Platzhalter-Wohnung mit fünf Räumen',
+		day: 'Tag',
+		evening: 'Abend',
+		light: 'Licht',
+		rooms: { living: 'Wohnen', kitchen: 'Küche', bedroom: 'Schlafen', bath: 'Bad', hall: 'Flur' }
+	},
+
+	need: {
+		eyebrow: 'Ihr Aufwand',
+		title: 'Alles, was wir brauchen:',
+		items: ['Fotos aus jedem Raum.', 'Den Grundriss.'],
+		punch: 'Das ist alles.',
+		text: 'Minimaler Aufwand für Sie: kein Termin vor Ort, kein Scanner, keine Technik. Sie senden die Bilder und den Plan, wir bauen die Welt.',
+		photo: 'Foto',
+		plan: 'Grundriss'
+	},
+
+	build: {
+		eyebrow: 'Wir bauen',
+		title: 'Aus Ihrem Grundriss wachsen Wände.',
+		text: `Aus Plan und Fotos entsteht die begehbare 3D-Welt Ihres Objekts. Geliefert in ${H} ab Buchung.`
+	},
+
+	walk: {
+		eyebrow: 'Ihre Interessenten',
+		title: 'Und dann gehen sie hindurch.',
+		text: 'Im Browser, ohne App: auf Smartphone, Tablet und Rechner. Noch vor der ersten Besichtigung.'
+	},
+
+	band: ['Begehbar im Browser', `${H} ab Buchung`, 'Festpreis, einmalig', `${BACK}`, 'Demo vorab, kostenlos'],
 
 	value: {
 		eyebrow: 'Warum es sich rechnet',
@@ -41,7 +74,7 @@ export const COPY = {
 			{ name: 'Das Ergebnis', text: 'Ihr Objekt ist online begehbar. Interessenten sehen Räume und Wege, bevor sie einen Termin anfragen.' },
 			{ name: 'Die Sicherheit', text: 'Sie sehen eine Demo Ihres eigenen Objekts, bevor Sie buchen. Kostenlos.' },
 			{ name: 'Die Zeit', text: `Von der Buchung bis zur Lieferung vergehen ${H}.` },
-			{ name: 'Ihr Aufwand', text: 'Sie senden den Link zu Ihrem Inserat, oder Grundriss und Fotos. Mehr nicht.' }
+			{ name: 'Ihr Aufwand', text: 'Sie senden Fotos aus jedem Raum und den Grundriss. Mehr nicht.' }
 		]
 	},
 
@@ -107,9 +140,9 @@ export const COPY = {
 
 	steps: {
 		eyebrow: 'Der Ablauf',
-		title: 'In vier Schritten im Exposé.',
+		title: 'Vier Schritte bis ins Exposé.',
 		items: [
-			{ name: 'Kostenlose Demo', text: 'Sie senden den Link zu einem Ihrer Inserate, oder Grundriss und Fotos. Wir bauen daraus eine erste 3D-Demo. Kostenlos und unverbindlich.' },
+			{ name: 'Kostenlose Demo', text: 'Sie senden Fotos aus jedem Raum und den Grundriss eines Objekts. Wir bauen daraus eine erste 3D-Demo. Kostenlos und unverbindlich.' },
 			{ name: 'Buchung', text: `Gefällt Ihnen die Demo, buchen Sie zum Festpreis: ${euro(PRICES.apartment)} je Wohnung, ${euro(PRICES.house)} je Haus.` },
 			{ name: `Lieferung in ${H}`, text: `${H} nach Ihrer Buchung ist die begehbare 3D-Welt fertig.` },
 			{ name: 'Live im Exposé', text: 'Sie erhalten einen Link und setzen ihn in Exposé, Website oder E-Mail.' }
@@ -135,7 +168,7 @@ export const COPY = {
 			{
 				id: 'material',
 				q: 'Was brauchen Sie von mir?',
-				a: ['Den Link zu Ihrem Inserat, oder Grundriss und Fotos des Objekts. Mehr nicht.'],
+				a: ['Fotos aus jedem Raum und den Grundriss des Objekts. Das ist alles.'],
 				gaps: []
 			},
 			{
@@ -168,7 +201,7 @@ export const COPY = {
 	closing: {
 		eyebrow: 'Der erste Schritt',
 		title: 'Sehen Sie zuerst Ihr eigenes Objekt in 3D.',
-		text: 'Senden Sie uns ein Inserat. Die Demo ist kostenlos, und Sie entscheiden danach.',
+		text: 'Senden Sie uns Fotos und Grundriss eines Objekts. Die Demo ist kostenlos, und Sie entscheiden danach.',
 		gaps: [gap('contact', 'Kontaktweg: E-Mail oder Telefon (vom Anbieter einzutragen)')]
 	},
 

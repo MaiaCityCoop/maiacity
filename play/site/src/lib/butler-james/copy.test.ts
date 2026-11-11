@@ -23,8 +23,8 @@ describe("the landing page's texts", () => {
 		for (const t of all) {
 			for (const m of t.text.matchAll(/\d[\d.]*\s*€|€\s*\d[\d.]*/g)) expect(amounts.has(m[0]), `${t.path}: ${m[0]}`).toBe(true);
 			for (const m of t.text.matchAll(/(\d+)\s*%/g)) expect(m[1], `${t.path}: ${m[0]}`).toBe('100');
-			// no number at all but the prices, the 24 hours and the 100 %
-			for (const m of t.text.matchAll(/\d[\d.]*/g)) expect(['500', '1.000', '800', '24', '100', '3'].includes(m[0]), `${t.path}: the number ${m[0]}`).toBe(true);
+			// no number at all but the prices, the 24 hours and the 100 % (and the 3 of 3D)
+			for (const m of t.text.matchAll(/\d[\d.]*/g)) expect(['489', '897', '800', '24', '100', '3'].includes(m[0]), `${t.path}: the number ${m[0]}`).toBe(true);
 		}
 	});
 	it('address the reader as Sie', () => {
@@ -45,5 +45,11 @@ describe("the landing page's texts", () => {
 		for (const i of COPY.faq.items) expect(i.a.length + i.gaps.length, i.id).toBeGreaterThan(0);
 		expect(COPY.steps.items.length).toBe(4);
 		expect(COPY.steps.items.map((s) => s.name)).toEqual(['Kostenlose Demo', 'Buchung', 'Lieferung in 24 Stunden', 'Live im Exposé']);
+	});
+	it('ask for photos of every room and the floor plan, and nothing else', () => {
+		const need = texts(COPY.need).map((t) => t.text).join(' ');
+		for (const said of ['Fotos aus jedem Raum', 'Grundriss', 'Das ist alles', 'Minimaler Aufwand für Sie']) expect(need).toContain(said);
+		// the first round asked for a listing's link: no text does any more
+		for (const t of all) expect(/Inserat|Link zu (Ihrem|einem)/i.test(t.text), `${t.path}: "${t.text}"`).toBe(false);
 	});
 });

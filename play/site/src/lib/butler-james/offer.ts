@@ -2,7 +2,7 @@
 // its calculator take every number from here; nothing else on the page states a price, a time or a guarantee.
 
 /** flat, one-time, in euro, net */
-export const PRICES = { apartment: 500, house: 1000, trailer: 800 } as const;
+export const PRICES = { apartment: 489, house: 897, trailer: 800 } as const;
 /** from booking to delivery */
 export const DELIVERY_HOURS = 24;
 /** money back, no questions asked */

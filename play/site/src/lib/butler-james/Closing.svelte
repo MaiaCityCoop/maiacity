@@ -6,8 +6,8 @@
 	const c = COPY.closing;
 </script>
 
-<section class="bj-section brass" id="kontakt" data-section="closing">
-	<div class="bj-wrap narrow bj-center">
+<section class="bj-section accent" id="kontakt" data-section="closing">
+	<div class="bj-wrap narrow bj-center bj-closing">
 		<p class="bj-eyebrow">{c.eyebrow}</p>
 		<h2>{c.title}</h2>
 		<p class="bj-lead">{c.text}</p>

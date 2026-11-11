@@ -8,7 +8,13 @@
 
 <section class="bj-section ink" data-section="guarantee">
 	<div class="bj-wrap bj-split">
-		<div class="bj-seal" aria-hidden="true"><b>{c.seal}</b><span>{c.sealNote}</span></div>
+		<div class="bj-seal" aria-hidden="true">
+			<svg viewBox="0 0 200 200">
+				<defs><path id="bj-ring" d="M100 100m-82 0a82 82 0 1 1 164 0a82 82 0 1 1 -164 0" /></defs>
+				<text><textPath href="#bj-ring">{`${c.sealNote} · ${c.title} · `.repeat(2)}</textPath></text>
+			</svg>
+			<b>{c.seal}</b><span>{c.sealNote}</span>
+		</div>
 		<div>
 			<p class="bj-eyebrow">{c.eyebrow}</p>
 			<h2>{c.title}</h2>

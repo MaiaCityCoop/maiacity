@@ -5,10 +5,10 @@
  *
  *   bun scripts/butler-james-landing.ts check gate     only an admin sees it, and play's nav pill does not frame it
  *   bun scripts/butler-james-landing.ts check page     sections, calls to action, calculator, FAQ, phone and desktop
- *   bun scripts/butler-james-landing.ts check hero     the banner's world: live, labelled, looked around, resting, still
+ *   bun scripts/butler-james-landing.ts check hero     the show's world: live, labelled, by the scroll, turned, lit, resting, still
  *   bun scripts/butler-james-landing.ts check own      nothing asked of another origin; the brand's faces from the build
  *   bun scripts/butler-james-landing.ts budget         the scene's triangles, draws and first frame, held
- *   bun scripts/butler-james-landing.ts shots [dir]    1440×900 and 390×844: the whole page and its hero
+ *   bun scripts/butler-james-landing.ts shots [dir]    1440×900 and 390×844: the whole page and each chapter of the show
  *
  * Exits 0 only when every claim of the mode holds; each is printed with ✓ or ✗.
  */
@@ -19,7 +19,9 @@ import { siteHandler } from '../../api/src/site.ts';
 import { ADMIN, DESKTOP, PHONE, TRAVELER } from './lib/shots';
 
 const ROUTE = '/butler-james/landing/';
-const SECTIONS = ['hero', 'offer', 'guarantee', 'speed', 'steps', 'gallery', 'faq', 'closing'];
+const SECTIONS = ['hero', 'need', 'build', 'walk', 'offer', 'guarantee', 'speed', 'steps', 'gallery', 'faq', 'closing'];
+/** the show's chapters, each a screen tall, from the page's top */
+const CHAPTERS = ['hero', 'need', 'build', 'walk'] as const;
 /** the scene's budget (the intent's check c8; play/SPEC.md §8) */
 const BUDGET = { tris: 30000, draws: 60, firstMs: 5000 };
 const [mode, arg] = process.argv.slice(2);
@@ -67,6 +69,14 @@ const goto = (page: Page, path = ROUTE) => page.goto(ORIGIN + path, { waitUntil:
 const shown = (page: Page) => page.locator('[data-butler-james]').waitFor({ timeout: 30000 });
 const frames = (page: Page) => page.evaluate(() => Number(document.querySelector<HTMLCanvasElement>('.bj-stage canvas')?.dataset.frames ?? 0));
 const live = (page: Page) => page.locator('.bj-stage canvas.live').waitFor({ timeout: 30000 });
+/** the show at one of its chapters, the world arrived there */
+async function chapter(page: Page, name: (typeof CHAPTERS)[number], settle = 1900) {
+	await page.evaluate((i) => {
+		const el = document.querySelector('.app-scroll')!;
+		el.scrollTop = i * el.clientHeight;
+	}, CHAPTERS.indexOf(name));
+	await page.waitForTimeout(settle);
+}
 const scrollTo = (page: Page, top: number | 'end') =>
 	page.evaluate((t) => {
 		const el = document.querySelector('.app-scroll')!;
@@ -149,10 +159,10 @@ async function pageWorks(browser: Browser) {
 		await more('houses').click();
 		await more('trailers').click();
 		const total = (await page.locator('[data-total]').textContent())?.trim();
-		claim(total === '2.800 €', `${at}: 2 apartments, 1 house and 1 trailer are 2.800 €`, total);
+		claim(total === '2.675 €', `${at}: 2 apartments, 1 house and 1 trailer are 2.675 €`, total);
 		await page.locator('[data-count="houses"]').fill('3');
 		const typed = (await page.locator('[data-total]').textContent())?.trim();
-		claim(typed === '4.800 €', `${at}: a typed count is taken (3 houses: 4.800 €)`, typed);
+		claim(typed === '4.469 €', `${at}: a typed count is taken (3 houses: 4.469 €)`, typed);
 
 		// the FAQ: every item opens on a click, and closes by the keyboard
 		const items = page.locator('.bj-faq-item button');
@@ -180,7 +190,8 @@ async function pageWorks(browser: Browser) {
 		// and nothing is cut off at the side (the page clips what would overflow, so each box is asked)
 		const cut = await page.evaluate(() =>
 			[...document.querySelectorAll<HTMLElement>('.bj *')]
-				.filter((el) => !el.closest('[hidden]') && !(el as unknown as SVGElement).ownerSVGElement && el.getClientRects().length)
+				// (the running band runs past the sides on purpose, and a drawing's own shapes are its picture's)
+				.filter((el) => !el.closest('[hidden], .bj-band') && !(el as unknown as SVGElement).ownerSVGElement && el.getClientRects().length)
 				.map((el) => ({ el, r: el.getBoundingClientRect() }))
 				.filter(({ r }) => r.width > 0 && (r.right > innerWidth + 1 || r.left < -1))
 				.map(({ el, r }) => `${el.tagName.toLowerCase()}.${el.className} ${Math.round(r.left)}–${Math.round(r.right)}`)
@@ -206,7 +217,8 @@ async function pageWorks(browser: Browser) {
 }
 
 async function hero(browser: Browser) {
-	// ---- live, labelled, and asked for only after the page's load
+	const ROOMS = ['Wohnen', 'Küche', 'Schlafen', 'Bad', 'Flur'];
+	// ---- live, labelled, asked for only after the page's load; told by the scroll; resting out of view
 	{
 		const { ctx, page, errors } = await open(browser, ADMIN);
 		let loaded = false;
@@ -221,71 +233,90 @@ async function hero(browser: Browser) {
 		const three: typeof scripts = [];
 		for (const s of scripts) if ((await (await fetch(s.url)).text()).includes('WebGPURenderer')) three.push(s);
 		claim(three.length > 0 && three.every((s) => s.afterLoad), "three.js is asked for only after the page's load, not by its entry", three.map((s) => `${s.url.split('/').pop()} ${s.afterLoad ? 'after' : 'before'}`));
-		const p = await picture(page);
-		claim(p.colours > 40, 'the banner draws a picture, not one colour', p.colours);
+		const top = await picture(page);
+		claim(top.colours > 40, 'the show draws a picture of many colours', top.colours);
 		claim(((await page.locator('[data-scene-label]').textContent()) ?? '').trim() === 'Platzhalter-Demo', 'it is labelled "Platzhalter-Demo"');
-		// ---- resting out of view, drawing again in view
 		const f0 = await frames(page);
 		await page.waitForTimeout(500);
 		const f1 = await frames(page);
-		claim(f1 > f0, 'in view it moves', { f0, f1 });
+		claim(f1 > f0, 'at the top it turns by itself', { f0, f1 });
+		await chapter(page, 'need');
+		const need = await picture(page);
+		await chapter(page, 'walk');
+		const walk = await picture(page);
+		claim(need.sum !== top.sum, 'scrolled to "all we need" the picture is another: the floor plan');
+		claim(walk.sum !== top.sum && walk.sum !== need.sum, 'scrolled to the walk it is another again: inside');
+		const rest0 = await frames(page);
+		await page.waitForTimeout(1000);
+		claim((await frames(page)) === rest0, 'arrived, it draws no frame for a second', { rest0, now: await frames(page) });
 		await scrollTo(page, 'end');
 		await page.waitForTimeout(400);
 		const f2 = await frames(page);
 		await page.waitForTimeout(1000);
 		const f3 = await frames(page);
-		claim(f3 === f2, 'out of view no frame is drawn for a second', { f2, f3 });
+		claim(f3 === f2, 'past the show no frame is drawn for a second', { f2, f3 });
 		await scrollTo(page, 0);
 		await page.waitForTimeout(800);
 		claim((await frames(page)) > f3, 'back in view it moves again');
 		claim(errors.length === 0, 'no error on the page', errors);
 		await ctx.close();
 	}
-	// ---- standing still for those who ask for less motion; looked around by mouse
+	// ---- no motion of its own for those who ask for less; turned by the mouse, a room lit, day and evening
 	{
 		const { ctx, page } = await open(browser, ADMIN, { reducedMotion: 'reduce' });
 		await goto(page);
 		await live(page);
 		await page.waitForTimeout(1500);
-		claim((await frames(page)) === 1, 'with reduced motion exactly one frame is drawn', await frames(page));
+		claim((await frames(page)) === 1, 'with reduced motion exactly one frame is drawn while nothing is touched', await frames(page));
 		const before = await picture(page);
 		const box = (await page.locator('.bj-stage canvas').boundingBox())!;
-		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+		const x = box.x + box.width * 0.7, y = box.y + box.height * 0.5;
+		await page.mouse.move(x, y);
 		await page.mouse.down();
-		await page.mouse.move(box.x + box.width / 2 + 180, box.y + box.height / 2 + 20, { steps: 8 });
+		await page.mouse.move(x + 200, y, { steps: 8 });
 		await page.mouse.up();
-		await page.waitForTimeout(200);
-		const after = await picture(page);
-		claim((await frames(page)) > 1 && after.sum !== before.sum, 'a drag with the mouse turns the view');
+		await page.waitForTimeout(300);
+		const turned = await picture(page);
+		claim(turned.sum !== before.sum, 'a drag with the mouse turns it');
 		const rest = await frames(page);
 		await page.waitForTimeout(800);
 		claim((await frames(page)) === rest, 'and then it stands still again');
+		await page.mouse.click(x, y);
+		await page.waitForTimeout(400);
+		const name = ((await page.locator('[data-room-label]').textContent().catch(() => '')) ?? '').trim();
+		const lit = await picture(page);
+		claim(ROOMS.includes(name) && lit.sum !== turned.sum, 'a click on a room lights it and shows its name', name);
+		await page.locator('[data-evening]').click();
+		await page.waitForTimeout(400);
+		const evening = await picture(page);
+		claim(evening.sum !== lit.sum, 'the evening switch changes the light');
+		await chapter(page, 'need', 500);
+		await page.locator('[data-card="bath"]').click();
+		await page.waitForTimeout(400);
+		claim(((await page.locator('[data-room-label]').textContent().catch(() => '')) ?? '').trim() === 'Bad', "a photo's card lights its room: Bad");
 		await ctx.close();
 	}
-	// ---- looked around by one finger, and walked by a tap
+	// ---- turned by one finger, and a room lit by a tap
 	{
 		const { ctx, page } = await open(browser, ADMIN, { viewport: PHONE, hasTouch: true, isMobile: true, reducedMotion: 'reduce' });
 		await goto(page);
 		await live(page);
 		await page.waitForTimeout(800);
-		// on a phone the banner's world comes below its text
-		await page.locator('.bj-stage').evaluate((el) => el.scrollIntoView({ block: 'center' }));
-		await page.waitForTimeout(300);
 		const before = await picture(page);
-		const f = await frames(page);
 		const box = (await page.locator('.bj-stage canvas').boundingBox())!;
 		const cdp = await ctx.newCDPSession(page);
-		const x = box.x + box.width / 2, y = box.y + box.height / 2;
+		const x = box.x + box.width / 2, y = box.y + box.height * 0.3;
 		const touch = (type: string, px?: number) => cdp.send('Input.dispatchTouchEvent', { type: type as 'touchStart', touchPoints: px === undefined ? [] : [{ x: px, y }] });
 		await touch('touchStart', x);
-		for (let i = 1; i <= 8; i++) await touch('touchMove', x + i * 15);
+		for (let i = 1; i <= 8; i++) await touch('touchMove', x + i * 12);
 		await touch('touchEnd');
-		await page.waitForTimeout(200);
-		const turned = await picture(page);
-		claim((await frames(page)) > f && turned.sum !== before.sum, 'a drag with one finger turns the view');
-		await page.touchscreen.tap(x - 40, box.y + box.height * 0.8);
 		await page.waitForTimeout(300);
-		claim((await picture(page)).sum !== turned.sum, 'a tap on the floor walks there');
+		const turned = await picture(page);
+		claim(turned.sum !== before.sum, 'a drag with one finger turns it');
+		await page.touchscreen.tap(x, y);
+		await page.waitForTimeout(400);
+		const name = ((await page.locator('[data-room-label]').textContent().catch(() => '')) ?? '').trim();
+		claim(ROOMS.includes(name) && (await picture(page)).sum !== turned.sum, 'a tap on a room lights it and shows its name', name);
 		await ctx.close();
 	}
 	// ---- where the browser gives no 3D: the still, and no error
@@ -296,7 +327,7 @@ async function hero(browser: Browser) {
 		await shown(page);
 		await page.waitForTimeout(3000);
 		claim((await page.locator('.bj-stage canvas.live').count()) === 0 && (await page.locator('.bj-still').isVisible()), 'without WebGPU and WebGL the still picture is shown');
-		claim((await picture(page)).colours > 5, 'the still is a picture of the room');
+		claim((await picture(page)).colours > 5, 'the still is a picture of the floor plan');
 		claim(errors.length === 0, 'and no error is thrown', errors);
 		await ctx.close();
 	}
@@ -322,7 +353,7 @@ async function own(browser: Browser) {
 	await page.evaluate(() => document.fonts.ready);
 	const away = asked.filter((u) => !u.startsWith(ORIGIN + '/') && !/^(data|blob):/.test(u));
 	claim(asked.length > 5 && away.length === 0, `every one of the page's ${asked.length} requests is to its own origin`, away);
-	for (const face of ['cormorant', 'manrope']) {
+	for (const face of ['bricolage', 'manrope']) {
 		const got = [...faces].find(([name]) => name.startsWith(face));
 		claim(got?.[1] === 200, `the brand's face ${face} comes from the build`, [...faces]);
 	}
@@ -330,7 +361,7 @@ async function own(browser: Browser) {
 		const f = (sel: string) => getComputedStyle(document.querySelector(sel)!).fontFamily;
 		return { h1: f('.bj h1'), text: f('.bj') };
 	});
-	claim(/Cormorant/.test(used.h1) && /Manrope/.test(used.text), 'headlines in Cormorant, text in Manrope', used);
+	claim(/Bricolage/.test(used.h1) && /Manrope/.test(used.text), 'headlines in Bricolage Grotesque, text in Manrope', used);
 	await ctx.close();
 }
 
@@ -338,14 +369,15 @@ async function budget(browser: Browser) {
 	const { ctx, page } = await open(browser, ADMIN);
 	await goto(page);
 	await live(page);
-	await page.waitForTimeout(1500);
+	// every chapter visited: the canvas keeps the most of any frame
+	for (const name of CHAPTERS) await chapter(page, name, 1500);
 	const m = await page.evaluate(() => {
 		const d = document.querySelector<HTMLCanvasElement>('.bj-stage canvas')!.dataset;
 		return { tris: Number(d.tris), draws: Number(d.draws), firstMs: Number(d.firstMs) };
 	});
 	console.log(`triangles ${m.tris} (at most ${BUDGET.tris}) · draws ${m.draws} (at most ${BUDGET.draws}) · first frame ${m.firstMs} ms (at most ${BUDGET.firstMs})`);
-	claim(m.tris > 0 && m.tris <= BUDGET.tris, `at most ${BUDGET.tris} triangles a frame`, m.tris);
-	claim(m.draws > 0 && m.draws <= BUDGET.draws, `at most ${BUDGET.draws} draws a frame`, m.draws);
+	claim(m.tris > 0 && m.tris <= BUDGET.tris, `at most ${BUDGET.tris} triangles in any frame of the four chapters`, m.tris);
+	claim(m.draws > 0 && m.draws <= BUDGET.draws, `at most ${BUDGET.draws} draws in any frame`, m.draws);
 	claim(m.firstMs >= 0 && m.firstMs <= BUDGET.firstMs, `the first frame within ${BUDGET.firstMs} ms of the scene starting to load`, m.firstMs);
 	await ctx.close();
 }
@@ -355,18 +387,23 @@ async function shots(browser: Browser, dir: string) {
 	for (const size of [DESKTOP, PHONE]) {
 		const phone = size.width < 600;
 		const w = `${size.width}x${size.height}`;
+		// the page as it rests: no motion of its own, so every picture is the same on every run
 		const { ctx, page } = await open(browser, ADMIN, { viewport: size, deviceScaleFactor: 2, hasTouch: phone, isMobile: phone, reducedMotion: 'reduce' });
 		await goto(page);
 		await live(page);
 		await page.evaluate(() => document.fonts.ready);
 		await page.waitForTimeout(800);
-		await page.screenshot({ path: `${dir}/${w}-hero.png` });
+		// each chapter of the show
+		for (const name of CHAPTERS) {
+			await chapter(page, name, 700);
+			await page.screenshot({ path: `${dir}/${w}-${name}.png` });
+		}
 		// the whole page, one question open so the accordion is seen
-		await page.locator('.bj-faq-item button').nth(1).click();
 		// (taken screen by screen and joined: one picture taller than 8,192 px is more than the box's renderer draws, so
-		// what stays in place while scrolling is let go;
-		// the call to action that stays at the foot is in the hero's picture, and left out here)
-		await page.addStyleTag({ content: '[data-sticky] { display: none !important; } .bj-offer-side { position: static !important; }' });
+		// what stays in place while scrolling is let go; the call to action that stays at the foot is in the chapters'
+		// pictures, and left out here)
+		await page.locator('.bj-faq-item button').nth(1).click();
+		await page.addStyleTag({ content: '[data-sticky], .bj-read { display: none !important; } .bj-offer-side { position: static !important; }' });
 		await scrollTo(page, 0);
 		const tall = await page.evaluate(() => document.querySelector('.app-scroll')!.scrollHeight);
 		const parts: string[] = [];
@@ -374,7 +411,7 @@ async function shots(browser: Browser, dir: string) {
 			// the last screen ends with the page: only its lower part is new
 			const at = Math.min(top, tall - size.height);
 			await scrollTo(page, at);
-			await page.waitForTimeout(250);
+			await page.waitForTimeout(450);
 			parts.push((await page.screenshot({ scale: 'css', clip: { x: 0, y: top - at, width: size.width, height: size.height - (top - at) } })).toString('base64'));
 		}
 		const joined = await page.evaluate(async ({ parts, width, tall }) => {
@@ -393,7 +430,7 @@ async function shots(browser: Browser, dir: string) {
 			return c.toDataURL('image/png').split(',')[1];
 		}, { parts, width: size.width, tall });
 		await Bun.write(`${dir}/${w}.png`, Buffer.from(joined, 'base64'));
-		console.log(`${dir}/${w}.png, ${w}-hero.png`);
+		console.log(`${dir}/${w}.png, ${CHAPTERS.map((n) => `${w}-${n}.png`).join(', ')}`);
 		await ctx.close();
 	}
 }
