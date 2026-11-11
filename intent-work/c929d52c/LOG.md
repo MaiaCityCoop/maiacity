@@ -230,3 +230,10 @@ ms a frame, 0.963 painted. c5's pictures: Chromium's eight (`gpu/run3/`: the sam
 no edges, no bands, at both sizes); WebKit's screenshot timed out again in c5 (world in 266 s), as on 5be34cf3: the
 runner, which in the same run photographed WebKit's world in c3. A dry run of the head (records nothing, so c1–c4
 stand) is retaking WebKit's sky pictures, to judge c5 in both engines on the head itself.
+
+## 02:48 · c5 on the head, both engines (dry run 42944106278 on 1a8caf6e)
+
+Chromium 153 (world in 328.8 s, 0.967 painted) and WebKit 26.6 (world in 272 s, 0.951 painted): all 16 sky pictures
+(`gpu/head/`). Judged against Samuel's screenshot (large flat blocks, hard straight edges) and main's sky in the box
+(`box/round0-main.png`): **no flat block, no straight edge, no step, no band in any of them**; soft edges, grey
+bases and bright rims by day, rose at dawn and dusk, the two engines drawing the same sky. c5 recorded by hand.
