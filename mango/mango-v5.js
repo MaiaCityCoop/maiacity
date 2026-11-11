@@ -2038,7 +2038,7 @@ module.exports.recipe = function (id, v, variant) {
 };
 
 /** its lighter levels, built by the worlds as they are (L1, L2): the same tree at these details */
-module.exports.levels = [{ values: { detail: 0.25 } }, { values: { detail: 0.1 } }];
+module.exports.levels = [{ values: { detail: 0.25 } }, { values: { detail: 0.2 } }];
 
 /** the organs on their own, for checking them against photographs of the real thing */
 module.exports.organs = { pickFruit, grow, MA, TREE, stone, leaf, flower, panicle, fruit, fruitGeometry, Bag, timeAt, mangoTree, growthUnits, unitsOf, unitsAt, thicken, inCrown, HEIGHT, SPREAD, CROP, STAGES };

@@ -2361,7 +2361,7 @@ module.exports.recipe = function (id, v, variant) {
 };
 
 /** its lighter levels, built by the worlds as they are (L1, L2): the same tree at these details */
-module.exports.levels = [{ values: { detail: 0.25 } }, { values: { detail: 0.1 } }];
+module.exports.levels = [{ values: { detail: 0.25 } }, { values: { detail: 0.2 } }];
 
 /** the organs on their own, for checking them against the reference sheet's panels */
 module.exports.organs = { WN, LEAFLET_W, HUSK_W, NUT_W, nut, nutGeometry, leaf, catkin, female, walnut, bud, Bag, timeAt, walnutTree, axes, thicken, fruitSize, huskAt, surface, lite, detailAt, STAGES, lathe };

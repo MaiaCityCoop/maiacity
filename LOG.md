@@ -195,3 +195,26 @@ Looked at (render bench, same shots as v3; against its reference sheet `b5143254
 - `yam/v3-s7-whole.jpg` / `yam/v4-s7-whole.jpg`: the plant on its stake and mound as the viewer frames it: the same.
 
 Source: `yam/yam-v4.js`.
+
+## The far levels, looked at (c5), and walnut's and mango's L2 moved to detail 0.2
+
+Each proposed tree's own levels, built in the box at their declared values (a copy of the source whose `build`
+takes that detail, for the pictures only) and framed beside the finest where the worlds hand over to them: the
+tree at about a fifth of the view (L2's threshold, `lod.js` LEVELS[2] = 0.22), and smaller.
+
+- `yam/levels-L0-L1-L2-at-a-fifth.jpg`, `yam/levels-far.jpg`: finest | L1 (12,438) | L2 (2,043): the vine on its
+  stake reads the same at all three; L2 a little sparser in its leaves, its outline and colour held. Passes.
+- `walnut/levels-L0-L1-L2-at-a-fifth.jpg`: finest | L1 (18,865) | L2 at detail 0.1 (6,160): L1 holds; **L2 at 0.1
+  thinned the crown to see-through** (a thinned tree, not the tree). `walnut/levels-L2-0.1-vs-0.2.jpg`: finest | L2
+  at 0.1 | L2 at 0.2 (13,103): at 0.2 the crown is full and green again, a shade lighter than the finest.
+- `mango/levels-L0-L1-L2-at-a-fifth.jpg`: finest | L1 (54,332) | L2 at 0.1 (20,145): L1 holds; **L2 at 0.1 went
+  see-through, only its red fruit carrying the crown**. `mango/levels-L2-0.1-vs-0.2.jpg`: at 0.2 (43,638) the crown
+  is nearly as full as the finest, fruit and colour kept.
+
+So walnut and mango declare L2 at detail 0.2 (`module.exports.levels = [{ detail: 0.25 }, { detail: 0.2 }]`). A
+proposed variant is frozen, so each was proposed again as a new variant with the same edits and messages (walnut
+1990, mango 1991, in place of 1983 and 1988). Their L2 at 0.2: walnut 13,103 / 19,641 / 32,045 (stages 10–12),
+mango 43,638 / 35,780 / 45,154 / 42,640 (stages 10–13), all under L2's ceiling of 56,454.
+
+**Open for the three drafted trees:** their L2 is declared at 0.1 and was not yet looked at framed; judge it (and
+likely move it to 0.2 the same way) before proposing them.
