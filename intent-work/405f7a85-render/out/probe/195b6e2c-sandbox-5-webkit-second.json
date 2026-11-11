@@ -1,0 +1,98 @@
+{
+ "tag": "195b6e2c-sandbox-5-webkit-second",
+ "browser": "Playwright WebKit 26.6",
+ "url": "http://localhost:4405/sandbox-5/",
+ "steps": [
+  {
+   "t": 23.6,
+   "line": "Building the dome…"
+  },
+  {
+   "t": 28.3,
+   "line": "Laying the paths…"
+  },
+  {
+   "t": 30.3,
+   "line": "Covering the ground…"
+  },
+  {
+   "t": 32.3,
+   "line": "Planting round the dome…"
+  },
+  {
+   "t": 38.3,
+   "line": "Growing the forest: 30 of 51 kinds…"
+  },
+  {
+   "t": 40.3,
+   "line": "Growing the forest: 50 of 51 kinds…"
+  },
+  {
+   "t": 45.3,
+   "line": "Welcome"
+  },
+  {
+   "t": 47.5,
+   "line": "shown"
+  }
+ ],
+ "lifted_s": 47.5,
+ "backend": "webgpu",
+ "stats": {
+  "out": {
+   "kinds": 180,
+   "loaded": 91,
+   "building": 96,
+   "busy": {
+    "queue": 0,
+    "loads": 93,
+    "compiling": 0,
+    "lowering": 3
+   },
+   "keeping": 0,
+   "failed": []
+  },
+  "in": {
+   "kinds": 0,
+   "loaded": 0,
+   "building": 0,
+   "busy": {
+    "queue": 0,
+    "loads": 0,
+    "compiling": 0,
+    "lowering": 0
+   },
+   "keeping": 0,
+   "failed": []
+  },
+  "library": {
+   "kinds": 16,
+   "loaded": 16,
+   "building": 0,
+   "busy": {
+    "queue": 0,
+    "loads": 0,
+    "compiling": 0,
+    "lowering": 0
+   },
+   "keeping": 0,
+   "failed": []
+  }
+ },
+ "longest_hold": {
+  "at_s": 20.2,
+  "ms": 4381
+ },
+ "reporter": {
+  "file": "4405-mwbqsb0j-wpvr.jsonl",
+  "gpu": true,
+  "adapter": {
+   "vendor": "apple",
+   "architecture": "apple",
+   "description": "apple"
+  },
+  "lost": [],
+  "errors": [],
+  "errors_total": 0
+ }
+}
