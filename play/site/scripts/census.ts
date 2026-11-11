@@ -47,14 +47,15 @@
 import { writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { treeAt } from './census/tree';
+import type { World } from './census/run';
 
 const argv = process.argv.slice(2);
 const arg = (k: string) => {
 	const i = argv.indexOf(k);
 	return i >= 0 ? argv[i + 1] : undefined;
 };
-const world = (arg('--world') ?? 'sandbox-1') as 'sandbox-1' | 'sandbox-5' | 'sandbox-3' | 'worlds';
-if (!['sandbox-1', 'sandbox-5', 'sandbox-3', 'worlds'].includes(world)) throw new Error(`census: no world ${world} (sandbox-1, sandbox-5, sandbox-3, worlds)`);
+// (which worlds there are is ./census/run's list alone, read once the world's code may be loaded, below)
+const world = (arg('--world') ?? 'sandbox-1') as World;
 const view = arg('--view') ?? 'all';
 const at = arg('--at');
 const SITE = resolve(import.meta.dir, '..');
@@ -68,6 +69,7 @@ const smoke = argv.includes('--smoke');
 const frames = argv.includes('--frame');
 setup({ real: smoke, gpu: frames, renderer: arg('--renderer'), root: tree ? join(tree.dir, 'play/site') : undefined, inputs: live ? undefined : resolve(arg('--inputs') ?? join(SITE, 'scripts/census/inputs')), record: argv.includes('--record') });
 const { censusOf, smokeOf, VIEWS_OF } = await import('./census/run');
+if (!(world in VIEWS_OF)) throw new Error(`census: no world ${world} (${Object.keys(VIEWS_OF).join(', ')})`);
 const views = view === 'all' ? VIEWS_OF[world] : (view.split(',') as typeof VIEWS_OF[typeof world]);
 if (smoke) {
 	const s = await smokeOf({ world, views, asset: arg('--asset'), log: (x) => console.error(x) });
@@ -128,7 +130,10 @@ for (const v of got) {
 		console.table([...rows.values()].sort((a, b) => b.tris - a.tris).slice(0, 40));
 	}
 }
+// what the world's load handed the page's simplifier (./census/kept.ts `lowered`): work a visitor's device does
+const { lowered } = (await import('./census/setup')).built;
+console.log(`\nhanded to the simplifier: ${n(lowered.jobs)} shapes, ${n(lowered.tris)} triangles`);
 console.log(`\ncensus: ${views.length} view${views.length > 1 ? 's' : ''} in ${seconds.toFixed(1)} s`);
 const json = arg('--json');
-if (json) writeFileSync(json, JSON.stringify({ world, at: tree?.sha ?? null, renderer: drewWith, seconds, views: got }));
+if (json) writeFileSync(json, JSON.stringify({ world, at: tree?.sha ?? null, renderer: drewWith, seconds, lowered, views: got }));
 process.exit(0);

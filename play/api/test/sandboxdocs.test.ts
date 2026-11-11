@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD } from "../src/recipes";
+import { leveled } from "./fixtures/lod";
 import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool, unlockReads } from "./kit";
 
 /** Sandbox 2, as migration 0003 made it (its UUID from 0017) */
@@ -60,12 +61,12 @@ suite("a sandbox's layout as a document", () => {
 
   test("c1: edited in an intent variant with its helpers, proposed, reviewed pin by pin, accepted, its rows written from Main", async () => {
     // a plant of two versions, the second of variants, pinned in Sandbox 2 at v1 as the import writes pins
-    const p1 = await call("ada", "POST", "/api/intents", { new: { group: "plants", slug: "pawpaw-t", label: "Pawpaw" }, recipe: recipe("pawpaw-t", 1), card: { lod: { levels: "derived" } }, intent: await ready("A pawpaw") });
+    const p1 = await call("ada", "POST", "/api/intents", leveled({ new: { group: "plants", slug: "pawpaw-t", label: "Pawpaw" }, recipe: recipe("pawpaw-t", 1), intent: await ready("A pawpaw") }));
     await call("ada", "POST", `/api/intents/${p1.data.intent}/accept`);
     const asset = p1.data.asset, v1 = p1.data.version;
     await db.query(`INSERT INTO play.sandbox_pins (sandbox_id, slot, version_id, params) VALUES ($1, 'grove/pawpaw', $2, '{"stage":"9"}'), ($1, 'gate', $2, NULL)`, [S2, v1]);
     await db.query(`INSERT INTO play.sandbox_configs (sandbox_id, name, data) VALUES ($1, 'grove', '{"trees":[{"id":"pawpaw","v":1,"slot":"grove/pawpaw","weight":2,"at":[0,0]}]}')`, [S2]);
-    const p2 = await call("ada", "POST", "/api/intents", { asset, variants: { both: { recipe: recipe("pawpaw-t", 2, "both") }, male: { recipe: recipe("pawpaw-t", 2, "male") } }, defaultVariant: "both", intent: await ready("A pawpaw of kinds") });
+    const p2 = await call("ada", "POST", "/api/intents", leveled({ asset, variants: { both: { recipe: recipe("pawpaw-t", 2, "both") }, male: { recipe: recipe("pawpaw-t", 2, "male") } }, defaultVariant: "both", intent: await ready("A pawpaw of kinds") }));
     await call("ada", "POST", `/api/intents/${p2.data.intent}/accept`);
     const v2 = (await db.query<any>(`SELECT recipe_hash FROM play.asset_variants WHERE version_id = $1 AND name = 'both'`, [p2.data.version])).rows[0].recipe_hash;
     const before = await config();

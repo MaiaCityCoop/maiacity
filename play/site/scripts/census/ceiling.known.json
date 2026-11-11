@@ -1,0 +1,1156 @@
+{
+	"65d10973-53bf-5485-8116-15ed2d85d38a": {
+		"label": "Black alder",
+		"over": 619745,
+		"at": "stage 11",
+		"derived": true
+	},
+	"7aa28c1c-d823-5358-9bcc-e381078a190c": {
+		"label": "Apple",
+		"derived": true
+	},
+	"0524aef7-518e-5c16-b466-e2e7b23865d0": {
+		"label": "Apricot",
+		"over": 814967,
+		"at": "stage 9",
+		"derived": true
+	},
+	"b94effbf-0e8b-52e4-bf98-32bc0efd38cf": {
+		"label": "Aronia",
+		"derived": true
+	},
+	"d15ea3da-45ba-512a-9974-4e204e3e2f8c": {
+		"label": "Globe artichoke",
+		"derived": true
+	},
+	"5451fcf6-555a-58ac-ac63-59d73e78897c": {
+		"label": "Asparagus",
+		"derived": true
+	},
+	"dd33ff04-fd0a-5201-9a8d-172252b91b5f": {
+		"label": "Avocado",
+		"over": 992141,
+		"at": "stage 11",
+		"derived": true
+	},
+	"7a88dc00-5b13-538f-ac03-68d8743b32d7": {
+		"label": "Bamboo",
+		"derived": true
+	},
+	"036954f4-7cac-5d52-a639-87e182dbec83": {
+		"label": "Banana",
+		"over": 333473,
+		"at": "stage 9",
+		"derived": true
+	},
+	"608b5e63-3857-54c9-ab50-6e3abd69268f": {
+		"label": "Basil",
+		"derived": true
+	},
+	"837bc3f6-eb6b-585b-a5fa-683b9576f8a8": {
+		"label": "Runner bean",
+		"derived": true
+	},
+	"0b1bf6d5-c012-5613-9302-400161daf1dc": {
+		"label": "Silver birch · Birke",
+		"over": 721209,
+		"at": "stage 10",
+		"derived": true
+	},
+	"bccdd0a1-e22a-5467-895e-83b93d505ad8": {
+		"label": "Blackberry",
+		"derived": true
+	},
+	"f5b96f63-350a-5ab6-82b6-e699c935f063": {
+		"label": "Blackcurrant",
+		"derived": true
+	},
+	"73869972-2349-5549-be0a-1865760bed8c": {
+		"label": "Blueberry",
+		"derived": true
+	},
+	"20f90389-1ffb-58af-8997-0dac77e6356b": {
+		"label": "Cacao",
+		"over": 386948,
+		"at": "stage 6",
+		"derived": true
+	},
+	"0b95d1b8-e0ac-5e51-9161-612654cc227a": {
+		"label": "Carrot",
+		"derived": true
+	},
+	"bfa86d0d-db85-45bd-8716-61e5a497a3e1": {
+		"label": "Cassava 'TME 419' · Manihot esculenta",
+		"derived": true
+	},
+	"456bd459-794c-507f-bd38-5fd66a6a6e19": {
+		"label": "Swiss chard",
+		"derived": true
+	},
+	"aa236b28-b4e7-5e53-a5ec-6fa15535f631": {
+		"label": "Cherry",
+		"over": 450012,
+		"at": "stage 10",
+		"derived": true
+	},
+	"c0382a47-a3ee-58c4-b83a-65df5c71c18e": {
+		"label": "Sweet chestnut",
+		"over": 1528360,
+		"at": "stage 12",
+		"derived": true
+	},
+	"c5d1fa99-a5aa-5e94-beee-951385b31366": {
+		"label": "Chickpea",
+		"derived": true
+	},
+	"43c45710-01c5-512f-99b5-efb7872d6f6d": {
+		"label": "Chives",
+		"derived": true
+	},
+	"9fbd025f-a0ba-5d6d-8af2-a166eea394fb": {
+		"label": "White clover",
+		"derived": true
+	},
+	"55986398-c4a1-5506-b1c0-c550978ec89b": {
+		"label": "Coffee",
+		"over": 808915,
+		"at": "stage 7",
+		"derived": true
+	},
+	"de04fb36-a2a5-56a0-b34e-8ee261887b8a": {
+		"label": "Comfrey",
+		"derived": true
+	},
+	"9b6ad1a5-8fa1-5fa1-8043-4a3d78580d3c": {
+		"label": "Coriander",
+		"derived": true
+	},
+	"3770a96c-64f8-5176-9637-a5ca88223028": {
+		"label": "Cornelian cherry",
+		"derived": true
+	},
+	"83bc85f5-1736-5d7e-84a0-799a41b87117": {
+		"label": "Cucumber",
+		"derived": true
+	},
+	"7bababa3-9298-5f56-96fc-39c9ad8c792d": {
+		"label": "Dill",
+		"derived": true
+	},
+	"cef476a0-cc1b-5509-84c0-51a42b907951": {
+		"label": "Durian",
+		"over": 773182,
+		"at": "stage 13",
+		"derived": true
+	},
+	"97a7f73a-4899-5543-a3b7-65ecc07c9b9b": {
+		"label": "Edamame",
+		"derived": true
+	},
+	"10f59871-c658-5af2-81ea-3d4c47be6a49": {
+		"label": "Eggplant",
+		"derived": true
+	},
+	"4a51dfdb-d721-55e7-b903-533f7f219ef1": {
+		"label": "Elder",
+		"derived": true
+	},
+	"7cb9f72d-4502-5e2d-8990-b94f2d5b4e1b": {
+		"label": "Fig",
+		"over": 441623,
+		"at": "stage 9",
+		"derived": true
+	},
+	"9675ced2-805f-55ad-a9d1-f4af27dc1e0d": {
+		"label": "Garlic",
+		"derived": true
+	},
+	"4894435c-e37a-572f-8744-68fe4b346080": {
+		"label": "Ginger",
+		"derived": true
+	},
+	"2ee56d85-55b7-57ea-9d7d-9fa658a318fb": {
+		"label": "Gooseberry",
+		"derived": true
+	},
+	"7dfb9060-8776-543f-9dc4-7fb2eab76ed9": {
+		"label": "Red grape",
+		"derived": true
+	},
+	"388f09ab-830c-5543-9aa5-7a62cbbb3e9f": {
+		"label": "Haskap",
+		"derived": true
+	},
+	"33a534e9-80c7-5892-89b2-84d1a2efbdac": {
+		"label": "Hazel",
+		"over": 1032338,
+		"at": "bush, stage 12",
+		"derived": true
+	},
+	"36804ed7-c896-5904-b7df-23314107977c": {
+		"label": "Hemp",
+		"derived": true
+	},
+	"6cf5e73c-f522-5ae4-875b-d2f2ecae8c3a": {
+		"label": "Hop",
+		"derived": true
+	},
+	"ac5d6dc5-ff9c-5508-8a8c-40c3b49ba348": {
+		"label": "Horseradish",
+		"derived": true
+	},
+	"26b84995-47bf-5a2e-a11e-77b44054520f": {
+		"label": "Jackfruit",
+		"over": 1049690,
+		"at": "stage 11",
+		"derived": true
+	},
+	"a0eafba6-4196-5312-946d-63b2ca0d45fe": {
+		"label": "Jerusalem artichoke",
+		"derived": true
+	},
+	"7c39d1ce-f71c-59e1-9efb-1bcd4de64191": {
+		"label": "Kale",
+		"derived": true
+	},
+	"e43e66c1-963d-5d63-987d-ceed30f8f2dd": {
+		"label": "King coconut",
+		"over": 408064,
+		"at": "stage 12",
+		"derived": true
+	},
+	"ad6bc4a0-36c4-5209-afdc-99c006277192": {
+		"label": "Hardy kiwi",
+		"derived": true
+	},
+	"693d3388-97ff-5683-86fe-f0ca88a9e63d": {
+		"label": "Korean pine",
+		"over": 624874,
+		"at": "stage 12",
+		"derived": true
+	},
+	"dcaeae0f-8aff-5ae9-920e-41f98aee9564": {
+		"label": "Lavender",
+		"derived": true
+	},
+	"6e559d24-a7be-5712-bd4b-bed77ab8b708": {
+		"label": "Lemon",
+		"over": 875484,
+		"at": "stage 8",
+		"derived": true
+	},
+	"6a0a7ce0-d16f-5505-9673-20d7a76e7a60": {
+		"label": "Lemon balm",
+		"derived": true
+	},
+	"0af679fb-77ed-5b97-aa30-aa5a0445b66c": {
+		"label": "Lentil",
+		"derived": true
+	},
+	"3e85c6f8-1fc0-59b0-b3d1-8f7dcb307bf6": {
+		"label": "Lettuce",
+		"derived": true
+	},
+	"ecc05573-891e-51c4-907b-675da3d298bf": {
+		"label": "Small-leaved lime",
+		"over": 736372,
+		"at": "stage 12",
+		"derived": true
+	},
+	"5ac03d06-26c5-5d1b-af91-62c5ae40880d": {
+		"label": "Mango",
+		"over": 872820,
+		"at": "stage 13",
+		"derived": true
+	},
+	"74256f6e-484e-52d6-9ec4-13399958ab6b": {
+		"label": "Medlar",
+		"derived": true
+	},
+	"ad4195dd-c2cb-5ea3-8d7d-0cfa20442805": {
+		"label": "Mint",
+		"derived": true
+	},
+	"76b97cae-fa1d-4bfc-a07c-5f093343919f": {
+		"label": "Moringa 'PKM-1' · Moringa oleifera",
+		"over": 819380,
+		"at": "stage 9",
+		"derived": true
+	},
+	"572b0638-1da1-555d-9869-949b54c3249c": {
+		"label": "Haircap moss",
+		"derived": true
+	},
+	"8b516287-1665-5e7b-be5b-52a9fb257855": {
+		"label": "Mulberry",
+		"over": 835413,
+		"at": "stage 8",
+		"derived": true
+	},
+	"7063e922-b9d9-5652-b9ad-75cb7d4d4c70": {
+		"label": "Nasturtium",
+		"derived": true
+	},
+	"f7288c8b-80ef-5e70-a50c-f271886472e1": {
+		"label": "Stinging nettle",
+		"derived": true
+	},
+	"30a58f73-0bd9-5d4d-b261-9f5a96da14b2": {
+		"label": "Oats",
+		"derived": true
+	},
+	"8323f07d-60c6-5d46-8c23-644e5b1efc20": {
+		"label": "Olive",
+		"over": 787021,
+		"at": "stage 9",
+		"derived": true
+	},
+	"332e490c-bbbd-57c4-856c-b3190e8db398": {
+		"label": "Orange",
+		"over": 1292243,
+		"at": "stage 12",
+		"derived": true
+	},
+	"a6905f50-a964-5dcb-b539-b3ebbe3744ff": {
+		"label": "Oregano",
+		"derived": true
+	},
+	"0f0dc7cf-6ff4-5975-9db8-aab9253e19e4": {
+		"label": "Oxheart tomato",
+		"derived": true
+	},
+	"e1a112b3-cb3b-536c-942f-10b0f87898b6": {
+		"label": "Oyster mushroom",
+		"derived": true
+	},
+	"e46e8e6f-cd69-5c1e-88c8-cea2032bf600": {
+		"label": "Papaya",
+		"over": 510993,
+		"at": "male, stage 9",
+		"derived": true
+	},
+	"34980d79-ab71-5e01-93fa-5d234ccb2484": {
+		"label": "Parsley",
+		"derived": true
+	},
+	"ae88738e-683e-565a-b1e5-f0ac64629084": {
+		"label": "Passion fruit",
+		"derived": true
+	},
+	"3a15ee01-7e4b-5b8b-b4d7-f9b0ad7bfcfa": {
+		"label": "Pawpaw",
+		"derived": true
+	},
+	"90c4bbb3-6084-5575-936b-dfbbd399eee7": {
+		"label": "Peach",
+		"over": 856111,
+		"at": "stage 9",
+		"derived": true
+	},
+	"e32fb510-dd57-56ac-8dfa-a66f6a0e48b2": {
+		"label": "Pear",
+		"derived": true
+	},
+	"b17ce86a-cba2-5032-847f-b53f4aa65cad": {
+		"label": "Pecan",
+		"over": 714500,
+		"at": "stage 12",
+		"derived": true
+	},
+	"85ae42aa-31e2-58ed-b4f6-6d32b26ad3e1": {
+		"label": "Bell pepper",
+		"derived": true
+	},
+	"a424b9ab-4e91-5bf7-ba8f-43023a49e5ca": {
+		"label": "Persimmon",
+		"derived": true
+	},
+	"6a597d47-66db-5516-8b58-218159af42cd": {
+		"label": "Pineapple",
+		"derived": true
+	},
+	"845785bc-eac6-5e17-b937-16d556f5e647": {
+		"label": "Plum",
+		"over": 864391,
+		"at": "stage 5",
+		"derived": true
+	},
+	"c124236c-94e1-5ea3-831e-d3c45b8f81c8": {
+		"label": "Pomegranate",
+		"over": 914314,
+		"at": "stage 5",
+		"derived": true
+	},
+	"916cf980-48ef-546d-bbdb-c9a73f7f8c55": {
+		"label": "Pumpkin",
+		"derived": true
+	},
+	"512031fb-a3ba-51b3-84e7-603c9fac4c3c": {
+		"label": "Quince",
+		"over": 716473,
+		"at": "stage 9",
+		"derived": true
+	},
+	"179d3622-dd93-5002-b86f-8b8f667fbe4c": {
+		"label": "Radish",
+		"derived": true
+	},
+	"4a5d1f8a-ea82-5f56-b4a7-58cad5c81483": {
+		"label": "Raspberry",
+		"derived": true
+	},
+	"4c5f4074-a429-59e9-a881-0e0b38ce1e0a": {
+		"label": "Red banana",
+		"over": 307427,
+		"at": "stage 8",
+		"derived": true
+	},
+	"46a31a37-11b7-591b-8c71-1e446f05b843": {
+		"label": "Redcurrant",
+		"derived": true
+	},
+	"c086f702-c2ba-57ef-97b0-a031dc129654": {
+		"label": "Rhubarb",
+		"derived": true
+	},
+	"3dec5b5e-1597-5537-883e-a0024a1ff44b": {
+		"label": "Japanese rose",
+		"derived": true
+	},
+	"8e5ede27-0ea8-5977-aa14-91bb2d36ea3b": {
+		"label": "Rosemary",
+		"derived": true
+	},
+	"d5709a38-ca90-5a14-a9a3-a232200c53cb": {
+		"label": "Safou",
+		"over": 840262,
+		"at": "stage 12",
+		"derived": true
+	},
+	"2ba5b88e-5b06-59ba-81e7-b13eb5cbe29c": {
+		"label": "Sage",
+		"derived": true
+	},
+	"cd311cdc-c0d8-51a8-9f54-325ed6f155f5": {
+		"label": "Sapodilla",
+		"over": 1102480,
+		"at": "stage 13",
+		"derived": true
+	},
+	"facd5926-78a1-5e67-abe8-8aaf21c4de26": {
+		"label": "Sea buckthorn",
+		"derived": true
+	},
+	"143c3f34-a733-5480-860b-27d0a04a25c2": {
+		"label": "Serviceberry",
+		"over": 899180,
+		"at": "stage 10",
+		"derived": true
+	},
+	"65a2bc34-0118-595b-abb7-733d13cf9aa2": {
+		"label": "Shiitake",
+		"derived": true
+	},
+	"cfd8aae9-3169-56e5-a2a4-1f9b775bdcad": {
+		"label": "Sorrel",
+		"derived": true
+	},
+	"cbb7109e-b53f-513f-9370-09e0c5691fc3": {
+		"label": "Soursop",
+		"over": 883324,
+		"at": "stage 12",
+		"derived": true
+	},
+	"96a38b35-a2ff-5e5e-9899-0c291f0b77b1": {
+		"label": "Strawberry",
+		"derived": true
+	},
+	"b4cf1fa8-121d-5327-aad7-e8c537e0f299": {
+		"label": "Thyme",
+		"derived": true
+	},
+	"714b2deb-c718-55e6-b2bb-f279d9bf13ed": {
+		"label": "Tomato",
+		"derived": true
+	},
+	"41c244d8-e220-57bc-a02e-225bbd364ce7": {
+		"label": "Turkish tree hazel",
+		"over": 773872,
+		"at": "stage 12",
+		"derived": true
+	},
+	"34c5d8e0-48e4-541e-8e1d-3f7bfce8e1fe": {
+		"label": "Walnut",
+		"over": 1183543,
+		"at": "stage 12",
+		"derived": true
+	},
+	"8a5d7a03-1daf-5451-a6ee-7853ce39bd1d": {
+		"label": "Wild garlic",
+		"derived": true
+	},
+	"516a268c-f483-5ffd-986b-e6336b4aaf9e": {
+		"label": "Wine cap",
+		"derived": true
+	},
+	"bccfa2d5-2446-5787-a639-06534f34c7ad": {
+		"label": "Sweet woodruff",
+		"derived": true
+	},
+	"ec65e757-0c6d-4513-b802-8c8f7a679d3f": {
+		"label": "Yam 'Pona' · Dioscorea rotundata",
+		"over": 457179,
+		"at": "stage 8",
+		"derived": true
+	},
+	"2eb0865d-7777-4f91-96a0-8420022301f5": {
+		"label": "Armchair, round",
+		"derived": true
+	},
+	"2429a719-2793-50bc-9538-a1c5e09a0c57": {
+		"label": "Art studio",
+		"derived": true
+	},
+	"ca23a6a1-a0d7-56f9-bdb5-cf1caf6da4b0": {
+		"label": "Backpack",
+		"derived": true
+	},
+	"2e6dd952-7dda-5b1e-bf3e-40aa4df1f028": {
+		"label": "Bakery & cooking school",
+		"derived": true
+	},
+	"6200c1fc-1be1-5cd3-af96-0f75803d1445": {
+		"label": "Balcony door",
+		"derived": true
+	},
+	"42c5cb8a-812f-57d0-a044-b179a6ea2da6": {
+		"label": "Round stool",
+		"derived": true
+	},
+	"4bd9fe1c-cf72-4def-b3e2-2cdf4634a054": {
+		"label": "Freestanding bath tub",
+		"derived": true
+	},
+	"0a414a60-71f6-48da-b0e9-90dbae9d913b": {
+		"label": "Bed, platform",
+		"derived": true
+	},
+	"d1fa6b35-082e-5625-a00f-bff0d722a9bc": {
+		"label": "Bell tent",
+		"derived": true
+	},
+	"c4758ba2-7326-58ce-904d-f498bcf1a96e": {
+		"label": "Bell tent bag",
+		"derived": true
+	},
+	"81871428-9495-45a9-8f3b-651f2d754027": {
+		"label": "Curved oak bench",
+		"derived": true
+	},
+	"ebfaf6ff-2119-40ef-8977-880b9c670d07": {
+		"label": "Billboard",
+		"derived": true
+	},
+	"848fad57-3fec-5eca-b840-7e790fedda00": {
+		"label": "Bistro set",
+		"derived": true
+	},
+	"fe1174bc-a172-4ba3-b8b9-5e49c1d22a14": {
+		"label": "Bollard",
+		"derived": true
+	},
+	"b58e6507-5d06-4889-bb15-5a09fa14f9f8": {
+		"label": "Oak bookcase",
+		"derived": true
+	},
+	"2446f127-2315-5c02-9b41-142cd7c51ee9": {
+		"label": "Bread oven",
+		"derived": true
+	},
+	"b41ae5b5-ce5f-4784-bd5a-eb15871a81b0": {
+		"label": "Chair, desk",
+		"derived": true
+	},
+	"7843f168-2454-4b7b-965f-46a189f4505f": {
+		"label": "Oak spindle chair",
+		"derived": true
+	},
+	"73e0c4c0-3e77-5ea4-8691-2ab95e0eb438": {
+		"label": "Chicken coop",
+		"derived": true
+	},
+	"75c3421f-369c-5045-9ab6-00e7abd9bc5d": {
+		"label": "Co-working",
+		"derived": true
+	},
+	"edd63268-8042-4d56-aa57-a269627ab39f": {
+		"label": "Curtain, linen",
+		"derived": true
+	},
+	"dba076c0-9ced-425c-bedd-b609fd3dbe5e": {
+		"label": "Terrace daybed",
+		"derived": true
+	},
+	"4d6e5671-ba25-4647-94e1-d3bc175dacc4": {
+		"label": "Desk, curved",
+		"derived": true
+	},
+	"3c7c19cc-5c97-5286-ac22-126b030b1764": {
+		"label": "Storage tent",
+		"derived": true
+	},
+	"d65d710e-8288-514d-9cd0-6cbe42a734d2": {
+		"label": "Dug earth",
+		"derived": true
+	},
+	"c6bd47d0-3e38-5151-9e23-d64c5f6892ff": {
+		"label": "Euro pallet",
+		"derived": true
+	},
+	"b599575c-d854-531b-883d-a99ff4e49f1c": {
+		"label": "Fiddle-leaf fig",
+		"derived": true
+	},
+	"5c796cbc-e1e8-52c0-947c-6a670f9aea4f": {
+		"label": "Fire place",
+		"derived": true
+	},
+	"685cc251-8984-4929-bcd9-886b8f5e8859": {
+		"label": "W-beam guardrail",
+		"derived": true
+	},
+	"51a84f61-e8ae-4288-a4b0-6cf90fbf19fa": {
+		"label": "Jersey barrier",
+		"derived": true
+	},
+	"b7c212ba-9846-5629-a964-cdd73a11849f": {
+		"label": "Kiosk",
+		"derived": true
+	},
+	"48d7610a-d2cc-4f37-a53e-5367c1b05eed": {
+		"label": "Oak kitchen counter",
+		"derived": true
+	},
+	"11a75b96-cbdb-49a4-be98-659cff8f05ec": {
+		"label": "Curved kitchen island",
+		"derived": true
+	},
+	"6560ef42-1529-4419-990d-98651025ea5e": {
+		"label": "Lamp, mushroom",
+		"derived": true
+	},
+	"3610fa20-5f77-4958-bc5a-a99f3446a443": {
+		"label": "Paper floor lantern",
+		"derived": true
+	},
+	"3d897f0c-0f3c-4b82-ae42-ae2dd7989bfe": {
+		"label": "Paper pendant lantern",
+		"derived": true
+	},
+	"a1abc4ad-e5ce-4f64-bebd-fc90bc49eca6": {
+		"label": "Large paper lantern",
+		"derived": true
+	},
+	"89f79075-10de-5059-9bf4-448ff995aa84": {
+		"label": "Library",
+		"derived": true
+	},
+	"6a305aaf-b9b5-51ce-8c88-ff32bd6d552a": {
+		"label": "Loading ramp",
+		"derived": true
+	},
+	"6555ef66-f796-5cf5-8ee7-b68cf579172d": {
+		"label": "Long table",
+		"derived": true
+	},
+	"dacb1156-1120-5d0a-91f3-f9874879df40": {
+		"label": "Marker sticks",
+		"derived": true
+	},
+	"7d3cae3d-7ec0-4dd2-bfda-6e8240abd7d0": {
+		"label": "Nightstand, round",
+		"derived": true
+	},
+	"a1bb5b58-b2a5-5f16-9ebb-dc3d73d1a14a": {
+		"label": "Paper lantern, big",
+		"derived": true
+	},
+	"b4aa3a62-e9b0-540f-97e8-0a296e0b188c": {
+		"label": "Parasol",
+		"derived": true
+	},
+	"67000469-b684-5d81-a622-5a39643b8ee2": {
+		"label": "Pergola with lights",
+		"derived": true
+	},
+	"956042c1-bc90-5ad0-b187-96604e64970b": {
+		"label": "Pickup",
+		"derived": true
+	},
+	"49a192b1-6412-50b7-a916-162b1ab6f878": {
+		"label": "Plant stake",
+		"derived": true
+	},
+	"91637a7f-4951-4cb4-a00f-92843fed096c": {
+		"label": "Long planter trough",
+		"derived": true
+	},
+	"791ca0f6-c047-5f49-bca7-8da5b0f8f62c": {
+		"label": "Playground",
+		"derived": true
+	},
+	"bc3606fd-33d8-4a72-b4f3-7e3b23d4935a": {
+		"label": "Terracotta pot",
+		"derived": true
+	},
+	"a6cf85c1-f69f-56f5-aa61-f4d1c1420637": {
+		"label": "Pothos",
+		"derived": true
+	},
+	"6942f93a-713a-5fd0-bb94-592794c9d1bf": {
+		"label": "Potted lavender",
+		"derived": true
+	},
+	"72901e29-0465-54c5-afaf-23ec4d443111": {
+		"label": "Potted lemon",
+		"derived": true
+	},
+	"03f2bf34-eeed-530a-a4dc-313dad1479fa": {
+		"label": "Potted olive",
+		"derived": true
+	},
+	"5b683683-c3e1-5d6c-9c1d-368af6bd5fb6": {
+		"label": "Potted rosemary",
+		"derived": true
+	},
+	"93102eea-2536-51d3-8173-81fcf142725d": {
+		"label": "Pottery",
+		"derived": true
+	},
+	"e7cf979e-e050-4afa-8ffb-64d3f6f36075": {
+		"label": "Pouf, linen",
+		"derived": true
+	},
+	"5b82d604-d092-53d3-a8eb-6589682d366f": {
+		"label": "Private room",
+		"derived": true
+	},
+	"e1cab19a-34aa-5307-bd67-71c6e3496971": {
+		"label": "Private room, sage",
+		"derived": true
+	},
+	"a00bf1ff-9409-4663-b85b-8edb2bfc467d": {
+		"label": "Power pylon",
+		"derived": true
+	},
+	"fd984df4-dd29-580e-98d4-db85888f46a4": {
+		"label": "Rabbit hutch",
+		"derived": true
+	},
+	"e8558571-6217-5c67-b5d7-a1e993c557b6": {
+		"label": "Repair café",
+		"derived": true
+	},
+	"7742ff21-1d6d-52fe-9991-9a6be06deb4d": {
+		"label": "Monstera, room",
+		"derived": true
+	},
+	"b09cd6ec-488e-421d-a361-8aa6398e2955": {
+		"label": "Rug, jute, round",
+		"derived": true
+	},
+	"5db35c3c-b960-514c-a401-1817a78355d9": {
+		"label": "Seed packet",
+		"derived": true
+	},
+	"bdc5b41b-d60c-453c-9169-ab25977c57ab": {
+		"label": "Walk-in shower",
+		"derived": true
+	},
+	"706750d1-7458-46e9-b014-6c42de6a215d": {
+		"label": "Sign gantry",
+		"derived": true
+	},
+	"a9515313-b009-568c-a045-b10562487658": {
+		"label": "Snake plant",
+		"derived": true
+	},
+	"96462609-c0e4-512a-9d3c-6bebc580ede0": {
+		"label": "Sofa",
+		"derived": true
+	},
+	"c48dc38f-4f68-4871-b461-754545e3b2bf": {
+		"label": "Sofa, curved",
+		"derived": true
+	},
+	"0e4db3ec-3eb0-581a-b0de-77871cccca66": {
+		"label": "Solar panel",
+		"derived": true
+	},
+	"63f6a629-6f01-5237-997f-9e8ddae18984": {
+		"label": "Café square",
+		"derived": true
+	},
+	"952b8b35-d55b-54ed-a030-e923a62c0493": {
+		"label": "Fruit bar square",
+		"derived": true
+	},
+	"adc18215-adac-59fb-9941-4bf0251e2645": {
+		"label": "Pizza square",
+		"derived": true
+	},
+	"4b01832f-4279-5bab-a823-20b2ede7d0fe": {
+		"label": "Restaurant square",
+		"derived": true
+	},
+	"86f11bae-e03f-4969-81ad-322d5cf34f22": {
+		"label": "Oak counter stool",
+		"derived": true
+	},
+	"e3fabfdd-832c-49cc-bb70-e32d3ee58cf3": {
+		"label": "Street lamp",
+		"derived": true
+	},
+	"b5fc8239-cb51-43af-ad25-7358c7f693f5": {
+		"label": "Coffee table, travertine",
+		"derived": true
+	},
+	"f8e8ca2a-a27c-4b48-afd8-fdd96fcebff8": {
+		"label": "Round oak dining table",
+		"derived": true
+	},
+	"d98e463a-ed36-42ef-9e54-e42303078d2b": {
+		"label": "Oak library table",
+		"derived": true
+	},
+	"6d175f42-f62c-4a18-853a-1ed4dff9bfe5": {
+		"label": "Side table, travertine",
+		"derived": true
+	},
+	"f4990c4a-d4a5-584b-b963-fa6916cfb8fa": {
+		"label": "Storage tent bag",
+		"derived": true
+	},
+	"f84f2704-1674-55ad-98c7-c7649bbc89c5": {
+		"label": "Terrace: plaster bench",
+		"derived": true
+	},
+	"9b779fa3-f680-5ff4-8789-b67b1bd839d2": {
+		"label": "Terrace: daybeds",
+		"derived": true
+	},
+	"1df37b98-b7e7-528d-a6e9-62fe0f9df433": {
+		"label": "Terrace: egg chairs",
+		"derived": true
+	},
+	"8fefb108-38a9-5d89-b6bf-6cd57e83a6b8": {
+		"label": "Terrace: table under the vines",
+		"derived": true
+	},
+	"ec7b357e-8915-4c01-93f8-46caa87759c2": {
+		"label": "Wall-hung toilet",
+		"derived": true
+	},
+	"760474a5-5f42-414e-8179-b729748952cc": {
+		"label": "Traffic signal",
+		"derived": true
+	},
+	"38cb9356-8afd-5783-9a91-08a6dbb666e6": {
+		"label": "Travel van",
+		"derived": true
+	},
+	"4fc00ef5-079e-4fa8-a063-fd33be0ac3a8": {
+		"label": "Curved oak vanity",
+		"derived": true
+	},
+	"515020a8-2ce2-5ca7-9326-54df1957fa3f": {
+		"label": "Water bottle",
+		"derived": true
+	},
+	"4d07974d-8bbc-5d32-95de-4ac7d78d1962": {
+		"label": "10 L water canister",
+		"derived": true
+	},
+	"bd6e7928-0e43-5f23-9958-dfb1741ce20a": {
+		"label": "Woodshop",
+		"derived": true
+	},
+	"b860b753-6019-4b5c-96c7-adffb0f730a4": {
+		"label": "Oak workbench",
+		"derived": true
+	},
+	"a2cb88a1-d476-4542-abff-0adf16f0875e": {
+		"label": "Ambulance",
+		"derived": true
+	},
+	"05e6be57-cffa-500a-9321-b67aa361b522": {
+		"label": "BatteryCube: BatteryCube",
+		"derived": true
+	},
+	"bf1f3ce7-fdbb-5169-8306-a94cf7b600dd": {
+		"label": "BatteryPack: BatteryPack",
+		"derived": true
+	},
+	"3ff6decb-7d0d-47b4-8a8a-6160275d1d32": {
+		"label": "Box truck",
+		"derived": true
+	},
+	"edbd06d9-5a01-4e57-9fbc-d0d017bf8631": {
+		"label": "City bus",
+		"derived": true
+	},
+	"53d1af5a-bbcf-4eba-9fe0-3a147baedd34": {
+		"label": "Delivery van",
+		"derived": true
+	},
+	"b432d49a-b3d4-51b6-aa6b-745b15fb3234": {
+		"label": "ElectroCube: ElectroCube",
+		"derived": true
+	},
+	"92986220-3a93-561d-936a-35fbe70e1831": {
+		"label": "Large excavator: Large · 14 t",
+		"derived": true
+	},
+	"173058ac-c3ee-53f6-86a8-72bf86962201": {
+		"label": "Small excavator: Small · 1.7 t",
+		"derived": true
+	},
+	"33e29d24-08b9-40f7-b098-1ce81d37ef23": {
+		"label": "Fiat 500 F",
+		"derived": true
+	},
+	"08796f3c-17f2-5e10-928a-e3f2f11bedd4": {
+		"label": "Forklift: Forklift",
+		"derived": true
+	},
+	"1f1b10ad-96aa-40ab-bd57-7a95558a72aa": {
+		"label": "Hatchback",
+		"derived": true
+	},
+	"4548aeef-53b4-5d1d-abd6-cca7a0231761": {
+		"label": "LifeTrac: v25",
+		"derived": true
+	},
+	"5bf0a85d-2f01-5a78-acc5-84fd63d05731": {
+		"label": "Pickup: Pickup",
+		"over": 426652,
+		"at": "pickup-cube",
+		"derived": true
+	},
+	"ebd58339-8d78-5fc4-bd70-7a3651861ba8": {
+		"label": "Pod: People",
+		"derived": true
+	},
+	"092f3aa5-43e2-4e4e-8532-dcee5a57d467": {
+		"label": "Police car",
+		"derived": true
+	},
+	"cb35a59a-e789-53af-b285-6ee0837dbb44": {
+		"label": "Power Cube: VII / 7s",
+		"derived": true
+	},
+	"41959841-c68b-4764-9a15-9c20a168b45c": {
+		"label": "Sedan",
+		"derived": true
+	},
+	"b252174b-e2b4-4c23-8c08-6b3f2324cac0": {
+		"label": "Semi-truck · reefer",
+		"derived": true
+	},
+	"ad5a3296-e07c-4ddc-a9a9-df41f919c8b8": {
+		"label": "SUV",
+		"derived": true
+	},
+	"43f5e8aa-30d7-4236-9d82-0f38cff34a6c": {
+		"label": "Taxi",
+		"derived": true
+	},
+	"4b2b8fe4-24e7-4192-8ec9-e7739117ea18": {
+		"label": "Tipper truck",
+		"derived": true
+	},
+	"dea0c87b-9d74-4838-9cb8-32ec058321d0": {
+		"label": "Tractor with sprayer",
+		"derived": true
+	},
+	"7fd2a0c5-76dc-588d-9cbd-4178d218bbd6": {
+		"label": "Truck: Truck",
+		"over": 743102,
+		"at": "truck",
+		"derived": true
+	},
+	"02cb455f-7471-59d2-a0e7-e9b0600e3eb2": {
+		"label": "Travel van: Travel van",
+		"derived": true
+	},
+	"12238392-18d3-4611-bb3a-16e99914f5d0": {
+		"label": "Brutalist office tower",
+		"derived": true
+	},
+	"e3fba986-3a73-5b12-9b39-53b8a34b5cf8": {
+		"label": "Bus stop",
+		"derived": true
+	},
+	"7dd66a44-9595-53ed-8a78-ea63f18a91e6": {
+		"label": "Kitchen container",
+		"derived": true
+	},
+	"4bb8b36b-c98c-52e8-964b-5a91cb3d10ce": {
+		"label": "Sanitary container",
+		"derived": true
+	},
+	"2fd44016-f205-5451-8c01-a0cc5200956a": {
+		"label": "Tech container",
+		"derived": true
+	},
+	"38f7b7fd-1099-5946-b3bb-ece2a2bf0003": {
+		"label": "Workshop container",
+		"derived": true
+	},
+	"4c7e6fb2-d905-4f61-a45f-f4c3e459b413": {
+		"label": "Discount supermarket",
+		"derived": true
+	},
+	"ef641365-45ee-5716-93e2-9fd4aeb15072": {
+		"label": "Solar factory dome",
+		"over": 370146,
+		"at": "its build",
+		"derived": true
+	},
+	"8ad375a6-ba71-5d40-b2b9-1952e09587ce": {
+		"label": "Glamping dome",
+		"derived": true
+	},
+	"32aa44e9-ccb5-486f-9e84-47fe117c1d24": {
+		"label": "Dome shell element",
+		"derived": true
+	},
+	"cca7b9a9-d556-567e-9951-883d5672ee29": {
+		"label": "Bell tent",
+		"derived": true
+	},
+	"cac16350-08a4-4d51-8cdf-3ade5f61836e": {
+		"label": "Forest dome · 80 m",
+		"over": 1241499,
+		"at": "its build",
+		"derived": true
+	},
+	"7a13453e-36b6-5110-b1ac-412621462e6e": {
+		"label": "Abandoned gas station",
+		"derived": true
+	},
+	"4baab7b7-8d90-592a-8cf9-a2581182f4ea": {
+		"label": "MaiaCity centre",
+		"derived": true
+	},
+	"7f3111ff-be64-4d33-b188-172d0787ef05": {
+		"label": "Multi-storey car park",
+		"derived": true
+	},
+	"1d37063f-eac6-5a2d-b480-f46fd6726890": {
+		"label": "Old shed",
+		"derived": true
+	},
+	"ab26267a-aec2-4283-a350-1079764dc744": {
+		"label": "Panel slab block",
+		"derived": true
+	},
+	"a97d1d47-0593-4e57-b8cb-2d69d2ca2e11": {
+		"label": "Point tower",
+		"derived": true
+	},
+	"0244392c-11e8-4133-8f81-54df93f7e96f": {
+		"label": "Shops under flats",
+		"derived": true
+	},
+	"9efd8eec-dcd1-54a0-aced-c277d2d36815": {
+		"label": "Village store",
+		"derived": true
+	},
+	"358c7b8a-a1c5-5c7a-aa13-a9a98fb488dc": {
+		"label": "Ant: Ant hill",
+		"derived": true
+	},
+	"105c5d24-2476-5172-aa52-3ed4bc1bf2c3": {
+		"label": "Bee: Honeybee",
+		"derived": true
+	},
+	"8c665142-ac32-5f45-ad9c-d063c5a200e5": {
+		"label": "Chicken: Red hen",
+		"derived": true
+	},
+	"b143f4cd-9d25-5fc0-bf34-73ad7651b188": {
+		"label": "Fish: Koi, orange",
+		"derived": true
+	},
+	"eaae210f-0f88-5bfe-b8c5-83602c007a4f": {
+		"label": "Frog: Bullfrog",
+		"derived": true
+	},
+	"15a2b380-38e8-5aff-9784-b41f234d7b89": {
+		"label": "Goat: Saanen",
+		"derived": true
+	},
+	"272681a0-ae83-51a0-840f-146690d5ab33": {
+		"label": "Goose: Embden",
+		"derived": true
+	},
+	"aa8a56ec-8d79-5208-b130-3e164e2afa22": {
+		"label": "Rabbit: Wild agouti",
+		"derived": true
+	},
+	"5c7492ec-840d-5327-90ae-dea438bbc057": {
+		"label": "Sheep: Whiteface",
+		"derived": true
+	},
+	"620686c9-6465-5615-baa0-3723bc12b7ad": {
+		"label": "Songbirds: Robin",
+		"derived": true
+	},
+	"682d0d05-2196-5c4d-9fb5-5acd7ebfb17f": {
+		"label": "Elder woman: Third settler",
+		"derived": true
+	},
+	"b58c7b2c-6e59-4f14-980a-db93974326d0": {
+		"label": "Samuel",
+		"derived": true
+	},
+	"8ff16823-d2eb-506c-9705-0feba7cf989e": {
+		"label": "Stand-in: Stand-in",
+		"derived": true
+	},
+	"5ca04383-939b-4d38-bab2-478eb3cdc5ff": {
+		"label": "Cereal stubble",
+		"over": 607816,
+		"at": "its build",
+		"derived": true
+	},
+	"84b27217-e51a-5dea-97b7-f54baa223330": {
+		"label": "Biome cover: Grass",
+		"derived": true
+	},
+	"254102d4-eee8-5aea-90b4-ae442ca7b651": {
+		"label": "Food forest floor",
+		"derived": true
+	},
+	"e36c9671-53d6-5b28-95a0-82480bcd2a52": {
+		"label": "Meadow",
+		"derived": true
+	},
+	"974bef9a-8213-41b5-98a4-8cb090dde3c2": {
+		"label": "Tilled soil",
+		"derived": true
+	},
+	"d4b3b3e8-e39e-57bd-b20f-0d415bab380f": {
+		"label": "Food forest under glass",
+		"derived": true
+	},
+	"c88b84db-3d48-4a85-8d21-a29f0c38610a": {
+		"label": "Checkout",
+		"derived": true
+	},
+	"43420c0b-675b-4e50-98b5-c461b9432fc0": {
+		"label": "Old City",
+		"derived": true
+	}
+}

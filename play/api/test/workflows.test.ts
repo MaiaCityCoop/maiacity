@@ -664,10 +664,10 @@ describe("the site's tests on every pull request and on main", () => {
     expect(site["test:physics"]).toBe("vitest run src/lib/sandbox-2/tests");
     expect(text("play/site/vite.config.ts")).toContain("'src/**/*.bun.test.ts'");
   });
-  test("the site's tests: the API's tests and the site each a job of their own; the required check needs the API and the site", () => {
-    const { tested, api, site: web, checks } = p.jobs;
-    expect(Object.keys(p.jobs).sort()).toEqual(["api", "checks", "site", "tested"]);
-    for (const j of [tested, api, web, checks]) expect(j["runs-on"]).toBe("ubuntu-24.04");
+  test("the site's tests: the API's tests and the site each a job of their own; the required check needs the API, the site and the worlds' budget", () => {
+    const { tested, api, site: web, budget, checks } = p.jobs;
+    expect(Object.keys(p.jobs).sort()).toEqual(["api", "budget", "checks", "site", "tested"]);
+    for (const j of [tested, api, web, budget, checks]) expect(j["runs-on"]).toBe("ubuntu-24.04");
     // the API's tests run alone on their runner: nothing of the site's there
     expect(api.name).toBe("API");
     expect(api.steps.map((s: any) => s.name ?? s.uses)).toEqual(["actions/checkout@v4", "Postgres", "oven-sh/setup-bun@v2", "The API"]);
@@ -682,22 +682,22 @@ describe("the site's tests on every pull request and on main", () => {
     for (const j of [api, web]) expect([j.needs, j.if, j["timeout-minutes"]]).toEqual(["tested", "needs.tested.outputs.skip != 'true'", 20]);
     // the required check keeps its name, needs both, runs whatever they did, and is green only when both are
     expect(checks.name).toBe("API and site");
-    expect(checks.needs).toEqual(["tested", "api", "site"]);
+    expect(checks.needs).toEqual(["tested", "api", "site", "budget"]);
     expect(checks.if).toBe("always()");
     const gate = checks.steps[0];
-    expect(gate.env).toEqual({ TESTED: "${{ needs.tested.result }}", SKIP: "${{ needs.tested.outputs.skip }}", API: "${{ needs.api.result }}", SITE: "${{ needs.site.result }}" });
+    expect(gate.env).toEqual({ TESTED: "${{ needs.tested.result }}", SKIP: "${{ needs.tested.outputs.skip }}", API: "${{ needs.api.result }}", SITE: "${{ needs.site.result }}", BUDGET: "${{ needs.budget.result }}" });
     expect(lines(gate).slice(1)).toEqual([
       '[ "$TESTED" = success ] || exit 1',
-      'if [ "$SKIP" = true ]; then [ "$API" = skipped ] && [ "$SITE" = skipped ] && exit 0; exit 1; fi',
-      '[ "$API" = success ] && [ "$SITE" = success ]',
+      'if [ "$SKIP" = true ]; then [ "$API" = skipped ] && [ "$SITE" = skipped ] && [ "$BUDGET" = skipped ] && exit 0; exit 1; fi',
+      '[ "$API" = success ] && [ "$SITE" = success ] && [ "$BUDGET" = success ]',
     ]);
     // the physics are not in it: on main they'd hold it past the 13 minutes production's Main is green waits
     expect(checks.needs).not.toContain("physics");
   });
-  test("the site's tests: the required check's gate, run as a step: green only when the API and the site are, or both skipped for a tested tree", () => {
+  test("the site's tests: the required check's gate, run as a step: green only when the API, the site and the budget are, or all skipped for a tested tree", () => {
     const gate = lines(p.jobs.checks.steps[0]).slice(1).join("\n");
-    const run = (TESTED: string, SKIP: string, API: string, SITE: string) =>
-      Bun.spawnSync(["bash", "-c", gate], { env: { TESTED, SKIP, API, SITE } }).exitCode === 0;
+    const run = (TESTED: string, SKIP: string, API: string, SITE: string, BUDGET = API) =>
+      Bun.spawnSync(["bash", "-c", gate], { env: { TESTED, SKIP, API, SITE, BUDGET } }).exitCode === 0;
     expect(run("success", "", "success", "success")).toBe(true);
     expect(run("success", "false", "success", "success")).toBe(true);
     expect(run("success", "true", "skipped", "skipped")).toBe(true);
@@ -705,6 +705,31 @@ describe("the site's tests on every pull request and on main", () => {
       expect([a, b, run("success", "", a, b)]).toEqual([a, b, false]);
     expect(run("failure", "", "skipped", "skipped")).toBe(false);
     expect(run("success", "true", "success", "failure")).toBe(false);
+    // a world over its budget reds the required check; skipped with the others for a tested tree
+    expect(run("success", "", "success", "success", "failure")).toBe(false);
+    expect(run("success", "", "success", "success", "cancelled")).toBe(false);
+    expect(run("success", "true", "skipped", "skipped", "success")).toBe(false);
+  });
+  // intent 1f6a98dd: each world held to its budget (play/SPEC.md §4.16), a job a world, measured only when the change
+  // can move a count, with main's kept builds and no token
+  test("the worlds' budget: a job a world, measured only when a change can move a count, by play/site/scripts/budget.ts", () => {
+    const b = p.jobs.budget;
+    expect(b.name).toBe("Budget (${{ matrix.world }})");
+    expect([b.needs, b.if, b["timeout-minutes"]]).toEqual(["tested", "needs.tested.outputs.skip != 'true'", 15]);
+    expect(b.strategy.matrix.world).toEqual(["sandbox-1", "sandbox-5", "sandbox-3"]);
+    expect(b.strategy["fail-fast"]).toBe(false);
+    const steps = b.steps.map((s: any) => s.name ?? s.uses);
+    expect(steps).toEqual(["actions/checkout@v4", "Whether the change can move a world's count", "oven-sh/setup-bun@v2", "actions/cache/restore@v4", "The world against its budget"]);
+    for (const s of b.steps.slice(2)) expect(s.if).toBe("steps.moved.outputs.measure");
+    expect(b.steps[0].with["persist-credentials"]).toBe(false);
+    expect(b.steps[3].with["restore-keys"]).toBe("census-kept-");
+    const measure = b.steps[4];
+    expect(measure.run).toContain('bun play/site/scripts/budget.ts --world "$WORLD"');
+    expect(measure.env).not.toHaveProperty("PLAY_MCP_TOKEN");
+    expect(JSON.stringify(b)).not.toContain("secrets.");
+    // what can move a count: a world's code, the census, the budget, the frozen engines, the site's packages
+    const moved = b.steps[1].run;
+    for (const path of ["play/site/src/lib/content/", "play/site/scripts/census", "play/site/scripts/budget", "play/site/static/engines/", "play/site/package", "play/site/bun", "play-checks"]) expect(moved).toContain(path);
   });
   // intent 94c11a28 (Samuel 2026-11-09: "We don't care about sandbox 2 physics test so just switch them off all
   // together"): no workflow runs Sandbox 2's physics, so none holds a release or reds main; by hand they still run

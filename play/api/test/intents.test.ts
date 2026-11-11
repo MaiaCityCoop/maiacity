@@ -8,8 +8,9 @@ import { seedSkills } from "../import/skills";
 import { SANDBOX, SKILL } from "../src/kit/ids";
 import { seedDoc } from "../src/versioned";
 import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
+import { DETAIL, LEVELS, OWN, OWNED } from "./fixtures/lod";
 
-const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
+const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n" + LEVELS;
 
 suite("intents", () => {
   let f: Fresh, sql: Bun.SQL, db: Db;
@@ -42,7 +43,7 @@ suite("intents", () => {
   const tool = (name: string, args: Record<string, any>, bearer = token): Promise<any> => mcpTool(api, bearer, name, args);
   /** An asset's next version for `intent` (propose_doc_version); the assets it is used on have no accepted card for its levels yet. */
   const proposeSource = ({ asset, source, note, intent }: { asset: string; source: string; note: string; intent: string }) =>
-    tool("propose_doc_version", { doc: asset, note, edits: [{ op: "set", path: ["source"], value: source }, { op: "set", path: ["card"], value: { card: { lod: { levels: "derived" } } } }], intent });
+    tool("propose_doc_version", { doc: asset, note, edits: [{ op: "set", path: ["source"], value: source }, { op: "set", path: ["card"], value: { card: { lod: OWN, params: DETAIL } } }], intent });
   /** a tool called by avenBOX's token, as the GitHub runs call it */
   const box = (name: string, args: Record<string, unknown>) => tool(name, args, boxToken);
 
@@ -147,14 +148,14 @@ suite("intents", () => {
     await db.query(`UPDATE play.intents SET stage = 'build', spec = ($2::text)::jsonb, approved_by = $3, approved_at = now() WHERE id = $1`, [i.id, JSON.stringify(old), who.ada.id]);
     expect((await tool("get_intent", { intent: i.id })).spec.checks[0].run).toBeUndefined();
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }] });
-    const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Old fern", source: SOURCE, note: "x", intent: i.id });
+    const made = await tool("propose_asset", { ...OWNED, group: "plants", label: "Old fern", source: SOURCE, note: "x", intent: i.id });
     expect(made.error).toBeUndefined();
     expect((await tool("get_intent", { intent: i.id })).stage).toBe("proposal");
   });
 
   test("the gates: approved before it is built, every must check passed before it is at Proposal, its work proposed in Build with it", async () => {
     const i = await intentAt("A shade fern for the north beds", "idea");
-    const fern = (intent: string, label = "Shade fern") => tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label, source: SOURCE, note: "made for the intent", intent });
+    const fern = (intent: string, label = "Shade fern") => tool("propose_asset", { ...OWNED, group: "plants", label, source: SOURCE, note: "made for the intent", intent });
     const before = (await call("ada", "GET", "/api/intents")).data.length;
     expect((await fern(i.id)).error).toContain("specified (specify_intent) and its spec approved");
     expect((await fern(crypto.randomUUID())).error).toContain("no such intent");
@@ -200,7 +201,7 @@ suite("intents", () => {
   test("archived at Proposal, an intent ends archived; its work replaced, the earlier work's intent variant is closed; brought back, to Specify", async () => {
     const i = await intentAt("A taller fern", "build");
     await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }] });
-    const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Taller fern", source: SOURCE, note: "x", intent: i.id });
+    const made = await tool("propose_asset", { ...OWNED, group: "plants", label: "Taller fern", source: SOURCE, note: "x", intent: i.id });
     expect((await tool("get_intent", { intent: i.id })).stage).toBe("proposal");
     // proposed again for the same intent: the new work replaces it, the earlier one's intent variant closed, kept in the history
     const again = await proposeSource({ asset: made.asset, source: SOURCE + "// taller\n", note: "taller still", intent: i.id });
@@ -212,11 +213,11 @@ suite("intents", () => {
     // archived at Proposal: the intent is archived, its work's intent variant closed
     expect((await call("ada", "POST", `/api/intents/${i.id}/archive`)).data).toMatchObject({ stage: "archived", decision: { status: "archived" } });
     expect((await db.query<any>(`SELECT status FROM play.doc_variants WHERE id = $1`, [again.variant])).rows[0].status).toBe("archived");
-    expect((await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Taller fern", source: SOURCE, note: "again", intent: i.id })).error).toContain("archived: it takes no more work");
+    expect((await tool("propose_asset", { ...OWNED, group: "plants", label: "Taller fern", source: SOURCE, note: "again", intent: i.id })).error).toContain("archived: it takes no more work");
     // brought back, to Specify with its spec; approved, built and proposed anew
     expect((await call("ada", "POST", `/api/intents/${i.id}/reopen`)).data.stage).toBe("specify");
     expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
-    const anew = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Taller fern", source: SOURCE, note: "again", intent: i.id });
+    const anew = await tool("propose_asset", { ...OWNED, group: "plants", label: "Taller fern", source: SOURCE, note: "again", intent: i.id });
     expect(anew).toMatchObject({ intent: i.id, stage: "build" });
     // sent back to Specify, its approval and results go; rejected, it is archived and the work that waited on it with it
     expect(await tool("step_back_intent", { intent: i.id, reason: "its height is to change" })).toMatchObject({ stage: "specify", approved_at: null });
@@ -278,7 +279,7 @@ suite("intents", () => {
     // work of play's beside code ships with it (intent 7c8986c5), waiting in Ship (test/allwork.test.ts)
     const w = await intentAt("Work in Ship", "build");
     await box("check_intent", { intent: w.id, results: all });
-    expect((await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Shipped with its code", source: SOURCE, note: "x", intent: w.id })).error).toBeUndefined();
+    expect((await tool("propose_asset", { ...OWNED, group: "plants", label: "Shipped with its code", source: SOURCE, note: "x", intent: w.id })).error).toBeUndefined();
     await db.query(`UPDATE play.intents SET stage = 'ship' WHERE id = $1`, [w.id]);
     expect((await tool("get_intent", { intent: w.id })).work.status).toBe("proposal");
     // not yet approved: main's results are not taken either
@@ -441,7 +442,7 @@ suite("intents", () => {
     expect((await call("ada", "POST", `/api/intents/${i.id}/approve`)).data.stage).toBe("build");
     expect((await tool("check_intent", { intent: i.id, results: all })).stage).toBe("proposal");
     // with its work waiting, deciding it decides the work: it is neither sent back nor checked again
-    const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Fern at Proposal", source: SOURCE, note: "x", intent: i.id });
+    const made = await tool("propose_asset", { ...OWNED, group: "plants", label: "Fern at Proposal", source: SOURCE, note: "x", intent: i.id });
     expect(made.error).toBeUndefined();
     expect((await tool("step_back_intent", { intent: i.id, reason: "x" })).error).toContain("waits for a decision");
     expect((await tool("check_intent", { intent: i.id, results: all })).error).toContain("no work of it waits there");
@@ -476,7 +477,7 @@ suite("intents", () => {
   test("work proposed without an intent is refused, naming add_intent: nothing is written", async () => {
     const count = async () => (await db.query<any>(`SELECT (SELECT count(*) FROM play.intents) AS i, (SELECT count(*) FROM play.doc_variants) AS v, (SELECT count(*) FROM play.doc_edits) AS e, (SELECT count(*) FROM play.assets) AS a`)).rows[0];
     const before = await count();
-    const plain = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Plain fern", source: SOURCE, note: "no intent named" });
+    const plain = await tool("propose_asset", { ...OWNED, group: "plants", label: "Plain fern", source: SOURCE, note: "no intent named" });
     expect(plain.error).toContain("add_intent");
     const web = await call("ada", "POST", "/api/intents", { new: { group: "plants", slug: "plain-fern", label: "Plain fern" }, source: SOURCE, note: "on the page" });
     expect(web.status).toBe(400);
@@ -484,7 +485,7 @@ suite("intents", () => {
     expect(await count()).toEqual(before);
     // named, it is that intent's work, at Proposal with its spec
     const own = await readyIntent("A plain fern");
-    const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Plain fern", source: SOURCE, note: "for its intent", intent: own });
+    const made = await tool("propose_asset", { ...OWNED, group: "plants", label: "Plain fern", source: SOURCE, note: "for its intent", intent: own });
     expect(made.error).toBeUndefined();
     expect(made.intent).toBe(own);
     const got = await tool("get_intent", { intent: own });
@@ -521,7 +522,7 @@ suite("intents", () => {
     expect((await back(b.id, "again")).error).toContain("first stage already");
     const w = await intentAt("A fern with work", "build");
     await tool("check_intent", { intent: w.id, results: [{ check: "c1", pass: true, evidence: "built" }, { check: "c2", pass: true, evidence: "0.5 m" }] });
-    expect((await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Fern stepped", source: SOURCE, note: "x", intent: w.id })).error).toBeUndefined();
+    expect((await tool("propose_asset", { ...OWNED, group: "plants", label: "Fern stepped", source: SOURCE, note: "x", intent: w.id })).error).toBeUndefined();
     expect((await back(w.id, "x")).error).toContain("waits for a decision");
     for (const stage of ["ship", "accepted", "archived"]) {
       const x = await intentAt(`A fern ${stage}`, "build");
@@ -535,7 +536,7 @@ suite("intents", () => {
     const i = await intentAt("A fern stepped back", "build");
     await tool("step_back_intent", { intent: i.id, reason: "c1 is to name its asset" });
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }] })).error).toContain("specify stage");
-    expect((await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Fern too soon", source: SOURCE, note: "x", intent: i.id })).error).toContain("its spec approved by an admin");
+    expect((await tool("propose_asset", { ...OWNED, group: "plants", label: "Fern too soon", source: SOURCE, note: "x", intent: i.id })).error).toContain("its spec approved by an admin");
     // specified again, it still waits for Approve spec
     expect((await tool("specify_intent", { intent: i.id, ...SPEC, goal: "A shade fern stands in the north beds, named." })).stage).toBe("specify");
     expect((await tool("check_intent", { intent: i.id, results: [{ check: "c1", pass: true, evidence: "built" }] })).error).toContain("specify stage");
@@ -566,7 +567,7 @@ suite("intents", () => {
     };
     const accept = async (id: string) => (await call("ada", "POST", `/api/intents/${id}/accept`)).data;
     // the documents, each at Main's first version
-    const fern = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Dialog fern", source: SOURCE, note: "its first version", intent: await ready("A dialog fern") });
+    const fern = await tool("propose_asset", { ...OWNED, group: "plants", label: "Dialog fern", source: SOURCE, note: "its first version", intent: await ready("A dialog fern") });
     expect((await accept(fern.intent)).stage).toBe("accepted");
     const film = await tool("propose_story", { title: "A dialog film", note: "its first version", intent: await ready("A dialog film"), body: { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] } });
     expect((await accept(film.intent)).stage).toBe("accepted");
