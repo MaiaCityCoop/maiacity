@@ -87,9 +87,9 @@ describe('a dome’s baked and joined meshes keep their fabric', () => {
 		}
 		expect(joinBaked(scene)).toBe(1)
 		const meshes: THREE.Mesh[] = []
-		scene.traverse((o) => void ((o as THREE.Mesh).isMesh && meshes.push(o as THREE.Mesh)))
+		// the meshes drawn in the linen (beside them a bake's shadow stand-ins: ../../sandbox-kit/casters.js)
+		scene.traverse((o) => void ((o as THREE.Mesh).isMesh && (o as THREE.Mesh).material === mat && meshes.push(o as THREE.Mesh)))
 		expect(meshes.length).toBe(1)
-		expect(meshes[0]!.material).toBe(mat)
 		expect(mat.map).toBeTruthy()
 		const g = meshes[0]!.geometry
 		expect(g.attributes.uv!.count).toBe(g.attributes.position!.count)
