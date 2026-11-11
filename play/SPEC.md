@@ -939,8 +939,15 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     naming the intent in its body, as the intent's pull request (`adoptDrafts`) and reads it, so approval posts on it.
     Nothing is recorded or proposed before Build. **Builders watch, never poll**: a builder opens its draft at its first
     commit (at Specify too, as soon as it is started) and subscribes to it at once (`subscribe_pr_activity`); it is
-    woken by `Intent`, `Merges with main`, CI and reviews and acts on each; it schedules no check-ins and runs no sweeps,
-    and no orchestrator sweeps or relays for it.
+    woken by `Intent`, `Merges with main`, CI and reviews and acts on each; it runs no sweeps, and no orchestrator sweeps
+    or relays for it; before ending a turn while a run of its own goes, it schedules its own look-back (`send_later`;
+    intent fc7ef225). **Proven before specified, no collisions** (intent 0c149489): a builder runs every check's `run`
+    once where it will run before it specifies (avenBOX; a real-GPU check by a workflow_dispatch dry run of
+    intents-pr.yml on the macOS runner) and says in the scope the seconds each took; a check over the run's limit is
+    split before it is specified; a correction that is only a check's command is fixed at Specify before approval, not
+    by a step back. Work on how worlds render or load does not edit play/SPEC.md (what it does goes in its pull
+    request's body; this spec changes by its own small intent). When two intents in Build change the same files, the
+    later merges main as each lands, not waiting for "conflicts", and says in its pull request which intent it follows.
   - **production follows main** (`.github/workflows/release.yml`): once main.yml is green for a push to main, or by
     `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
     with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no
