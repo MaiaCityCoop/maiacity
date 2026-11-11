@@ -1,0 +1,48 @@
+<!doctype html><html><head><script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script></head>
+<body style="margin:0;background:#000"><script type="module">
+import * as THREE from 'three';
+import * as BGU from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+const S = Number(new URLSearchParams(location.search).get('size') || 600);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(S, S); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+const recipes = {};
+window.bench = async ({ file, id, v, variant, values, camera }) => {
+  const key = file + ':' + (variant || '');
+  if (!recipes[key]) {
+    const code = await (await fetch('/src/' + file)).text();
+    const module = { exports: {} };
+    const req = (n) => (n === 'three' ? THREE : n.endsWith('BufferGeometryUtils.js') ? BGU : (() => { throw new Error(n); })());
+    new Function('module', 'exports', 'require', code)(module, module.exports, req);
+    recipes[key] = module.exports.recipe(id, v, variant || undefined);
+  }
+  const r = recipes[key];
+  const vals = { ...Object.fromEntries(r.meta.params.map((p) => [p.id, p.default])), ...values };
+  const t0 = performance.now();
+  const obj = r.build.length >= 3 ? r.build(vals.stage, vals.seed, vals.detail, vals.fruit ?? 0, variant || undefined) : r.build(vals);
+  const ms = performance.now() - t0;
+  let tris = 0; obj.traverse((m) => { if (!m.isMesh) return; m.castShadow = m.receiveShadow = true; const g = m.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3 * (m.isInstancedMesh ? m.count : 1); });
+  const scene = new THREE.Scene(); scene.background = new THREE.Color('#bcd3e6');
+  const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.35;
+  scene.add(new THREE.HemisphereLight('#dfeaf5', '#6b5a40', 1.2));
+  const sun = new THREE.DirectionalLight('#fff4e0', 3.2); scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(200, 64).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#7d8a55', roughness: 1 })); ground.receiveShadow = true; scene.add(ground);
+  scene.add(obj);
+  const box = new THREE.Box3(); obj.traverse((m) => { if (m.isMesh) { m.geometry.computeBoundingBox(); const b = m.geometry.boundingBox.clone().applyMatrix4(m.matrixWorld); if (b.min.y > -0.05 || true) box.union(b); } });
+  box.min.y = Math.max(box.min.y, 0);
+  const c = camera || {};
+  const center = c.target ? new THREE.Vector3(...c.target) : box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3()); const rad = Math.max(size.y, size.x, size.z) * 0.6;
+  const cam = new THREE.PerspectiveCamera(35, 1, 0.01, 2000);
+  const dist = c.dist ?? (rad / Math.tan(THREE.MathUtils.degToRad(17.5))) * (c.zoom ?? 1);
+  const az = THREE.MathUtils.degToRad(c.az ?? 30), el = THREE.MathUtils.degToRad(c.el ?? 8);
+  cam.position.set(center.x + dist * Math.cos(el) * Math.sin(az), center.y + dist * Math.sin(el), center.z + dist * Math.cos(el) * Math.cos(az)); cam.lookAt(center);
+  sun.position.set(center.x + rad * 2, center.y + rad * 3, center.z + rad * 2.5); sun.target.position.copy(center); scene.add(sun.target);
+  sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); const sc = sun.shadow.camera; sc.left = sc.bottom = -rad * 1.5; sc.right = sc.top = rad * 1.5; sc.near = 0.1; sc.far = rad * 10;
+  renderer.render(scene, cam);
+  return { tris: Math.round(tris), ms: Math.round(ms), h: +size.y.toFixed(2), w: +Math.max(size.x, size.z).toFixed(2) };
+};
+window.ready = true;
+</script></body></html>
