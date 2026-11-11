@@ -7,4 +7,7 @@ REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO/play/site"
 [ -d node_modules ] || bun install
 bun run build > /dev/null
-bun "$REPO/intent-work/0356b0ea-render/parts.ts" "$@"
+# each browser in its own process (one world a page, one page a process)
+BROWSERS=webkit,chromium; ARGS=()
+while [ $# -gt 0 ]; do if [ "$1" = --browser ]; then BROWSERS="$2"; shift 2; else ARGS+=("$1"); shift; fi; done
+for b in ${BROWSERS//,/ }; do bun "$REPO/intent-work/0356b0ea-render/parts.ts" --browser "$b" ${ARGS[@]+"${ARGS[@]}"}; done

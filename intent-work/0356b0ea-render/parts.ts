@@ -37,16 +37,20 @@ const PARTS = () => {
 	const scene = (window as any).__world?.scene;
 	if (!scene) return [];
 	const held = (o: any) => {
-		let meshes = 0, tris = 0;
+		let meshes = 0, tris = 0, x = 0, z = 0, n = 0;
+		o.updateWorldMatrix?.(true, false);
+		o.traverse((m: any) => {
+			if (m.isMesh && m.matrixWorld) (x += m.matrixWorld.elements[12]), (z += m.matrixWorld.elements[14]), n++;
+		});
 		o.traverse((m: any) => {
 			if (!m.isMesh && !m.isPoints && !m.isLine) return;
 			meshes++;
 			const g = m.geometry, n = g?.index ? g.index.count : (g?.attributes?.position?.count ?? 0);
 			tris += Math.round((n / 3) * (m.isInstancedMesh ? m.count : 1));
 		});
-		return { meshes, tris };
+		return { meshes, tris, at: n ? `${Math.round(x / n)}, ${Math.round(z / n)}` : '' };
 	};
-	const parts: { name: string; path: number[]; meshes: number; tris: number }[] = [];
+	const parts: { name: string; path: number[]; meshes: number; tris: number; at: string }[] = [];
 	const loose: number[][] = [];
 	const visit = (o: any, path: number[], depth: number) =>
 		o.children.forEach((c: any, i: number) => {
@@ -60,7 +64,7 @@ const PARTS = () => {
 			parts.push({ name: `${depth ? 'inside › ' : ''}${c.name || c.type}`, path: p, ...h });
 		});
 	visit(scene, [], 0);
-	if (loose.length) parts.push({ name: `${loose.length} small meshes, each on its own`, path: [-1], meshes: loose.length, tris: 0 });
+	if (loose.length) parts.push({ name: `${loose.length} small meshes, each on its own`, path: [-1], meshes: loose.length, tris: 0, at: '' });
 	(window as any).__loose = loose;
 	return parts.sort((a, b) => b.tris - a.tris).slice(0, 28);
 };
@@ -95,7 +99,7 @@ for (const name of browsers) {
 		await page.evaluate(SHOW, [part.path, true] as [number[], boolean]);
 		await page.waitForTimeout(700);
 		const cost = whole.ms !== null && w.ms !== null ? Math.round((whole.ms - w.ms) * 10) / 10 : null;
-		console.log(`  without ${part.name} (${part.meshes} meshes, ${part.tris.toLocaleString('en')} triangles): ${w.ms} ms (CPU ${w.cpu}), ${w.draws} draws · it costs ${cost} ms`);
+		console.log(`  without ${part.name} (${part.meshes} meshes, ${part.tris.toLocaleString('en')} triangles${part.at ? `, about ${part.at}` : ''}): ${w.ms} ms (CPU ${w.cpu}), ${w.draws} draws · it costs ${cost} ms`);
 	}
 	const again = await sample();
 	console.log(`  whole again: ${again.ms} ms a frame (CPU ${again.cpu})`);
