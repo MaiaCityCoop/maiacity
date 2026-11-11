@@ -46,7 +46,14 @@ describe("the landing page's texts", () => {
 		expect(COPY.faq.items.map((i) => i.id)).toEqual(['material', 'devices', 'ownership', 'dislike', 'privacy']);
 		for (const i of COPY.faq.items) expect(i.a.length + i.gaps.length, i.id).toBeGreaterThan(0);
 		expect(COPY.steps.items.length).toBe(4);
-		expect(COPY.steps.items.map((s) => s.name)).toEqual(['Kostenlose Demo', 'Buchung', 'Lieferung in 24 Stunden', 'Live im Exposé']);
+		expect(COPY.steps.items.map((s) => s.name)).toEqual(['Buchung', 'Fotos und Grundriss', 'Lieferung in 24 Stunden', 'Live im Exposé']);
+	});
+	it('offer no free demo any more, and say "no risk" wherever one decides', () => {
+		for (const t of all) expect(/kostenlos|gratis|unverbindlich|umsonst/i.test(t.text), `${t.path}: "${t.text}"`).toBe(false);
+		const zero = (x: unknown) => texts(x).some((t) => t.text.includes('Null Risiko'));
+		for (const [name, part] of Object.entries({ hero: COPY.hero, value: COPY.value, offer: COPY.offer, guarantee: COPY.guarantee, steps: COPY.steps, closing: COPY.closing, band: COPY.band, risk: COPY.risk, note: COPY.ctaNote }))
+			expect(zero(part), name).toBe(true);
+		expect(COPY.risk.text).toBe('100 % Geld zurück, ohne Fragen');
 	});
 	it('offer the trailer as a product of its own, and the test of one room', () => {
 		expect(COPY.offer.plans.map((p) => p.id)).toEqual(['apartment', 'house', 'trailer']);

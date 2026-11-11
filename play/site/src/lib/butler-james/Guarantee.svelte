@@ -6,7 +6,7 @@
 	const c = COPY.guarantee;
 </script>
 
-<section class="bj-section ink" data-section="guarantee">
+<section class="bj-section ink bj-guarantee" id="garantie" data-section="guarantee">
 	<div class="bj-wrap bj-split">
 		<div class="bj-seal" aria-hidden="true">
 			<svg viewBox="0 0 200 200">
@@ -17,6 +17,7 @@
 		</div>
 		<div>
 			<p class="bj-eyebrow">{c.eyebrow}</p>
+			<p class="bj-zero">{c.zero}.</p>
 			<h2>{c.title}</h2>
 			<p class="bj-lead">{c.text}</p>
 			<p>{c.more}</p>

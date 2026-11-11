@@ -11,6 +11,7 @@
 	import { onMount } from 'svelte';
 	import { COPY } from './copy';
 	import Cta from './Cta.svelte';
+	import Risk from './Risk.svelte';
 	import { scrollerOf } from './motion';
 	import type { Apartment, RoomId } from './scene/apartment';
 
@@ -116,9 +117,10 @@
 				<h1>{#each c.hero.title as line, i}<span style="--bj-line:{i}">{line}</span>{/each}</h1>
 				<p class="bj-lead">{c.hero.lead}</p>
 				<div class="bj-hero-actions">
-					<Cta note />
-					<a class="bj-link" href="#angebot">{c.hero.second}</a>
+					<Cta />
+					<a class="bj-link" href="#test">{c.hero.second}</a>
 				</div>
+				<Risk />
 			</div>
 			<p class="bj-scroll" aria-hidden="true"><i></i>{c.hero.scroll}</p>
 		</section>

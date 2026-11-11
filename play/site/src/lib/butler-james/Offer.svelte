@@ -5,6 +5,7 @@
 	import Calculator from './Calculator.svelte';
 	import Cta from './Cta.svelte';
 	import Gap from './Gap.svelte';
+	import Risk from './Risk.svelte';
 	import Value from './Value.svelte';
 	const c = COPY.offer;
 </script>
@@ -28,6 +29,7 @@
 						<p class="bj-plan-text">{p.text}</p>
 					</article>
 				{/each}
+				<Risk big />
 				<div class="bj-stack">
 					<h3>{c.stackTitle}</h3>
 					<ul>{#each c.stack as s}<li>{s}</li>{/each}</ul>

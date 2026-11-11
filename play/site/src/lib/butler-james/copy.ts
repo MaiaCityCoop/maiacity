@@ -1,6 +1,6 @@
 // EVERY TEXT OF BUTLER JAMES'S LANDING PAGE (intent 42a96129), in German, Sie-form, in one module so one test reads it
 // whole (./copy.test.ts). The rule: nothing invented. The page states the offer (./offer.ts: the two flat prices, the
-// add-on, the 24 hours, the guarantee, the free demo first) and nothing else as a fact. Where something is not decided
+// trailer, the test, the 24 hours, the guarantee: no risk) and nothing else as a fact. Where something is not decided
 // or does not exist yet (proof, a bonus, a comparison price, the guarantee's period, the contact, the provider, rights
 // and privacy), the text is a `gap`: shown as a marked placeholder ("Platzhalter") for the admin to fill.
 
@@ -12,23 +12,27 @@ const gap = (name: string, text: string): Gap => ({ gap: name, text });
 
 const H = `${DELIVERY_HOURS} Stunden`;
 const BACK = `${GUARANTEE_PERCENT} % Geld zurück`;
+/** the guarantee's name on the page: the customer carries no risk */
+const ZERO = 'Null Risiko';
 export const VAT = 'zzgl. MwSt.';
 export const PLACEHOLDER = 'Platzhalter';
 
 export const COPY = {
 	brand: 'Butler James',
 	nav: { offer: 'Angebot', steps: 'Ablauf', demos: 'Demos', faq: 'Fragen' },
-	cta: 'Kostenlose Demo anfragen',
-	ctaShort: 'Demo anfragen',
-	ctaNote: 'Kostenlos und unverbindlich. Sie zahlen erst, wenn Sie buchen.',
+	cta: 'Jetzt anfragen',
+	ctaShort: 'Anfragen',
+	ctaNote: `${ZERO}: ${BACK}, ohne Fragen.`,
+	// the guarantee in one line, shown wherever a price or a call to action stands
+	risk: { name: ZERO, text: `${BACK}, ohne Fragen` },
 
 	hero: {
 		eyebrow: 'Begehbare 3D-Welten für Makler und Immobilienunternehmen',
 		title: ['Ihre Immobilie.', 'Begehbar.', `In ${H}.`],
-		lead: `Butler James baut aus Ihren Fotos und dem Grundriss eine 3D-Welt, durch die Ihre Interessenten online gehen. Zum Festpreis. Die erste Demo Ihres eigenen Objekts erhalten Sie kostenlos, bevor Sie etwas bezahlen.`,
-		second: 'Preise ansehen',
+		lead: `Butler James baut aus Ihren Fotos und dem Grundriss eine 3D-Welt, durch die Ihre Interessenten online gehen. Zum Festpreis, und ohne Risiko für Sie: ${BACK}, ohne Fragen.`,
+		second: `Erst testen: ein Raum für ${euro(TEST.price)}`,
 		scroll: 'Scrollen: zusehen, wie sie entsteht',
-		promises: ['Demo Ihres Objekts vorab, kostenlos', `Lieferung in ${H} ab Buchung`, `${BACK}, ohne Fragen`]
+		promises: [`${ZERO}: ${BACK}`, `Lieferung in ${H} ab Buchung`, 'Festpreis, einmalig']
 	},
 
 	// the 3D show's own words: its label, its controls, its rooms
@@ -81,14 +85,14 @@ export const COPY = {
 		gaps: [gap('upload', 'Upload und Bezahlung sind noch nicht angeschlossen. Ihre Fotos bleiben auf Ihrem Gerät, es wird nichts gesendet.')]
 	},
 
-	band: ['Begehbar im Browser', `${H} ab Buchung`, 'Festpreis, einmalig', `${BACK}`, 'Demo vorab, kostenlos'],
+	band: ['Begehbar im Browser', `${H} ab Buchung`, 'Festpreis, einmalig', `${BACK}`, ZERO],
 
 	value: {
 		eyebrow: 'Warum es sich rechnet',
 		title: 'Vier Dinge, die Sie sicher haben.',
 		items: [
 			{ name: 'Das Ergebnis', text: 'Ihr Objekt ist online begehbar. Interessenten sehen Räume und Wege, bevor sie einen Termin anfragen.' },
-			{ name: 'Die Sicherheit', text: 'Sie sehen eine Demo Ihres eigenen Objekts, bevor Sie buchen. Kostenlos.' },
+			{ name: ZERO, text: `Gefällt Ihnen das Ergebnis nicht, erhalten Sie ${GUARANTEE_PERCENT} % Ihres Geldes zurück. Ohne Fragen.` },
 			{ name: 'Die Zeit', text: `Von der Buchung bis zur Lieferung vergehen ${H}.` },
 			{ name: 'Ihr Aufwand', text: 'Sie senden Fotos aus jedem Raum und den Grundriss. Mehr nicht.' }
 		]
@@ -108,8 +112,7 @@ export const COPY = {
 			'Die begehbare 3D-Welt Ihres Objekts, im Browser, ohne App',
 			'Ein Link für Exposé, Website und E-Mail',
 			`Lieferung in ${H} ab Buchung`,
-			`${BACK}, ohne Fragen`,
-			'Die kostenlose Demo Ihres Objekts vor der Buchung'
+			`${ZERO}: ${BACK}, ohne Fragen`
 		],
 		gaps: [
 			gap('bonus', 'Bonus zum Angebot (vom Anbieter festzulegen)'),
@@ -131,7 +134,8 @@ export const COPY = {
 		eyebrow: 'Die Garantie',
 		title: `${BACK}. Ohne Fragen.`,
 		text: 'Wenn Sie mit Ihrer 3D-Welt nicht zufrieden sind, erhalten Sie den vollen Betrag zurück. Sie müssen nichts begründen.',
-		more: 'Und weil Sie die Demo Ihres eigenen Objekts sehen, bevor Sie buchen, wissen Sie vorher, was Sie bekommen.',
+		more: 'Das Risiko tragen wir, nicht Sie.',
+		zero: ZERO,
 		seal: `${GUARANTEE_PERCENT} %`,
 		sealNote: 'Geld zurück',
 		gaps: [gap('guarantee-terms', 'Frist und genaue Bedingungen der Garantie (vom Anbieter festzulegen)')]
@@ -151,8 +155,8 @@ export const COPY = {
 		eyebrow: 'Der Ablauf',
 		title: 'Vier Schritte bis ins Exposé.',
 		items: [
-			{ name: 'Kostenlose Demo', text: 'Sie senden Fotos aus jedem Raum und den Grundriss eines Objekts. Wir bauen daraus eine erste 3D-Demo. Kostenlos und unverbindlich.' },
-			{ name: 'Buchung', text: `Gefällt Ihnen die Demo, buchen Sie das 3D-Modell zum Festpreis: ${euro(PRICES.apartment)} je Wohnung, ${euro(PRICES.house)} je Haus.` },
+			{ name: 'Buchung', text: `Sie buchen zum Festpreis: das 3D-Modell für ${euro(PRICES.apartment)} je Wohnung und ${euro(PRICES.house)} je Haus, das Trailer-Video für ${euro(PRICES.trailer)}. ${ZERO}: ${BACK}.` },
+			{ name: 'Fotos und Grundriss', text: 'Sie senden Fotos aus jedem Raum und den Grundriss. Das ist alles.' },
 			{ name: `Lieferung in ${H}`, text: `${H} nach Ihrer Buchung ist die begehbare 3D-Welt fertig.` },
 			{ name: 'Live im Exposé', text: 'Sie erhalten einen Link und setzen ihn in Exposé, Website oder E-Mail.' }
 		]
@@ -195,7 +199,7 @@ export const COPY = {
 			{
 				id: 'dislike',
 				q: 'Was ist, wenn mir das Ergebnis nicht gefällt?',
-				a: [`Dann erhalten Sie ${GUARANTEE_PERCENT} % Ihres Geldes zurück, ohne Fragen. Die erste Demo sehen Sie ohnehin, bevor Sie buchen.`],
+				a: [`Dann erhalten Sie ${GUARANTEE_PERCENT} % Ihres Geldes zurück, ohne Fragen. Sie tragen kein Risiko.`],
 				gaps: []
 			},
 			{
@@ -209,8 +213,8 @@ export const COPY = {
 
 	closing: {
 		eyebrow: 'Der erste Schritt',
-		title: 'Sehen Sie zuerst Ihr eigenes Objekt in 3D.',
-		text: 'Senden Sie uns Fotos und Grundriss eines Objekts. Die Demo ist kostenlos, und Sie entscheiden danach.',
+		title: `Ihr Objekt in 3D. ${ZERO}.`,
+		text: `Senden Sie uns Fotos und Grundriss eines Objekts. Gefällt Ihnen das Ergebnis nicht, erhalten Sie ${BACK}, ohne Fragen.`,
 		gaps: [gap('contact', 'Kontaktweg: E-Mail oder Telefon (vom Anbieter einzutragen)')]
 	},
 

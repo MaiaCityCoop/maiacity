@@ -233,6 +233,20 @@
 .bj-section.paper .bj-gap, .bj-section.accent .bj-gap { border-color: var(--bj-on-paper); background: var(--bj-paper-raised); color: var(--bj-on-paper) !important; }
 .bj-section.paper .bj-gap b, .bj-section.accent .bj-gap b { background: var(--bj-on-paper); color: var(--bj-bone); }
 
+/* ---- no risk: the guarantee in one line, wherever a price or a call to action stands */
+.bj-risk { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 16px 8px 10px; border-radius: 999px; border: 1.5px solid var(--bj-accent); background: var(--bj-accent-wash); font-size: 0.95rem; color: var(--bj-bone) !important; }
+.bj-risk svg { width: 26px; height: 26px; fill: none; stroke: var(--bj-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.bj-risk b { font-family: var(--bj-font-display); font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; color: var(--bj-accent); }
+.bj-risk.big { grid-column: 1 / -1; display: flex; padding: 18px 24px; border-radius: var(--bj-radius-m); background: var(--bj-ink); border-color: var(--bj-ink); font-size: 1.15rem; font-weight: 600; }
+.bj-risk.big svg { width: 40px; height: 40px; }
+.bj-risk.big b { font-size: 1.7rem; }
+.bj-section.accent .bj-risk.big { justify-content: center; }
+/* the guarantee's own section: the loudest words of the page */
+.bj-guarantee { background: radial-gradient(80% 110% at 0% 50%, var(--bj-ink-high), var(--bj-ink) 65%); border-block: 1px solid var(--bj-ink-line); }
+.bj-zero { font-family: var(--bj-font-display); font-size: clamp(3.4rem, 9.5vw, 9rem); font-weight: 800; letter-spacing: -0.05em; line-height: 0.9; text-transform: uppercase; color: var(--bj-accent) !important; }
+.bj-guarantee h2 { font-size: clamp(2rem, 4.4vw, 4rem); }
+.bj-guarantee .bj-split { grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr); }
+
 /* ---- the guarantee and the 24 hours */
 .bj-split { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(28px, 6vw, 96px); align-items: center; }
 .bj-split.reverse { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); }
@@ -309,6 +323,11 @@
 .bj.motion .bj-room { animation: bj-pop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.6) both; }
 @keyframes bj-pop { from { opacity: 0; scale: 0.6; } }
 
+/* a low screen has no room for the hint to scroll */
+@media (max-height: 960px) {
+	.bj-scroll { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.bj *, .bj *::before, .bj *::after { transition: none !important; animation: none !important; }
 }
@@ -351,6 +370,9 @@
 	.bj-copy { gap: 14px; }
 	.bj-hero-actions .bj-link { line-height: 1.6; }
 	.bj-chapter.first .bj-cta-wrap small { display: none; }
+	/* the first screen keeps the picture free: the headline, the call to action and the guarantee say it */
+	.bj-chapter.first .bj-lead { display: none; }
+	.bj-risk { font-size: 0.86rem; padding: 6px 14px 6px 8px; }
 	/* the picture is right above the headline here: the line over it would lie on the picture */
 	.bj-chapter.first .bj-eyebrow { display: none; }
 	.bj-cards { gap: 8px; }
@@ -358,7 +380,9 @@
 	.bj-cards svg { width: 22px; height: 22px; }
 	.bj-cards small { display: none; }
 	.bj-cards b, .bj-cards .plan b { grid-row: span 2; font-size: 0.9rem; }
-	.bj-split, .bj-split.reverse { grid-template-columns: minmax(0, 1fr); }
+	.bj-split, .bj-split.reverse, .bj-guarantee .bj-split { grid-template-columns: minmax(0, 1fr); }
+	.bj-risk.big { padding: 14px 16px; font-size: 1rem; }
+	.bj-risk.big b { font-size: 1.35rem; }
 	.bj-split.reverse > :first-child { order: 0; }
 	/* the ring turns: its corners must stay on the screen */
 	.bj-seal { width: 62vw; }

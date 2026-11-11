@@ -1,4 +1,4 @@
-<!-- how it works: free demo, booking, delivery in 24 hours, live in the Exposé -->
+<!-- how it works: booking, photos and floor plan, delivery in 24 hours, live in the Exposé -->
 <script lang="ts">
 	import { COPY } from './copy';
 	import Cta from './Cta.svelte';

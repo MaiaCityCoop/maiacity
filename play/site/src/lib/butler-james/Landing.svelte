@@ -35,6 +35,7 @@
 			<a href="#aufwand">{COPY.need.eyebrow}</a>
 			<a href="#test">{COPY.test.eyebrow}</a>
 			<a href="#angebot">{COPY.nav.offer}</a>
+			<a href="#garantie">{COPY.risk.name}</a>
 			<a href="#ablauf">{COPY.nav.steps}</a>
 			<a href="#demos">{COPY.nav.demos}</a>
 			<a href="#fragen">{COPY.nav.faq}</a>
