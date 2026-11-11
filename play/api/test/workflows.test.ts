@@ -593,7 +593,7 @@ describe("intents-pr.yml: the checks on a GPU", () => {
     expect(load.if).toBe("!cancelled() && needs.spec.result == 'success' && needs.spec.outputs.loads != ''");
     expect(load.strategy).toEqual({ "fail-fast": false, matrix: "${{ fromJSON(needs.spec.outputs.loads || '{\"include\":[]}') }}" });
     expect(load["timeout-minutes"]).toBeLessThanOrEqual(30);
-    expect(named(load, "The site's dependencies, its one browser and its build").run).toContain('bunx playwright install "$BROWSER"');
+    expect(named(load, "The site's dependencies, its one browser and its build").run).toContain('bunx playwright install chromium "$BROWSER"');
     const one = named(load, "The world loaded once in its engine (no token)");
     expect(one.run.match(/scripts\/gpu\.ts/g)).toHaveLength(1);
     expect(one.run).toContain('bun play/site/scripts/gpu.ts --world "$WORLD" --browser "$BROWSER" $ARGS --steps --out "$RUNNER_TEMP/load"');

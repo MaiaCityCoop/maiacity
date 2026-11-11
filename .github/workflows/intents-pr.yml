@@ -345,7 +345,8 @@ jobs:
           BROWSER: ${{ matrix.browser }}
         run: |
           bun install --frozen-lockfile
-          bunx playwright install "$BROWSER"
+          # Chromium always: gpu.ts tells the machine's GPU from a software renderer by Chromium's WebGL
+          bunx playwright install chromium "$BROWSER"
           bun run build
       - name: The world loaded once in its engine (no token)
         env:
