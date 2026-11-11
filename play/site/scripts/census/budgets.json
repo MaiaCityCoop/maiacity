@@ -199,8 +199,8 @@
 				"far": {
 					"tris": 2050000,
 					"draws": 916,
-					"calls": 5050,
-					"walkCalls": 6350
+					"calls": 4830,
+					"walkCalls": 5740
 				}
 			}
 		},
@@ -212,20 +212,20 @@
 				"near": {
 					"tris": 7140000,
 					"draws": 1140,
-					"calls": 6280,
+					"calls": 5720,
 					"walkCalls": 7010
 				},
 				"mid": {
 					"tris": 7610000,
 					"draws": 1040,
-					"calls": 6380,
-					"walkCalls": 7780
+					"calls": 5970,
+					"walkCalls": 7010
 				},
 				"far": {
 					"tris": 2760000,
 					"draws": 744,
-					"calls": 4220,
-					"walkCalls": 5220
+					"calls": 4000,
+					"walkCalls": 4690
 				}
 			}
 		},
