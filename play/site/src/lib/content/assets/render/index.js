@@ -38,6 +38,7 @@ import { buildOf, hashOf, heldAt, paramsOf, parseBuild } from '../catalog.js';
 import { createImpostors } from './impostors.js';
 import { budget, dropOnUpload } from '../../render/budget.js';
 import { precompile } from '../../render/core.js';
+import { createCells, seen } from './walk.js';
 import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, thresholdsOf } from './lod.js';
 import { createLowering } from './lower.js';
 import { createKept } from './levels.js';
@@ -231,6 +232,8 @@ export function createAssets(o) {
 			was: new Int8Array(0),
 			/** when each copy was put down after the world was first drawn (ms; 0: before, or its fade is done): it fades in (`arrive`) */
 			born: new Float64Array(0),
+			/** its copies by where they stand, so a frame looks at a cell before its copies (./walk.js) */
+			cells: createCells(),
 			/** each copy as the cover grows it: its rank + 1 (0 for none), its stream's near, reach and thin */
 			C: new Float32Array(0),
 			/** whether any copy of it ever was cover (its drawings then carry where each copy grows) */
@@ -660,6 +663,7 @@ export function createAssets(o) {
 		k.alive[i] = at ? 1 : 0;
 		if (!at) {
 			k.was[i] = -1;
+			k.cells.drop(i);
 			return unpose(k, i);
 		}
 		if (at.isMatrix4) {
@@ -668,13 +672,15 @@ export function createAssets(o) {
 			// as an upright card sees it: its turn about the upright, its size its longest axis (0 for a matrix of scale 0)
 			k.T[i] = Math.atan2(e[8], e[0]);
 			k.S[i] = Math.sqrt(Math.max(len(0), len(4), len(8)));
-			return;
+		} else {
+			const turn = at.turn ?? 0, scale = at.scale ?? 1;
+			_m4.compose(_p.set(at.x ?? 0, at.y ?? 0, at.z ?? 0), _q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, turn), _s.setScalar(scale));
+			_m4.toArray(k.M, i * 16);
+			k.T[i] = turn;
+			k.S[i] = scale;
 		}
-		const turn = at.turn ?? 0, scale = at.scale ?? 1;
-		_m4.compose(_p.set(at.x ?? 0, at.y ?? 0, at.z ?? 0), _q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, turn), _s.setScalar(scale));
-		_m4.toArray(k.M, i * 16);
-		k.T[i] = turn;
-		k.S[i] = scale;
+		// where it stands now, for the frames that look at a cell before its copies (as cover: how far it grows)
+		k.cells.put(i, k.M[i * 16 + 12], k.M[i * 16 + 13], k.M[i * 16 + 14], k.S[i], k.C[i * 4] > 0 ? k.C[i * 4 + 2] : Infinity);
 	}
 
 	/** a copy moved, or put away where it stands (null): drawn nowhere until it is moved somewhere */
@@ -915,6 +921,66 @@ export function createAssets(o) {
 		return R;
 	}
 
+	/** the kind being looked at and the view it is looked at from, for `look` and `sees` (one of each, not one a kind a frame) */
+	const at = { k: /** @type {any} */ (null), cast: false, C: -1, gx: 0, gz: 0, tanHalf: 1, now: 0 };
+	/** a copy still fading in as it arrives (`arrive`): the frame after is drawn too */
+	let arriving = false;
+	const of = { radius: 0, offset: 0 }, round = { x: 0, z: 0 }, cellBall = new THREE.Sphere();
+	/** whether any copy of a cell of that kind could be drawn (./walk.js) */
+	const sees = (cell) => seen(cell, frustum, eye, at.tanHalf, of, round, SMALLEST, sizeOn, cellBall);
+
+	/**
+	 * One copy of the kind being looked at (`at.k`) drawn as the camera should see it, or not at all; whether it is drawn.
+	 * @param {number} i
+	 */
+	function look(i) {
+		const k = at.k, c = k.center, cast = at.cast, C = at.C, gx = at.gx, gz = at.gz, tanHalf = at.tanHalf;
+		if (!k.alive[i]) return false;
+		const M = k.M, o = i * 16;
+		// a copy of cover: left out where it does not grow, sized as it is grown (the graphics card grows it)
+		let g = 1;
+		if (k.C[i * 4] > 0) {
+			const q = i * 4;
+			g = coverGrow(Math.hypot(M[o + 12] - gx, M[o + 14] - gz), k.C[q] - 1, k.C[q + 1], k.C[q + 2], k.C[q + 3]);
+			if (!(g > 0)) {
+				if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
+				return false;
+			}
+		}
+		ball.center.set(M[o] * c.x + M[o + 4] * c.y + M[o + 8] * c.z + M[o + 12], M[o + 1] * c.x + M[o + 5] * c.y + M[o + 9] * c.z + M[o + 13], M[o + 2] * c.x + M[o + 6] * c.y + M[o + 10] * c.z + M[o + 14]);
+		// moved by its controls, it may reach further than it does at rest (a machine drawn apart): twice as far
+		ball.radius = k.radius * k.S[i] * g * (k.posed.size && k.posed.has(i) ? 2 : 1);
+		if (!frustum.intersectsSphere(ball)) {
+			counted.culled++;
+			if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
+			return false;
+		}
+		const size = sizeOn(ball.radius, ball.center.distanceTo(eye), tanHalf);
+		if (size < SMALLEST) {
+			if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
+			return false;
+		}
+		const { level, fade } = forced >= 0 ? { level: Math.min(forced, k.levels.length), fade: 0 } : choose(size, k.thresholds, k.was[i]);
+		if (level !== k.was[i]) shadows ||= cast;
+		k.was[i] = level;
+		// moved by its controls: its own tree, once it is ready
+		const p = k.posed.size ? k.posed.get(i) : undefined;
+		if (p && drawPosed(k, i, p, level)) return true;
+		// just put down behind the shown world: so much of it showing (whole where its level is not here yet)
+		let shown = 1;
+		if (k.born[i]) {
+			shown = Math.max(0.02, (at.now - k.born[i]) / ARRIVE);
+			if (shown < 1) arriving = true;
+			else (k.born[i] = 0), (shown = 1);
+		}
+		let drawn = draw(k, i, level, shown);
+		if (drawn < 0 && shown < 1) drawn = draw(k, i, level, 1);
+		if (C >= 0 && drawn >= 0 && drawn < k.levels.length && as(k, drawn) !== C) finer.push(i);
+		// the coarser one fading in under it, unless it already stands in whole, or is the same drawing
+		if (fade > 0 && shown >= 1 && drawn !== level + 1 && as(k, drawn) !== as(k, level + 1)) draw(k, i, level + 1, fade);
+		return true;
+	}
+
 	/**
 	 * Draws what the camera should see: each copy at its level, the pictures turned to it. Cheap when nothing moved.
 	 */
@@ -936,11 +1002,14 @@ export function createAssets(o) {
 		const gx = around ? around.x : eye.x, gz = around ? around.z : eye.z;
 		coverEye.value.set(gx, 0, gz);
 		const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (camera.zoom || 1);
+		at.gx = round.x = gx;
+		at.gz = round.z = gz;
+		at.tanHalf = tanHalf;
 		counted.levels.fill(0);
 		counted.culled = counted.posed = counted.tris = counted.calls = 0;
 		// the copies still fading in as they arrive: drawn again next frame
-		const at = performance.now();
-		let arriving = false;
+		at.now = performance.now();
+		arriving = false;
 		drawnOnce = true;
 		pictures.begin();
 		for (const k of kinds.values()) {
@@ -951,51 +1020,13 @@ export function createAssets(o) {
 			// its coarsest shape that is here, by which every copy of it casts (`castCoarse`), and those drawn at a finer one
 			const C = castsAlike(k) ? as(k, readyNear(k, k.levels.length - 1)) : -1;
 			finer.length = 0;
-			for (let i = 0; i < k.n; i++) {
-				if (!k.alive[i]) continue;
-				const M = k.M, o = i * 16;
-				// a copy of cover: left out where it does not grow, sized as it is grown (the graphics card grows it)
-				let g = 1;
-				if (k.C[i * 4] > 0) {
-					const q = i * 4;
-					g = coverGrow(Math.hypot(M[o + 12] - gx, M[o + 14] - gz), k.C[q] - 1, k.C[q + 1], k.C[q + 2], k.C[q + 3]);
-					if (!(g > 0)) {
-						if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
-						continue;
-					}
-				}
-				ball.center.set(M[o] * c.x + M[o + 4] * c.y + M[o + 8] * c.z + M[o + 12], M[o + 1] * c.x + M[o + 5] * c.y + M[o + 9] * c.z + M[o + 13], M[o + 2] * c.x + M[o + 6] * c.y + M[o + 10] * c.z + M[o + 14]);
-				// moved by its controls, it may reach further than it does at rest (a machine drawn apart): twice as far
-				ball.radius = k.radius * k.S[i] * g * (k.posed.size && k.posed.has(i) ? 2 : 1);
-				if (!frustum.intersectsSphere(ball)) {
-					counted.culled++;
-					if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
-					continue;
-				}
-				const size = sizeOn(ball.radius, ball.center.distanceTo(eye), tanHalf);
-				if (size < SMALLEST) {
-					if (k.was[i] !== -1) (k.was[i] = -1), (shadows ||= cast);
-					continue;
-				}
-				const { level, fade } = forced >= 0 ? { level: Math.min(forced, k.levels.length), fade: 0 } : choose(size, k.thresholds, k.was[i]);
-				if (level !== k.was[i]) shadows ||= cast;
-				k.was[i] = level;
-				// moved by its controls: its own tree, once it is ready
-				const p = k.posed.size ? k.posed.get(i) : undefined;
-				if (p && drawPosed(k, i, p, level)) continue;
-				// just put down behind the shown world: so much of it showing (whole where its level is not here yet)
-				let shown = 1;
-				if (k.born[i]) {
-					shown = Math.max(0.02, (at - k.born[i]) / ARRIVE);
-					if (shown < 1) arriving = true;
-					else (k.born[i] = 0), (shown = 1);
-				}
-				let drawn = draw(k, i, level, shown);
-				if (drawn < 0 && shown < 1) drawn = draw(k, i, level, 1);
-				if (C >= 0 && drawn >= 0 && drawn < k.levels.length && as(k, drawn) !== C) finer.push(i);
-				// the coarser one fading in under it, unless it already stands in whole, or is the same drawing
-				if (fade > 0 && shown >= 1 && drawn !== level + 1 && as(k, drawn) !== as(k, level + 1)) draw(k, i, level + 1, fade);
-			}
+			// its ball at scale 1, as a cell bounds it: twice as far where copies are moved by their controls
+			of.radius = k.radius * (k.posed.size ? 2 : 1);
+			of.offset = Math.hypot(c.x, c.y, c.z);
+			at.k = k;
+			at.cast = cast;
+			at.C = C;
+			counted.culled += k.cells.copies - k.cells.visit(sees, look);
 			if (C >= 0) castCoarse(k, C, finer);
 		}
 		pictures.end();

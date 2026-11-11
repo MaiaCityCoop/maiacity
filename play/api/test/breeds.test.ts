@@ -9,9 +9,10 @@ import { type Db } from "../src/kit/pg";
 import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 import { type Api, appOn, type Fresh, freshDb, human, request, suite, tool as mcpTool } from "./kit";
 import * as fx from "./fixtures/intents";
+import { LEVELS, OWNED } from "./fixtures/lod";
 
 const SPEC = fx.spec("A breed changes.", "One breed. Nothing else changes.");
-const SOURCE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
+const SOURCE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n` + LEVELS;
 
 suite("breeds", () => {
   let f: Fresh, db: Db;
@@ -46,7 +47,7 @@ suite("breeds", () => {
     token = (await call("POST", "/api/tokens", { name: "agent" })).data.token;
 
     // a papaya of two kinds, proposed as a version of variants and accepted: its variants are its breeds from then on
-    const made = await tool("propose_asset", { lod: { levels: "derived" },
+    const made = await tool("propose_asset", { ...OWNED,
       group: "plants", label: "Papaya", note: "its first version", default_variant: "female", intent: await readyIntent("A papaya of two kinds"),
       variants: [
         { name: "female", label: "Papaya: Female", source: SOURCE("a female papaya") },

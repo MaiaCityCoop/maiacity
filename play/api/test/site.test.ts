@@ -1,6 +1,6 @@
 // The site served beside /api (../src/site.ts siteHandler): files of the build with their media types, hashed chunks
-// cached for good and everything else revalidated, every page that isn't a file answered by 200.html, nothing read
-// from outside the build, only GET and HEAD.
+// cached for good and everything else revalidated, every page that isn't a file answered by 200.html, a file of the
+// build or an engine that is not there a 404, nothing read from outside the build, only GET and HEAD.
 import { beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -53,6 +53,19 @@ describe("the site", () => {
     expect(r.status).toBe(200);
     expect(r.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
     expect(await r.text()).toBe("<p>fallback</p>");
+  });
+
+  test("a script, style or engine that is gone is a 404, never the page", async () => {
+    for (const p of ["/_app/immutable/chunks/gone-123.js", "/_app/immutable/assets/gone.css", "/_app/version.jsonx", "/_app/immutable/chunks/", "/engines/engine-v99.js"]) {
+      const r = await get(p);
+      expect(r.status).toBe(404);
+      expect(r.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
+      expect(r.headers.get("Cache-Control")).toBe("no-store");
+      expect(r.headers.get("X-Content-Type-Options")).toBe("nosniff");
+      expect(await r.text()).not.toContain("fallback");
+    }
+    // one that is there is still served
+    expect((await get("/_app/immutable/chunks/a1b2.js")).status).toBe(200);
   });
 
   test("never a file outside the build", async () => {

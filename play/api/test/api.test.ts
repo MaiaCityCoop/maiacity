@@ -20,7 +20,7 @@ import { UUID } from "../src/kit/uuid";
 const PAPAYA_STORY = "7adaf0b3-01a9-8bb9-b250-d2bee7016c4c";
 import { COOP } from "../src/kit/ids";
 import { randomUUID } from "node:crypto";
-import { leveled } from "./fixtures/lod";
+import { DETAIL, LEVELS, OWN, OWNED, leveled, withLevels } from "./fixtures/lod";
 import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, unlockReads } from "./kit";
 import * as fx from "./fixtures/intents";
 
@@ -211,6 +211,7 @@ suite("play API", () => {
     const params = [
       { id: "stage", label: "Stage", type: "number", min: 0, max: 9, value: 9 },
       { id: "pollen", label: "Pollen", type: "integer", min: 0, max: 1, value: 1, names: ["None", "A male near"] },
+      ...DETAIL,
     ];
     const head = (await call("trav", "GET", `/api/assets/${ids.fern}`)).data.head;
     const kinds = [{ name: "both", label: "Fern: Both" }, { name: "female", label: "Fern: Female" }, { name: "male", label: "Fern: Male" }];
@@ -352,7 +353,7 @@ suite("play API", () => {
     expect(listed.data.result.isError).toBeUndefined();
     const proposed = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { intent: await ready(), group: "plants", slug: "mcp-fern", label: "MCP fern", source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n", note: "proposed by an agent", lod: { levels: "derived" } },
+      arguments: { intent: await ready(), group: "plants", slug: "mcp-fern", label: "MCP fern", source: "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n" + LEVELS, note: "proposed by an agent", ...OWNED },
     });
     expect(proposed.data.result.isError).toBeUndefined();
     const open = (await waiting()).find((p: any) => p.slug === "mcp-fern");
@@ -379,7 +380,7 @@ suite("play API", () => {
     expect(worlds.data.result.isError).toBeUndefined();
     const world = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { intent: await ready(), group: "worlds", slug: "mcp-test-world", label: "Test world", source: "module.exports.recipe = function (id, v) {\n  return { meta: { group: 'worlds', id, v } };\n};\n", note: "a stand-in world", lod: { levels: "derived" } },
+      arguments: { intent: await ready(), group: "worlds", slug: "mcp-test-world", label: "Test world", source: "module.exports.recipe = function (id, v) {\n  return { meta: { group: 'worlds', id, v } };\n};\n" + LEVELS, note: "a stand-in world", ...OWNED },
     });
     expect(world.data.result.isError).toBeUndefined();
     const worldOpen = (await waiting()).find((p: any) => p.slug === "mcp-test-world");
@@ -388,7 +389,7 @@ suite("play API", () => {
     // a new asset with its variants at once (a truck's kinds), each its own recipe
     const kinds = await rpc(made.data.token, "tools/call", {
       name: "propose_asset",
-      arguments: { lod: { levels: "derived" }, intent: await ready(), group: "machines", slug: "mcp-truck", label: "Truck", source: "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant } };\n};\n", variants: [{ name: "box" }, { name: "tanker", label: "Truck: Tanker" }], default_variant: "tanker", note: "two kinds" },
+      arguments: { ...OWNED, intent: await ready(), group: "machines", slug: "mcp-truck", label: "Truck", source: "module.exports.recipe = function (id, v, variant) {\n  return { meta: { id, v, variant } };\n};\n" + LEVELS, variants: [{ name: "box" }, { name: "tanker", label: "Truck: Tanker" }], default_variant: "tanker", note: "two kinds" },
     });
     expect(kinds.data.result.isError).toBeUndefined();
     const kindsOpen = (await waiting()).find((p: any) => p.slug === "mcp-truck");
@@ -396,17 +397,17 @@ suite("play API", () => {
     expect((await archive(kindsOpen.id)).data.result.isError).toBeUndefined();
     // a recipe that declares params is refused without them, and records them when given
     const PARAMS = [{ id: "kind", label: "Kind", type: "integer", min: 0, max: 1, value: 0 }];
-    const withParams = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v, params: PARAMS } };\n};\nconst PARAMS = [];\n";
-    const noParams = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { lod: { levels: "derived" }, intent: await ready(), group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, note: "params left out" } });
+    const withParams = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v, params: PARAMS } };\n};\nconst PARAMS = [];\n" + LEVELS;
+    const noParams = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { lod: OWN, intent: await ready(), group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, note: "params left out" } });
     expect(noParams.data.result.isError).toBe(true);
     expect(noParams.data.result.content[0].text).toContain("params");
-    const given = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { lod: { levels: "derived" }, intent: await ready(), group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, params: PARAMS, note: "params given" } });
+    const given = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { ...OWNED, intent: await ready(), group: "things", slug: "mcp-lamp", label: "Lamp", source: withParams, params: [...PARAMS, ...DETAIL], note: "params given" } });
     expect(given.data.result.isError).toBeUndefined();
     const lampOpen = (await waiting()).find((p: any) => p.slug === "mcp-lamp");
     const lamp = (await call("ada", "GET", `/api/intents/${lampOpen.id}`)).data.review;
     expect(JSON.stringify(lamp)).toContain('"kind"');
     expect((await archive(lampOpen.id)).data.result.isError).toBeUndefined();
-    const none = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { lod: { levels: "derived" }, intent: await ready(), group: "machines", label: "Nothing", note: "no source" } });
+    const none = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { ...OWNED, intent: await ready(), group: "machines", label: "Nothing", note: "no source" } });
     expect(none.data.result.isError).toBe(true);
     for (const id of [byPage.data.intent, theirsOpen.data.intent]) await call("ada", "POST", `/api/intents/${id}/archive`);
     const wrong = await rpc(made.data.token, "tools/call", {
@@ -415,7 +416,7 @@ suite("play API", () => {
     });
     expect(wrong.data.result.isError).toBe(true);
     expect(wrong.data.result.content[0].text).toContain("not readable");
-    const bundled = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { lod: { levels: "derived" }, intent: await ready(), group: "plants", slug: "mcp-moss", label: "Moss", recipe: recipe("mcp-moss", 1), note: "no source" } });
+    const bundled = await rpc(made.data.token, "tools/call", { name: "propose_asset", arguments: { ...OWNED, intent: await ready(), group: "plants", slug: "mcp-moss", label: "Moss", recipe: recipe("mcp-moss", 1), note: "no source" } });
     expect(bundled.data.result.isError).toBe(true);
     expect((await call("ada", "DELETE", `/api/tokens/${made.data.id}`)).data.revoked).toBe(true);
     expect((await rpc(made.data.token, "tools/list")).status).toBe(401);
@@ -443,7 +444,7 @@ suite("play API", () => {
   });
 
   test("a proposal brings its readable source: play wraps it into the recipe, keeps both, and serves them as text", async () => {
-    const source = "// a fern, version 3\nconst THREE = require('three');\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
+    const source = "// a fern, version 3\nconst THREE = require('three');\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n" + LEVELS;
     const p = await propose("ada", { asset: ids.fern, source, note: "readable" });
     expect(p.status).toBe(201);
     const r = (await call("ada", "GET", `/api/intents/${p.data.intent}`)).data.review;
@@ -618,12 +619,13 @@ suite("play API", () => {
   const proposeAssetEdits = (args: Record<string, any>, token = storyToken) => {
     const { asset, note, source, variants, default_variant, params } = args;
     const edits: any[] = [];
-    if (source !== undefined) edits.push({ op: "set", path: ["source"], value: source });
+    // (a changed source carries its own levels, ../src/lod.ts: exported by it, named on its card with the params they set)
+    if (source !== undefined) edits.push({ op: "set", path: ["source"], value: withLevels(source) }, { op: "set", path: ["card", "card", "lod"], value: OWN });
     if (variants) {
-      edits.push({ op: "set", path: ["variants"], value: variants.map((x: any) => ({ name: x.name, ...(x.source ? { source: x.source } : {}), card: { card: { label: x.label ?? x.name } } })) });
+      edits.push({ op: "set", path: ["variants"], value: variants.map((x: any) => ({ name: x.name, ...(x.source ? { source: withLevels(x.source) } : {}), card: { card: { label: x.label ?? x.name } } })) });
       edits.push({ op: "set", path: ["defaultVariant"], value: default_variant ?? variants[0].name });
     }
-    if (params !== undefined) edits.push({ op: "set", path: ["card", "card", "params"], value: params });
+    if (params !== undefined || source !== undefined) edits.push({ op: "set", path: ["card", "card", "params"], value: params ?? DETAIL });
     for (const k of ["sheet", "datasheet", "brief"]) if (args[k] !== undefined) edits.push(args[k] === null ? { op: "delete", path: ["card", k] } : { op: "set", path: ["card", k], value: args[k] });
     return rawTool("propose_doc_version", { doc: asset, note, edits }, token);
   };
@@ -965,8 +967,8 @@ suite("play API", () => {
     const story = await rawTool("propose_story", { title: "The little red car", note: "its plate in the first shot", body: { format: "16:9", fps: 30, tracks: tracks(hash) } }, token);
     expect(story.error).toBeNull();
     expect((await call("ada", "POST", `/api/intents/${story.out.intent}/accept`)).data.decision.status).toBe("accepted");
-    const src = "// a small red car, held to its sheet\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v }, build: () => null };\n};\n";
-    const car = await rawTool("propose_asset", { lod: { levels: "derived" }, group: "things", label: "Fiat 500 F", source: src, note: "built from its sheet", sheet: hash }, token);
+    const src = "// a small red car, held to its sheet\nmodule.exports.recipe = function (id, v) {\n  return { meta: { id, v }, build: () => null };\n};\n" + LEVELS;
+    const car = await rawTool("propose_asset", { ...OWNED, group: "things", label: "Fiat 500 F", source: src, note: "built from its sheet", sheet: hash }, token);
     expect(car.error).toBeNull();
     return { token, hash, label, story: story.out.story as string, car: car.out as { intent: string; asset: string } };
   };

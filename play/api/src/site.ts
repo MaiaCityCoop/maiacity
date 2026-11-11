@@ -1,8 +1,14 @@
 // The site, served by play-api beside /api (play/SPEC.md §2): the static SvelteKit build in PLAY_SITE, its hashed
-// chunks cached for good, every page that isn't a file answered by the app's fallback page (200.html).
+// chunks cached for good, every page that isn't a file answered by the app's fallback page (200.html). What a page
+// loads as a file (its build under /_app/, a frozen engine under /engines/) and is not there is a 404, never the page
+// (intent 8333276b: a tab open across a deploy asked for a chunk of the build before, got the page as text/html, and
+// Safari refused it as a script).
 import { join, normalize } from "node:path";
 
 const TYPES: Record<string, string> = { ".js": "text/javascript", ".css": "text/css", ".html": "text/html; charset=utf-8", ".json": "application/json", ".woff2": "font/woff2", ".png": "image/png", ".svg": "image/svg+xml", ".wasm": "application/wasm" };
+
+/** where only files live: hashed for good, and a path there that is no file is gone, not a page */
+const FILES = ["/_app/", "/engines/"];
 
 export function siteHandler(dir: string) {
   const root = normalize(dir);
@@ -26,6 +32,8 @@ export function siteHandler(dir: string) {
         });
       }
     }
+    if (FILES.some((f) => path.startsWith(f)))
+      return new Response("Not found", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
     return new Response(Bun.file(join(root, "200.html")), { headers: { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache" } });
   };
 }

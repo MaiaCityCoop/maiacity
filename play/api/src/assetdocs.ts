@@ -23,7 +23,7 @@ import * as docs from "./docs";
 import { HASH, hashText } from "./hash";
 import type { Db, Queryable } from "./pg";
 import { NOTE_MOST } from "./notes";
-import { labelOf, libraryOf, RECIPE_HEAD, recipeTail } from "./recipes";
+import { labelOf, libraryOf, namedWhy, RECIPE_HEAD, recipeTail } from "./recipes";
 import { libsOf, PieceError, piecesHeld, piecesOf, piecesShown } from "./pieces";
 import { boxEngine, LATEST_BOX } from "./engines";
 import { readableRefs } from "../import/plan";
@@ -590,6 +590,9 @@ function checkedCode(up: { source?: unknown; recipe?: unknown }, slug: string, n
   const hash = hashText(source);
   const why = accepted.has(hash) ? null : unreadable(source);
   if (why) throw new VersionError(`The source is not readable: ${why}.`);
+  // every other asset it names by hash (play/SPEC.md §4.7), never by group, slug and version, its comments too
+  const named = accepted.has(hash) ? null : namedWhy(source);
+  if (named) throw new VersionError(`The source is refused: ${named}.`);
   // its own looks only as node graphs of the one allowlist, checked as the box and the page check them (./graphs.ts)
   if (!accepted.has(hash))
     try {
@@ -890,10 +893,11 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   let card = withRefs(recipe ? recordOf(heldRecord(over(inherited(body.record, a[0]?.card), set), own!.libs, own!.source, own!.pieces), grp, slug, n, null, recipe) : variants[defaultVariant!].card, refs);
   // its levels of detail (./lod.ts, play/SPEC.md §4.5): named on every new version's card, a declared one's levels
   // read from its source (play runs no code) and written beside them
+  // (a source its head was not accepted with is touched: its own levels, its count within the ceiling; intent a7507347)
   const leveled = (rec: any, text: string, what: string) => {
     try {
       const params = ((rec?.card?.params ?? rec?.params ?? []) as any[]).map((p) => `${p?.id}`);
-      return { ...rec, card: { ...(rec?.card ?? {}), lod: heldLod(rec?.card?.lod, text, params, what) } };
+      return { ...rec, card: { ...(rec?.card ?? {}), lod: heldLod(rec?.card?.lod, text, params, what, { touched: !accepted.has(hashText(text)), group: grp }) } };
     } catch (e) {
       throw e instanceof LodError ? new VersionError(e.message) : e;
     }

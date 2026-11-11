@@ -14,6 +14,7 @@ import { storyListed } from "./listed";
 import { stagesSaid } from "./kit/stages";
 import { ensureLayoutDoc, LAYOUT_EDITS, layoutBefore, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck, writeRows } from "./sandboxes";
 import { ensureArtifactDoc } from "./artifacts";
+import { namedWhy } from "./recipes";
 import { intentPieces, keepPiece, PieceError, pieceProblems, piecesHeld, piecesOf } from "./pieces";
 
 /** an asset: its variants' names each once, its default variant one of them */
@@ -175,6 +176,10 @@ const piece: Kind = {
     const source = `${json?.source ?? ""}`;
     // one version of a piece's source per intent: a second the same is no new version
     if (intent && (await intentPieces(q, intent)).some((x) => x.hash === hashText(source))) throw new PieceError("This intent proposes that piece's source already: a version of a piece is new source.");
+    // a new version names an asset by hash, never by group, slug and version (as an asset's source: ./assetdocs.ts);
+    // here, at its proposal, so a piece accepted before with such a name stays the document it is (intent 5723e301)
+    const named = namedWhy(source);
+    if (named) throw new PieceError(`The piece's source is refused: ${named}.`);
     await piecesHeld(q, piecesOf(source), 3, intent);
   },
   accepted: (tx, ctx, docId, number, json, intent) => keepPiece(tx, ctx.store, docId, number, json, intent).then(() => undefined),

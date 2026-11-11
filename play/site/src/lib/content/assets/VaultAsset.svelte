@@ -34,6 +34,8 @@
 	import { keepAbove, maxPolar } from './camerafloor.js';
 	import { createPlantings } from './plantings.js';
 	import { vaultBuild } from './load.js';
+	import { stageError } from './stage-error.js';
+	import { chunkFailed, toNewBuild } from '$lib/site/app/newbuild';
 	import { buildOf, plantOf } from './catalog.js';
 	import { VIEWS, asker, camerawork, letGoOf, loop, measure, movesOf, onTap, openStage, safeArea, tabbed, viewsOf } from './viewer.js';
 	import { builtRows, heroReading, labRows, longNote, moveChips, paramTabs, scaleBar, tagLines, viewChips } from './ViewerParts.svelte';
@@ -184,9 +186,11 @@
 			// the stage renderer and the paper studio on it (./viewer.js `openStage`)
 			up = await openStage(box, { onLost: () => (lost = true), hold: () => building });
 		} catch (e) {
-			// a browser that gives this page no 3D drawing: said on the stage, the rest of the page goes on
-			error = `This browser couldn’t open the 3D stage: ${String(e?.message ?? e)}`;
+			// said on the stage, the rest of the page goes on: a part of the page that would not load (after a deploy the
+			// page moves itself to the new build, once: $lib/site/app/newbuild.ts), or a browser that gives no 3D drawing
+			error = stageError(e);
 			console.error(e);
+			if (chunkFailed(e)) void toNewBuild();
 			return;
 		}
 		const { THREE, view, renderer, camera, controls, adapt, resize } = up;

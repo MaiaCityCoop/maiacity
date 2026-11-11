@@ -218,6 +218,19 @@ export function createSkyClock({ clock = skyHour } = {}) {
 }
 
 /**
+ * A shadow pass draws a see-through caster seen from both sides once (intent 0356b0ea): three draws such a thing's
+ * back and then its front, as a picture must to blend it, and its shadow pass keeps the caster's see-through and
+ * two-sided flags, so every glass pane, leaf card and canopy cast twice into the depth map, which is the same either
+ * way. Called for each render of the scene: it marks the one material three draws every caster's shadow with, while it
+ * is the scene's (its `overrideMaterial`), and touches nothing else.
+ * @param {THREE.Scene} scene
+ */
+export function shadowsInOnePass(scene) {
+	const m = /** @type {any} */ (scene.overrideMaterial);
+	if (m?.isShadowPassMaterial) m.forceSinglePass = true;
+}
+
+/**
  * Put the sky over a world.
  * @param {import('three/webgpu').WebGPURenderer} renderer
  * @param {THREE.Scene} scene
@@ -273,6 +286,7 @@ export function createSky(renderer, scene, options = {}) {
 	const before = scene.onBeforeRender;
 	scene.onBeforeRender = function (r, s, cam, target) {
 		before.call(this, r, s, cam, target);
+		shadowsInOnePass(s);
 		if (target || !cam) return;
 		cam.getWorldPosition(at);
 		cam.getWorldDirection(ahead);

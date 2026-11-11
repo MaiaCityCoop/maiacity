@@ -31,7 +31,7 @@ test('kept: an answer is read back as it was put, its arrays whole; nothing is k
 	kept.put(keyOf('q'), answer);
 	expect(kept.get(keyOf('q'))).toEqual(answer);
 	expect(kept.get(keyOf('another'))).toBeUndefined();
-	expect(kept.counted).toEqual({ read: 1, made: 1 });
+	expect(kept.counted).toEqual({ read: 1, made: 1, lowered: { jobs: 0, tris: 0 } });
 	// another census opening the same folder reads it
 	expect(keptIn(dir('store')).get(keyOf('q'))).toEqual(answer);
 	// a file cut short is as good as none
@@ -88,7 +88,7 @@ test('kept: a worker asked the same again answers from what was kept, and is not
 	const kept = keptIn(dir('worker'));
 	const first = counting();
 	const w = keptWorker(first.make, kept, 'code-1');
-	const draws = { draws: [{ index: new Uint32Array([0, 1, 2]) }], plans: [{ budget: 100 }] };
+	const draws = { draws: [{ index: new Uint32Array([0, 1, 2]), tris: 1 }], plans: [{ budget: 100 }] };
 	expect(await asked(w, { id: 1, ...draws })).toEqual({ id: 1, out: { n: 1 } });
 	expect(await asked(w, { id: 2, ...draws, plans: [{ budget: 50 }] })).toEqual({ id: 2, out: { n: 2 } });
 	// the same question under another id: the answer kept, under the id now asked
@@ -115,6 +115,9 @@ test('kept: a worker asked the same again answers from what was kept, and is not
 	expect(await asked(f, { id: 1, fail: true })).toEqual({ id: 1, error: 'refused' });
 	expect(await asked(f, { id: 2, fail: true })).toEqual({ id: 2, error: 'refused' });
 	expect(kept.counted.made).toBe(4);
+	// every shape handed over to be made lighter is counted, read as kept or made (intent 1f6a98dd): six with one
+	// triangle each above, the two refused ones carrying none
+	expect(kept.counted.lowered).toEqual({ jobs: 6, tris: 6 });
 });
 
 test('kept: a question is at work until its worker answers it, fails or ends; one read as kept never is', async () => {
