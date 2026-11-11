@@ -462,9 +462,24 @@ export function placeSeenOnly(scene) {
 		before.apply(this, a);
 	};
 }
-/** three.js's updateMatrixWorld, going no further into what is hidden @param {THREE.Object3D} o @param {boolean} force */
+/**
+ * Whether an object's place, turn or size changed since its matrix was last made from them here, kept on it (intent
+ * 0356b0ea): three.js makes every object's matrix again every frame, and with it its place in the world and that of
+ * everything under it, though nearly nothing moved (Sandbox 1: every plant, wall and lamp of a village and its domes,
+ * a frame's largest piece of work after drawing). Made again, it would be the very same matrix.
+ * @param {THREE.Object3D} o
+ */
+function moved(o) {
+	const p = o.position, q = o.quaternion, s = o.scale;
+	let was = /** @type {any} */ (o).__placedFrom;
+	if (!was) was = /** @type {any} */ (o).__placedFrom = new Float64Array(10).fill(NaN);
+	if (was[0] === p.x && was[1] === p.y && was[2] === p.z && was[3] === q.x && was[4] === q.y && was[5] === q.z && was[6] === q.w && was[7] === s.x && was[8] === s.y && was[9] === s.z) return false;
+	was[0] = p.x, was[1] = p.y, was[2] = p.z, was[3] = q.x, was[4] = q.y, was[5] = q.z, was[6] = q.w, was[7] = s.x, was[8] = s.y, was[9] = s.z;
+	return true;
+}
+/** three.js's updateMatrixWorld, going no further into what is hidden, nor into what has not moved @param {THREE.Object3D} o @param {boolean} force */
 export function place(o, force) {
-	if (o.matrixAutoUpdate) o.updateMatrix();
+	if (o.matrixAutoUpdate && moved(o)) o.updateMatrix();
 	if (o.matrixWorldNeedsUpdate || force) {
 		if (o.parent === null) o.matrixWorld.copy(o.matrix);
 		else o.matrixWorld.multiplyMatrices(o.parent.matrixWorld, o.matrix);

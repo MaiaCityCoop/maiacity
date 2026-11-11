@@ -56,7 +56,7 @@ test('a software renderer is told from a GPU by its name', () => {
 	for (const name of ['ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)', 'apple metal-3', 'Apple GPU']) expect(software(name)).toBe(false);
 });
 
-const M: Measure = { browser: 'chromium', version: '153', webgpu: 'apple metal-3', webgl: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)', backend: 'webgpu', shown: true, world_s: 12.3, steps: [], settled_s: 4, frames: 600, frame_ms: 16.7, frame_p95: 17.1, cpu_ms: 3.2, gpu_ms: 6.1, calls: 410, triangles: 1_200_000, painted: 0.93, errors: [] };
+const M: Measure = { browser: 'chromium', version: '153', webgpu: 'apple metal-3', webgl: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)', backend: 'webgpu', shown: true, world_s: 12.3, steps: [], settled_s: 4, frames: 600, frame_ms: 16.7, frame_p95: 17.1, cpu_ms: 3.2, gpu_ms: 6.1, calls: 410, triangles: 1_200_000, walk_ms: null, walk_p95: null, walk_cpu: null, walk_gpu: null, painted: 0.93, errors: [] };
 
 test('a measure passes when the world is shown, the device held and its bounds hold; each failure says why', () => {
 	expect(judge(M)).toEqual([]);
@@ -64,6 +64,11 @@ test('a measure passes when the world is shown, the device held and its bounds h
 	expect(judge(M, { worldWithin: 10 })).toEqual(['the world took 12.3 s, more than 10 s']);
 	expect(judge(M, { frameWithin: 10 })).toEqual(['a frame took 16.7 ms, more than 10 ms']);
 	expect(judge({ ...M, frame_ms: null }, { frameWithin: 10 })).toEqual(['a frame took — ms, more than 10 ms']);
+	// a walk is bound only when asked, and a walk not measured is no walk within a bound
+	expect(judge({ ...M, walk_ms: 30 }, { walkWithin: 33 })).toEqual([]);
+	expect(judge({ ...M, walk_ms: 40 }, { walkWithin: 33 })).toEqual(['a frame walking took 40 ms, more than 33 ms']);
+	expect(judge(M, { walkWithin: 33 })).toEqual(['a frame walking took — ms, more than 33 ms']);
+	expect(lineOf({ ...M, walk_ms: 40, walk_p95: 55, walk_cpu: 30, walk_gpu: 9 }, [])).toContain('walking 40 ms (p95 55, CPU 30, GPU 9)');
 	expect(judge({ ...M, shown: false, painted: 0.02 })).toEqual(['the picture is blank (0.02 painted)']);
 	expect(judge({ ...M, errors: ['play: the graphics device was lost A valid external Instance reference no longer exists.'] })).toEqual(['the graphics device was lost']);
 	expect(judge({ ...M, world_s: null, shown: false, errors: ['the world was not up within 300 s (at: Growing the forest)'] })).toEqual(['the world never came up: the world was not up within 300 s (at: Growing the forest)']);

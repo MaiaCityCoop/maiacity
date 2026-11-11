@@ -8,6 +8,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { type Db } from "../src/kit/pg";
 import { fakeGitHub } from "./fixtures/github";
 import { type Api, appOn, type Fresh, freshDb, human, quiet, request, suite, tool as mcpTool } from "./kit";
+import { LEVELS, OWNED } from "./fixtures/lod";
 
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
@@ -126,10 +127,10 @@ suite("retire a document by an intent", () => {
 
   // intent ce9a5c40: an asset retired leaves the assets' list (GET /api/assets, list_assets) as a story leaves its own
   test("asset: a retired asset leaves GET /api/assets and list_assets; another stays; it still reads by its UUID", async () => {
-    const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
+    const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n" + LEVELS;
     const plant = async (label: string) => {
       const id = await building(`Grow ${label}`);
-      const a = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label, source: SOURCE, note: `${label}, its first version`, intent: id });
+      const a = await tool("propose_asset", { ...OWNED, group: "plants", label, source: SOURCE, note: `${label}, its first version`, intent: id });
       expect(a.error).toBeUndefined();
       expect(await pass(id)).toBe("proposal");
       expect((await call("POST", `/api/intents/${id}/accept`)).data.stage).toBe("accepted");

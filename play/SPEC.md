@@ -313,6 +313,32 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   as a plain material, and still do for what was made on them). At propose time play reads a recipe's graphs as a
   plain literal, `module.exports.graphs = { <name>: { format, nodes, out }, … }`, checks each with the same module and
   refuses a source that writes a shader of its own, saying why. A graph's format is frozen with its engine.
+- **Its own levels, within 300,000 triangles** (intent a7507347, Samuel 2026-11-11: "any asset touched can be max 300k
+  in its highest detail and needs to be optimized for this, while keeping realism as good as possible", its levels
+  "with its actual src files"). An asset's finest shape, its build (L0), has at most 300,000 triangles at every stage
+  and variant it has, and its lighter levels are its own: declared in its source, named on its card, versioned and
+  frozen with it, none left to be derived on a visitor's device. Realism first: the ceiling is reached by fewer,
+  better-spent triangles (cut-out foliage, instanced parts, detail where the eye rests), never by a poorer asset.
+  **When:** a new asset, and every new version whose source is not one its head was accepted with ("touched", a
+  variant's or a breed's source too); a version that changes its card alone is held as before. **Held three ways.**
+  (1) *From the text, at propose time* (`play/api/src/lod.ts` `heldLod`, wherever a source is taken: `propose_asset`,
+  `propose_doc_version`, `doc_edit`'s proposal, the page's): play refuses a touched version whose card says
+  `'derived'`, whose source exports no levels, or whose card carries no `lod.tris` (the triangles of its finest shape,
+  the most over every stage and variant) or one over the ceiling, saying the count, the ceiling and what is missing.
+  play runs no proposed code, so it never counts: `lod.tris` is the proposer's word, refused where it already breaks
+  the rule. (2) *Proven in avenBOX* (`play/site/scripts/census/ceiling.ts`): every asset is built headless in the
+  census's box (`census/built.ts`), each recipe it has at every whole stage, and what was built is counted
+  (`trianglesOf`: every instance, no stage, shadow or pass); an asset fails over the ceiling, `derived`, or with a
+  card claiming fewer triangles than it has. `--all` is every asset, a must of the intent that brought the rule and
+  of any that touches the census; `--intent <uuid>` counts what an intent's variants make, and is the must check
+  every intent that changes an asset's source carries (the Intents skill's Idea part), recorded by the box's run: so
+  a card's count is never taken on trust past Proposal. (3) *Known exceptions, by UUID*
+  (`census/ceiling.known.json`): the assets outside the rule the day it came (every one `derived`, 59 of 268 also
+  over the ceiling at their default shape), each as it was found; one fails nothing while it is outside the rule and
+  fails once it is within it, so the list only shrinks, and it excuses no changed source (an intent's variant of a
+  listed asset is held like any other). The ceiling is one number for every kind, `CEILING`, asked only through
+  `ceilingOf(group)` (`play/api/src/lod.ts`), which the server and the count both read: a ceiling by kind is later
+  decided there alone.
 - **One level-of-detail contract for every asset** (intent a2935147, Samuel 2026-11-07). Every asset is drawn at four
   levels by the one renderer (`play/site`'s `content/assets/render/`), chosen by its size on screen alone (`lod.js`:
   `LEVELS`, `HOLD`, `BAND`, its budgets): **L0** its build; **L1 and L2** its recipe's own where it declares them,
@@ -765,7 +791,12 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     396 s (WebKit) to Sandbox 5, nearly all of it the CPU growing the forest's 180 kinds, then 9 and 20 frames a
     second; so a time bound there (`--world-within`, `--frame-within`) compares only with other runs on that runner,
     and a Mac's own frame time is still Samuel's Mac's. The job's setup is half a minute, one world in one browser six
-    to seven. `--steps` prints what the cover said on the way, each step with its second. A builder gets the same
+    to seven. **Such a check's limit is its own** (intent d3f98bcc; `intent.ts` `GPU_LIMIT`, 1500 s, where every
+    other check has `LIMIT`, 600 s, and `--timeout` sets both by hand): two engines one after another need more than
+    ten minutes there (Chromium's world in 205 to 280 s, WebKit's in about 400 s, each then up to 60 s to settle and
+    10 s of frames), and `gpu.ts`'s own limits (600 s an engine to its world) end a check first, in its own words;
+    the job has 90 minutes, three such checks at their limit after its build. A check killed at its limit keeps what
+    it had printed and says which engine had finished, with its numbers, and which had not. `--steps` prints what the cover said on the way, each step with its second. A builder gets the same
     measure on a draft by a dry run (`workflow_dispatch` with the pull request's number). Main's re-run leaves these
     checks out (`intent.ts --record --where main --no-gpu`): they were measured on the head.
   - **Dirty.** `.gitignore` ignores `.claude/settings.local.json`, the per-user file the Claude app writes; a dirty run
@@ -1358,6 +1389,51 @@ keep naming a variant by it), beside Main.
   variant says whether it changes Main, changes a breed or makes one. `doc_at`'s `breed` reads a breed as it is now,
   `/api/docs/<uuid>?breed=` the same; `/changes?variant=` of a breed is what it overrides of Main.
 
+
+### 4.16 A world's budget and the fast pattern (Samuel 2026-11-11; intent 1f6a98dd)
+
+A world is fast by its design, and stays so by a budget a check holds. The audit behind it (every part of Sandbox 1,
+3 and 5 counted, its raw numbers and scripts) is on the branch `intent-work/1f6a98dd-audit`.
+
+**The aims**, absolute, on Samuel's M1 with 8 GB in Safari, never a share of main: the world shown within 10 s on a
+first visit and 3 s on a second; at most 2.5 GB held; 16.7 ms a frame standing and walking; the picture judged against
+the real thing. In what avenBOX counts without a GPU, 16.7 ms on that Mac is at most 1.5 million triangles, 600 draws
+and 2,500 WebGPU calls in any frame, shadow passes included, and no triangle handed to the device's simplifier (an
+estimate from the Mac's measures of 2026-11-10, to be corrected by real-GPU rounds). **An asset's own ceiling**: at
+most 300,000 triangles at its finest, counted at its heaviest stage and variant, its levels declared with its source.
+
+**The budget** is `play/site/scripts/census/budgets.json`: the aims, the asset's ceiling with the versions over it
+named by UUID and hash (a list that only shrinks; play does not yet refuse at propose: its own intent), and for each
+sandbox, by its UUID, a ceiling per view for every pass's triangles and draws, the WebGPU calls at rest and walking,
+and the triangles its load hands the simplifier: the count when the ceiling was written, 5 % over, rounded up.
+`bun play/site/scripts/budget.ts --world <world>|all` counts a world from the pinned inputs, with no token, and holds
+it to its ceilings: over one fails; 15 % or more under one asks for it to be lowered (`--strict` fails then), so a
+ceiling only moves down, or up by a pull request that says so. Seconds, memory and milliseconds are reported with
+their aims and not held yet (`gpu.ts`, `memory.ts`). Every pull request that can move a count (a world's code, the
+census, the budget, the frozen engines, the site's packages) runs it, a world a job (`play-checks.yml` "Budget",
+needed by the required "API and site"); any other passes at once.
+
+**The pattern** every world is built by, each earned by a number of the audit:
+
+- **P1. No device makes a level.** A pinned version declares its levels or brings them made. 25 builds of six
+  trees, built whole (up to 1.68 million triangles) and simplified on the device, were 400 of a first visit's 550 CPU
+  seconds and most of its memory.
+- **P2. No device runs a recipe for a world.** A version's shapes, level by level, and its far pictures are made
+  once, at its Accept, in avenBOX on GitHub in a job without secrets (never on play's server), kept among play's files
+  by hash, and downloaded: a world's first minutes are about 37 MB of ready shapes against about 150 CPU seconds of
+  building on every new device.
+- **P3. Everything drawn has levels, the hand-built too.** Hand-built domes, insides, shells and paths and one build
+  without levels drew 38 to 86 % of every view's picture and 46 to 93 % of its shadow triangles.
+- **P4. Shadows are cast by stand-ins.** A redraw never costs more than the picture: it was 6.67 million triangles
+  against 3.84 million in Sandbox 1's near view, every 2 m walked.
+- **P5. A world streams, by one rule from the kit.** Near first and whole, far as its cheapest stand-in, nothing
+  built, photographed or uploaded that cannot be seen; copies in cells, one asset renderer a page.
+- **P6. Drawn as one.** What repeats is instanced, what never moves welded, materials shared, passes few.
+- **P7. A budget for every world, held at every door.** The budget above; later the seconds and milliseconds on a
+  real GPU, and a layout or asset version a world pins measured before its Accept.
+
+**Fast pays for realism, never the reverse**: a change that makes a world look more real is priced against the
+budget before it is built, and raises no ceiling without saying what it bought.
 
 ## 5. The sandboxes
 

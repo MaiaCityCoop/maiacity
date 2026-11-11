@@ -22,7 +22,7 @@ import { applyGraph } from './graph.js';
 import {
 	If, abs, atan, int, uniformArray, cameraPosition, cameraViewMatrix, clamp, diffuseColor, dot, float, floor, fract, frontFacing, instanceColor, length, mat3, materialMetalness, materialNormal,
 	materialOpacity, materialRoughness, max, mix, mod, nodeObject, normalLocal, normalView, normalize, output, positionLocal, positionView, positionViewDirection, positionWorld, pow,
-	screenCoordinate, depth, select, sin, smoothstep, texture, uniform, uv, varying, vec2, vec3, vec4
+	renderGroup, screenCoordinate, depth, select, sin, smoothstep, texture, uniform, uv, varying, vec2, vec3, vec4
 } from 'three/tsl';
 
 // ---------------------------------------------------------------- the pieces
@@ -44,13 +44,14 @@ export const aFade = always('aFade', 'float');
 export const aCover = always('aCover', 'vec4');
 /** its stream's near, reach and thin (../../biomes/stream.js `coverStream`) */
 export const aReach = always('aReach', 'vec3');
-/** where the eye is that the cover grows round (the renderer sets it every frame: ../../assets/render/index.js) */
-export const coverEye = uniform(new THREE.Vector3(1e9, 0, 1e9));
+/** where the eye is that the cover grows round (the renderer sets it every frame: ../../assets/render/index.js); it
+ *  and `coverAway` are the world's, in the one buffer every drawing shares (`renderGroup`), sent once when they change */
+export const coverEye = uniform(new THREE.Vector3(1e9, 0, 1e9)).setGroup(renderGroup);
 /**
  * Where the cover is left out besides (the asset viewer's earth seen from below, ../../assets/ground.js): while `on`,
  * every copy whose foot lies, along `f` from `c`, outside the band from -b to -b - band.
  */
-export const coverAway = { on: uniform(0), c: uniform(new THREE.Vector2()), f: uniform(new THREE.Vector2(0, 1)), b: uniform(0), band: uniform(0) };
+export const coverAway = { on: uniform(0).setGroup(renderGroup), c: uniform(new THREE.Vector2()).setGroup(renderGroup), f: uniform(new THREE.Vector2(0, 1)).setGroup(renderGroup), b: uniform(0).setGroup(renderGroup), band: uniform(0).setGroup(renderGroup) };
 
 /**
  * How far a copy of the cover is grown (0…1) at distance d from the eye, by its rank: all within `near`, thinning to

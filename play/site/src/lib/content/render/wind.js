@@ -142,13 +142,17 @@ export function worldSeconds(now = typeof performance !== 'undefined' ? performa
 export function windNodes(tsl, o) {
 	const { Fn, If, abs, attribute, cameraPosition, clamp, cos, float, fract: frac, max, min, mix, modelWorldMatrix, modelWorldMatrixInverse, positionLocal, positionWorld, sin, smoothstep, sqrt, uniform, vec3, vec4 } = tsl;
 	const w = windOf(o);
+	// one wind for the world, so its numbers live in the one buffer every drawing shares (three's `renderGroup`), sent
+	// once a frame: left in each drawing's own, its clock rewrote every swaying drawing's buffer every frame (intent
+	// 0356b0ea: 112 of Sandbox 5's 567 buffers written a frame standing still)
+	const world = (n) => (tsl.renderGroup ? n.setGroup(tsl.renderGroup) : n);
 	const u = {
-		direction: uniform(w.direction),
-		strength: uniform(w.strength),
-		gust: uniform(w.gust),
-		scale: uniform(w.scale),
-		speed: uniform(w.speed),
-		time: uniform(0)
+		direction: world(uniform(w.direction)),
+		strength: world(uniform(w.strength)),
+		gust: world(uniform(w.gust)),
+		scale: world(uniform(w.scale)),
+		speed: world(uniform(w.speed)),
+		time: world(uniform(0))
 	};
 	const sm = (x) => x.mul(x).mul(float(3).sub(x.mul(2)));
 	const gust = Fn(([x, z]) => {

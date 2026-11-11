@@ -5,7 +5,7 @@ import { describe, expect, test, vi } from 'vitest';
 import * as THREE from 'three';
 
 vi.stubGlobal('window', {});
-const { SUN, exposureFor, lightAt, lightOf, rebake, sunFrom, sunLight } = await import('./sky.js');
+const { SUN, exposureFor, lightAt, lightOf, rebake, shadowsInOnePass, sunFrom, sunLight } = await import('./sky.js');
 const { horizonRing } = await import('./universe.js');
 
 const deg = THREE.MathUtils.degToRad;
@@ -116,5 +116,24 @@ describe('the same picture for the same pinned hour', () => {
 		const ring = horizonRing(sun);
 		// bearing 90° is +x: ring index 0; away from it, index 8
 		expect(warmth(ring[0])).toBeGreaterThan(warmth(ring[8]));
+	});
+});
+
+describe("the sun's shadow pass", () => {
+	test('draws a see-through caster seen from both sides once: its material marked single-pass while it is the scene\'s', () => {
+		const scene = new THREE.Scene();
+		const shadow = Object.assign(new THREE.MeshBasicMaterial(), { isShadowPassMaterial: true });
+		scene.overrideMaterial = shadow;
+		expect(shadow.forceSinglePass).toBe(false);
+		shadowsInOnePass(scene);
+		expect(shadow.forceSinglePass).toBe(true);
+	});
+	test('leaves the picture alone: no override, or another one, is not touched', () => {
+		const scene = new THREE.Scene();
+		shadowsInOnePass(scene);
+		const other = new THREE.MeshBasicMaterial({ transparent: true, side: THREE.DoubleSide });
+		scene.overrideMaterial = other;
+		shadowsInOnePass(scene);
+		expect(other.forceSinglePass).toBe(false);
 	});
 });
