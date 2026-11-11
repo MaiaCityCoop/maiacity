@@ -112,3 +112,31 @@ paler beneath, nuts in leafy husks in twos and threes):
 - `hazel/v5-s12-whole.jpg` / `hazel/v6-s12-whole.jpg`: the 20-year tree as the viewer frames it: same silhouette.
 
 Source: `hazel/hazel-v6.js`.
+
+## Moringa (`76b97cae-fa1d-4bfc-a07c-5f093343919f`): v4 drafted, **not proposed** (waits on c1's bound)
+
+| stage (age) | L0 v3 | **L0 v4** | L1 v4 (0.25) | L2 v4 (0.1) | seconds L0 / L1 / L2 |
+|---|---|---|---|---|---|
+| 5 (8 weeks) | 74,581 | **10,609** | 1,842 | 510 | 0.7 / 0.0 / 0.0 |
+| 6 (11 weeks) | 251,223 | **52,289** | 8,437 | 3,491 | 0.2 / 0.0 / 0.0 |
+| 8 (24 weeks) | 793,610 | **227,896** | 40,044 | 19,476 | 0.4 / 0.1 / 0.1 |
+| 9 (34 weeks, pods ripe, default) | 819,300 | **235,259** | 40,158 | 17,452 | 0.4 / 0.1 / 0.1 |
+
+Seven more seeds (oak, river, c–g) at stages 6, 8, 9: 33,766 to 256,604. **Why not proposed:** c1 as written allows
+150,000 at the default stage; it needs 235,259 (its pods and flowers are 105,000 of it). Variant 1987 on play
+(4 edits, card `declared`).
+
+How: the leaflets were 501,000 at 34 weeks (about 25,000 leaflets, each a template of 5 rows, two faces). Each
+pinna (a stalk with its opposite pairs and its terminal leaflet, `pinnateInto`) is now one card: its leaflets painted
+from the plan's own numbers (`pinnaLayout`: the same feet, angles, lengths and the traced `leafletHalf` outline;
+pinnae of 0 to 4 pairs and with the small foot pair, one row each of one picture) and cut out by its alpha, folded
+down along its stalk as the leaflets droop, its underside below: 6 triangles a pinna. Leaflets 501,000 → 36,700. The
+pods on the tree with 12 sides (their three angles) and up to 16 rings (their seeds' beading): 142,600 → 62,200.
+
+Looked at (render bench, same shots as v3; against its reference sheet `058c8664…`):
+- `moringa/v3-s9-whole.jpg` / `moringa/v4-s9-whole.jpg`: the tree as the viewer frames it: the same.
+- `moringa/v3-s9-crown.jpg` / `moringa/v4-s9-crown.jpg`: close (1.8 m): the feathery, thrice-divided leaves read
+  as v3's, pods and flowers kept; the leaflets' edges a touch crisper than v3's (cut by a picture, not a 5-row mesh),
+  no sparser. Judged: no poorer than v3.
+
+Source: `moringa/moringa-v4.js`.
