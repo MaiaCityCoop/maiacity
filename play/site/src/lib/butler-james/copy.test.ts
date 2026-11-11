@@ -34,7 +34,7 @@ describe("the landing page's texts", () => {
 	});
 	it('mark every gap as a placeholder for the admin', () => {
 		const gaps = all.filter((t) => t.gap).map((t) => t.path.match(/<(.+)>$/)![1]);
-		for (const g of ['proof', 'bonus', 'comparison', 'guarantee-terms', 'contact', 'provider', 'rights', 'privacy', 'portals', 'upload']) expect(gaps, g).toContain(g);
+		for (const g of ['proof', 'bonus', 'comparison', 'guarantee-terms', 'contact', 'provider', 'rights', 'privacy', 'portals', 'upload', 'before-after', 'dashboard']) expect(gaps, g).toContain(g);
 	});
 	it('show each price net', () => {
 		expect(VAT).toBe('zzgl. MwSt.');
@@ -54,6 +54,13 @@ describe("the landing page's texts", () => {
 		for (const [name, part] of Object.entries({ hero: COPY.hero, value: COPY.value, offer: COPY.offer, guarantee: COPY.guarantee, steps: COPY.steps, closing: COPY.closing, band: COPY.band, risk: COPY.risk, note: COPY.ctaNote }))
 			expect(zero(part), name).toBe(true);
 		expect(COPY.risk.text).toBe('100 % Geld zurück, ohne Fragen');
+	});
+	it('show a before and after and a dashboard only as placeholders', () => {
+		expect(COPY.dashboard.items.length).toBeGreaterThanOrEqual(4);
+		expect(new Set(COPY.dashboard.items.map((i) => i.kind))).toEqual(new Set(['model', 'trailer']));
+		expect(COPY.dashboard.view).toContain('Platzhalter');
+		expect(COPY.dashboard.lead).toContain('Self-Service-Dashboard');
+		expect(COPY.compare.lead).toContain('schlecht belichtet');
 	});
 	it('offer the trailer as a product of its own, and the test of one room', () => {
 		expect(COPY.offer.plans.map((p) => p.id)).toEqual(['apartment', 'house', 'trailer']);

@@ -19,7 +19,7 @@ import { siteHandler } from '../../api/src/site.ts';
 import { ADMIN, DESKTOP, PHONE, TRAVELER, chromiumHere } from './lib/shots';
 
 const ROUTE = '/butler-james/landing/';
-const SECTIONS = ['hero', 'need', 'build', 'walk', 'test', 'offer', 'guarantee', 'speed', 'steps', 'gallery', 'faq', 'closing'];
+const SECTIONS = ['hero', 'need', 'build', 'walk', 'compare', 'test', 'offer', 'guarantee', 'speed', 'steps', 'dashboard', 'gallery', 'faq', 'closing'];
 /** the show's chapters, each a screen tall, from the page's top */
 const CHAPTERS = ['hero', 'need', 'build', 'walk'] as const;
 /** the scene's budget (the intent's check c8; play/SPEC.md §8) */
@@ -182,6 +182,24 @@ async function pageWorks(browser: Browser) {
 		await page.waitForTimeout(300);
 		page.off('request', watch);
 		claim(sent.length === 0 && /nichts gesendet/.test(await upload.innerText()), `${at}: nothing is sent, and the page says so`, sent);
+
+		// before and after: six photos and the walkthrough, all placeholders
+		const compare = await page.evaluate(() => ({
+			before: document.querySelectorAll('[data-section="compare"] [data-before][data-placeholder="true"]').length,
+			after: document.querySelectorAll('[data-section="compare"] [data-after][data-slot="world"][data-placeholder="true"]').length,
+			marked: (document.querySelector('[data-section="compare"]')?.textContent?.match(/Platzhalter/g) ?? []).length
+		}));
+		claim(compare.before === 6 && compare.after === 1 && compare.marked >= 8, `${at}: the before and after shows six photos and one walkthrough, each a marked placeholder`, compare);
+
+		// the dashboard's view: its filter leaves only the kind asked for
+		const dash = page.locator('[data-dash]');
+		await dash.scrollIntoViewIfNeeded();
+		const kinds = () => dash.locator('[data-dash-item]').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.dashItem));
+		const every = await kinds();
+		await dash.locator('[data-dash-filter="trailer"]').click();
+		const trailers = await kinds();
+		await dash.locator('[data-dash-filter="all"]').click();
+		claim(every.length >= 4 && every.includes('model') && trailers.length > 0 && trailers.every((k) => k === 'trailer') && (await kinds()).length === every.length && /Platzhalter-Ansicht/i.test(await dash.innerText()), `${at}: the dashboard's placeholder view filters its models by kind`, { every, trailers });
 
 		// the FAQ: every item opens on a click, and closes by the keyboard
 		const items = page.locator('.bj-faq-item button');

@@ -13,7 +13,7 @@ export function scrollerOf(el: Element): HTMLElement {
 }
 
 /** what comes in as it is reached */
-const COMES_IN = '.bj-head, .bj-plan, .bj-stack, .bj-calc, .bj-value-list li, .bj-steps li, .bj-slot, .bj-faq-item, .bj-seal, .bj-clock, .bj-split > div, .bj-gap, .bj-closing > *, .bj-test-copy, .bj-upload';
+const COMES_IN = '.bj-head, .bj-plan, .bj-stack, .bj-calc, .bj-value-list li, .bj-steps li, .bj-slot, .bj-faq-item, .bj-seal, .bj-clock, .bj-split > div, .bj-gap, .bj-closing > *, .bj-test-copy, .bj-upload, .bj-side, .bj-arrow, .bj-dash';
 
 export function motion(root: HTMLElement) {
 	const still = matchMedia('(prefers-reduced-motion: reduce)').matches;

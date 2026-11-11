@@ -1589,7 +1589,9 @@ switches day and evening; under `prefers-reduced-motion` it makes no motion of i
 no 3D a drawn plan stays. It states only the offer (`offer.ts`: the 3D model 685 € an apartment and 1,249 € a house,
 the trailer video of a minute 479 €, 24 hours, 100 % back; and the test, a demo trailer of one room for 99 € from at
 least 6 photos in under an hour, whose photos are chosen and counted on the page and sent nowhere yet), every gap a
-marked placeholder, and its gallery's slots take a world by its UUID or a video by
+marked placeholder; no free demo, and the guarantee named "Null Risiko" wherever one decides. Two more sections are
+placeholders drawn by the page: a before and after (six badly lit photos beside the walkthrough made of them) and a
+view of the self-serve dashboard for a portfolio's models (the dashboard itself is another intent); and its gallery's slots take a world by its UUID or a video by
 its hash (§4.7). Its scene is drawn by the render core like every canvas of play (`createRenderer`; the page's one tie
 to play) and is no world of §4.16: it holds a budget of its own (at most 30,000 triangles and 60 draws a frame;
 `play/site/scripts/butler-james-landing.ts budget`).

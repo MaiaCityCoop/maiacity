@@ -12,7 +12,9 @@
 	import { COPY } from './copy';
 	import Band from './Band.svelte';
 	import Closing from './Closing.svelte';
+	import Compare from './Compare.svelte';
 	import Cta from './Cta.svelte';
+	import Dashboard from './Dashboard.svelte';
 	import Faq from './Faq.svelte';
 	import Gallery from './Gallery.svelte';
 	import Guarantee from './Guarantee.svelte';
@@ -45,11 +47,13 @@
 	<main>
 		<Show />
 		<Band />
+		<Compare />
 		<Test />
 		<Offer />
 		<Guarantee />
 		<Speed />
 		<Steps />
+		<Dashboard />
 		<Gallery />
 		<Faq />
 		<Closing />

@@ -69,6 +69,41 @@ export const COPY = {
 		text: 'Im Browser, ohne App: auf Smartphone, Tablet und Rechner. Noch vor der ersten Besichtigung.'
 	},
 
+	// before and after: the photos as they come, and the walkthrough made of them; both placeholders until real ones exist
+	compare: {
+		eyebrow: 'Vorher · Nachher',
+		title: 'Aus dunklen Fotos wird ein Rundgang.',
+		lead: 'Links: Fotos, wie sie im Alltag entstehen, auch schlecht belichtet. Rechts: der 3D-Rundgang, der daraus wird.',
+		before: 'Vorher',
+		after: 'Nachher',
+		photo: 'Foto',
+		dark: 'schlecht belichtet',
+		extra: 'Balkon',
+		walk: '3D-Rundgang',
+		walkNote: 'Hier steht später der Rundgang zu diesen Fotos.',
+		gaps: [gap('before-after', 'Echte Vorher-Fotos und der Rundgang dazu (vom Anbieter einzusetzen)')]
+	},
+
+	// the self-serve dashboard, shown as a placeholder view: the models of a portfolio, by kind
+	dashboard: {
+		eyebrow: 'Self-Service',
+		title: 'Ihr Portfolio. Ein Dashboard.',
+		lead: 'Im Self-Service-Dashboard verwalten Sie die Modelle Ihres gesamten Portfolios selbst: 3D-Modelle und Trailer an einem Ort.',
+		view: 'Platzhalter-Ansicht',
+		filters: { all: 'Alle', model: '3D-Modelle', trailer: 'Trailer' },
+		kinds: { model: '3D-Modell', trailer: 'Trailer' },
+		shown: 'angezeigt',
+		items: [
+			{ name: 'Objekt A', kind: 'model', type: 'Wohnung' },
+			{ name: 'Objekt B', kind: 'model', type: 'Haus' },
+			{ name: 'Objekt C', kind: 'trailer', type: 'Video' },
+			{ name: 'Objekt D', kind: 'model', type: 'Wohnung' },
+			{ name: 'Objekt E', kind: 'trailer', type: 'Video' },
+			{ name: 'Objekt F', kind: 'model', type: 'Haus' }
+		],
+		gaps: [gap('dashboard', 'Funktionen und Zugang des Dashboards (vom Anbieter festzulegen)')]
+	},
+
 	// the offer to try: a demo trailer of one room, from photos uploaded here
 	test: {
 		eyebrow: 'Zum Testen',
