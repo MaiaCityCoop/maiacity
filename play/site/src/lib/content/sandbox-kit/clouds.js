@@ -13,7 +13,7 @@ import { Fn, If, dot, exp, float, floor, fract, max, mix, normalize, pow, smooth
  * plane: how flat the layer lies (d.xz / (plane · d.y)); freq: cells of the first octave per unit of the plane;
  * period: cells after which the first octave repeats; horizon: below this height (d.y) the layer has faded out
  */
-export const CLOUDS = Object.freeze({ plane: 0.55, freq: 0.5, period: 16, horizon: 0.06 });
+export const CLOUDS = Object.freeze({ plane: 0.55, freq: 0.8, period: 16, horizon: 0.06 });
 /** Each octave's slide over one day, in whole periods of its own lattice along x and z: the first carry the shapes
  * with the wind, the fine ones cross them, so a cloud changes as it goes. */
 export const SLIDES = Object.freeze([[1, 0], [1, 0], [1, 1], [1, 1], [2, 1]]);
