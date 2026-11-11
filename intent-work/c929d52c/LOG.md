@@ -167,3 +167,10 @@ branch's own intent.ts (600 s), which this branch may not take from main. d3f98b
 check now has 1,500 s in the recorded run, which runs main's intent.ts. So the pull request is marked ready at
 0913267d: its run measures c1–c5 in full and records them. c1 and c2 pass in the box on that head; the site's 76
 type errors are all in files this pull request does not touch.
+
+## 00:58 · conflict with main, resolved (5be34cf3)
+
+play posted "Merges with main" failed: play/SPEC.md. d3f98bcc and this intent each added to the same sentence on
+gpu.ts; kept both (main's limits, then --sky and the clouds' rule). Sky tests 26, gpu.ts's 4, d3f98bcc's limit test 3:
+green. The push cancelled the recorded run on 0913267d (42932098518), which had not finished; a ready pull request is
+run and recorded again on its new head.
