@@ -1576,6 +1576,15 @@ library**, private to you; Maia City, the coop's, as before; its owner named on 
 over MCP. It stays an admin's app for now; opening it to every member, each their own library, is one flag
 (`LIBRARY_OPEN_TO` in `play/api/src/library.ts`).
 
+**Butler James's landing page** (intent `42a96129-84fb-4b43-9405-2279acf04614`; Samuel 2026-11-11), at
+`/butler-james/landing/`: the offer of walkable 3D worlds of apartments and houses to estate agents, in German, with a
+live placeholder three.js apartment in its banner. Admins only for now (the gate's table does not name it) and reached
+by its address. **A deliberate exception to this section's light brand CI**: the page is Butler James's, in its own
+brand, whose tokens are kept once (`play/site/src/lib/butler-james/brand.ts`), and it brings its own frame: the shell
+draws it without the nav pill. It states only the offer (`offer.ts`), every gap a marked placeholder, and its gallery's
+slots take a world by its UUID or a video by its hash (§4.7). Its scene is no world of §4.16: it holds a budget of its
+own (at most 30,000 triangles and 60 draws a frame).
+
 **A page open across a deploy** (intent `8333276b-9143-4eac-8754-9aaedb8de2ae`; Samuel 2026-11-10: a review on the
 board said "This browser couldn't open the 3D stage: 'text/html' is not a valid JavaScript MIME type"). play deploys
 many times a day, and an open tab still names the chunks of its own build. Two things hold it:
