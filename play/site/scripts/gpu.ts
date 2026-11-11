@@ -8,7 +8,7 @@
  *
  *   bun play/site/scripts/gpu.ts [--world /sandbox-5/] [--browser chromium,webkit] [--out <dir>]
  *        [--world-within <seconds>] [--frame-within <ms>] [--settle <seconds>] [--timeout <seconds>]
- *        [--inputs <dir>] [--software] [--record] [--steps] [--walk] [--walk-within <ms>] [--views near,mid,far] [--sky]
+ *        [--inputs <dir>] [--software] [--record] [--steps] [--walk] [--walk-within <ms>] [--views near,mid,far,seat] [--sky]
  *
  * --world          the page's route: a sandbox, or an asset's viewer
  * --world-within   the world is shown within that many seconds of the navigation, in every browser asked
@@ -19,7 +19,8 @@
  *                  walk's JavaScript by function, printed with --steps); a world without a walker (Sandbox 3) has none and says so
  * --walk-within    a frame of the walk takes at most that many ms (it asks for --walk)
  * --views          also photographs the world from the census's views (./census/run.ts VIEWS), the eye put there and
- *                  the world left to settle: <out>/<browser>-<view>.png, so what is far is judged on a real GPU (intent 92fbecea)
+ *                  the world left to settle: <out>/<browser>-<view>.png, so what is far is judged on a real GPU (intent 92fbecea);
+ *                  `seat`, asked by name, a daybed in Sandbox 5's dome, its fabric near (intent e675cd87)
  * --timeout        how long the world may take to come up (600: GitHub's runner needs 270 to 400 s for Sandbox 5)
  * --settle         how long the world may take to settle before its frames are measured and it is photographed (60)
  * --sky            the sky's pictures too (intent c929d52c): once the world is measured, the eye lifted 45 m where
@@ -56,7 +57,10 @@ import { LAUNCH, gpuOf, webgpuOf } from './mac-page.mjs';
 
 /** a walk's step a frame at 60 frames a second, and the census's views, where a walk starts (near) and --views photographs: (./census/frame.ts STEP, ./census/run.ts VIEWS), written here because those modules build a world as they load */
 const STEP = { forward: 1.5 / 60, yaw: (20 * Math.PI) / 180 / 60 };
-const VIEWS = { near: { x: 0, z: 95, yaw: 0, pitch: -0.05 }, mid: { x: 0, z: 235, yaw: 0, pitch: -0.05 }, far: { x: 0, z: 370, yaw: 0, pitch: -0.12 } } as const;
+/** Sandbox 5's seat, asked for by name only (intent e675cd87): a terrace daybed and its cushions in the forest dome's
+ *  rooms (at 6.4, 4.5, 19.2 m), the eye held 2.5 m off it and 1.6 m over its floor (`y`: flown, not walked) */
+const SEAT = { seat: { x: 5.61, z: 16.87, y: 6.1, yaw: 2.82, pitch: -0.5 } } as const;
+const VIEWS = { near: { x: 0, z: 95, yaw: 0, pitch: -0.05 }, mid: { x: 0, z: 235, yaw: 0, pitch: -0.05 }, far: { x: 0, z: 370, yaw: 0, pitch: -0.12 }, ...SEAT } as const;
 
 const SITE = resolve(import.meta.dir, '..');
 const PLAY = 'https://play.maia.city';
@@ -275,7 +279,7 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 		if (o.sky) await page.evaluate(skyFrom, SKY_RISE).catch(() => {});
 		// the census's views, each photographed once the world has settled round the eye there
 		for (const view of o.views ?? []) {
-			const placed = await page.evaluate((v) => ((window as any).__walker ? ((window as any).__walker.place(v.x, v.z, v.yaw, v.pitch), true) : false), VIEWS[view]);
+			const placed = await page.evaluate((v: { x: number; z: number; yaw: number; pitch: number; y?: number }) => { const w = (window as any).__walker; if (!w) return false; if (v.y === undefined) w.place(v.x, v.z, v.yaw, v.pitch); else w.fly(v.x, v.y, v.z, v.yaw, v.pitch); return true; }, VIEWS[view]);
 			if (!placed) {
 				m.steps.push(`no walker here: no ${view} view photographed`);
 				continue;

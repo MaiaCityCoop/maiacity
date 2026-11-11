@@ -96,8 +96,9 @@ export function createPresets({ wind = null } = {}) {
 	return {
 		/** the material kept for `m`: itself, given our shaders, the first time one like it comes; else the one kept */
 		of(/** @type {THREE.Material} */ m, plain = false) {
-			// one of ours already (a copy of a level, moved by its controls, wears what the level wears)
-			if (ours.has(m)) return m;
+			// one of ours already (a level made from another, which draws its materials; a copy moved by its controls): one
+			// more use of it, so letting go of the level it came from leaves it, and its pictures, to those still drawing it
+			if (ours.has(m)) return uses.set(m, (uses.get(m) ?? 0) + 1), m;
 			// a look of its own (a graph) is a node material even on a skinned or morphed mesh, that material's own
 			const own = plain && !!m.userData.graph;
 			const key = (own ? `own|${m.uuid}|` : plain ? 'plain|' : '') + keyOf(m);
@@ -106,6 +107,16 @@ export function createPresets({ wind = null } = {}) {
 			ours.add(p);
 			uses.set(p, (uses.get(p) ?? 0) + 1);
 			return p;
+		},
+		/**
+		 * A level's materials, one use each (`of`): what it holds until it is let go of (`release`, each). A level made
+		 * from another (./lower.js `levelOf`) draws that level's very materials: without its own uses, letting go of the
+		 * level it came from disposed them and their pictures under it, drawn again from pictures already let go of
+		 * (../box/rebuild.js `letPicturesGo`): its fabrics flat (intent e675cd87).
+		 * @param {{ draws: { material: THREE.Material }[] }} level @returns {THREE.Material[]}
+		 */
+		hold(level) {
+			return [...new Set(level.draws.map((d) => d.material))].map((m) => this.of(m));
 		},
 		/**
 		 * One use of a material handed out by `of` given back (a level let go of): the last one gone, the material and
