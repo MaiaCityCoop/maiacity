@@ -329,7 +329,7 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   `lowerer()`, each renderer a side of it), a job's arrays are handed to its worker, and a worker **ends** when no job
   waits for it or when it made a heavy shape (`HEAVY`, 100,000 triangles: the simplifier's memory never shrinks while
   its worker lives, 1.2 GB after one tree of 1.6 million triangles); the shapes made lighter at once hold at most
-  `AT_ONCE` triangles between them (1.7 million: what the heaviest tree holds alone), whatever the device's cores. **A kind's full build
+  `AT_ONCE` triangles between them (400,000: a few middling trees, never two great ones), whatever the device's cores. **A kind's full build
   is kept only while a copy stands near it** (`render/hold.js`): where a kind's levels are derived, its build is let
   go of (its arrays in the page, its drawings and the card's copy) once every lighter level stands, its picture is
   taken, the device's cache keeps it and no copy was drawn at it for 15 s; a copy that comes near asks for it again

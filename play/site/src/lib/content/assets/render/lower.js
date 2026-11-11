@@ -17,11 +17,11 @@ const own = (A) => A.slice();
  * its memory (wasm) never shrinks while its worker lives (intent 1893a631: 1.2 GB after one tree of 1.6 million
  * triangles). So a heavy shape's worker ends with it, and the shapes being made lighter at once hold no more than
  * `AT_ONCE` triangles between them (one shape alone may hold more: it is made by itself), whatever the device's cores:
- * as much as the heaviest tree play has holds alone, so two middling trees are made side by side and two great ones
- * never.
+ * a few middling trees side by side, two great ones never. (1.7 million, the heaviest tree, raised Sandbox 1's peak by
+ * 570 MB in avenBOX and brought its world no sooner: the build's log, round 4.)
  */
 export const HEAVY = 100_000;
-export const AT_ONCE = 1_700_000;
+export const AT_ONCE = 400_000;
 
 /** the buffers of a job's drawings, to hand over with them */
 const buffersOf = (draws) => [...new Set(draws.flatMap((d) => [d.index.buffer, d.locals.buffer, ...Object.values(d.attributes).map((a) => a.array.buffer)]))];
