@@ -81,6 +81,36 @@ function fits(source, made) {
 	});
 }
 
+/** the levels being made now, by their keys, whichever renderer of the page asked first @type {Map<string, Promise<any[]>>} */
+const inMaking = new Map();
+
+/**
+ * MADE ONCE A PAGE (intent 7a6c3f1b) — a level maker for one asking: the levels `missing` of `keys`, made by `maker`
+ * unless another renderer of the page is making those very levels now (the forest outside and the one inside the dome
+ * draw the same trees): then that making is waited for. `mine`: whether this asking made them, and so keeps them.
+ * @param {ReturnType<import('./lower.js').createLowering>} maker @param {string[]} keys @param {number[]} missing
+ */
+function once(maker, keys, missing) {
+	const self = {
+		mine: false,
+		lowering: {
+			lower: (...asked) => {
+				const all = missing.map((i) => keys[i]).join(' ');
+				let making = inMaking.get(all);
+				if (!making) {
+					self.mine = true;
+					making = maker.lower(...asked);
+					inMaking.set(all, making);
+					const done = () => inMaking.get(all) === making && inMaking.delete(all);
+					making.then(done, done);
+				}
+				return making;
+			}
+		}
+	};
+	return self;
+}
+
 /**
  * A renderer's keeper of the levels it makes.
  * @param {{ lowering: ReturnType<import('./lower.js').createLowering>, store?: { getLevel: (key: string) => Promise<any>, putLevel: (key: string, value: any) => Promise<boolean> }, of?: typeof levelOf, keep?: boolean }} o
@@ -89,10 +119,11 @@ function fits(source, made) {
  */
 export function createKept(o) {
 	const store = o.store ?? cache;
+	const maker = o.lowering;
 	const of = o.of ?? levelOf;
 	const keep = o.keep !== false;
 	/** what was made here, and what was read from this device's cache instead */
-	const counted = { derived: 0, keptLevels: 0, taken: 0, keptPictures: 0, unkept: 0, why: '', keeping: 0 };
+	const counted = { derived: 0, keptLevels: 0, taken: 0, keptPictures: 0, unkept: 0, why: '', keeping: 0, awaited: 0 };
 	/** what was made and could not be kept (its picture not read back, its file not written): counted, its reason the last */
 	const lost = (why) => {
 		counted.unkept++;
@@ -117,14 +148,16 @@ export function createKept(o) {
 		/**
 		 * The levels of `source` (a build's, named `build`) each plan asks for, each read from this device's cache by its
 		 * key, else made by the simplifier (together, its corners welded once for all) and kept. `later`: as
-		 * ./lower.js's. In the order of `plans`.
-		 * @param {string} build @param {import('./prepare.js').Level} source @param {{ L: number, plan: object }[]} plans @param {boolean} [later]
+		 * ./lower.js's, and `rank`. In the order of `plans`.
+		 * @param {string} build @param {import('./prepare.js').Level} source @param {{ L: number, plan: object }[]} plans @param {boolean} [later] @param {(() => number) | null} [rank]
 		 */
-		async lower(build, source, plans, later = false) {
+		async lower(build, source, plans, later = false, rank = null) {
 			const keys = plans.map(({ L, plan }) => levelKey(build, L, plan));
 			const got = await Promise.all(keys.map(read));
 			const out = new Array(plans.length);
 			const missing = [];
+			// (this asking's level maker: the renderer's, or whichever renderer is making these levels now)
+			const o = once(maker, keys, missing);
 			got.forEach((made, i) => {
 				if (made !== undefined && fits(source, made)) {
 					out[i] = of(source, made);
@@ -133,11 +166,14 @@ export function createKept(o) {
 				} else missing.push(i);
 			});
 			if (missing.length) {
-				const made = await o.lowering.lower(source, missing.map((i) => plans[i].plan), later, true);
+				const making = o.lowering.lower(source, missing.map((i) => plans[i].plan), later, true, rank);
+				// (made by another renderer: waited for as this one's own work, so its world is not settled before it comes)
+				if (!o.mine) counted.awaited++, making.then(() => counted.awaited--, () => counted.awaited--);
+				const made = await making;
 				missing.forEach((i, n) => {
 					out[i] = of(source, made[n]);
 					counted.derived++;
-					keeping(put(keys[i], made[n]));
+					if (o.mine) keeping(put(keys[i], made[n]));
 				});
 			}
 			return out;

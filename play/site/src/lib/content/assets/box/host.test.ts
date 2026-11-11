@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AssetBox } from './host.js'
-import { budget, buildTurn } from '$lib/content/render/budget.js'
+import { budget } from '$lib/content/render/budget.js'
+import { turn } from '$lib/content/render/turns.js'
 
 /** a box whose jobs the test answers by hand: each job asked waits until it is let go */
 function handBox() {
@@ -23,7 +24,7 @@ describe('the asset box under the device budget', () => {
 		expect(open.length).toBe(1)
 		// so every other turn of the page is still free: another box builds at once
 		const others: (() => void)[] = []
-		for (let i = 0; i < budget().builds - 1; i++) others.push(await buildTurn())
+		for (let i = 0; i < budget().builds - 1; i++) others.push(await turn())
 		for (const back of others) back()
 		open[0]!.done({ data: 1 })
 		await tick()
@@ -47,7 +48,7 @@ describe('the asset box under the device budget', () => {
 		expect(open.length).toBe(1)
 		// every turn is back: as many as the budget lets go at once are had again at once
 		const backs: (() => void)[] = []
-		for (let i = 0; i < budget().builds; i++) backs.push(await buildTurn())
+		for (let i = 0; i < budget().builds; i++) backs.push(await turn())
 		for (const back of backs) back()
 	})
 })

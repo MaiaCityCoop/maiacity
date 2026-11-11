@@ -1,7 +1,7 @@
 // @ts-nocheck — plain JS, trusted: runs in the page
 /*
  * The device's asset cache (builds ./builds.js, levels ./levels.js, play's files ./files.js) in OPFS, a folder of its own
- * (DIR) bounded at LIMIT bytes. Never the truth (the recipe is): it may be emptied any time. Written in its own worker
+ * (DIR) bounded at what this device has room for (`room`: LIMIT bytes at least). Never the truth (the recipe is): it may be emptied any time. Written in its own worker
  * (./cache.worker.js) once builds stop coming in (`quiet`), so a loading world has the GPU for its frames. Nothing in
  * IndexedDB (Samuel 2026-10-20): the old database is deleted once on each device (`OLD`).
  */
@@ -9,7 +9,23 @@ import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { HEX } from '../../../kernel/hash.js';
 import { budget } from '../../render/budget.js';
 
+/** the least the cache holds, and the most one entry may be */
 export const LIMIT = 512 * 1024 * 1024;
+/** the most it holds on a device with room, and the share of what the browser gives the site it takes */
+const MOST = 4 * 1024 * 1024 * 1024, SHARE = 0.2;
+let bound;
+/**
+ * How many bytes the cache may hold on this device: a share of what the browser gives the site, from LIMIT to MOST;
+ * LIMIT on a small device and where the browser does not say. One world's builds, levels and pictures are more than
+ * LIMIT (Sandbox 5's 0.7 GB, intent 405f7a85): held to it, each visit put out what the next one read first, and every
+ * visit built the whole world again.
+ */
+export const room = () =>
+	(bound ??= (async () => {
+		if (budget().small) return LIMIT;
+		const quota = await Promise.resolve(navigator.storage?.estimate?.()).then((e) => e?.quota ?? 0, () => 0);
+		return Math.min(MOST, Math.max(LIMIT, Math.floor(quota * SHARE)));
+	})());
 const DIR = 'asset-cache';
 /** a build's file is named BUILD + its key, one of play's files FILE + its hash, a level LEVEL + its key */
 export const BUILD = 'build-', FILE = 'recipe-', LEVEL = 'level-';
@@ -217,18 +233,19 @@ export function quiet() {
 /** the bytes the cache holds as this page last counted, plus what it kept since; null: to be counted */
 let held = null;
 
-/** `bytes` more written: the entries used longest ago go once it may be over LIMIT (counted once a visit, then by what is added) */
+/** `bytes` more written: the entries used longest ago go once it may be over what it may hold (counted once a visit, then by what is added) */
 export async function added(d, bytes) {
 	if (held !== null) held += bytes;
-	if (held === null || held > LIMIT) held = await trim(d);
+	if (held === null || held > (await room())) held = await trim(d);
 }
 
 export const recount = () => {
 	held = null;
 };
 
-/** the entries used longest ago out until the cache fits LIMIT; the bytes it holds then */
+/** the entries used longest ago out until the cache fits what it may hold (`room`); the bytes it holds then */
 async function trim(d) {
+	const most = await room();
 	const files = await entries(d);
 	const used = await usedIn(d);
 	for (const f of files) f.at = Math.max(f.at, used[f.name] ?? 0, touched.get(f.name) ?? 0);
@@ -236,7 +253,7 @@ async function trim(d) {
 	let total = files.reduce((n, f) => n + f.bytes, 0);
 	const left = new Set(files.map((f) => f.name));
 	for (const f of files) {
-		if (total <= LIMIT) break;
+		if (total <= most) break;
 		if (await removed(d, f.name)) (total -= f.bytes), left.delete(f.name);
 	}
 	// what USED notes of entries no longer there goes with them (a note not written is written again by the next)

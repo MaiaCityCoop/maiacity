@@ -6,7 +6,7 @@
  * this one budget at the layers they share (the asset boxes, the asset renderer and its pictures, the sky, the
  * device's cache), so none needs its own rule:
  *
- * - builds: how many workers work for the page at once: the recipes built (the page's pool of asset boxes has as
+ * - builds: how many workers work for the page at once (its turns, ./turns.js): the recipes built (the page's pool of asset boxes has as
  *   many boxes, ../assets/box/pool.js; each build's worker holds three.js, the recipe and what it is building, up to
  *   170 MB for a tree at its finest) and the lower levels made of them (../assets/render/lower.js). Every core but
  *   one on a desktop, the page's own; two on a phone
@@ -80,33 +80,6 @@ let held = null;
 /** This device's budget: decided once a page. @returns {Budget} */
 export function budget() {
 	return (held ??= budgetFor(smallDevice(), (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4));
-}
-
-/* ── the builds at once, in the whole page ── */
-let building = 0;
-/** @type {(() => void)[]} */
-const waiting = [];
-
-/**
- * A turn to build: resolves once fewer than the budget's `builds` are building in the page, with the function that
- * gives the turn back (call it once, when the build is done or failed).
- * @returns {Promise<() => void>}
- */
-export function buildTurn() {
-	return new Promise((ok) => {
-		const go = () => {
-			building++;
-			let back = false;
-			ok(() => {
-				if (back) return;
-				back = true;
-				building--;
-				waiting.shift()?.();
-			});
-		};
-		if (building < budget().builds) go();
-		else waiting.push(go);
-	});
 }
 
 /* ── what is drawn, its corners let go once the graphics card has them ── */

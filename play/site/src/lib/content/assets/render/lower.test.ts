@@ -10,7 +10,7 @@ import { AT_ONCE, HEAVY, createLowering } from './lower.js'
 import { lowerDraws } from './simplify.js'
 import { prepare } from './prepare.js'
 import { budgetOf, errorOf, smallestOf } from './lod.js'
-import { budget, buildTurn } from '$lib/content/render/budget.js'
+import { budget } from '$lib/content/render/budget.js'; import { turn as buildTurn } from '$lib/content/render/turns.js'
 
 type Fake = { onmessage: ((e: { data: unknown }) => void) | null; asked: { draws: unknown[]; plans: unknown[] } | null; ended: boolean; moved: ArrayBuffer[] }
 /** workers standing in for the simplifying worker: each job waits until the test answers it, or is made at once (`real`) */
