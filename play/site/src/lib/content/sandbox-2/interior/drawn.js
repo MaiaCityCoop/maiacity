@@ -39,8 +39,9 @@ export function createDrawn(o) {
 		update: () => assets.update(),
 		/** waits for every kind asked for so far to be ready to draw (or to have failed) */
 		ready: () => assets.ready(),
-		/** nothing is being built for it (its kinds, their finer shapes, their pictures) */
-		settled: () => assets.stats().building === 0,
+		/** nothing is being built for it (its kinds, their finer shapes, their pictures); the lower levels still being
+		 *  made lighter beside the page are not waited for: each is drawn as its build until then (intent 7a6c3f1b) */
+		settled: () => ((b) => b.queue + b.loads + b.compiling === 0)(assets.stats().busy),
 		dispose: () => assets.dispose()
 	};
 }
