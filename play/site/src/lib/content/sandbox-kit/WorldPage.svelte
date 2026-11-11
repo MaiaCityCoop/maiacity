@@ -15,6 +15,8 @@
 	import { onDestroy, onMount } from 'svelte';
 	import TouchStick from '$lib/site/touch/TouchStick.svelte';
 	import WorldBar from './WorldBar.svelte';
+	import * as budget from '../render/budget.js';
+	import { arrive } from '../render/short.js';
 
 	/**
 	 * @typedef {{ move: (x: number, y: number, hurry: boolean) => void, look: (dx: number, dy: number) => void, dispose: () => void }} Walked
@@ -70,6 +72,11 @@
 	let note = $state(/** @type {string | null} */ (null));
 	/** @type {ReturnType<typeof setInterval> | undefined} */
 	let noticeTimer;
+	/** whether this page's load before this one was ended for memory, and what it says of it (../render/short.js) */
+	/** @type {ReturnType<typeof arrive> | null} */
+	let arrival = null;
+	let short = $state('');
+	let stopped = $state(false);
 
 	/** why the world did not come up, if it did not: said on the cover (or the pill), which then stays */
 	let failed = $state('');
@@ -93,6 +100,7 @@
 		}
 		if (destroyed) return w.dispose();
 		world = w;
+		arrival?.shown();
 		if (!cover) return;
 		done = cover.steps;
 		fading = true;
@@ -102,12 +110,17 @@
 	// a cover is painted before the world starts its work, two frames on, so it is there at once
 	onMount(() => {
 		if (notice) noticeTimer = setInterval(() => (note = notice()), 300);
+		// a page ended for memory while it loaded comes back lighter and says so; ended twice, it says so and loads nothing
+		arrival = arrive(budget);
+		short = arrival.message;
+		if ((stopped = arrival.stop)) return;
 		if (cover) requestAnimationFrame(() => requestAnimationFrame(raise));
 		else raise();
 	});
 	onDestroy(() => {
 		destroyed = true;
 		clearInterval(noticeTimer);
+		arrival?.leave();
 		world?.dispose();
 	});
 </script>
@@ -115,13 +128,15 @@
 <div class="world" style:background={ground}>
 	<div class="stage" bind:this={stage} role={label ? 'application' : undefined} aria-label={label} {onpointerdown} {onpointerup}></div>
 	<WorldBar {title} {subtitle} />
-	{#if !cover && status !== ''}<p class="status">{status ?? waiting}</p>{/if}
+	{#if stopped}
+		<p class="status short" role="alert">{short}</p>
+	{:else if !cover && status !== ''}<p class="status">{status ?? waiting}</p>{/if}
 	<!-- on a phone: the joystick walks, any other finger on the world looks round -->
 	<TouchStick move={(x, y, hurry) => world?.move(x, y, hurry)} look={(dx, dy) => world?.look(dx, dy)} {stage} {taps} />
 	{@render children?.()}
 	{#if note}<p class="notice" use:foot={FOOT.toast}>{note}</p>{/if}
 
-	{#if cover && loading}
+	{#if cover && loading && !stopped}
 		<div class="loading" class:opening={fading} style:background={ground} role="status" aria-live="polite">
 			<img src={cover.image} alt="" />
 			<div class="shade"></div>
@@ -131,6 +146,7 @@
 				<span class="size">{cover.size}</span>
 				<div class="progress"><span style:width="{Math.min(100, (done / cover.steps) * 100)}%"></span></div>
 				<span class="step" role={failed ? 'alert' : undefined}>{failed || (fading ? 'Welcome' : `${step || (cover.first ?? 'Letting in the light')}…`)}</span>
+				{#if short}<span class="short">{short}</span>{/if}
 			</div>
 		</div>
 	{/if}
@@ -232,6 +248,16 @@
 	.size {
 		font-size: 0.95rem;
 		color: rgb(242 239 231 / 0.85);
+	}
+	.loading .short {
+		margin-top: 0.6rem;
+		font-size: 0.8rem;
+		color: rgb(242 239 231 / 0.85);
+	}
+	.status.short {
+		border-radius: 1rem;
+		max-width: min(28rem, 80vw);
+		text-align: center;
 	}
 	.progress {
 		width: 100%;

@@ -23,7 +23,7 @@ import { budget } from '../../render/budget.js';
  * @param {{ engine: number, size?: number, box?: () => Pick<AssetBox, 'start' | 'build' | 'stop'> }} o `box`: how a box
  *   is made (a test's stand-in)
  */
-export function createPool({ engine, size = budget().builds, box = () => new AssetBox({ engine, rooms: 1 }) }) {
+export function createPool({ engine, size = budget().builds, box = () => new AssetBox({ engine, rooms: 1, spare: false }) }) {
 	/** @type {{ box: ReturnType<typeof box> | null, busy: boolean, starting: boolean, up: boolean }[]} */
 	const slots = Array.from({ length: Math.max(1, size) }, () => ({ box: null, busy: false, starting: false, up: false }));
 	/** @type {{ rank: any, recipe: any, given: any, o: any, unwanted?: () => boolean, ok: Function, no: Function }[]} */

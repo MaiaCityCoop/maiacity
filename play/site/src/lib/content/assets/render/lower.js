@@ -9,8 +9,22 @@ import * as THREE from 'three';
 import { LEFT, lowerDraws } from './simplify.js';
 import { buildTurn } from '../../render/budget.js';
 
-/** a typed array on a buffer of its own, so that sending it copies only itself */
-const own = (A) => (A.byteOffset === 0 && A.byteLength === A.buffer.byteLength ? A : A.slice());
+/** a typed array's copy on a buffer of its own: handed to the worker whole (moved, the page keeping its own) */
+const own = (A) => A.slice();
+
+/**
+ * Triangles from which a shape is heavy to make lighter: the simplifier holds many times its size while it works, and
+ * its memory (wasm) never shrinks while its worker lives (intent 1893a631: 1.2 GB after one tree of 1.6 million
+ * triangles). So a heavy shape's worker ends with it, and the shapes being made lighter at once hold no more than
+ * `AT_ONCE` triangles between them (one shape alone may hold more: it is made by itself), whatever the device's cores:
+ * a few middling trees side by side, two great ones never. (1.7 million, the heaviest tree, raised Sandbox 1's peak by
+ * 570 MB in avenBOX and brought its world no sooner: the build's log, round 4.)
+ */
+export const HEAVY = 100_000;
+export const AT_ONCE = 400_000;
+
+/** the buffers of a job's drawings, to hand over with them */
+const buffersOf = (draws) => [...new Set(draws.flatMap((d) => [d.index.buffer, d.locals.buffer, ...Object.values(d.attributes).map((a) => a.array.buffer)]))];
 
 const _m = new THREE.Matrix4(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _q = new THREE.Quaternion();
 
@@ -74,7 +88,7 @@ export function levelOf(source, made) {
  * The renderer's maker of lower levels: several kinds at once, each in a worker of its own, as many as the page's turns
  * let work (../../render/budget.js `buildTurn`: the turns the recipes' builds take too, so the two together never ask
  * more of the device than its cores to spare). @param {{ worker?: boolean }} [o] `worker: false` makes them in the page
- * @returns {{ lower: (source: import('./prepare.js').Level, plans: { budget: number, most?: number, error: number, smallest: number, every?: boolean }[], later?: boolean, raw?: boolean, rank?: (() => number) | null) => Promise<import('./prepare.js').Level[]>, readonly busy: number, dispose: () => void }}
+ * @returns {{ share: () => any, readonly workers: number, lower: (source: import('./prepare.js').Level, plans: { budget: number, most?: number, error: number, smallest: number, every?: boolean }[], later?: boolean, raw?: boolean, rank?: (() => number) | null) => Promise<import('./prepare.js').Level[]>, readonly busy: number, dispose: () => void }}
  */
 export function createLowering(o = {}) {
 	/** the workers started, each with the job it is on (none: free) @type {{ w: Worker, job: { ok: Function, no: Function } | null }[]} */
@@ -86,8 +100,11 @@ export function createLowering(o = {}) {
 	 *  those that can wait (`later`) after all the others */
 	/** @type {{ source: any, plans: any[], later: boolean, raw: boolean, rank?: (() => number) | null, ok: Function, no: Function }[]} */
 	const jobs = [];
-	/** the jobs being made, and whether a turn is asked for and not yet given */
-	let running = 0, asking = false;
+	/** the jobs being made, the triangles they hold between them, and whether a turn is asked for and not yet given */
+	let running = 0, held = 0, asking = false;
+	const trisOf = (j) => j.source.tris || 0;
+	/** the jobs that may start now: any while none is being made, else those that fit beside the ones that are (`AT_ONCE`) */
+	const ready = () => (running ? jobs.filter((j) => held + trisOf(j) <= AT_ONCE) : jobs);
 
 	/** a worker with nothing to do: one started before, else a new one; none where there are no workers (the page makes it) */
 	function free() {
@@ -122,20 +139,35 @@ export function createLowering(o = {}) {
 
 	const frame = () => new Promise((ok) => setTimeout(ok, 0));
 
-	async function run(draws, plans) {
-		if (disposed) throw new Error('the renderer was disposed');
+	async function run(again, plans, big) {
+		if (disposed) throw new Error('the page was left');
+		let draws = again();
 		const x = free();
 		if (x) {
 			try {
 				return await new Promise((ok, no) => {
 					x.job = { ok, no };
-					x.w.postMessage({ draws, plans });
-				});
+					x.w.postMessage({ draws, plans }, buffersOf(draws));
+				}).finally(() => rest(x, big));
 			} catch (err) {
 				if (!err.again) throw err;
+				// (its arrays went with the worker that stopped: taken from the source again)
+				draws = again();
 			}
 		}
 		return lowerDraws(draws, plans, frame);
+	}
+
+	/**
+	 * A worker whose job is answered: ended, and its memory with it, when it made a heavy shape or no job waits for
+	 * it (the next job starts a new one: tens of milliseconds); else kept for the next.
+	 */
+	function rest(x, big) {
+		if (!big && jobs.length) return;
+		const i = workers.indexOf(x);
+		if (i < 0) return;
+		workers.splice(i, 1);
+		x.w.terminate();
 	}
 
 	const wanted = (j) => (j.later ? -Infinity : (j.rank?.() ?? 0));
@@ -145,19 +177,24 @@ export function createLowering(o = {}) {
 		// yet where recipes wait for turns too, the levels stand in that line once, not once a kind (a world's builds, which
 		// show its plants, are not held up behind every level still to be made lighter). The job is chosen only once its
 		// turn has come: what is wanted most by then. In the page (no workers) one at a time, a step between frames.
-		if (asking || !jobs.length || ((gone || typeof Worker === 'undefined') && running)) return;
+		if (asking || !ready().length || ((gone || typeof Worker === 'undefined') && running)) return;
 		asking = true;
 		buildTurn().then((back) => {
 			asking = false;
-			if (!jobs.length) return back();
-			const job = jobs.splice(jobs.reduce((best, j, i) => (wanted(j) > wanted(jobs[best]) ? i : best), 0), 1)[0];
+			const may = ready();
+			if (!may.length) return back();
+			const job = may.reduce((best, j) => (wanted(j) > wanted(best) ? j : best), may[0]);
+			jobs.splice(jobs.indexOf(job), 1);
+			const tris = trisOf(job), big = tris >= HEAVY;
 			running++;
+			held += tris;
 			Promise.resolve()
-				.then(() => run(job.source.draws.map(plainOf), job.plans))
+				.then(() => run(() => job.source.draws.map(plainOf), job.plans, big))
 				.then((made) => job.ok(job.raw ? made : made.map((m) => levelOf(job.source, m))), job.no)
 				.finally(() => {
 					running--;
-					busy--;
+					held -= tris;
+					job.done();
 					back();
 					pump();
 				});
@@ -165,32 +202,69 @@ export function createLowering(o = {}) {
 		});
 	}
 
+	/** the jobs waiting for one asker given up (its renderer was disposed) */
+	function drop(owner, why) {
+		for (let i = jobs.length - 1; i >= 0; i--) {
+			if (jobs[i].owner !== owner) continue;
+			const [j] = jobs.splice(i, 1);
+			j.done();
+			j.no(new Error(why));
+		}
+	}
+
+	/** one asker's side of the maker: its own jobs counted (`busy`), its waiting ones given up when it goes (`dispose`) */
+	function share() {
+		const owner = {};
+		let mine = 0;
+		return {
+			lower(source, plans, later = false, raw = false, rank = null) {
+				mine++;
+				busy++;
+				return new Promise((ok, no) => {
+					jobs.push({ source, plans, later, raw, rank, ok, no, owner, done: () => (mine--, busy--) });
+					pump();
+				});
+			},
+			get busy() {
+				return mine;
+			},
+			dispose: () => drop(owner, 'the renderer was disposed')
+		};
+	}
+	const all = share();
+
 	return {
 		/**
 		 * The levels of `source` each plan asks for; `later` (a recipe's level made lighter, drawn as it came meanwhile)
 		 * waits for every other; `raw` gives the simplifier's plain data (to keep: ./levels.js), not yet a level (`levelOf`);
-		 * `rank` how much it is wanted while it waits (asked again each time the worker is free).
+		 * `rank` how much it is wanted while it waits (asked again each time a turn comes).
 		 */
-		lower(source, plans, later = false, raw = false, rank = null) {
-			busy++;
-			return new Promise((ok, no) => {
-				jobs.push({ source, plans, later, raw, rank, ok, no });
-				pump();
-			});
-		},
+		lower: all.lower,
+		share,
 		get busy() {
 			return busy;
+		},
+		/** how many workers live now */
+		get workers() {
+			return workers.length;
 		},
 		dispose() {
 			disposed = true;
 			for (const x of workers.splice(0)) {
 				x.w.terminate();
-				x.job?.no(new Error('the renderer was disposed'));
+				x.job?.no(new Error('the page was left'));
 			}
 			for (const j of jobs.splice(0)) {
-				busy--;
-				j.no(new Error('the renderer was disposed'));
+				j.done();
+				j.no(new Error('the page was left'));
 			}
 		}
 	};
+}
+
+/** the page's one maker of lower levels (intent 1893a631: each renderer had its own, three sets of workers a page) */
+let page = null;
+/** A renderer's side of the page's one maker: `lower`, its own `busy`, and `dispose` giving up what it still waits for. */
+export function lowerer() {
+	return (page ??= createLowering()).share();
 }
