@@ -1,6 +1,7 @@
 // THE BANNER'S PLACEHOLDER WORLD (intent 42a96129): a small apartment made of boxes, to stand in the hero until a real
-// demo property exists. Plain three.js on WebGL, loaded lazily by ../Hero.svelte. No world of play/SPEC.md §4.16: its
-// own budget, held by the intent's check c8 (at most 30,000 triangles and 60 draws a frame), so everything of one
+// demo property exists. three.js, loaded lazily by ../Hero.svelte, drawn by play's one renderer (the render core,
+// $lib/content/render/core.js: WebGPU, or its WebGL 2 backend), the page's one tie to play. No world of play/SPEC.md
+// §4.16: its own budget, held by the intent's check c8 (at most 30,000 triangles and 60 draws a frame), so everything of one
 // material is welded into one mesh (a draw each, and one more each in the sun's shadow pass).
 //
 // One looks around by dragging (mouse or one finger; a finger's up and down stays the page's scroll) and walks by
@@ -8,10 +9,11 @@
 // a slow sway while it is in view. What a check reads is on the canvas: data-frames, data-tris, data-draws.
 
 import {
-	ACESFilmicToneMapping, BoxGeometry, BufferGeometry, Color, CylinderGeometry, DirectionalLight, HemisphereLight,
-	IcosahedronGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PCFSoftShadowMap, PerspectiveCamera, Plane,
-	PointLight, Raycaster, SRGBColorSpace, Scene, Vector2, Vector3, WebGLRenderer
+	BoxGeometry, BufferGeometry, Color, CylinderGeometry, DirectionalLight, DoubleSide, HemisphereLight,
+	IcosahedronGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, Plane, PointLight, Raycaster,
+	Scene, Vector2, Vector3
 } from 'three';
+import { disposeRenderer, makeRenderer } from '$lib/content/render/core.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { SCENE } from '../brand';
 
@@ -116,7 +118,7 @@ function build() {
 		meshes.push(m);
 	}
 	// what glows and takes no light: the lamp's shade, one more draw
-	const shade = new Mesh(new CylinderGeometry(0.14, 0.2, 0.28, 16, 1, true).translate(-3.3, 1.55, -2.4), new MeshBasicMaterial({ color: new Color(SCENE.lamp), side: 2 }));
+	const shade = new Mesh(new CylinderGeometry(0.14, 0.2, 0.28, 16, 1, true).translate(-3.3, 1.55, -2.4), new MeshBasicMaterial({ color: new Color(SCENE.lamp), side: DoubleSide }));
 	shade.matrixAutoUpdate = false;
 	meshes.push(shade);
 	return meshes;
@@ -129,16 +131,11 @@ export type Apartment = {
 };
 
 /**
- * the apartment drawn into `canvas`, sized by its box. Throws where the browser gives no WebGL: the caller keeps its
- * still. `still`: no motion of its own (prefers-reduced-motion): one frame, then only what the visitor does.
+ * the apartment drawn into `canvas`, sized by its box. Rejects where the browser gives no WebGPU and no WebGL 2: the
+ * caller keeps its still. `still`: no motion of its own (prefers-reduced-motion): one frame, then only what the visitor does.
  */
-export function mount(canvas: HTMLCanvasElement, opts: { still: boolean; started: number }): Apartment {
-	const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'low-power' });
-	renderer.outputColorSpace = SRGBColorSpace;
-	renderer.toneMapping = ACESFilmicToneMapping;
-	renderer.toneMappingExposure = 1.05;
-	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type = PCFSoftShadowMap;
+export async function mount(canvas: HTMLCanvasElement, opts: { still: boolean; started: number }): Promise<Apartment> {
+	const renderer = await makeRenderer({ canvas, power: 'low-power', toneMapping: 'neutral', shadows: true });
 	// the sun's shadows change with nothing: drawn once, and again only when asked
 	renderer.shadowMap.autoUpdate = false;
 	renderer.shadowMap.needsUpdate = true;
@@ -174,7 +171,7 @@ export function mount(canvas: HTMLCanvasElement, opts: { still: boolean; started
 		frames++;
 		canvas.dataset.frames = String(frames);
 		canvas.dataset.tris = String(renderer.info.render.triangles);
-		canvas.dataset.draws = String(renderer.info.render.calls);
+		canvas.dataset.draws = String(renderer.info.render.drawCalls);
 		if (frames === 1) canvas.dataset.firstMs = String(Math.round(performance.now() - opts.started));
 	}
 
@@ -295,7 +292,7 @@ export function mount(canvas: HTMLCanvasElement, opts: { still: boolean; started
 				m.geometry.dispose();
 				(m.material as MeshStandardMaterial).dispose();
 			}
-			renderer.dispose();
+			disposeRenderer(renderer);
 		}
 	};
 }

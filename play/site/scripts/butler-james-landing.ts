@@ -219,7 +219,7 @@ async function hero(browser: Browser) {
 		await live(page);
 		await page.waitForTimeout(600);
 		const three: typeof scripts = [];
-		for (const s of scripts) if ((await (await fetch(s.url)).text()).includes('WebGLRenderer')) three.push(s);
+		for (const s of scripts) if ((await (await fetch(s.url)).text()).includes('WebGPURenderer')) three.push(s);
 		claim(three.length > 0 && three.every((s) => s.afterLoad), "three.js is asked for only after the page's load, not by its entry", three.map((s) => `${s.url.split('/').pop()} ${s.afterLoad ? 'after' : 'before'}`));
 		const p = await picture(page);
 		claim(p.colours > 40, 'the banner draws a picture, not one colour', p.colours);
@@ -290,12 +290,12 @@ async function hero(browser: Browser) {
 	}
 	// ---- where the browser gives no 3D: the still, and no error
 	{
-		const none = `const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (kind, ...rest) { return /webgl/.test(kind) ? null : g.call(this, kind, ...rest); };`;
+		const none = `Object.defineProperty(Navigator.prototype, 'gpu', { get: () => undefined }); const g = HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.getContext = function (kind, ...rest) { return /webgl/.test(kind) ? null : g.call(this, kind, ...rest); };`;
 		const { ctx, page, errors } = await open(browser, ADMIN, {}, none);
 		await goto(page);
 		await shown(page);
 		await page.waitForTimeout(3000);
-		claim((await page.locator('.bj-stage canvas.live').count()) === 0 && (await page.locator('.bj-still').isVisible()), 'without WebGL the still picture is shown');
+		claim((await page.locator('.bj-stage canvas.live').count()) === 0 && (await page.locator('.bj-still').isVisible()), 'without WebGPU and WebGL the still picture is shown');
 		claim((await picture(page)).colours > 5, 'the still is a picture of the room');
 		claim(errors.length === 0, 'and no error is thrown', errors);
 		await ctx.close();

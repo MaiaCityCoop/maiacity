@@ -2,7 +2,7 @@
 	The banner (intent 42a96129): the headline of outcome, speed and risk reversal, the call to action, and a live
 	placeholder world. The world (./scene/apartment.ts, three.js) is asked for only once the page has loaded and the
 	banner is near the screen; it rests out of view; with prefers-reduced-motion it stands still; and where the browser
-	gives no 3D the drawn still below stays. The still is also what shows until the world's first frame.
+	gives no 3D (no WebGPU and no WebGL 2) the drawn still below stays. The still is also what shows until the world's first frame.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -27,11 +27,13 @@
 			try {
 				const { mount } = await import('./scene/apartment');
 				if (gone || !canvas) return;
-				world = mount(canvas, { still, started });
+				const made = await mount(canvas, { still, started });
+				if (gone) return made.dispose();
+				world = made;
 				world.setVisible(seen);
 				live = true;
 			} catch {
-				// no WebGL, or the chunk did not come: the still stays
+				// no WebGPU and no WebGL 2, or the chunk did not come: the still stays
 				live = false;
 			}
 		}

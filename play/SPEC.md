@@ -1582,8 +1582,9 @@ live placeholder three.js apartment in its banner. Admins only for now (the gate
 by its address. **A deliberate exception to this section's light brand CI**: the page is Butler James's, in its own
 brand, whose tokens are kept once (`play/site/src/lib/butler-james/brand.ts`), and it brings its own frame: the shell
 draws it without the nav pill. It states only the offer (`offer.ts`), every gap a marked placeholder, and its gallery's
-slots take a world by its UUID or a video by its hash (§4.7). Its scene is no world of §4.16: it holds a budget of its
-own (at most 30,000 triangles and 60 draws a frame).
+slots take a world by its UUID or a video by its hash (§4.7). Its scene is drawn by the render core like every canvas
+of play (`createRenderer`; the page's one tie to play) and is no world of §4.16: it holds a budget of its own (at most
+30,000 triangles and 60 draws a frame; `play/site/scripts/butler-james-landing.ts budget`).
 
 **A page open across a deploy** (intent `8333276b-9143-4eac-8754-9aaedb8de2ae`; Samuel 2026-11-10: a review on the
 board said "This browser couldn't open the 3D stage: 'text/html' is not a valid JavaScript MIME type"). play deploys
