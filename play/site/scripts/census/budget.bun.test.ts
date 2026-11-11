@@ -9,10 +9,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const HASH = /^[0-9a-f]{64}$/;
 
 /** the counts on main eadbf2f7, 2026-11-10 (intent-work/1f6a98dd-audit): every pass's triangles and draws, calls at rest and walking */
+// (simplified: Sandbox 1's and Sandbox 5's as intent 45c24b00 counted them on 2026-11-11, its six trees each with its own levels)
 const TONIGHT: Record<string, { id: string; simplified: number; views: Record<string, Record<string, number>> }> = {
 	'sandbox-1': {
 		id: 'ec08b07d-6ec0-8f65-92b2-3efe7d91df5d',
-		simplified: 16347750,
+		simplified: 601086,
 		views: {
 			near: { tris: 10504998, draws: 3876, calls: 9365, walkCalls: 12558 },
 			mid: { tris: 12667678, draws: 3287, calls: 9802, walkCalls: 12195 },
@@ -21,7 +22,7 @@ const TONIGHT: Record<string, { id: string; simplified: number; views: Record<st
 	},
 	'sandbox-5': {
 		id: 'ac154784-c938-47ee-ac74-d61fc91583b3',
-		simplified: 9811200,
+		simplified: 796702,
 		views: {
 			near: { tris: 9937619, draws: 1739, calls: 5980, walkCalls: 7634 },
 			mid: { tris: 9769859, draws: 1502, calls: 6072, walkCalls: 7402 },
