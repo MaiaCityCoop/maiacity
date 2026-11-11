@@ -3,7 +3,7 @@
  * device's cache keeps it, and is asked for again when a copy wants it.
  */
 import { describe, expect, it } from 'vitest'
-import { FULL_AFTER, LET_GO, derived, letGoAfter, mayLetGo } from './hold.js'
+import { FULL_AFTER, LET_GO, ahead, derived, letGoAfter, mayLetGo } from './hold.js'
 
 const level = (o: Record<string, unknown> = {}) => ({ state: 'ready', name: null as string | null, kept: false, obj: null as unknown, as: -1, meshes: [{}] as unknown[] | null, level: {}, ...o })
 /** a kind whose levels are derived: its one build (L0, the base), and two levels made from it */
@@ -59,5 +59,27 @@ describe("a kind's full build is kept only while a copy stands near it", () => {
 		expect(mayLetGo(k, 0)).toBe(false)
 		// while it is away its lighter levels are let go of only as before, never for want of it
 		expect(mayLetGo(k, 1)).toBe(true)
+	})
+
+	it('it is never swapped for a lighter shape before your eyes: kept while a copy stands a band away, and asked back from there', () => {
+		const now = 100_000
+		// a copy drawn at the level next to it lately: it stays
+		const near = tree({}, [{ seen: now - 1_000 }, {}])
+		expect(mayLetGo(near, 0, now)).toBe(false)
+		// no copy there for longer than the wait: it may go
+		const far = tree({}, [{ seen: now - FULL_AFTER - 1 }, {}])
+		expect(mayLetGo(far, 0, now)).toBe(true)
+		// gone, a copy drawn at the next level asks it back at once, before it is wanted itself
+		Object.assign(far.levels[0], LET_GO)
+		expect(ahead(far, 1)).toBe(0)
+		// a copy farther out does not, nor one while it is here or on its way
+		expect(ahead(far, 2)).toBe(-1)
+		far.levels[0].state = 'loading'
+		expect(ahead(far, 1)).toBe(-1)
+		expect(ahead(tree(), 1)).toBe(-1)
+		// a recipe's own levels are built each from the recipe: nothing is asked ahead
+		const k = declared()
+		Object.assign(k.levels[0], LET_GO)
+		expect(ahead(k, 1)).toBe(-1)
 	})
 })

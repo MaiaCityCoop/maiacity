@@ -40,7 +40,7 @@ import { budget, dropOnUpload } from '../../render/budget.js';
 import { precompile } from '../../render/core.js';
 import { LEVELS, SMALLEST, budgetOf, choose, errorOf, heldTo, sizeOn, smallestOf, thresholdsOf } from './lod.js';
 import { lowerer } from './lower.js';
-import { LET_GO, letGoAfter, mayLetGo } from './hold.js';
+import { LET_GO, ahead, letGoAfter, mayLetGo } from './hold.js';
 import { createKept } from './levels.js';
 import { levelValues } from '../lodcard.js';
 import { prepare } from './prepare.js';
@@ -457,7 +457,7 @@ export function createAssets(o) {
 	 */
 	function evict(k, L) {
 		const lv = k.levels[L];
-		if (gone || !mayLetGo(k, L)) return;
+		if (gone || !mayLetGo(k, L, performance.now())) return;
 		const kept = keptBeside(k, lv, L === k.base);
 		for (const { mesh } of lv.meshes ?? []) {
 			mesh.removeFromParent();
@@ -862,6 +862,9 @@ export function createAssets(o) {
 			L = m - 1;
 		}
 		if (k.levels[L].state === 'idle') want(k, L);
+		// its full build asked back while the copy is a band away (./hold.js), so it never stands in lighter before you
+		const back = ahead(k, L);
+		if (back >= 0) want(k, back);
 		const R = readyNear(k, L);
 		if (R < 0 || (R !== L && fade < 1)) return -1;
 		const lv = k.levels[as(k, R)];
