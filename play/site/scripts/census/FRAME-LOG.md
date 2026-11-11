@@ -113,3 +113,12 @@ frames; 72 % of it is the dome's inside. In Sandbox 5 near: 5.15 M, the forest d
   old map does not cover; holding the map longer would leave that ground unshadowed for a moment: a loss.
 - `gpu.ts` measures its browsers one after the other again, as on main: loading them side by side was a way round a
   check's 600 s limit, which intent d3f98bcc fixes in `intent.ts`.
+
+## Round 5: what has not moved is not placed again
+
+- **An object's matrix is made again only when its place, turn or size changed** (`render/core.js place`, its test
+  `render/place.test.js`: the same world matrices as three's own `updateMatrixWorld`, frame by frame, while objects
+  move, hide and show again; nothing made again where nothing moved). three made every shown object's matrix again
+  every frame, and so every world matrix under it. box profile, Sandbox 1 near walking: `place` 8.5 % → 5.0 % of the
+  frame's JavaScript, three's `updateMatrix` gone from it. The box's milliseconds are too noisy to read this in (the
+  same head measured 19.7 and 25.4 ms in Sandbox 5); the runner's profile decides. **Kept.**
