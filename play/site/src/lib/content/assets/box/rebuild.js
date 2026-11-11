@@ -152,12 +152,11 @@ function texture(x, i, images) {
 const uploadKey = (t) => [t.colorSpace, t.flipY, t.wrapS, t.wrapT, t.minFilter, t.magFilter, t.generateMipmaps, t.format, t.type, t.anisotropy, t.premultiplyAlpha, t.unpackAlignment, t.internalFormat].join();
 
 /**
- * On a device whose budget says so (../../render/budget.js `release`: a phone holds a picture in its page and on its
- * graphics card in one memory), each picture lets go of its canvas once the graphics card has it: where every texture
+ * Each picture lets go of its canvas once the graphics card has it (a page and its graphics card share one memory on
+ * a phone and on a Mac alike: ../../render/budget.js), where every texture
  * of the build showing it shows it alike (one upload serves them all; one shown otherwise keeps its picture).
  */
 function letPicturesGo(images, tex) {
-	if (!budget().release) return;
 	for (const img of images) {
 		if (!img) continue;
 		const users = tex.filter((t) => t.source === img.source);
