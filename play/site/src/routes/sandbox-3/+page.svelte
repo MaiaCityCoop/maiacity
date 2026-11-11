@@ -14,7 +14,9 @@
 
 	let canvas = $state<HTMLCanvasElement>();
 	let world: any = null;
-	let phase = $state<'loading' | 'ready' | 'failed'>('loading');
+	let phase = $state<'loading' | 'ready' | 'failed' | 'short'>('loading');
+	/** what the page says when its load before this one was ended for memory ($lib/content/render/short.js) */
+	let short = $state('');
 	let error = $state('');
 	let roaming = $state(false);
 	/** walking, by the pickup's door, or at its wheel (the world's onRoam) */
@@ -36,8 +38,14 @@
 
 	onMount(() => {
 		let gone = false;
+		let arrival: { shown: () => void; leave: () => void } | null = null;
 		(async () => {
 			try {
+				// a page ended for memory while it loaded comes back lighter and says so; ended twice, it says so and loads nothing
+				const at = (await import('$lib/content/render/short.js')).arrive(await import('$lib/content/render/budget.js'));
+				arrival = at;
+				short = at.message;
+				if (at.stop) return void (phase = 'short');
 				await (await import('$lib/content/assets/catalog.js')).catalogReady((await import('$lib/kernel/sandboxes.js')).SANDBOX.three);
 				const { createWorld } = await import('$lib/content/maiacity-v2/world.js');
 				if (gone || !canvas) return;
@@ -55,6 +63,7 @@
 				world.freeWalk(true);
 				await world.ready;
 				if (!gone) phase = 'ready';
+				at.shown();
 			} catch (e) {
 				console.error(e);
 				error = (e as Error).message;
@@ -63,6 +72,7 @@
 		})();
 		return () => {
 			gone = true;
+			arrival?.leave();
 			world?.dispose();
 		};
 	});
@@ -92,7 +102,8 @@
 	{#if phase === 'ready' && roam.on && (roam.near || roam.driving)}
 		<button class="btn board" onclick={board}>{roam.driving ? 'Get out' : 'Get in the pickup'} <kbd>E</kbd></button>
 	{/if}
-	{#if phase === 'loading'}<p class="status card">Laying out the land…</p>{/if}
+	{#if phase === 'loading'}<p class="status card">Laying out the land…{#if short}<br />{short}{/if}</p>{/if}
+	{#if phase === 'short'}<p class="status card" role="alert">{short}</p>{/if}
 	{#if phase === 'failed'}<p class="status card error">The world could not open: {error}</p>{/if}
 </div>
 

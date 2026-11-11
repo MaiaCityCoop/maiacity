@@ -6,13 +6,13 @@
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import { createLowering } from './lower.js'
+import { AT_ONCE, HEAVY, createLowering } from './lower.js'
 import { lowerDraws } from './simplify.js'
 import { prepare } from './prepare.js'
 import { budgetOf, errorOf, smallestOf } from './lod.js'
 import { budget } from '$lib/content/render/budget.js'; import { turn as buildTurn } from '$lib/content/render/turns.js'
 
-type Fake = { onmessage: ((e: { data: unknown }) => void) | null; asked: { draws: unknown[]; plans: unknown[] } | null; ended: boolean }
+type Fake = { onmessage: ((e: { data: unknown }) => void) | null; asked: { draws: unknown[]; plans: unknown[] } | null; ended: boolean; moved: ArrayBuffer[] }
 /** workers standing in for the simplifying worker: each job waits until the test answers it, or is made at once (`real`) */
 function fakeWorkers(real = false) {
 	const made: Fake[] = []
@@ -20,10 +20,12 @@ function fakeWorkers(real = false) {
 		onmessage: Fake['onmessage'] = null
 		asked: Fake['asked'] = null
 		ended = false
+		moved: ArrayBuffer[] = []
 		constructor() {
 			made.push(this)
 		}
-		postMessage(m: { draws: unknown[]; plans: unknown[] }) {
+		postMessage(m: { draws: unknown[]; plans: unknown[] }, moved: ArrayBuffer[] = []) {
+			this.moved = moved
 			this.asked = m
 			if (real) lowerDraws(m.draws, m.plans).then((out: unknown) => ((this.asked = null), this.onmessage?.({ data: { out } })))
 		}
@@ -130,6 +132,78 @@ describe("a world's lower levels are made on every core but one", () => {
 		expect(many).toEqual(one)
 		// and something was made lighter at all
 		expect(one[0][1].draws.some((d: any) => d && d !== 'same' && d.index)).toBe(true)
+		lowering.dispose()
+	})
+
+	it('a level worker gives its memory back: its job handed over, the worker ended when none waits, one heavy shape at a time', async () => {
+		const turns = budget().builds
+		const w = fakeWorkers()
+		const lowering = createLowering()
+		const source = built()
+		const first = lowering.lower(source, plansOf(source), false, true)
+		await settled()
+		// the job's arrays are handed over (a copy of each: the page keeps its own, and no second copy is made on the way)
+		const job = w.made[0]!
+		const sent = (job.asked!.draws as any[]).flatMap((d) => [d.index.buffer, ...Object.values(d.attributes).map((a: any) => a.array.buffer)])
+		expect(sent.length).toBeGreaterThan(0)
+		for (const b of sent) expect(job.moved).toContain(b)
+		for (const d of source.draws) expect(d.geometry.attributes.position.array.length).toBeGreaterThan(0)
+		expect((job.asked!.draws as any[])[0].attributes.position.array.buffer).not.toBe(source.draws[0].geometry.attributes.position.array.buffer)
+		// answered with none waiting: the worker is ended, and the maker holds none
+		w.answer(job, [])
+		await first
+		await settled()
+		expect(job.ended).toBe(true)
+		expect(lowering.workers).toBe(0)
+		// a later job starts a new one
+		const second = lowering.lower(source, plansOf(source), false, true)
+		await settled()
+		expect(w.made.length).toBe(2)
+		w.answer(w.made[1]!, [])
+		await second
+		// heavy shapes: one at a time whatever the turns, each worker ended with its job though others wait
+		const big = { ...source, tris: AT_ONCE }
+		expect(AT_ONCE).toBeGreaterThanOrEqual(HEAVY)
+		const many = [0, 1, 2].map(() => lowering.lower(big, plansOf(source), false, true))
+		const light = lowering.lower({ ...source, tris: 0 }, plansOf(source), false, true)
+		await settled()
+		// a heavy one and the light one beside it, never two heavy ones
+		expect(w.open().length).toBe(Math.min(2, turns))
+		expect(w.open().filter((x) => x.moved.reduce((n, b) => n + b.byteLength, 0) > 0).length).toBe(Math.min(2, turns))
+		expect(lowering.workers).toBeLessThanOrEqual(turns)
+		for (let left = 4; left > 0; left--) {
+			const x = w.open()[0]!
+			w.answer(x, [])
+			await settled()
+			expect(lowering.workers).toBeLessThanOrEqual(Math.min(2, turns))
+		}
+		await Promise.all([...many, light])
+		expect(w.made.every((x) => x.ended)).toBe(true)
+		expect(lowering.workers).toBe(0)
+		lowering.dispose()
+	})
+
+	it("each renderer's side of the page's one maker counts its own jobs and gives up only its own", async () => {
+		const w = fakeWorkers()
+		const lowering = createLowering()
+		const a = lowering.share(), b = lowering.share()
+		const turns = budget().builds
+		const mine = Array.from({ length: turns + 1 }, () => a.lower({ draws: [] } as any, [], false, true))
+		const theirs = b.lower({ draws: [] } as any, [], false, true)
+		await settled()
+		expect([a.busy, b.busy, lowering.busy]).toEqual([turns + 1, 1, turns + 2])
+		let lost = 0
+		mine.forEach((p) => p.catch(() => lost++))
+		a.dispose()
+		await settled()
+		// what waited for a is given up; what its workers are on is answered still, and b's job is made
+		expect(lost).toBe(1)
+		for (const x of w.open()) w.answer(x, 'made')
+		await settled()
+		for (const x of w.open()) w.answer(x, 'made')
+		expect(await theirs).toBe('made')
+		await settled()
+		expect([a.busy, b.busy, lowering.busy]).toEqual([0, 0, 0])
 		lowering.dispose()
 	})
 })

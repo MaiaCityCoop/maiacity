@@ -21,7 +21,7 @@ import { lineOf, turn as pageTurn } from '../../render/turns.js';
  *   `size`: its boxes, where not the page's own pool (as many as the page has turns, each build on one of them, a
  *   build before a level); given, it is a pool apart with a line of its own. `box`: how a box is made (a test's stand-in)
  */
-export function createPool({ engine, size, box = () => new AssetBox({ engine, rooms: 1, turns: false }), turn: line }) {
+export function createPool({ engine, size, box = () => new AssetBox({ engine, rooms: 1, spare: false, turns: false }), turn: line }) {
 	/** each box, and the recipe it built last (its worker kept warm for it) @type {{ box: ReturnType<typeof box> | null, busy: boolean, up: Promise<unknown> | null, last?: string }[]} */
 	const slots = Array.from({ length: Math.max(1, size ?? budget().builds) }, () => ({ box: null, busy: false, up: null }));
 	const turn = line ?? (size === undefined ? pageTurn : lineOf(() => slots.length));

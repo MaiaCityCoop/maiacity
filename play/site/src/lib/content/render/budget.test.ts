@@ -4,14 +4,14 @@ import { budgetFor, smallDevice } from './budget.js'
 describe('the device budget', () => {
 	it('holds a small device to a few builds, one box and one room a renderer, a 2048 shadow map and its corners let go', () => {
 		const s = budgetFor(true, 6)
-		expect(s).toMatchObject({ small: true, builds: 2, rooms: 1, spare: false, shadowMap: 2048, release: true })
+		expect(s).toMatchObject({ small: true, builds: 2, rooms: 1, spare: false, shadowMap: 2048 })
 		expect(s.picture).toEqual({ px: 80, page: 1280 })
 		expect(s.evict).toBeGreaterThan(0)
 	})
 
 	it('leaves a desktop as it was, its builds at once by its cores', () => {
 		const d = budgetFor(false, 10)
-		expect(d).toMatchObject({ small: false, builds: 8, rooms: 4, spare: true, shadowMap: 4096, release: false, evict: 0 })
+		expect(d).toMatchObject({ small: false, builds: 8, rooms: 4, spare: true, shadowMap: 4096, evict: 0 })
 		expect(budgetFor(false, 2).builds).toBe(2)
 	})
 

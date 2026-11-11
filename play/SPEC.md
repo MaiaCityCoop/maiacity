@@ -349,7 +349,23 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   waits in the page's one pool of asset boxes (`content/assets/box/pool.js`), the most wanted first, as many built
   side by side as the device's budget lets work at once (`render/budget.js` `builds`: every core but one on a
   desktop, two on a phone), and the levels derived of them are made on those same turns (`render/lower.js`); a build
-  is its recipe's and its values' alone, the same in whichever worker it is made. **One line of turns, a build before
+  is its recipe's and its values' alone, the same in whichever worker it is made. **A page holds a bounded amount of
+  memory** (intent 1893a631: production's Sandbox 1 grew to 8.9 GB in Safari on an 8 GB Mac and was reloaded; in
+  avenBOX's Chromium it peaked at 7 GB and rested at 5.7 GB). A page has **one maker of lower levels** (`lower.js`
+  `lowerer()`, each renderer a side of it), a job's arrays are handed to its worker, and a worker **ends** when no job
+  waits for it or when it made a heavy shape (`HEAVY`, 100,000 triangles: the simplifier's memory never shrinks while
+  its worker lives, 1.2 GB after one tree of 1.6 million triangles); the shapes made lighter at once hold at most
+  `AT_ONCE` triangles between them (400,000: a few middling trees, never two great ones), whatever the device's cores. **A kind's full build
+  is kept only while a copy stands near it** (`render/hold.js`): where a kind's levels are derived, its build is let
+  go of (its arrays in the page, its drawings and the card's copy) once every lighter level stands, its picture is
+  taken, the device's cache keeps it and no copy was drawn at it for 15 s; a copy that comes near asks for it again
+  and the cache hands it back. **Every device lets go** of an array once the graphics card has it
+  (`render/budget.js` `dropOnUpload`): there is no rule for phones alone. **Short of memory, said**
+  (`render/short.js`): a world leaves a note in the tab's session storage while it loads and takes it away 90 s after
+  it is shown or when the page is left; a load that finds the note was ended while loading, opens with the small
+  device's budget and says so on its cover, and one ended twice in a row says so and loads no world by itself.
+  `play/site/scripts/memory.ts` measures it: the page's process over a first visit in the box's Chromium, told 8
+  cores, the graphics card stood in for, its peak and what it rests at (§4.12). **One line of turns, a build before
   a level** (intent 7a6c3f1b, `content/render/turns.js`): builds and levels wait in one line, the most wanted first,
   and a level is begun only on a turn no build waits for: a level job holds its turn for as long as a big tree takes
   (12 to 94 s for one of a million triangles), and while each line kept its own order the level maker took every turn
@@ -796,9 +812,25 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     ten minutes there (Chromium's world in 205 to 280 s, WebKit's in about 400 s, each then up to 60 s to settle and
     10 s of frames), and `gpu.ts`'s own limits (600 s an engine to its world) end a check first, in its own words;
     the job has 90 minutes, three such checks at their limit after its build. A check killed at its limit keeps what
-    it had printed and says which engine had finished, with its numbers, and which had not. `--steps` prints what the cover said on the way, each step with its second. A builder gets the same
+    it had printed and says which engine had finished, with its numbers, and which had not. `--steps` prints what the cover said on the way, each step with its second. **`--sky`** (intent c929d52c)
+    takes the sky's pictures too, once the world is measured: the eye lifted 45 m where it stands, turned round and up
+    (the film camera's hold, `window.__world`), the hour pinned as a film pins it, at dawn, noon, dusk and night (`SKY_HOURS`: the sun 4°
+    up at either end of the day), at 1440 × 900 and at a phone's 390 × 844, `<browser>-sky-<hour>-<size>.png` beside
+    the world's own; a world that gives none fails. The sky's clouds are noise in its shader
+    (`play/site/src/lib/content/sandbox-kit/clouds.js`), and that noise only ever reads small numbers: the hour reaches
+    it as a fraction of the day and every octave's lattice repeats, since a GPU's 32-bit float fed coordinates in the
+    hundred thousands leaves no fraction of a cell and draws flat blocks (`clouds.test.js` holds it). A builder gets the same
     measure on a draft by a dry run (`workflow_dispatch` with the pull request's number). Main's re-run leaves these
     checks out (`intent.ts --record --where main --no-gpu`): they were measured on the head.
+  - **A world's memory is measured in the box** (intent `1893a631-e0bd-4d34-a8de-e1e5243b1f0e`). A page's own memory is
+    on the CPU's side, so the box's Chromium counts it: `bun play/site/scripts/memory.ts --world <route> [--peak-within
+    <MB>] [--rest-within <MB>] [--card-within <MB>]` opens the world for the first time (a fresh profile, the pinned
+    inputs, the page told 8 cores as an M1 says, the graphics card stood in for by the census's device) and reads the
+    page's process every 2 s until the world has settled (page, asset boxes and workers are one process, as in a
+    browser's tab): its peak, what it rests at, and the bytes of buffers and textures the card was handed and not
+    given back. The bounds are budgets in MB, not main's value: what an 8 GB Mac can spare does not move with main.
+    They are Chromium's in the box, never Safari's: the truth for Safari is a Mac's, its tab's footprint a look from the
+    Mac render box.
   - **Dirty.** `.gitignore` ignores `.claude/settings.local.json`, the per-user file the Claude app writes; a dirty run
     names the files that made it dirty (`commit 1a2b…+dirty (a.ts, b.ts)`).
   - Later: work of play's own, proposed with `intent`, would dispatch the same box run on main's head.
