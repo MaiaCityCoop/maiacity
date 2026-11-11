@@ -11,13 +11,14 @@ import * as fx from "./fixtures/intents";
 import { LEVELS, OWNED } from "./fixtures/lod";
 
 /** the tools that only read: everything else tools/list holds is called below */
-const READS = ["list_assets", "get_asset", "get_file", "list_docs", "doc_at", "doc_history", "doc_changes", "list_sandboxes", "get_sandbox", "list_stories", "get_story", "list_intents", "get_intent", "list_artifacts", "get_artifact", "list_authors", "get_author", "list_library", "delivery"];
+const READS = ["list_leads", "get_lead", "list_assets", "get_asset", "get_file", "list_docs", "doc_at", "doc_history", "doc_changes", "list_sandboxes", "get_sandbox", "list_stories", "get_story", "list_intents", "get_intent", "list_artifacts", "get_artifact", "list_authors", "get_author", "list_library", "delivery"];
 
 const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n` + LEVELS;
 const SPEC = fx.spec("Nothing passes the Accept.", "Every write path.");
 const words = (k: number, w: string) => Array.from({ length: k }, () => w).join(" ");
 const SUMMARY = `## What it is\n\n${words(200, "artifact")}\n\n## Key points\n\n${Array.from({ length: 20 }, () => `- ${words(10, "point")}`).join("\n")}\n\n## The topic\n\n${words(193, "topic")}`;
 const ARTIFACT = (url: string) => ({ url, title: "A page that waits", description: "A page kept only once it is accepted.", summary: SUMMARY, authors: [{ name: "Ann Author", kind: "person" }], kind: "page", origin: "human" });
+const LEAD = (website: string) => ({ company: "A firm that waits", website, source: "cold" });
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 suite("no write past an Accept", () => {
@@ -70,6 +71,8 @@ suite("no write past an Accept", () => {
     await call("ada", "POST", `/api/intents/${story.intent}/accept`);
     const art = await tool("add_artifact", { ...ARTIFACT("https://nobypass.example/kept"), intent: await readyIntent("A page kept") });
     await call("ada", "POST", `/api/intents/${art.intent}/accept`);
+    const lead = await tool("add_lead", { ...LEAD("https://kept.nobypass.example"), intent: await readyIntent("A lead kept") });
+    await call("ada", "POST", `/api/intents/${lead.intent}/accept`);
     const ready = await readyIntent("Every edit an intent's");
     const own = await tool("propose_doc_version", { doc: K, note: "to be archived", edits: [{ op: "set", path: ["note"], value: "x" }], intent: await readyIntent("To be archived") });
     const fresh = (await tool("add_intent", { title: "Specified here" })).id;
@@ -83,7 +86,7 @@ suite("no write past an Accept", () => {
     const withdrawing = await readyIntent("Two to withdraw");
     for (const d of [K, L]) await tool("propose_doc_version", { doc: d, note: "proposed by mistake", edits: [{ op: "set", path: ["label"], value: "mistaken" }], intent: withdrawing });
     let S0 = await mains();
-    expect([...S0.keys()].filter((id) => !id.startsWith("schema:") && !id.startsWith("rules:")).length).toBe(6);
+    expect([...S0.keys()].filter((id) => !id.startsWith("schema:") && !id.startsWith("rules:")).length).toBe(7);
 
     // every tool that is not a read, called with work it takes
     const CALLS: Record<string, Record<string, unknown>> = {
@@ -108,6 +111,9 @@ suite("no write past an Accept", () => {
       // no tap for an artifact (intent de24f1c5): with no intent named, each makes its own, which the first rule accepts
       add_artifact: { ...ARTIFACT("https://nobypass.example/new") },
       update_artifact: { artifact: art.id, title: "A page, corrected" },
+      // a lead (intent a6ae861e): with no intent named, each makes its own, which waits for a person (no rule for leads in v1)
+      add_lead: { ...LEAD("https://new.nobypass.example") },
+      update_lead: { lead: lead.id, stage: "contacted_call" },
     };
     const names: string[] = (await rpc("tools/list")).tools.map((t: any) => t.name);
     expect(names.filter((x) => !READS.includes(x)).sort()).toEqual(Object.keys(CALLS).sort());

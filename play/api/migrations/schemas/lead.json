@@ -1,0 +1,33 @@
+{
+  "label": "Lead",
+  "type": "lead",
+  "name": "lead/1",
+  "note": "A lead of Butler James, Maia City's CRM table (intent a6ae861e): a firm we may sell to, its contact as published, its website, and where it stands in our pipeline. Every lead is named by its UUID; its company, email and website are only data (one website, else one email, kept once: play/api/src/leads.ts). The stages are this schema's enum, so the pipeline changes by proposal. Nothing in Butler James sends mail or calls (German UWG §7: a B2B cold email needs consent, a cold call presumed consent): do_not_contact is kept and shown.",
+  "node": {
+    "description": "A lead is { schema: 'lead/1', company, contact, email, website, phone, city, region, firm, segment, source, stage, lost_reason, next_step, next_date, notes, found_at, do_not_contact, operator }: add it with add_lead and change it with update_lead, which hold every field to its form.",
+    "type": "object",
+    "required": ["schema"],
+    "properties": {
+      "schema": { "const": "lead/1" },
+      "company": { "type": "string", "minLength": 1, "maxLength": 160, "description": "the firm's name, only shown" },
+      "contact": { "type": "string", "maxLength": 160, "description": "the person to speak to, as the firm publishes them" },
+      "email": { "type": "string", "maxLength": 254, "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", "description": "the contact email as the firm publishes it (Impressum or Kontakt), never guessed" },
+      "website": { "type": "string", "maxLength": 2000, "pattern": "^$|^https?://", "description": "the firm's website, normalised" },
+      "phone": { "type": "string", "maxLength": 60 },
+      "city": { "type": "string", "maxLength": 120 },
+      "region": { "type": "string", "maxLength": 120, "description": "the Bundesland" },
+      "firm": { "type": "string", "enum": ["solo", "partners", "family", "traditional", "owner_run"], "description": "solo: one Makler; partners: 1–3 partners; family: a family business; traditional: a Traditionsfirma; owner_run: inhabergeführt" },
+      "segment": { "type": "string", "maxLength": 400, "description": "what it sells, e.g. 'Verkauf, Häuser und Wohnungen ab €500k'" },
+      "source": { "type": "string", "enum": ["form", "cold", "referral", "other"], "description": "how it came to us: form (it wrote to us), cold (we found it), referral, other" },
+      "stage": { "type": "string", "enum": ["researched", "contacted_call", "contacted_email", "reached", "meeting", "offer", "won", "lost"], "description": "where it stands in our pipeline: researched → contacted_call / contacted_email → reached (talked or replied) → meeting → offer → won / lost" },
+      "lost_reason": { "type": "string", "maxLength": 400 },
+      "next_step": { "type": "string", "maxLength": 400 },
+      "next_date": { "type": "string", "pattern": "^$|^\\d{4}-\\d{2}-\\d{2}$" },
+      "notes": { "type": "string", "maxLength": 20000, "x-loro": "text" },
+      "found_at": { "type": "string", "maxLength": 2000, "pattern": "^$|^https?://", "description": "the page its data was found on" },
+      "do_not_contact": { "type": "boolean" },
+      "operator": { "type": "string", "description": "the admin who added it (a human's UUID)" }
+    },
+    "additionalProperties": false
+  }
+}

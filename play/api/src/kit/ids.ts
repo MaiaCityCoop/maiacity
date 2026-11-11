@@ -65,6 +65,8 @@ export const SCHEMA = {
   rules: "d07ab5fe-26e6-486e-b6f3-8a1cc383dfee",
   /** a piece (../pieces.ts, play/SPEC.md §4.5, intent 5a15e468): readable source a recipe names by its hash */
   piece: "96890044-5e4b-4fbc-97c8-361d1ad618ea",
+  /** a lead of Butler James (../leads.ts, intent a6ae861e): a firm we may sell to, its contact and its stage in our pipeline */
+  lead: "7c4d265b-d875-4ac1-b136-bed7fa5afd1f",
 } as const;
 
 /** the one rule set, `rules:<RULES>` (play/SPEC.md §4.12 "Auto-accept rules", intent de24f1c5): its Main is the rules in
@@ -75,6 +77,8 @@ export const RULES = "04af594a-fcfb-4770-b208-35e224e00d2a";
 export const RULE = {
   /** the first rule (Samuel 2026-11-07): an artifact added or corrected over MCP needs no tap */
   artifacts: "0f05a3ee-1aa8-43a2-a3e8-958456f04128",
+  /** the second (intent a6ae861e): a lead of Butler James added or changed over MCP needs no tap; in force once a person accepts the rule set's version holding it */
+  leads: "8d05f18e-1aff-4be5-8b28-c75e47886e2e",
 } as const;
 
 // ---- the `Intent: <uuid>` trailer every change names its intent by (play/SPEC.md §4.12): read by ../ship.ts's reconcile,

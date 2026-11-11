@@ -34,6 +34,15 @@ export const FIRST_RULE: Rule = {
   match: { via: ["mcp"], work_kind: [SCHEMA.artifact], schemas: [SCHEMA.artifact] },
   reason: "Samuel 2026-11-07: an artifact added or corrected over MCP needs no tap",
 };
+/** the second rule (intent a6ae861e): a lead of Butler James added or changed over MCP needs no tap; not in v1: it is
+ *  proposed on the rule set as that intent's work and in force only once a person accepts it */
+export const LEADS_RULE: Rule = {
+  id: RULE.leads,
+  label: "Leads need no tap",
+  gates: ["approve", "accept"],
+  match: { via: ["mcp"], work_kind: [SCHEMA.lead], schemas: [SCHEMA.lead] },
+  reason: "Samuel 2026-11-11 (intent a6ae861e): a lead of Butler James added or changed over MCP needs no tap, or the CRM is useless",
+};
 /** the rule set's v1, as migrate makes it */
 export const RULES_V1 = {
   schema: "rules/1",

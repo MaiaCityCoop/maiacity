@@ -32,6 +32,7 @@ import { listStories, storyAt, storyOf } from "./stories";
 import { labelFile, LIBRARY_ADMINS, listLibrary } from "./library";
 import { proposeAsset, recipeAt } from "./assetdocs";
 import { ARTIFACT_ADMINS, getAuthor, listAuthors, listArtifacts, artifactOf } from "./artifacts";
+import { LEAD_ADMINS, leadOf, listLeads } from "./leads";
 import { HttpError } from "./kit/errors";
 import { statusOf } from "./fault";
 import "./allkinds";
@@ -330,6 +331,18 @@ export function app({ db, store, rate = new Rate(perMinute(process.env.API_RATE)
   on("GET", "/api/artifacts/:id", async (req, p) => json(await artifactOf(db, await me(req), p.id)), ADMIN(ARTIFACT_ADMINS));
   on("GET", "/api/authors", async (req) => json(await listAuthors(db, await me(req), { q: new URL(req.url).searchParams.get("q") })), ADMIN(ARTIFACT_ADMINS));
   on("GET", "/api/authors/:id", async (req, p) => json(await getAuthor(db, await me(req), p.id)), ADMIN(ARTIFACT_ADMINS));
+
+  // Butler James (./leads.ts, intent a6ae861e): the leads, changed over MCP, only read here; admins only
+  on("GET", "/api/leads", async (req) => {
+    const q = new URL(req.url).searchParams;
+    return json(
+      await listLeads(db, await me(req), {
+        q: q.get("q"), stage: q.get("stage"), firm: q.get("firm"), source: q.get("source"), region: q.get("region"),
+        offset: Number(q.get("offset") ?? 0), limit: Number(q.get("limit") ?? 200),
+      }),
+    );
+  }, ADMIN(LEAD_ADMINS));
+  on("GET", "/api/leads/:id", async (req, p) => json(await leadOf(db, await me(req), p.id)), ADMIN(LEAD_ADMINS));
 
   // Stories (./stories.ts), read with what they link at their head, ?v=, ?edit= or ?intent=; their history is
   // /api/docs/<id>/history. They change only by proposal, over MCP
