@@ -20,8 +20,10 @@
  * - texture: the most pixels a side a build's own picture (a bark, a cloth, a label) is kept at
  * - evict: after how long (ms) a shape no copy was drawn at is let go of, its graphics card's copy too (0: never); it is
  *   read again from the device's cache when a copy comes near it again
- * - release: whether what is drawn lets go of its corners in the page once the graphics card has them (a phone holds
- *   both in one memory: two copies of every shape), where nothing reads them again (`dropOnUpload`)
+ *
+ * Not the device's: what is drawn lets go of its corners in the page once the graphics card has them, where nothing
+ * reads them again (`dropOnUpload`), on every device (intent 1893a631: a Mac's page and its graphics card share one
+ * memory as a phone's do, and Sandbox 1 held 8.9 GB of an 8 GB Mac).
  *
  * A small device is a phone or a tablet (every iPhone and iPad, which keeps WebGL, workers and the page in one budget
  * of memory; any touch screen under 1100 px), or one that says it has little memory. Not one with few cores: Safari
@@ -36,8 +38,20 @@ export function appleTouch() {
 	return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1);
 }
 
+/** whether this page was told to be held as a small device, whatever it is opened on (`lighter`) */
+let told = false;
+/**
+ * This page held as a small device from now on: its load before this one was ended for the memory it held (./short.js).
+ * Before the page's first `budget()`, which decides once.
+ */
+export function lighter() {
+	told = true;
+	held = null;
+}
+
 /** whether the page is opened on a small device (see above), or told to be held as one */
 export function smallDevice() {
+	if (told) return true;
 	if (typeof window === 'undefined') return false;
 	const asked = new URLSearchParams(window.location?.search ?? '').get('budget');
 	if (asked === 'small') return true;
@@ -50,14 +64,14 @@ export function smallDevice() {
 
 /**
  * @typedef {{ small: boolean, builds: number, rooms: number, spare: boolean, idle: number, reads: number,
- *   shadowMap: number, picture: { px: number, page: number }, texture: number, evict: number, release: boolean }} Budget
+ *   shadowMap: number, picture: { px: number, page: number }, texture: number, evict: number }} Budget
  */
 
 /** @returns {Budget} the budget for a device, small or not */
 export function budgetFor(small, cores = 8) {
 	return small
-		? { small: true, builds: 2, rooms: 1, spare: false, idle: 4000, reads: 4, shadowMap: 2048, picture: { px: 80, page: 1280 }, texture: 1024, evict: 15000, release: true }
-		: { small: false, builds: Math.max(2, Math.min(8, cores - 1)), rooms: 4, spare: true, idle: 0, reads: 16, shadowMap: 4096, picture: { px: 128, page: 2048 }, texture: 4096, evict: 0, release: false };
+		? { small: true, builds: 2, rooms: 1, spare: false, idle: 4000, reads: 4, shadowMap: 2048, picture: { px: 80, page: 1280 }, texture: 1024, evict: 15000 }
+		: { small: false, builds: Math.max(2, Math.min(8, cores - 1)), rooms: 4, spare: true, idle: 0, reads: 16, shadowMap: 4096, picture: { px: 128, page: 2048 }, texture: 4096, evict: 0 };
 }
 
 /** @type {Budget | null} */
@@ -100,14 +114,13 @@ export function buildTurn() {
 export const released = { any: false };
 
 /**
- * Lets go of an attribute's array in the page once it is uploaded to the graphics card (the budget's `release`; on a
- * device that keeps both, nothing is done). Its count, size and buffer stay; its array becomes an empty one of its kind,
+ * Lets go of an attribute's array in the page once it is uploaded to the graphics card. Its count, size and buffer stay; its array becomes an empty one of its kind,
  * so whatever reads it later finds nothing rather than failing. Only for a shape nothing reads again (not one walked
  * on, measured, picked, lowered or cached from this array: the cache keeps its own reference to its data).
  * @param {import('three').BufferAttribute | null | undefined} a
  */
 export function dropOnUpload(a) {
-	if (!budget().release || !a?.isBufferAttribute || /** @type {any} */ (a).isInterleavedBufferAttribute || !a.array?.length) return;
+	if (!a?.isBufferAttribute || /** @type {any} */ (a).isInterleavedBufferAttribute || !a.array?.length) return;
 	const before = a.onUploadCallback;
 	a.onUpload(function () {
 		before?.call(this);
