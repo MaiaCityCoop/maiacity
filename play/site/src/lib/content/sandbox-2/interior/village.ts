@@ -603,7 +603,11 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		const mini = !!flora
 		for (const sq of [...(solo ? [] : cafes(kit, SQUARE_R)), ...(mini ? [] : coops(kit, SQUARE_R))]) {
 			swap(sq.group)
-			scene.add(Object.assign(bake(sq.group), { name: 'squares' }))
+			// its tables, chairs and lanterns drawn to the square's level 2: under a pixel further off
+			const square = Object.assign(bake(sq.group), { name: 'squares' })
+			scene.add(square)
+			const ball = new THREE.Box3().setFromObject(square).getBoundingSphere(new THREE.Sphere())
+			leveled.push({ ball: { x: ball.center.x, y: ball.center.y, z: ball.center.z, r: ball.radius }, levels: [square, square, square, null], level: 0, on: true })
 			colliders.push(...sq.colliders)
 		}
 		// the playgrounds facing out from the master dome; in Sandbox 5 with a climbing dome

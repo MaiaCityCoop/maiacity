@@ -192,15 +192,15 @@
 				},
 				"mid": {
 					"tris": 8990000,
-					"draws": 1390,
-					"calls": 5980,
-					"walkCalls": 7470
+					"draws": 1180,
+					"calls": 5290,
+					"walkCalls": 6660
 				},
 				"far": {
 					"tris": 1680000,
-					"draws": 955,
-					"calls": 4430,
-					"walkCalls": 5420
+					"draws": 793,
+					"calls": 3740,
+					"walkCalls": 4640
 				}
 			}
 		},
