@@ -158,3 +158,12 @@ toward the horizon as a real field of fair-weather cumulus does. `box/round12.pn
 844: dawn, noon, dusk, night). Against the references: the noon picture at a phone's size is the closest yet (lobed
 white tops, grey undersides, rows into the haze); dawn and dusk read as rose cumulus but stay evenly tinted; night is
 right in kind (dark shapes hiding stars). Still one layer, no parallax.
+
+## 00:31 · ready for review
+
+The dry run on round 12's head (42929739294) was cancelled two seconds after it began, by the run my own push
+started in the same concurrency group: dispatch after the push's run has started, not before. And a dry run uses the
+branch's own intent.ts (600 s), which this branch may not take from main. d3f98bcc is live on main (00:30): a gpu.ts
+check now has 1,500 s in the recorded run, which runs main's intent.ts. So the pull request is marked ready at
+0913267d: its run measures c1–c5 in full and records them. c1 and c2 pass in the box on that head; the site's 76
+type errors are all in files this pull request does not touch.
