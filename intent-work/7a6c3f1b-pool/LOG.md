@@ -210,3 +210,20 @@ required budget job: "Sandbox 3 open: calls 1603 is over its ceiling 1590" (draw
 
 The ceiling is untouched. Fix 2 also makes every other measure of Sandbox 3 that waits for it to settle (gpu.ts's settle, the Mac's jobs) really wait.
 Pushed 6077040a at 07:03 UTC; the box's run records again.
+
+## 2026-11-11 07:20–08:00 UTC · round 8: main moved, a conflict, and WebKit on Sandbox 1
+
+- **Merges with main:** 1893a631 (memory), c929d52c (clouds) and 31c61d30 (trees) landed on main. The conflict was in `box/host.js`, `box/pool.js` and `play/SPEC.md`. Both sides kept: the pool's boxes keep no spare worker (1893a631) and take no turn themselves (here); the spec keeps both paragraphs. On the merge (b8aa0f21) in avenBOX:
+  - vitest: 270 pass
+  - c1: 4 → 0; c2: 698 → 697 lines
+  - beside.ts: 104 %, 51 %, 99 %
+  - Sandbox 3 budget: 1,514 calls
+  - gate.sh site: green
+- **WebKit on Sandbox 1** (the Orchestrator's question): the recorded run on 6077040a failed c6. Only Sandbox 1, only WebKit on WebGPU: about 40 kinds of the dome's inside forest did not grow ("Range consisting of offset and length are out of bounds"), then "writeTexture: destination texture is not valid" and the device was lost. Sandbox 5 passed in both engines on that head.
+  - That head did not contain 1893a631.
+  - avenBOX's WebKit 26.6 (installed for this; WebGL 2, no WebGPU) loads Sandbox 1 (world in 144.6 s) and Sandbox 5 (291 s on the head, 400 s on main, both loaded at once) with no error, even with the error's stack printed.
+  - Main alone was not measured on the runner: no open pull request had main's site code without another builder's run in progress.
+- **The recorded run on b8aa0f21** (run 42980624350): every check green. c6 Sandbox 1: Chromium 107.5 s, WebKit 153 s. c7 Sandbox 5: Chromium 93.2 s, WebKit 142.7 s. The device held each time, no out-of-bounds error. One sweet chestnut (stage 12) did not grow in Chromium on Sandbox 5, its build over the box's 20 s; 0356b0ea's own run shows the same.
+- **The record:** across this branch's four runs on the runner, WebKit on Sandbox 1 failed twice (6d895786 with no step printed, 6077040a with this error) and passed twice. A WebKit-on-WebGPU failure that comes and goes, its cause not found; a finding for whoever measures WebKit next.
+
+Samuel accepted again at 07:57; #2256 is in the merge queue.
