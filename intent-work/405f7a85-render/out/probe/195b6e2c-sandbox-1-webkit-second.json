@@ -1,0 +1,86 @@
+{
+ "tag": "195b6e2c-sandbox-1-webkit-second",
+ "browser": "Playwright WebKit 26.6",
+ "url": "http://localhost:4405/sandbox-1/",
+ "steps": [
+  {
+   "t": 5.7,
+   "line": "Laying the paths…"
+  },
+  {
+   "t": 7.8,
+   "line": "Covering the ground…"
+  },
+  {
+   "t": 11.8,
+   "line": "Growing the forest: 10 of 23 kinds…"
+  },
+  {
+   "t": 13.8,
+   "line": "Growing the forest: 20 of 23 kinds…"
+  },
+  {
+   "t": 17.2,
+   "line": "Welcome"
+  },
+  {
+   "t": 19.3,
+   "line": "shown"
+  }
+ ],
+ "lifted_s": 19.3,
+ "backend": "webgpu",
+ "stats": {
+  "out": {
+   "kinds": 198,
+   "loaded": 54,
+   "building": 147,
+   "busy": {
+    "queue": 0,
+    "loads": 138,
+    "compiling": 7,
+    "lowering": 2
+   },
+   "keeping": 0,
+   "failed": []
+  },
+  "in": {
+   "kinds": 0,
+   "loaded": 0,
+   "building": 0,
+   "busy": {
+    "queue": 0,
+    "loads": 0,
+    "compiling": 0,
+    "lowering": 0
+   },
+   "keeping": 0,
+   "failed": []
+  },
+  "library": {
+   "kinds": 23,
+   "loaded": 16,
+   "building": 7,
+   "busy": {
+    "queue": 0,
+    "loads": 7,
+    "compiling": 0,
+    "lowering": 0
+   },
+   "keeping": 0,
+   "failed": []
+  }
+ },
+ "longest_hold": {
+  "at_s": 0.8,
+  "ms": 3482
+ },
+ "reporter": {
+  "file": "4405-mwbqog5u-8ol1.jsonl",
+  "gpu": true,
+  "adapter": null,
+  "lost": [],
+  "errors": [],
+  "errors_total": 0
+ }
+}
