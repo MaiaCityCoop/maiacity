@@ -146,3 +146,25 @@ The recorded run on 6d895786 was **cancelled, not failed**, at 00:16: d3f98bcc's
 own intents-pr.yml (the longer limit for a check on a real GPU) with `pr: 2256`, which shares this pull request's
 concurrency group. It runs my spec on my head and records nothing; its gpu job is the reading c6 and c7 could not give.
 So 0c40886d waits locally until that dry run ends, then is pushed for the recorded run.
+
+## 2026-11-11 00:16–00:52 UTC · round 5: the first real-GPU reading, and main measured beside it
+
+d3f98bcc's builder ran its dry run (each real-GPU check given 1,500 s, not 600) on this pull request's head 6d895786
+(run 42929781719, GitHub's macOS runner: a 3-core VM, paravirtual Metal). It records nothing; what it printed:
+
+| world | Chromium | WebKit |
+|---|---|---|
+| Sandbox 1 | ✓ world in **62.2 s** (205.3 s on 50bd98b5, before round 3), 95.8 % painted, the device held; forest grown at 50.9 s | **never reached the world**: killed at 1,500 s, no step printed |
+| Sandbox 5 | ✓ (forest grown at 50.4 s) | ✓ world in 106.7 s, 92.3 % painted, the device held |
+
+So on a real GPU the change shows: Sandbox 1's forest grows in 51 s where it took 72 s, and its world comes 143 s
+sooner (the last step no longer waits for levels). That runner's seconds compare only with its own.
+
+What is not known: whether WebKit fails on Sandbox 1 because of this change or on main too. No run tonight has a
+WebKit Sandbox 1 result on main (every one was cut at 600 s), and the box has no WebKit. 1893a631 found WebKit holding
+8.7 GB on Sandbox 1 on an 8 GB Mac, which makes the world itself a suspect on a VM of 7 GB. So main is measured the
+same way: d3f98bcc's workflow dispatched with `pr: 2258` (1f6a98dd's pull request, whose site code is main's exactly)
+and `intent: 7a6c3f1b` (my c6, c7 on main's code), run 42934566916, recording nothing.
+
+0c40886d (c9) pushed at 00:49 UTC once that dry run had ended; its recorded run is going (main's intent.ts: c6 and c7
+will be cut at 600 s again until d3f98bcc lands).
