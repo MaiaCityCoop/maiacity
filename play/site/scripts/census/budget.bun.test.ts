@@ -11,13 +11,14 @@ const HASH = /^[0-9a-f]{64}$/;
 /**
  * the counts the ceilings were last set from: every pass's triangles and draws, calls at rest and walking. Sandbox 3 on
  * main eadbf2f7, 2026-11-10 (intent-work/1f6a98dd-audit); Sandbox 1 and 5 once their shadows were cast by stand-ins,
- * 2026-11-11 (intent 7313fb26; Sandbox 1's draws the most of several counts: they vary by some 8 % run to run). A
- * change that lowers a ceiling sets its count here with it.
+ * 2026-11-11 (intent 7313fb26; Sandbox 1's draws the most of several counts: they vary by some 8 % run to run), and
+ * what they hand the simplifier as intent 45c24b00 counted it with its six trees. A change that lowers a ceiling sets
+ * its count here with it.
  */
 const TONIGHT: Record<string, { id: string; simplified: number; views: Record<string, Record<string, number>> }> = {
 	'sandbox-1': {
 		id: 'ec08b07d-6ec0-8f65-92b2-3efe7d91df5d',
-		simplified: 16347750,
+		simplified: 601086,
 		views: {
 			near: { tris: 5569104, draws: 1631, calls: 6626, walkCalls: 8202 },
 			mid: { tris: 8966276, draws: 1609, calls: 7664, walkCalls: 9144 },
@@ -26,7 +27,7 @@ const TONIGHT: Record<string, { id: string; simplified: number; views: Record<st
 	},
 	'sandbox-5': {
 		id: 'ac154784-c938-47ee-ac74-d61fc91583b3',
-		simplified: 9811200,
+		simplified: 796702,
 		views: {
 			near: { tris: 6794825, draws: 1081, calls: 5442, walkCalls: 6667 },
 			mid: { tris: 7245251, draws: 990, calls: 5679, walkCalls: 6671 },
