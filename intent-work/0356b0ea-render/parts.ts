@@ -78,7 +78,8 @@ for (const name of browsers) {
 	await page.addInitScript({ content: meter });
 	const t0 = performance.now();
 	await page.goto(`http://127.0.0.1:${server.port}${world}`, { waitUntil: 'commit' });
-	await page.waitForFunction(() => !!document.querySelector('canvas') && !document.querySelector('.world .loading:not(.opening), .world .status') && (window as any).__world?.scene, null, { timeout: 900_000, polling: 500 });
+	// up: the world handed to the film camera and its walker placed (village.ts), then settled
+	await page.waitForFunction(() => !!(window as any).__world?.scene && !!(window as any).__walker, null, { timeout: 900_000, polling: 500 });
 	for (let zero = 0, t = performance.now(); performance.now() - t < 60_000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
 	console.log(`${name} ${browser.version()} · ${world} up in ${Math.round((performance.now() - t0) / 1000)} s`);
 	const sample = async () => {
