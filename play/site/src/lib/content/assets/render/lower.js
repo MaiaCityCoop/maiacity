@@ -9,9 +9,6 @@ import * as THREE from 'three';
 import { LEFT, lowerDraws } from './simplify.js';
 import { levelTurn as buildTurn } from '../../render/turns.js';
 
-/** a typed array's copy on a buffer of its own: handed to the worker whole (moved, the page keeping its own) */
-const own = (A) => A.slice();
-
 /**
  * Triangles from which a shape is heavy to make lighter: the simplifier holds many times its size while it works, and
  * its memory (wasm) never shrinks while its worker lives (intent 1893a631: 1.2 GB after one tree of 1.6 million
@@ -36,14 +33,15 @@ const through = (m) => !!(m.transparent || m.opacity < 1 || m.transmission > 0 |
  * (`scale`), where drawn (`locals`), its side, whether seen through, and whether painted (`painted`, its colour map).
  */
 function plainOf(d) {
+	// each array copied on a buffer of its own: handed to the worker whole (moved, the page keeping its own)
 	const g = d.geometry;
 	const attributes = {};
 	for (const [k, a] of Object.entries(g.attributes)) {
 		if (LEFT.has(k)) continue;
-		const array = a.isInterleavedBufferAttribute ? Float32Array.from({ length: a.count * a.itemSize }, (_, i) => a.getComponent(Math.floor(i / a.itemSize), i % a.itemSize)) : own(a.array);
+		const array = a.isInterleavedBufferAttribute ? Float32Array.from({ length: a.count * a.itemSize }, (_, i) => a.getComponent(Math.floor(i / a.itemSize), i % a.itemSize)) : a.array.slice();
 		attributes[k] = { array, itemSize: a.itemSize, normalized: a.normalized };
 	}
-	const index = g.index ? own(g.index.array) : Uint32Array.from({ length: g.attributes.position.count }, (_, i) => i);
+	const index = g.index ? g.index.array.slice() : Uint32Array.from({ length: g.attributes.position.count }, (_, i) => i);
 	if (!g.boundingSphere) g.computeBoundingSphere();
 	let scale = 0;
 	for (let k = 0; k < d.n; k++) {
