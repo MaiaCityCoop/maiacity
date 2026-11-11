@@ -386,6 +386,77 @@ into it). Checks: the census's count inside the aims; a real-GPU measure in Chro
 held, seconds and milliseconds printed); the picture of its ground and sky beside `autumn_meadow`; the old sandboxes
 counted the same as before (nothing of theirs touched). It needs this intent's budget; it waits for nothing else.
 
+## 4d. The line between the legacy and the new, drawn in play so it holds by itself
+
+Samuel, 2026-11-11: "we keep on developing this one after another, but we make a clean transition cut for the new
+hard-fork asset library plus 3D world". Two things side by side. **The legacy**: today's library and Sandbox 1 to 7,
+kept working as they are, nothing archived; the list of known exceptions to the 300,000 rule (part 4b) is the
+legacy's alone. **The new**: one library and one world, strict from the first day, with no list of exceptions at all.
+
+**What play offers today to draw it with** (play/SPEC.md §3, §3.2, §4.5 to §4.7, §4.15):
+
+- A *group* (`plants`, `buildings`) is only shown: nothing may be looked up by it, so it cannot be the line.
+- An *owner* (`assets.owner`: a person's account or the coop's) decides who sees an asset; a person's library is
+  private. It says whose, not which library, and a world for everyone cannot draw from a private one. Not the line.
+- A *schema* is a document every document names and is checked against. It says what an asset is, not where it
+  belongs; a second asset schema would fork every tool. Not the line.
+- A *sandbox's layout* is a document whose every edit is checked whole by its hook (`play/api/src/sandboxes.ts`
+  `sandboxCheck`: only accepted versions, no readable refs, every slot pinned). **This is where a pin is refused.**
+- *propose* already refuses a version (no `lod`, a name-based reference, minified code: `play/api/src/lod.ts`,
+  `recipes.ts`). **This is where an asset is refused.**
+
+So nothing today is a library an asset belongs to. It is one new thing, small:
+
+**A library is a thing with a UUID, and every asset belongs to exactly one, for good.**
+- `play.libraries (id, title /* only shown */, rule jsonb)`: two rows. The legacy library holds every asset there is
+  (`assets.library`, set once by a migration, never changed after). The new library's `rule` is the strict one:
+  `{ finest: 300000, levels: 'declared', exceptions: none }`; the legacy's is the 300,000 rule with its exceptions.
+- An asset's library is given when it is made (`propose_asset`'s `library: <uuid>`) and **cannot be changed**: there
+  is no tool that moves an asset, as a private asset never leaves its owner today. That is what makes it a hard fork.
+- **Into the new library, play refuses** at propose: a version whose card is not `declared` with its levels exported
+  by its source; whose card's own count is over 300,000; whose source requires a piece, or names a guest by hash
+  (`use:<hash>`), that is not itself a version of the new library's. And at Accept: a version whose built count, at
+  its heaviest stage and variant, is not recorded by the box's run as within the ceiling (the count play cannot make
+  itself, part 4b). No flag, no exception list, no admin override: the rule's column has none for this library.
+- **A world names its library**: a layout's `library: <uuid>` (a field of the sandbox schema, added by a schema
+  intent). `sandboxCheck` refuses a pin to a version of an asset of any other library, saying which asset and which
+  library it is in; the new world's layout is made with the new library and that field, too, is never changed. The
+  old sandboxes' layouts name the legacy library and go on exactly as today.
+- So the line holds from both sides without anyone remembering it: nothing heavy can be proposed into the new
+  library, and nothing from outside it can be pinned into the new world.
+
+**A migrated asset is a new document that names where it came from**, not the old one moved:
+`asset:<new uuid>` in the new library, its history starting at its own version 1, its card naming its origin
+`from: { asset: <old uuid>, version: <the old version's hash> }` (shown on its page both ways: "migrated from", "moved
+on as"). Why not the same document moved:
+- an asset is its UUID, and Sandbox 1, 3 and 5 pin the old one's versions: they must keep drawing them unchanged, and
+  a later `pin_latest` there must not pull in a version made for another world's rule;
+- the new library's promise is that every version in it is inside the rule; an asset moved with its history would
+  bring its heavy versions with it, and the promise would need an exception on day one;
+- two assets may share a label (a label is only shown); its reference sheet, data sheet and brief are files by hash
+  and are named again, not copied.
+A migration is therefore an ordinary intent: propose a new asset into the new library from the old one's source,
+made clean on the way (under the ceiling, levels declared), judged beside the old one and its reference sheet.
+
+**The new world on day one**: one sandbox row with its own UUID and route, its layout naming the new library, no pin;
+its land a world asset that is the new library's first member (its ground, the sky over it); its budget entry with
+the aims as its ceilings. Empty, walkable, inside every aim, and closed to everything not made for it.
+
+**The order then** is part 4c's table (ground and grass, a few trees, water, one dome, the understorey, the rest),
+each move a migration intent or a new asset's.
+
+**The first step, as the intent to approve in the morning** (it replaces the one at the end of part 4c, which becomes
+the second): *"A second asset library and a world that draws only from it: play refuses whatever would cross the
+line"*. Work: code (the `libraries` table and `assets.library` by a migration that puts every asset there is in the
+legacy library; `propose_asset`'s `library`; the refusals at propose and at Accept; the layout's `library` and
+`sandboxCheck`'s refusal; the asset viewer and the library pages showing which library an asset is in and where it
+came from) and one schema intent's work (the sandbox schema's field). Checks, each a test against Postgres in the
+box: an asset keeps its library whatever is proposed; a version over the ceiling, or derived, or requiring a legacy
+piece, is refused into the new library with the reason, and accepted into the legacy as today; a pin from the other
+library is refused in a layout of either; every asset and layout there is today reads and builds exactly as before
+(the census of Sandbox 1, 3 and 5 unchanged to the triangle). It needs nothing of tonight's intents; the rule's own
+intent (part 4b) and this one share `play/api/src/lod.ts` and should be one builder's, one after the other.
+
 ## 5. Realism: each part against the real thing
 
 The reference is the real thing, never today's picture. Judged against: Poly Haven's CC0 `autumn_meadow` and
