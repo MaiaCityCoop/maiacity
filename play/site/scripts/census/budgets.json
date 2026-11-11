@@ -186,13 +186,13 @@
 			"views": {
 				"near": {
 					"tris": 5850000,
-					"draws": 1590,
+					"draws": 1720,
 					"calls": 6960,
 					"walkCalls": 8620
 				},
 				"mid": {
 					"tris": 9420000,
-					"draws": 1580,
+					"draws": 1690,
 					"calls": 8050,
 					"walkCalls": 9610
 				},
