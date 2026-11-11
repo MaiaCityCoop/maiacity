@@ -26,6 +26,9 @@
  *                  many ms; --stroll-per-minute at most that many frames over 33 ms in any minute of either;
  *                  --stroll-over-standing no frame of either over that many times the world's p95 frame standing still,
  *                  measured in the same load (a stall told from a slow machine's own slowness: GitHub's VM) (each asks for --stroll)
+ * --fill-within   (with --views) each view has nothing left waiting to be drawn (pipelines compiling or queued,
+ *                  render/making.js) within that many seconds of the eye being put there, and none 5 s after its
+ *                  picture (each view is photographed at settle and again 5 s later: <browser>-<view>-later.png)
  * --views          also photographs the world from the census's views (./census/run.ts VIEWS), the eye put there and
  *                  the world left to settle: <out>/<browser>-<view>.png, so what is far is judged on a real GPU (intent 92fbecea);
  *                  `seat`, asked by name, a daybed in Sandbox 5's dome, its fabric near (intent e675cd87)
@@ -144,11 +147,14 @@ export type Measure = {
 	stroll_warm?: StrollStats | null;
 	/** the share of the screenshot that is not its most frequent colour: a blank picture is near 0 */
 	painted: number | null;
+	/** --views: each view filled in (intent 095bc67c): seconds from the eye put there until nothing waits to be drawn
+	 *  (null: not within 30 s), and what is drawn and waits at its picture and 5 s later */
+	fills?: { view: string; fill_s: number | null; pending: number; triangles: number | null; pending_later: number; triangles_later: number | null }[];
 	/** --sky: the sky's pictures taken, by file name */
 	sky?: string[];
 	errors: string[];
 };
-export type Bounds = { worldWithin?: number; frameWithin?: number; walkWithin?: number; sky?: boolean; strollMax?: number; strollP99?: number; strollPerMinute?: number; strollOverStanding?: number };
+export type Bounds = { worldWithin?: number; frameWithin?: number; walkWithin?: number; sky?: boolean; strollMax?: number; strollP99?: number; strollPerMinute?: number; strollOverStanding?: number; fillWithin?: number };
 
 /** --sky: the hours of the world's day the sky is photographed at, and the sizes */
 export const SKY_HOURS = { dawn: 5.35, noon: 12.5, dusk: 19.65, night: 23 };
@@ -200,6 +206,13 @@ export function judge(m: Measure, b: Bounds = {}): string[] {
 	if (b.frameWithin !== undefined && (m.frame_ms === null || m.frame_ms > b.frameWithin)) why.push(`a frame took ${m.frame_ms ?? '—'} ms, more than ${b.frameWithin} ms`);
 	if (b.walkWithin !== undefined && (m.walk_ms === null || m.walk_ms > b.walkWithin)) why.push(`a frame walking took ${m.walk_ms ?? '—'} ms, more than ${b.walkWithin} ms`);
 	if (b.sky && m.world_s !== null && !m.sky?.length) why.push('no sky pictures');
+	if (b.fillWithin !== undefined && m.world_s !== null) {
+		if (!m.fills?.length) why.push('no view filled in was measured (it asks for --views)');
+		for (const f of m.fills ?? []) {
+			if (f.fill_s === null || f.fill_s > b.fillWithin) why.push(`the ${f.view} view waited ${f.fill_s === null ? 'over 30' : f.fill_s} s for what it draws, more than ${b.fillWithin} s`);
+			if (f.pending_later !== 0) why.push(`the ${f.view} view still had ${f.pending_later} waiting to be drawn 5 s after its picture`);
+		}
+	}
 	const sb = { max: b.strollMax, p99: b.strollP99, perMinute: b.strollPerMinute, overStanding: b.strollOverStanding, standingP95: m.frame_p95 };
 	if (m.world_s !== null) for (const k of ['cold', 'warm'] as const) why.push(...judgeStroll(k, m[`stroll_${k}`] ?? null, sb));
 	return why;
@@ -330,10 +343,24 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 				m.steps.push(`no walker here: no ${view} view photographed`);
 				continue;
 			}
+			// what the eye meets there filled in (intent 095bc67c): how long until nothing waits to be drawn (no
+			// pipeline compiling or queued: render/making.js), then the picture at settle and again 5 s later, with
+			// what is drawn and what still waits at each
 			const t2 = performance.now();
+			const pending = () => page.evaluate(() => (window as any).__pipelinesPending?.() ?? 0).catch(() => -1);
+			let fill_s: number | null = null;
+			for (; performance.now() - t2 < 30_000; await page.waitForTimeout(250)) if ((await pending()) === 0) {
+				fill_s = Math.round((performance.now() - t2) / 100) / 10;
+				break;
+			}
 			await settled(30);
 			await page.screenshot({ path: join(o.out, `${name}-${view}.png`), timeout: 120_000 });
-			m.steps.push(`${view} view photographed after ${Math.round((performance.now() - t2) / 100) / 10} s`);
+			const at = { pending: await pending(), triangles: (await page.evaluate(() => (window as any).__meter.sample(1)).catch(() => null))?.triangles ?? null };
+			await page.waitForTimeout(5000);
+			await page.screenshot({ path: join(o.out, `${name}-${view}-later.png`), timeout: 120_000 });
+			const later = { pending: await pending(), triangles: (await page.evaluate(() => (window as any).__meter.sample(1)).catch(() => null))?.triangles ?? null };
+			(m.fills ??= []).push({ view, fill_s, pending: at.pending, triangles: at.triangles, pending_later: later.pending, triangles_later: later.triangles });
+			m.steps.push(`${view} view: nothing waiting to be drawn ${fill_s === null ? 'not within 30 s' : `after ${fill_s} s`}; photographed after ${Math.round((performance.now() - t2 - 7000) / 100) / 10} s (${at.triangles ?? '—'} triangles, ${at.pending} waiting), again 5 s later (${later.triangles ?? '—'} triangles, ${later.pending} waiting)`);
 		}
 		if (o.walk) {
 			// the walk, after the picture: the eye put where it starts and the world left to settle there (what streams in
@@ -423,7 +450,7 @@ if (import.meta.main) {
 	// its pictures: --out, else a folder a call under GPU_OUT (the gpu job's artifact) or the temp folder, named by its check and world
 	const out = resolve(arg('--out') ?? join(process.env.GPU_OUT ?? join(tmpdir(), 'gpu-out'), `${process.env.INTENT_CHECK ?? 'world'}${world.replace(/\W+/g, '-').replace(/-$/, '')}`));
 	const inputs = resolve(arg('--inputs', join(SITE, 'scripts/census/inputs'))!);
-	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within'), walkWithin: num('--walk-within'), sky: argv.includes('--sky'), strollMax: num('--stroll-max'), strollP99: num('--stroll-p99'), strollPerMinute: num('--stroll-per-minute'), strollOverStanding: num('--stroll-over-standing') };
+	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within'), walkWithin: num('--walk-within'), sky: argv.includes('--sky'), strollMax: num('--stroll-max'), strollP99: num('--stroll-p99'), strollPerMinute: num('--stroll-per-minute'), strollOverStanding: num('--stroll-over-standing'), fillWithin: num('--fill-within') };
 	const fail = (why: string): never => (console.log(`gpu: ${why}`), process.exit(1));
 	for (const b of browsers) if (!BROWSERS[b]) fail(`no browser ${b} (chromium, webkit)`);
 
