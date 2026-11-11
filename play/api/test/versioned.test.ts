@@ -7,6 +7,7 @@ import { seedDoc } from "../src/versioned";
 import { register, unregister } from "../src/kinds";
 import { type Api, appOn, type Fresh, freshDb, human, request, rpc as kitRpc, suite, tool as mcpTool } from "./kit";
 import * as fx from "./fixtures/intents";
+import { LEVELS, OWNED } from "./fixtures/lod";
 
 /** the test's own kind: a gadget, a label, a count of cogs and a note */
 /** the gadget's schema: a document of the meta-schema like every schema, made here as its test's setup */
@@ -30,7 +31,7 @@ const GADGET = {
 };
 const gadgetCheck = (doc: any) => [...(doc.cogs === 13 ? ["a gadget never has 13 cogs"] : []), ...(doc.colour && doc.colour === doc.label ? ["a gadget is never named its colour"] : [])];
 
-const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n`;
+const SOURCE = (line: string) => `module.exports.recipe = function (id, v) {\n  // ${line}\n  return { meta: { id, v }, build: () => null };\n};\n` + LEVELS;
 const SPEC = fx.spec("A document says more.", "One document. Nothing else changes.");
 
 suite("one version control", () => {
@@ -183,7 +184,7 @@ suite("one version control", () => {
     {
       kind: "asset",
       id: async () => {
-        const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Round fern", source: SOURCE("a round fern"), note: "its first version", intent: await readyIntent("A round fern") });
+        const made = await tool("propose_asset", { ...OWNED, group: "plants", label: "Round fern", source: SOURCE("a round fern"), note: "its first version", intent: await readyIntent("A round fern") });
         await call("ada", "POST", `/api/intents/${made.intent}/accept`);
         return made.asset;
       },

@@ -893,10 +893,11 @@ export async function proposeAsset(db: Db, store: BlobStore, me: Me | null, give
   let card = withRefs(recipe ? recordOf(heldRecord(over(inherited(body.record, a[0]?.card), set), own!.libs, own!.source, own!.pieces), grp, slug, n, null, recipe) : variants[defaultVariant!].card, refs);
   // its levels of detail (./lod.ts, play/SPEC.md §4.5): named on every new version's card, a declared one's levels
   // read from its source (play runs no code) and written beside them
+  // (a source its head was not accepted with is touched: its own levels, its count within the ceiling; intent a7507347)
   const leveled = (rec: any, text: string, what: string) => {
     try {
       const params = ((rec?.card?.params ?? rec?.params ?? []) as any[]).map((p) => `${p?.id}`);
-      return { ...rec, card: { ...(rec?.card ?? {}), lod: heldLod(rec?.card?.lod, text, params, what) } };
+      return { ...rec, card: { ...(rec?.card ?? {}), lod: heldLod(rec?.card?.lod, text, params, what, { touched: !accepted.has(hashText(text)), group: grp }) } };
     } catch (e) {
       throw e instanceof LodError ? new VersionError(e.message) : e;
     }

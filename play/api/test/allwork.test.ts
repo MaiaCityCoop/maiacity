@@ -10,8 +10,9 @@ import { seedDoc } from "../src/versioned";
 import { fakeGitHub, green, job, REPO, run, sha } from "./fixtures/github";
 import { agentToken, type Api, appOn, type Fresh, freshDb, human, quiet, request, suite, tempStore, tool as mcpTool } from "./kit";
 import * as fx from "./fixtures/intents";
+import { DETAIL, LEVELS, OWN, OWNED } from "./fixtures/lod";
 
-const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n";
+const SOURCE = "module.exports.recipe = function (id, v) {\n  return { meta: { id, v } };\n};\n" + LEVELS;
 
 suite("one intent holds all its work", () => {
   let f: Fresh, db: Db;
@@ -50,7 +51,7 @@ suite("one intent holds all its work", () => {
   };
   /** an intent at Proposal, its one must passed, ready to take work */
   const ready = (title: string) => fx.readyIntent({ tool, approve: (id) => call("POST", `/api/intents/${id}/approve`) }, title, { spec: SPEC, add: { kind: "improve" }, evidence: "seen", strict: true });
-  const asset = (label: string, intent: string) => tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label, source: SOURCE, note: `${label}, its first version`, intent });
+  const asset = (label: string, intent: string) => tool("propose_asset", { ...OWNED, group: "plants", label, source: SOURCE, note: `${label}, its first version`, intent });
   const story = (title: string, intent: string) =>
     tool("propose_story", { title, note: "its first cut", intent, body: { format: "9:16", fps: 30, tracks: [{ id: "voice", kind: "voice", clips: [{ id: "v1", at: 0, duration: 4, who: "MAIA", line: "One." }] }] } });
   const variants = async (intent: string) =>
@@ -90,7 +91,7 @@ suite("one intent holds all its work", () => {
     expect(now[3].variant_id).not.toBe(held[3].variant_id);
     expect(await statusOf(held[3].variant_id)).toBe("archived");
     // an asset proposed again too: only that asset's variant is replaced
-    const elder2 = await tool("propose_doc_version", { doc: elder.asset, note: "Elder woman, again", edits: [{ op: "set", path: ["source"], value: SOURCE + "// her second\n" }, { op: "set", path: ["card"], value: { card: { lod: { levels: "derived" } } } }], intent: id });
+    const elder2 = await tool("propose_doc_version", { doc: elder.asset, note: "Elder woman, again", edits: [{ op: "set", path: ["source"], value: SOURCE + "// her second\n" }, { op: "set", path: ["card"], value: { card: { lod: OWN, params: DETAIL } } }], intent: id });
     expect(elder2.error).toBeUndefined();
     const after = await variants(id);
     expect(after.length).toBe(4);
@@ -140,8 +141,8 @@ suite("one intent holds all its work", () => {
     const skill = crypto.randomUUID();
     await seedDoc(db, "skill", { id: skill, json: { schema: "skill/1", label: "A notes skill", group: "tests", system: "Say it once." }, note: "its first version" });
     const id = await ready("Two machines and a skill, each its own note");
-    const a = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "Pickup", source: SOURCE, note: "Pickup: its own note", intent: id });
-    const b = await tool("propose_asset", { lod: { levels: "derived" }, group: "plants", label: "BatteryPack", source: SOURCE, note: "BatteryPack: its own note", intent: id });
+    const a = await tool("propose_asset", { ...OWNED, group: "plants", label: "Pickup", source: SOURCE, note: "Pickup: its own note", intent: id });
+    const b = await tool("propose_asset", { ...OWNED, group: "plants", label: "BatteryPack", source: SOURCE, note: "BatteryPack: its own note", intent: id });
     const s = await tool("propose_doc_version", { doc: skill, note: "The skill: its own note", edits: [{ op: "set", path: ["note"], value: "noted" }], intent: id });
     for (const p of [a, b, s]) expect(p.error).toBeUndefined();
     expect((await call("POST", `/api/intents/${id}/accept`)).data.stage).toBe("accepted");

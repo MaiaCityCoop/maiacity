@@ -11,7 +11,7 @@ import { createHuman, initSessions, tokenFor } from "../src/auth";
 import { folderStore, keyOf, type BlobStore } from "../src/blobs";
 import { meOf } from "../src/access";
 import { assetOf, catalogOf, pinsOf } from "../src/assets";
-import { leveled } from "./fixtures/lod";
+import { DETAIL, HELD, LEVELS, OWN, leveled } from "./fixtures/lod";
 import { assetDocId, ensureAssetDocs, HISTORY, proposeAsset, recipeAt } from "../src/assetdocs";
 import * as docs from "../src/docs";
 import { hashText } from "../src/hash";
@@ -208,7 +208,13 @@ suite("assets as documents", () => {
     expect((await docs.readDoc(db, assetDocId(ids.fern))).json.source).toBe(written.fern[4].source);
     // its head is from before the contract and names no levels of detail: the new version is refused until it names them
     await expect(proposeDocVersion(ctx(), ada, { doc: ids.fern, note: "a curled frond", variant: s1.variant, intent }, "mcp")).rejects.toThrow(/names its levels of detail/);
+    // (its source changed, so they are its own: exported by its source, declared on its card with its finest shape's count)
     await docEdit(ctx(), ada, { doc: ids.fern, intent, variant: s1.variant, message: "its levels derived", edits: [{ op: "set", path: ["card", "card", "lod"], value: { levels: "derived" } }] });
+    await expect(proposeDocVersion(ctx(), ada, { doc: ids.fern, note: "a curled frond", variant: s1.variant, intent }, "mcp")).rejects.toThrow(/changes its source, so it carries its own levels of detail/);
+    await docEdit(ctx(), ada, {
+      doc: ids.fern, intent, variant: s1.variant, message: "its own levels",
+      edits: [{ op: "replace", find: "} };\n};\n", replace: `} };\n};\n${LEVELS}` }, { op: "set", path: ["card", "card", "params"], value: DETAIL }, { op: "set", path: ["card", "card", "lod"], value: OWN }],
+    });
     const p: any = await proposeDocVersion(ctx(), ada, { doc: ids.fern, note: "a curled frond", variant: s1.variant, intent }, "mcp");
     expect(p.variant).toBe(s1.variant);
     expect(p.number).toBe(5);
@@ -251,7 +257,7 @@ suite("assets as documents", () => {
     const fresh = await propose(db, store, ada, { new: { group: "things", slug: "stool", label: "Stool" }, note: "a stool", source: src("a stool"), intent: await building("A stool") });
     await decide(db, store, ada, fresh.intent, "accept");
     const stool = await docs.readDoc(db, assetDocId(fresh.asset));
-    expect(stool.json.source).toBe(src("a stool"));
+    expect(stool.json.source).toBe(src("a stool") + LEVELS);
     expect(stool.versions.map((v) => v.number)).toEqual([1]);
   });
 
@@ -275,41 +281,51 @@ suite("assets as documents", () => {
 
   test("a new version names its levels", async () => {
     const ada = (await me("ada"))!;
-    const PARAMS = [{ id: "detail", label: "Detail", type: "number", value: 1, min: 0.05, max: 1 }];
-    const derived = src("a stool, its levels derived");
-    const declared = `${src("a shrub of its own levels")}module.exports.levels = [\n  { values: { detail: 0.25 } }, // L1\n  { values: { detail: 0.1 } }, // L2\n];\n`;
+    const plain = src("a stool, exporting no levels");
+    const declared = `${src("a shrub of its own levels")}${LEVELS}`;
+    const LOD = { ...OWN, budgets: [4000, 1200, 320] };
     const make = (body: any) => proposeAsset(db, store, ada, { new: { group: "plants", label: "Shrub" }, note: "levels", ...body });
+    const lodOf = async (version: string) => (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [version])).rows[0].card.card.lod;
     // a new asset version without card.lod is refused, saying so, and nothing is written
     const before = (await db.query(`SELECT count(*)::int AS n FROM play.asset_versions`)).rows[0].n;
-    await expect(make({ source: derived, intent: await building("A stool") })).rejects.toThrow(/names its levels of detail on its card: lod = \{ levels: 'declared' \}/);
+    await expect(make({ source: declared, card: { params: DETAIL }, intent: await building("A shrub") })).rejects.toThrow(/names its levels of detail on its card: lod = \{ levels: 'declared' \}/);
+    // its shape and its source are held to it: an unknown level kind; a new asset's levels derived, or declared where
+    // its source exports none (intent a7507347: its own); a level setting a value no param declares; levels no literal
+    await expect(make({ source: declared, card: { params: DETAIL, lod: { levels: "some" } }, intent: await building("A shrub") })).rejects.toThrow(/'declared'.*'derived'/);
+    await expect(make({ source: plain, card: { lod: { levels: "derived", tris: 1200 } }, intent: await building("A stool") })).rejects.toThrow(/Missing: its own lighter levels/);
+    await expect(make({ source: plain, card: { params: DETAIL, lod: OWN }, intent: await building("A stool") })).rejects.toThrow(/Missing: its own lighter levels/);
+    await expect(make({ source: declared, card: { params: DETAIL, lod: { levels: "derived", tris: 1200 } }, intent: await building("A shrub") })).rejects.toThrow(/Missing: its own lighter levels/);
+    await expect(make({ source: declared, card: { lod: OWN }, intent: await building("A shrub") })).rejects.toThrow(/params don't declare/);
+    await expect(make({ source: `${plain}module.exports.levels = LEVELS;\n`, card: { params: DETAIL, lod: OWN }, intent: await building("A shrub") })).rejects.toThrow(/plain literal/);
     expect((await db.query(`SELECT count(*)::int AS n FROM play.asset_versions`)).rows[0].n).toBe(before);
-    // its shape and its source are held to it: an unknown level kind, a declared one its source doesn't export, a
-    // derived one whose source exports levels, a level setting a value no param declares
-    await expect(make({ source: derived, card: { lod: { levels: "some" } }, intent: await building("A stool") })).rejects.toThrow(/'declared'.*'derived'/);
-    await expect(make({ source: derived, card: { lod: { levels: "declared" } }, intent: await building("A stool") })).rejects.toThrow(/declares none/);
-    await expect(make({ source: declared, card: { params: PARAMS, lod: { levels: "derived" } }, intent: await building("A shrub") })).rejects.toThrow(/name them with lod.levels 'declared'/);
-    await expect(make({ source: declared, card: { lod: { levels: "declared" } }, intent: await building("A shrub") })).rejects.toThrow(/params don't declare/);
-    await expect(make({ source: `${derived}module.exports.levels = LEVELS;\n`, card: { params: PARAMS, lod: { levels: "declared" } }, intent: await building("A shrub") })).rejects.toThrow(/plain literal/);
-    // with lod it is taken: derived, as named; declared, its levels read from its source onto its card
-    const a = await make({ source: derived, card: { lod: { levels: "derived", budgets: [4000, 1200, 320] } }, intent: await building("A stool") });
-    const ca = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [a.version])).rows[0].card;
-    expect(ca.card.lod).toEqual({ levels: "derived", budgets: [4000, 1200, 320] });
-    const b = await make({ source: declared, card: { params: PARAMS, lod: { levels: "declared" } }, intent: await building("A shrub") });
-    const cb = (await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [b.version])).rows[0].card;
-    expect(cb.card.lod).toEqual({ levels: "declared", values: [{ detail: 0.25 }, { detail: 0.1 }] });
+    // declared, it is taken: its levels read from its source onto its card, its count and its budgets kept as given
+    const b = await make({ source: declared, card: { params: DETAIL, lod: LOD }, intent: await building("A shrub") });
+    expect(await lodOf(b.version)).toEqual({ ...LOD, values: HELD.values });
     // accepted, its next version carries its levels on from its head
-    await decide(db, store, ada, a.intent, "accept");
-    const next = await proposeAsset(db, store, ada, { asset: a.asset, note: "a taller stool", source: src("a taller stool"), intent: await building("A taller stool") });
-    expect((await db.query<any>(`SELECT card FROM play.asset_versions WHERE id = $1`, [next.version])).rows[0].card.card.lod).toEqual({ levels: "derived", budgets: [4000, 1200, 320] });
+    await decide(db, store, ada, b.intent, "accept");
+    const next = await proposeAsset(db, store, ada, { asset: b.asset, note: "a taller shrub", source: `${src("a taller shrub")}${LEVELS}`, intent: await building("A taller shrub") });
+    expect(await lodOf(next.version)).toEqual({ ...LOD, values: HELD.values });
+    // its card alone changed (its source the one its head was accepted with), it is held as before: a derived one whose
+    // source exports levels is refused
+    await expect(proposeAsset(db, store, ada, { asset: b.asset, note: "derived", source: declared, card: { lod: { levels: "derived" } }, intent: await building("A derived shrub") })).rejects.toThrow(/name them with lod.levels 'declared'/);
     // an existing version, from before the contract, names none and is read as derived
-    const old = await assetOf(db, await writeAsset("plants", "old-shrub", [{ n: 1, source: src("an old shrub") }, { n: 2, source: src("an old shrub, taller") }]), null);
+    const shrub = await writeAsset("plants", "old-shrub", [{ n: 1, source: src("an old shrub") }, { n: 2, source: src("an old shrub, taller") }]);
+    const old = await assetOf(db, shrub, null);
     expect(old.versions.map((v: any) => v.lod)).toEqual([{ levels: "derived" }, { levels: "derived" }]);
+    // and its card alone still changes: declared is refused where its source exports none, derived is taken as named
+    // (no count asked of a source left as it was), its budgets passed through
+    const same = src("an old shrub, taller");
+    await expect(proposeAsset(db, store, ada, { asset: shrub, note: "declared", source: same, card: { lod: { levels: "declared" } }, intent: await building("An old shrub, declared") })).rejects.toThrow(/declares none/);
+    const kept = await proposeAsset(db, store, ada, { asset: shrub, note: "its budgets", source: same, card: { lod: { levels: "derived", budgets: [4000, 1200, 320] } }, intent: await building("An old shrub's budgets") });
+    expect(await lodOf(kept.version)).toEqual({ levels: "derived", budgets: [4000, 1200, 320] });
+    // its source changed, the same card is refused
+    await expect(proposeAsset(db, store, ada, { asset: shrub, note: "wider", source: src("an old shrub, wider"), card: { lod: { levels: "derived", budgets: [4000, 1200, 320] } }, intent: await building("An old shrub, wider") })).rejects.toThrow(/changes its source, so it carries its own levels of detail/);
   });
 
   // intent a5faafad (c3): a recipe's own look only as a node graph of the one allowlist, checked when it is proposed
   test("a recipe's graphs are checked when it is proposed: an unsafe one refused with the validator's reason", async () => {
     const ada = (await me("ada"))!;
-    const make = async (source: string) => proposeAsset(db, store, ada, { new: { group: "things", label: "Glowing mushroom" }, note: "graphs", source, card: { lod: { levels: "derived" } }, intent: await building("A glowing mushroom") });
+    const make = async (source: string) => proposeAsset(db, store, ada, { new: { group: "things", label: "Glowing mushroom" }, note: "graphs", source: source + LEVELS, card: { lod: OWN, params: DETAIL }, intent: await building("A glowing mushroom") });
     const graph = (g: string) => `${src("a mushroom that glows")}module.exports.graphs = {\n  glow: ${g},\n};\n`;
     const GOOD = `{ format: 1, nodes: [{ op: 'time' }, { op: 'sin', in: [0] }, { op: 'color', value: 0x2bd4a8 }, { op: 'mul', in: [2, 1] }], out: { emissive: 3 } }`;
     const before = (await db.query(`SELECT count(*)::int AS n FROM play.asset_versions`)).rows[0].n;

@@ -14,12 +14,13 @@ import { RECIPE_HEAD, recipeTail } from "../src/recipes";
 import { newId } from "../src/kit/uuid";
 import { type Api, appOn, type Fresh, freshDb, human, request, suite, tempStore, tool as mcpTool } from "./kit";
 import * as fx from "./fixtures/intents";
+import { LEVELS, OWNED } from "./fixtures/lod";
 
 const SPEC = fx.spec("A person moves.", "One asset. Nothing else changes.");
 /** a 46,925-character line, as Stand-in's embedded mesh is */
 const MESH = "A".repeat(46925 - '  const MESH = "";'.length);
 const LONG = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  const MESH = "${MESH}";\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
-const READABLE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n`;
+const READABLE = (line: string) => `module.exports.recipe = function (id, v, variant) {\n  // ${line}\n  return { meta: { id, v, variant }, build: () => null };\n};\n` + LEVELS;
 const LONG_REFUSED = /The source is not readable: a line of it is \d+ characters long/;
 
 suite("readable", () => {
@@ -116,9 +117,9 @@ suite("readable", () => {
   }
 
   test("a new asset with a long line is refused", async () => {
-    const made = await tool("propose_asset", { lod: { levels: "derived" }, group: "characters", label: "A new person", note: "new", source: LONG("new"), intent: await readyIntent("A new person") });
+    const made = await tool("propose_asset", { ...OWNED, group: "characters", label: "A new person", note: "new", source: LONG("new") + LEVELS, intent: await readyIntent("A new person") });
     expect(made.error).toMatch(LONG_REFUSED);
-    const ok = await tool("propose_asset", { lod: { levels: "derived" }, group: "characters", label: "A readable person", note: "new", source: READABLE("new"), intent: await readyIntent("A readable person") });
+    const ok = await tool("propose_asset", { ...OWNED, group: "characters", label: "A readable person", note: "new", source: READABLE("new"), intent: await readyIntent("A readable person") });
     expect(ok.error).toBeUndefined();
   });
 });

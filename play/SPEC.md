@@ -313,6 +313,32 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   as a plain material, and still do for what was made on them). At propose time play reads a recipe's graphs as a
   plain literal, `module.exports.graphs = { <name>: { format, nodes, out }, … }`, checks each with the same module and
   refuses a source that writes a shader of its own, saying why. A graph's format is frozen with its engine.
+- **Its own levels, within 300,000 triangles** (intent a7507347, Samuel 2026-11-11: "any asset touched can be max 300k
+  in its highest detail and needs to be optimized for this, while keeping realism as good as possible", its levels
+  "with its actual src files"). An asset's finest shape, its build (L0), has at most 300,000 triangles at every stage
+  and variant it has, and its lighter levels are its own: declared in its source, named on its card, versioned and
+  frozen with it, none left to be derived on a visitor's device. Realism first: the ceiling is reached by fewer,
+  better-spent triangles (cut-out foliage, instanced parts, detail where the eye rests), never by a poorer asset.
+  **When:** a new asset, and every new version whose source is not one its head was accepted with ("touched", a
+  variant's or a breed's source too); a version that changes its card alone is held as before. **Held three ways.**
+  (1) *From the text, at propose time* (`play/api/src/lod.ts` `heldLod`, wherever a source is taken: `propose_asset`,
+  `propose_doc_version`, `doc_edit`'s proposal, the page's): play refuses a touched version whose card says
+  `'derived'`, whose source exports no levels, or whose card carries no `lod.tris` (the triangles of its finest shape,
+  the most over every stage and variant) or one over the ceiling, saying the count, the ceiling and what is missing.
+  play runs no proposed code, so it never counts: `lod.tris` is the proposer's word, refused where it already breaks
+  the rule. (2) *Proven in avenBOX* (`play/site/scripts/census/ceiling.ts`): every asset is built headless in the
+  census's box (`census/built.ts`), each recipe it has at every whole stage, and what was built is counted
+  (`trianglesOf`: every instance, no stage, shadow or pass); an asset fails over the ceiling, `derived`, or with a
+  card claiming fewer triangles than it has. `--all` is every asset, a must of the intent that brought the rule and
+  of any that touches the census; `--intent <uuid>` counts what an intent's variants make, and is the must check
+  every intent that changes an asset's source carries (the Intents skill's Idea part), recorded by the box's run: so
+  a card's count is never taken on trust past Proposal. (3) *Known exceptions, by UUID*
+  (`census/ceiling.known.json`): the assets outside the rule the day it came (every one `derived`, 59 of 268 also
+  over the ceiling at their default shape), each as it was found; one fails nothing while it is outside the rule and
+  fails once it is within it, so the list only shrinks, and it excuses no changed source (an intent's variant of a
+  listed asset is held like any other). The ceiling is one number for every kind, `CEILING`, asked only through
+  `ceilingOf(group)` (`play/api/src/lod.ts`), which the server and the count both read: a ceiling by kind is later
+  decided there alone.
 - **One level-of-detail contract for every asset** (intent a2935147, Samuel 2026-11-07). Every asset is drawn at four
   levels by the one renderer (`play/site`'s `content/assets/render/`), chosen by its size on screen alone (`lod.js`:
   `LEVELS`, `HOLD`, `BAND`, its budgets): **L0** its build; **L1 and L2** its recipe's own where it declares them,

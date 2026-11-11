@@ -184,8 +184,8 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
           lod: {
             type: "object",
             description:
-              "its levels of detail (required: every new version names them): { levels: 'declared' } where its recipe declares its own L1 and L2 (module.exports.levels = [{ values: { detail: 0.25 } }, { values: { detail: 0.1 } }], a plain literal, each the same recipe built with those values, which its params declare), else { levels: 'derived' } (L1 and L2 simplified from its build within the renderer's budgets); L0 is its build, L3 its picture. Optional `budgets`: the triangle counts it is held to, L0 first",
-            properties: { levels: { type: "string", enum: ["declared", "derived"] }, budgets: { type: "array", items: { type: "integer", minimum: 1 }, maxItems: 4 } },
+              "its levels of detail (required). A new asset, or a version whose source changed, carries its own levels and stays within 300,000 triangles: { levels: 'declared', tris: <the triangles of its finest shape, the most over every stage and variant, at most 300,000> }, its recipe declaring its own L1 and L2 (module.exports.levels = [{ values: { detail: 0.25 } }, { values: { detail: 0.1 } }], a plain literal, each the same recipe built with those values, which its params declare); L0 is its build, L3 its picture. play runs no code: count it in avenBOX (bun play/site/scripts/census/ceiling.ts --intent <the intent's UUID>, which also proves the count; a must check of the intent). Reach the ceiling by fewer, better-spent triangles, never a poorer asset. Only a version that changes its card alone may stay { levels: 'derived' }. Optional `budgets`: the triangle counts it is held to, L0 first",
+            properties: { levels: { type: "string", enum: ["declared", "derived"] }, tris: { type: "integer", minimum: 1 }, budgets: { type: "array", items: { type: "integer", minimum: 1 }, maxItems: 4 } },
             required: ["levels"],
             additionalProperties: false,
           },
