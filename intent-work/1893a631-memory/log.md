@@ -62,3 +62,5 @@ The memory checks on GitHub's runner:
 - The recorded run always takes `vs-main.ts` from main, and c2's `run` is Samuel's.
 - The fix is a small intent on main: `words()` keeps a backslash where bash does. Then re-run #2253's recorded run.
 - Said in a comment on #2253. My message to the Orchestrator was refused: its session needs a trusted device.
+
+**06:13 UTC: stepped back to Specify by Samuel.** c2 re-specified as the same count with a fixed string, `grep -rhoF 'budget().release' …` (no backslash for `vs-main.ts` to drop); every other check as approved. Tried here: main 3 → head 0, within the bound; `words()` now reads the command as bash runs it. No code changes. Waiting for his approval, then the head's recorded run (run 42938950733) is run again on 15b31c29.
