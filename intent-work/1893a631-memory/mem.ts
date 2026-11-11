@@ -23,6 +23,7 @@ const PORT = 9400 + Math.floor(Math.random() * 500);
 const browser = await chromium.launch({ args: ['--ignore-gpu-blocklist', `--remote-debugging-port=${PORT}`] });
 const page = await browser.newPage({ viewport: { width: Number(process.env.VW ?? 1440), height: Number(process.env.VH ?? 900) }, deviceScaleFactor: Number(process.env.DPR ?? 2) });
 await page.addInitScript({ content: SEEDED_RANDOM });
+await page.addInitScript({ content: `Object.defineProperty(Navigator.prototype, "hardwareConcurrency", { get: () => ${Number(process.env.CORES ?? 8)}, configurable: true });` });
 if (Number(process.env.RAF ?? 250)) await page.addInitScript({ content: `if (window === top) { const ms = ${Number(process.env.RAF ?? 250)}; window.requestAnimationFrame = (f) => setTimeout(() => f(performance.now()), ms); window.cancelAnimationFrame = (i) => clearTimeout(i); }` });
 await page.addInitScript({ content: `
 if (window === top) {
