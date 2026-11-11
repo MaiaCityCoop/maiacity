@@ -94,7 +94,7 @@ level's turn came before a build's. c1 and c2 hold as specified.
 
 Pushed 50bd98b5 to the ready pull request #2256 at 23:42 UTC.
 
-## 2026-11-11 00:05–00:15 UTC · round 3: the box's first recorded run, and what the world's last step waits for
+## 2026-11-11 00:00–00:07 UTC · round 3: the box's first recorded run, and what the world's last step waits for
 
 The box's run on 50bd98b5 (https://github.com/MyAvenCEO/maiacity/actions/runs/42925494879), recorded:
 
@@ -125,7 +125,7 @@ way; 405f7a85's branch still merges by itself (it does not touch that line), and
 The picture: unchanged once grown; while the levels are being made a far tree without its lighter levels is drawn as
 its build (finer than it will be), never thinner.
 
-Pushed 6d895786 at 00:15 UTC.
+Pushed 6d895786 at 00:06 UTC.
 
 ### Seen on the way, outside this intent (for the realism programme and the morning)
 - The frame on GitHub's runner once the world shows: Sandbox 1 87.9 ms a frame, 774 draws, 2.24 M triangles; Sandbox 5
@@ -133,3 +133,16 @@ Pushed 6d895786 at 00:15 UTC.
 - An intent's real-GPU check runs both browsers inside one 600 s limit (main's intent.ts); on main as it is, one
   browser alone takes 280 s (205 s to the world, 60 s waiting to settle, the frames). Any intent with such a check
   (1893a631 has the same two) meets this until the load path is live.
+
+## 2026-11-11 00:07–00:20 UTC · round 4: c9, and a run cancelled by another's dry run
+
+| round | the change | before | after | kept |
+|---|---|---|---|---|
+| 4 | pool.js: a recipe built again goes to the free box that built it last (its worker warm), else any free box, never waiting (c9, nice; `pool.test.ts` "the box that built it") | 113 of 177 recipes built more than once a visit, each in whichever box was free | the same recipe's next build in its warm worker where that box is free (bench.ts: a warm second build is half a fresh one's, 5.8 s against 11.7 s for 24 plants) | kept (0c40886d) |
+| 4 | c2 lines after it | 608 | 608 (the slot's comment and the pick folded) | |
+| 4 | vitest box, render, assets/render; gate.sh site | green | green (120 s) | |
+
+The recorded run on 6d895786 was **cancelled, not failed**, at 00:16: d3f98bcc's builder dispatched a dry run of its
+own intents-pr.yml (the longer limit for a check on a real GPU) with `pr: 2256`, which shares this pull request's
+concurrency group. It runs my spec on my head and records nothing; its gpu job is the reading c6 and c7 could not give.
+So 0c40886d waits locally until that dry run ends, then is pushed for the recorded run.
