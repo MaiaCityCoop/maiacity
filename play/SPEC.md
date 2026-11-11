@@ -758,7 +758,12 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     396 s (WebKit) to Sandbox 5, nearly all of it the CPU growing the forest's 180 kinds, then 9 and 20 frames a
     second; so a time bound there (`--world-within`, `--frame-within`) compares only with other runs on that runner,
     and a Mac's own frame time is still Samuel's Mac's. The job's setup is half a minute, one world in one browser six
-    to seven. `--steps` prints what the cover said on the way, each step with its second. **`--sky`** (intent c929d52c)
+    to seven. **Such a check's limit is its own** (intent d3f98bcc; `intent.ts` `GPU_LIMIT`, 1500 s, where every
+    other check has `LIMIT`, 600 s, and `--timeout` sets both by hand): two engines one after another need more than
+    ten minutes there (Chromium's world in 205 to 280 s, WebKit's in about 400 s, each then up to 60 s to settle and
+    10 s of frames), and `gpu.ts`'s own limits (600 s an engine to its world) end a check first, in its own words;
+    the job has 90 minutes, three such checks at their limit after its build. A check killed at its limit keeps what
+    it had printed and says which engine had finished, with its numbers, and which had not. `--steps` prints what the cover said on the way, each step with its second. **`--sky`** (intent c929d52c)
     takes the sky's pictures too, once the world is measured: the eye lifted 45 m where it stands, turned round and up
     (the film camera's hold, `window.__world`), the hour pinned as a film pins it, at dawn, noon, dusk and night (`SKY_HOURS`: the sun 4°
     up at either end of the day), at 1440 × 900 and at a phone's 390 × 844, `<browser>-sky-<hour>-<size>.png` beside
