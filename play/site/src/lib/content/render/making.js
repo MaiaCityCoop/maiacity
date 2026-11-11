@@ -124,6 +124,8 @@ export const making = createMaking();
 
 /** the pipelines being compiled beside the page (`drawWhenReady`), every renderer's */
 let compiling = 0;
+/** the most pipelines compiled beside the page at once */
+export const COMPILING = 2;
 /** how many pipelines are being compiled beside the page: a world is not settled while any is (../../../../scripts/lib/quiet.js) */
 export const pipelinesPending = () => compiling;
 if (typeof window !== 'undefined') /** @type {any} */ (window).__pipelinesPending = pipelinesPending;
@@ -146,6 +148,10 @@ export function drawWhenReady(renderer) {
 	const now = pipelines.updateForRender.bind(pipelines);
 	pipelines.updateForRender = (/** @type {any} */ renderObject) => {
 		if (!renderer.drawWhenReady) return now(renderObject);
+		// a few at a time: WebKit's graphics process compiles them, and with all a walk meets at once it presented no
+		// frame for seconds (GitHub's runner at 1d74348: 3.3 s frames whose page's own work was 0.5 s). One with none
+		// yet waits its turn, not drawn (three's own while a pipeline compiles); one being remade goes on
+		if (compiling >= COMPILING && pipelines.get(renderObject).pipeline === undefined) return;
 		/** @type {Promise<void>[]} */
 		const made = [];
 		pipelines.getForRender(renderObject, made);

@@ -8,7 +8,7 @@ import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { SLICE, createMaking, drawWhenReady, pipelinesPending, writeOnUnmap } from './making.js';
+import { COMPILING, SLICE, createMaking, drawWhenReady, pipelinesPending, writeOnUnmap } from './making.js';
 
 /** a page whose clock and frames the test drives: work moves the clock; each frame's making is kept */
 function page() {
@@ -103,7 +103,9 @@ test('nothing waiting, no frame is asked for', async () => {
 function fakeRenderer() {
 	const asked: (unknown[] | null)[] = [];
 	const ready: (() => void)[] = [];
+	const data = new Map<unknown, { pipeline?: unknown }>();
 	const pipelines = {
+		get: (ro: unknown) => (data.has(ro) || data.set(ro, {}), data.get(ro)!),
 		getForRender(_ro: unknown, promises: unknown[] | null = null) {
 			asked.push(promises);
 			if (promises) promises.push(new Promise<void>((ok) => ready.push(ok)));
@@ -174,4 +176,30 @@ test("three makes a new vertex buffer mapped, fills all of it and unmaps it, wit
 	const three = dirname(createRequire(import.meta.url).resolve('three/package.json'));
 	const utils = readFileSync(join(three, 'src/renderers/webgpu/utils/WebGPUAttributeUtils.js'), 'utf8');
 	expect(utils).toMatch(/_bufferDescriptor\.mappedAtCreation = true;\s*buffer = device\.createBuffer\( _bufferDescriptor \);\s*_bufferDescriptor\.reset\(\);\s*new array\.constructor\( buffer\.getMappedRange\(\) \)\.set\( array \);\s*buffer\.unmap\(\);/);
+});
+
+test('a few pipelines compile at once: a new object waits its turn while they do, one being remade goes on', async () => {
+	const { renderer, asked, ready } = fakeRenderer();
+	drawWhenReady(renderer);
+	renderer.drawWhenReady = true;
+	const objects = Array.from({ length: COMPILING + 2 }, () => ({}));
+	for (const o of objects) renderer._pipelines.updateForRender(o);
+	expect(asked.length).toBe(COMPILING);
+	expect(pipelinesPending()).toBe(COMPILING);
+	// one that has a pipeline already (its material changed) is remade whatever compiles
+	const made = {};
+	renderer._pipelines.get(made).pipeline = 'old';
+	renderer._pipelines.updateForRender(made);
+	expect(asked.length).toBe(COMPILING + 1);
+	// turns come free (the remade one counts too): the next waiting one compiles
+	ready[0]();
+	ready[1]();
+	await Promise.resolve();
+	await Promise.resolve();
+	renderer._pipelines.updateForRender(objects[COMPILING]);
+	expect(asked.length).toBe(COMPILING + 2);
+	for (const r of ready) r();
+	await Promise.resolve();
+	await Promise.resolve();
+	expect(pipelinesPending()).toBe(0);
 });
