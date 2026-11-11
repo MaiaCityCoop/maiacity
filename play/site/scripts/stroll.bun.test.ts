@@ -71,6 +71,11 @@ test('a smooth stroll passes; a held frame, a heavy tail or a minute of hitches 
 	expect(judgeStroll('cold', statsOf(trace(60, 25)), b)).toEqual(['the cold stroll\'s 99th percentile frame 25 ms, more than 20 ms']);
 	expect(judgeStroll('cold', null, b)).toEqual(['the cold stroll drew no frames']);
 	expect(judgeStroll('cold', null, {})).toEqual([]);
+	// against the world's standing frames: a slow machine's slowness passes, a stall out of it fails
+	const slow = statsOf(trace(60, 280, { 50: 900 }));
+	expect(judgeStroll('cold', slow, { overStanding: 2, standingP95: 1031 })).toEqual([]);
+	expect(judgeStroll('cold', statsOf(trace(60, 280, { 50: 6519 })), { overStanding: 2, standingP95: 1031 })).toEqual(['the cold stroll held a frame 6519 ms, more than 2 × the standing p95 1031 ms']);
+	expect(judgeStroll('cold', slow, { overStanding: 2, standingP95: null })).toEqual(['the cold stroll has no standing frames to be judged against']);
 });
 
 test('the worst frames are named with what was being made in them', () => {

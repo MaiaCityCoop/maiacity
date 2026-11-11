@@ -23,7 +23,9 @@
  *                  (warm: the browser's and the device's caches kept), every frame's interval kept with the long tasks
  *                  and the page's `make:*` spans; the five worst frames of each are printed with what was being made
  * --stroll-max     no frame of either stroll over that many ms; --stroll-p99 their 99th percentile frame at most that
- *                  many ms; --stroll-per-minute at most that many frames over 33 ms in any minute of either (each asks for --stroll)
+ *                  many ms; --stroll-per-minute at most that many frames over 33 ms in any minute of either;
+ *                  --stroll-over-standing no frame of either over that many times the world's p95 frame standing still,
+ *                  measured in the same load (a stall told from a slow machine's own slowness: GitHub's VM) (each asks for --stroll)
  * --views          also photographs the world from the census's views (./census/run.ts VIEWS), the eye put there and
  *                  the world left to settle: <out>/<browser>-<view>.png, so what is far is judged on a real GPU (intent 92fbecea)
  * --timeout        how long the world may take to come up (600: GitHub's runner needs 270 to 400 s for Sandbox 5)
@@ -142,7 +144,7 @@ export type Measure = {
 	sky?: string[];
 	errors: string[];
 };
-export type Bounds = { worldWithin?: number; frameWithin?: number; walkWithin?: number; sky?: boolean; strollMax?: number; strollP99?: number; strollPerMinute?: number };
+export type Bounds = { worldWithin?: number; frameWithin?: number; walkWithin?: number; sky?: boolean; strollMax?: number; strollP99?: number; strollPerMinute?: number; strollOverStanding?: number };
 
 /** --sky: the hours of the world's day the sky is photographed at, and the sizes */
 export const SKY_HOURS = { dawn: 5.35, noon: 12.5, dusk: 19.65, night: 23 };
@@ -194,7 +196,7 @@ export function judge(m: Measure, b: Bounds = {}): string[] {
 	if (b.frameWithin !== undefined && (m.frame_ms === null || m.frame_ms > b.frameWithin)) why.push(`a frame took ${m.frame_ms ?? '—'} ms, more than ${b.frameWithin} ms`);
 	if (b.walkWithin !== undefined && (m.walk_ms === null || m.walk_ms > b.walkWithin)) why.push(`a frame walking took ${m.walk_ms ?? '—'} ms, more than ${b.walkWithin} ms`);
 	if (b.sky && m.world_s !== null && !m.sky?.length) why.push('no sky pictures');
-	const sb = { max: b.strollMax, p99: b.strollP99, perMinute: b.strollPerMinute };
+	const sb = { max: b.strollMax, p99: b.strollP99, perMinute: b.strollPerMinute, overStanding: b.strollOverStanding, standingP95: m.frame_p95 };
 	if (m.world_s !== null) for (const k of ['cold', 'warm'] as const) why.push(...judgeStroll(k, m[`stroll_${k}`] ?? null, sb));
 	return why;
 }
@@ -415,7 +417,7 @@ if (import.meta.main) {
 	// its pictures: --out, else a folder a call under GPU_OUT (the gpu job's artifact) or the temp folder, named by its check and world
 	const out = resolve(arg('--out') ?? join(process.env.GPU_OUT ?? join(tmpdir(), 'gpu-out'), `${process.env.INTENT_CHECK ?? 'world'}${world.replace(/\W+/g, '-').replace(/-$/, '')}`));
 	const inputs = resolve(arg('--inputs', join(SITE, 'scripts/census/inputs'))!);
-	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within'), walkWithin: num('--walk-within'), sky: argv.includes('--sky'), strollMax: num('--stroll-max'), strollP99: num('--stroll-p99'), strollPerMinute: num('--stroll-per-minute') };
+	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within'), walkWithin: num('--walk-within'), sky: argv.includes('--sky'), strollMax: num('--stroll-max'), strollP99: num('--stroll-p99'), strollPerMinute: num('--stroll-per-minute'), strollOverStanding: num('--stroll-over-standing') };
 	const fail = (why: string): never => (console.log(`gpu: ${why}`), process.exit(1));
 	for (const b of browsers) if (!BROWSERS[b]) fail(`no browser ${b} (chromium, webkit)`);
 

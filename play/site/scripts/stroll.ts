@@ -13,7 +13,7 @@ export type Pt = { x: number; z: number };
 /** a stroll's frames: each frame's end (ms from the stroll's start) and interval, the long tasks and the making spans */
 export type Trace = { at: number[]; dt: number[]; long: [number, number][]; spans: [string, number, number][] };
 export type StrollStats = { frames: number; seconds: number; max_ms: number; p99_ms: number; over50: number; over33_min: number; worst: string[] };
-export type StrollBounds = { max?: number; p99?: number; perMinute?: number };
+export type StrollBounds = { max?: number; p99?: number; perMinute?: number; overStanding?: number; standingP95?: number | null };
 
 /** the walker's own pace (sandbox-kit/walker.js PACE.walk), m/s */
 export const PACE = 6.45;
@@ -21,7 +21,8 @@ export const PACE = 6.45;
 /**
  * The route: from where the eye stands, past each dome in turn (the nearest not yet passed next), at `side` metres
  * beside its edge, so its inside is built ahead and shown as the walker comes by; then round again, until the route is
- * long enough for `seconds` at `pace`. With no domes, a square of 120 m round the start.
+ * long enough for `seconds` at `pace`. With no domes (Sandbox 5's forest), one square round the start walked once in
+ * the stroll's time, so it keeps meeting new ground.
  */
 export function routeOf(start: Pt, domes: (Pt & { ext?: number })[], seconds: number, pace = PACE, side = 6): Pt[] {
 	const need = seconds * pace;
@@ -32,9 +33,10 @@ export function routeOf(start: Pt, domes: (Pt & { ext?: number })[], seconds: nu
 		len += Math.hypot(p.x - l.x, p.z - l.z);
 		pts.push(p);
 	};
+	const a = need / 8;
 	const ring = domes.length
 		? domes
-		: [{ x: start.x + 60, z: start.z }, { x: start.x + 60, z: start.z - 120 }, { x: start.x - 60, z: start.z - 120 }, { x: start.x - 60, z: start.z }];
+		: [{ x: start.x + a, z: start.z }, { x: start.x + a, z: start.z - 2 * a }, { x: start.x - a, z: start.z - 2 * a }, { x: start.x - a, z: start.z }];
 	for (let round = 0; len < need && round < 50; round++) {
 		const left = ring.map((_, i) => i);
 		while (left.length && len < need) {
@@ -103,11 +105,17 @@ export function statsOf(t: Trace): StrollStats {
 
 /** why a stroll fails its bounds: nothing when every bound holds */
 export function judgeStroll(label: string, s: StrollStats | null, b: StrollBounds): string[] {
-	if (b.max === undefined && b.p99 === undefined && b.perMinute === undefined) return [];
+	if (b.max === undefined && b.p99 === undefined && b.perMinute === undefined && b.overStanding === undefined) return [];
 	if (!s || s.frames < 2) return [`the ${label} stroll drew no frames`];
 	const why: string[] = [];
 	if (b.max !== undefined && s.max_ms > b.max) why.push(`the ${label} stroll held a frame ${s.max_ms} ms (${s.over50} over 50 ms), more than ${b.max} ms`);
 	if (b.p99 !== undefined && s.p99_ms > b.p99) why.push(`the ${label} stroll's 99th percentile frame ${s.p99_ms} ms, more than ${b.p99} ms`);
+	// a walking frame against the same world's standing frames in the same load: on a machine slow at everything (GitHub's
+	// VM) a stall is what stands out of its own slowness
+	if (b.overStanding !== undefined) {
+		if (!b.standingP95) why.push(`the ${label} stroll has no standing frames to be judged against`);
+		else if (s.max_ms > b.overStanding * b.standingP95) why.push(`the ${label} stroll held a frame ${s.max_ms} ms, more than ${b.overStanding} × the standing p95 ${b.standingP95} ms`);
+	}
 	if (b.perMinute !== undefined && s.over33_min > b.perMinute) why.push(`the ${label} stroll had ${s.over33_min} frames over 33 ms in a minute, more than ${b.perMinute}`);
 	return why;
 }

@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 /** gpu.ts's own defaults: the world and the engines a call names when it names none */
 export const DEFAULTS = { world: '/sandbox-5/', browser: 'chromium,webkit' };
 /** a call's flags that change nothing of a load: what to load, where to write, how to print, the bounds judged after */
-const READ = new Set(['--world', '--browser', '--out', '--steps', '--record', '--software', '--world-within', '--frame-within', '--walk-within', '--stroll-max', '--stroll-p99', '--stroll-per-minute']);
+const READ = new Set(['--world', '--browser', '--out', '--steps', '--record', '--software', '--world-within', '--frame-within', '--walk-within', '--stroll-max', '--stroll-p99', '--stroll-per-minute', '--stroll-over-standing']);
 /** flags whose value names the load, never merged (other pinned inputs are another load) */
 const KEY = new Set(['--inputs']);
 /** a value handed to the load's command line, unquoted: a route, a number, a list, a path */
