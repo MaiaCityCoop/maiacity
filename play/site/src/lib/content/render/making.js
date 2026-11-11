@@ -126,8 +126,10 @@ export const making = createMaking();
 let compiling = 0;
 /** the most pipelines compiled beside the page at once */
 export const COMPILING = 2;
-/** the most compiled at once while the eye stands */
-export const STANDING = 6;
+/** the most compiled at once while the eye stands: the queue drains fast, so a world just opened fills in seconds
+ *  (never unbounded: at 843e7ac WebKit's graphics process gave out). Turns go nearest first: three draws what is opaque
+ *  front to back (cut-out foliage too), so each frame the nearest ask first and take the turns that are free */
+export const STANDING = 12;
 /** the objects waiting for a turn to compile, each with when it last asked (ms): one that has not asked for a second
  *  (gone from view) no longer counts */
 const waiting = new Map();
