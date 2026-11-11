@@ -33,6 +33,7 @@ import { HASH } from "./kit/hash";
 import type { Formats, Tool, ToolCtx } from "./mcptool";
 import { intentTools } from "./intenttools";
 import { artifactTools } from "./artifacttools";
+import { leadTools } from "./leadtools";
 import { answerOf, statusOf } from "./fault";
 
 const PROTOCOL = "2025-06-18";
@@ -429,13 +430,15 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     ...intentTools(c),
     // ---- artifacts (./artifacts.ts, play/SPEC.md §4.13): Maia City's library of links, kept by avenMAIA
     ...artifactTools(c),
+    // ---- Butler James (./leads.ts, intent a6ae861e): Maia City's CRM table of leads
+    ...leadTools(c),
   ];
 
   // to propose is to put an intent at Proposal (play/SPEC.md §4.12), held to its gate first (./intents.ts intentReady),
   // its work replacing any it held; without one nothing is taken. Every propose tool gives back the intent (`intent`, at stage proposal)
   for (const t of tools) {
     if (!t.proposes) continue;
-    // an artifact added or corrected without one makes its own (./artifacts.ts): the first rule needs no tap for it
+    // an artifact or a lead added or changed without one makes its own (./own.ts): the rules may need no tap for it
     const own = t.proposes === "own";
     (t.inputSchema.properties as Record<string, unknown>).intent = {
       type: "string",
@@ -445,7 +448,7 @@ export function mcp({ db, store, github = null, commit }: { db: Db; store: BlobS
     if (!req.includes("intent") && !own) req.push("intent");
     if (own)
       (t.inputSchema.properties as Record<string, any>).intent.description =
-        "the intent this is the work of, by its id (a UUID), in Build or at Proposal with every must check passed, held to its gate. Left out, it makes its own: an intent declaring the artifact, its spec play's, approved and accepted in the same request where a rule matches (the first: artifacts need no tap), else waiting for a person";
+        "the intent this is the work of, by its id (a UUID), in Build or at Proposal with every must check passed, held to its gate. Left out, it makes its own: an intent declaring its document's kind, its spec play's, approved and accepted in the same request where a rule matches (artifacts need no tap; leads need no tap), else waiting for a person";
     const run = t.run;
     t.run = async ({ intent, ...args }, me) => {
       if (intent === undefined || intent === null || intent === "") {

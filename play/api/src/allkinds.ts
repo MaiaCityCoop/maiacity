@@ -14,6 +14,7 @@ import { storyListed } from "./listed";
 import { stagesSaid } from "./kit/stages";
 import { ensureLayoutDoc, LAYOUT_EDITS, layoutBefore, layoutReview, layoutShown, layoutView, layoutWrite, sandboxCheck, writeRows } from "./sandboxes";
 import { ensureArtifactDoc } from "./artifacts";
+import { leadCheck } from "./leads";
 import { namedWhy } from "./recipes";
 import { intentPieces, keepPiece, PieceError, pieceProblems, piecesHeld, piecesOf } from "./pieces";
 
@@ -188,4 +189,12 @@ const piece: Kind = {
   }),
 };
 
-for (const k of [asset, story, factory, gameConfig, skill, sandbox, schema, artifact, piece]) register(k);
+// a lead of Butler James (./leads.ts, intent a6ae861e): its row in play.records, labelled by its company (only shown);
+// a new lead's Main is only its schema until it is accepted
+const lead: Kind = {
+  name: "lead", prefix: "lead", schema: SCHEMA.lead, check: leadCheck, work: "lead_version", table: "play.records", where: "r.kind = 'lead'", label: "lead", group: "leads", open: "/butler-james/?lead={id}&intent={intent}",
+  row: { kind: () => "lead", label: (j) => j.company ?? "lead", updated: () => new Date() },
+  item: (json) => ({ company: json.company ?? null, stage: json.stage ?? null }),
+};
+
+for (const k of [asset, story, factory, gameConfig, skill, sandbox, schema, artifact, piece, lead]) register(k);
