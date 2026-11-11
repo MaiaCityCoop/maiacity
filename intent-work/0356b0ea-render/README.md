@@ -18,6 +18,6 @@ bash intent-work/0356b0ea-render/run.sh --browser webkit     # WebKit alone
 - **Out:** printed only, a few dozen lines: a browser's frame whole, a line a part (`without <part> (<meshes>,
   <triangles>): <ms> · it costs <ms>`), and whole again. **Send back** those lines to the 0356b0ea builder session.
 
-**Dry run** (avenBOX, CPU, no GPU), passed before this job was handed on:
+**Dry run** (avenBOX, CPU, no GPU): DRY RUN PASSED at 16ae4fa7 (both browsers, every part hidden and shown again):
 
     bun play/site/scripts/macjob/dry.ts intent-work/0356b0ea-render --at <the job's commit>
