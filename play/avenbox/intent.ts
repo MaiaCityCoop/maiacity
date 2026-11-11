@@ -75,29 +75,13 @@ const withFile = option("--with");
 const onGpu = (c: { run?: string }) => /\bbun\s+(\S*\/)?scripts\/gpu\.ts\b/.test(c.run ?? "");
 /** a check's limit, in seconds: it is killed there (exit 124) */
 const LIMIT = 600;
-/** the limit of a check measured on a real GPU (intent d3f98bcc). gpu.ts measures its engines one after another, and
- *  gives each 600 s to show the world, 60 s to settle, 10 s of frames and 10 s for its cover to go: about 700 s an
- *  engine with its start and picture, 1400 s for Chromium and WebKit. GitHub's macOS runner took 205 to 280 s for
- *  Chromium's world (run 42925494879) and 396 s for WebKit's (Sandbox 5, the probe: play/SPEC.md §4.12), so two
- *  engines need about 800 s, more than LIMIT. With this limit gpu.ts's own end a check first, in its own words
- *  (which engine, at which step), and this one only ends a check that hangs. */
+/** the limit of a check that loads a world on a real GPU itself (intent d3f98bcc; on a pull request it reads the
+ *  gpu-load jobs' loads instead, in seconds: intent a35ccd33). gpu.ts gives each engine 600 s to show the world, 60 s
+ *  to settle and 20 s to measure, one engine after the other: with this limit gpu.ts ends a check first, in its own
+ *  words, and this one only ends a check that hangs. */
 const GPU_LIMIT = 1500;
 const byHand = option("--timeout");
 const limitOf = (c: { run?: string }) => (byHand !== undefined ? Number(byHand) : onGpu(c) ? GPU_LIMIT : LIMIT);
-/** what a killed check leaves: that it was killed, and for one on a GPU which engines had finished, with their numbers,
- *  and which had not (gpu.ts prints an engine's line, "✓ chromium … world in 205.3 s … 115 frames in 10 s, 87.9 ms each",
- *  only once it is through with it; its run's --browser names the engines, Chromium and WebKit where it names none) */
-function killed(c: { run?: string }, out: string, limit: number): string {
-  if (!onGpu(c)) return `(killed after ${limit} s)`;
-  const engines = (/--browser[= ]\s*([\w,]+)/.exec(c.run ?? "")?.[1] ?? "chromium,webkit").split(",");
-  const said = engines.map((e) => {
-    const line = out.split("\n").find((l) => new RegExp(`^[✓✗] ${e} `).test(l));
-    if (!line) return `${e} had not finished`;
-    const n = /world in (\S+) s.*? · (\S+) frames in 10 s, (\S+) ms each/.exec(line);
-    return `${e} had finished${n ? ` (world in ${n[1]} s, ${n[2]} frames in 10 s, ${n[3]} ms each)` : ""}`;
-  });
-  return `(killed after ${limit} s: ${said.join("; ")})`;
-}
 const head = option("--head");
 if (head !== undefined && !SHA.test(head)) usage("--head is the pull request's head, a 40-character git hash.");
 const ROOT = resolve(option("--root") ?? resolve(import.meta.dir, "../.."));
@@ -166,7 +150,8 @@ async function runOne(run: string, env: Record<string, string | undefined>) {
   clearTimeout(timer);
   const lines = out.replace(/\s+$/, "").split("\n");
   let tail = lines.slice(-TAIL).join("\n");
-  if (timedOut) tail += `\n${killed({ run }, out, limit)}`;
+  // a check on a GPU keeps in its tail each engine's line gpu.ts printed before it was killed
+  if (timedOut) tail += `\n(killed after ${limit} s)`;
   return { code: timedOut ? 124 : code, seconds: (performance.now() - start) / 1000, tail };
 }
 
