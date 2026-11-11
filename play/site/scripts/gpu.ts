@@ -257,10 +257,10 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 				if (performance.now() - t0 > o.timeout) throw new Error(`the world was not up${label ? ` ${label.trim()}` : ''} within ${o.timeout / 1000} s (at: ${said || 'nothing said'})`);
 			}
 		};
-		/** settled (./lib/quiet.js) within --settle: the seconds it took, or null */
-		const settled = async () => {
+		/** settled (./lib/quiet.js: still twice, a second apart) within that many seconds: the seconds it took, or null */
+		const settled = async (within = o.settle) => {
 			const t1 = performance.now();
-			for (let zero = 0; performance.now() - t1 < o.settle * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
+			for (let zero = 0; performance.now() - t1 < within * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
 			return (await page.evaluate(quietness).catch(() => null)) === 0 ? Math.round((performance.now() - t1) / 100) / 10 : null;
 		};
 		const t0 = performance.now();
@@ -323,7 +323,7 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 				continue;
 			}
 			const t2 = performance.now();
-			for (let zero = 0; performance.now() - t2 < 30_000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
+			await settled(30);
 			await page.screenshot({ path: join(o.out, `${name}-${view}.png`), timeout: 120_000 });
 			m.steps.push(`${view} view photographed after ${Math.round((performance.now() - t2) / 100) / 10} s`);
 		}
@@ -354,10 +354,7 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 					{ v: VIEWS.near, step: STEP, seconds }
 				);
 			const placed = await page.evaluate((v) => ((window as any).__walker ? ((window as any).__walker.place(v.x, v.z, v.yaw, v.pitch), true) : false), VIEWS.near);
-			if (placed) {
-				const t2 = performance.now();
-				for (let zero = 0; performance.now() - t2 < Math.min(o.settle, 10) * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
-			}
+			if (placed) await settled(Math.min(o.settle, 10));
 			const w = await walking(10);
 			// and where a walking frame's JavaScript goes, in Chromium (its own profiler; the build's names): 5 s more
 			if (w && name === 'chromium') {
