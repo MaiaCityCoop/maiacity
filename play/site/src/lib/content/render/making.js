@@ -117,33 +117,25 @@ export function createMaking(o = {}) {
 /** the page's one making: every world's makers take from it */
 export const making = createMaking();
 
-/** the pipelines being compiled beside the page (`drawWhenReady`), every renderer's, and the objects held back a frame for their uploads */
-let compiling = 0, holding = 0, held = 0;
-/** how much a walked world still makes beside the page: pipelines compiling, objects waiting for their corners to be
- *  sent. A world is not settled while any is (../../../../scripts/lib/quiet.js) */
-export const pipelinesPending = () => compiling + Math.max(holding, held);
+/** the pipelines being compiled beside the page (`drawWhenReady`), every renderer's */
+let compiling = 0;
+/** how many pipelines are being compiled beside the page: a world is not settled while any is (../../../../scripts/lib/quiet.js) */
+export const pipelinesPending = () => compiling;
 if (typeof window !== 'undefined') /** @type {any} */ (window).__pipelinesPending = pipelinesPending;
 
-/** the most new geometry (bytes) sent to the graphics card in one of the walker's frames */
-export const UPLOAD = 2 * 1024 * 1024;
-/** three's RenderObjectRefreshType.FULL: an object's nodes, corners and bindings all made again */
-const FULL = 2;
-
 /**
- * A renderer that, while `renderer.drawWhenReady` is true (the walker's frames), never holds a frame for what it meets
- * the first time (intent 095bc67c; GitHub's runner, WebKit: the walk's frames held 2 to 6 s in `make:render`, all but
- * milliseconds of it three's geometry uploads):
- * - its new pipelines are compiled beside the page (`createRenderPipelineAsync`, compileAsync's path, taken instead of
- *   `render()`'s `createRenderPipeline`, which WebKit compiles there and then);
- * - its new corners go to the graphics card `UPLOAD` bytes a frame at most (one object's whatever its size, first): an
- *   object whose corners wait is held back that frame and drawn once they are sent, a few frames on.
- * three's own render skips an object until it is ready (Renderer `_renderObjectDirect`: `isReady`); a held one is made
- * whole again the next frame (`needsRefresh` FULL). A film's frames (`drawWhenReady` false) wait for everything: no
- * shot misses a thing. After the renderer's `init` (its pipelines, geometries and nodes are made there).
+ * A renderer whose new pipelines are compiled beside the page while `renderer.drawWhenReady` is true (the walker's
+ * frames): what is met for the first time is drawn from the frame its pipeline is ready, a few frames on, and no frame
+ * waits for it. three's `render()` makes a new pipeline at once (`device.createRenderPipeline`), which WebKit compiles
+ * there and then; its async path (`createRenderPipelineAsync`, compileAsync's) is taken instead, and three's own render
+ * skips an object until its pipeline is ready (Renderer `_renderObjectDirect`, Pipelines `isReady`). A film's frames
+ * (`drawWhenReady` false) still wait for every pipeline: no shot misses a thing. After the renderer's `init`.
+ * (Holding an object back for its corners inside three's draw, tried at 6266d3f, broke what reads a drawn object's
+ * buffers: uploads are paced where their objects are made, before they are shown.)
  * @param {any} renderer
  */
 export function drawWhenReady(renderer) {
-	const pipelines = renderer._pipelines, geometries = renderer._geometries, nodes = renderer._nodes;
+	const pipelines = renderer._pipelines;
 	if (!pipelines || pipelines.__drawWhenReady) return;
 	pipelines.__drawWhenReady = true;
 	const now = pipelines.updateForRender.bind(pipelines);
@@ -160,37 +152,6 @@ export function drawWhenReady(renderer) {
 			);
 		}
 	};
-	if (!geometries || !nodes) return;
-	/** the attributes already sent, the objects held back, and this frame's bytes */
-	const sent = new WeakSet(), back = new WeakSet();
-	let bytes = 0, frame = -1;
-	const attributesOf = (/** @type {any} */ ro) => {
-		const out = ro.getAttributes().map((/** @type {any} */ a) => renderer.backend.getBufferAttribute?.(a) ?? a);
-		const index = geometries.getIndex(ro);
-		if (index) out.push(index);
-		return out;
-	};
-	const upload = geometries.updateForRender.bind(geometries);
-	geometries.updateForRender = (/** @type {any} */ ro) => {
-		// a frame is the page's animation frame: one stamp for every render call in it (the shadows', the picture's)
-		const stamp = (typeof document !== 'undefined' && /** @type {number | null} */ (document.timeline?.currentTime)) || 0;
-		if (stamp !== frame) (frame = stamp), (bytes = 0), (held = holding), (holding = 0);
-		const fresh = attributesOf(ro).filter((/** @type {any} */ a) => !sent.has(a));
-		const size = fresh.reduce((/** @type {number} */ n, /** @type {any} */ a) => n + (a.array?.byteLength ?? 0), 0);
-		if (renderer.drawWhenReady && size && bytes && bytes + size > UPLOAD) {
-			back.add(ro);
-			holding++;
-			return;
-		}
-		bytes += size;
-		back.delete(ro);
-		upload(ro);
-		for (const a of fresh) sent.add(a);
-	};
-	const ready = pipelines.isReady.bind(pipelines);
-	pipelines.isReady = (/** @type {any} */ ro) => !back.has(ro) && ready(ro);
-	const refresh = nodes.needsRefresh.bind(nodes);
-	nodes.needsRefresh = (/** @type {any} */ ro) => (back.has(ro) ? FULL : refresh(ro));
 }
 
 /** three's own steps inside a draw, timed (`timeRender`): each kind's milliseconds this frame */
@@ -218,13 +179,38 @@ export function timeRender(renderer) {
 		};
 	};
 	wrap(renderer._objects, 'get', 'objects');
-	wrap(renderer._geometries, 'updateForRender', 'uploads');
+	// each object's corners sent, timed on its own: a frame's three slowest named with what they were (the walk's check reads them)
+	const geometries = renderer._geometries;
+	if (geometries?.updateForRender) {
+		const was = geometries.updateForRender.bind(geometries);
+		geometries.updateForRender = (/** @type {any} */ ro) => {
+			const t = performance.now();
+			try {
+				return was(ro);
+			} finally {
+				const ms = performance.now() - t;
+				inside.set('uploads', (inside.get('uploads') ?? 0) + ms);
+				if (ms >= 2) {
+					const o = ro.object, g = ro.geometry, n = g?.attributes?.position?.count ?? 0;
+					const mb = Object.values(g?.attributes ?? {}).reduce((/** @type {number} */ a, /** @type {any} */ x) => a + (x.array?.byteLength ?? 0), g?.index?.array?.byteLength ?? 0) / 1e6;
+					const what = `${o?.name || o?.type || 'object'}${o?.isInstancedMesh ? ` ×${o.count}` : ''} ${n} corners${mb ? ` ${mb.toFixed(1)} MB` : ''}`;
+					slowest.push([what, ms]);
+					slowest.sort((x, y) => y[1] - x[1]).splice(3);
+				}
+			}
+		};
+	}
 	wrap(renderer._bindings, 'updateForRender', 'bindings');
 	wrap(renderer._pipelines, 'getForRender', 'pipelines');
 	wrap(renderer._textures, 'updateTexture', 'textures');
 }
+/** this frame's slowest single uploads: what each was and its milliseconds */
+/** @type {[string, number][]} */
+const slowest = [];
 /** this frame's steps inside the draw named, each `make:render <kind>` laid from `start` (where it took 2 ms or more), and cleared */
 export function renderParts(/** @type {number} */ start) {
 	for (const [kind, ms] of inside) named(`render ${kind}`, start, start + ms);
+	for (const [what, ms] of slowest) named(`upload ${what}`, start, start + ms);
 	inside.clear();
+	slowest.length = 0;
 }

@@ -99,11 +99,10 @@ test('nothing waiting, no frame is asked for', async () => {
 	expect(p.making.waiting()).toBe(0);
 });
 
-/** a renderer's insides as three's are: pipelines made once (beside the page when handed a list), corners sent per object */
+/** a renderer's pipelines as three's are: getForRender makes a pipeline once, beside the page when handed a list */
 function fakeRenderer() {
 	const asked: (unknown[] | null)[] = [];
 	const ready: (() => void)[] = [];
-	const uploaded: unknown[] = [];
 	const pipelines = {
 		getForRender(_ro: unknown, promises: unknown[] | null = null) {
 			asked.push(promises);
@@ -111,19 +110,10 @@ function fakeRenderer() {
 		},
 		updateForRender(ro: unknown) {
 			this.getForRender(ro);
-		},
-		isReady: (_ro: unknown) => true
+		}
 	};
-	const geometries = { updateForRender: (ro: unknown) => void uploaded.push(ro), getIndex: (_ro: unknown) => null };
-	const nodes = { needsRefresh: (_ro: unknown) => 0 };
-	const renderer = { _pipelines: pipelines, _geometries: geometries, _nodes: nodes, backend: {}, drawWhenReady: false };
-	return { renderer, asked, ready, uploaded };
+	return { renderer: { _pipelines: pipelines, drawWhenReady: false }, asked, ready };
 }
-/** an object to draw with corners of `mb` megabytes */
-const shape = (mb: number) => {
-	const a = { array: { byteLength: mb * 1024 * 1024 } };
-	return { getAttributes: () => [a] };
-};
 
 test('while the walker draws, a new pipeline is compiled beside the page and counted until it is ready; a film waits for it', async () => {
 	const { renderer, asked, ready } = fakeRenderer();
@@ -141,27 +131,6 @@ test('while the walker draws, a new pipeline is compiled beside the page and cou
 	expect(pipelinesPending()).toBe(0);
 });
 
-test('while the walker draws, new corners go 2 MB a frame: an object over it waits, held back and made whole again, then drawn', () => {
-	const { renderer, uploaded } = fakeRenderer();
-	drawWhenReady(renderer);
-	renderer.drawWhenReady = true;
-	const [a, b, c] = [shape(1.5), shape(1.5), shape(3)];
-	// one frame: the first object goes whatever its size; the next would pass 2 MB and waits
-	renderer._geometries.updateForRender(a);
-	renderer._geometries.updateForRender(b);
-	expect(uploaded).toEqual([a]);
-	expect(renderer._pipelines.isReady(b)).toBe(false);
-	expect(renderer._nodes.needsRefresh(b)).toBe(2);
-	expect(renderer._pipelines.isReady(a)).toBe(true);
-	// what is sent is never counted again: a, drawn again in the same frame, costs nothing
-	renderer._geometries.updateForRender(a);
-	expect(uploaded).toEqual([a, a]);
-	// a film's frame sends everything at once
-	renderer.drawWhenReady = false;
-	renderer._geometries.updateForRender(c);
-	expect(uploaded).toEqual([a, a, c]);
-});
-
 test("three's render takes its pipelines as drawWhenReady replaces them, and skips an object until its pipeline is ready", () => {
 	const three = dirname(createRequire(import.meta.url).resolve('three/package.json'));
 	const pipelines = readFileSync(join(three, 'src/renderers/common/Pipelines.js'), 'utf8');
@@ -172,8 +141,6 @@ test("three's render takes its pipelines as drawWhenReady replaces them, and ski
 	expect(pipelines).toMatch(/getForRender\( renderObject, promises = null \)/);
 	// handed a list, WebGPU makes the pipeline beside the page
 	expect(utils).toContain('device.createRenderPipelineAsync');
-	// an object's corners are sent only when it is made whole (refreshType FULL): a held one is made whole again
-	expect(renderer).toMatch(/if \( refreshType === RenderObjectRefreshType\.FULL \) \{\s*this\._nodes\.updateBefore\( renderObject \);\s*this\._geometries\.updateForRender\( renderObject \);/);
 	// and render draws an object only once its pipeline is ready
 	expect(renderer).toMatch(/if \( this\._pipelines\.isReady\( renderObject \) \) \{\s*this\.backend\.draw/);
 });
