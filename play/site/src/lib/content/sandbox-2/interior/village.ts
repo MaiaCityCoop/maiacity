@@ -131,7 +131,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	const m = mats()
 	/** what the village draws at levels (its domes' simple selves, its waterside's cells), each shown at the one its
 	 *  size on screen calls for (./shell.ts levelOf: the assets' rule); `on` false: stepped aside (a dome's full inside) */
-	const leveled: { ball: Ball; levels: THREE.Object3D[]; level: number; on: boolean }[] = []
+	const leveled: { ball: Ball; levels: (THREE.Object3D | null)[]; level: number; on: boolean }[] = []
 	const solo = opts.solo
 	const domes = solo ? [] : layout()
 	/* Sandbox 5: the building alone in the middle, built in the asset box at its newest version and measured: how far
@@ -199,6 +199,10 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			}
 		})
 		soloFoot = { x: 0, z: 0, R: glass, ext: reach }
+		// its buildings inside the glass, drawn while the building looks big enough for them to show through it: at its
+		// first two levels, as a dome's inside (./shell.ts levelOf); its own levels are its asset's to declare (intent 92fbecea)
+		const inside = obj.children.find((c) => c.name === 'building')
+		if (inside) leveled.push({ ball: { x: 0, y: glass * 0.4, z: 0, r: reach }, levels: [inside, inside, null, null], level: 0, on: true })
 		soloGround = groundOf(obj, { gates: solo.gates, gateHalf: 1.4, gateTo: reach + 2.6, reach: reach + 8 })
 	}
 	/** what the cell keeps clear: every dome with its terrace, or Sandbox 5's building with its paths */
@@ -491,10 +495,12 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			scene.add(fine, light)
 			leveled.push({ ball: cell.ball, levels: [fine, fine, light, light], level: 0, on: true })
 		}
-		// stones along the banks
-		const stones = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), m.pebble, 2600)
+		// stones along the banks, in cells of 120 m: a cell's stones are drawn while they are more than a pixel (to its
+		// level 2: ./shell.ts levelOf)
+		const STONE_CELL = 120
+		const cells = new Map<string, THREE.Matrix4[]>()
 		const rs = seeded(17)
-		const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3()
+		const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3()
 		let n = 0
 		for (const line of streams)
 			for (let i = 0; i < line.length - 1 && n < 2600; i += 2) {
@@ -504,11 +510,21 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 					if (n >= 2600) break
 					const size = 0.25 + rs() * 0.35
 					p.set(a.x - dir.z * sd * (W / 2 + 0.2), 0.06, a.z + dir.x * sd * (W / 2 + 0.2))
-					stones.setMatrixAt(n++, m4.compose(p, q.setFromEuler(e.set(rs(), rs() * 6, rs())), s.set(size, size * 0.5, size)))
+					const key = `${Math.floor(p.x / STONE_CELL)},${Math.floor(p.z / STONE_CELL)}`
+					if (!cells.has(key)) cells.set(key, [])
+					cells.get(key)!.push(new THREE.Matrix4().compose(p, q.setFromEuler(e.set(rs(), rs() * 6, rs())), s.set(size, size * 0.5, size)))
+					n++
 				}
 			}
-		stones.count = n
-		scene.add(stones)
+		const stone = new THREE.DodecahedronGeometry(1, 0)
+		for (const ms of cells.values()) {
+			const stones = new THREE.InstancedMesh(stone, m.pebble, ms.length)
+			ms.forEach((mx, i) => stones.setMatrixAt(i, mx))
+			stones.computeBoundingSphere()
+			const ball = stones.boundingSphere!
+			scene.add(stones)
+			leveled.push({ ball: { x: ball.center.x, y: ball.center.y, z: ball.center.z, r: ball.radius }, levels: [stones, stones, stones, null], level: 0, on: true })
+		}
 	}
 	// the ponds' water, filled in point by point, so nothing is planted in them
 	const pondFill = ponds.map((pd) => [0.25, 0.5, 0.75, 1].flatMap((f) => pd.outline.filter((_, i) => i % 2 === 0).map((o) => new THREE.Vector3(pd.x + (o.x - pd.x) * f, 0, pd.z + (o.z - pd.z) * f))))
@@ -1241,7 +1257,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		})
 	}
 	/** a thing at levels shown (`on`) at its level */
-	const drawLevel = (s: (typeof leveled)[number]) => s.levels.forEach((o, k) => (o.visible = s.on && k === s.level))
+	const drawLevel = (s: (typeof leveled)[number]) => {
+		for (const o of s.levels) if (o) o.visible = s.on && s.levels[s.level] === o
+	}
 	const show = (i: number, on: boolean) => {
 		simple[i]!.on = on
 		drawLevel(simple[i]!)
