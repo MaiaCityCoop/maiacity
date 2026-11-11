@@ -168,3 +168,30 @@ scaly trunk):
 - `mango/v4-s13-whole.jpg` / `mango/v5-s13-whole.jpg`: the grown tree as the viewer frames it: the same.
 
 Source: `mango/mango-v5.js`.
+
+## Yam (`ec65e757-0c6d-4513-b802-8c8f7a679d3f`): v4 proposed, done
+
+| stage | L0 v3 | **L0 v4** | L1 v4 (0.25) | L2 v4 (0.1) | seconds L0 |
+|---|---|---|---|---|---|
+| 4 | 164,976 | **37,030** | 4,254 | 783 | 1.3 (first build: its pictures made) |
+| 5 | 352,501 | **64,566** | 9,342 | 1,599 | 0.1 |
+| 6 | 453,494 | **78,514** | 12,282 | 2,031 | 0.1 |
+| 7 | 456,469 | **78,972** | 12,438 | 2,043 | 0.1 |
+| 9 (default) | 128,856 | **40,954** | 4,830 | 567 | 0.0 |
+
+Four more seeds (oak, river, c, d) at stages 4–7: 33,741 to 77,978. c1 on the proposed variant: 82,129 in the
+viewer's count, 19 draws. c2: declared, two levels.
+
+How: a leaf was 640 triangles (5 rings round a point out to the traced outline, 32 round, two faces). It already
+carried a picture of its whole blade (`leafMap`: the seven main veins and the net between them). That picture's
+code is now two functions (`leafCurves`, `leafPixel`) shared by `leafMap` and a new `leafCut`, which carries the
+traced outline (`DR.outline`, the notch between the basal lobes) in its alpha; each leaf on the vine is that picture
+on a cupped sheet of four stations along and three across, drooping as the built one: 24 triangles. The tuber view's
+leaves are built ring by ring as before.
+
+Looked at (render bench, same shots as v3; against its reference sheet `b5143254…`):
+- `yam/v3-s7-close.jpg` / `yam/v4-s7-close.jpg`: the vine at full canopy, close: the same heart-shaped, long-tipped
+  leaves, colour and fill. Judged: as v3.
+- `yam/v3-s7-whole.jpg` / `yam/v4-s7-whole.jpg`: the plant on its stake and mound as the viewer frames it: the same.
+
+Source: `yam/yam-v4.js`.
