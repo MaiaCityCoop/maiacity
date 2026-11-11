@@ -111,6 +111,8 @@ async function main(argv: string[]) {
 	const kept = keptIn(process.env.CENSUS_KEPT === '0' ? null : join(CACHE, 'kept'));
 	const keyFor = (hash: string) => keyOf('ceiling/1', hash);
 	const counts = new Map<string, Stage[] | { error: string }>();
+	/** why a worker gave no count for a recipe: how it ended */
+	const ended = new Map<string, string>();
 	const todo: string[] = [];
 	for (const hash of new Set(assets.flatMap((a) => a.jobs.map((j) => j.hash)))) {
 		const got = kept.get(keyFor(hash)) as Stage[] | undefined;
@@ -129,12 +131,15 @@ async function main(argv: string[]) {
 				counts.set(r.hash, r.error ? { error: r.error } : r.stages);
 				if (!r.error) kept.put(keyFor(r.hash), r.stages);
 			}
-			await child.exited;
+			const code = await child.exited;
+			for (const h of mine) if (!counts.has(h)) ended.set(h, `its worker ended with exit code ${code}${child.signalCode ? ` (${child.signalCode})` : ''} before counting it`);
 		})
 	);
 
 	// each asset judged, group by group
 	const groups = new Map(GROUPS.map((g) => [g, { n: 0, bad: 0 }]));
+	/** what fails, printed after everything else: a check keeps the tail of what it prints */
+	const failed: string[] = [];
 	const list: Record<string, unknown> = {};
 	for (const a of assets) {
 		const g = groups.get(a.group)!;
@@ -144,12 +149,12 @@ async function main(argv: string[]) {
 		let error = '';
 		for (const j of a.jobs) {
 			const c = counts.get(j.hash);
-			if (!c || 'error' in c) error ||= `${j.name ?? 'its recipe'} was not built: ${c ? c.error : 'its worker gave no count'}`;
+			if (!c || 'error' in c) error ||= `${j.name ?? 'its recipe'} (${j.hash.slice(0, 12)}…) was not built: ${c ? c.error : ended.get(j.hash) ?? 'its worker gave no count'}`;
 			else for (const s of c) if (s.tris > counted.tris) Object.assign(counted, { tris: s.tris, at: [j.name, s.stage === null ? null : `stage ${s.stage}`].filter(Boolean).join(', ') || 'its build' });
 			if (named.length && c && !('error' in c)) console.log(`     ${a.label}${j.name ? `: ${j.name}` : ''}: ${c.map((s) => `${s.stage === null ? '' : `stage ${s.stage}: `}${n(s.tris)}`).join(', ')}`);
 		}
 		if (error) {
-			g.bad++, console.log(`FAIL ${who}: ${error}`);
+			g.bad++, failed.push(`FAIL ${who}: ${error}`);
 			continue;
 		}
 		const found = outside(a.lod, counted, { most: ceilingOf(a.group), carried: a.proposed });
@@ -157,14 +162,15 @@ async function main(argv: string[]) {
 		// (an intent's variant is its source touched: the rule holds it, a named exception or not)
 		const is = judged(a.id in known && !a.proposed, found);
 		if (is === 'known') console.log(`KNOWN ${who}: ${found.join('; ')}`);
-		else if (is === 'stale') g.bad++, console.log(`FAIL ${who}: named in ceiling.known.json, and it is within the rule now (${n(counted.tris)} triangles at its finest, its levels declared): drop its line`);
-		else if (is === 'fail') g.bad++, console.log(`FAIL ${who}: ${found.join('; ')}`);
+		else if (is === 'stale') g.bad++, failed.push(`FAIL ${who}: named in ceiling.known.json, and it is within the rule now (${n(counted.tris)} triangles at its finest, its levels declared): drop its line`);
+		else if (is === 'fail') g.bad++, failed.push(`FAIL ${who}: ${found.join('; ')}`);
 		else console.log(`ok   ${who}: ${n(counted.tris)} triangles at its finest (${counted.at}), its levels declared`);
 	}
 	// (an exception of an asset play no longer has is stale too; only a census of every asset can tell)
 	const gone = all && !intent ? Object.keys(known).filter((id) => !assets.some((a) => a.id === id)) : [];
-	for (const id of gone) console.log(`FAIL ${id}: named in ceiling.known.json, and play has no such asset: drop its line`);
+	for (const id of gone) failed.push(`FAIL ${id}: named in ceiling.known.json, and play has no such asset: drop its line`);
 	if (argv.includes('--list')) return console.log(JSON.stringify(list, null, '\t')), 0;
+	for (const f of failed) console.log(f);
 	for (const [group, g] of groups) if (g.n) console.log(`${g.bad ? 'FAIL' : 'ok  '} ${group}: ${g.bad} of ${g.n} outside the rule and no named exception (at most ${n(ceilingOf(group))} triangles, its own levels)`);
 	console.log(`ceiling: ${assets.length} assets, ${todo.length} recipes built now, ${counts.size - todo.length} read as kept`);
 	return [...groups.values()].every((g) => !g.bad) && !gone.length ? 0 : 1;
