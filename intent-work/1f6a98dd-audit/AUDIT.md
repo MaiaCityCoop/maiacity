@@ -330,6 +330,62 @@ inside them), the census's count and a real-GPU measure of it in both engines as
 gives as the first references for R1 to R4. It needs the budget (this intent) and gains from 3e27d730's trees; it
 waits for nothing else.
 
+### The plan (Samuel's direction, 2026-11-11: "we take what we learned and start on a clean slate"; "we keep the old sandboxes and assets around while we keep manually migrating one after another into the new final world")
+
+Nothing of the old is archived, deleted or changed by any step here: Sandbox 1, 3 and 5 and every asset version stay
+as they are until Samuel retires one.
+
+**Day one: the new world, empty.** One world asset on the one path (P5), its land and nothing else, with its entry in
+the budget whose ceilings are the aims themselves (1.5 M triangles, 600 draws, 2,500 calls a frame; 0 triangles
+simplified on the device; 10 s, 3 s, 2.5 GB, 16.7 ms on the M1), so it starts inside them and every move must keep it
+there. Its door: **it admits only a version inside the rule** (at most 300,000 triangles at its heaviest stage, its
+levels declared), checked when its layout is proposed.
+
+**Who may come in today**: by the cards, 225 of the 239 assets with a known count are under 300,000 at their default
+build; **none has declared its levels yet**, so on day one nothing passes, and each asset that moves in gets its next
+version first (its levels declared; under the ceiling). For a plant that is a few lines: all 111 plant recipes and
+the 44 actors' already take a `detail`. Not without real work: the 14 over by their cards (birch, truck, jackfruit,
+durian, mango, pecan, pickup, cherry, orange, dome-factory, olive, avocado, the two forest biomes), the trees that
+are over only at their late stages (walnut, sweet chestnut, moringa, hazel, yam: 3e27d730 mends six tonight), the
+forest dome (1,241,499), and everything hand-built, which is no asset at all yet. The 129 cards that name no levels
+and the 129 recipes without a count are counted when they move.
+
+**The order of moving in**, so that it is worth standing in early. Costs are estimates from tonight's counts of the
+same parts in Sandbox 1 and 5; each move is one intent, judged on a real GPU in both engines beside its reference,
+and none may pass the aims.
+
+| | what moves in | what it must reach | a frame, of 1.5 M | what it takes |
+|---|---|---|---|---|
+| 1 | **the land, its ground, the sky** | walkable, the ground's surfaces as scanned, the sky with soft clouds (c929d52c); shown in under 5 s; 60 frames a second | about 0.27 M (ground 0.25 M, sky 12 thousand) | the world asset; no asset version |
+| 2 | **the grass** | a closed sward within 10 m, no edge where it ends (R1, R9), beside `autumn_meadow` | 0.1 to 0.2 M, 3 draws | the colony's numbers; the meadow biome |
+| 3 | **a few trees**: the six of 3e27d730, then ten more kinds, at three stages | near: leaves and bark that take the light (R6); far: a lit side and a shaded side (R7 when P2 exists); each under 300,000 with three declared levels | 0.4 to 0.6 M with their shadows cast by their coarsest | each kind's next version |
+| 4 | **water** | mirrors sky and trees at a low angle (R3) | fill only | one material |
+| 5 | **one dome, rebuilt as an asset with levels** (the glamping dome first: 16,858 triangles today; then a home dome with its inside) | glass that mirrors the sky (R11); its inside drawn only from inside; casts by a stand-in | at most 0.3 M near, under 30 thousand from afar | the first building made for P3 |
+| 6 | **shrubs, herbs, the understorey** | no bare band between trunks to 80 m (R8) | 0.2 M | each kind's next version; pictures for small plants |
+| 7 | **animals, things, paths, lights** | each instanced, none its own draw | 0.1 M, under 50 draws | their next versions |
+| 8 | **the other domes, the factory, the tired land** | as 5 | within what is left | one building at a time |
+
+After move 3 the world is already worth standing in: ground, grass, sky, trees, light. Each move records the
+world's seconds, memory and frame on the M1 beside the aims; a move that cannot fit says what it would cost and waits
+for the room (P2 for the 10 s once the world holds more than about 120 builds; P4 for more shade).
+
+**When an old sandbox is retired**: when the new world holds everything of it worth keeping, by a list written
+for each: Sandbox 5 once the forest ring and one forest dome stand in it (after move 5 or 6); Sandbox 1 once its
+thirteen domes' kinds, its fields and its animals do (after move 8); Sandbox 3 once the tired land is built as a
+world of its own on the same path. Retiring is Samuel's decision and its own intent (the route kept or pointed at the
+new world; the layout and every asset version stay in play's history: nothing is deleted).
+
+**What the old sandboxes are for meanwhile**: the place tonight's mended machinery is proven under the heaviest load
+there is, and the source of every asset and layout that moves. They get no more work of their own: no intent
+optimizes `interior.ts`, `village.ts` or `maiacity-v2/world.js` in place.
+
+**The first step, an intent to approve in the morning**: *"The new world, empty and inside its budget: its land, its
+ground and the sky, admitting only assets inside the rule"*. Work: a world asset (play's), its budget entry with the
+aims as ceilings, the layout's door (a version over the ceiling or without declared levels is refused when pinned
+into it). Checks: the census's count inside the aims; a real-GPU measure in Chromium and WebKit (shown, the device
+held, seconds and milliseconds printed); the picture of its ground and sky beside `autumn_meadow`; the old sandboxes
+counted the same as before (nothing of theirs touched). It needs this intent's budget; it waits for nothing else.
+
 ## 5. Realism: each part against the real thing
 
 The reference is the real thing, never today's picture. Judged against: Poly Haven's CC0 `autumn_meadow` and
