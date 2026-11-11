@@ -92,3 +92,24 @@ Where the box stands after round 3 (vs main, Sandbox near view; standing / walki
 `gpu.ts --walk` now lets the world settle where the walk starts before it walks (what streams in round a new place is
 no part of a walk), and in Chromium profiles 5 s more of the walk and prints a walking frame's JavaScript by function
 (with `--steps`): the next rounds cut by what the runner's real browser says, not the box's.
+
+## Round 4: the shadow pass
+
+The audit of intent 1f6a98dd (box, main eadbf2f7): a shadow redraw in Sandbox 1 near is 6.67 M triangles, more than
+the picture's 3.84 M, and it comes every 2 m walked or 2° turned (`sandbox-kit/sky.js`), so walking pays it every few
+frames; 72 % of it is the dome's inside. In Sandbox 5 near: 5.15 M, the forest dome 46 %.
+
+- **A see-through caster seen from both sides is drawn once into the shadow map** (`sky.js shadowsInOnePass`, its
+  test in `sky.test.js`). three draws such a material's back faces and then its front faces, as a picture must to
+  blend it, and its shadow pass keeps both flags, so every glass pane, leaf card and canopy was drawn twice into a
+  depth map that is the same either way. The box's frame count barely moves (1,079 → 1,073 draws walking in Sandbox 1:
+  they are few draws); the triangles it saves are the GPU's, for the runner to show. **Kept.**
+- **Not cut, and why:** the dome's glazing casts no shadow (`interior.ts geodesic`: `shell(glass, …, false)`), so the
+  sun reaches the inside and every shadow cast there is seen through the glass: they stay. What would cut them without
+  a loss is the inside drawn by levels (a coarser shape far off, as the plants are): the domes rebuilt as assets with
+  levels, beyond tonight. Its size: up to 4.8 M of a 6.67 M-triangle shadow redraw in Sandbox 1 near, and 1.7 M of
+  the 3.84 M picture (the audit's counts).
+- **Not cut:** a shadow redraw on every 2° turned. The cascades are fitted to the view, so a turned eye sees ground the
+  old map does not cover; holding the map longer would leave that ground unshadowed for a moment: a loss.
+- `gpu.ts` measures its browsers one after the other again, as on main: loading them side by side was a way round a
+  check's 600 s limit, which intent d3f98bcc fixes in `intent.ts`.
