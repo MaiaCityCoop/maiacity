@@ -135,9 +135,10 @@ const JOIN = { each: 20_000, together: 120_000 }
  * materials). Only what a bake made and put straight into the scene, where it stands (a baked group that was moved or
  * is held elsewhere keeps its meshes); only meshes of the very same material, casting alike, carrying the same
  * attributes; the large ones stay as they are (joining them would hold the page and copy megabytes).
+ * Each run joined is a step of its own (`slice` between them): a dome's runs together copy megabytes.
  * @returns how many meshes fewer the scene has
  */
-export function joinBaked(scene: THREE.Object3D): number {
+export async function joinBaked(scene: THREE.Object3D, slice: () => Promise<void> = async () => {}): Promise<number> {
 	const still = (o: THREE.Object3D) => o.position.lengthSq() === 0 && o.quaternion.x === 0 && o.quaternion.y === 0 && o.quaternion.z === 0 && o.scale.x === 1 && o.scale.y === 1 && o.scale.z === 1
 	const runs = new Map<string, THREE.Mesh[]>()
 	for (const group of scene.children) {
@@ -159,6 +160,7 @@ export function joinBaked(scene: THREE.Object3D): number {
 			const run = list.slice(from, to)
 			from = to
 			if (run.length < 2) continue
+			await slice()
 			const first = run[0]!, joined = new THREE.BufferGeometry()
 			for (const [name, a] of Object.entries(first.geometry.attributes)) {
 				const size = (a as THREE.BufferAttribute).itemSize, out = new Float32Array(n * size)

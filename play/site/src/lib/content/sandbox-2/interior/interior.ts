@@ -38,6 +38,7 @@ import { furnish, terraceSet } from './rooms'
 import { ambience, levelsAt, nearness } from './ambience'
 import { flow, pond as pondShape, shore, stream as streamShape, waterMaterial } from './water'
 import { precompile } from '$lib/content/render/core.js'
+import { making } from '$lib/content/render/making.js'
 import { createWorldRenderer, worldFinish, type StageHandle } from '$lib/content/render/world.js'
 import { createSky, type SkyHandle } from '$lib/content/sandbox-kit/sky.js'
 import { skyHour } from '$lib/content/sandbox-kit/skyTime.svelte.js'
@@ -434,15 +435,19 @@ export function glampInside({ scene, R, m, addLamp, glowMat }: { scene: THREE.Ob
 export async function mountInterior(container: HTMLElement, kind: DomeKind, onProgress?: (label: string) => void, opts: InteriorOptions = {}): Promise<InteriorHandle> {
 	/** what it put into the host's renderers, taken out again if it never stands (a build cancelled, or failed) */
 	const drop: (() => void)[] = []
+	// built into a walked world, it takes its share of the page's one making budget (render/making.js), those not far first
+	const maker = making.maker(`dome ${kind}`, () => (opts.background?.() ? 0 : 1))
 	try {
-		return await raiseInterior(container, kind, onProgress, opts, drop)
+		return await raiseInterior(container, kind, onProgress, opts, drop, maker)
 	} catch (err) {
 		for (const d of drop) d()
 		throw err
+	} finally {
+		maker.done()
 	}
 }
 
-async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress: ((label: string) => void) | undefined, opts: InteriorOptions, drop: (() => void)[]): Promise<InteriorHandle> {
+async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress: ((label: string) => void) | undefined, opts: InteriorOptions, drop: (() => void)[], maker: ReturnType<typeof making.maker>): Promise<InteriorHandle> {
 	/** Let the page paint between the heavy steps, so the loading screen keeps moving. */
 	let lastYield = performance.now()
 	/** a build no longer wanted stops at its next breath, and leaves the page to the next one */
@@ -464,12 +469,16 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		swap(group)
 		return bakeSliced(group, shadows, slice)
 	}
-	/** Hand the page back for a frame whenever this build has held it for more than a few milliseconds. */
+	/** Hand the page back between steps: built into a walked world, by the page's one making budget (under 4 ms a frame
+	 *  for every maker together: render/making.js); alone behind its loading screen, or rushed for a film's staging, in
+	 *  long stretches. */
 	const slice = async () => {
-		// the standalone view is behind its loading screen: it can work in longer stretches
-		// in a village it works in short breaths; when you are at its door waiting, in long ones
-		// a dome built in the background, far from you, takes only a sliver of each frame
-		if (performance.now() - lastYield < (host ? (opts.hurry?.() ? 70 : opts.background?.() ? 7 : 24) : 60)) return
+		if (host && !opts.hurry?.()) {
+			await maker.slice()
+			stopIfCancelled()
+			return
+		}
+		if (performance.now() - lastYield < (host ? 70 : 60)) return
 		prof.work += performance.now() - lastYield
 		prof.slices++
 		await breath()
@@ -2125,8 +2134,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 	stopIfCancelled()
 
 	// what was baked in many goes drawn as one mesh a material
-	joinBaked(scene)
-	await slice()
+	await joinBaked(scene, slice)
 
 	// the lamps are all in place: set them for the hour
 	setSun(hourNow())
@@ -2182,8 +2190,19 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		const log = (window as unknown as { __buildLog?: string[] }).__buildLog
 		let tt = performance.now()
 		scene.updateMatrixWorld(true)
-		await precompile(renderer, scene, camera, host.scene)
-		log?.push(`compile ${Math.round(performance.now() - tt)}ms`)
+		// a mesh at a time: three builds each new material's shaders on the page's thread before it waits for its
+		// pipelines, and a whole dome at once (a hundred materials) held the walk for seconds
+		const compiled = new Set<unknown>()
+		const meshes: THREE.Object3D[] = []
+		scene.traverse((o) => (o as THREE.Mesh).isMesh && meshes.push(o))
+		for (const o of meshes) {
+			const mt = (o as THREE.Mesh).material
+			if (compiled.has(mt)) continue
+			compiled.add(mt)
+			await precompile(renderer, o, camera, host.scene)
+			await slice()
+		}
+		log?.push(`compile ${compiled.size} materials ${Math.round(performance.now() - tt)}ms`)
 		tt = performance.now()
 		const textures = new Set<THREE.Texture>()
 		scene.traverse((o) => {
@@ -2230,12 +2249,13 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		forest?.show(true)
 		floorCover?.show(true)
 		things?.show(true)
-		// about a quarter of a million vertices a frame: small pieces come in dozens, a big merged forest alone
+		// about 60,000 vertices a frame (a quarter of a million, some 10 MB sent in one frame, held it in WebKit): small
+		// pieces come in dozens, a big merged forest alone
 		let budget = 0
 		for (const p of pieces) {
 			p.visible = true
 			budget += (p as THREE.Mesh).geometry?.attributes.position?.count ?? 0
-			if (budget > 250_000) {
+			if (budget > 60_000) {
 				budget = 0
 				await new Promise((r) => requestAnimationFrame(() => r(null)))
 			}
