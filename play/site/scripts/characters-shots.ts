@@ -7,20 +7,15 @@
  *   bun scripts/characters-shots.ts [out dir]
  */
 import { chromium, type Page } from 'playwright';
+import { ADMIN, DESKTOP, PHONE, SITE as BASE, TRAVELER } from './lib/shots';
 
-const BASE = process.env.SITE ?? 'http://localhost:5173';
 const OUT = process.argv[2] ?? '../shots/89f3ad37-characters';
 const PLAY = 'https://play.maia.city';
 const TOKEN = process.env.PLAY_MCP_TOKEN;
 if (!TOKEN) throw new Error('PLAY_MCP_TOKEN is not set: the people are drawn from play');
 /** the people, by their UUIDs: Stand-in and Elder woman */
 const PEOPLE = new Set(['8ff16823-d2eb-506c-9705-0feba7cf989e', '682d0d05-2196-5c4d-9fb5-5acd7ebfb17f']);
-const ADMIN = { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 };
-const TRAVELER = { id: '00000000-0000-4000-8000-000000000002', name: 'A traveler', level: 'traveler', may: {} };
-const SIZES = [
-	{ width: 390, height: 844 },
-	{ width: 1440, height: 900 }
-];
+const SIZES = [PHONE, DESKTOP];
 
 /** the fixture: wherever a row names one of the people, its group is characters */
 function moved(x: any): any {
