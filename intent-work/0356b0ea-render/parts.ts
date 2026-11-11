@@ -11,8 +11,8 @@
  * milliseconds it costs. Run from play/site (its Playwright), the site built.
  */
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
-import { chromium, webkit } from 'playwright';
 import { siteHandler } from '../../play/api/src/site.ts';
 import { pinnedApi } from '../../play/site/scripts/gpu.ts';
 import { quietness } from '../../play/site/scripts/lib/quiet.js';
@@ -20,6 +20,8 @@ import { SEEDED_RANDOM } from '../../play/site/scripts/macjob/determinism.js';
 import { LAUNCH } from '../../play/site/scripts/mac-page.mjs';
 
 const SITE = resolve(import.meta.dir, '../../play/site');
+// play/site's Playwright, required as the Mac jobs require it (so a dry run's CPU page stands in for it)
+const { chromium, webkit } = createRequire(join(SITE, 'package.json'))('playwright');
 const argv = process.argv.slice(2);
 const arg = (k: string, d: string) => (argv.includes(k) ? argv[argv.indexOf(k) + 1]! : d);
 const world = arg('--world', '/sandbox-1/'), each = Number(arg('--each', '4'));
