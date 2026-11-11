@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "maia-play": {
-      "type": "http",
-      "url": "https://play.maia.city/api/mcp",
-      "headers": { "Authorization": "Bearer ${PLAY_MCP_TOKEN}" }
-    }
-  }
-}
