@@ -30,6 +30,7 @@ import { budget } from '../render/budget.js';
 import { isWebGPU, ready, setExposure, tonemap, untonemap } from '../render/core.js';
 import { CubeRenderTarget } from 'three/webgpu';
 import { SUN as GRAPH_SUN } from '../render/nodes/graph.js';
+import { seeStandIns } from './casters.js';
 
 // the sun is made here alone, so its node is named here: a WebGPURenderer lights nothing by a SunLight without it,
 // and a world that draws its first frames before the render kit has loaded (Sandbox 3) stood unlit (intent 8f41cd9b)
@@ -271,6 +272,8 @@ export function createSky(renderer, scene, options = {}) {
 	sun.shadow.camera.far = shadowReach;
 	sun.shadow.bias = shadowBias.bias;
 	sun.shadow.normalBias = shadowBias.normal;
+	// each cascade draws its own stand-ins (./casters.js)
+	seeStandIns(sun.shadow);
 	scene.add(sun);
 	const haze = fog ? new THREE.FogExp2(0xffffff, 1.6 / fog.far) : null;
 	scene.fog = haze;

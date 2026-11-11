@@ -24,6 +24,7 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { ready as standInsReady, standIns } from '$lib/content/sandbox-kit/casters.js'
 import type { MeshPhysicalNodeMaterial } from 'three/webgpu'
 import { OwnPhysical } from '$lib/content/render/tsl.js'
 import { abs, cameraViewMatrix, dot, float, max, normalView, normalize, positionViewDirection, uniform, vec4 } from 'three/tsl'
@@ -292,12 +293,15 @@ function letGo(group: THREE.Group) {
 	group.children.length = 0
 }
 /** a merged geometry as a baked mesh */
-function bakedMesh(merged: THREE.BufferGeometry, mat: THREE.Material, shadows: boolean): THREE.Mesh {
+function bakedMesh(merged: THREE.BufferGeometry, mat: THREE.Material): THREE.Mesh {
 	merged.userData.baked = true
 	const m = new THREE.Mesh(merged, mat)
-	m.castShadow = shadows
 	m.receiveShadow = true
 	return m
+}
+/** what a bake casts: its meshes' stand-ins (../../sandbox-kit/casters.js), the picture's own meshes casting nothing */
+function castOf(out: THREE.Group, meshes: THREE.Mesh[], shadows: boolean) {
+	if (shadows) for (const s of standIns(meshes)) out.add(s)
 }
 
 /**
@@ -305,9 +309,10 @@ function bakedMesh(merged: THREE.BufferGeometry, mat: THREE.Material, shadows: b
  * milliseconds while it works, and big materials are merged in chunks rather than all at once.
  */
 export async function bakeSliced(group: THREE.Group, shadows: boolean, slice: () => Promise<void>): Promise<THREE.Group> {
-	const out = new THREE.Group()
+	const out = new THREE.Group(), meshes: THREE.Mesh[] = []
 	for (const [mat, list] of byMaterial(group))
 		for (let i = 0; i < list.length; i += 400) {
+			if (i === 0) meshes.push(...list)
 			const chunk = list.slice(i, i + 400), m = merging(chunk)
 			for (let j = 0; j < chunk.length; j++) {
 				m.add(chunk[j]!)
@@ -315,8 +320,10 @@ export async function bakeSliced(group: THREE.Group, shadows: boolean, slice: ()
 			}
 			const merged = m.done()
 			await slice()
-			if (merged) out.add(bakedMesh(merged, mat, shadows))
+			if (merged) out.add(bakedMesh(merged, mat))
 		}
+	await slice()
+	castOf(out, meshes, shadows)
 	letGo(group)
 	return out
 }
@@ -379,13 +386,15 @@ export function joinBaked(scene: THREE.Object3D): number {
 
 /** Bakes a group into one mesh per material, so a forest costs a handful of draw calls; the group is left empty. */
 export function bake(group: THREE.Group, shadows = true): THREE.Group {
-	const out = new THREE.Group()
+	const out = new THREE.Group(), meshes: THREE.Mesh[] = []
 	for (const [mat, list] of byMaterial(group)) {
 		const m = merging(list)
 		for (const o of list) m.add(o)
 		const merged = m.done()
-		if (merged) out.add(bakedMesh(merged, mat, shadows))
+		if (merged) out.add(bakedMesh(merged, mat))
+		meshes.push(...list)
 	}
+	castOf(out, meshes, shadows)
 	letGo(group)
 	return out
 }
@@ -810,6 +819,7 @@ export function glampInside({ scene, R, m, addLamp, glowMat }: { scene: THREE.Ob
 }
 
 export async function mountInterior(container: HTMLElement, kind: DomeKind, onProgress?: (label: string) => void, opts: InteriorOptions = {}): Promise<InteriorHandle> {
+	await standInsReady
 	/** what it put into the host's renderers, taken out again if it never stands (a build cancelled, or failed) */
 	const drop: (() => void)[] = []
 	try {
