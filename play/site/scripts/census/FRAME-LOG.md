@@ -122,3 +122,30 @@ frames; 72 % of it is the dome's inside. In Sandbox 5 near: 5.15 M, the forest d
   every frame, and so every world matrix under it. box profile, Sandbox 1 near walking: `place` 8.5 % → 5.0 % of the
   frame's JavaScript, three's `updateMatrix` gone from it. The box's milliseconds are too noisy to read this in (the
   same head measured 19.7 and 25.4 ms in Sandbox 5); the runner's profile decides. **Kept.**
+
+## The runner at 2a5aef60 (rounds 1 to 5), run 42932103689: both engines, the first time
+
+GitHub's macOS VM, Metal; 1,500 s a check since intent d3f98bcc. Each against the aim: 16.7 ms a frame (60 a second).
+
+| | WebKit standing | WebKit walking | Chromium standing | Chromium walking |
+|---|---|---|---|---|
+| Sandbox 3 | **16.8 ms** (p95 20), 0.1 ms off the aim | (no walker) | 42.1 ms (p95 116.6, CPU 10.3) | (no walker) |
+| Sandbox 5 | 29.4 ms (p95 51, CPU 23.1), 12.7 ms off | 50.6 ms (p95 114, CPU 38.1), 33.9 ms off | not in the log (only a check's tail is printed) | not in the log |
+| Sandbox 1 | **792.8 ms** (p95 1,975, CPU 85.2), 13 frames in 10 s | not measured (see below) | not in the log | not in the log |
+
+Before (round 0, main's render code, Chromium only): Sandbox 1 104.6 ms standing, 492.7 ms walking; Sandbox 5
+standing 1 frame in 10 s, walking 162.2 ms.
+
+**Sandbox 1 in WebKit is the problem of the night**, and it is the 1.5 to 6 frames a second Samuel saw in his Safari:
+793 ms a frame with 728 draws and 2.6 M triangles, where Sandbox 5 takes 29 ms with 3.9 M. The page's JavaScript is
+85 ms of it, so the rest is WebKit's own (its GPU process, Metal), and something in Sandbox 1 that Sandbox 5 lacks.
+c5 failed on it: its picture was not read ("null painted": taking or reading the screenshot threw), so its walk was
+not measured. `gpu.ts --steps` now prints every error the page said, not only the first.
+
+The box cannot see a GPU's cost, so the next step is a Mac job (`intent-work/0356b0ea-render`, branch of that name,
+dry run passed): Sandbox 1 in WebKit and Chromium, measured whole, then with each part of its scene hidden in turn
+(a dome's inside part by part), to find the part that costs WebKit the 700 ms.
+
+Chromium's walking frame, by its own profiler (Sandbox 1, top of 7.9 s sampled): (program) 17.8 %, idle 13.6 %, then
+three's render loop and WebGPU's own calls (submit, writeBuffer, setVertexBuffer, createBuffer 1.3 %), each a few per
+cent. No one function of ours stands out: the walking frame waits on the GPU as much as it works.

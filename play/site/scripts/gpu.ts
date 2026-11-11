@@ -305,6 +305,8 @@ if (import.meta.main) {
 		measures.push({ ...m, why });
 		console.log(lineOf(m, why));
 		if (argv.includes('--steps')) for (const st of m.steps) console.log(`    ${st}`);
+		// and every error the page said, not only the first the line gives
+		if (argv.includes('--steps')) for (const e of m.errors.slice(1)) console.log(`    error: ${e}`);
 	}
 	if (unpinned.size) console.log(`not pinned (answered 404; --record pins a picture's): ${[...unpinned].slice(0, 6).join(' ')}${unpinned.size > 6 ? ` … ${unpinned.size} in all` : ''}`);
 	writeFileSync(join(out, 'gpu.json'), JSON.stringify({ world, gpu, platform: `${process.platform} ${process.arch}`, bounds, measures, unpinned: [...unpinned] }, null, '\t') + '\n');
