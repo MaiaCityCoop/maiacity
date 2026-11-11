@@ -305,7 +305,8 @@ jobs:
     needs: spec
     if: "!cancelled() && needs.spec.result == 'success' && needs.spec.outputs.gpu == 'true'"
     runs-on: macos-26
-    timeout-minutes: 45
+    # three such checks at intent.ts's GPU_LIMIT (1500 s each: 75 minutes) after the build, with room (intent d3f98bcc)
+    timeout-minutes: 90
     permissions:
       contents: read
     steps:
