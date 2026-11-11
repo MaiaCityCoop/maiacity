@@ -116,3 +116,37 @@ slow drift, for 8 noise reads a sky pixel (main: 5). What it cannot give:
    the world, not a constant of the sky.
 
 Each is its own intent; 1 is the one that makes a screenshot read as a photograph.
+
+## GPU run 0 · main's sky, only --sky added (run 42923117215, 23:24–23:47)
+
+- c3: **killed at the check's 600 s** (`exit 124`): Chromium (WebGPU on Metal, adapter apple) showed Sandbox 1 in
+  238.7 s, 0.953 painted, 104.7 ms a frame (CPU 58.1, GPU not reported), then WebKit ran out of time. Main's own.
+- c5 (--sky): Chromium's eight pictures only, and they show **no sky**: the eye was turned up, but Sandbox 1 opens
+  facing the master dome (`gpu/run0-main-chromium-noon-dome-hides-sky.png`). The hour is pinned rightly
+  (`gpu/run0-main-chromium-phone-hours.png`: day, day, day, night with stars; the first hours 6.6 and 17.4 were not
+  dawn and dusk). So main's blocks are not on a runner picture; the reference for them is `box/round0-main.png`
+  and Samuel's screenshot.
+- The runner tells no GPU time and its frame is CPU-bound: **the clouds' cost cannot be read there.** What is known:
+  8 noise reads a sky pixel against main's 5, no texture, no extra pass, one number written a frame.
+
+## GPU run 1 · the new clouds, two engines side by side (run 42926538011, 23:49–00:12)
+
+I let gpu.ts load both engines at once when no time is bounded, to fit the ten minutes. **Worse: neither engine
+showed the world in 600 s** (a 3-core VM growing two forests). c1, c2, c4 green on GitHub's box (universe.js 335 → 314
+lines; clouds.test.js 5 tests; the site's gate 343 s). Then the Orchestrator's word (00:07): the ten minutes are
+intent d3f98bcc's, landing in the morning; nothing in this pull request goes round them. The side-by-side change is
+out again (57569d6d); kept: the sky's pictures from 45 m up, turned away from what the world faces.
+
+**So tonight c3 cannot be green on the runner, and this intent cannot reach Proposal by its recorded run until
+d3f98bcc has landed and the box's run is re-run.** Chromium's sky pictures do fit (world 239 s + settle + 8 shots);
+WebKit's wait for d3f98bcc.
+
+Lighter --sky, for whoever specifies next: the sky needs no grown forest. Its pictures could be taken in a world that
+shows in seconds (the asset viewer's stage draws this same sky with `clouds: 0.25`; Sandbox 3), or on a page that
+draws the sky alone, as `harness/` does in the box in under a minute for five hours. This intent's `run` names
+Sandbox 1 and stays as approved.
+
+## The loop (Samuel, 00:07: "max 5 min roundtrips")
+
+Every change is looked at in the box's sky-alone harness: one engine, under a minute. The runner's two-engine check
+is not a loop: once per finished head.
