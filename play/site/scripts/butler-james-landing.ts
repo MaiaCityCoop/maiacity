@@ -12,11 +12,11 @@
  *
  * Exits 0 only when every claim of the mode holds; each is printed with ✓ or ✗.
  */
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import type { Browser, Page } from 'playwright';
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { siteHandler } from '../../api/src/site.ts';
-import { ADMIN, DESKTOP, PHONE, TRAVELER } from './lib/shots';
+import { ADMIN, DESKTOP, PHONE, TRAVELER, chromiumHere } from './lib/shots';
 
 const ROUTE = '/butler-james/landing/';
 const SECTIONS = ['hero', 'need', 'build', 'walk', 'test', 'offer', 'guarantee', 'speed', 'steps', 'gallery', 'faq', 'closing'];
@@ -455,7 +455,7 @@ async function shots(browser: Browser, dir: string) {
 }
 
 // the box has no GPU: Chromium draws WebGL in software (SwiftShader)
-const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await chromiumHere({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 try {
 	if (mode === 'check' && arg === 'gate') await gate(browser);
 	else if (mode === 'check' && arg === 'page') await pageWorks(browser);
