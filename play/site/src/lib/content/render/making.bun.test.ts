@@ -186,7 +186,8 @@ test('while the eye moves, a few pipelines compile at once: a new object waits i
 	const objects = Array.from({ length: COMPILING + 2 }, () => ({}));
 	for (const o of objects) renderer._pipelines.updateForRender(o);
 	expect(asked.length).toBe(COMPILING);
-	expect(pipelinesPending()).toBe(COMPILING);
+	// those compiling and the two waiting their turn: none of it drawn yet, all of it pending
+	expect(pipelinesPending()).toBe(COMPILING + 2);
 	// one that has a pipeline already (its material changed) is remade whatever compiles
 	const made = {};
 	renderer._pipelines.get(made).pipeline = 'old';
@@ -199,6 +200,11 @@ test('while the eye moves, a few pipelines compile at once: a new object waits i
 	await Promise.resolve();
 	renderer._pipelines.updateForRender(objects[COMPILING]);
 	expect(asked.length).toBe(COMPILING + 2);
+	ready[2]();
+	await Promise.resolve();
+	await Promise.resolve();
+	renderer._pipelines.updateForRender(objects[COMPILING + 1]);
+	expect(asked.length).toBe(COMPILING + 3);
 	for (const r of ready) r();
 	await Promise.resolve();
 	await Promise.resolve();
@@ -209,8 +215,18 @@ test('standing still, more compile at once (a world just opened is drawn soon), 
 	const { renderer, asked, ready } = fakeRenderer();
 	drawWhenReady(renderer);
 	renderer.drawWhenReady = true;
-	for (let i = 0; i < STANDING + 3; i++) renderer._pipelines.updateForRender({});
+	const objects = Array.from({ length: STANDING + 3 }, () => ({}));
+	for (const o of objects) renderer._pipelines.updateForRender(o);
 	expect(asked.length).toBe(STANDING);
+	// the three waiting their turn count as pending too: the world is not settled, nor photographed, without them
+	expect(pipelinesPending()).toBe(STANDING + 3);
+	for (const r of ready) r();
+	await Promise.resolve();
+	await Promise.resolve();
+	expect(pipelinesPending()).toBe(3);
+	// the next frame they ask again and get their turns
+	for (const o of objects.slice(STANDING)) renderer._pipelines.updateForRender(o);
+	expect(asked.length).toBe(STANDING + 3);
 	for (const r of ready) r();
 	await Promise.resolve();
 	await Promise.resolve();

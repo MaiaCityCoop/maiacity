@@ -128,9 +128,17 @@ let compiling = 0;
 export const COMPILING = 2;
 /** the most compiled at once while the eye stands */
 export const STANDING = 6;
-/** how many pipelines are being compiled beside the page: a world is not settled while any is (../../../../scripts/lib/quiet.js) */
-export const pipelinesPending = () => compiling;
-if (typeof window !== 'undefined') /** @type {any} */ (window).__pipelinesPending = pipelinesPending;
+/** the objects waiting for a turn to compile, each with when it last asked (ms): one that has not asked for a second
+ *  (gone from view) no longer counts */
+const waiting = new Map();
+/** how many pipelines are being compiled beside the page, or objects waiting for a turn to: a world is not settled
+ *  while any is (../../../../scripts/lib/quiet.js), so it is never taken for whole, nor photographed, with plants
+ *  still queued (GitHub's runner at 8f18498: Sandbox 5's views lacked shrubs and ferns) */
+export const pipelinesPending = () => {
+	const now = performance.now();
+	for (const [o, at] of waiting) if (now - at > 1000) waiting.delete(o);
+	return compiling + waiting.size;
+};if (typeof window !== 'undefined') /** @type {any} */ (window).__pipelinesPending = pipelinesPending;
 
 /**
  * A renderer whose new pipelines are compiled beside the page while `renderer.drawWhenReady` is true (the walker's
@@ -156,7 +164,8 @@ export function drawWhenReady(renderer) {
 		// fewer while the eye moves (`renderer.compileFew`); standing (a world just opened) more, so what is there is
 		// drawn soon. Never all at once: with every new buffer written beside them, WebKit's graphics process gave out
 		// (GitHub's runner at 843e7ac: "Unable to make command encoder", the page drawing nothing)
-		if (compiling >= (renderer.compileFew ? COMPILING : STANDING) && pipelines.get(renderObject).pipeline === undefined) return;
+		if (compiling >= (renderer.compileFew ? COMPILING : STANDING) && pipelines.get(renderObject).pipeline === undefined) return void waiting.set(renderObject, performance.now());
+		waiting.delete(renderObject);
 		/** @type {Promise<void>[]} */
 		const made = [];
 		pipelines.getForRender(renderObject, made);
