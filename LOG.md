@@ -140,3 +140,31 @@ Looked at (render bench, same shots as v3; against its reference sheet `058c8664
   no sparser. Judged: no poorer than v3.
 
 Source: `moringa/moringa-v4.js`.
+
+## Mango (`5ac03d06-26c5-5d1b-af91-62c5ae40880d`): v5 proposed, done
+
+| stage | L0 v4 | **L0 v5** | L1 v5 (0.25) | L2 v5 (0.1) | seconds L0 / L1 / L2 |
+|---|---|---|---|---|---|
+| 10 (ripe, default) | 444,078 | **149,665** | 54,332 | 20,145 | 0.8 / 0.8 / 0.3 |
+| 11 | 349,869 | **156,514** | 46,906 | 17,355 | 0.5 / 0.3 / 0.3 |
+| 12 | 568,817 | **229,620** | 58,408 | 25,371 | 0.7 / 0.5 / 0.4 |
+| 13 | 872,820 | **270,754** | 53,524 | 29,275 | 1.1 / 0.8 / 0.7 |
+
+Eight seeds (maia, oak, river, c–g) at stages 10–13: 130,626 to 272,161. c1 on the proposed variant: 299,551 in
+the viewer's count (149,665 real), 17 draws: under its bound, by little. c2: declared, two levels.
+
+How: leaves cut out of their picture from their fourth year (lanceolate `leafShape`, pale midrib, the fine side
+veins), 6 triangles each where a leaf was 16–24 plus its stalk; at most 12,500 living leaves, each grown to fill.
+Wood rings by bend and girth past the third year, the trunk's fine rings to 1.5 m; limb sides by girth (3 to 9),
+the trunk to 48 (its scaly plates are in its colours: at 24 sides it banded, see below); at most 80,000 triangles.
+Fruit on the tree at the fruit view's detail 0.6 (past 220 fruit 0.3). Roots coarse.
+
+Looked at (render bench, same shots as v4; no reference sheet on its card; judged against photographs of 'Tommy
+Atkins' trees in fruit: tufts of long lanceolate dark leaves, red-blushed fruit hanging on long stalks, a dark,
+scaly trunk):
+- `mango/v4-s10-crown.jpg` / `mango/v5-s10-crown.jpg`: the ten-year tree in fruit: the same crown, leaves and fruit.
+- `mango/v5-first-try-banded-trunk.jpg`: my first try, the trunk with 24 sides showed horizontal bands where v4
+  shows scaly plates: fixed (48 sides), kept as a record.
+- `mango/v4-s13-whole.jpg` / `mango/v5-s13-whole.jpg`: the grown tree as the viewer frames it: the same.
+
+Source: `mango/mango-v5.js`.
