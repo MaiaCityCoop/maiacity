@@ -812,7 +812,14 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     ten minutes there (Chromium's world in 205 to 280 s, WebKit's in about 400 s, each then up to 60 s to settle and
     10 s of frames), and `gpu.ts`'s own limits (600 s an engine to its world) end a check first, in its own words;
     the job has 90 minutes, three such checks at their limit after its build. A check killed at its limit keeps what
-    it had printed and says which engine had finished, with its numbers, and which had not. `--steps` prints what the cover said on the way, each step with its second. **`--sky`** (intent c929d52c)
+    it had printed (each engine's line gpu.ts printed before) and says it was killed. **One load of each world**
+    (intent a35ccd33): spec plans the GPU checks' loads (main's `play/site/scripts/gpu-loads.ts`: every `gpu.ts` call
+    of their runs, one load a world and engine, asked the union of what the calls ask: a flag, the largest number, every
+    value of a list; bounds and `--steps` are the reading's), and the job **gpu-load** runs each on its own macOS
+    runner, side by side (30 minutes at most); **gpu** then runs the checks on ubuntu, each `gpu.ts` call with
+    `GPU_LOADS` launching no browser and reading its world's load in each engine, judged by its own bounds, printing the
+    same lines and naming the load, copying its pictures; a load missing or not asked what the call asks fails that
+    engine, saying so. A head whose `gpu.ts` predates the loads loads its worlds itself, as above. `--steps` prints what the cover said on the way, each step with its second. **`--sky`** (intent c929d52c)
     takes the sky's pictures too, once the world is measured: the eye lifted 45 m where it stands, turned round and up
     (the film camera's hold, `window.__world`), the hour pinned as a film pins it, at dawn, noon, dusk and night (`SKY_HOURS`: the sun 4°
     up at either end of the day), at 1440 × 900 and at a phone's 390 × 844, `<browser>-sky-<hour>-<size>.png` beside

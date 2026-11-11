@@ -27,6 +27,11 @@
  * --software       measure even where there is no GPU (the box's software renderer): for this script's own plumbing.
  *                  Without it a machine without a GPU measures nothing and fails, saying so: what needs a GPU is
  *                  not decided in a software renderer.
+ * GPU_LOADS        (the environment) a folder of loads, each a gpu.json this script wrote, in subfolders (intent a35ccd33):
+ *                  then it launches no browser and needs no build and no GPU, but reads each engine's measure from the
+ *                  load of its world in that engine (./gpu-loads.ts: intents-pr.yml's gpu-load jobs, one a world and
+ *                  engine), judges it by its own bounds, prints the same lines and copies the pictures; an engine with no
+ *                  load, or a load not asked what this call asks, fails, saying so
  * --record         pins what the page reads and the inputs lack (a world's ground textures, its cover), read from
  *                  play with PLAY_MCP_TOKEN (the header to play only); sound is never pinned (no picture needs it)
  *
@@ -36,11 +41,12 @@
  * this command as its `run`; on its pull request the box run measures it on GitHub's macOS runner, on Metal
  * (.github/workflows/intents-pr.yml's job `gpu`), and records what it printed as the check's evidence.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium, webkit, type Browser, type BrowserType, type Page } from 'playwright';
 import { siteHandler } from '../../api/src/site.ts';
+import { DEFAULTS, parseArgs, uncovered } from './gpu-loads';
 import { fileOf, pinFile, pinRoute, pinnedFile, pinnedRoute } from './census/pinned';
 import { quietness } from './lib/quiet.js';
 import { SEEDED_RANDOM } from './macjob/determinism.js';
@@ -132,9 +138,20 @@ export const SKY_VIEWS = [[1440, 900], [390, 844]];
 /** how far up the eye looks for them (rad), and how far it is lifted (m): the land stays along the picture's foot */
 const SKY_PITCH = 0.36, SKY_RISE = 45;
 
+/** once: where the eye stands, turned round (a world opens facing what it is about, which hides the sky) and lifted over the trees */
+const skyFrom = (rise: number) => {
+	const w = (window as any).__world;
+	if (!w?.camera) throw new Error('the world gives the film camera no hold (window.__world): no sky pictures');
+	(window as any).__skyFrom ??= (() => {
+		const at = w.camera.getWorldPosition(new w.THREE.Vector3()), d = w.camera.getWorldDirection(new w.THREE.Vector3());
+		return [at.x, at.y + rise, at.z, Math.atan2(d.x, d.z)];
+	})();
+};
+
 /** The sky's pictures of the world a page shows (--sky), through the film camera's hold on it (`window.__world`). */
 async function skyPictures(page: Page, name: string, out: string): Promise<string[]> {
 	const files: string[] = [];
+	await page.evaluate(skyFrom, SKY_RISE);
 	for (const [width, height] of SKY_VIEWS) {
 		await page.setViewportSize({ width, height });
 		for (const [label, hour] of Object.entries(SKY_HOURS)) {
@@ -143,13 +160,9 @@ async function skyPictures(page: Page, name: string, out: string): Promise<strin
 				if (!w?.camera || !w.fly) throw new Error('the world gives the film camera no hold (window.__world): no sky pictures');
 				(window as any).__interiorHour = hour;
 				w.sun?.(hour);
-				// once: where the eye stood, turned round (a world opens facing what it is about, which hides the sky) and lifted over the trees
-				const from = ((window as any).__skyFrom ??= (() => {
-					const at = w.camera.getWorldPosition(new w.THREE.Vector3()), d = w.camera.getWorldDirection(new w.THREE.Vector3());
-					return [at.x, at.y + rise, at.z, Math.atan2(d.x, d.z)];
-				})());
+				const from = (window as any).__skyFrom;
 				w.fly(from[0], from[1], from[2], from[3], pitch);
-			}, [hour, SKY_PITCH, SKY_RISE]);
+			}, [hour, SKY_PITCH]);
 			await page.waitForTimeout(2500);
 			const file = `${name}-sky-${label}-${width}x${height}.png`;
 			await page.screenshot({ path: join(out, file), timeout: 120_000 });
@@ -175,6 +188,34 @@ export function judge(m: Measure, b: Bounds = {}): string[] {
 /** one line a browser, as the check's evidence keeps it */
 export const lineOf = (m: Measure, why: string[]) =>
 	`${why.length ? '✗' : '✓'} ${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world in ${m.world_s ?? '—'} s, settled ${m.settled_s === null ? 'not' : `in ${m.settled_s} s more`} · ${m.frames ?? '—'} frames in 10 s, ${m.frame_ms ?? '—'} ms each (p95 ${m.frame_p95 ?? '—'}, CPU ${m.cpu_ms ?? '—'}, GPU ${m.gpu_ms ?? '—'})${m.walk_ms === null ? '' : `, walking ${m.walk_ms} ms (p95 ${m.walk_p95 ?? '—'}, CPU ${m.walk_cpu ?? '—'}, GPU ${m.walk_gpu ?? '—'})`} · ${m.calls ?? '—'} draws, ${m.triangles ?? '—'} triangles · ${m.painted ?? '—'} painted${m.sky?.length ? ` · ${m.sky.length} sky pictures` : ''}${m.errors.length && m.world_s !== null ? ` · ${m.errors.length} error${m.errors.length > 1 ? 's' : ''} said, the first: ${m.errors[0]}` : ''}${why.length ? ` · ${why.join('; ')}` : ''}`;
+
+type LoadFile = { world: string; gpu: string; platform: string; args?: string[]; measures: Measure[] };
+
+/** every load in a folder of them: its gpu.json and the folder it is in */
+export function loadsIn(dir: string): { at: string; load: LoadFile }[] {
+	if (!existsSync(dir)) return [];
+	const dirs = [dir, ...readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => join(dir, d.name))];
+	return dirs.filter((d) => existsSync(join(d, 'gpu.json'))).map((at) => ({ at, load: JSON.parse(readFileSync(join(at, 'gpu.json'), 'utf8')) as LoadFile }));
+}
+
+/** a call's measure in one engine read from the one load of its world in it (GPU_LOADS): the load's measure and why it
+ *  fails this call, or why no load answers it; the load's pictures copied into the call's own folder */
+export function readLoad(loads: { at: string; load: LoadFile }[], world: string, browser: string, call: string[], out: string): { m: Measure; why: string[]; said: string } {
+	const args = parseArgs(call);
+	const mine = loads.filter((l) => l.load.world === world && l.load.measures.some((m) => m.browser === browser));
+	const why = (l: (typeof loads)[number]) => uncovered(parseArgs(l.load.args ?? []), args);
+	const found = mine.find((l) => !why(l).length);
+	if (!found) {
+		const reason = mine.length ? `its load does not answer this call: ${why(mine[0]).join('; ')}` : `no load of ${world} in ${browser}: the gpu-load job gave none`;
+		const m: Measure = { browser, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, steps: [], settled_s: null, frames: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, walk_ms: null, walk_p95: null, walk_cpu: null, walk_gpu: null, painted: null, errors: [reason] };
+		return { m, why: [reason], said: `${world} in ${browser}: ${reason}` };
+	}
+	const m = found.load.measures.find((x) => x.browser === browser)!;
+	for (const f of readdirSync(found.at)) if (f.endsWith('.png') && f.startsWith(browser)) copyFileSync(join(found.at, f), join(out, f));
+	const timeout = Number(args.get('--timeout') ?? 600);
+	const late = m.world_s !== null && m.world_s > timeout ? [`the world was not up within ${timeout} s (it took ${m.world_s} s)`] : [];
+	return { m, why: late, said: `${world} in ${browser} read from its one load (${found.at.split('/').pop()}: ${found.load.gpu}, ${found.load.platform}; asked ${(found.load.args ?? []).join(' ') || 'nothing more'})` };
+}
 
 const BROWSERS: Record<string, [BrowserType, object]> = { chromium: [chromium, LAUNCH], webkit: [webkit, { headless: true }] };
 
@@ -228,6 +269,8 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 			return Math.round((1 - Math.max(...seen.values()) / (d.length / 4)) * 1000) / 1000;
 		}, png.toString('base64'));
 		m.shown = m.painted > 0.2;
+		// the sky's standpoint where the world opened, before anything after this moves the eye
+		if (o.sky) await page.evaluate(skyFrom, SKY_RISE).catch(() => {});
 		if (o.walk) {
 			// the walk, after the picture: the eye put where it starts and the world left to settle there (what streams in
 			// round a new place is no part of a walk), then placed each frame by the clock, so a slow frame walks as far
@@ -314,14 +357,31 @@ if (import.meta.main) {
 	const argv = process.argv.slice(2);
 	const arg = (k: string, d?: string) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
 	const num = (k: string) => (arg(k) === undefined ? undefined : Number(arg(k)));
-	const world = arg('--world', '/sandbox-5/')!;
-	const browsers = arg('--browser', 'chromium,webkit')!.split(',');
+	const world = arg('--world', DEFAULTS.world)!;
+	const browsers = arg('--browser', DEFAULTS.browser)!.split(',');
 	// its pictures: --out, else a folder a call under GPU_OUT (the gpu job's artifact) or the temp folder, named by its check and world
 	const out = resolve(arg('--out') ?? join(process.env.GPU_OUT ?? join(tmpdir(), 'gpu-out'), `${process.env.INTENT_CHECK ?? 'world'}${world.replace(/\W+/g, '-').replace(/-$/, '')}`));
 	const inputs = resolve(arg('--inputs', join(SITE, 'scripts/census/inputs'))!);
 	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within'), walkWithin: num('--walk-within'), sky: argv.includes('--sky') };
 	const fail = (why: string): never => (console.log(`gpu: ${why}`), process.exit(1));
 	for (const b of browsers) if (!BROWSERS[b]) fail(`no browser ${b} (chromium, webkit)`);
+
+	if (process.env.GPU_LOADS) {
+		// read from the loads: no browser, no build, no GPU (intent a35ccd33)
+		mkdirSync(out, { recursive: true });
+		const loads = loadsIn(resolve(process.env.GPU_LOADS));
+		const measures: (Measure & { why: string[] })[] = [];
+		for (const b of browsers) {
+			const r = readLoad(loads, world, b, argv, out);
+			const why = [...r.why, ...(r.m.world_s === null && r.why.length ? [] : judge(r.m, bounds))];
+			measures.push({ ...r.m, why });
+			console.log(`gpu: ${r.said}`);
+			if (argv.includes('--steps')) for (const st of r.m.steps) console.log(`    ${st}`);
+			console.log(lineOf(r.m, why));
+		}
+		writeFileSync(join(out, 'gpu.json'), JSON.stringify({ world, read: process.env.GPU_LOADS, bounds, measures }, null, '\t') + '\n');
+		process.exit(measures.every((m) => !m.why.length) ? 0 : 1);
+	}
 
 	const gpu = await machineGpu().catch((e) => `none (${String(e?.message ?? e).split('\n')[0]})`);
 	if (software(gpu)) {
@@ -355,7 +415,7 @@ if (import.meta.main) {
 		console.log(lineOf(m, why));
 	}
 	if (unpinned.size) console.log(`not pinned (answered 404; --record pins a picture's): ${[...unpinned].slice(0, 6).join(' ')}${unpinned.size > 6 ? ` … ${unpinned.size} in all` : ''}`);
-	writeFileSync(join(out, 'gpu.json'), JSON.stringify({ world, gpu, platform: `${process.platform} ${process.arch}`, bounds, measures, unpinned: [...unpinned] }, null, '\t') + '\n');
+	writeFileSync(join(out, 'gpu.json'), JSON.stringify({ world, gpu, platform: `${process.platform} ${process.arch}`, args: argv, bounds, measures, unpinned: [...unpinned] }, null, '\t') + '\n');
 	server.stop(true);
 	process.exit(measures.every((m) => !m.why.length) ? 0 : 1);
 }

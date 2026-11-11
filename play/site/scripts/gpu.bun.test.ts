@@ -5,7 +5,7 @@
  *   cd play/site && bun test scripts/gpu.bun.test.ts
  */
 import { afterAll, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { hashOf } from '../src/lib/content/assets/box/headless.js';
@@ -74,4 +74,64 @@ test('a measure passes when the world is shown, the device held and its bounds h
 	expect(judge({ ...M, world_s: null, shown: false, errors: ['the world was not up within 300 s (at: Growing the forest)'] })).toEqual(['the world never came up: the world was not up within 300 s (at: Growing the forest)']);
 	expect(lineOf(M, [])).toStartWith('✓ chromium 153 · WebGPU apple metal-3');
 	expect(lineOf(M, ['the graphics device was lost'])).toEndWith('· the graphics device was lost');
+});
+
+// read mode (intent a35ccd33): with GPU_LOADS, each engine's measure is read from the one load of its world in it
+const loads = mkdtempSync(join(tmpdir(), 'gpu-loads-'));
+afterAll(() => rmSync(loads, { recursive: true, force: true }));
+function writeLoad(name: string, world: string, args: string[], m: Measure) {
+	mkdirSync(join(loads, name), { recursive: true });
+	writeFileSync(join(loads, name, 'gpu.json'), JSON.stringify({ world, gpu: 'apple metal-3', platform: 'darwin arm64', args: ['--world', world, '--browser', m.browser, ...args], measures: [m] }));
+	writeFileSync(join(loads, name, `${m.browser}.png`), 'a picture');
+}
+writeLoad('gpu-load-0', '/sandbox-1/', ['--walk', '--sky', '--timeout', '600'], { ...M, walk_ms: 30, sky: ['chromium-sky-noon-1440x900.png'] });
+writeLoad('gpu-load-1', '/sandbox-1/', ['--walk', '--sky', '--timeout', '600'], { ...M, browser: 'webkit', version: '26', frame_ms: 45, walk_ms: 50, sky: ['webkit-sky-noon-1440x900.png'] });
+writeLoad('gpu-load-2', '/sandbox-5/', [], { ...M, world_s: null, shown: false, painted: null, errors: ['the world was not up within 600 s (at: the ground)'] });
+async function read(args: string[]) {
+	const out = mkdtempSync(join(tmpdir(), 'gpu-read-'));
+	const p = Bun.spawn([process.execPath, join(import.meta.dir, 'gpu.ts'), ...args, '--out', out], { env: { ...process.env, GPU_LOADS: loads }, stdout: 'pipe', stderr: 'pipe' });
+	const text = await new Response(p.stdout).text();
+	return { code: await p.exited, text, out };
+}
+
+test('read mode: no browser, the load named, its lines judged by the call\'s own bounds and exit, its pictures copied', async () => {
+	const ok = await read(['--world', '/sandbox-1/', '--steps', '--walk']);
+	expect(ok.code).toBe(0);
+	expect(ok.text).toContain('gpu: /sandbox-1/ in chromium read from its one load (gpu-load-0: apple metal-3, darwin arm64; asked --world /sandbox-1/ --browser chromium --walk --sky --timeout 600)');
+	expect(ok.text).toContain('gpu: /sandbox-1/ in webkit read from its one load (gpu-load-1');
+	expect(ok.text).toContain(lineOf({ ...M, walk_ms: 30, sky: ['chromium-sky-noon-1440x900.png'] }, []));
+	expect(readdirSync(ok.out).sort()).toEqual(['chromium.png', 'gpu.json', 'webkit.png']);
+	const bound = await read(['--world', '/sandbox-1/', '--frame-within', '40']);
+	expect(bound.code).toBe(1);
+	expect(bound.text).toMatch(/^✓ chromium /m);
+	expect(bound.text).toMatch(/^✗ webkit .*a frame took 45 ms, more than 40 ms$/m);
+	const only = await read(['--world', '/sandbox-1/', '--browser', 'chromium', '--walk-within', '35', '--sky']);
+	expect(only.code).toBe(0);
+	expect(only.text).not.toContain('webkit');
+});
+
+test('read mode: a load not asked what the call asks, a missing load, a world that never came up or came up too late each fail, saying so', async () => {
+	const views = await read(['--world', '/sandbox-1/', '--browser', 'chromium', '--views', 'far']);
+	expect(views.code).toBe(1);
+	expect(views.text).toContain('its load does not answer this call: the load was not asked --views');
+	const none = await read(['--world', '/sandbox-3/']);
+	expect(none.code).toBe(1);
+	expect(none.text).toContain('no load of /sandbox-3/ in chromium: the gpu-load job gave none');
+	expect(none.text).not.toContain('never came up');
+	const down = await read(['--world', '/sandbox-5/', '--browser', 'chromium']);
+	expect(down.code).toBe(1);
+	expect(down.text).toContain('the world never came up: the world was not up within 600 s (at: the ground)');
+	const late = await read(['--world', '/sandbox-1/', '--browser', 'chromium', '--timeout', '10']);
+	expect(late.code).toBe(1);
+	expect(late.text).toMatch(/^✗ chromium .*the world was not up within 10 s \(it took 12\.3 s\)$/m);
+});
+
+test('with the views, the walk and the sky in one load, the sky is photographed from where the world opened, taken before anything moves the eye', () => {
+	const src = readFileSync(join(import.meta.dir, 'gpu.ts'), 'utf8');
+	const shown = src.indexOf('m.shown = m.painted > 0.2;');
+	const taken = src.indexOf('if (o.sky) await page.evaluate(skyFrom, SKY_RISE)');
+	expect(shown).toBeGreaterThan(0);
+	expect(taken).toBeGreaterThan(shown);
+	for (const later of ['for (const view of o.views', 'if (o.walk) {', 'm.sky = await skyPictures']) if (src.includes(later)) expect(src.indexOf(later)).toBeGreaterThan(taken);
+	expect(src).toContain('(window as any).__skyFrom ??=');
 });
