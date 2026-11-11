@@ -18,10 +18,11 @@
  * assets outside the rule the day it came, which stay as they are until their own intent touches their source. One is
  * printed and fails nothing while it is outside the rule, and fails once it is within it: the list only shrinks.
  *
- *   bun play/site/scripts/census/ceiling.ts --all [--intent <uuid>] [--record] [--list]
+ *   bun play/site/scripts/census/ceiling.ts --all [--intent <uuid>] [--record | --pin] [--list]
  *   bun play/site/scripts/census/ceiling.ts <asset uuid>… [--intent <uuid>]      # these alone, each stage's count printed
  *
- * `--intent` alone counts what that intent changes. `--list` prints ./ceiling.known.json as it would be written today
+ * `--intent` alone counts what that intent changes. play is read as pinned in ./inputs (no token: a check sees none);
+ * `--record` reads every route live and pins it anew, `--pin` pins only what no pin holds yet (PLAY_MCP_TOKEN). `--list` prints ./ceiling.known.json as it would be written today
  * and fails nothing (how the list was made). Builds run on every core, each recipe's counts kept between runs under
  * its hash (./kept.ts: a recipe's hash fixes its source, its pieces and its engine), so only what changed is built again.
  */
@@ -67,8 +68,8 @@ async function stagesOf(page: Awaited<ReturnType<typeof opened>>, trianglesOf: (
 }
 
 /** a worker: the recipes named on its command line built one after another, a JSON line each */
-async function work(hashes: string[], o: { record?: boolean; intent?: string; admit: string[] }) {
-	const page = await opened({ record: o.record });
+async function work(hashes: string[], o: { record?: boolean; fresh?: boolean; intent?: string; admit: string[] }) {
+	const page = await opened({ record: o.record, fresh: o.fresh });
 	for (const id of o.admit) await page.read(id, o.intent);
 	const { trianglesOf } = await import(lib('content/assets/card.js'));
 	for (const hash of hashes) {
@@ -83,15 +84,16 @@ async function work(hashes: string[], o: { record?: boolean; intent?: string; ad
 async function main(argv: string[]) {
 	const flag = (f: string) => (argv.includes(f) ? argv[argv.indexOf(f) + 1] : undefined);
 	const intent = flag('--intent');
-	const record = argv.includes('--record');
-	if (argv.includes('--work')) return work(argv.slice(argv.indexOf('--work') + 1), { record, intent, admit: (flag('--admit') ?? '').split(',').filter(Boolean) });
+	const pin = argv.includes('--pin');
+	const record = pin || argv.includes('--record');
+	if (argv.includes('--work')) return work(argv.slice(argv.indexOf('--work') + 1), { record, fresh: !pin, intent, admit: (flag('--admit') ?? '').split(',').filter(Boolean) });
 	const named = argv.filter((a, i) => /^[0-9a-f-]{36}$/.test(a) && argv[i - 1] !== '--intent');
 	const all = argv.includes('--all');
-	if (!all && !named.length && !intent) throw new Error('ceiling: --all, or asset UUIDs, or --intent <uuid>; [--record] [--list]');
+	if (!all && !named.length && !intent) throw new Error('ceiling: --all, or asset UUIDs, or --intent <uuid>; [--record | --pin] [--list]');
 	const known: Record<string, unknown> = await Bun.file(join(import.meta.dir, 'ceiling.known.json')).json();
 
 	// every asset with its recipes: its newest version's (its own, each variant's), or the one its intent's variant makes
-	setup({ inputs: join(import.meta.dir, 'inputs'), record, fresh: true });
+	setup({ inputs: join(import.meta.dir, 'inputs'), record, fresh: !pin });
 	type Asset = { id: string; group: string; slug: string; label: string; at: string; lod: any; jobs: Job[]; proposed: boolean };
 	const assets: Asset[] = [];
 	for (const group of GROUPS)
@@ -120,7 +122,7 @@ async function main(argv: string[]) {
 	await Promise.all(
 		Array.from({ length: workers }, async (_, w) => {
 			const mine = todo.filter((_, i) => i % workers === w);
-			const child = Bun.spawn(['bun', import.meta.path, ...(record ? ['--record'] : []), ...(intent ? ['--intent', intent, '--admit', admit.join(',')] : []), '--work', ...mine], { stdout: 'pipe', stderr: 'inherit' });
+			const child = Bun.spawn(['bun', import.meta.path, ...(pin ? ['--pin'] : record ? ['--record'] : []), ...(intent ? ['--intent', intent, '--admit', admit.join(',')] : []), '--work', ...mine], { stdout: 'pipe', stderr: 'inherit' });
 			for (const line of (await new Response(child.stdout).text()).split('\n')) {
 				if (!line.startsWith('{')) continue;
 				const r = JSON.parse(line);

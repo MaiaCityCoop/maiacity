@@ -10,8 +10,8 @@ import { join } from 'node:path';
 import { turning } from './kinds';
 import { setup, lib } from './setup';
 
-export async function opened(o: { root?: string; record?: boolean } = {}) {
-	setup({ root: o.root, inputs: join(import.meta.dir, 'inputs'), record: o.record, fresh: true });
+export async function opened(o: { root?: string; record?: boolean; /** with `record`: false pins only what no pin holds yet, every pinned route read as pinned */ fresh?: boolean } = {}) {
+	setup({ root: o.root, inputs: join(import.meta.dir, 'inputs'), record: o.record, fresh: o.fresh ?? true });
 	const { catalogReady } = await import(lib('recipes'));
 	await catalogReady();
 	const { source, INDEX, admitProposed } = await import(lib('content/assets/catalog.js'));
