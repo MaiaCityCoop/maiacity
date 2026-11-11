@@ -1,0 +1,106 @@
+{
+ "tag": "195b6e2c-sandbox-5-webkit-first",
+ "browser": "Playwright WebKit 26.6",
+ "url": "http://localhost:4405/sandbox-5/",
+ "steps": [
+  {
+   "t": 3.3,
+   "line": "Building the dome…"
+  },
+  {
+   "t": 5.5,
+   "line": "Letting in the light…"
+  },
+  {
+   "t": 9.2,
+   "line": "Laying the paths…"
+  },
+  {
+   "t": 11.2,
+   "line": "Covering the ground…"
+  },
+  {
+   "t": 13.2,
+   "line": "Planting round the dome…"
+  },
+  {
+   "t": 55.6,
+   "line": "Growing the forest: 30 of 51 kinds…"
+  },
+  {
+   "t": 57.7,
+   "line": "Growing the forest: 40 of 51 kinds…"
+  },
+  {
+   "t": 61.9,
+   "line": "Growing the forest: 50 of 51 kinds…"
+  },
+  {
+   "t": 69.9,
+   "line": "page busy"
+  },
+  {
+   "t": 81.8,
+   "line": "Welcome"
+  },
+  {
+   "t": 86.3,
+   "line": "shown"
+  }
+ ],
+ "lifted_s": 86.3,
+ "backend": "webgpu",
+ "stats": {
+  "out": {
+   "kinds": 180,
+   "loaded": 82,
+   "building": 105,
+   "busy": {
+    "queue": 0,
+    "loads": 102,
+    "compiling": 0,
+    "lowering": 3
+   },
+   "keeping": 0,
+   "failed": []
+  },
+  "in": {
+   "kinds": 0,
+   "loaded": 0,
+   "building": 0,
+   "busy": {
+    "queue": 0,
+    "loads": 0,
+    "compiling": 0,
+    "lowering": 0
+   },
+   "keeping": 0,
+   "failed": []
+  },
+  "library": {
+   "kinds": 16,
+   "loaded": 16,
+   "building": 0,
+   "busy": {
+    "queue": 0,
+    "loads": 0,
+    "compiling": 0,
+    "lowering": 0
+   },
+   "keeping": 0,
+   "failed": []
+  }
+ },
+ "longest_hold": {
+  "at_s": 61.5,
+  "ms": 19495
+ },
+ "reporter": {
+  "file": "4405-mwbqp7qz-34nr.jsonl",
+  "gpu": true,
+  "adapter": null,
+  "lost": [],
+  "errors": [],
+  "errors_total": 0
+ }
+}
