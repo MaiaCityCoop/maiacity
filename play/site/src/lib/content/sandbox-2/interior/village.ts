@@ -33,7 +33,7 @@ import { flow, pond, shore, stream } from './water'
 import { createWorldRenderer, worldFinish } from '$lib/content/render/world.js'
 import { createSky, SUN } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
-import { castBySize } from '$lib/content/sandbox-kit/casters.js'
+import { castBySize, ready as standInsReady } from '$lib/content/sandbox-kit/casters.js'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
 import { createStream, type View } from '$lib/content/sandbox-kit/stream.js'
@@ -116,6 +116,7 @@ async function newestOf(asset: string): Promise<string> {
 }
 
 export async function mountVillage(container: HTMLElement, onProgress: (label: string) => void, opts: VillageOptions = {}): Promise<VillageHandle> {
+	await standInsReady
 	const flora = opts.flora
 	const pause = async (label: string) => {
 		onProgress(label)
@@ -638,7 +639,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		})
 		const g = new THREE.Group()
 		g.add(obj)
-		return bake(g, shadow).children.map((c) => ({ geo: (c as THREE.Mesh).geometry, mat: (c as THREE.Mesh).material as THREE.Material, shadow }))
+		return bake(g, shadow).children.filter((c) => !c.userData.standIn).map((c) => ({ geo: (c as THREE.Mesh).geometry, mat: (c as THREE.Mesh).material as THREE.Material, shadow }))
 	}
 	const MAIN: { parts: Part[]; radius: number }[] = []
 	const mainPlant = (p: Plant) => MAIN.push({ parts: species(p.object, true), radius: p.radius })

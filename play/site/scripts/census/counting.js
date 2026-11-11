@@ -37,7 +37,9 @@ function newTally() {
 		targetCalls: 0, targetTris: 0,
 		culledObjects: 0, culledTris: 0,
 		/** every draw to the screen: [object, triangles] */
-		draws: []
+		draws: [],
+		/** the shadow passes' draws, each [object, triangles] (CENSUS_DEBUG: what casts the most) */
+		shadowDraws: []
 	};
 }
 
@@ -524,7 +526,8 @@ export class CountingWebGPURenderer extends CountingRenderer {
 				_proj.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
 				_shadowFrustum.setFromProjectionMatrix(_proj, cam.coordinateSystem, cam.reversedDepth);
 				this._tally.shadowPasses++;
-				this._shadowWalk(scene, layers, cam);
+				// a cascade is drawn from its own camera, on that camera's own layers (SunShadowNode's renderShadow)
+				this._shadowWalk(scene, cam === shadow.camera ? layers : cam.layers, cam);
 			}
 			shadow.needsUpdate = false;
 		}
@@ -544,7 +547,7 @@ export class CountingWebGPURenderer extends CountingRenderer {
 					const side = m.shadowSide ?? (m.side === THREE.DoubleSide ? THREE.DoubleSide : m.side === THREE.FrontSide ? THREE.BackSide : THREE.FrontSide);
 					const passes = (m.transparent === true || m.transmission > 0) && side === THREE.DoubleSide ? 2 : 1;
 					const n = drawOf(object, geometry, m, group).tris;
-					for (let p = 0; p < passes; p++) this._countShadow(n);
+					for (let p = 0; p < passes; p++) this._countShadow(n, object);
 					object.onAfterShadow(this, object, cam, cam, geometry, m, group);
 				};
 				if (Array.isArray(material)) {
@@ -558,10 +561,11 @@ export class CountingWebGPURenderer extends CountingRenderer {
 		const kids = object.children;
 		for (let i = 0, l = kids.length; i < l; i++) this._shadowWalk(kids[i], layers, cam);
 	}
-	_countShadow(tris) {
+	_countShadow(tris, object) {
 		this.info.render.calls += 1;
 		this.info.render.triangles += tris;
 		(this._tally.shadowCalls += 1), (this._tally.shadowTris += tris);
+		if (object) this._tally.shadowDraws.push([object, tris]);
 	}
 }
 

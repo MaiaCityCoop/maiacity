@@ -25,6 +25,7 @@
 import * as THREE from 'three'
 import { DOMES, DOORS, adiff, doorsOf, geodesic, portal, tankLine, type DomeKind } from './shell'
 import { bake, bakeSliced, box, joinBaked, polar } from './bake'
+import { ready as standInsReady } from '$lib/content/sandbox-kit/casters.js'
 import type { MeshPhysicalNodeMaterial } from 'three/webgpu'
 import { OwnPhysical } from '$lib/content/render/tsl.js'
 import { abs, cameraViewMatrix, dot, float, max, normalView, normalize, positionViewDirection, uniform, vec4 } from 'three/tsl'
@@ -432,6 +433,7 @@ export function glampInside({ scene, R, m, addLamp, glowMat }: { scene: THREE.Ob
 }
 
 export async function mountInterior(container: HTMLElement, kind: DomeKind, onProgress?: (label: string) => void, opts: InteriorOptions = {}): Promise<InteriorHandle> {
+	await standInsReady
 	/** what it put into the host's renderers, taken out again if it never stands (a build cancelled, or failed) */
 	const drop: (() => void)[] = []
 	try {
