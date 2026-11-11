@@ -194,6 +194,69 @@ before it is built: it must fit under the aim or bring its own saving. *Done ton
 with absolute MB bounds; 0356b0ea adds walking to `gpu.ts`. *Left*: the budget itself and its doors: **the first
 step**.
 
+## 4b. The first of the budgets: an asset's own ceiling, and its levels kept with it
+
+Samuel, 2026-11-11: "any asset touched can be max 300k in its highest detail and needs to be optimized for this, while
+keeping realism as good as possible", "incl. the colocation of the 3-4 LOD configs per asset with its actual src files".
+
+**Where the assets stand** (play's catalog as the census pins it, `tools/catalog.ts`: 274 assets, the 368 recipes of
+their newest versions; a card's triangles are its default build's):
+
+| group | assets | recipes | card says `declared` | `derived` | names none | triangles known | over 300,000 | over 100,000 | median | 90th | most |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| plants | 108 | 111 | 0 | 84 | 27 | 85 | 9 | 44 | 107,964 | 299,152 | 1,204,000 |
+| things | 94 | 94 | 0 | 55 | 39 | 55 | 0 | 0 | 2,416 | 9,716 | 35,060 |
+| machines | 25 | 61 | 0 | 16 | 45 | 15 | 2 | 7 | 90,600 | 245,812 | 743,102 |
+| buildings | 20 | 22 | 0 | 12 | 10 | 12 | 1 | 1 | 15,873 | 55,986 | 370,146 |
+| biomes | 12 | 31 | 0 | 25 | 6 | 26 | 2 | 6 | 361 | 197,594 | 342,388 |
+| actors | 10 | 44 | 0 | 44 | 0 | 44 | 0 | 1 | 20,772 | 33,720 | 230,902 |
+| characters, worlds | 5 | 5 | 0 | 3 | 2 | 2 | 0 | 0 | | | 62,592 |
+| **all** | **274** | **368** | **0** | **239** | **129** | 239 | **14** | 59 | | | |
+
+- **No accepted version declares its levels.** 239 cards say `derived`; 129 name none (from before the contract: a
+  plant among them is drawn at its recipe's detail 0.25 and 0.1, everything else is simplified on the device).
+- **Over 300,000 at the default build, 14**: birch 4 (1,204,000), truck 5 (743,102), jackfruit 5 (628,634), durian 4
+  (531,526), mango 4 (460,012), pecan 3 (431,608), pickup 5 with its cube (426,652), cherry 2 (416,740), orange 4
+  (393,724), dome-factory 3 (370,146), olive 3 (366,616), avocado 5 (356,838), the beech-forest and spruce-forest
+  biomes (342,388, 326,016).
+- **A card counts one stage; a world draws the heaviest.** Built for the worlds tonight, over 300,000: walnut 5 at
+  stage 12 1,679,476; sweet chestnut 6 at stages 9 to 12 up to 1,586,890; the forest dome 6 1,241,499; mango 4 up to
+  887,690; moringa 3 up to 754,718; hazel 5 (tree) up to 740,888; yam 3 up to 433,083: 19 builds. Walnut and chestnut
+  are under 300,000 on their cards. So the ceiling is counted at the heaviest stage and variant a recipe's params
+  allow, by building it, never read off a card.
+
+**The rule, as proposed**
+
+- **One ceiling for every asset: 300,000 triangles at its finest**, counted at its heaviest stage and variant. One
+  number is what play can refuse by; the 90th plant is at 299,152, so it is a large tree's true need and no more.
+- **Smaller aims by kind, in the asset skills** (not refused, reviewed): a thing 30,000 (the heaviest today 35,060),
+  an animal 40,000 (90th 33,720), a herb or cover plant 15,000, a shrub 60,000, a tree, a machine and a walkable
+  building 300,000. A biome is a composition: its parts are held, not its sum.
+- **Three shapes and a picture, declared with the source**: `module.exports.levels` beside the recipe, the card
+  `lod: declared`: L0 at most 300,000; L1 at most 0.3 of it (90,000; drawn from 1.2 down to 0.56 of the view); L2 at
+  most 0.08 (24,000; down to 0.22), `render/lod.js`'s shares; L3 its picture. Whether the shares must fall (a mid view
+  draws 53 to 84 copies at L1 and about 105 at L2, which at the caps is far over a 1.5 M frame) is decided by the
+  world's budget, not here: the asset's rule caps one asset, the world's budget caps their sum.
+- **"Touched" is: its source changed** (an asset's, a variant's or a breed's). A card's word, a sheet or a label
+  forces nothing. I agree with the Orchestrator's reading, with one more door: **a layout may not newly pin a version
+  over the ceiling**, or an old heavy version comes back by a pin with no source touched.
+- **Held, not only said**:
+  1. *play, at propose* (`play/api/src/lod.ts`, where a version without `lod` is refused today): a version whose
+     source changed is refused unless its card says `declared` and its source exports its levels. play runs no code,
+     so it cannot count triangles; it refuses on the card's own count where that is over.
+  2. *the box, as a standing check of every intent that brings an asset's version*: the variant built at its heaviest
+     stage in the census's box and counted (as `census/viewer.ts --intent` builds it), each level within its ceiling;
+     recorded as the intent's evidence. This is the count that decides.
+  3. *known exceptions by UUID and version*, as 5723e301 named BatteryPack: the 14 and the 19 above, each until its own
+     intent; the list only shrinks.
+  4. *the Intents skill's Idea part*, a rule of the reduce step for any intent that changes an asset's source; the
+     asset skills' "Levels of detail"; play/SPEC.md §4.5.
+- **Each level's built shape kept by hash at Accept** (P2): yes; with declared levels it is three builds and a picture
+  a version, 37 MB for a whole world at the levels it first draws.
+
+Intent 3e27d730 (building tonight) brings the six trees under 300,000 with their levels declared: the rule's first
+use. The rule itself (play's refusal, the box's count, the skills) is its own intent, the first after the budget.
+
 ## 5. Realism: each part against the real thing
 
 The reference is the real thing, never today's picture. Judged against: Poly Haven's CC0 `autumn_meadow` and
