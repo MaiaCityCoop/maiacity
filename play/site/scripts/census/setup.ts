@@ -84,7 +84,7 @@ export const smoked = { shaders: [] as string[][], draws: 0 };
 export const gpu: { fake: any } = { fake: null };
 
 /** what the workers' answers came from (./kept.ts): read from what was kept, or made now and kept */
-export let built = { read: 0, made: 0 };
+export let built = { read: 0, made: 0, lowered: { jobs: 0, tris: 0 } };
 
 /** what was fetched, for the census's report: each route once */
 export const fetched = { live: new Set<string>(), pinned: new Set<string>(), files: 0 };

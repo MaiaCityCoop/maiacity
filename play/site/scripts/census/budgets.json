@@ -1,0 +1,245 @@
+{
+	"what": "A world's budget (play/SPEC.md §4.16, intent 1f6a98dd): for each sandbox, by its UUID, the aims (absolute, Samuel 2026-11-11, on an M1 with 8 GB in Safari) and today's ceilings in the units avenBOX can count without a GPU. `bun play/site/scripts/budget.ts` holds a world to its ceilings. A ceiling only moves down, or up by a change that says so in the same pull request.",
+	"aims": {
+		"shown_s": 10,
+		"again_s": 3,
+		"memory_mb": 2500,
+		"frame_ms": 16.7,
+		"tris": 1500000,
+		"draws": 600,
+		"calls": 2500,
+		"simplified": 0
+	},
+	"units": {
+		"shown_s": "seconds to the world on a first visit",
+		"again_s": "seconds to the world on a second visit",
+		"memory_mb": "the page's peak memory, MB",
+		"frame_ms": "a frame standing and walking, ms",
+		"tris": "triangles a frame, every pass (the picture and a shadow redraw)",
+		"draws": "draws a frame, every pass",
+		"calls": "WebGPU calls a frame, the eye at rest (walkCalls: walking)",
+		"simplified": "triangles the world's load hands the device's simplifier"
+	},
+	"held": {
+		"tris": "budget.ts (the census)",
+		"draws": "budget.ts (the census)",
+		"calls": "budget.ts (the census, --frame)",
+		"simplified": "budget.ts (the census)",
+		"shown_s": "not held yet: play/site/scripts/gpu.ts --world-within on a real GPU",
+		"again_s": "not held yet: play/site/scripts/gpu.ts on a real GPU",
+		"memory_mb": "not held yet: play/site/scripts/memory.ts (intent 1893a631)",
+		"frame_ms": "not held yet: play/site/scripts/gpu.ts --frame-within on a real GPU"
+	},
+	"asset": {
+		"finest": 300000,
+		"levels": "declared",
+		"held": "not held yet: play at propose and the box's count (the intent after 1f6a98dd)",
+		"what": "An asset's own ceiling (Samuel 2026-11-11): at most 300,000 triangles at its finest, counted at its heaviest stage and variant, its levels declared with its source. `exceptions`: the versions over it on 2026-11-11, each by its asset's UUID and its recipe's hash (`shown` only shown); the list only shrinks.",
+		"exceptions": [
+			{
+				"asset": "34c5d8e0-48e4-541e-8e1d-3f7bfce8e1fe",
+				"version": "96e31d8caf4b6eba4aaa8f014c55e4e2bea715c17a83b22b083bf78e09b55003",
+				"shown": "walnut 5",
+				"triangles": 1679476,
+				"counted": "built for a world at its heaviest stage drawn"
+			},
+			{
+				"asset": "c0382a47-a3ee-58c4-b83a-65df5c71c18e",
+				"version": "ecae8ac29b4d4493284f7f4ff7c7a5e4908511eb8eaaf8a073c289f261cf05c8",
+				"shown": "chestnut 6",
+				"triangles": 1586890,
+				"counted": "built for a world at its heaviest stage drawn"
+			},
+			{
+				"asset": "cac16350-08a4-4d51-8cdf-3ade5f61836e",
+				"version": "46d09b009680d773c3361084e81532457bffb37bcc2c229b9d7b3c3c5b8de825",
+				"shown": "forest-dome 6",
+				"triangles": 1241499,
+				"counted": "built for a world at its heaviest stage drawn"
+			},
+			{
+				"asset": "0b1bf6d5-c012-5613-9302-400161daf1dc",
+				"version": "e60f6354531226c6d4494cf9514522bd4a3ff2077b2df80be10c3e71eeb1f30c",
+				"shown": "birch 4",
+				"triangles": 1204000,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "5ac03d06-26c5-5d1b-af91-62c5ae40880d",
+				"version": "345412c32deec427fb710492e96639aba9f2e326a9b242000d12c8ea6f7ea444",
+				"shown": "mango 4",
+				"triangles": 887690,
+				"counted": "built for a world at its heaviest stage drawn"
+			},
+			{
+				"asset": "76b97cae-fa1d-4bfc-a07c-5f093343919f",
+				"version": "f36e4737b648c2b757ee125027891c523de11a58fc454b2b2460c9380ffc736d",
+				"shown": "moringa 3",
+				"triangles": 754718,
+				"counted": "built for a world at its heaviest stage drawn"
+			},
+			{
+				"asset": "7fd2a0c5-76dc-588d-9cbd-4178d218bbd6",
+				"version": "fc476fb9d7d7be6ebac32236fb22c1fdbf918df077dcde50340ce69d20c4db2b",
+				"shown": "truck 5 (truck)",
+				"triangles": 743102,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "33a534e9-80c7-5892-89b2-84d1a2efbdac",
+				"version": "bda5f47f04585579fd92a7b13fb4d659c6da0139b185a6571e0772ab46cc564d",
+				"shown": "hazel 5 (tree)",
+				"triangles": 740888,
+				"counted": "built for a world at its heaviest stage drawn"
+			},
+			{
+				"asset": "26b84995-47bf-5a2e-a11e-77b44054520f",
+				"version": "6fb9773efdca83444b0beaaf1c80a3d73e8bd361c746c4894c9c278b818991c5",
+				"shown": "jackfruit 5",
+				"triangles": 628634,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "cef476a0-cc1b-5509-84c0-51a42b907951",
+				"version": "3a47de6c820019cc77c97510c8f46b5d88ddb840c175bad5e72764d95e7ef73e",
+				"shown": "durian 4",
+				"triangles": 531526,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "ec65e757-0c6d-4513-b802-8c8f7a679d3f",
+				"version": "cc8cdaac8fcc97a4cb25c96d05b909662697e3f421980bab08f997e7d6498363",
+				"shown": "yam 3",
+				"triangles": 433083,
+				"counted": "built for a world at its heaviest stage drawn"
+			},
+			{
+				"asset": "b17ce86a-cba2-5032-847f-b53f4aa65cad",
+				"version": "76c2fa4070b78a4671be0b6f931d7cf9991db923ec1f12c050070df3552857af",
+				"shown": "pecan 3",
+				"triangles": 431608,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "5bf0a85d-2f01-5a78-acc5-84fd63d05731",
+				"version": "f0d025e973abe60db44173a6ebbe2574d4bcc8153e9cd0881026a2489323bb8f",
+				"shown": "pickup 5 (pickup-cube)",
+				"triangles": 426652,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "aa236b28-b4e7-5e53-a5ec-6fa15535f631",
+				"version": "f770d422567abda093c879b2b22fdbd947f061b5f1a266eee36f78b23a55f7e5",
+				"shown": "cherry 2",
+				"triangles": 416740,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "332e490c-bbbd-57c4-856c-b3190e8db398",
+				"version": "b1c8ea4d749faee1e84fa83af106c1b312b816e2106810f562bae2549586bfd2",
+				"shown": "orange 4",
+				"triangles": 393724,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "ef641365-45ee-5716-93e2-9fd4aeb15072",
+				"version": "cf00e4cfd01f12591966e5246eec65502c2518f2f7854448ff1631bf4fff91c6",
+				"shown": "dome-factory 3",
+				"triangles": 370146,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "8323f07d-60c6-5d46-8c23-644e5b1efc20",
+				"version": "23ee39d5f005a5ef6630780ecee536368b0c37aa58e9ef87b48901a6fb53306c",
+				"shown": "olive 3",
+				"triangles": 366616,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "dd33ff04-fd0a-5201-9a8d-172252b91b5f",
+				"version": "399e568d34807c4f22eff81173b20f739a14c14db14b16e5b18957254e081142",
+				"shown": "avocado 5",
+				"triangles": 356838,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "34095282-709a-5a59-ac03-697ac77b8047",
+				"version": "0112909a5fab60bdb4c709c77ec7a10bf43d85cf5542e6a9e0468c179e2d6d95",
+				"shown": "beech-forest 1",
+				"triangles": 342388,
+				"counted": "its card, the default build"
+			},
+			{
+				"asset": "b310952f-3d03-5257-9fef-d0a2e2a6c829",
+				"version": "046f2ad3112296ea605f06e1847dfaf5b151b7a52012d886ecbca88b05c9e2d6",
+				"shown": "spruce-forest 1",
+				"triangles": 326016,
+				"counted": "its card, the default build"
+			}
+		]
+	},
+	"worlds": {
+		"ec08b07d-6ec0-8f65-92b2-3efe7d91df5d": {
+			"shown": "Sandbox 1",
+			"world": "sandbox-1",
+			"simplified": 17200000,
+			"views": {
+				"near": {
+					"tris": 11100000,
+					"draws": 4070,
+					"calls": 9840,
+					"walkCalls": 13200
+				},
+				"mid": {
+					"tris": 13400000,
+					"draws": 3460,
+					"calls": 10300,
+					"walkCalls": 12900
+				},
+				"far": {
+					"tris": 2720000,
+					"draws": 1610,
+					"calls": 5050,
+					"walkCalls": 6350
+				}
+			}
+		},
+		"ac154784-c938-47ee-ac74-d61fc91583b3": {
+			"shown": "Sandbox 5",
+			"world": "sandbox-5",
+			"simplified": 10400000,
+			"views": {
+				"near": {
+					"tris": 10500000,
+					"draws": 1830,
+					"calls": 6280,
+					"walkCalls": 8020
+				},
+				"mid": {
+					"tris": 10300000,
+					"draws": 1580,
+					"calls": 6380,
+					"walkCalls": 7780
+				},
+				"far": {
+					"tris": 4300000,
+					"draws": 1230,
+					"calls": 4220,
+					"walkCalls": 5220
+				}
+			}
+		},
+		"a2af9568-53c6-8917-a816-da88d3ff66ff": {
+			"shown": "Sandbox 3",
+			"world": "sandbox-3",
+			"simplified": 289000,
+			"views": {
+				"open": {
+					"tris": 354000,
+					"draws": 312,
+					"calls": 1590
+				}
+			}
+		}
+	}
+}

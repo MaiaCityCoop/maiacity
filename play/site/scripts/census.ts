@@ -130,7 +130,10 @@ for (const v of got) {
 		console.table([...rows.values()].sort((a, b) => b.tris - a.tris).slice(0, 40));
 	}
 }
+// what the world's load handed the page's simplifier (./census/kept.ts `lowered`): work a visitor's device does
+const { lowered } = (await import('./census/setup')).built;
+console.log(`\nhanded to the simplifier: ${n(lowered.jobs)} shapes, ${n(lowered.tris)} triangles`);
 console.log(`\ncensus: ${views.length} view${views.length > 1 ? 's' : ''} in ${seconds.toFixed(1)} s`);
 const json = arg('--json');
-if (json) writeFileSync(json, JSON.stringify({ world, at: tree?.sha ?? null, renderer: drewWith, seconds, views: got }));
+if (json) writeFileSync(json, JSON.stringify({ world, at: tree?.sha ?? null, renderer: drewWith, seconds, lowered, views: got }));
 process.exit(0);
