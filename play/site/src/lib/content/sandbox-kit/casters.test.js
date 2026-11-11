@@ -2,7 +2,7 @@
 // casts again as the eye nears.
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { CASCADES, castBySize, ready, seeStandIns, shadowsMoved, SMALL, standIns } from './casters.js';
+import { CASCADES, castBySize, ready, seeStandIns, shadowsMoved, SMALL, standIns, standInSteps } from './casters.js';
 import { SunLight } from 'three/addons/lights/SunLight.js';
 
 /** the worlds' camera (68° high) at x, z looking along -z */
@@ -102,6 +102,18 @@ describe('stand-ins', () => {
 			const size = s.geometry.boundingBox.getSize(new THREE.Vector3());
 			expect(Math.abs(size.y - 2)).toBeLessThanOrEqual(2 * c.error);
 		}
+	});
+
+	it('stand-in: made a step a mesh lowered (a walked world builds them between frames), the same as made at once', async () => {
+		await ready;
+		const balls = [ball(1), ball(1.5, 4), ball(0.8, -4)];
+		const steps = standInSteps(balls);
+		let n = 0, r = steps.next();
+		for (; !r.done; r = steps.next()) n++;
+		// a step a mesh and cascade
+		expect(n).toBe(balls.length * CASCADES.length);
+		const once = standIns(balls);
+		expect(r.value.map((m) => [m.layers.mask, m.geometry.attributes.position.count])).toEqual(once.map((m) => [m.layers.mask, m.geometry.attributes.position.count]));
 	});
 
 	it('stand-in: what is narrower than a cascade can show is left out of it, and glass casts nothing', async () => {

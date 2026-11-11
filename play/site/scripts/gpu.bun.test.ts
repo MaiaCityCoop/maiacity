@@ -135,3 +135,12 @@ test('with the views, the walk and the sky in one load, the sky is photographed 
 	for (const later of ['for (const view of o.views', 'if (o.walk) {', 'm.sky = await skyPictures']) if (src.includes(later)) expect(src.indexOf(later)).toBeGreaterThan(taken);
 	expect(src).toContain('(window as any).__skyFrom ??=');
 });
+
+test('--fill-within: a view whose plants wait past the bound, or still wait 5 s after its picture, fails, saying so', () => {
+	const f = (fill_s: number | null, pending_later = 0) => ({ view: 'mid', fill_s, pending: 0, triangles: 4_000_000, pending_later, triangles_later: 4_000_000 });
+	expect(judge({ ...M, fills: [f(1.2)] }, { fillWithin: 5 })).toEqual([]);
+	expect(judge({ ...M, fills: [f(7.5)] }, { fillWithin: 5 })).toEqual(['the mid view waited 7.5 s for what it draws, more than 5 s']);
+	expect(judge({ ...M, fills: [f(null)] }, { fillWithin: 5 })).toEqual(['the mid view waited over 30 s for what it draws, more than 5 s']);
+	expect(judge({ ...M, fills: [f(2, 3)] }, { fillWithin: 5 })).toEqual(['the mid view still had 3 waiting to be drawn 5 s after its picture']);
+	expect(judge(M, { fillWithin: 5 })).toEqual(['no view filled in was measured (it asks for --views)']);
+});

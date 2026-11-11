@@ -20,6 +20,7 @@
  * model shown stayed on the graphics card after the next was picked, so a phone ran out of memory after a few and lost
  * its canvas; and a phone drew at twice its pixels with the desktop's shadows, occlusion and multisampling.
  */
+import { drawWhenReady, timeRender, writeOnUnmap } from './making.js';
 import * as THREE from 'three';
 import { PMREMGenerator as NodePMREMGenerator, ShadowNode, WebGPURenderer } from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -228,6 +229,12 @@ function createWebGPU(o, forceWebGL) {
 	renderer.init = async () => {
 		await init();
 		tellUploads(renderer);
+		// while the walker draws, what is met for the first time is compiled beside the page (./making.js)
+		drawWhenReady(renderer);
+		// its new buffers filled without waiting on the graphics process (./making.js)
+		writeOnUnmap(/** @type {any} */ (renderer).backend?.device);
+		// and what its draw spends its time on, by kind (./making.js: a walk's slow frames name it)
+		timeRender(renderer);
 		return renderer;
 	};
 	o.container?.appendChild(renderer.domElement);
