@@ -151,7 +151,9 @@ export function drawWhenReady(renderer) {
 		// a few at a time: WebKit's graphics process compiles them, and with all a walk meets at once it presented no
 		// frame for seconds (GitHub's runner at 1d74348: 3.3 s frames whose page's own work was 0.5 s). One with none
 		// yet waits its turn, not drawn (three's own while a pipeline compiles); one being remade goes on
-		if (compiling >= COMPILING && pipelines.get(renderObject).pipeline === undefined) return;
+		// only while the eye moves (`renderer.compileFew`): standing (a world just opened), all compile at once, so
+		// what is there is drawn as soon as it can be
+		if (renderer.compileFew && compiling >= COMPILING && pipelines.get(renderObject).pipeline === undefined) return;
 		/** @type {Promise<void>[]} */
 		const made = [];
 		pipelines.getForRender(renderObject, made);

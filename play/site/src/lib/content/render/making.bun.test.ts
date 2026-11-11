@@ -178,10 +178,11 @@ test("three makes a new vertex buffer mapped, fills all of it and unmaps it, wit
 	expect(utils).toMatch(/_bufferDescriptor\.mappedAtCreation = true;\s*buffer = device\.createBuffer\( _bufferDescriptor \);\s*_bufferDescriptor\.reset\(\);\s*new array\.constructor\( buffer\.getMappedRange\(\) \)\.set\( array \);\s*buffer\.unmap\(\);/);
 });
 
-test('a few pipelines compile at once: a new object waits its turn while they do, one being remade goes on', async () => {
+test('while the eye moves, a few pipelines compile at once: a new object waits its turn, one being remade goes on', async () => {
 	const { renderer, asked, ready } = fakeRenderer();
 	drawWhenReady(renderer);
 	renderer.drawWhenReady = true;
+	(renderer as any).compileFew = true;
 	const objects = Array.from({ length: COMPILING + 2 }, () => ({}));
 	for (const o of objects) renderer._pipelines.updateForRender(o);
 	expect(asked.length).toBe(COMPILING);
@@ -198,6 +199,18 @@ test('a few pipelines compile at once: a new object waits its turn while they do
 	await Promise.resolve();
 	renderer._pipelines.updateForRender(objects[COMPILING]);
 	expect(asked.length).toBe(COMPILING + 2);
+	for (const r of ready) r();
+	await Promise.resolve();
+	await Promise.resolve();
+	expect(pipelinesPending()).toBe(0);
+});
+
+test('standing still, every new pipeline compiles at once: a world just opened is drawn as soon as it can be', async () => {
+	const { renderer, asked, ready } = fakeRenderer();
+	drawWhenReady(renderer);
+	renderer.drawWhenReady = true;
+	for (let i = 0; i < COMPILING + 3; i++) renderer._pipelines.updateForRender({});
+	expect(asked.length).toBe(COMPILING + 3);
 	for (const r of ready) r();
 	await Promise.resolve();
 	await Promise.resolve();

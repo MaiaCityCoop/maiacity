@@ -1444,6 +1444,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	let last = performance.now()
 	const clock0 = performance.now()
 	let lodChecked = 0
+	/** where the eye stood the frame before: it moves, or it stands */
+	const moved = { x: 0, z: 0 }
 	/** when the walking animals' shadows were last drawn again with them */
 	let herdShadows = 0
 	/** whether an animal walks (one standing still keeps its shadow) near enough to x, z for its shadow to be seen */
@@ -1501,6 +1503,10 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		if (!filmDraws()) {
 			// the walker's frames never wait for a pipeline: what it meets first is drawn once compiled (render/making.js)
 			;(renderer as unknown as { drawWhenReady: boolean }).drawWhenReady = true
+			// while the eye moves, new pipelines a few at a time (render/making.js); standing, all at once
+			;(renderer as unknown as { compileFew: boolean }).compileFew = Math.hypot(pos.x - moved.x, pos.z - moved.z) > 0.05
+			moved.x = pos.x
+			moved.z = pos.z
 			finish.render()
 			;(renderer as unknown as { drawWhenReady: boolean }).drawWhenReady = false
 		}
