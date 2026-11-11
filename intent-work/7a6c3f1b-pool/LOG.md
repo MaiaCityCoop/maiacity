@@ -188,3 +188,25 @@ main's same measurement (run 42934566916 on #2258) was cancelled once it was no 
 first suspect is the runner's memory (a 7 GB VM; 1893a631 measured WebKit at 8.7 GB on Sandbox 1).
 
 Stopped at Proposal. Never merged.
+
+## 2026-11-11 06:19–07:25 UTC · round 7: out of the merge queue, the Sandbox 3 budget
+
+Samuel accepted at 06:12; the queue's group 10ee81f5 (main + a7507347 + 1f6a98dd + 0356b0ea + this) failed the new
+required budget job: "Sandbox 3 open: calls 1603 is over its ceiling 1590" (draws 300). The groups before it: 1,510 and
+1,508. Back at Proposal.
+
+| step | what | result |
+|---|---|---|
+| merge | origin/main (0356b0ea, 1f6a98dd) into the branch | clean (74f66ff0) |
+| count | Sandbox 3's frame at rest, kept answers | head 1,501–1,521, main 1,492–1,495: no jump |
+| suspect 1 | c9 (a recipe rebuilt in its warm worker) changes a build | ruled out: 24 plants, the same bytes rebuilt in their worker as in a fresh one |
+| count | real builds (`CENSUS_KEPT=0`), as the queue's frame count | **reproduced**: head 1,621 calls / 349 draws in 1 of 3; main 1,485–1,514 in 12 of 12 |
+| cause | `FRAME_PASSES=1` and a local log of where shadows are flagged | a level shown (render/index.js `show`) during the counted frames, so the shadow pass drawn again twice (scene passes 1.07 a frame) |
+| why then | scripts/census/frame.ts waits on scripts/lib/quiet.js, which reads `__assets`; Sandbox 3 (maiacity-v2) set none, so quietness is null and null counts as settled: the count began after 60 frames whatever was still building. A build before a level brings Sandbox 3's last lighter levels later, into that window | |
+| fix 1 | levels.js: a renderer waiting on a level another renderer makes ("made once a page") counts it as its own work (`counted.awaited`, in `building`) | right on its own (its world was not settled), but a jump still came 1 in 10 |
+| fix 2 | maiacity-v2/world.js reports its renderer (`__assets`, as the village does; let go of on dispose) | **20 of 20** real-build counts 1,500–1,518, one scene pass each, settled |
+| budget | `bun play/site/scripts/budget.ts --world all` | every world within its ceilings; Sandbox 3 1,508 calls, 298 draws, 336,579 triangles |
+| gate | `gate.sh site` | green (174 s) |
+
+The ceiling is untouched. Fix 2 also makes every other measure of Sandbox 3 that waits for it to settle (gpu.ts's settle, the Mac's jobs) really wait.
+Pushed 6077040a at 07:23 UTC; the box's run records again.
