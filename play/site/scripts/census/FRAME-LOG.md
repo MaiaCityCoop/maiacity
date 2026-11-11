@@ -149,3 +149,25 @@ dry run passed): Sandbox 1 in WebKit and Chromium, measured whole, then with eac
 Chromium's walking frame, by its own profiler (Sandbox 1, top of 7.9 s sampled): (program) 17.8 %, idle 13.6 %, then
 three's render loop and WebGPU's own calls (submit, writeBuffer, setVertexBuffer, createBuffer 1.3 %), each a few per
 cent. No one function of ours stands out: the walking frame waits on the GPU as much as it works.
+
+## The runner at 464c9d95, run 42940662297
+
+| | WebKit standing | WebKit walking |
+|---|---|---|
+| Sandbox 1 | 206.9 ms (p95 684, CPU 29.1), 549 draws, 2.26 M triangles | not measured: its screenshot ran past 30 s |
+| Sandbox 5 | 44.2 ms (p95 79, CPU 31.7) | 392.2 ms (p95 1,981, CPU 277.3) |
+| Sandbox 3 | c7 failed; its line was pushed out of the evidence by 35 "device mismatch" errors | |
+
+The same render code as at 2a5aef60 (only `gpu.ts`'s printing changed), yet Sandbox 1 in WebKit went 793 → 207 ms
+and Sandbox 5's walk 50.6 → 392.2 ms: the runner, a small VM running three worlds in two engines in turn, swings by
+several times from one run to the next. Its numbers say where the frame goes wrong, not what it costs on a Mac.
+
+What they say all the same: **walking in WebKit costs the page's JavaScript up to 277 ms a frame** where standing costs
+32 (Sandbox 5), with seconds-long hitches (p95 1,981 ms). The box's 40-frame walk (under a metre) shows no such cost;
+a 10 s walk of 15 m brings new plants' levels into view, and each new drawing's pipeline is made on its first frame,
+which WebKit does on the main thread. Making a level's pipeline before it is first drawn is the load path's
+(`render/turns.js`, intent 7a6c3f1b, tonight); written here with its number for it.
+
+- `gpu.ts`: a browser's line is printed last, after its steps and errors, and each error once with how often, so the
+  line that decides a check stays in its evidence; a slow world's screenshot gets 120 s (Playwright's 30 s ran out on
+  Sandbox 1 at 207 ms a frame, and the check called the picture blank).
