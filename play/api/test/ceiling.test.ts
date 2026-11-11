@@ -226,7 +226,9 @@ suite("ceiling", () => {
     expect(changed.error).toContain("Missing: its own lighter levels");
     expect(changed.error).toContain("lod.tris");
     expect(await versions()).toBe(after);
-  });
+    // four proposals and a doc version each against Postgres: under 1 s alone, past bun's 5 s while the whole suite runs
+    // in parallel on CI's runner (twice on #2261)
+  }, 30_000);
 
   test("doc_edit, then propose_doc_version with its variant: its card alone is taken from a derived head; its source changed, it is held to the rule edit by edit", async () => {
     const asset = await legacy("old-shrub");
