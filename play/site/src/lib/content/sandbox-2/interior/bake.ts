@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { standIns } from '$lib/content/sandbox-kit/casters.js'
 
 /** Polar placement: angle 0 faces +z, clockwise to +x — the same sense as three's cylinders. */
 export const polar = (r: number, a: number): [number, number] => [r * Math.sin(a), r * Math.cos(a)]
@@ -98,10 +99,9 @@ function letGo(group: THREE.Group) {
 	group.children.length = 0
 }
 /** a merged geometry as a baked mesh */
-function bakedMesh(merged: THREE.BufferGeometry, mat: THREE.Material, shadows: boolean): THREE.Mesh {
+function bakedMesh(merged: THREE.BufferGeometry, mat: THREE.Material): THREE.Mesh {
 	merged.userData.baked = true
 	const m = new THREE.Mesh(merged, mat)
-	m.castShadow = shadows
 	m.receiveShadow = true
 	return m
 }
@@ -111,9 +111,10 @@ function bakedMesh(merged: THREE.BufferGeometry, mat: THREE.Material, shadows: b
  * milliseconds while it works, and big materials are merged in chunks rather than all at once.
  */
 export async function bakeSliced(group: THREE.Group, shadows: boolean, slice: () => Promise<void>): Promise<THREE.Group> {
-	const out = new THREE.Group()
+	const out = new THREE.Group(), meshes: THREE.Mesh[] = []
 	for (const [mat, list] of byMaterial(group))
 		for (let i = 0; i < list.length; i += 400) {
+			if (i === 0) meshes.push(...list)
 			const chunk = list.slice(i, i + 400), m = merging(chunk)
 			for (let j = 0; j < chunk.length; j++) {
 				m.add(chunk[j]!)
@@ -121,8 +122,11 @@ export async function bakeSliced(group: THREE.Group, shadows: boolean, slice: ()
 			}
 			const merged = m.done()
 			await slice()
-			if (merged) out.add(bakedMesh(merged, mat, shadows))
+			if (merged) out.add(bakedMesh(merged, mat))
 		}
+	await slice()
+	// what it casts: its pieces' stand-ins (../../sandbox-kit/casters.js), its own meshes casting nothing
+	if (shadows) for (const s of standIns(meshes)) out.add(s)
 	letGo(group)
 	return out
 }
@@ -187,13 +191,15 @@ export async function joinBaked(scene: THREE.Object3D, slice: () => Promise<void
 
 /** Bakes a group into one mesh per material, so a forest costs a handful of draw calls; the group is left empty. */
 export function bake(group: THREE.Group, shadows = true): THREE.Group {
-	const out = new THREE.Group()
+	const out = new THREE.Group(), meshes: THREE.Mesh[] = []
 	for (const [mat, list] of byMaterial(group)) {
 		const m = merging(list)
 		for (const o of list) m.add(o)
 		const merged = m.done()
-		if (merged) out.add(bakedMesh(merged, mat, shadows))
+		if (merged) out.add(bakedMesh(merged, mat))
+		meshes.push(...list)
 	}
+	if (shadows) for (const s of standIns(meshes)) out.add(s)
 	letGo(group)
 	return out
 }

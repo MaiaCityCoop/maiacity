@@ -185,22 +185,22 @@
 			"simplified": 632000,
 			"views": {
 				"near": {
-					"tris": 11100000,
-					"draws": 2220,
-					"calls": 6980,
-					"walkCalls": 9240
+					"tris": 4920000,
+					"draws": 1608,
+					"calls": 6580,
+					"walkCalls": 8160
 				},
 				"mid": {
-					"tris": 8990000,
-					"draws": 1180,
+					"tris": 6840000,
+					"draws": 1048,
 					"calls": 5290,
-					"walkCalls": 6660
+					"walkCalls": 6580
 				},
 				"far": {
-					"tris": 1680000,
-					"draws": 793,
-					"calls": 3740,
-					"walkCalls": 4640
+					"tris": 992000,
+					"draws": 720,
+					"calls": 3700,
+					"walkCalls": 4390
 				}
 			}
 		},
@@ -210,22 +210,22 @@
 			"simplified": 837000,
 			"views": {
 				"near": {
-					"tris": 10500000,
-					"draws": 1220,
-					"calls": 6280,
-					"walkCalls": 8020
+					"tris": 6620000,
+					"draws": 1200,
+					"calls": 5940,
+					"walkCalls": 7340
 				},
 				"mid": {
-					"tris": 10300000,
-					"draws": 1040,
-					"calls": 6380,
-					"walkCalls": 7780
+					"tris": 6350000,
+					"draws": 1030,
+					"calls": 5920,
+					"walkCalls": 7000
 				},
 				"far": {
-					"tris": 3450000,
-					"draws": 767,
-					"calls": 4220,
-					"walkCalls": 5220
+					"tris": 2050000,
+					"draws": 742,
+					"calls": 3990,
+					"walkCalls": 4600
 				}
 			}
 		},

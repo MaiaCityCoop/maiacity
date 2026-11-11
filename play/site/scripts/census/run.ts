@@ -269,14 +269,19 @@ export async function censusOf(o: { world: World; views?: ViewName[]; asset?: st
 		const totals: Totals = { tris: med.tris, calls: med.calls, mainTris: t.tris, mainCalls: t.calls, meshes: t.meshes, instanced: t.instanced, indirect: t.indirect, computes: t.computes, instances: t.instances, shadowCalls: t.shadowCalls, shadowTris: t.shadowTris, targetCalls: t.targetCalls, targetTris: t.targetTris, culledObjects: t.culledObjects, culledTris: t.culledTris };
 		// what draws the most, by where it hangs in the scene (CENSUS_DEBUG=1)
 		if (process.env.CENSUS_DEBUG) {
-			const by = new Map<string, number>();
-			for (const [obj, n] of t.draws) {
-				const path: string[] = [];
-				for (let o = obj; o; o = o.parent) path.unshift(o.name || o.type);
-				const key = path.slice(0, 4).join(' / ');
-				by.set(key, (by.get(key) ?? 0) + n);
-			}
-			for (const [k, n] of [...by].sort((a, b) => b[1] - a[1]).slice(0, 25)) log(`  ${Math.round(n).toLocaleString('en').padStart(10)}  ${k}`);
+			const top = (draws: [any, number][], what: string) => {
+				const by = new Map<string, number>();
+				for (const [obj, n] of draws) {
+					const path: string[] = [];
+					for (let o = obj; o; o = o.parent) path.unshift(o.name || o.type);
+					const key = path.slice(0, Number(process.env.CENSUS_DEPTH ?? 4)).join(' / ');
+					by.set(key, (by.get(key) ?? 0) + n);
+				}
+				log(`  ${what}:`);
+				for (const [k, n] of [...by].sort((a, b) => b[1] - a[1]).slice(0, 25)) log(`  ${Math.round(n).toLocaleString('en').padStart(10)}  ${k}`);
+			};
+			top(t.draws, 'the picture');
+			top(t.shadowDraws ?? [], 'the shadows');
 		}
 		const s = g.__assets?.stats?.() ?? {};
 		const of = (r: any) => r && { tris: r.tris, calls: r.calls, copies: r.copies, pictures: r.pictures, levels: r.levels, building: r.building };

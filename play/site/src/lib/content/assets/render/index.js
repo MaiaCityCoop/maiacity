@@ -503,9 +503,13 @@ export function createAssets(o) {
 		mesh.name = `${k.label} · level ${L}`;
 		group.add(mesh);
 		const m = { mesh, draw: d, cap, used: 0, cast: 0 };
-		// in a shadow pass it draws its casters too, after its own copies (`castCoarse`): three reads the count as it draws
-		mesh.onBeforeShadow = () => void (mesh.count = m.used + m.cast);
-		mesh.onAfterShadow = () => void (mesh.count = m.used);
+		// in a shadow pass it draws its casters too, after its own copies (`castCoarse`), only those that can cast into
+		// that pass (`castersFirst`): three reads the count as it draws
+		mesh.onBeforeShadow = (r, o, camera) => void (mesh.count = castersFirst(m, camera));
+		mesh.onAfterShadow = () => {
+			castersBack(m);
+			mesh.count = m.used;
+		};
 		return m;
 	}
 
@@ -546,6 +550,81 @@ export function createAssets(o) {
 
 	/** a per-copy buffer sent to the graphics card only where it differs from what was last sent (./send.js) */
 	const send = sender();
+
+	const _frustum = new THREE.Frustum(), _ball = new THREE.Sphere(), _cm = new THREE.Matrix4(), _view = new THREE.Matrix4();
+	const _sun = new THREE.Vector3(), _eye = new THREE.Vector3(), _ahead = new THREE.Vector3(), _at = new THREE.Vector3();
+	/** the eye whose view the cascades' slices are of */
+	const camera_ = camera;
+	/** a drawing's per-copy buffers, each with its values a copy */
+	const perCopy = (mesh) => {
+		const per = [[mesh.instanceMatrix, 16]];
+		for (const [name, n] of [['aFade', 1], ...PER_COPY]) if (mesh.geometry.attributes[name]) per.push([mesh.geometry.attributes[name], n]);
+		if (mesh.instanceColor) per.push([mesh.instanceColor, 3]);
+		return per;
+	};
+	/** copies s and t of a drawing swapped in every per-copy buffer */
+	const swap = (per, s, t) => {
+		for (const [a, n] of per) {
+			const B = a.array;
+			for (let q = 0; q < n; q++) {
+				const v = B[s * n + q];
+				B[s * n + q] = B[t * n + q];
+				B[t * n + q] = v;
+			}
+		}
+	};
+	/**
+	 * A drawing's casters (its copies, and the finer copies it casts for: `castCoarse`) that can cast into the shadow
+	 * pass drawn from `camera` (a cascade's: its box) put first, and how many they are: a shadow pass draws every
+	 * instance up to its count, and a copy outside the box casts nothing into it. Its per-copy buffers reordered alike
+	 * and sent where they changed; where it casts for finer copies too, the order is put back after the pass
+	 * (`castersBack`), as the picture draws its own copies first.
+	 * @param {{ mesh: THREE.InstancedMesh, used: number, cast: number, swaps?: number[] }} m @param {THREE.Camera} camera
+	 */
+	function castersFirst(m, camera) {
+		const { mesh } = m, held = m.used + m.cast, ball = mesh.geometry.boundingSphere;
+		if (!camera?.isOrthographicCamera || held < 2 || !ball) return held;
+		_view.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+		_frustum.setFromProjectionMatrix(_view, camera.coordinateSystem, camera.reversedDepth);
+		const A = mesh.instanceMatrix.array, per = perCopy(mesh), swaps = m.cast ? (m.swaps = []) : null;
+		// a cascade's receivers lie in its slice of the view's depth (three's SunLightShadow `_cascadeData`, handed on
+		// by ../../sandbox-kit/casters.js `seeStandIns`): a copy casts into it only if its shadow can reach the slice,
+		// at most its height (taken as its ball's width, half again) over the sun's slope beyond its ball
+		const slice = camera.userData.slice;
+		if (slice) {
+			camera.getWorldDirection(_sun);
+			camera_.getWorldPosition(_eye);
+			camera_.getWorldDirection(_ahead);
+		}
+		const long = slice && -_sun.y > 0.05 ? 1 + 3 / Math.tan(Math.asin(-_sun.y)) : Infinity;
+		const casts = (s) => {
+			_ball.copy(ball).applyMatrix4(_cm.fromArray(A, s * 16).premultiply(mesh.matrixWorld));
+			if (!_frustum.intersectsSphere(_ball)) return false;
+			if (!slice || long === Infinity) return true;
+			const d = _at.subVectors(_ball.center, _eye).dot(_ahead), reach = _ball.radius * long;
+			return d + reach >= slice.x && d - reach <= slice.y;
+		};
+		let i = 0, j = held, moved = false;
+		while (i < j) {
+			if (casts(i)) i++;
+			else if (--j > i) {
+				swap(per, i, j);
+				swaps?.push(i, j);
+				moved = true;
+			}
+		}
+		if (moved) for (const [a, n] of per) send(a, held * n);
+		return i;
+	}
+	/** a drawing's copies put back in the order its picture draws them, after a shadow pass (`castersFirst`) */
+	function castersBack(m) {
+		const swaps = m.swaps;
+		if (!swaps?.length) return;
+		const per = perCopy(m.mesh);
+		for (let s = swaps.length - 2; s >= 0; s -= 2) swap(per, swaps[s], swaps[s + 1]);
+		swaps.length = 0;
+		for (const [a, n] of per) send(a, (m.used + m.cast) * n);
+	}
 
 	/** room in a drawing for `need` instances */
 	function room(m, need) {
