@@ -365,7 +365,14 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   it is shown or when the page is left; a load that finds the note was ended while loading, opens with the small
   device's budget and says so on its cover, and one ended twice in a row says so and loads no world by itself.
   `play/site/scripts/memory.ts` measures it: the page's process over a first visit in the box's Chromium, told 8
-  cores, the graphics card stood in for, its peak and what it rests at (§4.12). A new version names which on its card, `lod:
+  cores, the graphics card stood in for, its peak and what it rests at (§4.12). **One line of turns, a build before
+  a level** (intent 7a6c3f1b, `content/render/turns.js`): builds and levels wait in one line, the most wanted first,
+  and a level is begun only on a turn no build waits for: a level job holds its turn for as long as a big tree takes
+  (12 to 94 s for one of a million triangles), and while each line kept its own order the level maker took every turn
+  a build gave back, so the builds a world waits for stood still (a first visit's work was the same on one core as on
+  eight, and the world no sooner). A level two renderers of a page ask for at once is made once (`render/levels.js`).
+  `scripts/census/beside.ts` measures it: the plants' builds with their levels made beside them, against the builds
+  alone and against one box, in one run. A new version names which on its card, `lod:
   { levels: 'declared' | 'derived', budgets? }` (`propose_asset`'s `lod`, a card field of the asset's document):
   `propose_asset`, the page's proposal and `propose_doc_version` refuse a new version without it, or a declared one
   whose source exports none, or a derived one whose source does (`play/api/src/lod.ts`); play reads a declared one's
@@ -375,7 +382,14 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   the selector's two coarsest thresholds; intent 6295a650): no migration. **Every level is made once a device:** each derived level and each picture is kept in the device's cache
   (`cache.js`, OPFS) under its key, the build's name (`<hash>?values`), the level, what it is made to and its maker's
   version (`simplify.js` and `impostors.js` `VERSION`; `render/levels.js`), so a second visit, or a second world on the
-  same device, simplifies and photographs nothing; a declared level is a build, kept as builds are. **One selector
+  same device, simplifies and photographs nothing; a declared level is a build, kept as builds are. The cache holds
+  what the device has room for (a fifth of what the browser gives the site, 512 MB at least and 4 GB at most,
+  `cache/store.js` `room`; 512 MB on a small device), the entries used longest ago going first: one world's builds,
+  levels and pictures are more than 512 MB (Sandbox 5's 0.7 GB), and held to that a visit put out what the next one
+  read first (intent 405f7a85). **A world shows before its far plants grow** (intent 405f7a85, `flora.js` `grown`):
+  a forest builds its kinds nearest the start first and the world waits only for those standing near it (a tree
+  within 40 m, a small plant as far as it is streamed; one not before the eye counted four times as far); the others
+  are built after, nearest first, by the renderer's rank, and grow in behind the world. **One selector
   for every world** (intent 6295a650): no world chooses a level, a detail, a distance or a forced finest of its own
   (the renderer takes no `levels`, `details` or `tune`); every world draws every asset by its card's levels and
   `lod.js`'s thresholds, and only a film forces a level (`force`).

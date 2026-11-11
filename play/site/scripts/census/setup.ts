@@ -29,7 +29,7 @@ import { SEEDED_RANDOM, frameWindow } from './box';
 import { opfs } from './opfs';
 import { codeOf, keptIn, keptWorker } from './kept';
 import { CACHE } from './tree';
-import { fileOf, pinFile, pinnedFile, pinnedRoute } from './pinned';
+import { fileOf, pinFile, pinRoute, pinnedFile, pinnedRoute } from './pinned';
 
 const HERE = dirname(new URL(import.meta.url).pathname);
 /** this checkout's play/site */

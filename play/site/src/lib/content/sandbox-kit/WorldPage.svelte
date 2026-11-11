@@ -78,13 +78,26 @@
 	let short = $state('');
 	let stopped = $state(false);
 
+	/** why the world did not come up, if it did not: said on the cover (or the pill), which then stays */
+	let failed = $state('');
+
 	async function raise() {
-		const w = await mount(/** @type {HTMLDivElement} */ (stage), (said) => {
-			if (!cover) return void (status = said === 'ready' ? '' : `${said}…`);
-			if (said === 'ready') return;
-			step = said;
-			if (cover.counts?.(said) ?? true) done += 1;
-		});
+		let w;
+		try {
+			w = await mount(/** @type {HTMLDivElement} */ (stage), (said) => {
+				if (!cover) return void (status = said === 'ready' ? '' : `${said}…`);
+				if (said === 'ready') return;
+				step = said;
+				if (cover.counts?.(said) ?? true) done += 1;
+			});
+		} catch (e) {
+			// a world that could not be raised says so and why, never a cover standing at its last step for ever (intent
+			// 405f7a85: a Safari out of graphics memory threw in the middle of it, and the cover stayed at "Opening the doors…")
+			console.error(e);
+			failed = `This world could not open: ${String(/** @type {Error} */ (e)?.message ?? e)}`;
+			if (!cover) status = failed;
+			return;
+		}
 		if (destroyed) return w.dispose();
 		world = w;
 		arrival?.shown();
@@ -132,7 +145,7 @@
 				<strong>{cover.title}</strong>
 				<span class="size">{cover.size}</span>
 				<div class="progress"><span style:width="{Math.min(100, (done / cover.steps) * 100)}%"></span></div>
-				<span class="step">{fading ? 'Welcome' : `${step || (cover.first ?? 'Letting in the light')}…`}</span>
+				<span class="step" role={failed ? 'alert' : undefined}>{failed || (fading ? 'Welcome' : `${step || (cover.first ?? 'Letting in the light')}…`)}</span>
 				{#if short}<span class="short">{short}</span>{/if}
 			</div>
 		</div>

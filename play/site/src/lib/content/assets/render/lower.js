@@ -7,7 +7,7 @@
  */
 import * as THREE from 'three';
 import { LEFT, lowerDraws } from './simplify.js';
-import { buildTurn } from '../../render/budget.js';
+import { levelTurn as buildTurn } from '../../render/turns.js';
 
 /** a typed array's copy on a buffer of its own: handed to the worker whole (moved, the page keeping its own) */
 const own = (A) => A.slice();
@@ -86,7 +86,7 @@ export function levelOf(source, made) {
 
 /**
  * The renderer's maker of lower levels: several kinds at once, each in a worker of its own, as many as the page's turns
- * let work (../../render/budget.js `buildTurn`: the turns the recipes' builds take too, so the two together never ask
+ * let work (../../render/turns.js: the turns the recipes' builds take too, a build before a level, so the two never ask
  * more of the device than its cores to spare). @param {{ worker?: boolean }} [o] `worker: false` makes them in the page
  * @returns {{ share: () => any, readonly workers: number, lower: (source: import('./prepare.js').Level, plans: { budget: number, most?: number, error: number, smallest: number, every?: boolean }[], later?: boolean, raw?: boolean, rank?: (() => number) | null) => Promise<import('./prepare.js').Level[]>, readonly busy: number, dispose: () => void }}
  */

@@ -26,22 +26,27 @@ const tex = Object.fromEntries(maps.map((k) => [k, texture(arrayOf([], { srgb: k
 const drawn = new Set();
 
 /** every surface's maps read once, a layer each in SURFACES' order, when the first ground is made: never read again,
- * so no ground is rebuilt as worlds and domes come and go */
-let loading = false;
+ * so no ground is rebuilt as worlds and domes come and go. Settles once all are here (at once where none is read: the
+ * census, a test; a map that could not be read is told by ../arrays.js and stays its placeholder) */
+/** @type {Promise<unknown> | null} */
+let here = null;
 function need() {
-	if (loading) return;
-	loading = true;
+	if (here) return here;
 	const px = budget().small ? 1024 : 2048;
 	let left = maps.length;
-	for (const k of maps)
-		arrayOf(SETS.map((s) => s.maps[k][k === 'albedo' ? px : 1024]), {
-			srgb: k === 'albedo',
-			onReady: (t) => {
-				tex[k].value = t;
-				if (--left) return;
-				for (const m of drawn) m.needsUpdate = true;
-			}
-		});
+	return (here = Promise.all(
+		maps.map(
+			(k) =>
+				arrayOf(SETS.map((s) => s.maps[k][k === 'albedo' ? px : 1024]), {
+					srgb: k === 'albedo',
+					onReady: (t) => {
+						tex[k].value = t;
+						if (--left) return;
+						for (const m of drawn) m.needsUpdate = true;
+					}
+				}).userData.ready
+		)
+	));
 }
 
 /** surface s's colour at st (its tiles), one plain read @param {number} s @param {any} st */
@@ -122,7 +127,8 @@ export function groundNodes(weights, o) {
 	/** the world's ground map (R shade, G wet) and the rectangle of the world it covers (x, z, width, depth) */
 	const map = texture(new THREE.DataTexture(new Uint8Array(4), 1, 1)), rect = uniform(new THREE.Vector4(0, 0, 1, 1));
 	const m = new MeshStandardNodeMaterial({ metalness: 0 });
-	need();
+	// its maps here: a world waits for them before it shows, so its ground is never its placeholder and is built once
+	m.userData.ready = need();
 	drawn.add(m);
 	m.addEventListener('dispose', () => drawn.delete(m));
 	m.userData.weigh = (/** @type {Record<string, number>} */ w) => {
