@@ -88,7 +88,6 @@ function pot(mat: THREE.Material, h: number, seed: number): THREE.Mesh {
 	const w = 0.4 + r() * 0.5
 	const pts = [0, 0.15, 0.45, 0.75, 0.95, 1].map((t) => new THREE.Vector2(h * (0.25 + Math.sin(t * Math.PI * (0.8 + r() * 0.3)) * w * 0.5 + (t > 0.9 ? 0.05 : 0)), t * h))
 	const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 14), mat)
-	m.castShadow = true
 	return m
 }
 
@@ -223,7 +222,6 @@ function studio(k: Kit, seed: number): Space {
 	g.add(k.box(0.7, 1, 0.7, k.lime, -5.4, 0, -1.8))
 	const sculpt = new THREE.Mesh(new THREE.TorusKnotGeometry(0.28, 0.08, 64, 10, 2, 3), white)
 	sculpt.position.set(-5.4, 1.4, -1.8)
-	sculpt.castShadow = true
 	g.add(sculpt)
 	cs.push({ x: -5.4, z: -1.8, r: 0.6 })
 	return { group: g, colliders: cs }
@@ -280,7 +278,6 @@ function oven(k: Kit, x: number, z: number, rot = 0): THREE.Group {
 	const d = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), clay)
 	d.position.y = 0.9
 	d.scale.set(1, 0.85, 1)
-	d.castShadow = true
 	g.add(d)
 	const mouth = new THREE.Mesh(new THREE.CircleGeometry(0.32, 16, 0, Math.PI), k.dark)
 	mouth.position.set(0, 0.92, 0.98)
@@ -416,7 +413,6 @@ function parasol(k: Kit, x: number, z: number, mat: THREE.Material): THREE.Group
 	g.add(k.box(0.05, 2.4, 0.05, k.dark, x, 0, z))
 	const top = new THREE.Mesh(new THREE.ConeGeometry(1.35, 0.45, 8, 1, true), mat)
 	top.position.set(x, 2.45, z)
-	top.castShadow = true
 	g.add(top)
 	return g
 }
@@ -426,7 +422,6 @@ function bistro(k: Kit, x: number, z: number, seed: number): THREE.Group {
 	const r = seeded(seed)
 	const topM = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.04, 20), k.lime)
 	topM.position.set(x, 0.74, z)
-	topM.castShadow = true
 	g.add(topM)
 	g.add(k.box(0.06, 0.74, 0.06, k.dark, x, 0, z))
 	const n = 2 + Math.floor(r() * 2)
@@ -451,7 +446,6 @@ function kiosk(k: Kit, mat: THREE.Material): THREE.Group {
 	const awning = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.4), mat)
 	awning.position.set(0, 2.55, 1.35)
 	awning.rotation.x = -1.05
-	awning.castShadow = true
 	g.add(awning)
 	g.add(k.box(0.5, 0.45, 0.4, k.steel, -0.8, 1.13, 0.95))
 	g.add(k.box(1, 0.7, 0.05, k.dark, 0.9, 1.5, 0.92))
@@ -615,8 +609,3 @@ export function coops(k: Kit, squareR: number, mini = false): Space[] {
 	return coopsAround(squareR).map(({ a, r }, i) => place(isHutch(i) ? (mini ? rabbitDome(3 + i) : hutch(k, 3 + i)) : mini ? henDome(3 + i) : coop(k, 3 + i), r, a))
 }
 
-/** the plain surfaces the 3D models viewer builds the timber coop and hutch with (their v1), away from any world */
-
-/* the workshops' and squares' builders and pieces, for the 3D models library ($content/models/domerooms.js) */
-export { awnings, bakery, bistro, cowork, kiosk, library, oven, parasol, pergola, pottery, repair, square, stool, studio, woodshop }
-export type { Space }

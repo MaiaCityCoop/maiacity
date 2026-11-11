@@ -14,7 +14,8 @@
  *
  *   --within N%    every value at most main's + N %          --down N%   every value at most main's − N % (a reduction)
  *                  either as near:7%,mid:5%,far:11%: a tolerance per value, by the start of its key
- *   --of           census values: tris, draws (every pass, the default), mainTris, mainDraws (the main pass)
+ *   --of           census values: tris, draws (every pass, the default), mainTris, mainDraws (the main pass),
+ *                  shadowTris, shadowDraws (the sun's shadow passes of a frame that redraws them)
  *                  frame values (intent 416c555c: the WebGPU calls a frame makes, play/site/scripts/census.ts --frame): calls,
  *                  writes (buffers written), bytes, draws, scenePasses (the passes that draw the scene or its shadows),
  *                  with the eye at rest; walkCalls, walkWrites, walkBytes, walkDraws, walkScenePasses walking (the
@@ -292,6 +293,8 @@ export function measure(m: Measure, at: string | null, repo = REPO): Values {
 		if (want.includes('draws')) out[`${v.view} draws`] = v.totals.calls;
 		if (want.includes('mainTris')) out[`${v.view} mainTris`] = v.totals.mainTris;
 		if (want.includes('mainDraws')) out[`${v.view} mainDraws`] = v.totals.mainCalls;
+		if (want.includes('shadowTris')) out[`${v.view} shadowTris`] = v.totals.shadowTris;
+		if (want.includes('shadowDraws')) out[`${v.view} shadowDraws`] = v.totals.shadowCalls;
 	}
 	return out;
 }

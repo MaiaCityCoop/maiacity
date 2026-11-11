@@ -18,11 +18,12 @@ const m = new Proxy({}, { get: (_, k: string) => (CALLED.has(k) ? () => mat(k) :
 const KINDS: DomeKind[] = ['master', 'large', 'home']
 const dome = (kind: DomeKind): Dome => ({ kind, x: 0, z: 0, R: DOMES[kind].diameter / 2, ext: DOMES[kind].diameter / 2 + 6 })
 
+/** the triangles the picture draws: a shadow's stand-ins (../../sandbox-kit/casters.js, intent 7313fb26) are the sun's alone */
 const trianglesOf = (o: THREE.Object3D) => {
 	let n = 0
 	o.traverse((x) => {
 		const mesh = x as THREE.Mesh
-		if (!mesh.isMesh) return
+		if (!mesh.isMesh || mesh.userData.standIn) return
 		const g = mesh.geometry
 		const t = (g.index ? g.index.count : g.attributes.position!.count) / 3
 		n += t * ((mesh as THREE.InstancedMesh).isInstancedMesh ? (mesh as THREE.InstancedMesh).count : 1)

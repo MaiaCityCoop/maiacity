@@ -8,25 +8,30 @@ import { ceilingFor, compare, holds, readBudgets, type Budgets, type Counts } fr
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const HASH = /^[0-9a-f]{64}$/;
 
-/** the counts on main eadbf2f7, 2026-11-10 (intent-work/1f6a98dd-audit): every pass's triangles and draws, calls at rest and walking */
-// (simplified: Sandbox 1's and Sandbox 5's as intent 45c24b00 counted them on 2026-11-11, its six trees each with its own levels)
+/**
+ * the counts the ceilings were last set from: every pass's triangles and draws, calls at rest and walking. Sandbox 3 on
+ * main eadbf2f7, 2026-11-10 (intent-work/1f6a98dd-audit); Sandbox 1 and 5 once their shadows were cast by stand-ins,
+ * 2026-11-11 with the domes drawn at their levels (intents 7313fb26 and 92fbecea; Sandbox 1's draws the most of several
+ * counts, its ceiling a tenth over: they vary run to run), and what they hand the simplifier as intent 45c24b00 counted
+ * it with its six trees. A change that lowers a ceiling sets its count here with it.
+ */
 const TONIGHT: Record<string, { id: string; simplified: number; views: Record<string, Record<string, number>> }> = {
 	'sandbox-1': {
 		id: 'ec08b07d-6ec0-8f65-92b2-3efe7d91df5d',
 		simplified: 601086,
 		views: {
-			near: { tris: 10504998, draws: 3876, calls: 9365, walkCalls: 12558 },
-			mid: { tris: 12667678, draws: 3287, calls: 9802, walkCalls: 12195 },
-			far: { tris: 2584704, draws: 1531, calls: 4805, walkCalls: 6043 },
+			near: { tris: 4682747, draws: 1462, calls: 6266, walkCalls: 7762 },
+			mid: { tris: 6506864, draws: 953, calls: 5125, walkCalls: 6259 },
+			far: { tris: 944550, draws: 655, calls: 3519, walkCalls: 4173 },
 		},
 	},
 	'sandbox-5': {
 		id: 'ac154784-c938-47ee-ac74-d61fc91583b3',
 		simplified: 796702,
 		views: {
-			near: { tris: 9937619, draws: 1739, calls: 5980, walkCalls: 7634 },
-			mid: { tris: 9769859, draws: 1502, calls: 6072, walkCalls: 7402 },
-			far: { tris: 4091007, draws: 1171, calls: 4018, walkCalls: 4963 },
+			near: { tris: 6297227, draws: 1134, calls: 5657, walkCalls: 6986 },
+			mid: { tris: 6045205, draws: 974, calls: 5638, walkCalls: 6664 },
+			far: { tris: 1943451, draws: 706, calls: 3799, walkCalls: 4372 },
 		},
 	},
 	'sandbox-3': { id: 'a2af9568-53c6-8917-a816-da88d3ff66ff', simplified: 274410, views: { open: { tris: 336610, draws: 297, calls: 1508 } } },

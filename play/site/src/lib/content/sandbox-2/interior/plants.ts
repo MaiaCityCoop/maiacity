@@ -51,7 +51,6 @@ function canopy(group: THREE.Group, r: Rand, cx: number, cy: number, cz: number,
 		m.position.set(cx + Math.sin(v) * Math.cos(u) * rx * d, cy + Math.cos(v) * ry * d, cz + Math.sin(v) * Math.sin(u) * rx * d)
 		m.rotation.set(r() * Math.PI, r() * Math.PI, r() * Math.PI)
 		m.scale.setScalar(cardSize * (0.8 + r() * 0.5))
-		m.castShadow = true
 		group.add(m)
 	}
 }
@@ -62,7 +61,6 @@ function hang(group: THREE.Group, r: Rand, cy: number, rx: number, ry: number, n
 		const m = new THREE.Mesh(sphere(), mat)
 		m.position.set(Math.cos(a) * rx * d, cy - ry * (0.2 + r() * 0.5), Math.sin(a) * rx * d)
 		m.scale.set(...size)
-		m.castShadow = true
 		group.add(m)
 	}
 }
@@ -71,7 +69,6 @@ function trunk(group: THREE.Group, height: number, radius: number, lean = 0) {
 	const t = new THREE.Mesh(trunkGeo(), barkMat())
 	t.scale.set(radius, height, radius)
 	t.rotation.z = lean
-	t.castShadow = true
 	group.add(t)
 }
 
@@ -134,7 +131,6 @@ export function coconutPalm(seed: number, height = 8): Plant {
 		seg.position.set(x, y, 0)
 		const tilt = bend * (i / segments) * 0.5
 		seg.rotation.z = -tilt
-		seg.castShadow = true
 		g.add(seg)
 		x += Math.sin(tilt) * len
 		y += Math.cos(tilt) * len
@@ -154,7 +150,6 @@ export function coconutPalm(seed: number, height = 8): Plant {
 		geo.computeVertexNormals()
 		const f = new THREE.Mesh(geo, frondMat())
 		f.rotation.set(-Math.PI / 2 + 0.35, (i / fronds) * Math.PI * 2 + r() * 0.2, 0, 'YXZ')
-		f.castShadow = true
 		crown.add(f)
 	}
 	for (let i = 0; i < 6; i++) {
@@ -185,7 +180,6 @@ export function banana(seed: number, height = 3.2): Plant {
 		l.position.y = height * (0.85 + r() * 0.15)
 		l.rotation.set(-0.5 - r() * 0.8, (i / 9) * Math.PI * 2, 0, 'YXZ')
 		l.scale.setScalar(0.9 + r() * 0.4)
-		l.castShadow = true
 		g.add(l)
 	}
 	const bunch = new THREE.Group()
@@ -633,7 +627,6 @@ export function crop(kind: Crop, seed: number, len: number): THREE.Group {
 		}, [0])
 	else if (kind === 'strawberry') along(0.45, (x, z) => g.add(strawberries(seed + Math.round(x * 10), 0.4).translateX(x).translateZ(z)))
 	else along(0.3, (x, z) => g.add(herb(seed + Math.round(x * 100 + z * 10), 0.18 + r() * 0.1).translateX(x).translateZ(z)), [-0.3, 0, 0.3])
-	g.traverse((o) => (o.castShadow = false))
 	return mark(g, { crop: kind, len })
 }
 
