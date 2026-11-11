@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+import { readFileSync } from 'node:fs';
+const [,, bundle] = process.argv;
+const b = await chromium.launch({ args: ['--ignore-gpu-blocklist'] });
+const page = await b.newPage({ viewport: { width: 1440, height: 900 } });
+await page.setContent(`<body style="margin:0"><canvas width="1440" height="900"></canvas></body>`);
+await page.addScriptTag({ content: 'window.$state = (v) => v;' + readFileSync(bundle, 'utf8') });
+await page.evaluate(() => window.go(null, 0.42, 0.4));
+await page.evaluate(async () => { await window.shot(12.5); window.sync(); });
+const ms = await page.evaluate(async () => { const t = performance.now(); for (let i = 0; i < 20; i++) { await window.shot(12.5 + i * 0.001); window.sync(); } return (performance.now() - t) / 20; });
+console.log(ms.toFixed(1));
+await b.close();

@@ -12,6 +12,7 @@ window.go = async (hours, pitch, cover) => {
 	cam.rotation.set(pitch, 0.6, 0, 'YXZ');
 	const u = createUniverse({ clouds: cover });
 	scene.add(u.dome, u.stars);
+	window.sync = () => { const gl = r.backend.gl; const px = new Uint8Array(4); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); };
 	window.shot = async (hour) => {
 		const l = lightAt(hour);
 		u.set({ sun: l.dir, moon: l.moon, stars: groundStars(hour), hour });

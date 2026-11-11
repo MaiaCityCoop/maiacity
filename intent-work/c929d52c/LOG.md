@@ -196,3 +196,29 @@ c1, c2, c4 green. c3 red: WebKit showed the world (334 s, 40 frames in 10 s, 263
 screenshot timed out at 30 s, in c3 and in c5. Not this change: 5be34cf3 differs from 0913267d (both engines green
 above) only by main's d3f98bcc files (intent.ts, the workflow, the spec); nothing that draws. WebKit on that
 paravirtual GPU draws 3–4 frames a second, and a screenshot waits for one. Its failed jobs re-run once (01:33).
+
+## 01:33 · the re-run, and the cost (round 13–14)
+
+The re-run of failed jobs only re-ran the recording job (the GPU job had passed as a job, recording a failing check),
+so it recorded the same red; a whole re-run was started, then superseded by the push below.
+
+**The cost.** Against #2256's run (42934313267: main's sky plus that intent's load path) WebKit drew Sandbox 1 at
+91.6 ms a frame; with these clouds 263–348 ms. Not a clean comparison (other code, both still loading), but a warning.
+In the box, the sky alone at 1440 × 900 with each frame forced to finish (`harness/skyview-time.mjs`):
+
+| sky | ms a frame (software) |
+| --- | --- |
+| main | 211–238 |
+| round 12 | 306 |
+| each noise cell wrapped once | 293 |
+| + the shade from one octave toward the sun | 286 |
+| + four octaves, not five (dropped: blobby edges) | 273–279 |
+| + skip the fine octaves where no cloud can be (dropped: nothing saved) | 294–296 |
+
+With the clouds turned off, mine still costs about 290 and main about 225: this renderer works out every branch,
+so it measures the shader's length, not what a GPU spends. Kept: the first two (1a8caf6e, `box/round14.png`, the
+same look). The skip used the noise's true range (`harness/range.mjs`: −1.256…1.209 over every octave's whole period).
+
+**Not met, said plainly:** the intent's "no more of a frame's time than the sky costs today" is not shown. The sky's
+shader is about 1.25 times main's in length. Its time on a GPU is not measured: GitHub's runner reports no GPU time,
+and its frames are the CPU's. Samuel's Mac (the frame meter, `render/meter.js`) is the place to measure it.
