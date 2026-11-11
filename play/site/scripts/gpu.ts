@@ -8,7 +8,7 @@
  *
  *   bun play/site/scripts/gpu.ts [--world /sandbox-5/] [--browser chromium,webkit] [--out <dir>]
  *        [--world-within <seconds>] [--frame-within <ms>] [--settle <seconds>] [--timeout <seconds>]
- *        [--inputs <dir>] [--software] [--record] [--steps] [--walk] [--walk-within <ms>]
+ *        [--inputs <dir>] [--software] [--record] [--steps] [--walk] [--walk-within <ms>] [--views near,mid,far]
  *
  * --world          the page's route: a sandbox, or an asset's viewer
  * --world-within   the world is shown within that many seconds of the navigation, in every browser asked
@@ -18,6 +18,8 @@
  *                  the frame meter's 10 s of it after a second's start, and in Chromium 5 s more under its profiler (the
  *                  walk's JavaScript by function, printed with --steps); a world without a walker (Sandbox 3) has none and says so
  * --walk-within    a frame of the walk takes at most that many ms (it asks for --walk)
+ * --views          also photographs the world from the census's views (./census/run.ts VIEWS), the eye put there and
+ *                  the world left to settle: <out>/<browser>-<view>.png, so what is far is judged on a real GPU (intent 92fbecea)
  * --timeout        how long the world may take to come up (600: GitHub's runner needs 270 to 400 s for Sandbox 5)
  * --settle         how long the world may take to settle before its frames are measured and it is photographed (60)
  * --steps          prints what the page's cover said on the way to the world, each step with the second it began
@@ -43,9 +45,9 @@ import { quietness } from './lib/quiet.js';
 import { SEEDED_RANDOM } from './macjob/determinism.js';
 import { LAUNCH, gpuOf, webgpuOf } from './mac-page.mjs';
 
-/** a walk's step a frame at 60 frames a second, and where it starts: the census's (./census/frame.ts STEP, ./census/run.ts VIEWS.near), written here because those modules build a world as they load */
+/** a walk's step a frame at 60 frames a second, and the census's views, where a walk starts (near) and --views photographs: (./census/frame.ts STEP, ./census/run.ts VIEWS), written here because those modules build a world as they load */
 const STEP = { forward: 1.5 / 60, yaw: (20 * Math.PI) / 180 / 60 };
-const VIEWS = { near: { x: 0, z: 95, yaw: 0, pitch: -0.05 } };
+const VIEWS = { near: { x: 0, z: 95, yaw: 0, pitch: -0.05 }, mid: { x: 0, z: 235, yaw: 0, pitch: -0.05 }, far: { x: 0, z: 370, yaw: 0, pitch: -0.12 } } as const;
 
 const SITE = resolve(import.meta.dir, '..');
 const PLAY = 'https://play.maia.city';
@@ -139,7 +141,7 @@ export const lineOf = (m: Measure, why: string[]) =>
 
 const BROWSERS: Record<string, [BrowserType, object]> = { chromium: [chromium, LAUNCH], webkit: [webkit, { headless: true }] };
 
-async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; walk?: boolean }): Promise<Measure> {
+async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; walk?: boolean; views?: (keyof typeof VIEWS)[] }): Promise<Measure> {
 	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, steps: [], settled_s: null, frames: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, walk_ms: null, walk_p95: null, walk_cpu: null, walk_gpu: null, painted: null, errors: [] };
 	let browser: Browser | undefined;
 	try {
@@ -189,6 +191,18 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 			return Math.round((1 - Math.max(...seen.values()) / (d.length / 4)) * 1000) / 1000;
 		}, png.toString('base64'));
 		m.shown = m.painted > 0.2;
+		// the census's views, each photographed once the world has settled round the eye there
+		for (const view of o.views ?? []) {
+			const placed = await page.evaluate((v) => ((window as any).__walker ? ((window as any).__walker.place(v.x, v.z, v.yaw, v.pitch), true) : false), VIEWS[view]);
+			if (!placed) {
+				m.steps.push(`no walker here: no ${view} view photographed`);
+				continue;
+			}
+			const t2 = performance.now();
+			for (let zero = 0; performance.now() - t2 < 30_000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
+			await page.screenshot({ path: join(o.out, `${name}-${view}.png`), timeout: 120_000 });
+			m.steps.push(`${view} view photographed after ${Math.round((performance.now() - t2) / 100) / 10} s`);
+		}
 		if (o.walk) {
 			// the walk, after the picture: the eye put where it starts and the world left to settle there (what streams in
 			// round a new place is no part of a walk), then placed each frame by the clock, so a slow frame walks as far
@@ -301,7 +315,7 @@ if (import.meta.main) {
 	console.log(`${world} on ${gpu} (${process.platform} ${process.arch}); pictures in ${out}`);
 	const measures: (Measure & { why: string[] })[] = [];
 	for (const b of browsers) {
-		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), walk: argv.includes('--walk') || argv.includes('--walk-within') });
+		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), walk: argv.includes('--walk') || argv.includes('--walk-within'), views: arg('--views') ? (arg('--views')!.split(',') as (keyof typeof VIEWS)[]) : undefined });
 		const why = judge(m, bounds);
 		measures.push({ ...m, why });
 		// its steps and every error the page said (each once, with how often), then its line last: a check's evidence
