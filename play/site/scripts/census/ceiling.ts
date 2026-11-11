@@ -119,22 +119,32 @@ async function main(argv: string[]) {
 		if (got) counts.set(hash, got);
 		else todo.push(hash);
 	}
-	const workers = Math.min(availableParallelism(), todo.length);
 	const admit = assets.filter((a) => a.proposed).map((a) => a.id);
-	await Promise.all(
-		Array.from({ length: workers }, async (_, w) => {
-			const mine = todo.filter((_, i) => i % workers === w);
-			const child = Bun.spawn(['bun', import.meta.path, ...(pin ? ['--pin'] : record ? ['--record'] : []), ...(intent ? ['--intent', intent, '--admit', admit.join(',')] : []), '--work', ...mine], { stdout: 'pipe', stderr: 'inherit' });
-			for (const line of (await new Response(child.stdout).text()).split('\n')) {
-				if (!line.startsWith('{')) continue;
-				const r = JSON.parse(line);
-				counts.set(r.hash, r.error ? { error: r.error } : r.stages);
-				if (!r.error) kept.put(keyFor(r.hash), r.stages);
-			}
-			const code = await child.exited;
-			for (const h of mine) if (!counts.has(h)) ended.set(h, `its worker ended with exit code ${code}${child.signalCode ? ` (${child.signalCode})` : ''} before counting it`);
-		})
-	);
+	/** the recipes `hashes` counted by `workers` workers side by side, each a process of its own */
+	const countAll = (hashes: string[], most: number) => {
+		const workers = Math.min(most, hashes.length);
+		return Promise.all(
+			Array.from({ length: workers }, async (_, w) => {
+				const mine = hashes.filter((_, i) => i % workers === w);
+				const child = Bun.spawn(['bun', import.meta.path, ...(pin ? ['--pin'] : record ? ['--record'] : []), ...(intent ? ['--intent', intent, '--admit', admit.join(',')] : []), '--work', ...mine], { stdout: 'pipe', stderr: 'inherit' });
+				for (const line of (await new Response(child.stdout).text()).split('\n')) {
+					if (!line.startsWith('{')) continue;
+					const r = JSON.parse(line);
+					counts.set(r.hash, r.error ? { error: r.error } : r.stages);
+					if (!r.error) kept.put(keyFor(r.hash), r.stages);
+				}
+				const code = await child.exited;
+				for (const h of mine) if (!counts.has(h)) ended.set(h, `its worker ended with exit code ${code}${child.signalCode ? ` (${child.signalCode})` : ''} before counting it`);
+			})
+		);
+	};
+	await countAll(todo, availableParallelism());
+	// a build that ran past the box's time while others were built beside it is built again alone: the time is the
+	// machine's (a small runner building every core's worth at once), and the count is not about time. One that runs
+	// past it alone still fails, as it would on a visitor's device.
+	const slow = todo.filter((h) => { const c = counts.get(h); return c && 'error' in c && /ran longer than/.test(c.error); });
+	if (slow.length) console.error(`ceiling: ${slow.length} recipes ran past the box's time beside others; built again one at a time`);
+	await countAll(slow, 1);
 
 	// each asset judged, group by group
 	const groups = new Map(GROUPS.map((g) => [g, { n: 0, bad: 0 }]));
