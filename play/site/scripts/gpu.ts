@@ -19,9 +19,7 @@
  *                  walk's JavaScript by function, printed with --steps); a world without a walker (Sandbox 3) has none and says so
  * --walk-within    a frame of the walk takes at most that many ms (it asks for --walk)
  * --timeout        how long the world may take to come up (600: GitHub's runner needs 270 to 400 s for Sandbox 5)
- * --settle         how long the world may take to settle before its frames are measured and it is photographed (30)
- *                  With more than one browser their worlds come up at once and each is then measured alone, the
- *                  others' frames held: a time to the world is then the time beside the others, longer than alone.
+ * --settle         how long the world may take to settle before its frames are measured and it is photographed (60)
  * --steps          prints what the page's cover said on the way to the world, each step with the second it began
  * --software       measure even where there is no GPU (the box's software renderer): for this script's own plumbing.
  *                  Without it a machine without a GPU measures nothing and fails, saying so: what needs a GPU is
@@ -47,8 +45,6 @@ import { LAUNCH, gpuOf, webgpuOf } from './mac-page.mjs';
 
 /** a walk's step a frame at 60 frames a second, and where it starts: the census's (./census/frame.ts STEP, ./census/run.ts VIEWS.near), written here because those modules build a world as they load */
 const STEP = { forward: 1.5 / 60, yaw: (20 * Math.PI) / 180 / 60 };
-/** a page's frames held and let go: `__hold(true)` keeps every frame asked for from then on until `__hold(false)` */
-const HOLD = `(() => { const raf = window.requestAnimationFrame.bind(window); let held = false; const waiting = []; window.requestAnimationFrame = (cb) => (held ? (waiting.push(cb), 0) : raf(cb)); window.__hold = (h) => { held = h; if (!h) for (const cb of waiting.splice(0)) raf(cb); }; })();`;
 const VIEWS = { near: { x: 0, z: 95, yaw: 0, pitch: -0.05 } };
 
 const SITE = resolve(import.meta.dir, '..');
@@ -143,7 +139,7 @@ export const lineOf = (m: Measure, why: string[]) =>
 
 const BROWSERS: Record<string, [BrowserType, object]> = { chromium: [chromium, LAUNCH], webkit: [webkit, { headless: true }] };
 
-async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; walk?: boolean; turn?: <T>(f: () => Promise<T>) => Promise<T> }): Promise<Measure> {
+async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; walk?: boolean }): Promise<Measure> {
 	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, steps: [], settled_s: null, frames: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, walk_ms: null, walk_p95: null, walk_cpu: null, walk_gpu: null, painted: null, errors: [] };
 	let browser: Browser | undefined;
 	try {
@@ -152,8 +148,6 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 		const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 		// every page's Math.random one sequence, and the frame meter in before the page makes its renderer
 		await page.addInitScript({ content: SEEDED_RANDOM });
-		// its frames can be held (`__hold(true)`): while another browser is measured, this one draws nothing
-		await page.addInitScript({ content: HOLD });
 		await page.addInitScript({ content: `${readFileSync(join(SITE, 'src/lib/content/render/meter.js'), 'utf8').replace(/^export /gm, '')};window.__meter = installMeter(window);` });
 		page.on('pageerror', (e) => m.errors.push(String(e.message).slice(0, 300)));
 		// a route not pinned is named once, at the end, not as each 404 it made
@@ -172,101 +166,89 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 		}
 		m.world_s = secs();
 		m.backend = await page.evaluate(() => (window as any).__rendererBackend ?? null);
-		// the worlds come up side by side; from here one browser at a time has the machine, the others' frames held
-		const alone = async () => {
-			const t1 = performance.now();
-			for (let zero = 0; performance.now() - t1 < o.settle * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
-			if ((await page.evaluate(quietness).catch(() => null)) === 0) m.settled_s = Math.round((performance.now() - t1) / 100) / 10;
-			await page.waitForFunction(() => !document.querySelector('.world .loading'), null, { timeout: 10_000 }).catch(() => {});
-			const s = await page.evaluate(() => (window as any).__meter.sample(10));
-			Object.assign(m, { frames: s.frames, frame_ms: s.frames > 1 ? s.frame_ms : null, frame_p95: s.frame_p95, cpu_ms: s.cpu_ms, gpu_ms: s.gpu_ms, calls: s.calls, triangles: s.triangles });
-			const png = await page.screenshot({ path: join(o.out, `${name}.png`) });
-			// how much of the picture is painted, counted in the page (its own decoder)
-			m.painted = await page.evaluate(async (b64) => {
-				const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
-				const c = Object.assign(document.createElement('canvas'), { width: 144, height: 90 });
-				const g = c.getContext('2d')!;
-				g.drawImage(img, 0, 0, 144, 90);
-				const d = g.getImageData(0, 0, 144, 90).data;
-				const seen = new Map<number, number>();
-				for (let i = 0; i < d.length; i += 4) {
-					const k = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
-					seen.set(k, (seen.get(k) ?? 0) + 1);
-				}
-				return Math.round((1 - Math.max(...seen.values()) / (d.length / 4)) * 1000) / 1000;
-			}, png.toString('base64'));
-			m.shown = m.painted > 0.2;
-			if (o.walk) {
-				// the walk, after the picture: the eye put where it starts and the world left to settle there (what streams in
-				// round a new place is no part of a walk), then placed each frame by the clock, so a slow frame walks as far
-				// as a fast one
-				const walking = (seconds: number) =>
-					page.evaluate(
-						async ({ v, step, seconds }) => {
-							const walker = (window as any).__walker;
-							if (!walker) return null;
-							const t0 = performance.now();
-							let on = true;
-							const each = () => {
-								if (!on) return;
-								const t = (performance.now() - t0) / 1000;
-								walker.place(v.x + Math.sin(v.yaw) * step.forward * 60 * t, v.z - Math.cos(v.yaw) * step.forward * 60 * t, v.yaw + step.yaw * 60 * t, v.pitch);
-								requestAnimationFrame(each);
-							};
-							each();
-							await new Promise((r) => setTimeout(r, 1000));
-							const s = await (window as any).__meter.sample(seconds);
-							on = false;
-							walker.place(v.x, v.z, v.yaw, v.pitch);
-							return s;
-						},
-						{ v: VIEWS.near, step: STEP, seconds }
-					);
-				const placed = await page.evaluate((v) => ((window as any).__walker ? ((window as any).__walker.place(v.x, v.z, v.yaw, v.pitch), true) : false), VIEWS.near);
-				if (placed) {
-					const t2 = performance.now();
-					for (let zero = 0; performance.now() - t2 < Math.min(o.settle, 20) * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
-				}
-				const w = await walking(10);
-				// and where a walking frame's JavaScript goes, in Chromium (its own profiler; the build's names): 5 s more
-				if (w && name === 'chromium') {
-					try {
-						const cdp = await page.context().newCDPSession(page);
-						await cdp.send('Profiler.enable');
-						await cdp.send('Profiler.setSamplingInterval', { interval: 500 });
-						await cdp.send('Profiler.start');
-						await walking(5);
-						const { profile } = (await cdp.send('Profiler.stop')) as { profile: { nodes: { id: number; callFrame: { functionName: string; url: string; lineNumber: number; columnNumber: number }; }[]; samples?: number[]; timeDeltas?: number[] } };
-						const by = new Map<number, number>();
-						let total = 0;
-						(profile.samples ?? []).forEach((id, i) => {
-							const d = profile.timeDeltas?.[i] ?? 0;
-							by.set(id, (by.get(id) ?? 0) + d);
-							total += d;
-						});
-						const named = new Map<string, number>();
-						for (const n of profile.nodes) {
-							const f = n.callFrame, k = `${f.functionName || '(anonymous)'} ${f.url.split('/').pop() || ''}:${f.lineNumber}:${f.columnNumber}`;
-							named.set(k, (named.get(k) ?? 0) + (by.get(n.id) ?? 0));
-						}
-						m.steps.push(`a walking frame's JavaScript in Chromium, by function (its own time, of ${Math.round(total / 1000)} ms sampled): ${[...named].sort((a, b) => b[1] - a[1]).slice(0, 28).map(([k, v]) => `${((v / total) * 100).toFixed(1)}% ${k}`).join(' | ')}`);
-					} catch (e: any) {
-						m.steps.push(`no profile of the walk: ${String(e?.message ?? e).split('\n')[0]}`);
-					}
-				}
-			if (w && w.frames > 1) Object.assign(m, { walk_ms: w.frame_ms, walk_p95: w.frame_p95, walk_cpu: w.cpu_ms, walk_gpu: w.gpu_ms });
-				else m.steps.push(w ? 'the walk drew no frames' : 'no walker here: no walk measured');
+		const t1 = performance.now();
+		for (let zero = 0; performance.now() - t1 < o.settle * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
+		if ((await page.evaluate(quietness).catch(() => null)) === 0) m.settled_s = Math.round((performance.now() - t1) / 100) / 10;
+		await page.waitForFunction(() => !document.querySelector('.world .loading'), null, { timeout: 10_000 }).catch(() => {});
+		const s = await page.evaluate(() => (window as any).__meter.sample(10));
+		Object.assign(m, { frames: s.frames, frame_ms: s.frames > 1 ? s.frame_ms : null, frame_p95: s.frame_p95, cpu_ms: s.cpu_ms, gpu_ms: s.gpu_ms, calls: s.calls, triangles: s.triangles });
+		const png = await page.screenshot({ path: join(o.out, `${name}.png`) });
+		// how much of the picture is painted, counted in the page (its own decoder)
+		m.painted = await page.evaluate(async (b64) => {
+			const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+			const c = Object.assign(document.createElement('canvas'), { width: 144, height: 90 });
+			const g = c.getContext('2d')!;
+			g.drawImage(img, 0, 0, 144, 90);
+			const d = g.getImageData(0, 0, 144, 90).data;
+			const seen = new Map<number, number>();
+			for (let i = 0; i < d.length; i += 4) {
+				const k = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
+				seen.set(k, (seen.get(k) ?? 0) + 1);
 			}
-		};
-		if (o.turn) {
-			await page.evaluate(() => (window as any).__hold(true));
-			await o.turn(async () => {
-				await page.evaluate(() => (window as any).__hold(false));
-				await alone();
-				// and it leaves the machine to the next
-				await browser?.close().catch(() => {});
-			});
-		} else await alone();
+			return Math.round((1 - Math.max(...seen.values()) / (d.length / 4)) * 1000) / 1000;
+		}, png.toString('base64'));
+		m.shown = m.painted > 0.2;
+		if (o.walk) {
+			// the walk, after the picture: the eye put where it starts and the world left to settle there (what streams in
+			// round a new place is no part of a walk), then placed each frame by the clock, so a slow frame walks as far
+			// as a fast one
+			const walking = (seconds: number) =>
+				page.evaluate(
+					async ({ v, step, seconds }) => {
+						const walker = (window as any).__walker;
+						if (!walker) return null;
+						const t0 = performance.now();
+						let on = true;
+						const each = () => {
+							if (!on) return;
+							const t = (performance.now() - t0) / 1000;
+							walker.place(v.x + Math.sin(v.yaw) * step.forward * 60 * t, v.z - Math.cos(v.yaw) * step.forward * 60 * t, v.yaw + step.yaw * 60 * t, v.pitch);
+							requestAnimationFrame(each);
+						};
+						each();
+						await new Promise((r) => setTimeout(r, 1000));
+						const s = await (window as any).__meter.sample(seconds);
+						on = false;
+						walker.place(v.x, v.z, v.yaw, v.pitch);
+						return s;
+					},
+					{ v: VIEWS.near, step: STEP, seconds }
+				);
+			const placed = await page.evaluate((v) => ((window as any).__walker ? ((window as any).__walker.place(v.x, v.z, v.yaw, v.pitch), true) : false), VIEWS.near);
+			if (placed) {
+				const t2 = performance.now();
+				for (let zero = 0; performance.now() - t2 < Math.min(o.settle, 10) * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
+			}
+			const w = await walking(10);
+			// and where a walking frame's JavaScript goes, in Chromium (its own profiler; the build's names): 5 s more
+			if (w && name === 'chromium') {
+				try {
+					const cdp = await page.context().newCDPSession(page);
+					await cdp.send('Profiler.enable');
+					await cdp.send('Profiler.setSamplingInterval', { interval: 500 });
+					await cdp.send('Profiler.start');
+					await walking(5);
+					const { profile } = (await cdp.send('Profiler.stop')) as { profile: { nodes: { id: number; callFrame: { functionName: string; url: string; lineNumber: number; columnNumber: number }; }[]; samples?: number[]; timeDeltas?: number[] } };
+					const by = new Map<number, number>();
+					let total = 0;
+					(profile.samples ?? []).forEach((id, i) => {
+						const d = profile.timeDeltas?.[i] ?? 0;
+						by.set(id, (by.get(id) ?? 0) + d);
+						total += d;
+					});
+					const named = new Map<string, number>();
+					for (const n of profile.nodes) {
+						const f = n.callFrame, k = `${f.functionName || '(anonymous)'} ${f.url.split('/').pop() || ''}:${f.lineNumber}:${f.columnNumber}`;
+						named.set(k, (named.get(k) ?? 0) + (by.get(n.id) ?? 0));
+					}
+					m.steps.push(`a walking frame's JavaScript in Chromium, by function (its own time, of ${Math.round(total / 1000)} ms sampled): ${[...named].sort((a, b) => b[1] - a[1]).slice(0, 28).map(([k, v]) => `${((v / total) * 100).toFixed(1)}% ${k}`).join(' | ')}`);
+				} catch (e: any) {
+					m.steps.push(`no profile of the walk: ${String(e?.message ?? e).split('\n')[0]}`);
+				}
+			}
+		if (w && w.frames > 1) Object.assign(m, { walk_ms: w.frame_ms, walk_p95: w.frame_p95, walk_cpu: w.cpu_ms, walk_gpu: w.gpu_ms });
+			else m.steps.push(w ? 'the walk drew no frames' : 'no walker here: no walk measured');
+		}
 	} catch (e: any) {
 		m.errors.push(String(e?.message ?? e).split('\n')[0].slice(0, 300));
 	} finally {
@@ -317,23 +299,13 @@ if (import.meta.main) {
 
 	console.log(`${world} on ${gpu} (${process.platform} ${process.arch}); pictures in ${out}`);
 	const measures: (Measure & { why: string[] })[] = [];
-	// every browser's world comes up at once (a check has 600 s for all of them, and a world alone takes 300 s on
-	// GitHub's runner: intent 0356b0ea), then each is measured alone, in the order they came up
-	let last: Promise<unknown> = Promise.resolve();
-	const turn = <T>(f: () => Promise<T>): Promise<T> => {
-		const mine = last.then(f, f);
-		last = mine.catch(() => {});
-		return mine;
-	};
-	await Promise.all(
-		browsers.map(async (b) => {
-			const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '30')), walk: argv.includes('--walk') || argv.includes('--walk-within'), turn: browsers.length > 1 ? turn : undefined });
-			const why = judge(m, bounds);
-			measures.push({ ...m, why });
-			console.log(lineOf(m, why));
-			if (argv.includes('--steps')) for (const st of m.steps) console.log(`    ${st}`);
-		})
-	);
+	for (const b of browsers) {
+		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), walk: argv.includes('--walk') || argv.includes('--walk-within') });
+		const why = judge(m, bounds);
+		measures.push({ ...m, why });
+		console.log(lineOf(m, why));
+		if (argv.includes('--steps')) for (const st of m.steps) console.log(`    ${st}`);
+	}
 	if (unpinned.size) console.log(`not pinned (answered 404; --record pins a picture's): ${[...unpinned].slice(0, 6).join(' ')}${unpinned.size > 6 ? ` … ${unpinned.size} in all` : ''}`);
 	writeFileSync(join(out, 'gpu.json'), JSON.stringify({ world, gpu, platform: `${process.platform} ${process.arch}`, bounds, measures, unpinned: [...unpinned] }, null, '\t') + '\n');
 	server.stop(true);
