@@ -222,3 +222,11 @@ same look). The skip used the noise's true range (`harness/range.mjs`: −1.256�
 **Not met, said plainly:** the intent's "no more of a frame's time than the sky costs today" is not shown. The sky's
 shader is about 1.25 times main's in length. Its time on a GPU is not measured: GitHub's runner reports no GPU time,
 and its frames are the CPU's. Samuel's Mac (the frame meter, `render/meter.js`) is the place to measure it.
+
+## 02:09 · the head's recorded run (1a8caf6e, 42940472604): c1–c4 green
+
+c3 green in both engines: Chromium world in 273 s, 81.2 ms a frame, 0.956 painted; WebKit world in 332.6 s, 300.5
+ms a frame, 0.963 painted. c5's pictures: Chromium's eight (`gpu/run3/`: the same look as run 2: soft, no blocks,
+no edges, no bands, at both sizes); WebKit's screenshot timed out again in c5 (world in 266 s), as on 5be34cf3: the
+runner, which in the same run photographed WebKit's world in c3. A dry run of the head (records nothing, so c1–c4
+stand) is retaking WebKit's sky pictures, to judge c5 in both engines on the head itself.
