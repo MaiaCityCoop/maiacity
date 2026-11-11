@@ -54,6 +54,8 @@
 		// every link from the net Maia City keeps, its summaries and its authors, kept by avenMAIA: all of them artifacts
 		// (routes/artifacts, Samuel 2026-11-06)
 		{ href: '/artifacts/', label: 'Artifacts', note: 'Every link we keep, summarized, with its authors', icon: 'link' },
+		// Butler James, our CRM table of leads, changed over MCP (routes/butler-james, intent a6ae861e)
+		{ href: '/butler-james/', label: 'Butler James', note: 'Our leads and where each stands in the pipeline', icon: 'table' },
 		// the game's configs, each a Loro document, first the levelling (routes/game-editor, Samuel 2026-11-04)
 		{ href: '/game-editor/', label: 'Game editor', note: 'The game\'s configs: how a village grows', icon: 'gear' },
 		// what play teaches its agents, each skill a Loro document (routes/skills, play/SPEC.md §4.14)

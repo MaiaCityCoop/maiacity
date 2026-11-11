@@ -3,8 +3,7 @@
 import { keepFile } from "./owners";
 import { admin, COOP, type Me } from "./access";
 import { AVENMAIA, SCHEMA } from "./kit/ids";
-import { addIntent, intentRow, recordChecks, specifyIntent } from "./intents";
-import { autoMove } from "./decide";
+import { flat, ownIntent, type Own } from "./own";
 import { keyOf, type BlobStore } from "./blobs";
 import { hashBytes } from "./kit/hash";
 import type { Db, Queryable } from "./kit/pg";
@@ -396,34 +395,13 @@ type ArtifactGiven = {
 };
 
 // ---- no tap for an artifact (play/SPEC.md §4.12 "Auto-accept rules", intent de24f1c5): with no intent named, it makes
-// its own through the intent flow's functions, in one transaction, and the rules decide it
+// its own (./own.ts), in one transaction, and the rules decide it
 
-/** the caller's transaction as a Db: every transaction asked of it is that one (the whole request is one) */
-const flat = (tx: Queryable): Db => ({ query: (t, p) => tx.query(t, p), exec: async (t) => void (await tx.query(t)), transaction: (fn) => fn(tx) });
-
-/** the intent an artifact's change made for itself: what it is, and its spec, play's own */
-type Own = { kind: "idea" | "improve"; title: string; goal: string; evidence: string };
-/** its one check: a look play records as passed, with the form checks just made as its evidence */
-const OWN_CHECK = { check: "The artifact holds to the artifacts' form (three texts, authors, one link)", how: "look", by: "the form checks add_artifact and update_artifact make: its link, title, description, summary and authors", must: true };
-
-/**
- * An intent of the artifact's own, specified with play's spec and asked of the rules at Approve spec and at Accept;
- * where no rule decides it waits for a person. Gives back its id, stage and what `propose` gave.
- */
-async function ownIntent<R>(db: Db, store: BlobStore, who: Me, o: Own, propose: (intent: string) => Promise<R>): Promise<{ intent: string; stage: string; auto: unknown; proposed: R | null }> {
-  const i = await addIntent(db, who, { kind: o.kind, title: o.title, note: "Made by play for the artifact's change, with no intent named (play/SPEC.md §4.12, Auto-accept rules).", work_kind: [SCHEMA.artifact] });
-  await specifyIntent(db, who, i.id, { goal: o.goal, scope: "One artifact (a link Maia City keeps) and its texts and authors; nothing else changes.", nothing_to_reduce: "a link kept or corrected removes nothing", checks: [OWN_CHECK] });
-  await autoMove({ db, store }, i.id, { me: who });
-  if ((await intentRow(db, i.id)).stage !== "build") return { intent: i.id, ...(await stageOf(db, i.id)), proposed: null };
-  await recordChecks(db, who, i.id, [{ check: "c1", pass: true, evidence: o.evidence }]);
-  const proposed = await propose(i.id);
-  await autoMove({ db, store }, i.id, { me: who });
-  return { intent: i.id, ...(await stageOf(db, i.id)), proposed };
-}
-const stageOf = async (db: Db, id: string) => {
-  const r = await intentRow(db, id);
-  return { stage: r.stage as string, auto: r.auto };
-};
+/** the artifact's own intent: play's spec of it, one look recorded as passed with the form checks as its evidence */
+const ownSpec = (o: { kind: "idea" | "improve"; title: string; goal: string; evidence: string }): Own => ({
+  ...o, of: "the artifact's", work: SCHEMA.artifact, scope: "One artifact (a link Maia City keeps) and its texts and authors; nothing else changes.", nothing: "a link kept or corrected removes nothing",
+  check: { check: "The artifact holds to the artifacts' form (three texts, authors, one link)", by: "the form checks add_artifact and update_artifact make: its link, title, description, summary and authors" },
+});
 /** the form checks just made, as the evidence of its look */
 const formEvidence = (j: any) =>
   `play's form checks passed: one link (${j.url}), a title of ${j.title.length} characters, a description of ${j.description.length}, a summary of ${j.summary.trim().split(/\s+/).length} words in its sections, ${j.authors.length} author${j.authors.length === 1 ? "" : "s"} by id.`;
@@ -454,7 +432,7 @@ async function addIn(db: Db, store: BlobStore, me: Me | null, b: ArtifactGiven, 
   json.authors = await db.transaction((tx) => authorIds(tx, who, given));
   const note = `Keep the artifact ${title} (${url})`;
   if (!intent) {
-    const own = await ownIntent(db, store, who, { kind: "idea", title: `Keep ${title}`, goal: `Maia City keeps the artifact ${title} (${url}).`, evidence: formEvidence(json) }, (i) =>
+    const own = await ownIntent(db, store, who, ownSpec({ kind: "idea", title: `Keep ${title}`, goal: `Maia City keeps the artifact ${title} (${url}).`, evidence: formEvidence(json) }), (i) =>
       proposeNewDoc({ db, store }, who, "artifact", { whole: json, note, intent: i }),
     );
     if (!own.proposed) return { url, title, kept: false, waiting: true, intent: own.intent, stage: own.stage };
@@ -500,7 +478,7 @@ async function updateIn(db: Db, store: BlobStore, me: Me | null, artifact: unkno
   const fields = Object.keys(b).filter((k) => k !== "origin").join(", ");
   const note = `Correct the artifact ${next.title}: ${fields}`;
   if (!intent) {
-    const own = await ownIntent(db, store, who, { kind: "improve", title: `Correct ${now.title}`, goal: `Maia City keeps the artifact ${next.title} (${next.url}) corrected: ${fields}.`, evidence: formEvidence(next) }, (i) =>
+    const own = await ownIntent(db, store, who, ownSpec({ kind: "improve", title: `Correct ${now.title}`, goal: `Maia City keeps the artifact ${next.title} (${next.url}) corrected: ${fields}.`, evidence: formEvidence(next) }), (i) =>
       proposeDocVersion({ db, store }, who, { doc: id, whole: next, note, intent: i }),
     );
     const r: any = own.proposed;
