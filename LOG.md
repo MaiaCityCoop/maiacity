@@ -3,7 +3,9 @@
 avenBOX, 2026-11-11. Spec approved, built from intent 3e27d730's drafts (its variants 1985–1987, replayed edit by
 edit, each message kept and marked "drafted for intent 3e27d730"), then finished here. No call to fal.
 
-Variants proposed: chestnut **1992** (→ v7), hazel **1993** (→ v6), moringa **1994** (→ v4).
+Variants first proposed: chestnut 1992 (→ v7), hazel 1993 (→ v6), moringa 1994 (→ v4); archived when the intent stepped
+back to add its pull request (#2262: the census's missing `pinRoute` import and the variants' pins, so c1 runs with no
+token as the pull request's run does), proposed again after the re-spec.
 
 ## Play's count (c1): `play/site/scripts/census/ceiling.ts … --intent 31c61d30-…`, main 85a78610
 
@@ -54,6 +56,8 @@ about a fifth of the view, cropped and doubled, **L0 | L1 (0.25) | L2 at 0.1 | L
   (`lateLeaves`) and grows each to at most 2.6×: the crown's leaf mass is the growth's to fix.
 - `hazel/hazel-s9-close.jpg`, `hazel/hazel-s9-whole.jpg`, `hazel/hazel-s12-*`: the same round double-toothed leaves,
   nuts and form; the 20-year crown a little fuller than v5's.
+- `hazel/hazel-bush-s9-s12.jpg` (the bush breed, v5 | v6 at 8 years, then at 20): the same multi-stemmed bush, v6 a
+  little fuller at 20 years; 210,084 / 269,723 triangles where v5 had 767,729 / 1,032,338.
 - `moringa/moringa-s9-close.jpg`, `moringa/moringa-s9-whole.jpg`, `moringa/moringa-s6-*`: the feathery
   thrice-divided crown, yellow flowers and long pods as v3. A flaw: the topmost pinnae show their dark undersides
   against the sky a little more often than v3's.
