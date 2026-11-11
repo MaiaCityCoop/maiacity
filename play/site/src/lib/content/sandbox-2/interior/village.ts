@@ -14,7 +14,10 @@
  * out of a door and you are in the village again, outside it.
  */
 import * as THREE from 'three'
-import { DOMES, DOORS, adiff, bake, box, breath, geodesic, glassSheen, lantern, mats, mountInterior, polar, portal, sofa, table, type DomeKind, type EmbeddedDome } from './interior'
+import { breath, glassSheen, lantern, mats, mountInterior, sofa, table, type EmbeddedDome } from './interior'
+import { ballOf, DOME_LEVELS, DOMES, DOORS, adiff, levelOf, simpleDome, TREE, type Ball, type DomeKind } from './shell'
+import { cellsOf } from './bake'
+import { bake, box, polar } from './bake'
 import { cafes, coops, coopsAround, henPatches, rabbitPatches, squaresAround, type Kit } from './spaces'
 import { water } from './textures'
 import { groundMaterial } from '$lib/content/biomes'
@@ -126,6 +129,9 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	// where the eye is (the walker's, or the film camera's): the animals near it move every bone
 	const eye = () => camera.position
 	const m = mats()
+	/** what the village draws at levels (its domes' simple selves, its waterside's cells), each shown at the one its
+	 *  size on screen calls for (./shell.ts levelOf: the assets' rule); `on` false: stepped aside (a dome's full inside) */
+	const leveled: { ball: Ball; levels: (THREE.Object3D | null)[]; level: number; on: boolean }[] = []
 	const solo = opts.solo
 	const domes = solo ? [] : layout()
 	/* Sandbox 5: the building alone in the middle, built in the asset box at its newest version and measured: how far
@@ -193,6 +199,10 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			}
 		})
 		soloFoot = { x: 0, z: 0, R: glass, ext: reach }
+		// its buildings inside the glass, drawn while the building looks big enough for them to show through it: at its
+		// first two levels, as a dome's inside (./shell.ts levelOf); its own levels are its asset's to declare (intent 92fbecea)
+		const inside = obj.children.find((c) => c.name === 'building')
+		if (inside) leveled.push({ ball: { x: 0, y: glass * 0.4, z: 0, r: reach }, levels: [inside, inside, null, null], level: 0, on: true })
 		soloGround = groundOf(obj, { gates: solo.gates, gateHalf: 1.4, gateTo: reach + 2.6, reach: reach + 8 })
 	}
 	/** what the cell keeps clear: every dome with its terrace, or Sandbox 5's building with its paths */
@@ -476,11 +486,21 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			waterside.add(shore(p.outline, 0, 50 + k, { x: last.x, z: last.z }))
 			ponds.push({ x: last.x, z: last.z, outline: p.outline })
 		}
-		scene.add(bake(waterside, false))
-		// stones along the banks
-		const stones = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), m.pebble, 2600)
+		// in cells, each at its level (./shell.ts levelOf): its reeds always; a bulrush's head, a pad or a bloom only
+		// where it is more than a pixel (water.ts `fine`)
+		for (const cell of cellsOf(waterside, 40)) {
+			const fine = Object.assign(bake(cell.all, false), { name: 'waterside' })
+			const light = Object.assign(bake(cell.light, false), { name: 'waterside light' })
+			light.visible = false
+			scene.add(fine, light)
+			leveled.push({ ball: cell.ball, levels: [fine, fine, light, light], level: 0, on: true })
+		}
+		// stones along the banks, in cells of 120 m: a cell's stones are drawn while they are more than a pixel (to its
+		// level 2: ./shell.ts levelOf)
+		const STONE_CELL = 120
+		const cells = new Map<string, THREE.Matrix4[]>()
 		const rs = seeded(17)
-		const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3()
+		const q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3()
 		let n = 0
 		for (const line of streams)
 			for (let i = 0; i < line.length - 1 && n < 2600; i += 2) {
@@ -490,11 +510,21 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 					if (n >= 2600) break
 					const size = 0.25 + rs() * 0.35
 					p.set(a.x - dir.z * sd * (W / 2 + 0.2), 0.06, a.z + dir.x * sd * (W / 2 + 0.2))
-					stones.setMatrixAt(n++, m4.compose(p, q.setFromEuler(e.set(rs(), rs() * 6, rs())), s.set(size, size * 0.5, size)))
+					const key = `${Math.floor(p.x / STONE_CELL)},${Math.floor(p.z / STONE_CELL)}`
+					if (!cells.has(key)) cells.set(key, [])
+					cells.get(key)!.push(new THREE.Matrix4().compose(p, q.setFromEuler(e.set(rs(), rs() * 6, rs())), s.set(size, size * 0.5, size)))
+					n++
 				}
 			}
-		stones.count = n
-		scene.add(stones)
+		const stone = new THREE.DodecahedronGeometry(1, 0)
+		for (const ms of cells.values()) {
+			const stones = new THREE.InstancedMesh(stone, m.pebble, ms.length)
+			ms.forEach((mx, i) => stones.setMatrixAt(i, mx))
+			stones.computeBoundingSphere()
+			const ball = stones.boundingSphere!
+			scene.add(stones)
+			leveled.push({ ball: { x: ball.center.x, y: ball.center.y, z: ball.center.z, r: ball.radius }, levels: [stones, stones, stones, null], level: 0, on: true })
+		}
 	}
 	// the ponds' water, filled in point by point, so nothing is planted in them
 	const pondFill = ponds.map((pd) => [0.25, 0.5, 0.75, 1].flatMap((f) => pd.outline.filter((_, i) => i % 2 === 0).map((o) => new THREE.Vector3(pd.x + (o.x - pd.x) * f, 0, pd.z + (o.z - pd.z) * f))))
@@ -529,179 +559,34 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 					}
 				}
 			}
-		scene.add(bake(bridges))
+		scene.add(Object.assign(bake(bridges), { name: 'bridges' }))
 	}
 	await pause('Letting the stream in')
 
 	/* ── the domes: the real shells, arcades and terraces, and a simple inside through the glass ── */
 	const colliders: { x: number; z: number; r: number }[] = []
-	const trunkGeo = new THREE.CylinderGeometry(0.18, 0.28, 1, 6).translate(0, 0.5, 0)
-	const crownGeo = new THREE.IcosahedronGeometry(1, 1)
-	const treeTrunkMat = new THREE.MeshStandardMaterial({ color: '#6d5238', roughness: 0.9 })
-	const treeCrownMat = new THREE.MeshStandardMaterial({ color: '#4f8a38', roughness: 0.8, flatShading: true })
 	/** Sandbox 5: the simple insides' floor, the warm food forest biome's from the vault, as the full insides' is
 	 *  (interior.ts); bare where the vault holds none */
 	const warmFloor = flora ? groundMaterial(biomeOr(FLOORS.warm)?.surface ?? { soil: 1 }) : null
 	/** Sandbox 5: the warm garden's trees for the simple insides, each ripe (one kind a tree, few to grow) */
 	const RIPE = flora ? flora.inside.trees.map((p) => ({ ...p, stages: [p.stages[p.stages.length - 1]!] })) : []
-	/** each dome's simple version, all of it, so it can step aside for the full one */
-	const simple: THREE.Object3D[][] = []
-	let insideTrees: THREE.Matrix4[] = []
-	let insideCrowns: THREE.Matrix4[] = []
+	/** each dome's simple self at its levels (./shell.ts), the one drawn, and whether it is shown (it steps aside for
+	 *  the full one) */
+	const simple: (typeof leveled)[number][] = []
 	for (const d of domes) {
 		const spec = DOMES[d.kind]
-		const g = new THREE.Group()
-		const own: THREE.Object3D[] = []
-		simple.push(own)
-		insideTrees = []
-		insideCrowns = []
-		const shell = geodesic(spec, m, d.kind)
-		shell.group.position.set(d.x, 0, d.z)
-		scene.add(shell.group)
-		own.push(shell.group)
-		// its doors, all four merged into a few meshes (a door is a dozen small parts: drawn one by one, the cell's
-		// thirteen domes cost hundreds of draw calls for them)
-		{
-			const doors = new THREE.Group()
-			for (const hole of shell.holes) doors.add(portal(m, hole, d.kind))
-			const pr = bake(doors)
-			pr.position.set(d.x, 0, d.z)
-			scene.add(pr)
-			own.push(pr)
+		const plant = flora && forest ? (x: number, z: number, r: () => number) => void forest.add(pick(RIPE, r, flora.seed), 'tree', x, 0, z, r() * 6.28, 0.85 + r() * 0.3) : undefined
+		const levels: THREE.Object3D[] = []
+		for (let level = 0; level < DOME_LEVELS; level++) {
+			const one = simpleDome(d, m, level, { floor: warmFloor, glow: glowMat, plant })
+			if (level === 0) colliders.push(...one.colliders)
+			one.object.visible = level === 0
+			scene.add(one.object)
+			levels.push(one.object)
 		}
-		const gal = spec.gallery!
-		const R = d.R, H = gal.height
-		const rWall = Math.sqrt(R * R - H * H)
-		const rIn = rWall - gal.depth
-		const Rt = d.ext
-		const H2 = H + 3.6
-		const twoFloors = gal.floors === 2
-		// the knee wall round the base, open at the doors
-		for (const dd of DOORS) {
-			const gh = 1.6 / R
-			const knee = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.05, R - 0.05, 0.9, 32, 1, true, dd + gh, Math.PI / 2 - 2 * gh), m.lime((Math.PI * R) / 8, 0.4))
-			knee.position.y = 0.45
-			;(knee.material as THREE.Material).side = THREE.DoubleSide
-			g.add(knee)
-		}
-		// the terraces on their arcade, one to each floor of rooms
-		const perQuarter = Math.max(3, Math.round(((Math.PI / 2) * Rt) / 5.2))
-		const step = Math.PI / 2 / perQuarter
-		const archR = (step * Rt) / 2 - 0.4
-		const terrace = (y: number, base: number, rInner: number) => {
-			const deck = new THREE.Mesh(new THREE.RingGeometry(rInner, Rt, 96), m.stone(R / 1.5))
-			deck.rotation.x = -Math.PI / 2
-			deck.position.y = y + 0.02
-			g.add(deck)
-			const under = new THREE.Mesh(new THREE.RingGeometry(rInner, Rt, 96), m.lime(R / 2))
-			under.rotation.x = Math.PI / 2
-			under.position.y = y - 0.35
-			g.add(under)
-			const edge = new THREE.Mesh(new THREE.CylinderGeometry(Rt, Rt, 0.4, 96, 1, true), m.lime((Math.PI * Rt) / 2, 0.2))
-			edge.position.y = y - 0.15
-			g.add(edge)
-			for (let k = 0; k < perQuarter * 4; k++) {
-				const [x, z] = polar(Rt - 0.45, (k + 0.5) * step)
-				g.add(box(0.8, y - base - 0.3, 0.8, m.lime(0.6, (y - base) / 2), x, base, z, (k + 0.5) * step))
-				if (base === 0) colliders.push({ x: d.x + x, z: d.z + z, r: 0.6 })
-				const arch = new THREE.Mesh(new THREE.TorusGeometry(archR, 0.4, 6, 16, Math.PI), m.lime(2, 0.3))
-				const [ax, az] = polar(Rt - 0.45, k * step)
-				arch.position.set(ax, y - 0.35 - archR, az)
-				arch.rotation.y = k * step
-				g.add(arch)
-			}
-			const rail = new THREE.Mesh(new THREE.TorusGeometry(Rt - 0.2, 0.07, 6, 160), m.timberFrame)
-			rail.rotation.x = -Math.PI / 2
-			rail.position.y = y + 0.98
-			g.add(rail)
-			const posts = Math.round((Math.PI * 2 * Rt) / 2.2)
-			for (let k = 0; k < posts; k++) {
-				const [x, z] = polar(Rt - 0.2, (k / posts) * Math.PI * 2)
-				g.add(box(0.1, 0.95, 0.1, m.timberFrame, x, y, z))
-			}
-		}
-		terrace(H, 0, rWall - 0.4)
-		if (twoFloors) terrace(H2, H, Math.sqrt(R * R - H2 * H2) - 0.4)
-		// through the glass: soil, the plaza (none in the master dome), the galleries and the rooms
-		const soil = new THREE.Mesh(new THREE.CircleGeometry(R - 0.1, 48), warmFloor ?? m.soil(R / 2))
-		soil.rotation.x = -Math.PI / 2
-		soil.position.y = 0.02
-		g.add(soil)
-		const Rc = Math.max(4.5, R * 0.22)
-		// the master dome's middle is forest, with no plaza
-		if (d.kind !== 'master') {
-			const plaza = new THREE.Mesh(new THREE.CircleGeometry(Rc, 32), m.stone(Rc / 1.5))
-			plaza.rotation.x = -Math.PI / 2
-			plaza.position.y = 0.04
-			g.add(plaza)
-		}
-		// the kitchen garden along the ring path, and the four stairs up to the gallery
-		const Rp = (Rc + rIn) / 2
-		const beds = Math.min(28, Math.floor((2 * Math.PI * Rp) / 4))
-		for (let k = 0; k < beds; k++) {
-			const a = ((k + 0.5) / beds) * Math.PI * 2
-			if ([...DOORS, ...DOORS.map((dd) => dd + Math.PI / 4)].some((dd) => Math.abs(adiff(a, dd)) * Rp < 3)) continue
-			const [x, z] = polar(Rp + 2.05, a)
-			g.add(box(3, 0.4, 1.1, m.oak(1.5, 0.3), x, 0, z, a + Math.PI / 2))
-			g.add(box(2.9, 0.12, 1, m.grass, x, 0.4, z, a + Math.PI / 2))
-		}
-		for (const sa of DOORS.map((dd) => dd + Math.PI / 4)) {
-			const run = H * 1.9
-			const [x, z] = polar(rIn - run / 2, sa)
-			const flight = box(1.8, 0.12, Math.hypot(run, H), m.oak(1, 3), x, H / 2 - 0.06, z, sa)
-			flight.rotation.set(Math.atan2(H, run), sa, 0, 'YXZ')
-			g.add(flight)
-		}
-		for (const [y, floor] of twoFloors ? [[H, 1], [H2, 2]] : [[H, 1]]) {
-			const galleryFloor = new THREE.Mesh(new THREE.RingGeometry(rIn, Math.sqrt(R * R - y! * y!) - 0.2, 96), m.oak(R / 2))
-			galleryFloor.rotation.x = -Math.PI / 2
-			galleryFloor.position.y = y!
-			;(galleryFloor.material as THREE.Material).side = THREE.DoubleSide
-			g.add(galleryFloor)
-			const rooms = new THREE.Mesh(new THREE.CylinderGeometry(rIn + 2.4, rIn + 2.4, 3, 64, 1, true), m.oak((Math.PI * rIn) / 2, 1))
-			rooms.position.y = y! + 1.5
-			;(rooms.material as THREE.Material).side = THREE.DoubleSide
-			g.add(rooms)
-			void floor
-			const lamps = Math.round((2 * Math.PI * rIn) / 9)
-			for (let k = 0; k < lamps; k++) {
-				const [x, z] = polar(rIn + 1.2, (k / lamps) * Math.PI * 2)
-				g.add(box(0.3, 0.3, 0.3, glowMat, x, y! + 2.4, z))
-			}
-		}
-		// the forest inside, as simple trees: enough to see through the glass. Sandbox 5 plants its warm garden's own
-		// trees there in the outside forest, drawn as it is (in full near, as pictures far off) and left out of it
-		// while the dome's full inside, with its own forest, is shown (see `place`)
-		const r = seeded(Math.round(d.x * 7 + d.z * 3) + 11)
-		const count = Math.round(R * (flora ? 2 : 1.3))
-		for (let i = 0; i < count; i++) {
-			const a = r() * Math.PI * 2
-			const rr = Rc + 3 + r() * (rIn - Rc - 5)
-			const [x, z] = polar(rr, a)
-			if (forest && flora) {
-				forest.add(pick(RIPE, r, flora.seed), 'tree', d.x + x, 0, d.z + z, r() * 6.28, 0.85 + r() * 0.3)
-				continue
-			}
-			const h = 3 + r() * (d.kind === 'home' ? 3 : 6)
-			insideTrees.push(new THREE.Matrix4().compose(new THREE.Vector3(d.x + x, 0, d.z + z), new THREE.Quaternion(), new THREE.Vector3(1, h, 1)))
-			const c = 1.4 + r() * 1.6
-			insideCrowns.push(new THREE.Matrix4().compose(new THREE.Vector3(d.x + x, h + c * 0.6, d.z + z), new THREE.Quaternion(), new THREE.Vector3(c, c * 0.8, c)))
-		}
-		g.position.set(d.x, 0, d.z)
-		const body = bake(g)
-		scene.add(body)
-		own.push(body)
-		{
-			const trunks = new THREE.InstancedMesh(trunkGeo, treeTrunkMat, insideTrees.length)
-			const crowns = new THREE.InstancedMesh(crownGeo, treeCrownMat, insideCrowns.length)
-			insideTrees.forEach((mx, i) => trunks.setMatrixAt(i, mx))
-			insideCrowns.forEach((mx, i) => crowns.setMatrixAt(i, mx))
-			trunks.castShadow = crowns.castShadow = true
-			trunks.computeBoundingSphere()
-			crowns.computeBoundingSphere()
-			scene.add(trunks, crowns)
-			own.push(trunks, crowns)
-		}
+		const one = { ball: ballOf(d), levels, level: 0, on: true }
+		simple.push(one)
+		leveled.push(one)
 		await pause(`Raising the ${spec.label.toLowerCase()}s`)
 	}
 
@@ -718,7 +603,11 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		const mini = !!flora
 		for (const sq of [...(solo ? [] : cafes(kit, SQUARE_R)), ...(mini ? [] : coops(kit, SQUARE_R))]) {
 			swap(sq.group)
-			scene.add(bake(sq.group))
+			// its tables, chairs and lanterns drawn to the square's level 2: under a pixel further off
+			const square = Object.assign(bake(sq.group), { name: 'squares' })
+			scene.add(square)
+			const ball = new THREE.Box3().setFromObject(square).getBoundingSphere(new THREE.Sphere())
+			leveled.push({ ball: { x: ball.center.x, y: ball.center.y, z: ball.center.z, r: ball.radius }, levels: [square, square, square, null], level: 0, on: true })
 			colliders.push(...sq.colliders)
 		}
 		// the playgrounds facing out from the master dome; in Sandbox 5 with a climbing dome
@@ -1197,13 +1086,15 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			scene.add(ground)
 			t.ground = ground
 			near.visible = false
+			near.name = 'forest near'
 			scene.add(near)
 			t.near = near
 			const far = new THREE.Group()
-			if (t.far.length) far.add(inst(trunkGeo, trunkMat, t.far, true), inst(crownGeo, crownMat, t.farCrowns, true, t.farColors))
+			if (t.far.length) far.add(inst(TREE.trunk, trunkMat, t.far, true), inst(crownGeo, crownMat, t.farCrowns, true, t.farColors))
+			far.name = 'forest far'
 			scene.add(far)
 			t.farMesh = far
-			if (t.dense.length) scene.add(inst(trunkGeo, trunkMat, t.dense, true), inst(crownGeo, crownMat, t.denseCrowns, true, t.denseColors))
+			if (t.dense.length) scene.add(new THREE.Group().add(inst(TREE.trunk, trunkMat, t.dense, true), inst(crownGeo, crownMat, t.denseCrowns, true, t.denseColors)))
 		}
 	}
 	/** Near you the forest in full, further off its stand-ins. */
@@ -1377,7 +1268,25 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			light.intensity = sp.base * nightNow
 		})
 	}
-	const show = (i: number, on: boolean) => simple[i]!.forEach((o) => (o.visible = on))
+	/** a thing at levels shown (`on`) at its level */
+	const drawLevel = (s: (typeof leveled)[number]) => {
+		for (const o of s.levels) if (o) o.visible = s.on && s.levels[s.level] === o
+	}
+	const show = (i: number, on: boolean) => {
+		simple[i]!.on = on
+		drawLevel(simple[i]!)
+	}
+	/** everything at levels at the level its size on screen calls for */
+	const levelsFor = () => {
+		const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
+		for (const s of leveled) {
+			const level = levelOf(s.ball, camera.position, t, s.level)
+			if (level === s.level) continue
+			s.level = level
+			drawLevel(s)
+			staleShadows()
+		}
+	}
 	const gapTo = (i: number) => Math.hypot(pos.x - domes[i]!.x, pos.z - domes[i]!.z) - domes[i]!.ext
 	/* Every dome is built once, in the background, the nearest first, while you walk
 	   about, and kept: a dome you walk up to is almost always ready long before you
@@ -1390,15 +1299,11 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	   every frame, and it played choppy there. */
 	const areaOf = (kind: DomeKind) => (DOMES[kind].diameter / DOMES.master.diameter) ** 2
 	const KEEP = areaOf('master') + 5 * areaOf('large')
-	// the dome you are at is drawn in full, and the nearest one in full from further off,
-	// so its forest is there as you walk up; the others show their simple selves
+	// the dome you are at is drawn in full; the others show their simple selves at their levels (from outside, a full
+	// inside further off is a million triangles behind glass: intent 92fbecea). Those within SHOW_NEAREST are built
+	// ahead, so the one you walk up to is ready
 	const SHOW_WITHIN = 22
 	const SHOW_NEAREST = 50
-	const nearestBuilt = () => {
-		let best = -1, gap = SHOW_NEAREST
-		for (const i of built.keys()) if (gapTo(i) < gap) (gap = gapTo(i)), (best = i)
-		return best
-	}
 	/* The domes' full insides are streamed by what is seen ($content/sandbox-kit/stream, one scheduler for every world):
 	   the walker's camera wants every dome within SHOW_NEAREST, those it looks at first, the biggest on screen first;
 	   a shot wants exactly the domes its camera path sees, no more. At most KEEP's worth are built, the longest unseen let go;
@@ -1469,7 +1374,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	const place = (i: number) => {
 		const dm = built.get(i)
 		if (!dm) return
-		const near = filmed ? filmed.has(i) : gapTo(i) < SHOW_WITHIN || i === nearestBuilt()
+		const near = filmed ? filmed.has(i) : gapTo(i) < SHOW_WITHIN
 		if (dm.root.visible !== near) renderer.shadowMap.needsUpdate = true
 		dm.root.visible = near
 		dm.show(near)
@@ -1564,6 +1469,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 				renderer.shadowMap.needsUpdate = true
 			}
 			levelOfDetail(camera.position.x, camera.position.z)
+			levelsFor()
 			if (!walker.flying()) manageDomes()
 			lightNearest()
 			// the sounds for where you stand: the forest, the water, the animals; muffled under glass

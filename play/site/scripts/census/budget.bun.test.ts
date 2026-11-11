@@ -33,6 +33,14 @@ const TONIGHT: Record<string, { id: string; simplified: number; views: Record<st
 };
 
 const b = readBudgets();
+/** the budget as the 2026-11-10 counts set it (each ceiling `ceilingFor` its count): the comparer is held to this, not
+ *  to budgets.json, whose ceilings move down as the worlds get lighter (intent 92fbecea) */
+const fixture: Budgets = JSON.parse(JSON.stringify(b));
+for (const t of Object.values(TONIGHT)) {
+	const w = fixture.worlds[t.id];
+	w.views = Object.fromEntries(Object.entries(t.views).map(([v, c]) => [v, Object.fromEntries(Object.entries(c).map(([k, x]) => [k, ceilingFor(x)]))]));
+	w.simplified = ceilingFor(t.simplified);
+}
 const countsOf = (world: string, scale = 1): Counts => ({
 	views: Object.fromEntries(Object.entries(TONIGHT[world].views).map(([v, c]) => [v, Object.fromEntries(Object.entries(c).map(([k, x]) => [k, Math.round(x * scale)]))])),
 	simplified: Math.round(TONIGHT[world].simplified * scale),
@@ -55,7 +63,7 @@ describe('budgets.json', () => {
 		}
 	});
 
-	test('holds Sandbox 1, 3 and 5 by their UUIDs, each ceiling from tonight\'s count up to 10 % over it', () => {
+	test('holds Sandbox 1, 3 and 5 by their UUIDs, each ceiling at most 10 % over the count it was first set by: a ceiling only moves down', () => {
 		for (const [world, t] of Object.entries(TONIGHT)) {
 			const w = b.worlds[t.id];
 			expect(w?.world).toBe(world);
@@ -63,10 +71,9 @@ describe('budgets.json', () => {
 			for (const [view, counts] of Object.entries(t.views))
 				for (const [what, now] of Object.entries(counts)) {
 					const ceiling = (w.views[view] as Record<string, number>)[what];
-					expect(ceiling).toBeGreaterThanOrEqual(now);
+					expect(ceiling).toBeGreaterThan(0);
 					expect(ceiling).toBeLessThanOrEqual(now * 1.1);
 				}
-			expect(w.simplified).toBeGreaterThanOrEqual(t.simplified);
 			expect(w.simplified).toBeLessThanOrEqual(t.simplified * 1.1);
 		}
 	});
@@ -74,13 +81,13 @@ describe('budgets.json', () => {
 
 describe('the comparer', () => {
 	test("tonight's counts are within every world's ceilings", () => {
-		for (const world of Object.keys(TONIGHT)) expect(holds(compare(b, world, countsOf(world)))).toBe(true);
+		for (const world of Object.keys(TONIGHT)) expect(holds(compare(fixture, world, countsOf(world)))).toBe(true);
 	});
 
 	test('a count over its ceiling fails, naming the world, the view and the number', () => {
 		const counts = countsOf('sandbox-1');
 		counts.views.mid.draws = 5000;
-		const rows = compare(b, 'sandbox-1', counts);
+		const rows = compare(fixture, 'sandbox-1', counts);
 		expect(holds(rows)).toBe(false);
 		const over = rows.filter((r) => r.verdict === 'over');
 		expect(over).toHaveLength(1);
@@ -90,38 +97,38 @@ describe('the comparer', () => {
 	test('a view not counted fails', () => {
 		const counts = countsOf('sandbox-5');
 		delete counts.views.far;
-		expect(holds(compare(b, 'sandbox-5', counts))).toBe(false);
+		expect(holds(compare(fixture, 'sandbox-5', counts))).toBe(false);
 	});
 
 	test('seconds, memory and a frame\'s milliseconds are reported, not held yet', () => {
-		const rows = compare(b, 'sandbox-3', countsOf('sandbox-3'));
+		const rows = compare(fixture, 'sandbox-3', countsOf('sandbox-3'));
 		for (const what of ['shown_s', 'again_s', 'memory_mb', 'frame_ms']) {
 			const r = rows.find((x) => x.what === what)!;
 			expect(r.verdict).toBe('not held');
-			expect(r.aim).toBe(b.aims[what]);
+			expect(r.aim).toBe(fixture.aims[what]);
 			expect(r.why).toContain('not held yet');
 		}
 	});
 
 	test('held to the aim as well, a world already inside it passes, and one over it fails', () => {
-		expect(holds(compare(b, 'sandbox-3', countsOf('sandbox-3'), ['tris', 'draws', 'calls']))).toBe(true);
-		expect(holds(compare(b, 'sandbox-1', countsOf('sandbox-1'), ['tris']))).toBe(false);
+		expect(holds(compare(fixture, 'sandbox-3', countsOf('sandbox-3'), ['tris', 'draws', 'calls']))).toBe(true);
+		expect(holds(compare(fixture, 'sandbox-1', countsOf('sandbox-1'), ['tris']))).toBe(false);
 	});
 
 	test('a world the budget does not hold is refused', () => {
-		expect(() => compare(b, 'sandbox-9', countsOf('sandbox-3'))).toThrow(/no world sandbox-9/);
+		expect(() => compare(fixture, 'sandbox-9', countsOf('sandbox-3'))).toThrow(/no world sandbox-9/);
 	});
 
 	test('a ceiling only moves down', () => {
 		const lighter = countsOf('sandbox-5', 0.8);
-		const rows = compare(b, 'sandbox-5', lighter);
+		const rows = compare(fixture, 'sandbox-5', lighter);
 		// within its ceilings it is no failure by itself; strict, it is, until the ceilings are lowered
 		expect(holds(rows)).toBe(true);
 		expect(holds(rows, true)).toBe(false);
 		const r = rows.find((x) => x.what === 'tris' && x.view === 'near')!;
 		expect(r.verdict).toBe('lower');
 		expect(r.why).toContain(`lower it to ${ceilingFor(r.now!)}`);
-		const lowered: Budgets = JSON.parse(JSON.stringify(b));
+		const lowered: Budgets = JSON.parse(JSON.stringify(fixture));
 		for (const row of rows) if (row.verdict === 'lower') {
 			const w = lowered.worlds[TONIGHT['sandbox-5'].id];
 			if (row.view) (w.views[row.view] as Record<string, number>)[row.what] = ceilingFor(row.now!);
