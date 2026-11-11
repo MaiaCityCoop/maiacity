@@ -257,6 +257,79 @@ their newest versions; a card's triangles are its default build's):
 Intent 3e27d730 (building tonight) brings the six trees under 300,000 with their levels declared: the rule's first
 use. The rule itself (play's refusal, the box's count, the skills) is its own intent, the first after the budget.
 
+## 4c. A clean world from the ground up, or the legacy worlds mended?
+
+Samuel's question, 2026-11-11: "does it make sense to start a clean world with clean assets from the ground up,
+instead of optimizing legacy worlds?" Short answer: **a clean world, yes; clean machinery, no; and the three sandboxes
+are moved onto its path piece by piece, never rebuilt whole.**
+
+**What is structure that cannot be made fast in place** (it has to be rebuilt as something else, whatever we decide):
+
+| | lines | what it is | its share of a frame |
+|---|---|---|---|
+| `sandbox-2/interior/interior.ts`, `factory.ts`, `spaces.ts`, `rooms.ts` | 5,145 | the 13 domes and their insides, built mesh by mesh on the main thread; no levels, no hash, every mesh a caster | 18 to 45 % of the picture, 38 to 72 % of the shadow triangles (Sandbox 1) |
+| `sandbox-2/interior/village.ts` (and `plants.ts`, `animals.ts`) | 3,273 | the cell: scatter, paths, water, shells, four streams, three asset renderers, the load's order, the frame's loop, and a `solo` branch that is Sandbox 5 | 14 to 76 % of the picture |
+| `maiacity-v2/world.js` and its files | about 5,000 | Sandbox 3: its own canvas, loop, scatter and draw path | all of Sandbox 3 |
+| `buildings/forest-dome` 6 | one asset | 1,241,499 triangles, 242 draws, one level | 24 to 57 % of Sandbox 5's picture |
+
+About 13,000 lines of world-specific code hold the parts that are 38 to 86 % of every frame. None of it can be given
+levels, a hash or a place in the stream by tuning: a hand-built dome becomes fast only by becoming an asset.
+
+**What any world needs and is already shared, and is being mended tonight** (about 18,000 lines: `sandbox-kit`,
+`assets/render`, `assets/box`, `render`, `biomes`): the sky, the renderer and its post, the asset boxes and their
+pool, the levels and far pictures, the device's cache, the grass, the ground, the walker; and the content: 274 assets,
+of which 225 of the 239 with a known count are under 300,000 triangles at their default build. A world rebuilt from
+nothing would use every one of these as they are. Throwing them away buys nothing: their faults (builds behind
+levels, memory held, a move visiting every copy, the clouds) are faults a clean world would have too.
+
+**The clean path already exists.** A world is an asset of the group `worlds` (play/SPEC.md §4.11): its recipe builds
+its land and names everything else by hash (`use:<recipe hash>`), drawn by the one renderer with its levels and far
+pictures (`assets/plantings.js`, 1,477 lines with `worlds/`), its floor a biome, walked on the Worlds page under the
+one sky. The census counts it (`--world worlds --asset <uuid>`) and `gpu.ts` measures its route. The Old City is one.
+Sandbox 5 already draws its dome's guests this way. Nothing new has to be invented to build a world cleanly; the
+sandboxes simply were never moved onto it.
+
+**A small clean reference world, strictly on P1 to P7** (an estimate, to be proven by building it):
+
+- *What it holds*: one hectare of food forest and meadow: one biome's floor with its grass and cover; about 40 plant
+  kinds at three stages chosen from those inside the rule (every plant takes a `detail` today, so its levels can be
+  declared; the six trees of 3e27d730 once accepted); one small building that is an asset (the glamping dome: 16,858
+  triangles, 104 draws); a pond; the one sky. No hand-built mesh but its land.
+- *What it would cost a frame*: held from its first day to the aim, 1.5 M triangles, 600 draws, 2,500 calls. Sandbox 5
+  without its dome and shells is already at 2.3 M of picture near; a hectare is a third of its planted ring.
+- *What it would cost a visit*: about 120 coarsest builds, some 9 MB as ready shapes (75 KB a build, measured), or
+  before P2 exists about 45 CPU seconds of building on the device, which seven cores finish in under 10 s.
+- *What it would cost to build*: a world asset and its layout are play's work, one or two nights; no new machinery.
+- *What it would prove*: whether 10 s, 2.5 GB and 16.7 ms hold on Samuel's M1 when nothing but the pattern is in the
+  way. If they do not, the fault is in the shared machinery and is found without 13,000 lines of village around it.
+  It is also the stage every realism step (R1 to R12) is first judged on: small, fast to load, the same every time.
+
+**How the three sandboxes then move, piece by piece** (their layouts are documents and their plants are assets
+already, so most of each world moves by proposal, not by code):
+
+1. The domes and their insides become building assets with declared levels (step 3 of part 6); the village then
+   names them by a pin, and `interior.ts` goes.
+2. The cell's scatter, paths and water become the world asset's land and its layout's configs; `village.ts` shrinks
+   to mounting a world asset with the kit.
+3. Sandbox 5 is then Sandbox 1's layout without its domes: its `solo` branch goes.
+4. Sandbox 3 is built as a world asset when the tired land is (intent 1a143021), and `maiacity-v2/world.js` goes.
+
+**Against rebuilding the three whole**: their plants, layouts, biomes and sky are not the problem and would be
+carried over anyway; what would be rewritten is exactly the 13,000 lines above, and doing it in one piece means months
+with two versions of every world and no budget on either. Piece by piece, each move is one intent, measured by the
+world's budget before and after, and the world keeps working throughout.
+
+**Recommendation.** Stop optimizing the hand-built parts in place: that is the one place where mending is wasted.
+Keep mending the shared machinery (tonight's intents). Build one small clean world as the reference and the proving
+ground, then move the sandboxes onto its path in the four moves above.
+
+**Its first step, as an intent Samuel could approve in the morning**: *"A reference world built only from assets
+inside the rule, on the one path, held to the aims from its first day"*: a world asset (one hectare, the contents
+above) proposed on play, its entry in the budget with the aims as its ceilings (not today's numbers: it starts
+inside them), the census's count and a real-GPU measure of it in both engines as its checks, and the pictures it
+gives as the first references for R1 to R4. It needs the budget (this intent) and gains from 3e27d730's trees; it
+waits for nothing else.
+
 ## 5. Realism: each part against the real thing
 
 The reference is the real thing, never today's picture. Judged against: Poly Haven's CC0 `autumn_meadow` and
