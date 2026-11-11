@@ -172,7 +172,8 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 		await page.waitForFunction(() => !document.querySelector('.world .loading'), null, { timeout: 10_000 }).catch(() => {});
 		const s = await page.evaluate(() => (window as any).__meter.sample(10));
 		Object.assign(m, { frames: s.frames, frame_ms: s.frames > 1 ? s.frame_ms : null, frame_p95: s.frame_p95, cpu_ms: s.cpu_ms, gpu_ms: s.gpu_ms, calls: s.calls, triangles: s.triangles });
-		const png = await page.screenshot({ path: join(o.out, `${name}.png`) });
+		// a slow world (a few frames a second) is photographed all the same: its frame time says it is slow, not a blank
+		const png = await page.screenshot({ path: join(o.out, `${name}.png`), timeout: 120_000 });
 		// how much of the picture is painted, counted in the page (its own decoder)
 		m.painted = await page.evaluate(async (b64) => {
 			const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
@@ -303,10 +304,15 @@ if (import.meta.main) {
 		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), walk: argv.includes('--walk') || argv.includes('--walk-within') });
 		const why = judge(m, bounds);
 		measures.push({ ...m, why });
+		// its steps and every error the page said (each once, with how often), then its line last: a check's evidence
+		// keeps the tail of what it printed, so the line that decides it is never pushed out by what came before it
+		if (argv.includes('--steps')) {
+			for (const st of m.steps) console.log(`    ${st}`);
+			const said = new Map<string, number>();
+			for (const e of m.errors) said.set(e, (said.get(e) ?? 0) + 1);
+			for (const [e, n] of said) console.log(`    error${n > 1 ? ` (${n} times)` : ''}: ${e}`);
+		}
 		console.log(lineOf(m, why));
-		if (argv.includes('--steps')) for (const st of m.steps) console.log(`    ${st}`);
-		// and every error the page said, not only the first the line gives
-		if (argv.includes('--steps')) for (const e of m.errors.slice(1)) console.log(`    error: ${e}`);
 	}
 	if (unpinned.size) console.log(`not pinned (answered 404; --record pins a picture's): ${[...unpinned].slice(0, 6).join(' ')}${unpinned.size > 6 ? ` … ${unpinned.size} in all` : ''}`);
 	writeFileSync(join(out, 'gpu.json'), JSON.stringify({ world, gpu, platform: `${process.platform} ${process.arch}`, bounds, measures, unpinned: [...unpinned] }, null, '\t') + '\n');
