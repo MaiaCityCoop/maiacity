@@ -122,6 +122,37 @@ describe('every asset has its levels', () => {
 		expect(pictureKey(name, 8, gpu.deriver)).not.toBe(pictureKey(name, 8))
 	})
 
+	it('a level two renderers ask for at the same time is made once a page: the simplifier gets one job, and both get the level', async () => {
+		// (nothing kept yet on the device: both find it missing, as the forest outside and the one inside the dome do)
+		const store = memoryStore()
+		const name = `${HASH}?size=1`
+		const outside = counting(), inside = counting()
+		const a = createKept({ lowering: outside.lowering, store })
+		const b = createKept({ lowering: inside.lowering, store })
+		// each renderer its own build of it
+		const sa = built(), sb = built()
+		const asked = [a.lower(name, sa, plansOf(sa)), b.lower(name, sb, plansOf(sb))]
+		// the one that waits for the other's making counts it as its own work while it waits (its world not yet settled)
+		for (let i = 0; i < 20; i++) await Promise.resolve()
+		expect(a.counted.awaited + b.counted.awaited).toBe(1)
+		const [la, lb] = await Promise.all(asked)
+		expect(a.counted.awaited + b.counted.awaited).toBe(0)
+		expect(outside.n.calls + inside.n.calls).toBe(1)
+		expect(la.map((l: any) => l.tris)).toEqual(lb.map((l: any) => l.tris))
+		expect(la[0].tris).toBeLessThan(sa.tris)
+		// each a level on its own renderer's build, both counted as made, kept on the device once
+		expect(la[0].draws[0].material).toBe(sa.draws[0].material)
+		expect(lb[0].draws[0].material).toBe(sb.draws[0].material)
+		expect([a.counted.derived, b.counted.derived]).toEqual([2, 2])
+		for (let i = 0; i < 100 && store.kept.size < 2; i++) await new Promise((ok) => setTimeout(ok, 10))
+		expect(store.kept.size).toBe(2)
+		expect(store.asked.put).toBe(2)
+		// other levels of it (another plan) are another making; asked again once made, it is made again or read (never shared stale)
+		const again = await b.lower(name, sb, plansOf(sb))
+		expect(again.every((l: any) => l.kept)).toBe(true)
+		expect(outside.n.calls + inside.n.calls).toBe(1)
+	})
+
 	it('a second load of the same build makes no level again: each comes from the device cache by its key', async () => {
 		const store = memoryStore()
 		const name = `${HASH}?size=1`

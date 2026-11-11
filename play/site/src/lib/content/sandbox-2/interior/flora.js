@@ -54,13 +54,13 @@ const cellKey = (ix, iz) => (ix + 4096) * 8192 + (iz + 4096);
 
 /**
  * A kind's measure off its built shape: everything over the soil, its wood (one-sided) at its foot, its leaves and
- * petals (two-sided). @param {any} level the renderer's level (its drawings, each at its places) @returns {Shape}
+ * petals (two-sided). @param {any} level the renderer's level (its drawings, each at its places), or none (its height then 0). A kind is measured once (`grown`), by its coarsest build or, while that is let go of, the shape nearest it (../../assets/render/hold.js) @returns {Shape}
  */
 function measure(level) {
 	let height = 0, reach = 0, foot = 0, leaves = 0;
 	const leaf = [0, 0, 0];
 	const v = new THREE.Vector3(), m = new THREE.Matrix4();
-	for (const d of level.draws) {
+	for (const d of level?.draws ?? []) {
 		const sheet = d.material.side === THREE.DoubleSide, body = !sheet && !d.material.isMeshPhysicalMaterial;
 		const P = d.geometry.attributes.position, C = d.geometry.attributes.color;
 		for (let k = 0; k < d.n; k++) {
@@ -179,7 +179,7 @@ export function createForest(o) {
 				return console.error(`flora: ${f.kind} did not grow: ${f.error}`);
 			}
 			st.k = k;
-			st.shape = measure(k.levels[k.base].level);
+			st.shape = k.shape ??= measure(k.levels[k.base].level ?? k.levels.find((/** @type {any} */ l) => l.level)?.level);
 			// where each stands, packed; and the small ones filed by their cell of the ground
 			const n = st.n, a = st.add;
 			[st.x, st.y, st.z, st.turn, st.scale] = [0, 1, 2, 3, 4].map((j) => Float32Array.from({ length: n }, (_, i) => a[i * 5 + j]));

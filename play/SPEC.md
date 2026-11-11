@@ -365,7 +365,14 @@ id, number, recipe file and source hash are exactly what they were, and nothing 
   it is shown or when the page is left; a load that finds the note was ended while loading, opens with the small
   device's budget and says so on its cover, and one ended twice in a row says so and loads no world by itself.
   `play/site/scripts/memory.ts` measures it: the page's process over a first visit in the box's Chromium, told 8
-  cores, the graphics card stood in for, its peak and what it rests at (§4.12). A new version names which on its card, `lod:
+  cores, the graphics card stood in for, its peak and what it rests at (§4.12). **One line of turns, a build before
+  a level** (intent 7a6c3f1b, `content/render/turns.js`): builds and levels wait in one line, the most wanted first,
+  and a level is begun only on a turn no build waits for: a level job holds its turn for as long as a big tree takes
+  (12 to 94 s for one of a million triangles), and while each line kept its own order the level maker took every turn
+  a build gave back, so the builds a world waits for stood still (a first visit's work was the same on one core as on
+  eight, and the world no sooner). A level two renderers of a page ask for at once is made once (`render/levels.js`).
+  `scripts/census/beside.ts` measures it: the plants' builds with their levels made beside them, against the builds
+  alone and against one box, in one run. A new version names which on its card, `lod:
   { levels: 'declared' | 'derived', budgets? }` (`propose_asset`'s `lod`, a card field of the asset's document):
   `propose_asset`, the page's proposal and `propose_doc_version` refuse a new version without it, or a declared one
   whose source exports none, or a derived one whose source does (`play/api/src/lod.ts`); play reads a declared one's

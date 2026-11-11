@@ -30,6 +30,30 @@ function drawn(refuses: (ref: string) => string | null): FloraDrawn {
 
 const kind = (id: string, stage: number) => ({ id, v: 2, asset: `${id.padEnd(64, '0')}`, stage, seed: 'sandbox-5' })
 
+describe('flora: a kind whose full build was let go of', () => {
+	it('is measured by the shape nearest it, once a kind, and a forest that uses it again never throws (real Safari, 2026-11-11)', async () => {
+		const THREE = await import('three')
+		const stem = (h: number) => {
+			const g = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0.3, h, 0], 3))
+			return { draws: [{ n: 1, locals: new THREE.Matrix4().toArray(), material: new THREE.MeshStandardMaterial(), geometry: g }] }
+		}
+		// its full build let go of (../../assets/render/hold.js `LET_GO`: its level none), a lighter level still here
+		const k: any = { ready: Promise.resolve(), base: 0, levels: [{ state: 'idle', level: null }, { state: 'ready', level: stem(6) }] }
+		const flora: FloraDrawn = { use: () => k, take: () => ({}), give: () => {}, far: () => 20, assets: { stats: () => ({ tris: 0 }) } }
+		const first = createForest({ flora })
+		first.add(kind('chestnut', 9), 'tree', 0, 0, 0, 0, 1)
+		expect(await first.grown()).toEqual([])
+		expect(first.shape(kind('chestnut', 9))?.height).toBeCloseTo(6)
+
+		// another forest of the same renderer asks for it later: measured once, not again from a level that is gone
+		k.levels[1].level = null
+		const second = createForest({ flora })
+		second.add(kind('chestnut', 9), 'tree', 9, 0, 9, 0, 1)
+		expect(await second.grown()).toEqual([])
+		expect(second.shape(kind('chestnut', 9))?.height).toBeCloseTo(6)
+	})
+})
+
 describe('flora: a plant that does not grow', () => {
 	afterEach(() => {
 		didNotGrow.length = 0
