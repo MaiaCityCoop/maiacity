@@ -168,3 +168,23 @@ and `intent: 7a6c3f1b` (my c6, c7 on main's code), run 42934566916, recording no
 
 0c40886d (c9) pushed at 00:49 UTC once that dry run had ended; its recorded run is going (main's intent.ts: c6 and c7
 will be cut at 600 s again until d3f98bcc lands).
+
+## 2026-11-11 01:08 UTC · round 6: at Proposal
+
+The box's run on 0c40886d (run 42934313267, main's intent.ts with d3f98bcc's 1,500 s limit) recorded every check
+green, c9 too; the intent moved to Proposal by itself (waiting: Accept and ship).
+
+| check | result |
+|---|---|
+| c1 | 4 → 0 |
+| c2 | 609 → 608 lines |
+| c3, c4, c8, c9 | pass |
+| c5 (GitHub's 4-core runner) | 103 % of alone, 42 % of one box, 95 % of its CPU |
+| c6 Sandbox 1, Metal | both engines shown, the device held; WebKit's world in 143.4 s, 95.4 % painted; Chromium's last step began at 77 s |
+| c7 Sandbox 5, Metal | both engines shown, the device held; WebKit's world in 150.6 s, 97 % painted |
+
+WebKit's miss on Sandbox 1 in the earlier dry run on 6d895786 (no step printed in 1,500 s) did not repeat on this head;
+main's same measurement (run 42934566916 on #2258) was cancelled once it was no longer needed. If it comes back, the
+first suspect is the runner's memory (a 7 GB VM; 1893a631 measured WebKit at 8.7 GB on Sandbox 1).
+
+Stopped at Proposal. Never merged.
