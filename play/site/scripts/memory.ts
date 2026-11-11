@@ -18,10 +18,13 @@
  *
  * Memory is the process's anonymous resident memory and its swap (/proc/<pid>/status: RssAnon, RssShmem, VmSwap): what
  * a tab's footprint is made of. It is Chromium's in this box, not Safari's on a Mac: a bound here holds the page's own
- * memory (its arrays, its workers, their heaps); the truth for Safari is a Mac's (play/SPEC.md §4.12). Needs the site's
- * build (`cd play/site && bun run build`), no token and no network: `/api` is answered from the pinned inputs. Prints
- * one line and exits 0 only when the world settled, the page never crashed and every bound given holds.
+ * memory (its arrays, its workers, their heaps); the truth for Safari is a Mac's (play/SPEC.md §4.12). No token and
+ * no network for the page: `/api` is answered from the pinned inputs. It provides what it needs where a machine has
+ * not got it, as on GitHub's runner the box run checks on: the site's build (`bun run build`, when play/site has none)
+ * and Playwright's Chromium (`playwright install`, when its browser is missing). Prints one line and exits 0 only when
+ * the world settled, the page never crashed and every bound given holds.
  */
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
@@ -87,9 +90,24 @@ export function judge(m: Memory, b: { peak?: number; rest?: number; card?: numbe
 	return why;
 }
 
+/** a command in play/site, its output on stderr, true when it exits 0 */
+const inSite = (cmd: string[]) => spawnSync(cmd[0]!, cmd.slice(1), { cwd: SITE, stdio: ['ignore', 2, 2] }).status === 0;
+
+/** Chromium launched; where Playwright's browser is missing (a fresh runner), installed first, once */
+async function launch(args: string[]) {
+	try {
+		return await chromium.launch({ args });
+	} catch (e) {
+		if (!/Executable doesn't exist|playwright install/i.test(String((e as Error)?.message ?? e))) throw e;
+		console.error("memory: Playwright's Chromium is missing here: installing it");
+		if (!inSite(['bunx', 'playwright', 'install', '--only-shell', 'chromium']) && !inSite(['bunx', 'playwright', 'install', 'chromium'])) throw e;
+		return await chromium.launch({ args });
+	}
+}
+
 export async function measure(base: string, o: { world: string; timeout: number; rest: number; cores: number; budget?: string }): Promise<Memory> {
 	const mark = `--play-memory-${process.pid}-${Date.now().toString(36)}`;
-	const browser = await chromium.launch({ args: ['--ignore-gpu-blocklist', mark] });
+	const browser = await launch(['--ignore-gpu-blocklist', mark]);
 	const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 	await page.addInitScript({ content: SEEDED_RANDOM });
 	await page.addInitScript({ content: `Object.defineProperty(Navigator.prototype, 'hardwareConcurrency', { get: () => ${Math.floor(o.cores)}, configurable: true });` });
@@ -134,7 +152,10 @@ if (import.meta.main) {
 	const num = (k: string) => (arg(k) === undefined ? undefined : Number(arg(k)));
 	const fail = (why: string): never => (console.log(`memory: ${why}`), process.exit(1));
 	if (process.platform !== 'linux') fail("it reads a process's memory from /proc: run it in avenBOX");
-	if (!existsSync(join(SITE, 'build/200.html'))) fail('play/site has no build (cd play/site && bun run build)');
+	if (!existsSync(join(SITE, 'build/200.html'))) {
+		console.error('memory: play/site has no build: building it');
+		if (!inSite(['bun', 'run', 'build']) || !existsSync(join(SITE, 'build/200.html'))) fail('play/site could not be built (cd play/site && bun run build)');
+	}
 	const world = arg('--world', '/sandbox-1/')!;
 	const unpinned = new Set<string>();
 	const api = pinnedApi(join(SITE, 'scripts/census/inputs'), unpinned);
