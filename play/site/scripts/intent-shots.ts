@@ -11,8 +11,8 @@
 import { chromium } from 'playwright';
 import { HEX } from '../src/lib/kernel/hash.js';
 import { ASSETS, BRIEF, FIXTURES, STORIES } from '../src/lib/site/intents/fixtures';
+import { ADMIN as ME, DESKTOP, PHONE, SITE as BASE, TABLET } from './lib/shots';
 
-const BASE = process.env.SITE ?? 'http://localhost:5173';
 const OUT = process.argv[2] ?? '../shots/bb3b0773-detail';
 const ONLY = process.env.ONLY;
 const STAGES = ['idea', 'specify', 'build', 'proposal-code', 'proposal-work', 'ship', 'accepted', ...Object.keys(ASSETS), ...Object.keys(STORIES)];
@@ -34,12 +34,7 @@ const reviewOf = (stage: string) => {
 	const w = FIXTURES[stage].work!;
 	return { doc: { id: a.asset, kind: 'asset', what: 'asset', label: w.label, open: null }, seedNumber: a.base.number, moved: false, changes: [], edits: [], id: FIXTURES[stage].id, source: a.source, recipe: a.recipes[0], baseVersion: a.base, builds: rowsOf(a.recipes) };
 };
-const SIZES = [
-	{ width: 390, height: 844 },
-	{ width: 820, height: 1180 },
-	{ width: 1440, height: 900 }
-];
-const ME = { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 };
+const SIZES = [PHONE, TABLET, DESKTOP];
 const all = Object.values(FIXTURES);
 
 async function quiet(page: import('playwright').Page, stage: string, width: number) {

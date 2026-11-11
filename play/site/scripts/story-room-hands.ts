@@ -7,6 +7,7 @@
  *   bun scripts/story-room-hands.ts
  */
 import { chromium } from 'playwright';
+import { ADMIN } from './lib/shots';
 const TOKEN = process.env.PLAY_MCP_TOKEN!; const STORY = '60f6da00-979d-89e4-b1e5-53667ba41fe4';
 const r = await fetch('https://play.maia.city/api/mcp', { method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_story', arguments: { story: STORY, links: true } } }) });
 const story = JSON.parse((await r.json()).result.content[0].text);
@@ -15,7 +16,7 @@ for (const size of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) 
   const touch = size.width < 600;
   const p = await b.newPage({ viewport: size, hasTouch: touch, isMobile: touch });
   await p.route('**/api/**', async (route) => { const u = new URL(route.request().url()); const path = u.pathname.replace(/^\/api/, '');
-    if (path === '/me') return route.fulfill({ json: { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 } });
+    if (path === '/me') return route.fulfill({ json: ADMIN });
     if (path === '/stories') return route.fulfill({ json: [{ id: STORY, title: story.title }] });
     if (path === `/stories/${STORY}`) return route.fulfill({ json: story });
     const x = await fetch(`https://play.maia.city/api${path}${u.search}`, { headers: { authorization: `Bearer ${TOKEN}` } });

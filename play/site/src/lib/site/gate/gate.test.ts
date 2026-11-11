@@ -34,6 +34,24 @@ const drawn = (path: string, who: Me | null, ready = true) => {
 	return render(Gate, { props: { path, children: page } }).body;
 };
 
+describe("Butler James's landing page (intent 42a96129)", () => {
+	const path = '/butler-james/landing/';
+	it('is a page of the site that needs an admin', () => {
+		expect(PAGES).toContain('/butler-james/landing');
+		expect(needOf(path)).toEqual({ admin: true });
+	});
+	it('shows "Coming soon" and none of itself to a visitor, a traveler and a citizen, and itself to an admin', () => {
+		for (const who of [null, member('traveler'), member('citizen')]) {
+			expect(gate(path, true, who)).toBe('soon');
+			const html = drawn(path, who);
+			expect(html).toContain('Coming soon');
+			expect(html).not.toContain('THE PAGE');
+		}
+		expect(gate(path, true, member('admin'))).toBe('open');
+		expect(drawn(path, member('admin'))).toContain('THE PAGE');
+	});
+});
+
 describe('admins only by default', () => {
 	it('finds the site\'s pages, and every table row is one of them', () => {
 		expect(PAGES.length).toBeGreaterThan(30);

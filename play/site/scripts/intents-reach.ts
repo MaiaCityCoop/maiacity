@@ -9,17 +9,17 @@
  */
 import { chromium, type Page } from 'playwright';
 import { BRIEF, FIXTURES } from '../src/lib/site/intents/fixtures';
+import { ADMIN as ME, DESKTOP, PHONE } from './lib/shots';
 
 const SHOTS = process.argv[2];
 const SIZES = [
 	{ width: 844, height: 390 },
 	{ width: 932, height: 430 },
 	{ width: 932, height: 360 }, // Safari's bars shown
-	{ width: 390, height: 844 },
-	{ width: 1440, height: 900 }
+	PHONE,
+	DESKTOP
 ];
 const STAGES = ['specify', 'proposal-code'];
-const ME = { id: '00000000-0000-4000-8000-000000000001', name: 'Samuel', level: 'admin', may: {}, founder: 1 };
 const all = Object.values(FIXTURES);
 
 const free = Bun.serve({ port: 0, fetch: () => new Response() });
