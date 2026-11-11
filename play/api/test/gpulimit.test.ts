@@ -44,16 +44,20 @@ describe("a check's limit", () => {
     // gpu.ts gives an engine 600 s to show the world, 60 s to settle, 10 s of frames and 10 s for its cover: two engines
     // end by gpu.ts's own limits, in its own words, before the runner kills the check
     const script = readFileSync(join(ROOT, "play/site/scripts/gpu.ts"), "utf8");
-    expect(script).toContain("arg('--browser', 'chromium,webkit')");
+    expect(script).toContain("arg('--browser', DEFAULTS.browser)");
+    expect(readFileSync(join(ROOT, "play/site/scripts/gpu-loads.ts"), "utf8")).toContain("browser: 'chromium,webkit'");
     expect(script).toContain("arg('--timeout', '600')");
     expect(script).toContain("arg('--settle', '60')");
     expect(gpu).toBeGreaterThanOrEqual(2 * (600 + 60 + 10 + 10));
     // the number is written once: the limit is read from the constant, by the check's run alone
     expect(source).toContain("const limitOf = (c: { run?: string }) => (byHand !== undefined ? Number(byHand) : onGpu(c) ? GPU_LIMIT : LIMIT);");
     expect(source.match(/\b1500\b/g)).toHaveLength(1);
-    // the job that runs them: three such checks at their limit, and ten minutes for its installs and build
-    const job = (Bun.YAML.parse(readFileSync(join(ROOT, ".github/workflows/intents-pr.yml"), "utf8")) as any).jobs.gpu;
+    // a head that loads its worlds itself (one older than the loads, intent a35ccd33): three such checks at their limit,
+    // and ten minutes for its installs and build; a load is one engine's (600 s up, 60 s to settle) with its build
+    const jobs = (Bun.YAML.parse(readFileSync(join(ROOT, ".github/workflows/intents-pr.yml"), "utf8")) as any).jobs;
+    const job = jobs.gpu;
     expect(job["timeout-minutes"] * 60).toBeGreaterThanOrEqual(3 * gpu + 600);
+    expect(jobs["gpu-load"]["timeout-minutes"] * 60).toBeGreaterThanOrEqual(600 + 60 + 600);
     expect(job.steps.find((s: any) => s.run?.includes("--gpu")).run).not.toContain("--timeout");
   });
 
@@ -78,8 +82,7 @@ describe("a check's limit", () => {
     expect(results[0].evidence).toMatch(/\nexit 124 in 1\.\d s · /);
     expect(results[0].evidence).toMatch(/\nmeasured so far\n\(killed after 1 s\)$/);
     expect(results[1].evidence).toContain(`\n${CHROMIUM}\n`);
-    expect(results[1].evidence).toEndWith("\n(killed after 1 s: chromium had finished (world in 205.3 s, 115 frames in 10 s, 87.9 ms each); webkit had not finished)");
-    // the engines are the run's own: asked for WebKit alone, Chromium's line is not a finished engine of it
-    expect(results[2].evidence).toEndWith("\n(killed after 1 s: webkit had not finished)");
+    // which engine had finished is gpu.ts's own line in the tail, never read again here (intent a35ccd33)
+    expect(results[1].evidence).toEndWith(`\n${CHROMIUM}\n(killed after 1 s)`);
   }, 20_000);
 });

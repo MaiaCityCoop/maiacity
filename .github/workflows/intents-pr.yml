@@ -19,11 +19,15 @@
 #            intent.ts (handed over by spec) runs the spec's checks there and writes their results; a vs-main call
 #            measures the head only (VS_MAIN_HEAD_OUT), its bound decided by compare; its census reads main's kept
 #            builds and builds only what the head changed
-#   gpu      only when a check's run names play/site/scripts/gpu.ts (intent ba948167): the head as in run (no
-#            credentials, no secret, a read-only GITHUB_TOKEN) on GitHub's macOS 26 runner, Apple silicon and Metal, where
-#            main's intent.ts runs those checks alone (--gpu): a world's look, its time to the world and its frame time
-#            in Chromium and WebKit, from pinned inputs. The box has no GPU and refuses them (failed, saying so);
-#            compare puts the runner's results in their place
+#   gpu-load only when a check's run names play/site/scripts/gpu.ts (intent ba948167): each world those checks name
+#            loaded once in each engine (intent a35ccd33: main's gpu-loads.ts plans them in spec, asked the union of
+#            what the calls ask), every load its own GitHub macOS 26 runner, Apple silicon and Metal, side by side; the
+#            head as in run (no credentials, no secret, a read-only GITHUB_TOKEN): a world's look, its time to the world
+#            and its frame time, from pinned inputs
+#   gpu      main's intent.ts runs the GPU checks alone (--gpu) on the head, each gpu.ts call reading its numbers and
+#            pictures from those loads (GPU_LOADS), judged by its own bounds; a head whose gpu.ts predates the loads
+#            loads its worlds itself here, on a macOS runner, as before. The box has no GPU and refuses them (failed,
+#            saying so); compare puts these results in their place
 #   compare  main's vs-main.ts, no secret: each of the head's vs-main calls against main's measures, into its check's
 #            result and evidence (--fold), once both are measured; nothing is recorded before it
 #   record   main's intent.ts, with avenBOX's token: records the results (only if they ran on the head, and the head is
@@ -71,6 +75,7 @@ jobs:
       intent: ${{ steps.which.outputs.intent }}
       head: ${{ steps.which.outputs.head }}
       gpu: ${{ steps.which.outputs.gpu }}
+      loads: ${{ steps.loads.outputs.loads }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -106,10 +111,24 @@ jobs:
           mkdir -p "$RUNNER_TEMP/box"
           bun play/avenbox/intent.ts "$intent" --spec-out "$RUNNER_TEMP/box/spec.json"
           cp play/avenbox/intent.ts play/avenbox/play.ts play/avenbox/box.env "$RUNNER_TEMP/box/"
+          # the plan of the GPU checks' loads (intent a35ccd33): main's, a dry run's the branch's (below)
+          [ "$DRY" = true ] || cp play/site/scripts/gpu-loads.ts "$RUNNER_TEMP/box/"
           # a check that measures on a real GPU runs the one script that does: the gpu job runs only then
           ! jq -e '[.checks[].run // ""] | any(test("\\bbun\\s+(\\S*/)?scripts/gpu\\.ts\\b"))' "$RUNNER_TEMP/box/spec.json" > /dev/null || echo "gpu=true" >> "$GITHUB_OUTPUT"
           # a dry run hands over the dispatched branch's intent.ts (and what it reads beside it), read with git show, never run here
-          if [ "$DRY" = true ]; then git fetch --quiet --depth=1 origin "$GITHUB_SHA" && git show "$GITHUB_SHA:play/avenbox/intent.ts" > "$RUNNER_TEMP/box/intent.ts" && git show "$GITHUB_SHA:play/avenbox/play.ts" > "$RUNNER_TEMP/box/play.ts" && git show "$GITHUB_SHA:play/avenbox/box.env" > "$RUNNER_TEMP/box/box.env"; fi
+          if [ "$DRY" = true ]; then git fetch --quiet --depth=1 origin "$GITHUB_SHA" && git show "$GITHUB_SHA:play/avenbox/intent.ts" > "$RUNNER_TEMP/box/intent.ts" && git show "$GITHUB_SHA:play/avenbox/play.ts" > "$RUNNER_TEMP/box/play.ts" && git show "$GITHUB_SHA:play/avenbox/box.env" > "$RUNNER_TEMP/box/box.env" && git show "$GITHUB_SHA:play/site/scripts/gpu-loads.ts" > "$RUNNER_TEMP/box/gpu-loads.ts"; fi
+      - name: The worlds the GPU checks name, each to be loaded once an engine (gpu-loads.ts, no token)
+        id: loads
+        if: steps.which.outputs.gpu == 'true'
+        env:
+          HEAD_SHA: ${{ steps.which.outputs.head }}
+        run: |
+          # the head's gpu.ts read as text, never run: one older than the loads (it reads no GPU_LOADS) loads its worlds itself
+          git fetch --quiet --depth=1 origin "$HEAD_SHA"
+          git show "$HEAD_SHA:play/site/scripts/gpu.ts" | grep -q GPU_LOADS || { echo "the head's gpu.ts predates the loads: the gpu job loads its worlds itself"; exit 0; }
+          loads=$(bun "$RUNNER_TEMP/box/gpu-loads.ts" "$RUNNER_TEMP/box/spec.json")
+          echo "$loads" | jq .
+          ! echo "$loads" | jq -e '.include | length > 0' > /dev/null || echo "loads=$loads" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: box-spec
@@ -299,13 +318,61 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
+  gpu-load:
+    name: a world loaded on a GPU
+    # each world the GPU checks name, once in each engine, every load its own macOS runner (Apple silicon, Metal), side
+    # by side (intent a35ccd33): one engine's world up (600 s at most), settled, measured and photographed, with its build
+    needs: spec
+    if: "!cancelled() && needs.spec.result == 'success' && needs.spec.outputs.loads != ''"
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.spec.outputs.loads || '{"include":[]}') }}
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.spec.outputs.head }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - name: The site's dependencies, its one browser and its build
+        working-directory: play/site
+        env:
+          BROWSER: ${{ matrix.browser }}
+        run: |
+          bun install --frozen-lockfile
+          # Chromium always: gpu.ts tells the machine's GPU from a software renderer by Chromium's WebGL
+          bunx playwright install chromium "$BROWSER"
+          bun run build
+      - name: The world loaded once in its engine (no token)
+        env:
+          WORLD: ${{ matrix.world }}
+          BROWSER: ${{ matrix.browser }}
+          ARGS: ${{ matrix.args }}
+        run: |
+          # the load's asks, one word each (gpu-loads.ts lets no space or quote through)
+          # shellcheck disable=SC2086
+          bun play/site/scripts/gpu.ts --world "$WORLD" --browser "$BROWSER" $ARGS --steps --out "$RUNNER_TEMP/load" || echo "$WORLD failed in $BROWSER: each check reading it says why"
+      - uses: actions/upload-artifact@v4
+        if: "!cancelled()"
+        with:
+          name: gpu-load-${{ matrix.n }}
+          path: ${{ runner.temp }}/load
+          retention-days: 7
+
   gpu:
     name: the checks on a GPU
-    # beside the box's checks, and only when the spec asks for a GPU: GitHub's macOS runner (Apple silicon, Metal)
-    needs: spec
+    # the GPU checks, each reading the loads (on ubuntu: no browser, no build, no GPU); a head whose gpu.ts predates the
+    # loads loads its worlds itself, on GitHub's macOS runner (Apple silicon, Metal), as before intent a35ccd33
+    needs: [spec, gpu-load]
     if: "!cancelled() && needs.spec.result == 'success' && needs.spec.outputs.gpu == 'true'"
-    runs-on: macos-26
-    # three such checks at intent.ts's GPU_LIMIT (1500 s each: 75 minutes) after the build, with room (intent d3f98bcc)
+    runs-on: ${{ needs.spec.outputs.loads != '' && 'ubuntu-24.04' || 'macos-26' }}
+    # a head that loads its worlds itself: three such checks at intent.ts's GPU_LIMIT (1500 s each: 75 minutes) after
+    # the build, with room (intent d3f98bcc); reading the loads takes seconds
     timeout-minutes: 90
     permissions:
       contents: read
@@ -331,15 +398,46 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
-      - name: The site's dependencies, its browsers and its build
+      - name: The site's dependencies, its browsers and its build (a head that loads its worlds itself)
+        if: needs.spec.outputs.loads == ''
         working-directory: play/site
         run: |
           bun install --frozen-lockfile
           bunx playwright install chromium webkit
           bun run build
+      - name: The site's dependencies (the loads read, no browser, no build)
+        if: needs.spec.outputs.loads != ''
+        working-directory: play/site
+        run: bun install --frozen-lockfile
+      # each load in a folder of its own (gpu-load-<n>); one missing is a load that gave nothing, and each check
+      # reading it fails, saying so
+      - id: loads
+        uses: actions/download-artifact@v4
+        if: needs.spec.outputs.loads != ''
+        continue-on-error: true
+        with:
+          pattern: gpu-load-*
+          path: ${{ runner.temp }}/gpu-loads
+      - name: gpu-load-*, not all found, once more after a wait
+        id: loads_count
+        if: needs.spec.outputs.loads != ''
+        env:
+          LOADS: ${{ needs.spec.outputs.loads }}
+        run: |
+          want=$(echo "$LOADS" | jq '.include | length')
+          got=$(find "$RUNNER_TEMP/gpu-loads" -name gpu.json 2> /dev/null | wc -l | tr -d ' ')
+          echo "loads: $got of $want"
+          [ "$got" -ge "$want" ] || { sleep 60; echo "again=true" >> "$GITHUB_OUTPUT"; }
+      - uses: actions/download-artifact@v4
+        if: steps.loads_count.outputs.again
+        continue-on-error: true
+        with:
+          pattern: gpu-load-*
+          path: ${{ runner.temp }}/gpu-loads
       - name: The intent's GPU checks on the head (no token)
         env:
           GPU_OUT: ${{ runner.temp }}/gpu-pictures
+          GPU_LOADS: ${{ needs.spec.outputs.loads != '' && format('{0}/gpu-loads', runner.temp) || '' }}
         run: |
           mkdir -p "$RUNNER_TEMP/gpu-results" "$GPU_OUT"
           bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --gpu --no-up --results-out "$RUNNER_TEMP/gpu-results/results.json" --root "$GITHUB_WORKSPACE" || echo "a must check failed: recorded as it ran"

@@ -207,7 +207,7 @@ describe("Intent named", async () => {
     expect(w.on.pull_request_target).toEqual({ branches: ["main"], types: ["opened", "reopened", "synchronize", "ready_for_review"] });
     expect(w.permissions).toEqual({});
     const { spec, main: measures, run, compare, record } = w.jobs;
-    expect(Object.keys(w.jobs)).toEqual(["spec", "main", "run", "gpu", "compare", "record"]);
+    expect(Object.keys(w.jobs)).toEqual(["spec", "main", "run", "gpu-load", "gpu", "compare", "record"]);
     // heads in this repository only, and never on a draft (ready_for_review comes with draft false)
     expect(spec.if).toBe("github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft)");
     // main's measures (intents f63774a3, 006eb26a) and the comparison: no secret, after the spec
@@ -285,7 +285,8 @@ describe("the box run, run again", async () => {
       const steps: any[] = job.steps;
       for (let i = 0; i < steps.length; i++) {
         const first = steps[i];
-        if (first.uses !== DL || !first.id) continue;
+        // the loads (gpu-load-*, intent a35ccd33) are counted against the plan instead: below
+        if (first.uses !== DL || !first.id || first.with.pattern) continue;
         const [wait, again] = [steps[i + 1], steps[i + 2]];
         found.push(`${name}:${first.with.name}`);
         // the first try may fail; only then the wait, and the same download again, which decides
@@ -302,8 +303,9 @@ describe("the box run, run again", async () => {
         expect(again["continue-on-error"]).toBe(optional ? true : undefined);
       }
       // no download without its second try, and every step id of a job its own
-      expect(steps.filter((s) => s.uses === DL).length % 2).toBe(0);
-      expect(steps.filter((s) => s.uses === DL && s.id).length * 2).toBe(steps.filter((s) => s.uses === DL).length);
+      const named = steps.filter((s) => s.uses === DL && !s.with.pattern);
+      expect(named.length % 2).toBe(0);
+      expect(named.filter((s) => s.id).length * 2).toBe(named.length);
       const ids = steps.map((s) => s.id).filter(Boolean);
       expect(new Set(ids).size).toBe(ids.length);
     }
@@ -312,9 +314,16 @@ describe("the box run, run again", async () => {
     // every artifact a job uploads is one a later job takes: a re-run of failed jobs alone finds the earlier attempt's
     const up = Object.values<any>(w.jobs).flatMap((j) => j.steps.filter((s: any) => s.uses === "actions/upload-artifact@v4").map((s: any) => s.with.name));
     // (the GPU runner's pictures are kept for people: no job takes them)
-    expect(up.filter((n) => n !== "gpu-pictures").sort()).toEqual([...new Set(found.map((f) => f.split(":")[1]))].sort());
+    expect(up.filter((n) => n !== "gpu-pictures" && n !== "gpu-load-${{ matrix.n }}").sort()).toEqual([...new Set(found.map((f) => f.split(":")[1]))].sort());
     // record still waits on compare's success before it looks for the results at all
     expect(w.jobs.record.steps.find((s: any) => s.id === "compared").if).toBe("needs.compare.result == 'success'");
+    // the loads, every one the plan names, looked for once more after a wait when fewer are found
+    const g: any[] = w.jobs.gpu.steps;
+    const loads = g.filter((s) => s.uses === DL && s.with.pattern);
+    expect(loads.map((s) => [s.with.pattern, s.with.path, s["continue-on-error"]])).toEqual([["gpu-load-*", "${{ runner.temp }}/gpu-loads", true], ["gpu-load-*", "${{ runner.temp }}/gpu-loads", true]]);
+    const count = g[g.indexOf(loads[0]) + 1];
+    expect(count.run).toContain('[ "$got" -ge "$want" ] || { sleep 60; echo "again=true" >> "$GITHUB_OUTPUT"; }');
+    expect(loads[1].if).toBe(`steps.${count.id}.outputs.again`);
   });
 
   describe("the pull request's head", () => {
@@ -544,25 +553,56 @@ describe("intents-pr.yml: the checks on a GPU", () => {
     expect(asked([{ id: "c1", run: "true" }, { id: "c2", run: "bun play/site/scripts/gpu.ts --world /sandbox-5/" }])).toBe("gpu=true\n");
     expect(asked([{ id: "c1", run: "true", by: "not play/site/scripts/gpu.ts" }, { id: "c2", how: "look" }, { id: "c3", run: "cd play/site/scripts && bun gpu.ts" }, { id: "c4", run: "grep -q 'scripts/gpu.ts' play/SPEC.md" }])).toBe("");
     expect(text("play/avenbox/intent.ts")).toContain(String.raw`const onGpu = (c: { run?: string }) => /\bbun\s+(\S*\/)?scripts\/gpu\.ts\b/.test(c.run ?? "");`);
-    expect(gpu.needs).toBe("spec");
+    expect(gpu.needs).toEqual(["spec", "gpu-load"]);
     expect(gpu.if).toBe("!cancelled() && needs.spec.result == 'success' && needs.spec.outputs.gpu == 'true'");
-    expect(gpu["runs-on"]).toMatch(/^macos-\d+$/);
+    // a macOS runner where the head loads its worlds itself (its gpu.ts predates the loads), else the loads' own
+    expect(gpu["runs-on"]).toBe("${{ needs.spec.outputs.loads != '' && 'ubuntu-24.04' || 'macos-26' }}");
+    expect(w.jobs["gpu-load"]["runs-on"]).toMatch(/^macos-\d+$/);
     // the box's own checks wait on nothing of it
     expect(run.needs).toBe("spec");
   });
 
   test("it is as untrusted as the box's run: the head without credentials, no secret, no token, main's intent.ts", () => {
-    expect(gpu.steps.find((s: any) => s.uses === "actions/checkout@v4").with).toEqual({ ref: "${{ needs.spec.outputs.head }}", "persist-credentials": false });
-    expect(gpu.permissions).toEqual({ contents: "read" });
-    expect(JSON.stringify(gpu)).not.toContain("secrets.");
-    expect(JSON.stringify(gpu)).not.toContain("github.token");
+    for (const job of [gpu, w.jobs["gpu-load"]]) {
+      expect(job.steps.find((s: any) => s.uses === "actions/checkout@v4").with).toEqual({ ref: "${{ needs.spec.outputs.head }}", "persist-credentials": false });
+      expect(job.permissions).toEqual({ contents: "read" });
+      expect(JSON.stringify(job)).not.toContain("secrets.");
+      expect(JSON.stringify(job)).not.toContain("github.token");
+    }
     const checks = named(gpu, "The intent's GPU checks on the head (no token)");
     expect(checks.run).toContain('bun "$RUNNER_TEMP/box/intent.ts" --from "$RUNNER_TEMP/box/spec.json" --gpu --no-up --results-out "$RUNNER_TEMP/gpu-results/results.json" --root "$GITHUB_WORKSPACE"');
     // the site as visitors get it and both browsers, from the lockfile's versions
-    expect(named(gpu, "The site's dependencies, its browsers and its build").run.trim().split("\n").map((l: string) => l.trim())).toEqual(["bun install --frozen-lockfile", "bunx playwright install chromium webkit", "bun run build"]);
+    expect(named(gpu, "The site's dependencies, its browsers and its build (a head that loads its worlds itself)").run.trim().split("\n").map((l: string) => l.trim())).toEqual(["bun install --frozen-lockfile", "bunx playwright install chromium webkit", "bun run build"]);
     // its results and its pictures are kept with the run
     expect(gpu.steps.filter((s: any) => s.uses?.startsWith("actions/upload-artifact")).map((s: any) => [s.with.name, s.with.path])).toEqual([["gpu-results", "${{ runner.temp }}/gpu-results/results.json"], ["gpu-pictures", "${{ runner.temp }}/gpu-pictures"]]);
-    expect(checks.env).toEqual({ GPU_OUT: "${{ runner.temp }}/gpu-pictures" });
+    expect(checks.env).toEqual({ GPU_OUT: "${{ runner.temp }}/gpu-pictures", GPU_LOADS: "${{ needs.spec.outputs.loads != '' && format('{0}/gpu-loads', runner.temp) || '' }}" });
+  });
+
+  // intent a35ccd33: each world loaded once an engine, the engines side by side, every check reading those loads
+  test("one load of each world an engine, side by side, no machine holding several checks' loads", () => {
+    const load = w.jobs["gpu-load"];
+    expect(spec.outputs.loads).toBe("${{ steps.loads.outputs.loads }}");
+    const plan = spec.steps.find((s: any) => s.id === "loads");
+    // no token where the plan is made: main's gpu-loads.ts (a dry run's branch's), the head's gpu.ts read as text alone
+    expect(plan.env).toEqual({ HEAD_SHA: "${{ steps.which.outputs.head }}" });
+    expect(plan.run).toContain('git show "$HEAD_SHA:play/site/scripts/gpu.ts" | grep -q GPU_LOADS ||');
+    expect(plan.run).toContain('loads=$(bun "$RUNNER_TEMP/box/gpu-loads.ts" "$RUNNER_TEMP/box/spec.json")');
+    expect(spec.steps.find((s: any) => s.id === "which").run).toContain('git show "$GITHUB_SHA:play/site/scripts/gpu-loads.ts" > "$RUNNER_TEMP/box/gpu-loads.ts"');
+    // a matrix of (world, engine), each its own runner, never cancelling the others, half an hour at most, one gpu.ts call
+    expect(load.needs).toBe("spec");
+    expect(load.if).toBe("!cancelled() && needs.spec.result == 'success' && needs.spec.outputs.loads != ''");
+    expect(load.strategy).toEqual({ "fail-fast": false, matrix: "${{ fromJSON(needs.spec.outputs.loads || '{\"include\":[]}') }}" });
+    expect(load["timeout-minutes"]).toBeLessThanOrEqual(30);
+    expect(named(load, "The site's dependencies, its one browser and its build").run).toContain('bunx playwright install chromium "$BROWSER"');
+    const one = named(load, "The world loaded once in its engine (no token)");
+    expect(one.run.match(/scripts\/gpu\.ts/g)).toHaveLength(1);
+    expect(one.run).toContain('bun play/site/scripts/gpu.ts --world "$WORLD" --browser "$BROWSER" $ARGS --steps --out "$RUNNER_TEMP/load"');
+    expect(load.steps.at(-1)).toMatchObject({ uses: "actions/upload-artifact@v4", if: "!cancelled()", with: { name: "gpu-load-${{ matrix.n }}", path: "${{ runner.temp }}/load" } });
+    // reading the loads: on ubuntu, no browser installed and no build
+    const reading = gpu.steps.filter((s: any) => s.if !== "needs.spec.outputs.loads == ''").map((s: any) => s.run ?? "").join("\n");
+    expect(reading).not.toContain("playwright install");
+    expect(reading).not.toContain("bun run build");
+    expect(named(gpu, "The site's dependencies (the loads read, no browser, no build)").run).toBe("bun install --frozen-lockfile");
   });
 
   test("compare takes the runner's results before anything is recorded; without them the box's refusals stand", () => {

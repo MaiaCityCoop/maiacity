@@ -85,12 +85,19 @@ same box and records them as main's, a confirmation. **Main moving resets nothin
 `play/api/src/mainmerge.ts`): play merges main into no pull request (one behind main is fine, the queue tests it with
 main) and heads, results and sub-states stay (waiting stays waiting). A real conflict shows the intent failed,
 "conflicts with main: <files>", and play posts the commit status **`Merges with main`** (failure) on its head, which
-wakes you as a PR event: resolve it, push (merging main into your branch yourself only then), and it turns success. **Watch, never poll** (intent 40397205; play/SPEC.md §4.12): open your draft at your
+wakes you as a PR event: resolve it, push (merging main into your branch yourself only then, or as each lands when it shares files with another intent in Build), and it turns success. **Watch, never poll** (intent 40397205; play/SPEC.md §4.12): open your draft at your
 first commit (at Specify too: a draft may name an intent whose spec waits, and play takes it as the intent's pull
 request) and subscribe to it at once (`subscribe_pr_activity`). play posts the commit status **`Intent`** on its head the
 moment you must act (a must failed, with its evidence's first line; at Proposal; approved: build it; stepped back; a
-Ship step red; Accepted: live); it, `Merges with main`, CI and reviews wake you as PR events: act on each. Schedule no
-check-ins, run no sweeps. Say what you opened and that it waits for Accept; report a failing check instead of going past it.
+Ship step red; Accepted: live); it, `Merges with main`, CI and reviews wake you as PR events: act on each. Run no
+sweeps; before ending a turn while a run of yours goes, schedule your own look-back with `send_later` (intent fc7ef225).
+**Proven before specified, no collisions** (intent 0c149489): run every check's `run` once where it will run before
+you specify (avenBOX; a real-GPU check by a workflow_dispatch dry run of intents-pr.yml on the macOS runner) and say in
+the scope the seconds each took; a check over the run's limit is split before it is specified; a correction that is
+only a check's command is fixed at Specify before approval, not by a step back. Work on how worlds render or load does
+not edit play/SPEC.md (say what it does in its pull request's body; SPEC changes by its own small intent). When two
+intents in Build change the same files, the later merges main as each lands, not waiting for "conflicts", and says in
+its pull request which intent it follows. Say what you opened and that it waits for Accept; report a failing check instead of going past it.
 
 ## Backups
 

@@ -819,7 +819,14 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     ten minutes there (Chromium's world in 205 to 280 s, WebKit's in about 400 s, each then up to 60 s to settle and
     10 s of frames), and `gpu.ts`'s own limits (600 s an engine to its world) end a check first, in its own words;
     the job has 90 minutes, three such checks at their limit after its build. A check killed at its limit keeps what
-    it had printed and says which engine had finished, with its numbers, and which had not. `--steps` prints what the cover said on the way, each step with its second. **`--sky`** (intent c929d52c)
+    it had printed (each engine's line gpu.ts printed before) and says it was killed. **One load of each world**
+    (intent a35ccd33): spec plans the GPU checks' loads (main's `play/site/scripts/gpu-loads.ts`: every `gpu.ts` call
+    of their runs, one load a world and engine, asked the union of what the calls ask: a flag, the largest number, every
+    value of a list; bounds and `--steps` are the reading's), and the job **gpu-load** runs each on its own macOS
+    runner, side by side (30 minutes at most); **gpu** then runs the checks on ubuntu, each `gpu.ts` call with
+    `GPU_LOADS` launching no browser and reading its world's load in each engine, judged by its own bounds, printing the
+    same lines and naming the load, copying its pictures; a load missing or not asked what the call asks fails that
+    engine, saying so. A head whose `gpu.ts` predates the loads loads its worlds itself, as above. `--steps` prints what the cover said on the way, each step with its second. **`--sky`** (intent c929d52c)
     takes the sky's pictures too, once the world is measured: the eye lifted 45 m where it stands, turned round and up
     (the film camera's hold, `window.__world`), the hour pinned as a film pins it, at dawn, noon, dusk and night (`SKY_HOURS`: the sun 4°
     up at either end of the day), at 1440 × 900 and at a phone's 390 × 844, `<browser>-sky-<hour>-<size>.png` beside
@@ -939,8 +946,15 @@ doc_variants.intent_id → intents        -- the intent an intent variant was pr
     naming the intent in its body, as the intent's pull request (`adoptDrafts`) and reads it, so approval posts on it.
     Nothing is recorded or proposed before Build. **Builders watch, never poll**: a builder opens its draft at its first
     commit (at Specify too, as soon as it is started) and subscribes to it at once (`subscribe_pr_activity`); it is
-    woken by `Intent`, `Merges with main`, CI and reviews and acts on each; it schedules no check-ins and runs no sweeps,
-    and no orchestrator sweeps or relays for it.
+    woken by `Intent`, `Merges with main`, CI and reviews and acts on each; it runs no sweeps, and no orchestrator sweeps
+    or relays for it; before ending a turn while a run of its own goes, it schedules its own look-back (`send_later`;
+    intent fc7ef225). **Proven before specified, no collisions** (intent 0c149489): a builder runs every check's `run`
+    once where it will run before it specifies (avenBOX; a real-GPU check by a workflow_dispatch dry run of
+    intents-pr.yml on the macOS runner) and says in the scope the seconds each took; a check over the run's limit is
+    split before it is specified; a correction that is only a check's command is fixed at Specify before approval, not
+    by a step back. Work on how worlds render or load does not edit play/SPEC.md (what it does goes in its pull
+    request's body; this spec changes by its own small intent). When two intents in Build change the same files, the
+    later merges main as each lands, not waiting for "conflicts", and says in its pull request which intent it follows.
   - **production follows main** (`.github/workflows/release.yml`): once main.yml is green for a push to main, or by
     `workflow_dispatch` with a sha (Ship again, or by hand), it moves `production` to that commit, fast-forward only,
     with `GITHUB_TOKEN`, and starts `production.yml` on it (`workflow_dispatch`; a push by `GITHUB_TOKEN` starts no
