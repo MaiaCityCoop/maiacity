@@ -463,6 +463,7 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		const w = window as unknown as { __buildLog?: string[] }
 		w.__buildLog?.push(`${kind} ${label}: work ${Math.round(prof.work + performance.now() - lastYield)}ms in ${prof.slices} slices, wall ${Math.round(performance.now() - prof.t0)}ms`)
 		onProgress?.(label)
+		maker.away()
 		await breath()
 		lastYield = performance.now()
 		stopIfCancelled()
@@ -2127,11 +2128,13 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 		// the stand-ins put straight into the scene (not baked) traded too; then every kind built (in the asset box, side
 		// by side), and each tree stands in the walker's way by its trunk
 		swap(scene)
+		maker.away()
 		await forest.grown()
 		for (const t of floraTreesAll) t.c.r = Math.min(0.6, (forest.shape(t.kind)?.foot ?? 0.3) * t.s) + 0.2
 	}
 
 	// the library's Things built (in the asset box), so the dome stands whole when it is first seen
+	maker.away()
 	await things?.ready()
 	stopIfCancelled()
 
@@ -2201,7 +2204,10 @@ async function raiseInterior(container: HTMLElement, kind: DomeKind, onProgress:
 			const mt = (o as THREE.Mesh).material
 			if (compiled.has(mt)) continue
 			compiled.add(mt)
-			await precompile(renderer, o, camera, host.scene)
+			// (three builds its shader code here, on the page: counted; the pipeline's compile beside it is not)
+			const compiling = precompile(renderer, o, camera, host.scene)
+			maker.away()
+			await compiling
 			await slice()
 		}
 		log?.push(`compile ${compiled.size} materials ${Math.round(performance.now() - tt)}ms`)

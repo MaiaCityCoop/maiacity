@@ -8,7 +8,7 @@ import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
-import { SLICE, createMaking, drawWhenReady, pipelinesPending } from './making.js';
+import { SLICE, createMaking, drawWhenReady, pipelinesPending, writeOnUnmap } from './making.js';
 
 /** a page whose clock and frames the test drives: work moves the clock; each frame's making is kept */
 function page() {
@@ -143,4 +143,35 @@ test("three's render takes its pipelines as drawWhenReady replaces them, and ski
 	expect(utils).toContain('device.createRenderPipelineAsync');
 	// and render draws an object only once its pipeline is ready
 	expect(renderer).toMatch(/if \( this\._pipelines\.isReady\( renderObject \) \) \{\s*this\.backend\.draw/);
+});
+
+test('a buffer made mapped is made unmapped and filled by writeBuffer at unmap: nothing waits on the graphics process', () => {
+	const made: any[] = [], written: [unknown, number, ArrayBuffer][] = [];
+	const device: any = {
+		createBuffer: (d: any) => (made.push(d), { label: d.label }),
+		queue: { writeBuffer: (b: unknown, at: number, data: ArrayBuffer) => written.push([b, at, data]) }
+	};
+	writeOnUnmap(device);
+	writeOnUnmap(device); // once only
+	// as three's createAttribute does it: mapped, the whole range filled, unmapped
+	const b = device.createBuffer({ label: 'position', size: 12, usage: 0x20 | 0x4, mappedAtCreation: true });
+	new Float32Array(b.getMappedRange()).set([1, 2, 3]);
+	b.unmap();
+	expect(made[0]).toEqual({ label: 'position', size: 12, usage: 0x20 | 0x4 | 0x8, mappedAtCreation: false });
+	expect(written.length).toBe(1);
+	expect([...new Float32Array(written[0][2])]).toEqual([1, 2, 3]);
+	// its own getMappedRange and unmap gone again: the buffer's own
+	expect('unmap' in b).toBe(false);
+	// a part of it asked for is refused, not filled wrong
+	expect(() => device.createBuffer({ size: 8, usage: 0x20, mappedAtCreation: true }).getMappedRange(4, 4)).toThrow('only the whole');
+	// one written by mapping, or not mapped, is made as asked
+	device.createBuffer({ size: 8, usage: 0x2 | 0x4, mappedAtCreation: true });
+	device.createBuffer({ size: 8, usage: 0x20 });
+	expect(made.slice(-2)).toEqual([{ size: 8, usage: 0x2 | 0x4, mappedAtCreation: true }, { size: 8, usage: 0x20 }]);
+});
+
+test("three makes a new vertex buffer mapped, fills all of it and unmaps it, with COPY_DST among its uses", () => {
+	const three = dirname(createRequire(import.meta.url).resolve('three/package.json'));
+	const utils = readFileSync(join(three, 'src/renderers/webgpu/utils/WebGPUAttributeUtils.js'), 'utf8');
+	expect(utils).toMatch(/_bufferDescriptor\.mappedAtCreation = true;\s*buffer = device\.createBuffer\( _bufferDescriptor \);\s*_bufferDescriptor\.reset\(\);\s*new array\.constructor\( buffer\.getMappedRange\(\) \)\.set\( array \);\s*buffer\.unmap\(\);/);
 });

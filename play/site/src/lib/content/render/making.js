@@ -104,6 +104,11 @@ export function createMaking(o = {}) {
 					queueMicrotask(grant);
 				});
 			},
+			/** about to wait for something not its own (a compile, a frame, a build in a worker): its time so far charged,
+			 *  the wait not counted as its making */
+			away() {
+				charge(now());
+			},
 			/** finished: its time charged to the frame, the frame's rest handed on */
 			done() {
 				charge(now());
@@ -213,4 +218,37 @@ export function renderParts(/** @type {number} */ start) {
 	for (const [what, ms] of slowest) named(`upload ${what}`, start, start + ms);
 	inside.clear();
 	slowest.length = 0;
+}
+
+/** WebGPU's buffer usage bits this needs (GPUBufferUsage, which a test's world lacks) */
+const MAP_WRITE = 0x2, COPY_DST = 0x8;
+/**
+ * A device whose buffers made mapped (`mappedAtCreation`: three's every new vertex and index buffer) are made unmapped
+ * and filled by `queue.writeBuffer` when they are unmapped, so making one never waits on the graphics process (intent
+ * 095bc67c). Filling a mapped buffer (`getMappedRange`) waits for WebKit's graphics process to answer, and while it
+ * compiles the shaders of what the walker meets, a buffer of 75 corners waited 0.5 to 2.6 s (GitHub's runner,
+ * 2122fcd: every slow upload tiny). `writeBuffer` sends the corners and waits for nothing. A buffer to be written by
+ * mapping (MAP_WRITE, which takes no COPY_DST) is made as asked.
+ * @param {any} device a GPUDevice
+ */
+export function writeOnUnmap(device) {
+	if (!device?.createBuffer || device.__writeOnUnmap) return;
+	device.__writeOnUnmap = true;
+	const make = device.createBuffer.bind(device);
+	device.createBuffer = (/** @type {any} */ d) => {
+		if (!d?.mappedAtCreation || d.usage & MAP_WRITE) return make(d);
+		const buffer = make({ ...d, mappedAtCreation: false, usage: d.usage | COPY_DST });
+		const staging = new ArrayBuffer(d.size);
+		// three fills the whole buffer at once (WebGPUAttributeUtils createAttribute): a part asked for is the same memory
+		buffer.getMappedRange = (offset = 0, size = d.size - offset) => {
+			if (offset !== 0 || size !== d.size) throw new Error('writeOnUnmap: only the whole of a buffer made mapped is filled');
+			return staging;
+		};
+		buffer.unmap = () => {
+			delete buffer.getMappedRange;
+			delete buffer.unmap;
+			device.queue.writeBuffer(buffer, 0, staging);
+		};
+		return buffer;
+	};
 }
