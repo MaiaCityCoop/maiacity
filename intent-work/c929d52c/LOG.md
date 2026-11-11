@@ -246,3 +246,11 @@ had landed: both had added a flag at the same places in gpu.ts (its --walk, this
 pictures, which move the camera and pin the hour. The sky's screenshots now get main's 120 s (a slow world's
 screenshot), which ends WebKit's 30 s timeouts of tonight. gpu.ts's tests 4, the sky's 28, types clean, the site's
 gate green (157 s, 56 pass). Pushed; its run records again, and play queues it again once it merges cleanly.
+
+## 06:52 · the merged head's recorded run (5e52f965, 42972099842): every check, both engines
+
+c1–c4 green (c3: Chromium world in 317.4 s, 0.921 painted; WebKit in 301.3 s, 0.957 painted). With main's 120 s for
+a slow screenshot, c5's sky pictures came through in both engines in the recorded run itself, for the first time
+(Chromium world in 224.8 s, WebKit in 210.8 s, 8 each): `gpu/merged/both-desk.jpg` (Chromium above, WebKit below:
+dawn, noon / dusk, night) and `both-phone.jpg`. The same soft sky as before the merge; no block, edge, step or band.
+c5 recorded by hand on this head.
