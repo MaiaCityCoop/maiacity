@@ -126,6 +126,26 @@ describe("a world's kinds are built on every core but one", () => {
 		expect(h.open.map((o) => o.recipe.hash)).toEqual(['kind-2'])
 	})
 
+	it('a recipe built again goes to the box that built it, its worker warm, where that box is free; else to any free box', async () => {
+		const h = hand()
+		const pool = createPool({ engine: 5, size: 3, box: h.box })
+		const [a, b, c] = recipes(3)
+		;[a, b, c].forEach((r) => void pool.build(r!, {}))
+		await settled()
+		const boxOf = Object.fromEntries(h.open.map((o) => [o.recipe.hash, o.box]))
+		for (const r of [a, b, c]) h.answer(r!.hash)
+		await settled()
+		// b again (its lower level, other values): to b's box, though another box is free before it
+		void pool.build(b!, { detail: '0.25' })
+		await settled()
+		expect(h.open.map((o) => o.box)).toEqual([boxOf['kind-1']])
+		// b once more while its box builds: not waited for, built in a free box
+		void pool.build(b!, { detail: '0.1' })
+		await settled()
+		expect(h.open).toHaveLength(2)
+		expect(h.open[1]!.box).not.toBe(boxOf['kind-1'])
+	})
+
 	it("its values and the build's own options are handed to the box as given; the pool's are kept back", async () => {
 		const asked: unknown[][] = []
 		const pool = createPool({ engine: 5, size: 1, box: () => ({ start: () => Promise.resolve(), build: (...a: unknown[]) => (asked.push(a), Promise.resolve('built')), stop() {} }) })

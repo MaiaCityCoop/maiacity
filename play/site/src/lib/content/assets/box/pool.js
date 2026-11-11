@@ -22,7 +22,7 @@ import { lineOf, turn as pageTurn } from '../../render/turns.js';
  *   build before a level); given, it is a pool apart with a line of its own. `box`: how a box is made (a test's stand-in)
  */
 export function createPool({ engine, size, box = () => new AssetBox({ engine, rooms: 1, turns: false }), turn: line }) {
-	/** @type {{ box: ReturnType<typeof box> | null, busy: boolean, up: Promise<unknown> | null }[]} */
+	/** each box, and the recipe it built last (its worker kept warm for it) @type {{ box: ReturnType<typeof box> | null, busy: boolean, up: Promise<unknown> | null, last?: string }[]} */
 	const slots = Array.from({ length: Math.max(1, size ?? budget().builds) }, () => ({ box: null, busy: false, up: null }));
 	const turn = line ?? (size === undefined ? pageTurn : lineOf(() => slots.length));
 	let waiting = 0, stops = 0, stopped = '';
@@ -35,13 +35,13 @@ export function createPool({ engine, size, box = () => new AssetBox({ engine, ro
 			waiting++;
 			const back = await turn({ rank });
 			waiting--;
-			// a box is free: the line gives no more turns than the pool has boxes (started only now: none for a page
-			// that finds all it asks for in its cache)
-			const s = slots.find((x) => !x.busy);
+			// a box is free (the line gives no more turns than the pool has boxes; started only now): the one that built
+			// this recipe last where it is free, its worker warm (half the time of a fresh one), else any, never waiting
+			const s = slots.find((x) => !x.busy && x.last === recipe.hash) ?? slots.find((x) => !x.busy);
 			try {
 				if (stops !== asked) throw new Error(stopped);
 				if (unwanted?.()) throw new Error('the build is no longer wanted');
-				s.busy = true;
+				(s.busy = true), (s.last = recipe.hash);
 				s.box ??= box();
 				// (a box that will not start fails its builds itself, each saying why)
 				await (s.up ??= Promise.resolve(s.box.start()).catch(() => {}));
