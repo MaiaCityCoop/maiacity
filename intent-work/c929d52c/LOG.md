@@ -174,3 +174,25 @@ play posted "Merges with main" failed: play/SPEC.md. d3f98bcc and this intent ea
 gpu.ts; kept both (main's limits, then --sky and the clouds' rule). Sky tests 26, gpu.ts's 4, d3f98bcc's limit test 3:
 green. The push cancelled the recorded run on 0913267d (42932098518), which had not finished; a ready pull request is
 run and recorded again on its new head.
+
+## GPU run 2 · the recorded run on 0913267d (42932098518, 00:32–00:57): first pictures on Metal, both engines
+
+c3 passed: Chromium (WebGPU on Metal) world in 226.1 s, 36.8 ms a frame, 0.97 painted; WebKit 26.6 (WebGPU) world in
+283.2 s, 348.1 ms a frame, 0.902 painted. The sky's 16 pictures: `gpu/run2/` (`*-desk.jpg`: dawn, noon / dusk,
+night at 1440 × 900; `*-phone.jpg`: the four at 390 × 844; and each picture whole).
+
+As a critic, against the references:
+- **No blocks, no straight edges, no steps, no bands, in either engine, at either size.** Chromium and WebKit draw
+  the same sky.
+- **Noon:** a field of white fair-weather cumulus, lobed, thinning into rows at the horizon: the closest to real.
+- **Dawn, dusk:** rose clouds over a warm band at the horizon, the blue deep overhead. The large ones read as brush
+  strokes (smeared along the bent plane) rather than puffs; a real field there is orange near the sun, grey away.
+- **Night:** stars, the clouds barely visible (dark on dark, as they are on a moonless night, but faint).
+- **Phone:** the same, soft at 390 × 844.
+
+## 01:30 · the recorded run on the merged head (42935512813): c3 red, WebKit's screenshot
+
+c1, c2, c4 green. c3 red: WebKit showed the world (334 s, 40 frames in 10 s, 263.5 ms each) but Playwright's
+screenshot timed out at 30 s, in c3 and in c5. Not this change: 5be34cf3 differs from 0913267d (both engines green
+above) only by main's d3f98bcc files (intent.ts, the workflow, the spec); nothing that draws. WebKit on that
+paravirtual GPU draws 3–4 frames a second, and a screenshot waits for one. Its failed jobs re-run once (01:33).
