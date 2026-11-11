@@ -29,3 +29,23 @@ piece, cups, leaves), in both cascades, whatever its pieces said, and as one dom
 
 Head after round 2 (shadow / picture): Sandbox 1 near 1.77 M / 3.84 M, mid 4.46 M / 5.96 M, far 0.50 M / 1.55 M;
 Sandbox 5 near 2.89 M / 4.79 M, mid 3.09 M / 5.21 M, far 0.51 M / 2.19 M.
+
+## Round 3: the trees' shadows, a cascade at a time
+
+Sandbox 1 mid on main: shadow 6.71 M (the census in the same run); the head after round 2: 4.46 M, the asset
+renderer's trees 2.9 M of it (lime, pecan, chestnut, walnut, hazel at levels 1 and 2), each copy drawn into both
+cascades, plus a flock of sheep (275 k, skinned: left as they are).
+
+- **Thrown away: a built kind cast by its coarsest level in the far cascade.** The lime's coarsest built level is the
+  one drawn (level 1), so nothing fell; and the coarsest level's own copies, which cast nothing before, then cast:
+  lime 671 k → 795 k, chestnut 376 k → 577 k. A simplifier is no answer for a canopy either: its leaves are cards of
+  two triangles, and pruning them would hollow the shadow.
+- **Measured, nothing to gain here: copies outside a cascade's box.** Every tree copy at mid lies in both boxes (the
+  near one is some 210 m across). The test stays (it is the next one's first half, and cheap).
+- **A copy casts only into the cascades its shadow can reach** (`assets/render/index.js castersFirst`): a cascade's
+  receivers lie in its slice of the view's depth (three's own `_cascadeData`, handed to the cascade's camera by
+  `casters.js seeStandIns`); a copy whose ball, with its longest shadow (its ball's width and half again over the
+  sun's slope), cannot reach the slice is left out of that pass, its instances put after those drawn (and put back
+  after the pass where the picture draws them first). A near tree is no longer drawn into the far cascade, whose
+  receivers begin some 70 m out. Sandbox 1 mid: **4.46 M → 3.01 M** (main 6.71 M: −55 %), near 1.77 M → 1.74 M
+  (main 6.68 M: −74 %). **Kept.**

@@ -132,7 +132,14 @@ export const CASCADES = [
 
 /** the sun's cascades each made to see its stand-ins' layer (and every caster on layer 0, as before) @param {any} shadow a SunLight's */
 export function seeStandIns(shadow) {
-	CASCADES.forEach((c, i) => shadow.getCamera?.(i)?.layers.enable(c.layer));
+	CASCADES.forEach((c, i) => {
+		const camera = shadow.getCamera?.(i);
+		if (!camera) return;
+		camera.layers.enable(c.layer);
+		// and the slice of the view's depth its receivers lie in (begin, end), kept fresh by three as the eye moves: a
+		// renderer that draws its own shadows leaves out what cannot reach it (../assets/render/index.js `castersFirst`)
+		camera.userData.slice = shadow._cascadeData?.[i];
+	});
 }
 
 /** triangles at or under which a piece is its own stand-in: simplifying it saves nothing worth the work */
