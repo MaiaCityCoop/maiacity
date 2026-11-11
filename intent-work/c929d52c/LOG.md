@@ -237,3 +237,12 @@ Chromium 153 (world in 328.8 s, 0.967 painted) and WebKit 26.6 (world in 272 s, 
 (`gpu/head/`). Judged against Samuel's screenshot (large flat blocks, hard straight edges) and main's sky in the box
 (`box/round0-main.png`): **no flat block, no straight edge, no step, no band in any of them**; soft edges, grey
 bases and bright rims by day, rose at dawn and dusk, the two engines drawing the same sky. c5 recorded by hand.
+
+## 06:19 · out of the merge queue, merged with main again (5e52f965)
+
+Samuel accepted; #2254 was 5th in the merge queue. GitHub took it out for a conflict once #2255 (0356b0ea, the frame)
+had landed: both had added a flag at the same places in gpu.ts (its --walk, this --sky). Of the five ahead, only
+#2255 conflicted (each tested against this branch beforehand). Both kept; the walk is measured before the sky's
+pictures, which move the camera and pin the hour. The sky's screenshots now get main's 120 s (a slow world's
+screenshot), which ends WebKit's 30 s timeouts of tonight. gpu.ts's tests 4, the sky's 28, types clean, the site's
+gate green (157 s, 56 pass). Pushed; its run records again, and play queues it again once it merges cleanly.
