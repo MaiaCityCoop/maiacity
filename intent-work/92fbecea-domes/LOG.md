@@ -35,3 +35,16 @@ Bug found and fixed: an object at two levels ([fine, fine, light, light]) was sh
 under a7507347's rule it needs a next version whose source exports `module.exports.levels` and stays ≤ 300,000 at
 L0: its `outside:limestone` alone is 533k (four tiles of 133,198: the arcade's and paving's stone, which reads at
 every distance), `building:oak`/`plaster` ~305k, `shell:ceramic` ~208k, `ground` ~167k.
+
+## Round 3 (07:20): café squares, main merged (c929d52c, 1893a631), ready
+
+Café squares round the master dome drawn to their level 2. gpu.ts keeps both `--views` (this intent) and `--sky`
+(c929d52c). intent.ts in the box on b5bae1ea's successor: c1–c5 green; c8 (S1 far −45.8 %) and c10 (draws mid −41 %,
+far −25 %) green; c9 (S5 far −23.4 % of 25 %) short: the rest is the forest dome's arcade stone (asset) and the herds.
+
+| | near | mid | far |
+|---|---|---|---|
+| Sandbox 1 | 3,413,873 (−11 %) | 4,255,738 (−29 %) | 841,286 (−46 %) |
+| Sandbox 5 | 4,557,631 (−5 %) | 4,686,328 (−10 %) | 1,677,058 (−23 %) |
+
+Marked ready: the box run on GitHub records the checks; c6/c7 on the macOS runner, c7 judged by hand from its pictures.
