@@ -8,7 +8,7 @@
  *
  *   bun play/site/scripts/gpu.ts [--world /sandbox-5/] [--browser chromium,webkit] [--out <dir>]
  *        [--world-within <seconds>] [--frame-within <ms>] [--settle <seconds>] [--timeout <seconds>]
- *        [--inputs <dir>] [--software] [--record] [--steps] [--walk] [--walk-within <ms>] [--views near,mid,far]
+ *        [--inputs <dir>] [--software] [--record] [--steps] [--walk] [--walk-within <ms>] [--views near,mid,far] [--sky]
  *
  * --world          the page's route: a sandbox, or an asset's viewer
  * --world-within   the world is shown within that many seconds of the navigation, in every browser asked
@@ -22,6 +22,9 @@
  *                  the world left to settle: <out>/<browser>-<view>.png, so what is far is judged on a real GPU (intent 92fbecea)
  * --timeout        how long the world may take to come up (600: GitHub's runner needs 270 to 400 s for Sandbox 5)
  * --settle         how long the world may take to settle before its frames are measured and it is photographed (60)
+ * --sky            the sky's pictures too (intent c929d52c): once the world is measured, the eye lifted 45 m where
+ *                  it stands, turned round and up, at dawn, noon, dusk and night (the hour pinned as a film pins it), at 1440 × 900 and at a
+ *                  phone's 390 × 844: <out>/<browser>-sky-<hour>-<width>x<height>.png. A world without them fails
  * --steps          prints what the page's cover said on the way to the world, each step with the second it began
  * --software       measure even where there is no GPU (the box's software renderer): for this script's own plumbing.
  *                  Without it a machine without a GPU measures nothing and fails, saying so: what needs a GPU is
@@ -38,7 +41,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { chromium, webkit, type Browser, type BrowserType } from 'playwright';
+import { chromium, webkit, type Browser, type BrowserType, type Page } from 'playwright';
 import { siteHandler } from '../../api/src/site.ts';
 import { fileOf, pinFile, pinRoute, pinnedFile, pinnedRoute } from './census/pinned';
 import { quietness } from './lib/quiet.js';
@@ -119,9 +122,44 @@ export type Measure = {
 	walk_gpu: number | null;
 	/** the share of the screenshot that is not its most frequent colour: a blank picture is near 0 */
 	painted: number | null;
+	/** --sky: the sky's pictures taken, by file name */
+	sky?: string[];
 	errors: string[];
 };
-export type Bounds = { worldWithin?: number; frameWithin?: number; walkWithin?: number };
+export type Bounds = { worldWithin?: number; frameWithin?: number; walkWithin?: number; sky?: boolean };
+
+/** --sky: the hours of the world's day the sky is photographed at, and the sizes */
+export const SKY_HOURS = { dawn: 5.35, noon: 12.5, dusk: 19.65, night: 23 };
+export const SKY_VIEWS = [[1440, 900], [390, 844]];
+/** how far up the eye looks for them (rad), and how far it is lifted (m): the land stays along the picture's foot */
+const SKY_PITCH = 0.36, SKY_RISE = 45;
+
+/** The sky's pictures of the world a page shows (--sky), through the film camera's hold on it (`window.__world`). */
+async function skyPictures(page: Page, name: string, out: string): Promise<string[]> {
+	const files: string[] = [];
+	for (const [width, height] of SKY_VIEWS) {
+		await page.setViewportSize({ width, height });
+		for (const [label, hour] of Object.entries(SKY_HOURS)) {
+			await page.evaluate(([hour, pitch, rise]) => {
+				const w = (window as any).__world;
+				if (!w?.camera || !w.fly) throw new Error('the world gives the film camera no hold (window.__world): no sky pictures');
+				(window as any).__interiorHour = hour;
+				w.sun?.(hour);
+				// once: where the eye stood, turned round (a world opens facing what it is about, which hides the sky) and lifted over the trees
+				const from = ((window as any).__skyFrom ??= (() => {
+					const at = w.camera.getWorldPosition(new w.THREE.Vector3()), d = w.camera.getWorldDirection(new w.THREE.Vector3());
+					return [at.x, at.y + rise, at.z, Math.atan2(d.x, d.z)];
+				})());
+				w.fly(from[0], from[1], from[2], from[3], pitch);
+			}, [hour, SKY_PITCH, SKY_RISE]);
+			await page.waitForTimeout(2500);
+			const file = `${name}-sky-${label}-${width}x${height}.png`;
+			await page.screenshot({ path: join(out, file), timeout: 120_000 });
+			files.push(file);
+		}
+	}
+	return files;
+}
 
 /** why a measure fails: nothing when the world is shown, the device held and every bound given holds */
 export function judge(m: Measure, b: Bounds = {}): string[] {
@@ -132,16 +170,17 @@ export function judge(m: Measure, b: Bounds = {}): string[] {
 	if (b.worldWithin !== undefined && m.world_s !== null && m.world_s > b.worldWithin) why.push(`the world took ${m.world_s} s, more than ${b.worldWithin} s`);
 	if (b.frameWithin !== undefined && (m.frame_ms === null || m.frame_ms > b.frameWithin)) why.push(`a frame took ${m.frame_ms ?? '—'} ms, more than ${b.frameWithin} ms`);
 	if (b.walkWithin !== undefined && (m.walk_ms === null || m.walk_ms > b.walkWithin)) why.push(`a frame walking took ${m.walk_ms ?? '—'} ms, more than ${b.walkWithin} ms`);
+	if (b.sky && m.world_s !== null && !m.sky?.length) why.push('no sky pictures');
 	return why;
 }
 
 /** one line a browser, as the check's evidence keeps it */
 export const lineOf = (m: Measure, why: string[]) =>
-	`${why.length ? '✗' : '✓'} ${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world in ${m.world_s ?? '—'} s, settled ${m.settled_s === null ? 'not' : `in ${m.settled_s} s more`} · ${m.frames ?? '—'} frames in 10 s, ${m.frame_ms ?? '—'} ms each (p95 ${m.frame_p95 ?? '—'}, CPU ${m.cpu_ms ?? '—'}, GPU ${m.gpu_ms ?? '—'})${m.walk_ms === null ? '' : `, walking ${m.walk_ms} ms (p95 ${m.walk_p95 ?? '—'}, CPU ${m.walk_cpu ?? '—'}, GPU ${m.walk_gpu ?? '—'})`} · ${m.calls ?? '—'} draws, ${m.triangles ?? '—'} triangles · ${m.painted ?? '—'} painted${m.errors.length && m.world_s !== null ? ` · ${m.errors.length} error${m.errors.length > 1 ? 's' : ''} said, the first: ${m.errors[0]}` : ''}${why.length ? ` · ${why.join('; ')}` : ''}`;
+	`${why.length ? '✗' : '✓'} ${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world in ${m.world_s ?? '—'} s, settled ${m.settled_s === null ? 'not' : `in ${m.settled_s} s more`} · ${m.frames ?? '—'} frames in 10 s, ${m.frame_ms ?? '—'} ms each (p95 ${m.frame_p95 ?? '—'}, CPU ${m.cpu_ms ?? '—'}, GPU ${m.gpu_ms ?? '—'})${m.walk_ms === null ? '' : `, walking ${m.walk_ms} ms (p95 ${m.walk_p95 ?? '—'}, CPU ${m.walk_cpu ?? '—'}, GPU ${m.walk_gpu ?? '—'})`} · ${m.calls ?? '—'} draws, ${m.triangles ?? '—'} triangles · ${m.painted ?? '—'} painted${m.sky?.length ? ` · ${m.sky.length} sky pictures` : ''}${m.errors.length && m.world_s !== null ? ` · ${m.errors.length} error${m.errors.length > 1 ? 's' : ''} said, the first: ${m.errors[0]}` : ''}${why.length ? ` · ${why.join('; ')}` : ''}`;
 
 const BROWSERS: Record<string, [BrowserType, object]> = { chromium: [chromium, LAUNCH], webkit: [webkit, { headless: true }] };
 
-async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; walk?: boolean; views?: (keyof typeof VIEWS)[] }): Promise<Measure> {
+async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; walk?: boolean; views?: (keyof typeof VIEWS)[]; sky?: boolean }): Promise<Measure> {
 	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, steps: [], settled_s: null, frames: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, walk_ms: null, walk_p95: null, walk_cpu: null, walk_gpu: null, painted: null, errors: [] };
 	let browser: Browser | undefined;
 	try {
@@ -264,6 +303,7 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 		if (w && w.frames > 1) Object.assign(m, { walk_ms: w.frame_ms, walk_p95: w.frame_p95, walk_cpu: w.cpu_ms, walk_gpu: w.gpu_ms });
 			else m.steps.push(w ? 'the walk drew no frames' : 'no walker here: no walk measured');
 		}
+		if (o.sky) m.sky = await skyPictures(page, name, o.out);
 	} catch (e: any) {
 		m.errors.push(String(e?.message ?? e).split('\n')[0].slice(0, 300));
 	} finally {
@@ -293,7 +333,7 @@ if (import.meta.main) {
 	// its pictures: --out, else a folder a call under GPU_OUT (the gpu job's artifact) or the temp folder, named by its check and world
 	const out = resolve(arg('--out') ?? join(process.env.GPU_OUT ?? join(tmpdir(), 'gpu-out'), `${process.env.INTENT_CHECK ?? 'world'}${world.replace(/\W+/g, '-').replace(/-$/, '')}`));
 	const inputs = resolve(arg('--inputs', join(SITE, 'scripts/census/inputs'))!);
-	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within'), walkWithin: num('--walk-within') };
+	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within'), walkWithin: num('--walk-within'), sky: argv.includes('--sky') };
 	const fail = (why: string): never => (console.log(`gpu: ${why}`), process.exit(1));
 	for (const b of browsers) if (!BROWSERS[b]) fail(`no browser ${b} (chromium, webkit)`);
 
@@ -315,7 +355,7 @@ if (import.meta.main) {
 	console.log(`${world} on ${gpu} (${process.platform} ${process.arch}); pictures in ${out}`);
 	const measures: (Measure & { why: string[] })[] = [];
 	for (const b of browsers) {
-		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), walk: argv.includes('--walk') || argv.includes('--walk-within'), views: arg('--views') ? (arg('--views')!.split(',') as (keyof typeof VIEWS)[]) : undefined });
+		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), walk: argv.includes('--walk') || argv.includes('--walk-within'), views: arg('--views') ? (arg('--views')!.split(',') as (keyof typeof VIEWS)[]) : undefined, sky: bounds.sky });
 		const why = judge(m, bounds);
 		measures.push({ ...m, why });
 		// its steps and every error the page said (each once, with how often), then its line last: a check's evidence
