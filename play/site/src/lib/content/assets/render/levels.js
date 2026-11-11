@@ -166,14 +166,10 @@ export function createKept(o) {
 				} else missing.push(i);
 			});
 			if (missing.length) {
-<<<<<<< HEAD
-				const made = await o.lowering.lower(source, missing.map((i) => plans[i].plan), later, true, rank);
-=======
-				const making = o.lowering.lower(source, missing.map((i) => plans[i].plan), later, true);
+				const making = o.lowering.lower(source, missing.map((i) => plans[i].plan), later, true, rank);
 				// (made by another renderer: waited for as this one's own work, so its world is not settled before it comes)
 				if (!o.mine) counted.awaited++, making.then(() => counted.awaited--, () => counted.awaited--);
 				const made = await making;
->>>>>>> origin/main
 				missing.forEach((i, n) => {
 					out[i] = of(source, made[n]);
 					counted.derived++;
