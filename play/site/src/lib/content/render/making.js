@@ -116,3 +116,40 @@ export function createMaking(o = {}) {
 
 /** the page's one making: every world's makers take from it */
 export const making = createMaking();
+
+/** the pipelines being compiled beside the page (`drawWhenReady`), every renderer's */
+let compiling = 0;
+/** how many pipelines are being compiled beside the page: a world is not settled while any is (../../../../scripts/lib/quiet.js) */
+export const pipelinesPending = () => compiling;
+if (typeof window !== 'undefined') /** @type {any} */ (window).__pipelinesPending = pipelinesPending;
+
+/**
+ * A renderer whose new pipelines are compiled beside the page while `renderer.drawWhenReady` is true (the walker's
+ * frames): what is met for the first time (a plant's level, a dome's inside, its shadow) is drawn from the frame its
+ * pipeline is ready, a few frames on, and no frame waits for it. three's `render()` makes a new pipeline at once
+ * (`device.createRenderPipeline`), which WebKit compiles there and then: the walk's frames held 0.7 to 6.6 s in
+ * `make:render` (GitHub's runner, intent 095bc67c). Its async path (`createRenderPipelineAsync`, compileAsync's) is
+ * taken instead, and three's own render skips an object until its pipeline is ready (Renderer `_renderObjectDirect`,
+ * Pipelines `isReady`). A film's frames (`drawWhenReady` false) still wait for every pipeline: no shot misses a thing.
+ * After the renderer's `init` (its pipelines are made there).
+ * @param {any} renderer
+ */
+export function drawWhenReady(renderer) {
+	const pipelines = renderer._pipelines;
+	if (!pipelines || pipelines.__drawWhenReady) return;
+	pipelines.__drawWhenReady = true;
+	const now = pipelines.updateForRender.bind(pipelines);
+	pipelines.updateForRender = (/** @type {any} */ renderObject) => {
+		if (!renderer.drawWhenReady) return now(renderObject);
+		/** @type {Promise<void>[]} */
+		const made = [];
+		pipelines.getForRender(renderObject, made);
+		for (const p of made) {
+			compiling++;
+			p.then(
+				() => compiling--,
+				() => compiling--
+			);
+		}
+	};
+}

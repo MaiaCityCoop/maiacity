@@ -1498,7 +1498,12 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		// the film camera draws the canvas itself while it holds it (maia/content/film)
 		// every shadow pass counts as the animals' (the sun's, a level's, the grid's): theirs waits a second from it
 		if (renderer.shadowMap.needsUpdate) herdShadows = now
-		if (!filmDraws()) finish.render()
+		if (!filmDraws()) {
+			// the walker's frames never wait for a pipeline: what it meets first is drawn once compiled (render/making.js)
+			;(renderer as unknown as { drawWhenReady: boolean }).drawWhenReady = true
+			finish.render()
+			;(renderer as unknown as { drawWhenReady: boolean }).drawWhenReady = false
+		}
 		part('render')
 		// keep it smooth; while a film is shot every frame is rendered at the resolution it asks for
 		stage.adapt(now, filmHoldsSize())

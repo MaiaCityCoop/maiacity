@@ -5,7 +5,10 @@
  *   cd play/site && bun test src/lib/content/render/making.bun.test.ts
  */
 import { expect, test } from 'bun:test';
-import { SLICE, createMaking } from './making.js';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { SLICE, createMaking, drawWhenReady, pipelinesPending } from './making.js';
 
 /** a page whose clock and frames the test drives: work moves the clock; each frame's making is kept */
 function page() {
@@ -94,4 +97,50 @@ test('nothing waiting, no frame is asked for', async () => {
 	await p.settle();
 	expect(p.pending()).toBe(0);
 	expect(p.making.waiting()).toBe(0);
+});
+
+/** a renderer's pipelines as three's are: getForRender makes a pipeline once, beside the page when handed a list */
+function fakeRenderer() {
+	const asked: (unknown[] | null)[] = [];
+	const ready: (() => void)[] = [];
+	const pipelines = {
+		getForRender(_ro: unknown, promises: unknown[] | null = null) {
+			asked.push(promises);
+			if (promises) promises.push(new Promise<void>((ok) => ready.push(ok)));
+		},
+		updateForRender(ro: unknown) {
+			this.getForRender(ro);
+		}
+	};
+	return { renderer: { _pipelines: pipelines, drawWhenReady: false }, asked, ready };
+}
+
+test('while the walker draws, a new pipeline is compiled beside the page and counted until it is ready; a film waits for it', async () => {
+	const { renderer, asked, ready } = fakeRenderer();
+	drawWhenReady(renderer);
+	drawWhenReady(renderer); // once only
+	renderer._pipelines.updateForRender({});
+	expect(asked).toEqual([null]);
+	renderer.drawWhenReady = true;
+	renderer._pipelines.updateForRender({});
+	expect(asked[1]).toBeArray();
+	expect(pipelinesPending()).toBe(1);
+	ready[0]();
+	await Promise.resolve();
+	await Promise.resolve();
+	expect(pipelinesPending()).toBe(0);
+});
+
+test("three's render takes its pipelines as drawWhenReady replaces them, and skips an object until its pipeline is ready", () => {
+	const three = dirname(createRequire(import.meta.url).resolve('three/package.json'));
+	const pipelines = readFileSync(join(three, 'src/renderers/common/Pipelines.js'), 'utf8');
+	const renderer = readFileSync(join(three, 'src/renderers/common/Renderer.js'), 'utf8');
+	const utils = readFileSync(join(three, 'src/renderers/webgpu/utils/WebGPUPipelineUtils.js'), 'utf8');
+	// updateForRender is getForRender alone, which takes the list of promises compileAsync hands it
+	expect(pipelines).toMatch(/updateForRender\( renderObject \) \{\s*this\.getForRender\( renderObject \);\s*\}/);
+	expect(pipelines).toMatch(/getForRender\( renderObject, promises = null \)/);
+	// handed a list, WebGPU makes the pipeline beside the page
+	expect(utils).toContain('device.createRenderPipelineAsync');
+	// and render draws an object only once its pipeline is ready
+	expect(renderer).toMatch(/if \( this\._pipelines\.isReady\( renderObject \) \) \{\s*this\.backend\.draw/);
 });
