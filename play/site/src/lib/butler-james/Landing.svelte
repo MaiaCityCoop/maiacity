@@ -22,6 +22,7 @@
 	import Show from './Show.svelte';
 	import Speed from './Speed.svelte';
 	import Steps from './Steps.svelte';
+	import Test from './Test.svelte';
 </script>
 
 <svelte:head><title>{COPY.brand} · {COPY.hero.eyebrow}</title></svelte:head>
@@ -32,6 +33,7 @@
 		<Mark />
 		<nav aria-label={COPY.brand}>
 			<a href="#aufwand">{COPY.need.eyebrow}</a>
+			<a href="#test">{COPY.test.eyebrow}</a>
 			<a href="#angebot">{COPY.nav.offer}</a>
 			<a href="#ablauf">{COPY.nav.steps}</a>
 			<a href="#demos">{COPY.nav.demos}</a>
@@ -42,6 +44,7 @@
 	<main>
 		<Show />
 		<Band />
+		<Test />
 		<Offer />
 		<Guarantee />
 		<Speed />

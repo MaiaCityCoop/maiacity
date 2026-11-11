@@ -1,8 +1,15 @@
-// THE OFFER'S FACTS, ONCE (intent 42a96129): what Butler James sells and for how much. The page's texts (./copy.ts) and
+// THE OFFER'S FACTS, ONCE (intent 42a96129): what Butler James sells and for how much: the 3D model of an apartment
+// or a house, the trailer video (a product of its own), and the test offer. The page's texts (./copy.ts) and
 // its calculator take every number from here; nothing else on the page states a price, a time or a guarantee.
 
 /** flat, one-time, in euro, net */
-export const PRICES = { apartment: 489, house: 897, trailer: 800 } as const;
+export const PRICES = { apartment: 685, house: 1249, trailer: 479 } as const;
+/** how long the trailer video runs */
+export const TRAILER_MINUTES = 1;
+/** the offer to try Butler James: a demo trailer of one room, from the photos uploaded on the page */
+export const TEST = { price: 99, photos: 6, withinHours: 1 } as const;
+/** whether enough photos are chosen for the test */
+export const enoughPhotos = (n: number) => n >= TEST.photos;
 /** from booking to delivery */
 export const DELIVERY_HOURS = 24;
 /** money back, no questions asked */

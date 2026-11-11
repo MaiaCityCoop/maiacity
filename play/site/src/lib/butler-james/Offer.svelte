@@ -1,4 +1,5 @@
-<!-- the offer: what is in it, the two flat prices, the add-on, and the calculator -->
+<!-- the offer: the three flat prices (the 3D model of an apartment and of a house, the trailer video), what is in the
+     model, and the calculator -->
 <script lang="ts">
 	import { COPY } from './copy';
 	import Calculator from './Calculator.svelte';
@@ -19,19 +20,14 @@
 		<div class="bj-offer">
 			<div class="bj-plans">
 				{#each c.plans as p}
-					<article class="bj-plan" data-plan={p.id}>
+					<article class="bj-plan" class:film={p.id === 'trailer'} data-plan={p.id}>
+						<p class="bj-tag">{p.kind}</p>
 						<h3>{p.name}</h3>
 						<p class="bj-price">{p.price}</p>
 						<p class="bj-per">{p.per}, {p.vat}</p>
+						<p class="bj-plan-text">{p.text}</p>
 					</article>
 				{/each}
-				<article class="bj-plan addon" data-plan="trailer">
-					<p class="bj-tag">{c.addon.tag}</p>
-					<h3>{c.addon.name}</h3>
-					<p class="bj-price">+ {c.addon.price}</p>
-					<p class="bj-per">{c.addon.per}, {c.addon.vat}</p>
-					<p class="bj-plan-text">{c.addon.text}</p>
-				</article>
 				<div class="bj-stack">
 					<h3>{c.stackTitle}</h3>
 					<ul>{#each c.stack as s}<li>{s}</li>{/each}</ul>

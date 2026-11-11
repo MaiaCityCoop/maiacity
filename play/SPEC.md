@@ -1579,15 +1579,17 @@ over MCP. It stays an admin's app for now; opening it to every member, each thei
 **Butler James's landing page** (intent `42a96129-84fb-4b43-9405-2279acf04614`; Samuel 2026-11-11), at
 `/butler-james/landing/`: the offer of walkable 3D worlds of apartments and houses to estate agents, in German, as an
 interactive showcase. Admins only for now (the gate's table does not name it) and reached by its address. **A
-deliberate exception to this section's light brand CI**: the page is Butler James's, in its own brand (black, bone
+deliberate exception to this section's light brand CI**: the page is Butler James's, in its own brand (a very dark blue, bone
 white, one electric lime; Bricolage Grotesque and Manrope, self-hosted), whose tokens are kept once
 (`play/site/src/lib/butler-james/brand.ts`), and it brings its own frame: the shell draws it without the nav pill.
 **The show** on top is one placeholder apartment on a canvas that stays in place while four chapters scroll over it
 and tell the offer with it: finished; sunk into its floor plan ("photos of every room and the floor plan, that is
 all"); built up again; walked into. One turns it by dragging, lights a room by tapping it or its photo's card, and
 switches day and evening; under `prefers-reduced-motion` it makes no motion of its own, and where the browser gives
-no 3D a drawn plan stays. It states only the offer (`offer.ts`: 489 € an apartment, 897 € a house, 800 € a trailer,
-24 hours, 100 % back), every gap a marked placeholder, and its gallery's slots take a world by its UUID or a video by
+no 3D a drawn plan stays. It states only the offer (`offer.ts`: the 3D model 685 € an apartment and 1,249 € a house,
+the trailer video of a minute 479 €, 24 hours, 100 % back; and the test, a demo trailer of one room for 99 € from at
+least 6 photos in under an hour, whose photos are chosen and counted on the page and sent nowhere yet), every gap a
+marked placeholder, and its gallery's slots take a world by its UUID or a video by
 its hash (§4.7). Its scene is drawn by the render core like every canvas of play (`createRenderer`; the page's one tie
 to play) and is no world of §4.16: it holds a budget of its own (at most 30,000 triangles and 60 draws a frame;
 `play/site/scripts/butler-james-landing.ts budget`).

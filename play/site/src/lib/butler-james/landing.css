@@ -154,22 +154,23 @@
 .bj-value-list h3 { font-size: 1.7rem; }
 
 /* ---- the offer: plans, stack, calculator */
-.bj-offer { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; align-items: start; }
-.bj-plans { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; perspective: 1200px; }
-.bj-plan, .bj-stack, .bj-calc { background: var(--bj-paper-raised); border: 1px solid var(--bj-paper-line); border-radius: var(--bj-radius-m); padding: 30px; }
+.bj-offer { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.bj-plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; perspective: 1200px; }
+.bj-plan, .bj-stack, .bj-calc { background: var(--bj-paper-raised); border: 1px solid var(--bj-paper-line); border-radius: var(--bj-radius-m); padding: 26px; }
 .bj-plan { position: relative; overflow: hidden; display: grid; gap: 4px; align-content: start; transform: rotateX(calc(var(--bj-tilt-x, 0) * 1deg)) rotateY(calc(var(--bj-tilt-y, 0) * 1deg)); transition: transform 0.25s ease-out, border-color 0.2s, box-shadow 0.3s; will-change: transform; }
 .bj-plan::before { content: ''; position: absolute; inset: 0; background: radial-gradient(240px circle at var(--bj-at-x, 50%) var(--bj-at-y, -40%), var(--bj-accent-glow), var(--bj-veil) 70%); opacity: 0; transition: opacity 0.25s; pointer-events: none; }
 .bj-plan:hover { border-color: var(--bj-on-paper); box-shadow: 0 24px 60px -30px var(--bj-shade); }
 .bj-plan:hover::before { opacity: 1; }
 .bj-plan > * { position: relative; }
 .bj-plan h3 { font-size: 1.5rem; }
-.bj-price { font-family: var(--bj-font-display); font-size: clamp(3.4rem, 6vw, 5.2rem); font-weight: 800; letter-spacing: -0.05em; line-height: 0.95; color: var(--bj-on-paper) !important; margin-top: 14px !important; white-space: nowrap; }
+.bj-price { font-family: var(--bj-font-display); font-size: clamp(2.4rem, 3.1vw, 3.1rem); font-weight: 800; letter-spacing: -0.05em; line-height: 0.95; color: var(--bj-on-paper) !important; margin-top: 14px !important; white-space: nowrap; }
 .bj-per { font-size: 0.9rem; }
-.bj-plan.addon { grid-column: 1 / -1; background: var(--bj-ink); border-color: var(--bj-ink); color: var(--bj-bone); color-scheme: dark; }
-.bj-plan.addon p { color: var(--bj-bone-dim) !important; }
-.bj-plan.addon .bj-price { color: var(--bj-accent) !important; font-size: clamp(2.4rem, 4vw, 3.4rem); }
-.bj-plan.addon .bj-plan-text { margin-top: 10px; }
-.bj-tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--bj-accent) !important; }
+.bj-plan.film { background: var(--bj-ink); border-color: var(--bj-ink); color: var(--bj-bone); color-scheme: dark; }
+.bj-plan.film p { color: var(--bj-bone-dim) !important; }
+.bj-plan.film .bj-price { color: var(--bj-accent) !important; }
+.bj-plan.film .bj-tag { color: var(--bj-accent) !important; }
+.bj-plan-text { margin-top: 12px; font-size: 0.95rem; }
+.bj-tag { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--bj-accent-deep) !important; margin-bottom: 6px !important; }
 .bj-stack { grid-column: 1 / -1; display: grid; gap: 16px; }
 .bj-stack ul { display: grid; gap: 12px; }
 .bj-stack li { position: relative; padding-left: 36px; color: var(--bj-on-paper); font-weight: 500; }
@@ -192,6 +193,39 @@
 .bj-calc-total span { font-weight: 700; }
 .bj-calc-total output { font-family: var(--bj-font-display); font-size: clamp(2.8rem, 4.6vw, 4rem); font-weight: 800; letter-spacing: -0.05em; line-height: 1; color: var(--bj-accent); white-space: nowrap; }
 .bj-calc-total small { grid-column: 1 / -1; text-align: right; color: var(--bj-bone-dim) !important; font-size: 0.85rem; }
+
+/* ---- the test offer: its words, and the photos chosen for it */
+.bj-test { border-bottom: 1px solid var(--bj-ink-line); background: radial-gradient(90% 120% at 100% 0%, var(--bj-ink-high), var(--bj-ink) 60%); }
+.bj-test-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: clamp(28px, 5vw, 80px); align-items: center; }
+.bj-test-copy { display: grid; gap: 20px; justify-items: start; }
+.bj-test-copy .bj-eyebrow { margin: 0; }
+.bj-test h2 { font-size: clamp(2.6rem, 6.4vw, 6rem); font-weight: 800; }
+.bj-test h2 span { display: block; }
+.bj-test h2 .hot { color: var(--bj-accent); }
+.bj-facts { display: flex; flex-wrap: wrap; gap: 8px; }
+.bj-facts li { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--bj-ink-line); background: var(--bj-ink-raised); font-size: 0.9rem; font-weight: 600; }
+.bj-facts li:first-child { background: var(--bj-accent); border-color: var(--bj-accent); color: var(--bj-on-accent); }
+.bj-test .bj-per { font-size: 0.85rem; }
+.bj-upload { display: grid; gap: 16px; padding: 22px; border-radius: var(--bj-radius-l); background: var(--bj-ink-raised); border: 1px solid var(--bj-ink-line); }
+.bj-drop { position: relative; display: grid; justify-items: center; gap: 8px; padding: 40px 20px; border-radius: var(--bj-radius-m); border: 2px dashed var(--bj-ink-line); text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s, transform 0.2s; }
+.bj-drop:hover, .bj-drop.over, .bj-drop:focus-within { border-color: var(--bj-accent); background: var(--bj-accent-wash); }
+.bj-drop.over { transform: scale(1.02); }
+.bj-drop input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.bj-drop svg { width: 46px; height: 46px; fill: none; stroke: var(--bj-accent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.bj-drop b { font-family: var(--bj-font-display); font-size: 1.4rem; letter-spacing: -0.02em; }
+.bj-drop small { color: var(--bj-bone-dim); font-size: 0.85rem; }
+.bj-meter { display: grid; gap: 8px; }
+.bj-meter-bar { height: 6px; border-radius: 999px; background: var(--bj-ink-line); overflow: hidden; }
+.bj-meter-bar i { display: block; height: 100%; border-radius: inherit; background: var(--bj-accent); transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.bj-meter p { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 0.9rem; color: var(--bj-bone-dim) !important; }
+.bj-meter p b { color: var(--bj-bone); }
+.bj-meter .ok { color: var(--bj-accent); font-weight: 700; }
+.bj-thumbs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.bj-thumbs li { aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--bj-ink-high); }
+.bj-thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bj-clear { justify-self: start; padding: 6px 0; border: 0; background: none; color: var(--bj-bone-dim); font-size: 0.85rem; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.bj-clear:hover { color: var(--bj-accent); }
+.bj-upload .bj-gap { margin-top: 0 !important; }
 
 /* ---- a marked placeholder */
 .bj-gap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; margin-top: 16px !important; padding: 12px 14px; border: 1.5px dashed var(--bj-accent); border-radius: var(--bj-radius-s); background: var(--bj-accent-wash); font-size: 0.9rem; text-align: left; color: inherit !important; }
@@ -290,7 +324,8 @@
 	.bj-stage-tags { top: 76px; bottom: auto; right: 16px; }
 	.bj-light { top: 114px; bottom: auto; right: 16px; }
 	.bj-scroll { display: none; }
-	.bj-offer { grid-template-columns: 1fr; }
+	.bj-offer { grid-template-columns: minmax(0, 1fr); }
+	.bj-test-grid { grid-template-columns: minmax(0, 1fr); }
 	.bj-offer-side { position: static; }
 	.bj-value-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 	.bj-value-list li { padding: 22px 16px 22px 0; }
@@ -328,6 +363,8 @@
 	/* the ring turns: its corners must stay on the screen */
 	.bj-seal { width: 62vw; }
 	.bj-plans { grid-template-columns: minmax(0, 1fr); }
+	.bj-upload { padding: 16px; }
+	.bj-drop { padding: 28px 16px; }
 	.bj-plan, .bj-stack, .bj-calc { padding: 24px; }
 	.bj-value-list, .bj-steps { grid-template-columns: minmax(0, 1fr); }
 	.bj-value-list li, .bj-value-list li:nth-child(even) { padding: 20px 0; border-left: 0; }

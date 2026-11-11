@@ -19,7 +19,7 @@ import { siteHandler } from '../../api/src/site.ts';
 import { ADMIN, DESKTOP, PHONE, TRAVELER } from './lib/shots';
 
 const ROUTE = '/butler-james/landing/';
-const SECTIONS = ['hero', 'need', 'build', 'walk', 'offer', 'guarantee', 'speed', 'steps', 'gallery', 'faq', 'closing'];
+const SECTIONS = ['hero', 'need', 'build', 'walk', 'test', 'offer', 'guarantee', 'speed', 'steps', 'gallery', 'faq', 'closing'];
 /** the show's chapters, each a screen tall, from the page's top */
 const CHAPTERS = ['hero', 'need', 'build', 'walk'] as const;
 /** the scene's budget (the intent's check c8; play/SPEC.md §8) */
@@ -159,10 +159,29 @@ async function pageWorks(browser: Browser) {
 		await more('houses').click();
 		await more('trailers').click();
 		const total = (await page.locator('[data-total]').textContent())?.trim();
-		claim(total === '2.675 €', `${at}: 2 apartments, 1 house and 1 trailer are 2.675 €`, total);
+		claim(total === '3.098 €', `${at}: 2 apartments, 1 house and 1 trailer are 3.098 €`, total);
 		await page.locator('[data-count="houses"]').fill('3');
 		const typed = (await page.locator('[data-total]').textContent())?.trim();
-		claim(typed === '4.469 €', `${at}: a typed count is taken (3 houses: 4.469 €)`, typed);
+		claim(typed === '5.596 €', `${at}: a typed count is taken (3 houses: 5.596 €)`, typed);
+
+		// the test offer: photos chosen are counted here; six make it ready; nothing is sent
+		const sent: string[] = [];
+		const watch = (r: { method(): string; url(): string }) => {
+			if (r.method() !== 'GET') sent.push(`${r.method()} ${r.url()}`);
+		};
+		page.on('request', watch);
+		const upload = page.locator('[data-upload]');
+		await upload.scrollIntoViewIfNeeded();
+		const photo = (i: number) => ({ name: `raum-${i}.png`, mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64') });
+		await upload.locator('input[type=file]').setInputFiles([1, 2, 3, 4, 5].map(photo));
+		const five = { count: await upload.getAttribute('data-count'), ready: await upload.getAttribute('data-ready') };
+		await upload.locator('input[type=file]').setInputFiles([photo(6)]);
+		const six = { count: await upload.getAttribute('data-count'), ready: await upload.getAttribute('data-ready'), note: await upload.locator('[data-ready-note]').count(), thumbs: await upload.locator('.bj-thumbs img').count() };
+		claim(five.count === '5' && five.ready === 'false', `${at}: five photos chosen are counted and not yet enough`, five);
+		claim(six.count === '6' && six.ready === 'true' && six.note === 1 && six.thumbs === 6, `${at}: the sixth makes the test ready, each photo shown`, six);
+		await page.waitForTimeout(300);
+		page.off('request', watch);
+		claim(sent.length === 0 && /nichts gesendet/.test(await upload.innerText()), `${at}: nothing is sent, and the page says so`, sent);
 
 		// the FAQ: every item opens on a click, and closes by the keyboard
 		const items = page.locator('.bj-faq-item button');

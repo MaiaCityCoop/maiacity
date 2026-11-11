@@ -4,7 +4,7 @@
 // or does not exist yet (proof, a bonus, a comparison price, the guarantee's period, the contact, the provider, rights
 // and privacy), the text is a `gap`: shown as a marked placeholder ("Platzhalter") for the admin to fill.
 
-import { DELIVERY_HOURS, GUARANTEE_PERCENT, PRICES, euro } from './offer';
+import { DELIVERY_HOURS, GUARANTEE_PERCENT, PRICES, TEST, TRAILER_MINUTES, euro } from './offer';
 
 /** a text the page cannot state yet: drawn as a marked placeholder */
 export type Gap = { gap: string; text: string };
@@ -65,6 +65,22 @@ export const COPY = {
 		text: 'Im Browser, ohne App: auf Smartphone, Tablet und Rechner. Noch vor der ersten Besichtigung.'
 	},
 
+	// the offer to try: a demo trailer of one room, from photos uploaded here
+	test: {
+		eyebrow: 'Zum Testen',
+		title: ['Ein Raum.', euro(TEST.price) + '.', `In unter ${TEST.withinHours} Stunde.`],
+		lead: `Testen Sie uns mit einem Demo-Trailer eines einzelnen Raums. Sie laden mindestens ${TEST.photos} Fotos des Raums hoch und erhalten den Film in weniger als ${TEST.withinHours} Stunde.`,
+		facts: [`${euro(TEST.price)}, einmalig`, 'Ein einzelner Raum', `Mindestens ${TEST.photos} Fotos`, `Lieferung in unter ${TEST.withinHours} Stunde`],
+		vat: VAT,
+		drop: 'Fotos des Raums wählen',
+		dropHint: 'Hierher ziehen oder tippen. JPG, PNG oder HEIC.',
+		chosen: 'Fotos gewählt',
+		missing: 'Es fehlen noch',
+		ready: 'Bereit für den Test',
+		clear: 'Auswahl leeren',
+		gaps: [gap('upload', 'Upload und Bezahlung sind noch nicht angeschlossen. Ihre Fotos bleiben auf Ihrem Gerät, es wird nichts gesendet.')]
+	},
+
 	band: ['Begehbar im Browser', `${H} ab Buchung`, 'Festpreis, einmalig', `${BACK}`, 'Demo vorab, kostenlos'],
 
 	value: {
@@ -83,10 +99,11 @@ export const COPY = {
 		title: 'Ein Festpreis. Einmalig. Kein Abo.',
 		lead: 'Sie wissen vor der Buchung, was es kostet und was Sie bekommen.',
 		plans: [
-			{ id: 'apartment', name: 'Wohnung', price: euro(PRICES.apartment), per: 'einmalig, je Wohnung', vat: VAT },
-			{ id: 'house', name: 'Haus', price: euro(PRICES.house), per: 'einmalig, je Haus', vat: VAT }
+			{ id: 'apartment', kind: '3D-Modell', name: 'Wohnung', price: euro(PRICES.apartment), per: 'einmalig, je Wohnung', vat: VAT, text: 'Die begehbare 3D-Welt Ihrer Wohnung.' },
+			{ id: 'house', kind: '3D-Modell', name: 'Haus', price: euro(PRICES.house), per: 'einmalig, je Haus', vat: VAT, text: 'Die begehbare 3D-Welt Ihres Hauses.' },
+			{ id: 'trailer', kind: 'Video', name: 'Trailer', price: euro(PRICES.trailer), per: `einmalig, ${TRAILER_MINUTES} Minute Film`, vat: VAT, text: 'Ein Film Ihres Objekts für Exposé und soziale Medien. Einzeln buchbar.' }
 		],
-		stackTitle: 'In jedem Festpreis enthalten',
+		stackTitle: 'Im 3D-Modell enthalten',
 		stack: [
 			'Die begehbare 3D-Welt Ihres Objekts, im Browser, ohne App',
 			'Ein Link für Exposé, Website und E-Mail',
@@ -94,14 +111,6 @@ export const COPY = {
 			`${BACK}, ohne Fragen`,
 			'Die kostenlose Demo Ihres Objekts vor der Buchung'
 		],
-		addon: {
-			tag: 'Add-on',
-			name: 'Cinematic Trailer',
-			price: euro(PRICES.trailer),
-			per: 'einmalig, je Trailer',
-			vat: VAT,
-			text: 'Ein kurzer Film durch die 3D-Welt Ihres Objekts, für Exposé und soziale Medien.'
-		},
 		gaps: [
 			gap('bonus', 'Bonus zum Angebot (vom Anbieter festzulegen)'),
 			gap('comparison', 'Vergleichspreis, etwa für Fotograf und Rundgang (vom Anbieter zu belegen)')
@@ -110,7 +119,7 @@ export const COPY = {
 
 	calc: {
 		title: 'Ihr Festpreis, ausgerechnet',
-		rows: { apartments: 'Wohnungen', houses: 'Häuser', trailers: 'Cinematic Trailer' },
+		rows: { apartments: '3D-Modell Wohnung', houses: '3D-Modell Haus', trailers: 'Trailer-Video' },
 		less: 'weniger',
 		more: 'mehr',
 		total: 'Ihr Festpreis',
@@ -143,7 +152,7 @@ export const COPY = {
 		title: 'Vier Schritte bis ins Exposé.',
 		items: [
 			{ name: 'Kostenlose Demo', text: 'Sie senden Fotos aus jedem Raum und den Grundriss eines Objekts. Wir bauen daraus eine erste 3D-Demo. Kostenlos und unverbindlich.' },
-			{ name: 'Buchung', text: `Gefällt Ihnen die Demo, buchen Sie zum Festpreis: ${euro(PRICES.apartment)} je Wohnung, ${euro(PRICES.house)} je Haus.` },
+			{ name: 'Buchung', text: `Gefällt Ihnen die Demo, buchen Sie das 3D-Modell zum Festpreis: ${euro(PRICES.apartment)} je Wohnung, ${euro(PRICES.house)} je Haus.` },
 			{ name: `Lieferung in ${H}`, text: `${H} nach Ihrer Buchung ist die begehbare 3D-Welt fertig.` },
 			{ name: 'Live im Exposé', text: 'Sie erhalten einen Link und setzen ihn in Exposé, Website oder E-Mail.' }
 		]
