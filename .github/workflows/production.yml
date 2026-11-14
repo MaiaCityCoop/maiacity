@@ -120,6 +120,8 @@ jobs:
         with:
           ssh-key: ${{ secrets.DEPLOY_SSH_KEY }}
           known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      - name: The admins' keys to root (append only)
+        run: bash deploy/admin-keys.sh
       - name: Start play-api, import, and answer play.maia.city
         env:
           DATA_MOUNT: ${{ steps.infra.outputs.data_mount }}

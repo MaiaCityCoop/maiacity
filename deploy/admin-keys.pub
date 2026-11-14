@@ -1,0 +1,4 @@
+# The people who may log in to the production machine as root (deploy/admin-keys.sh puts each on it at every deploy).
+# One public key per line, its comment naming whose it is. Append only: removing a line here removes nothing on the
+# server; take a key off by hand there.
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC3WMOwjnyTPgRqm1XjZqDcyfSuDLXKx/HvKwhmstAbjxXGp+4SxkhFwqSSL9Y+LKebUGn6sfKTRoljSIx8b5dVxcX+REScOCgVgMS0KJhugDvS8IAZ3NsrXxcOuWfArIxlLOORk3st8QS8uTLXO+bTdH6JntIR9Ox9rAOoTlHHTCpTFRsJk5gnNa57/WivQfrZFukUNWgoBPjgWv+jbXytOO2wkWaBpfmXSkGTuzi8v3Rz8+rZczxaSw5tGLrvlqfu8tgGO0GCjmAU+Bv3PyP0r1qTdSHLobv5d+yYqEE2MP/PiGlia5JAgSpbXwoceSGl1nRSbPhxNzzgh1bX7f5Fs3ZCwSIZupL2oIdtWrHYWyPaSkVZgjpWYcq7DrU2P8zNEkn3BqRxnrcTmEAHTF0F9T86nEVBp5VRtFxCN0BjrHTfOSjhEu/dZDpOZxlWrWLC44m/KdZ4Rt5SvcufwWaXwic/pufRlf3R2tX/3m2tI2urnSTASpd7/DWq5qE2LY0= daniel@daniel-precision-7540
