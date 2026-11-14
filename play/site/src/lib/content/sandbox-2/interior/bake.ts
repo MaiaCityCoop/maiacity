@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { standIns } from '$lib/content/sandbox-kit/casters.js'
+import { standIns, standInSteps } from '$lib/content/sandbox-kit/casters.js'
 
 /** Polar placement: angle 0 faces +z, clockwise to +x — the same sense as three's cylinders. */
 export const polar = (r: number, a: number): [number, number] => [r * Math.sin(a), r * Math.cos(a)]
@@ -125,8 +125,18 @@ export async function bakeSliced(group: THREE.Group, shadows: boolean, slice: ()
 			if (merged) out.add(bakedMesh(merged, mat))
 		}
 	await slice()
-	// what it casts: its pieces' stand-ins (../../sandbox-kit/casters.js), its own meshes casting nothing
-	if (shadows) for (const s of standIns(meshes)) out.add(s)
+	// what it casts: its pieces' stand-ins (../../sandbox-kit/casters.js), its own meshes casting nothing; lowered a
+	// mesh a step
+	if (shadows) {
+		const steps = standInSteps(meshes)
+		for (let r = steps.next(); ; r = steps.next()) {
+			if (r.done) {
+				for (const s of r.value) out.add(s)
+				break
+			}
+			await slice()
+		}
+	}
 	letGo(group)
 	return out
 }
@@ -139,9 +149,10 @@ const JOIN = { each: 20_000, together: 120_000 }
  * materials). Only what a bake made and put straight into the scene, where it stands (a baked group that was moved or
  * is held elsewhere keeps its meshes); only meshes of the very same material, casting alike, carrying the same
  * attributes; the large ones stay as they are (joining them would hold the page and copy megabytes).
+ * Each run joined is a step of its own (`slice` between them): a dome's runs together copy megabytes.
  * @returns how many meshes fewer the scene has
  */
-export function joinBaked(scene: THREE.Object3D): number {
+export async function joinBaked(scene: THREE.Object3D, slice: () => Promise<void> = async () => {}): Promise<number> {
 	const still = (o: THREE.Object3D) => o.position.lengthSq() === 0 && o.quaternion.x === 0 && o.quaternion.y === 0 && o.quaternion.z === 0 && o.scale.x === 1 && o.scale.y === 1 && o.scale.z === 1
 	const runs = new Map<string, THREE.Mesh[]>()
 	for (const group of scene.children) {
@@ -163,6 +174,7 @@ export function joinBaked(scene: THREE.Object3D): number {
 			const run = list.slice(from, to)
 			from = to
 			if (run.length < 2) continue
+			await slice()
 			const first = run[0]!, joined = new THREE.BufferGeometry()
 			for (const [name, a] of Object.entries(first.geometry.attributes)) {
 				const size = (a as THREE.BufferAttribute).itemSize, out = new Float32Array(n * size)

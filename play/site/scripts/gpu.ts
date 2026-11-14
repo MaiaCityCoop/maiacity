@@ -18,6 +18,17 @@
  *                  the frame meter's 10 s of it after a second's start, and in Chromium 5 s more under its profiler (the
  *                  walk's JavaScript by function, printed with --steps); a world without a walker (Sandbox 3) has none and says so
  * --walk-within    a frame of the walk takes at most that many ms (it asks for --walk)
+ * --stroll         also walks the world for that many seconds (intent 095bc67c, ./stroll.ts): dome to dome at the walker's
+ *                  pace, first on the cold page (its first visit, right after it settled), then once more after a reload
+ *                  (warm: the browser's and the device's caches kept), every frame's interval kept with the long tasks
+ *                  and the page's `make:*` spans; the five worst frames of each are printed with what was being made
+ * --stroll-max     no frame of either stroll over that many ms; --stroll-p99 their 99th percentile frame at most that
+ *                  many ms; --stroll-per-minute at most that many frames over 33 ms in any minute of either;
+ *                  --stroll-over-standing no frame of either over that many times the world's p95 frame standing still,
+ *                  measured in the same load (a stall told from a slow machine's own slowness: GitHub's VM) (each asks for --stroll)
+ * --fill-within   (with --views) each view has nothing left waiting to be drawn (pipelines compiling or queued,
+ *                  render/making.js) within that many seconds of the eye being put there, and none 5 s after its
+ *                  picture (each view is photographed at settle and again 5 s later: <browser>-<view>-later.png)
  * --views          also photographs the world from the census's views (./census/run.ts VIEWS), the eye put there and
  *                  the world left to settle: <out>/<browser>-<view>.png, so what is far is judged on a real GPU (intent 92fbecea);
  *                  `seat`, asked by name, a daybed in Sandbox 5's dome, its fabric near (intent e675cd87)
@@ -54,6 +65,7 @@ import { fileOf, pinFile, pinRoute, pinnedFile, pinnedRoute } from './census/pin
 import { quietness } from './lib/quiet.js';
 import { SEEDED_RANDOM } from './macjob/determinism.js';
 import { LAUNCH, gpuOf, webgpuOf } from './mac-page.mjs';
+import { PACE, judgeStroll, routeOf, statsOf, strollLine, walkInPage, type StrollStats } from './stroll';
 
 /** a walk's step a frame at 60 frames a second, and the census's views, where a walk starts (near) and --views photographs: (./census/frame.ts STEP, ./census/run.ts VIEWS), written here because those modules build a world as they load */
 const STEP = { forward: 1.5 / 60, yaw: (20 * Math.PI) / 180 / 60 };
@@ -130,13 +142,19 @@ export type Measure = {
 	walk_p95: number | null;
 	walk_cpu: number | null;
 	walk_gpu: number | null;
+	/** --stroll: the cold page's walk and the warm page's (./stroll.ts) */
+	stroll_cold?: StrollStats | null;
+	stroll_warm?: StrollStats | null;
 	/** the share of the screenshot that is not its most frequent colour: a blank picture is near 0 */
 	painted: number | null;
+	/** --views: each view filled in (intent 095bc67c): seconds from the eye put there until nothing waits to be drawn
+	 *  (null: not within 30 s), and what is drawn and waits at its picture and 5 s later */
+	fills?: { view: string; fill_s: number | null; pending: number; triangles: number | null; pending_later: number; triangles_later: number | null }[];
 	/** --sky: the sky's pictures taken, by file name */
 	sky?: string[];
 	errors: string[];
 };
-export type Bounds = { worldWithin?: number; frameWithin?: number; walkWithin?: number; sky?: boolean };
+export type Bounds = { worldWithin?: number; frameWithin?: number; walkWithin?: number; sky?: boolean; strollMax?: number; strollP99?: number; strollPerMinute?: number; strollOverStanding?: number; fillWithin?: number };
 
 /** --sky: the hours of the world's day the sky is photographed at, and the sizes */
 export const SKY_HOURS = { dawn: 5.35, noon: 12.5, dusk: 19.65, night: 23 };
@@ -188,12 +206,21 @@ export function judge(m: Measure, b: Bounds = {}): string[] {
 	if (b.frameWithin !== undefined && (m.frame_ms === null || m.frame_ms > b.frameWithin)) why.push(`a frame took ${m.frame_ms ?? '—'} ms, more than ${b.frameWithin} ms`);
 	if (b.walkWithin !== undefined && (m.walk_ms === null || m.walk_ms > b.walkWithin)) why.push(`a frame walking took ${m.walk_ms ?? '—'} ms, more than ${b.walkWithin} ms`);
 	if (b.sky && m.world_s !== null && !m.sky?.length) why.push('no sky pictures');
+	if (b.fillWithin !== undefined && m.world_s !== null) {
+		if (!m.fills?.length) why.push('no view filled in was measured (it asks for --views)');
+		for (const f of m.fills ?? []) {
+			if (f.fill_s === null || f.fill_s > b.fillWithin) why.push(`the ${f.view} view waited ${f.fill_s === null ? 'over 30' : f.fill_s} s for what it draws, more than ${b.fillWithin} s`);
+			if (f.pending_later !== 0) why.push(`the ${f.view} view still had ${f.pending_later} waiting to be drawn 5 s after its picture`);
+		}
+	}
+	const sb = { max: b.strollMax, p99: b.strollP99, perMinute: b.strollPerMinute, overStanding: b.strollOverStanding, standingP95: m.frame_p95 };
+	if (m.world_s !== null) for (const k of ['cold', 'warm'] as const) why.push(...judgeStroll(k, m[`stroll_${k}`] ?? null, sb));
 	return why;
 }
 
 /** one line a browser, as the check's evidence keeps it */
 export const lineOf = (m: Measure, why: string[]) =>
-	`${why.length ? '✗' : '✓'} ${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world in ${m.world_s ?? '—'} s, settled ${m.settled_s === null ? 'not' : `in ${m.settled_s} s more`} · ${m.frames ?? '—'} frames in 10 s, ${m.frame_ms ?? '—'} ms each (p95 ${m.frame_p95 ?? '—'}, CPU ${m.cpu_ms ?? '—'}, GPU ${m.gpu_ms ?? '—'})${m.walk_ms === null ? '' : `, walking ${m.walk_ms} ms (p95 ${m.walk_p95 ?? '—'}, CPU ${m.walk_cpu ?? '—'}, GPU ${m.walk_gpu ?? '—'})`} · ${m.calls ?? '—'} draws, ${m.triangles ?? '—'} triangles · ${m.painted ?? '—'} painted${m.sky?.length ? ` · ${m.sky.length} sky pictures` : ''}${m.errors.length && m.world_s !== null ? ` · ${m.errors.length} error${m.errors.length > 1 ? 's' : ''} said, the first: ${m.errors[0]}` : ''}${why.length ? ` · ${why.join('; ')}` : ''}`;
+	`${why.length ? '✗' : '✓'} ${m.browser} ${m.version} · WebGPU ${m.webgpu} · WebGL ${m.webgl} · drew with ${m.backend ?? 'nothing'} · world in ${m.world_s ?? '—'} s, settled ${m.settled_s === null ? 'not' : `in ${m.settled_s} s more`} · ${m.frames ?? '—'} frames in 10 s, ${m.frame_ms ?? '—'} ms each (p95 ${m.frame_p95 ?? '—'}, CPU ${m.cpu_ms ?? '—'}, GPU ${m.gpu_ms ?? '—'})${m.walk_ms === null ? '' : `, walking ${m.walk_ms} ms (p95 ${m.walk_p95 ?? '—'}, CPU ${m.walk_cpu ?? '—'}, GPU ${m.walk_gpu ?? '—'})`} · ${m.calls ?? '—'} draws, ${m.triangles ?? '—'} triangles · ${m.painted ?? '—'} painted${m.sky?.length ? ` · ${m.sky.length} sky pictures` : ''}${m.stroll_cold !== undefined ? ` · ${strollLine('cold', m.stroll_cold)} · ${strollLine('warm', m.stroll_warm ?? null)}` : ''}${m.errors.length && m.world_s !== null ? ` · ${m.errors.length} error${m.errors.length > 1 ? 's' : ''} said, the first: ${m.errors[0]}` : ''}${why.length ? ` · ${why.join('; ')}` : ''}`;
 
 type LoadFile = { world: string; gpu: string; platform: string; args?: string[]; measures: Measure[] };
 
@@ -225,8 +252,10 @@ export function readLoad(loads: { at: string; load: LoadFile }[], world: string,
 
 const BROWSERS: Record<string, [BrowserType, object]> = { chromium: [chromium, LAUNCH], webkit: [webkit, { headless: true }] };
 
-async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; walk?: boolean; views?: (keyof typeof VIEWS)[]; sky?: boolean }): Promise<Measure> {
+async function measure(name: string, origin: string, o: { world: string; out: string; timeout: number; settle: number; live?: boolean; stroll?: number; walk?: boolean; views?: (keyof typeof VIEWS)[]; sky?: boolean }): Promise<Measure> {
 	const m: Measure = { browser: name, version: '', webgpu: 'none', webgl: 'none', backend: null, shown: false, world_s: null, steps: [], settled_s: null, frames: null, frame_ms: null, frame_p95: null, cpu_ms: null, gpu_ms: null, calls: null, triangles: null, walk_ms: null, walk_p95: null, walk_cpu: null, walk_gpu: null, painted: null, errors: [] };
+	// each step printed as it is taken too (--steps): a load that runs out of its job's time still says where it was
+	if (o.live) m.steps.push = (...xs: string[]) => (xs.forEach((x) => console.log(`    ${name}: ${x}`)), Array.prototype.push.apply(m.steps, xs));
 	let browser: Browser | undefined;
 	try {
 		browser = await BROWSERS[name][0].launch(BROWSERS[name][1]);
@@ -238,23 +267,29 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 		page.on('pageerror', (e) => m.errors.push(String(e.message).slice(0, 300)));
 		// a route not pinned is named once, at the end, not as each 404 it made
 		page.on('console', (c) => c.type() === 'error' && !c.text().startsWith('Failed to load resource') && m.errors.push(c.text().slice(0, 300)));
+		// up: a canvas drawn into, and the page's cover open (WorldPage.svelte: its `mount` answered) or its pill gone
+		// each step the cover says on the way, with the second it began: where a slow load spends its time
+		const up = async (t0: number, label = '') => {
+			const secs = () => Math.round((performance.now() - t0) / 100) / 10;
+			for (let said = ''; ; await page.waitForTimeout(200)) {
+				const at = await page.evaluate(() => ({ up: !!document.querySelector('canvas') && !document.querySelector('.world .loading:not(.opening), .world .status'), step: document.querySelector('.world .loading .step, .world .status')?.textContent?.trim() ?? '' })).catch(() => ({ up: false, step: '' }));
+				if (at.up) return secs();
+				if (at.step && at.step !== said) m.steps.push(`${label}${secs()} s ${(said = at.step)}`);
+				if (performance.now() - t0 > o.timeout) throw new Error(`the world was not up${label ? ` ${label.trim()}` : ''} within ${o.timeout / 1000} s (at: ${said || 'nothing said'})`);
+			}
+		};
+		/** settled (./lib/quiet.js: still twice, a second apart) within that many seconds: the seconds it took, or null */
+		const settled = async (within = o.settle) => {
+			const t1 = performance.now();
+			for (let zero = 0; performance.now() - t1 < within * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
+			return (await page.evaluate(quietness).catch(() => null)) === 0 ? Math.round((performance.now() - t1) / 100) / 10 : null;
+		};
 		const t0 = performance.now();
 		await page.goto(origin + o.world, { waitUntil: 'commit' });
 		[m.webgpu, m.webgl] = [await webgpuOf(page), await gpuOf(page)];
-		// up: a canvas drawn into, and the page's cover open (WorldPage.svelte: its `mount` answered) or its pill gone
-		// each step the cover says on the way, with the second it began: where a slow load spends its time
-		const secs = () => Math.round((performance.now() - t0) / 100) / 10;
-		for (let said = ''; ; await page.waitForTimeout(200)) {
-			const at = await page.evaluate(() => ({ up: !!document.querySelector('canvas') && !document.querySelector('.world .loading:not(.opening), .world .status'), step: document.querySelector('.world .loading .step, .world .status')?.textContent?.trim() ?? '' })).catch(() => ({ up: false, step: '' }));
-			if (at.up) break;
-			if (at.step && at.step !== said) m.steps.push(`${secs()} s ${(said = at.step)}`);
-			if (performance.now() - t0 > o.timeout) throw new Error(`the world was not up within ${o.timeout / 1000} s (at: ${said || 'nothing said'})`);
-		}
-		m.world_s = secs();
+		m.world_s = await up(t0);
 		m.backend = await page.evaluate(() => (window as any).__rendererBackend ?? null);
-		const t1 = performance.now();
-		for (let zero = 0; performance.now() - t1 < o.settle * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
-		if ((await page.evaluate(quietness).catch(() => null)) === 0) m.settled_s = Math.round((performance.now() - t1) / 100) / 10;
+		m.settled_s = await settled();
 		await page.waitForFunction(() => !document.querySelector('.world .loading'), null, { timeout: 10_000 }).catch(() => {});
 		const s = await page.evaluate(() => (window as any).__meter.sample(10));
 		Object.assign(m, { frames: s.frames, frame_ms: s.frames > 1 ? s.frame_ms : null, frame_p95: s.frame_p95, cpu_ms: s.cpu_ms, gpu_ms: s.gpu_ms, calls: s.calls, triangles: s.triangles });
@@ -275,6 +310,30 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 			return Math.round((1 - Math.max(...seen.values()) / (d.length / 4)) * 1000) / 1000;
 		}, png.toString('base64'));
 		m.shown = m.painted > 0.2;
+		if (o.stroll) {
+			// the stroll first, while the page is cold (nothing met but where it opened), then again after a reload, warm
+			const plan = await page.evaluate(() => {
+				const w = (window as any).__walker, d = (window as any).__world?.domes;
+				return w ? { start: { x: w.position.x, z: w.position.z }, domes: Array.isArray(d) ? d.map((x: any) => ({ x: x.x, z: x.z, ext: x.ext })) : [] } : null;
+			});
+			if (!plan) m.steps.push('no walker here: no stroll');
+			else {
+				const route = routeOf(plan.start, plan.domes, o.stroll);
+				m.steps.push(`the stroll's route: ${route.length - 1} legs past ${plan.domes.length} domes from (${Math.round(plan.start.x)}, ${Math.round(plan.start.z)}), ${o.stroll} s at ${PACE} m/s`);
+				const stroll = async (label: 'cold' | 'warm') => {
+					const t = await page.evaluate(walkInPage, { route, seconds: o.stroll!, pace: PACE });
+					const s = t ? statsOf(t) : null;
+					for (const w of s?.worst ?? []) m.steps.push(`${label} stroll's worst: ${w}`);
+					return s;
+				};
+				m.stroll_cold = await stroll('cold');
+				const t2 = performance.now();
+				await page.reload({ waitUntil: 'commit' });
+				m.steps.push(`warm: the world up again in ${await up(t2, 'warm ')} s, settled ${(await settled()) ?? 'not'}`);
+				await page.evaluate((p) => (window as any).__walker?.place(p.x, p.z, 0, -0.05), plan.start);
+				m.stroll_warm = await stroll('warm');
+			}
+		}
 		// the sky's standpoint where the world opened, before anything after this moves the eye
 		if (o.sky) await page.evaluate(skyFrom, SKY_RISE).catch(() => {});
 		// the census's views, each photographed once the world has settled round the eye there
@@ -284,10 +343,24 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 				m.steps.push(`no walker here: no ${view} view photographed`);
 				continue;
 			}
+			// what the eye meets there filled in (intent 095bc67c): how long until nothing waits to be drawn (no
+			// pipeline compiling or queued: render/making.js), then the picture at settle and again 5 s later, with
+			// what is drawn and what still waits at each
 			const t2 = performance.now();
-			for (let zero = 0; performance.now() - t2 < 30_000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
+			const pending = () => page.evaluate(() => (window as any).__pipelinesPending?.() ?? 0).catch(() => -1);
+			let fill_s: number | null = null;
+			for (; performance.now() - t2 < 30_000; await page.waitForTimeout(250)) if ((await pending()) === 0) {
+				fill_s = Math.round((performance.now() - t2) / 100) / 10;
+				break;
+			}
+			await settled(30);
 			await page.screenshot({ path: join(o.out, `${name}-${view}.png`), timeout: 120_000 });
-			m.steps.push(`${view} view photographed after ${Math.round((performance.now() - t2) / 100) / 10} s`);
+			const at = { pending: await pending(), triangles: (await page.evaluate(() => (window as any).__meter.sample(1)).catch(() => null))?.triangles ?? null };
+			await page.waitForTimeout(5000);
+			await page.screenshot({ path: join(o.out, `${name}-${view}-later.png`), timeout: 120_000 });
+			const later = { pending: await pending(), triangles: (await page.evaluate(() => (window as any).__meter.sample(1)).catch(() => null))?.triangles ?? null };
+			(m.fills ??= []).push({ view, fill_s, pending: at.pending, triangles: at.triangles, pending_later: later.pending, triangles_later: later.triangles });
+			m.steps.push(`${view} view: nothing waiting to be drawn ${fill_s === null ? 'not within 30 s' : `after ${fill_s} s`}; photographed after ${Math.round((performance.now() - t2 - 7000) / 100) / 10} s (${at.triangles ?? '—'} triangles, ${at.pending} waiting), again 5 s later (${later.triangles ?? '—'} triangles, ${later.pending} waiting)`);
 		}
 		if (o.walk) {
 			// the walk, after the picture: the eye put where it starts and the world left to settle there (what streams in
@@ -316,10 +389,7 @@ async function measure(name: string, origin: string, o: { world: string; out: st
 					{ v: VIEWS.near, step: STEP, seconds }
 				);
 			const placed = await page.evaluate((v) => ((window as any).__walker ? ((window as any).__walker.place(v.x, v.z, v.yaw, v.pitch), true) : false), VIEWS.near);
-			if (placed) {
-				const t2 = performance.now();
-				for (let zero = 0; performance.now() - t2 < Math.min(o.settle, 10) * 1000 && zero < 2; await page.waitForTimeout(1000)) zero = (await page.evaluate(quietness).catch(() => null)) === 0 ? zero + 1 : 0;
-			}
+			if (placed) await settled(Math.min(o.settle, 10));
 			const w = await walking(10);
 			// and where a walking frame's JavaScript goes, in Chromium (its own profiler; the build's names): 5 s more
 			if (w && name === 'chromium') {
@@ -380,7 +450,7 @@ if (import.meta.main) {
 	// its pictures: --out, else a folder a call under GPU_OUT (the gpu job's artifact) or the temp folder, named by its check and world
 	const out = resolve(arg('--out') ?? join(process.env.GPU_OUT ?? join(tmpdir(), 'gpu-out'), `${process.env.INTENT_CHECK ?? 'world'}${world.replace(/\W+/g, '-').replace(/-$/, '')}`));
 	const inputs = resolve(arg('--inputs', join(SITE, 'scripts/census/inputs'))!);
-	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within'), walkWithin: num('--walk-within'), sky: argv.includes('--sky') };
+	const bounds: Bounds = { worldWithin: num('--world-within'), frameWithin: num('--frame-within'), walkWithin: num('--walk-within'), sky: argv.includes('--sky'), strollMax: num('--stroll-max'), strollP99: num('--stroll-p99'), strollPerMinute: num('--stroll-per-minute'), strollOverStanding: num('--stroll-over-standing'), fillWithin: num('--fill-within') };
 	const fail = (why: string): never => (console.log(`gpu: ${why}`), process.exit(1));
 	for (const b of browsers) if (!BROWSERS[b]) fail(`no browser ${b} (chromium, webkit)`);
 
@@ -419,13 +489,13 @@ if (import.meta.main) {
 	console.log(`${world} on ${gpu} (${process.platform} ${process.arch}); pictures in ${out}`);
 	const measures: (Measure & { why: string[] })[] = [];
 	for (const b of browsers) {
-		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), walk: argv.includes('--walk') || argv.includes('--walk-within'), views: arg('--views') ? (arg('--views')!.split(',') as (keyof typeof VIEWS)[]) : undefined, sky: bounds.sky });
+		const m = await measure(b, `http://127.0.0.1:${server.port}`, { world, out, timeout: Number(arg('--timeout', '600')) * 1000, settle: Number(arg('--settle', '60')), live: argv.includes('--steps'), stroll: num('--stroll'), walk: argv.includes('--walk') || argv.includes('--walk-within'), views: arg('--views') ? (arg('--views')!.split(',') as (keyof typeof VIEWS)[]) : undefined, sky: bounds.sky });
 		const why = judge(m, bounds);
 		measures.push({ ...m, why });
 		// its steps and every error the page said (each once, with how often), then its line last: a check's evidence
 		// keeps the tail of what it printed, so the line that decides it is never pushed out by what came before it
 		if (argv.includes('--steps')) {
-			for (const st of m.steps) console.log(`    ${st}`);
+			// (its steps were printed as they were taken)
 			const said = new Map<string, number>();
 			for (const e of m.errors) said.set(e, (said.get(e) ?? 0) + 1);
 			for (const [e, n] of said) console.log(`    error${n > 1 ? ` (${n} times)` : ''}: ${e}`);

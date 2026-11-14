@@ -33,6 +33,7 @@ import { flow, pond, shore, stream } from './water'
 import { createWorldRenderer, worldFinish } from '$lib/content/render/world.js'
 import { createSky, SUN } from '$lib/content/sandbox-kit/sky.js'
 import { createWalker } from '$lib/content/sandbox-kit/walker.js'
+import { renderParts, spanned } from '$lib/content/render/making.js'
 import { castBySize, ready as standInsReady } from '$lib/content/sandbox-kit/casters.js'
 import { createObstacles } from '$lib/content/sandbox-kit/obstacles.js'
 import { connectFilm, filmDraws, filmHoldsSize, filmPlays, worldTime } from '$lib/content/sandbox-kit/film.js'
@@ -1347,7 +1348,7 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 					const mine = { i, cancelled: false }
 					building = mine
 					// on film nothing is drawn while the world is readied (__filmDraw): every dome builds in long stretches
-					mountInterior(container, d.kind, () => {}, { host: { scene, camera, renderer, x: d.x, z: d.z }, cancelled: () => job.cancelled, hurry: () => !filmPlays() && (rush.has(i) || (!filmDraws() && gapTo(i) < 12)), background: () => filmPlays() || (!rush.has(i) && (filmDraws() || gapTo(i) > 45)), library, flora: flora ? { garden: flora.inside, seed: flora.seed, flora: plantsIn!, drawn: library } : undefined })
+					mountInterior(container, d.kind, () => {}, { host: { scene, camera, renderer, x: d.x, z: d.z }, cancelled: () => job.cancelled, hurry: () => !filmPlays() && rush.has(i), background: () => filmPlays() || (!rush.has(i) && (filmDraws() || gapTo(i) > 45)), library, flora: flora ? { garden: flora.inside, seed: flora.seed, flora: plantsIn!, drawn: library } : undefined })
 						.then((h) => {
 							if (building === mine) building = null
 							if (job.cancelled || !h.embedded) {
@@ -1443,6 +1444,8 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 	let last = performance.now()
 	const clock0 = performance.now()
 	let lodChecked = 0
+	/** where the eye stood the frame before: it moves, or it stands */
+	const moved = { x: 0, z: 0 }
 	/** when the walking animals' shadows were last drawn again with them */
 	let herdShadows = 0
 	/** whether an animal walks (one standing still keeps its shadow) near enough to x, z for its shadow to be seen */
@@ -1456,6 +1459,10 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 		const t = worldTime() ?? (now - clock0) / 1000
 		for (const a of animated) a(t)
 		sky.tick(now)
+		let at = performance.now()
+		/** the part of the frame since the last, named where it took 2 ms or more (the walk's check reads them) */
+		const part = (name: string) => (spanned(name, at), (at = performance.now()))
+		part('walker')
 		if (now - lodChecked > 400) {
 			lodChecked = now
 			// the sun's shadows are drawn again as it turns (a quarter of a degree, every few seconds: sky.js follow), the
@@ -1476,18 +1483,37 @@ export async function mountVillage(container: HTMLElement, onProgress: (label: s
 			// the sounds for where you stand: the forest, the water, the animals; muffled under glass
 			const indoors = foots.some((d) => Math.hypot(pos.x - d.x, pos.z - d.z) < d.R - 0.3)
 			sound.set(levelsAt(pos.x, pos.z, indoors, waterPts, herds), indoors)
+			part('levels and domes')
 		}
 		for (const i of shown) built.get(i)!.update(t)
+		part('domes shown')
 		forestTick()
+		part('forest')
 		// the floor's cover follows the eye every frame (a tile at most built a frame; it fades in as it nears)
 		floorCover?.update(camera.position.x, camera.position.z, filmDraws() ? 999 : 1)
+		part('cover')
 		grass?.update(camera, t, { sun: { dir: sky.sunDir, color: sky.sun.color, strength: sky.sun.intensity / SUN }, height: renderer.domElement.height, pushers: [[pos.x, pos.z, 0.6, walker.flying() ? 0 : 1]], budget: filmDraws() ? Infinity : undefined })
+		part('grass')
 		library.update()
 		soloBuild?.plantings.update()
+		part('library')
 		// the film camera draws the canvas itself while it holds it (maia/content/film)
 		// every shadow pass counts as the animals' (the sun's, a level's, the grid's): theirs waits a second from it
 		if (renderer.shadowMap.needsUpdate) herdShadows = now
-		if (!filmDraws()) finish.render()
+		if (!filmDraws()) {
+			// the walker's frames never wait for a pipeline: what it meets first is drawn once compiled (render/making.js)
+			;(renderer as unknown as { drawWhenReady: boolean }).drawWhenReady = true
+			// while the eye moves, new pipelines a few at a time (render/making.js); standing, all at once
+			;(renderer as unknown as { compileFew: boolean }).compileFew = Math.hypot(pos.x - moved.x, pos.z - moved.z) > 0.05
+			moved.x = pos.x
+			moved.z = pos.z
+			finish.render()
+			;(renderer as unknown as { drawWhenReady: boolean }).drawWhenReady = false
+		}
+		renderParts(at)
+		part('render')
+		// the whole frame's own work: what a slow frame took beyond it was done outside it (a worker's answer, a build's step)
+		spanned('frame', now)
 		// keep it smooth; while a film is shot every frame is rendered at the resolution it asks for
 		stage.adapt(now, filmHoldsSize())
 		frame = requestAnimationFrame(tick)

@@ -75,7 +75,7 @@ describe('a lighter level keeps its build’s fabric', () => {
 })
 
 describe('a dome’s baked and joined meshes keep their fabric', () => {
-	it('two cushions baked and joined: one mesh of the same material, its pictures, and UVs for every corner', () => {
+	it('two cushions baked and joined: one mesh of the same material, its pictures, and UVs for every corner', async () => {
 		const mat = linen()
 		const scene = new THREE.Scene()
 		for (const x of [0, 2]) {
@@ -85,7 +85,8 @@ describe('a dome’s baked and joined meshes keep their fabric', () => {
 			g.add(c)
 			scene.add(bake(g))
 		}
-		expect(joinBaked(scene)).toBe(1)
+		// (joined a run a step: a walked world's dome joins them through the making budget, intent 095bc67c)
+		expect(await joinBaked(scene)).toBe(1)
 		const meshes: THREE.Mesh[] = []
 		// the meshes drawn in the linen (beside them a bake's shadow stand-ins: ../../sandbox-kit/casters.js)
 		scene.traverse((o) => void ((o as THREE.Mesh).isMesh && (o as THREE.Mesh).material === mat && meshes.push(o as THREE.Mesh)))
